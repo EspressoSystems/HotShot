@@ -9,6 +9,7 @@
 
 mod error;
 mod message;
+mod networking;
 mod replica;
 
 use std::collections::HashMap;
@@ -24,6 +25,7 @@ use threshold_crypto as tc;
 
 use crate::error::*;
 use crate::message::*;
+use crate::networking::*;
 use crate::replica::*;
 
 type Result<T> = std::result::Result<T, HotStuffError>;
@@ -138,6 +140,8 @@ pub struct HotStuff<B> {
     block_storage: HashMap<BlockHash, BlockRef<B>>,
     /// height of the block last voted for
     last_voted_height: u64,
+    /// Network handle
+    network: Box<dyn NetworkingImplementation<Message<B>>>,
 }
 
 impl<B: BlockContents> HotStuff<B> {

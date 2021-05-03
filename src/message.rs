@@ -24,3 +24,10 @@ pub struct Vote {
     /// Computed as a signature of the hash of the block
     cert: SignatureShare,
 }
+
+/// Abstraction for a network message
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Message<B> {
+    Vote(Vote),
+    Proposal(Proposal<B>),
+}

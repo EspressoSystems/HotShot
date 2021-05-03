@@ -1,0 +1,46 @@
+use crate::{replica::ReplicaId, PubKey};
+
+use futures_lite::future::Boxed as BoxedFuture;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use snafu::Snafu;
+
+/// Error type for networking
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(crate)")]
+pub enum NetworkError {}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum NetworkMessage<M> {
+    Broadcast {
+        message: M,
+        sender: PubKey,
+    },
+    Direct {
+        message: M,
+        sender: PubKey,
+        tag: PubKey,
+    },
+}
+
+pub trait NetworkingImplementation<M: Serialize + DeserializeOwned> {
+    /// Broadcasts a message to the network
+    ///
+    /// Should provide that the message eventually reach all non-faulty nodes
+    fn broadcast_message(&self, message: M) -> BoxedFuture<Result<(), NetworkError>>;
+    /// Sends a direct message to a specific node
+    fn message_node(&self, message: M, recipient: PubKey) -> BoxedFuture<Result<(), NetworkError>>;
+    /// Moves out the entire queue of received broadcast messages, should there be any
+    ///
+    /// Provided as a future to allow the backend to do async locking
+    fn broadcast_queue(&self) -> BoxedFuture<Result<Vec<M>, NetworkError>>;
+    /// Provides a future for the next received broadcast
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    fn next_broadcast(&self) -> BoxedFuture<Result<M, NetworkError>>;
+    /// Moves out the entire queue of received direct messages to this node
+    fn direct_queue(&self) -> BoxedFuture<Result<Vec<M>, NetworkError>>;
+    /// Provides a future for the next received direct message to this node
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    fn next_direct(&self) -> BoxedFuture<Result<M, NetworkError>>;
+}
