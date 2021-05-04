@@ -18,6 +18,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use futures_channel::oneshot::Receiver;
+use futures_lite::{future, FutureExt};
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::OptionExt;
@@ -52,7 +53,7 @@ pub struct PrivKey {
 
 /// The block trait
 pub trait BlockContents:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + Default + PartialEq + Eq
+    Serialize + DeserializeOwned + Clone + Debug + Hash + Default + PartialEq + Eq + Send
 {
     /// The type of the state machine we are applying transitions to
     type State: Clone;
@@ -141,6 +142,8 @@ pub struct HotStuff<B> {
     id: ReplicaId,
     /// Private key for this replica
     priv_key: PrivKey,
+    /// Public key for this replica
+    pub_key: PubKey,
     /// Block storage
     ///
     /// TODO: Abstract this behind a trait, but use an in-memory hashmap for now
@@ -148,10 +151,10 @@ pub struct HotStuff<B> {
     /// height of the block last voted for
     last_voted_height: u64,
     /// Network handle
-    network: Box<dyn NetworkingImplementation<Message<B>>>,
+    network: Box<dyn NetworkingImplementation<Message<B>> + Send>,
 }
 
-impl<B: BlockContents> HotStuff<B> {
+impl<B: BlockContents + 'static> HotStuff<B> {
     /// Create a new `HotStuff` instance
     pub fn new(_id: ReplicaId, _priv_key: PrivKey) -> Self {
         todo!()
@@ -279,5 +282,15 @@ impl<B: BlockContents> HotStuff<B> {
     /// Decision action
     fn do_decision(&mut self, block: BlockRef<B>) -> Result<()> {
         todo!()
+    }
+
+    /// Main run action
+    fn run_consensus(self) -> future::Boxed<Result<()>> {
+        async move {
+            // Get this node's id and start the loop
+            let id = self.pub_key.clone();
+            todo!()
+        }
+        .boxed()
     }
 }
