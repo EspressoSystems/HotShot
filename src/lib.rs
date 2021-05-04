@@ -72,9 +72,9 @@ pub trait BlockContents:
     Serialize + DeserializeOwned + Clone + Debug + Hash + Default + PartialEq + Eq + Send
 {
     /// The type of the state machine we are applying transitions to
-    type State: Clone;
+    type State: Clone + Send;
     /// The type of the transitions we are applying
-    type Transaction: Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq;
+    type Transaction: Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq + Send;
     /// The error type for this state machine
     type Error;
 
@@ -90,6 +90,10 @@ pub trait BlockContents:
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error>;
     /// Produces a hash for the contents of the block
     fn hash(&self) -> BlockHash;
+    /// Produces a hash for a transaction
+    ///
+    /// TODO: Abstract out into transaction trait
+    fn hash_transaction(tx: &Self::Transaction) -> BlockHash;
 }
 
 /// Type alias for a mutexed, shared owernship block
@@ -135,7 +139,7 @@ pub enum Stage {
 }
 
 /// Holds the state needed to participate in HotStuff consensus
-pub struct HotStuff<B> {
+pub struct HotStuff<B: BlockContents + 'static> {
     /// The genesis block for this consensus network
     genesis_block: BlockRef<B>,
     /// Block containing the QC for the highest block having one
@@ -147,7 +151,7 @@ pub struct HotStuff<B> {
     /// Blocks waiting on a QC to come in
     qc_waiting: HashMap<BlockRef<B>, Receiver<QuorumCertificate>>,
     /// Current waiting proposal
-    propose_waiting: Option<Proposal<BlockRef<B>>>,
+    propose_waiting: Option<Proposal<B>>,
     // receive_propsal_waiting
     // hqc_update_waiting
     /// Causes the node to always vote negatively
@@ -167,7 +171,7 @@ pub struct HotStuff<B> {
     /// height of the block last voted for
     last_voted_height: u64,
     /// Network handle
-    network: Box<dyn NetworkingImplementation<Message<B>> + Send>,
+    network: Box<dyn NetworkingImplementation<Message<B, B::Transaction>> + Send + Sync>,
 }
 
 impl<B: BlockContents + 'static> HotStuff<B> {
@@ -311,11 +315,24 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     }
 
     /// Main run action
-    fn run_consensus(self) -> future::Boxed<Result<()>> {
+    fn run_consensus(mut self) -> future::Boxed<Result<()>> {
         async move {
             // Get this node's id and start the loop
             let id = self.pub_key.clone();
-            todo!()
+            loop {
+                // Get the leader for this round
+                let leader = self.current_leader().await;
+                // Check to see if we are the leader
+                if id == leader {
+                    // Leader role logic
+                    todo!()
+                } else {
+                    // Follower node logic
+                    todo!()
+                }
+                // Yield gracefully back to the task scheduler, give the other tasks a chance to run
+                future::yield_now().await;
+            }
         }
         .boxed()
     }
