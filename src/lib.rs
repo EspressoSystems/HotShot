@@ -12,7 +12,7 @@ mod message;
 mod networking;
 mod replica;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -74,7 +74,15 @@ pub trait BlockContents:
     /// The type of the state machine we are applying transitions to
     type State: Clone + Send;
     /// The type of the transitions we are applying
-    type Transaction: Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq + Send;
+    type Transaction: Clone
+        + Serialize
+        + DeserializeOwned
+        + Debug
+        + Hash
+        + PartialEq
+        + Eq
+        + Sync
+        + Send;
     /// The error type for this state machine
     type Error;
 
@@ -172,6 +180,8 @@ pub struct HotStuff<B: BlockContents + 'static> {
     last_voted_height: u64,
     /// Network handle
     network: Box<dyn NetworkingImplementation<Message<B, B::Transaction>> + Send + Sync>,
+    /// Internal transaction queue
+    tx_queue: Arc<async_lock::RwLock<VecDeque<B::Transaction>>>,
 }
 
 impl<B: BlockContents + 'static> HotStuff<B> {
@@ -314,9 +324,17 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         todo!()
     }
 
+    /// Transaction listener action
+    fn run_tx(&self) -> future::Boxed<Result<()>> {
+        let queue = self.tx_queue.clone();
+        async move { todo!() }.boxed()
+    }
+
     /// Main run action
-    fn run_consensus(mut self) -> future::Boxed<Result<()>> {
-        async move {
+    ///
+    /// Returns several futures that should all be sent to the task executor
+    fn run_consensus(mut self) -> (future::Boxed<Result<()>>, future::Boxed<Result<()>>) {
+        let consensus = async move {
             // Get this node's id and start the loop
             let id = self.pub_key.clone();
             loop {
@@ -334,6 +352,8 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 future::yield_now().await;
             }
         }
-        .boxed()
+        .boxed();
+        let tx_listner = todo!();
+        (consensus, tx_listner)
     }
 }
