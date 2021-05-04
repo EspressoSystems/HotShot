@@ -61,11 +61,5 @@ where
     /// Kludge function to work around leader election
     fn known_nodes(&self) -> BoxedFuture<Vec<PubKey>>;
     /// Object safe clone
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>
-    where
-        Self: Sized + Clone + 'static,
-    {
-        let x: Self = self.clone();
-        Box::new(x)
-    }
+    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
 }

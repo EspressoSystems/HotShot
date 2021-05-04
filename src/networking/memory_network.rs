@@ -168,4 +168,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         let nodes = self.nodes.read().iter().cloned().collect();
         async move { nodes }.boxed()
     }
+
+    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
+        Box::new(self.clone())
+    }
 }

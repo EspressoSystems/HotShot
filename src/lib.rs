@@ -327,6 +327,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     /// Transaction listener action
     fn run_tx(&self) -> future::Boxed<Result<()>> {
         let queue = self.tx_queue.clone();
+        let networking = self.network.obj_clone();
         async move { todo!() }.boxed()
     }
 
