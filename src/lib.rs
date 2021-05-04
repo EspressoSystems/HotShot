@@ -129,9 +129,9 @@ pub struct QuorumCertificate {
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
-    PreVote,
-    Vote,
+    PreCommit,
     Commit,
+    Decide,
 }
 
 /// Holds the state needed to participate in HotStuff consensus
