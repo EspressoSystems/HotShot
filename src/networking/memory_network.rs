@@ -163,4 +163,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         }
         .boxed()
     }
+
+    fn known_nodes(&self) -> future::Boxed<Vec<PubKey>> {
+        let nodes = self.nodes.read().iter().cloned().collect();
+        async move { nodes }.boxed()
+    }
 }

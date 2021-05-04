@@ -41,6 +41,22 @@ type BlockHash = [u8; 32];
 pub struct PubKey {
     overall: tc::PublicKey,
     node: tc::PublicKeyShare,
+    /// u64 nonce used for sorting
+    ///
+    /// Used for the leader election kludge
+    nonce: u64,
+}
+
+impl PartialOrd for PubKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.nonce.partial_cmp(&other.nonce)
+    }
+}
+
+impl Ord for PubKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.nonce.cmp(&other.nonce)
+    }
 }
 
 /// Private key stub type
@@ -272,6 +288,16 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         }
         self.last_executed = block;
         Ok(())
+    }
+
+    /// Stub method for determining the current leader given the current round
+    ///
+    /// Uses round robin among the known nodes
+    async fn current_leader(&self) -> PubKey {
+        let mut nodes = self.network.known_nodes().await;
+        nodes.sort();
+        let index = self.last_voted_height % nodes.len() as u64;
+        nodes[index as usize].clone()
     }
 
     /// Consensus action

@@ -56,4 +56,8 @@ where
     ///
     /// Will unwrap the underlying `NetworkMessage`
     fn next_direct(&self) -> BoxedFuture<Result<Option<M>, NetworkError>>;
+    /// Node's currently known to the networking implementation
+    ///
+    /// Kludge function to work around leader election
+    fn known_nodes(&self) -> BoxedFuture<Vec<PubKey>>;
 }
