@@ -36,7 +36,7 @@ type BlockHash = [u8; 32];
 /// Public key type
 ///
 /// Opaque wrapper around threshold_crypto key
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PubKey {
     overall: tc::PublicKey,
     node: tc::PublicKeyShare,

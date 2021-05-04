@@ -4,10 +4,20 @@ use futures_lite::future::Boxed as BoxedFuture;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 
+mod memory_network;
+
 /// Error type for networking
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
-pub enum NetworkError {}
+pub enum NetworkError {
+    #[snafu(display("A listener attempted to send a message"))]
+    ListenerSend,
+    CouldNotDeliver,
+    NoSuchNode,
+    Other {
+        inner: Box<dyn std::error::Error>,
+    },
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum NetworkMessage<M> {
@@ -22,7 +32,10 @@ pub enum NetworkMessage<M> {
     },
 }
 
-pub trait NetworkingImplementation<M: Serialize + DeserializeOwned> {
+pub trait NetworkingImplementation<M>
+where
+    M: Serialize + DeserializeOwned + Send + 'static,
+{
     /// Broadcasts a message to the network
     ///
     /// Should provide that the message eventually reach all non-faulty nodes
@@ -36,11 +49,11 @@ pub trait NetworkingImplementation<M: Serialize + DeserializeOwned> {
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_broadcast(&self) -> BoxedFuture<Result<M, NetworkError>>;
+    fn next_broadcast(&self) -> BoxedFuture<Result<Option<M>, NetworkError>>;
     /// Moves out the entire queue of received direct messages to this node
     fn direct_queue(&self) -> BoxedFuture<Result<Vec<M>, NetworkError>>;
     /// Provides a future for the next received direct message to this node
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_direct(&self) -> BoxedFuture<Result<M, NetworkError>>;
+    fn next_direct(&self) -> BoxedFuture<Result<Option<M>, NetworkError>>;
 }
