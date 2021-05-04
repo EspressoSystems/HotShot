@@ -110,6 +110,13 @@ pub struct QuorumCertificate {
     signature: tc::Signature,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stage {
+    PreVote,
+    Vote,
+    Commit,
+}
+
 /// Holds the state needed to participate in HotStuff consensus
 pub struct HotStuff<B> {
     /// The genesis block for this consensus network
