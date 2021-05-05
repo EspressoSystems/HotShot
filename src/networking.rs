@@ -32,7 +32,7 @@ pub enum NetworkMessage<M> {
     },
 }
 
-pub trait NetworkingImplementation<M>
+pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
 {

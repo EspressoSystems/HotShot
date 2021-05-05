@@ -8,4 +8,7 @@ pub enum HotStuffError {
     SanityCheckFailure,
     BlockAlreadyDelivered,
     NewHQCInvalid,
+    NetworkFault {
+        source: crate::NetworkError,
+    },
 }

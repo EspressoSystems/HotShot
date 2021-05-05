@@ -21,7 +21,7 @@ use futures_channel::oneshot::Receiver;
 use futures_lite::{future, FutureExt};
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 use threshold_crypto as tc;
 
 use crate::error::*;
@@ -328,13 +328,33 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     fn run_tx(&self) -> future::Boxed<Result<()>> {
         let queue = self.tx_queue.clone();
         let networking = self.network.obj_clone();
-        async move { todo!() }.boxed()
+        async move {
+            loop {
+                // Transactions, and only transactions, should come in via broadcast so this
+                // is reasonably safe for now
+                let tx = networking.next_broadcast().await.context(NetworkFault)?;
+                // If there was a transaction, add it to the queue, else, just yield
+                if let Some(tx) = tx {
+                    match tx {
+                        Message::SubmitTransaction { transaction } => {
+                            queue.write().await.push_back(transaction);
+                        }
+                        _ => future::yield_now().await,
+                    }
+                } else {
+                    future::yield_now().await;
+                }
+            }
+        }
+        .boxed()
     }
 
     /// Main run action
     ///
     /// Returns several futures that should all be sent to the task executor
     fn run_consensus(mut self) -> (future::Boxed<Result<()>>, future::Boxed<Result<()>>) {
+        // Fire off tx_listener first, as the rest of the startup is consuming
+        let tx_listner = self.run_tx();
         let consensus = async move {
             // Get this node's id and start the loop
             let id = self.pub_key.clone();
@@ -354,7 +374,6 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             }
         }
         .boxed();
-        let tx_listner = todo!();
         (consensus, tx_listner)
     }
 }
