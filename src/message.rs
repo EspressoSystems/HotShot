@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use threshold_crypto::SignatureShare;
 
-use crate::{Block, BlockContents, BlockHash, BlockRef, QuorumCertificate, ReplicaId, Stage};
+use crate::{BlockHash, BlockRef, QuorumCertificate, Stage};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Message<B, T> {

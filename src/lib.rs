@@ -5,6 +5,7 @@
 #![warn(clippy::clippy::missing_docs_in_private_items)]
 #![allow(dead_code)] // Temporary
 #![allow(clippy::unused_self)] // Temporary
+#![allow(unreachable_code)] // Temporary
 //! Provides a generic rust implementation of the [HotStuff](https://arxiv.org/abs/1803.05069) BFT protocol
 
 mod error;
@@ -39,12 +40,12 @@ type BlockHash = [u8; 32];
 /// Opaque wrapper around threshold_crypto key
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PubKey {
-    overall: tc::PublicKey,
-    node: tc::PublicKeyShare,
+    // overall: tc::PublicKey,
+    // node: tc::PublicKeyShare,
     /// u64 nonce used for sorting
     ///
     /// Used for the leader election kludge
-    nonce: u64,
+    pub nonce: u64,
 }
 
 impl PartialOrd for PubKey {
@@ -140,9 +141,13 @@ pub struct QuorumCertificate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+/// Represents the stages of consensus
 pub enum Stage {
+    /// PreCommit Phase
     PreCommit,
+    /// Commit Phase
     Commit,
+    /// Decide Phase
     Decide,
 }
 
@@ -315,12 +320,12 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     }
 
     /// Consensus action
-    fn do_consensus(&mut self, block: BlockRef<B>) -> Result<()> {
+    fn do_consensus(&mut self, _block: BlockRef<B>) -> Result<()> {
         todo!()
     }
 
     /// Decision action
-    fn do_decision(&mut self, block: BlockRef<B>) -> Result<()> {
+    fn do_decision(&mut self, _block: BlockRef<B>) -> Result<()> {
         todo!()
     }
 
@@ -352,7 +357,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     /// Main run action
     ///
     /// Returns several futures that should all be sent to the task executor
-    fn run_consensus(mut self) -> (future::Boxed<Result<()>>, future::Boxed<Result<()>>) {
+    fn run_consensus(self) -> (future::Boxed<Result<()>>, future::Boxed<Result<()>>) {
         // Fire off tx_listener first, as the rest of the startup is consuming
         let tx_listner = self.run_tx();
         let consensus = async move {

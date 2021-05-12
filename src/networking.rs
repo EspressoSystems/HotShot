@@ -1,10 +1,12 @@
-use crate::{replica::ReplicaId, PubKey};
+use crate::PubKey;
 
+use async_tungstenite::tungstenite::error as werror;
 use futures_lite::future::Boxed as BoxedFuture;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 
 mod memory_network;
+mod w_network;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]
@@ -14,8 +16,30 @@ pub enum NetworkError {
     ListenerSend,
     CouldNotDeliver,
     NoSuchNode,
+    FailedToSerialize {
+        source: bincode::Error,
+    },
+    FailedToDeserialize {
+        sourec: bincode::Error,
+    },
+    WError {
+        source: werror::Error,
+    },
+    ExecutorError {
+        source: async_std::io::Error,
+    },
+    SocketDecodeError {
+        input: String,
+        source: std::io::Error,
+    },
+    FailedToBindListener {
+        source: std::io::Error,
+    },
+    NoSocketsError {
+        input: String,
+    },
     Other {
-        inner: Box<dyn std::error::Error>,
+        inner: Box<dyn std::error::Error + Send>,
     },
 }
 

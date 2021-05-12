@@ -6,7 +6,7 @@ use snafu::{ensure, OptionExt};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
-use crate::networking::{ListenerSend, NetworkMessage, NetworkingImplementation, NoSuchNode};
+use crate::networking::{ListenerSend, NetworkingImplementation, NoSuchNode};
 use crate::PubKey;
 
 #[derive(Clone)]
