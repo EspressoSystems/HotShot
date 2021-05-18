@@ -1,0 +1,30 @@
+stages:
+  - build
+
+variables:
+  BRANCH: $CI_COMMIT_BRANCH
+  CONTAINER_IMAGE: hotstuff
+  DOCKER_REGISTRY: 279906117593.dkr.ecr.us-east-2.amazonaws.com
+
+before_script:
+  - docker info
+
+build:
+  tags:
+    - shell
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+  stage: build
+  script:
+    - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_MERGE_REQUEST_ID .
+
+build:
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+  stage: build
+  script:
+    - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH .
+    - docker push $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH
+
