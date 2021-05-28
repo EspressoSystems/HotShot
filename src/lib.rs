@@ -23,6 +23,7 @@ use async_std::sync::RwLock;
 use dashmap::DashMap;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use snafu::ResultExt;
 use threshold_crypto as tc;
 
 use crate::data::*;
@@ -234,6 +235,25 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             false
         }
     }
+
+    /// Sends out the next view message
+    pub async fn next_view(&self, current_view: u64) -> Result<()> {
+        let new_leader = self.inner.get_leader(current_view + 1);
+        // If we are the new leader, do nothing
+        if !(new_leader == self.inner.public_key) {
+            let view_message = Message::NewView(NewView {
+                current_view,
+                justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
+            });
+            self.inner
+                .networking
+                .message_node(view_message, new_leader)
+                .await
+                .context(NetworkFault)?;
+        }
+        Ok(())
+    }
+
     /// Runs a single round of consensus    
     pub async fn run_round(&self, current_view: u64) {
         let hotstuff_outer = self.clone();
