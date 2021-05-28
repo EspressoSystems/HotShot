@@ -2,7 +2,7 @@ use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
 use futures_lite::future::Boxed as BoxedFuture;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
 mod memory_network;

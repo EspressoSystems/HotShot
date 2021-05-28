@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use async_std::sync::{Condvar, Mutex};
-use futures::prelude::*;
 
 pub struct WaitQueue<T> {
     wait_limit: usize,
