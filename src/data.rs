@@ -14,6 +14,9 @@ impl<T: BlockContents> Leaf<T> {
     }
 
     pub fn hash(&self) -> BlockHash {
-        todo!();
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&self.parent);
+        hasher.update(&BlockContents::hash(&self.item));
+        *hasher.finalize().as_bytes()
     }
 }

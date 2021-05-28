@@ -688,7 +688,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                             Message::PreCommit(pc) => hotstuff.precommit_waiter.put(pc).await,
                             Message::Commit(c) => hotstuff.commit_waiter.put(c).await,
                             Message::Decide(d) => hotstuff.decide_waiter.put(d).await,
-                            Message::SubmitTransacion(d) => {
+                            Message::SubmitTransaction(d) => {
                                 hotstuff.transaction_queue.write().await.push(d)
                             }
                             _ => panic!("Non-broadcast transaction sent over broadcast"),
@@ -721,6 +721,20 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 }
             }
         });
+    }
+
+    /// Publishes a transaction to the network
+    pub async fn publish_transaction_async(&self, tx: B::Transaction) -> Result<()> {
+        // Add the transaction to our own queue first
+        self.inner.transaction_queue.write().await.push(tx.clone());
+        // Wrap up a message
+        let message = Message::SubmitTransaction(tx);
+        self.inner
+            .networking
+            .broadcast_message(message)
+            .await
+            .context(NetworkFault)?;
+        Ok(())
     }
 }
 

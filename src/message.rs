@@ -13,7 +13,7 @@ pub enum Message<B, T> {
     Commit(Commit),
     CommitVote(CommitVote),
     Decide(Decide),
-    SubmitTransacion(T),
+    SubmitTransaction(T),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
