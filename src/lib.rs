@@ -81,7 +81,7 @@ pub trait BlockContents:
     Serialize + DeserializeOwned + Clone + Debug + Hash + Default + PartialEq + Eq + Send
 {
     /// The type of the state machine we are applying transitions to
-    type State: Clone + Send;
+    type State: Clone + Send + Sync;
     /// The type of the transitions we are applying
     type Transaction: Clone
         + Serialize
@@ -199,7 +199,7 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     /// Configuration items for this hotstuff instance
     config: HotStuffConfig,
     /// Networking interface for this hotstuff instance
-    networking: Box<dyn NetworkingImplementation<Message<B>>>,
+    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction>>>,
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
@@ -213,11 +213,11 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     /// Unprocessed NextView messages
     new_view_queue: WaitQueue<NewView>,
     /// Unprocessed PrepareVote messages
-    prepare_vote_queue: RwLock<Vec<PrepareVote>>,
+    prepare_vote_queue: WaitQueue<PrepareVote>,
     /// Unprocessed PreCommit messages
-    precommit_vote_queue: RwLock<Vec<PreCommitVote>>,
+    precommit_vote_queue: WaitQueue<PreCommitVote>,
     /// Unprocessed CommitVote messages
-    commit_vote_queue: RwLock<Vec<CommitVote>>,
+    commit_vote_queue: WaitQueue<CommitVote>,
     /// Currently pending Prepare message
     prepare_waiter: WaitOnce<Prepare<B>>,
     /// Currently pending precommit message
@@ -240,11 +240,11 @@ impl<B: BlockContents + 'static> HotStuffInner<B> {
 
 /// Thread safe, shared view of a HotStuff
 #[derive(Clone)]
-pub struct HotStuff<B: BlockContents + 'static> {
+pub struct HotStuff<B: BlockContents + Send + Sync + 'static> {
     inner: Arc<HotStuffInner<B>>,
 }
 
-impl<B: BlockContents + 'static> HotStuff<B> {
+impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     /// Creates a new hotstuff with the given configuration options and sets it up with the given
     /// genesis block
     pub fn new(
@@ -253,7 +253,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         nonce: u64,
         config: HotStuffConfig,
         starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B>> + 'static,
+        networking: impl NetworkingImplementation<Message<B, B::Transaction>> + 'static,
     ) -> Self {
         let pub_key_set = priv_keys.public_keys();
         let node_priv_key = priv_keys.secret_key_share(nonce);
@@ -289,10 +289,10 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 signature: None,
                 genesis: true,
             })),
-            new_view_queue: WaitQueue::new(t as usize),
-            prepare_vote_queue: RwLock::new(Vec::new()),
-            precommit_vote_queue: RwLock::new(Vec::new()),
-            commit_vote_queue: RwLock::new(Vec::new()),
+            new_view_queue: WaitQueue::new(t),
+            prepare_vote_queue: WaitQueue::new(t),
+            precommit_vote_queue: WaitQueue::new(t),
+            commit_vote_queue: WaitQueue::new(t),
             prepare_waiter: WaitOnce::new(),
             precommit_waiter: WaitOnce::new(),
             commit_waiter: WaitOnce::new(),
@@ -459,7 +459,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
          */
         if is_leader {
             // Collect the votes we have received from the nodes
-            let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
+            let mut vote_queue = hotstuff.prepare_vote_queue.wait().await;
             let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
@@ -533,7 +533,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         Commit Phase
          */
         if is_leader {
-            let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
+            let mut vote_queue = hotstuff.prepare_vote_queue.wait().await;
             let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
@@ -598,7 +598,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         Decide Phase
          */
         if is_leader {
-            let mut vote_queue = hotstuff.commit_vote_queue.write().await;
+            let mut vote_queue = hotstuff.commit_vote_queue.wait().await;
             let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
@@ -669,6 +669,58 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             let mut state = hotstuff.state.write().await;
             *state = new_state;
         }
+    }
+
+    /// Spawns the background tasks for network processing for this instance
+    pub async fn spawn_networking_tasks(&self) {
+        let x = self.clone();
+        // Spawn broadcast processing task
+        async_std::task::spawn(async move {
+            let networking = &x.inner.networking;
+            let hotstuff = &x.inner;
+            while let Ok(queue) = networking.broadcast_queue().await {
+                if queue.is_empty() {
+                    async_std::task::yield_now().await;
+                } else {
+                    for item in queue {
+                        match item {
+                            Message::Prepare(p) => hotstuff.prepare_waiter.put(p).await,
+                            Message::PreCommit(pc) => hotstuff.precommit_waiter.put(pc).await,
+                            Message::Commit(c) => hotstuff.commit_waiter.put(c).await,
+                            Message::Decide(d) => hotstuff.decide_waiter.put(d).await,
+                            Message::SubmitTransacion(d) => {
+                                hotstuff.transaction_queue.write().await.push(d)
+                            }
+                            _ => panic!("Non-broadcast transaction sent over broadcast"),
+                        }
+                    }
+                    async_std::task::yield_now().await;
+                }
+            }
+        });
+        let x = self.clone();
+        // Spawn direct processing task
+        async_std::task::spawn(async move {
+            let hotstuff = &x.inner;
+            let networking = &x.inner.networking;
+            while let Ok(queue) = networking.direct_queue().await {
+                if queue.is_empty() {
+                    async_std::task::yield_now().await;
+                } else {
+                    for item in queue {
+                        match item {
+                            Message::NewView(nv) => hotstuff.new_view_queue.push(nv).await,
+                            Message::PrepareVote(pv) => hotstuff.prepare_vote_queue.push(pv).await,
+                            Message::PreCommitVote(pcv) => {
+                                hotstuff.precommit_vote_queue.push(pcv).await
+                            }
+                            Message::CommitVote(cv) => hotstuff.commit_vote_queue.push(cv).await,
+                            _ => panic!("Broadcast transaction sent over non-broadcast"),
+                        }
+                    }
+                }
+            }
+        });
     }
 }
 

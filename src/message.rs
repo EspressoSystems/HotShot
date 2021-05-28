@@ -4,15 +4,16 @@ use threshold_crypto::SignatureShare;
 use crate::{data::Leaf, BlockHash, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub enum Message<T> {
+pub enum Message<B, T> {
     NewView(NewView),
-    Prepare(Prepare<T>),
+    Prepare(Prepare<B>),
     PrepareVote(PrepareVote),
     PreCommit(PreCommit),
     PreCommitVote(PreCommitVote),
     Commit(Commit),
     CommitVote(CommitVote),
     Decide(Decide),
+    SubmitTransacion(T),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
