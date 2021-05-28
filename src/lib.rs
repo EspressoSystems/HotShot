@@ -9,6 +9,7 @@
 //! Provides a generic rust implementation of the [HotStuff](https://arxiv.org/abs/1803.05069) BFT protocol
 
 mod data;
+mod demos;
 mod error;
 mod message;
 mod networking;
@@ -143,17 +144,19 @@ pub struct QuorumCertificate {
     hash: BlockHash,
     view_number: u64,
     stage: Stage,
-    signature: tc::Signature,
+    signature: Option<tc::Signature>,
+    /// Temporary bypass for boostrapping
+    genesis: bool,
 }
 
 impl QuorumCertificate {
     /// Verifies a quorum certificate
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
         // Temporary, stage and view should be included in signature in future
-        if !(stage == self.stage && view == self.view_number) {
-            key.public_key().verify(&self.signature, &self.hash)
+        if let Some(signature) = &self.signature {
+            key.public_key().verify(&signature, &self.hash)
         } else {
-            false
+            self.genesis
         }
     }
 }
@@ -174,13 +177,13 @@ pub enum Stage {
 /// Holds configuration for a hotstuff
 pub struct HotStuffConfig {
     /// Total number of nodes in the network
-    total_nodes: u32,
+    pub total_nodes: u32,
     /// Nodes required to reach a decision
-    thershold: u32,
+    pub thershold: u32,
     /// Maximum transactions per block
-    max_transactions: usize,
+    pub max_transactions: usize,
     /// List of known node's public keys, including own, sorted by nonce
-    known_nodes: Vec<PubKey>,
+    pub known_nodes: Vec<PubKey>,
 }
 
 /// Holds the state needed to participate in HotStuff consensus
@@ -240,6 +243,48 @@ pub struct HotStuff<B: BlockContents + 'static> {
 }
 
 impl<B: BlockContents + 'static> HotStuff<B> {
+    pub fn new(
+        genesis: B,
+        priv_keys: &tc::SecretKeySet,
+        nonce: u64,
+        config: HotStuffConfig,
+        starting_state: B::State,
+        networking: impl NetworkingImplementation<Message<B>> + 'static,
+    ) -> Self {
+        let pub_key_set = priv_keys.public_keys();
+        let node_priv_key = priv_keys.secret_key_share(nonce);
+        let node_pub_key = node_priv_key.public_key_share();
+        let t = config.thershold as usize;
+        let inner = HotStuffInner {
+            public_key: PubKey {
+                set: pub_key_set,
+                node: node_pub_key,
+                nonce,
+            },
+            private_key: PrivKey {
+                node: node_priv_key,
+            },
+            genesis,
+            config,
+            networking: Box::new(networking),
+            transaction_queue: RwLock::new(Vec::new()),
+            state: RwLock::new(starting_state),
+            leaf_store: DashMap::new(),
+            locked_qc: RwLock::new(None),
+            prepare_qc: RwLock::new(None),
+            new_view_queue: WaitQueue::new(t as usize),
+            prepare_vote_queue: RwLock::new(Vec::new()),
+            precommit_vote_queue: RwLock::new(Vec::new()),
+            commit_vote_queue: RwLock::new(Vec::new()),
+            prepare_waiter: WaitOnce::new(),
+            precommit_waiter: WaitOnce::new(),
+            commit_waiter: WaitOnce::new(),
+            decide_waiter: WaitOnce::new(),
+            decision_cache: DashMap::new(),
+        };
+        todo!()
+    }
+
     /// Returns true if the proposed leaf extends from the given block
     pub async fn extends_from(&self, leaf: &Leaf<B>, node: &BlockHash) -> bool {
         let mut parent = leaf.parent.clone();
@@ -394,9 +439,10 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 );
             let qc = QuorumCertificate {
                 hash: the_hash,
-                signature,
+                signature: Some(signature),
                 stage: Stage::Prepare,
                 view_number: current_view,
+                genesis: false,
             };
             // Store the pre-commit qc
             let mut pqc = hotstuff.prepare_qc.write().await;
@@ -466,9 +512,10 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 );
             let qc = QuorumCertificate {
                 hash: the_hash,
-                signature,
+                signature: Some(signature),
                 stage: Stage::PreCommit,
                 view_number: current_view,
+                genesis: false,
             };
             let c_message = Message::Commit(Commit {
                 leaf_hash: the_hash,
@@ -530,9 +577,10 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 );
             let qc = QuorumCertificate {
                 hash: the_hash,
-                signature,
+                signature: Some(signature),
                 stage: Stage::Decide,
                 view_number: current_view,
+                genesis: false,
             };
             // Add QC to decision cache
             hotstuff.decision_cache.insert(the_hash, qc.clone());

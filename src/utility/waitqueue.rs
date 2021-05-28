@@ -10,6 +10,15 @@ pub struct WaitQueue<T> {
 }
 
 impl<T> WaitQueue<T> {
+    pub fn new(wait_limit: usize) -> Self {
+        WaitQueue {
+            wait_limit,
+            queue: Mutex::new(Vec::new()),
+            condvar: Condvar::new(),
+            _phantom: PhantomData,
+        }
+    }
+
     pub async fn wait(&self) -> Vec<T> {
         let mut guard = self
             .condvar
@@ -36,6 +45,14 @@ pub struct WaitOnce<T> {
 }
 
 impl<T> WaitOnce<T> {
+    pub fn new() -> Self {
+        WaitOnce {
+            item: Mutex::new(None),
+            condvar: Condvar::new(),
+            _phantom: PhantomData,
+        }
+    }
+
     pub async fn wait_for(&self, closure: impl Fn(&T) -> bool) -> T {
         let mut x = None;
         while x.is_none() {
