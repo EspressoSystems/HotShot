@@ -167,38 +167,63 @@ pub enum Stage {
 }
 
 pub struct HotStuffConfig {
+    /// Total number of nodes in the network
     total_nodes: u32,
+    /// Nodes required to reach a decision
     thershold: u32,
+    /// Maximum transactions per block
     max_transactions: usize,
+    /// List of known node's public keys, including own, sorted by nonce
+    known_nodes: Vec<PubKey>,
 }
 
 /// Holds the state needed to participate in HotStuff consensus
 pub struct HotStuffInner<B: BlockContents + 'static> {
+    /// The public key of this node
     public_key: PubKey,
+    /// The private key of this node
     private_key: PrivKey,
+    /// The genesis block, used for short-circuiting during bootstrap
     genesis: B,
-    config: RwLock<HotStuffConfig>,
+    /// Configuration items for this hotstuff instance
+    config: HotStuffConfig,
+    /// Networking interface for this hotstuff instance
     networking: Box<dyn NetworkingImplementation<Message<B>>>,
+    /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
+    /// Current state
     state: RwLock<B::State>,
+    /// Block storage
     leaf_store: DashMap<BlockHash, Leaf<B>>,
+    /// Current locked quorum certificate
     locked_qc: RwLock<Option<QuorumCertificate>>,
+    /// Current prepare quorum certificate
     prepare_qc: RwLock<Option<QuorumCertificate>>,
+    /// Unprocessed NextView messages
     new_view_queue: WaitQueue<NewView>,
+    /// Unprocessed PrepareVote messages
     prepare_vote_queue: RwLock<Vec<PrepareVote>>,
+    /// Unprocessed PreCommit messages
     precommit_vote_queue: RwLock<Vec<PreCommitVote>>,
+    /// Unprocessed CommitVote messages
     commit_vote_queue: RwLock<Vec<CommitVote>>,
+    /// Currently pending Prepare message
     prepare_waiter: WaitOnce<Prepare<B>>,
+    /// Currently pending precommit message
     precommit_waiter: WaitOnce<PreCommit>,
+    /// Currently pending Commit message
     commit_waiter: WaitOnce<Commit>,
+    /// Currently pending decide message
     decide_waiter: WaitOnce<Decide>,
+    /// Map from a block's hash to its decision QC
     decision_cache: DashMap<BlockHash, QuorumCertificate>,
 }
 
 impl<B: BlockContents + 'static> HotStuffInner<B> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
-        todo!()
+        let index = view % self.config.total_nodes as u64;
+        self.config.known_nodes[index as usize].clone()
     }
 }
 
