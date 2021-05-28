@@ -184,8 +184,10 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     locked_qc: RwLock<Option<QuorumCertificate>>,
     new_view_queue: WaitQueue<NewView>,
     prepare_vote_queue: RwLock<Vec<PrepareVote>>,
+    precommit_vote_queue: RwLock<Vec<PreCommitVote>>,
     prepare_waiter: WaitOnce<Prepare<B>>,
     precommit_waiter: WaitOnce<PreCommit>,
+    commit_waiter: WaitOnce<Commit>,
 }
 
 impl<B: BlockContents + 'static> HotStuffInner<B> {
@@ -374,6 +376,65 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     .await
                     .expect(&format!(
                         "Failed to message leader in prepare phase of view {}",
+                        current_view
+                    ));
+            }
+            /*
+            Commit Phase
+             */
+            if is_leader {
+                let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
+                let votes = vote_queue
+                    .drain(..)
+                    .filter(|x| x.leaf_hash == the_hash)
+                    .map(|x| x.signature);
+                let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
+                    "Failed to generate QC in commit phase of view {}",
+                    current_view
+                ));
+                let qc = QuorumCertificate {
+                    hash: the_hash,
+                    signature,
+                    stage: Stage::PreCommit,
+                    view_number: current_view,
+                };
+                let c_message = Message::Commit(Commit {
+                    leaf_hash: the_hash,
+                    qc,
+                    current_view,
+                });
+                hotstuff
+                    .networking
+                    .broadcast_message(c_message)
+                    .await
+                    .expect("Failed to broadcast message");
+            } else {
+                let commit = hotstuff
+                    .commit_waiter
+                    .wait_for(|x| x.current_view == current_view)
+                    .await;
+                let precommit_qc = commit.qc.clone();
+                if !(precommit_qc.verify(Stage::PreCommit, current_view)
+                    && precommit_qc.hash == the_hash)
+                {
+                    panic!("Bad or forged qc in commit phase of view {}", current_view,);
+                }
+                let mut locked_qc = hotstuff.locked_qc.write().await;
+                *locked_qc = Some(commit.qc);
+                let signature =
+                    hotstuff
+                        .private_key
+                        .partial_sign(&the_hash, Stage::Commit, current_view);
+                let vote_message = Message::CommitVote(CommitVote {
+                    leaf_hash: the_hash,
+                    signature,
+                });
+                hotstuff
+                    .networking
+                    .message_node(vote_message, leader.clone())
+                    .await
+                    .expect(&format!(
+                        "Failed to message leader in commit phase of view {}",
                         current_view
                     ));
             }
