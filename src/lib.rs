@@ -155,6 +155,8 @@ impl QuorumCertificate {
         // Temporary, stage and view should be included in signature in future
         if let Some(signature) = &self.signature {
             key.public_key().verify(&signature, &self.hash)
+                && self.stage == stage
+                && self.view_number == view
         } else {
             self.genesis
         }
@@ -243,6 +245,8 @@ pub struct HotStuff<B: BlockContents + 'static> {
 }
 
 impl<B: BlockContents + 'static> HotStuff<B> {
+    /// Creates a new hotstuff with the given configuration options and sets it up with the given
+    /// genesis block
     pub fn new(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
@@ -254,6 +258,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         let pub_key_set = priv_keys.public_keys();
         let node_priv_key = priv_keys.secret_key_share(nonce);
         let node_pub_key = node_priv_key.public_key_share();
+        let genesis_hash = BlockContents::hash(&genesis);
         let t = config.thershold as usize;
         let inner = HotStuffInner {
             public_key: PubKey {
@@ -264,14 +269,26 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             private_key: PrivKey {
                 node: node_priv_key,
             },
-            genesis,
+            genesis: genesis.clone(),
             config,
             networking: Box::new(networking),
             transaction_queue: RwLock::new(Vec::new()),
             state: RwLock::new(starting_state),
             leaf_store: DashMap::new(),
-            locked_qc: RwLock::new(None),
-            prepare_qc: RwLock::new(None),
+            locked_qc: RwLock::new(Some(QuorumCertificate {
+                hash: genesis_hash,
+                view_number: 0,
+                stage: Stage::Decide,
+                signature: None,
+                genesis: true,
+            })),
+            prepare_qc: RwLock::new(Some(QuorumCertificate {
+                hash: genesis_hash,
+                view_number: 0,
+                stage: Stage::Prepare,
+                signature: None,
+                genesis: true,
+            })),
             new_view_queue: WaitQueue::new(t as usize),
             prepare_vote_queue: RwLock::new(Vec::new()),
             precommit_vote_queue: RwLock::new(Vec::new()),
@@ -282,7 +299,26 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             decide_waiter: WaitOnce::new(),
             decision_cache: DashMap::new(),
         };
-        todo!()
+        inner.decision_cache.insert(
+            genesis_hash,
+            QuorumCertificate {
+                hash: genesis_hash,
+                view_number: 0,
+                stage: Stage::Decide,
+                signature: None,
+                genesis: true,
+            },
+        );
+        inner.leaf_store.insert(
+            genesis_hash,
+            Leaf {
+                parent: [0_u8; 32],
+                item: genesis,
+            },
+        );
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 
     /// Returns true if the proposed leaf extends from the given block
