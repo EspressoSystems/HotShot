@@ -12,6 +12,7 @@ pub enum Message<T> {
     PreCommitVote(PreCommitVote),
     Commit(Commit),
     CommitVote(CommitVote),
+    Decide(Decide),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -57,4 +58,11 @@ pub struct Commit {
 pub struct CommitVote {
     pub leaf_hash: BlockHash,
     pub signature: SignatureShare,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Decide {
+    pub leaf_hash: BlockHash,
+    pub qc: QuorumCertificate,
+    pub current_view: u64,
 }

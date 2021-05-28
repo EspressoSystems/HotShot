@@ -182,12 +182,16 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     state: RwLock<B::State>,
     leaf_store: DashMap<BlockHash, Leaf<B>>,
     locked_qc: RwLock<Option<QuorumCertificate>>,
+    prepare_qc: RwLock<Option<QuorumCertificate>>,
     new_view_queue: WaitQueue<NewView>,
     prepare_vote_queue: RwLock<Vec<PrepareVote>>,
     precommit_vote_queue: RwLock<Vec<PreCommitVote>>,
+    commit_vote_queue: RwLock<Vec<CommitVote>>,
     prepare_waiter: WaitOnce<Prepare<B>>,
     precommit_waiter: WaitOnce<PreCommit>,
     commit_waiter: WaitOnce<Commit>,
+    decide_waiter: WaitOnce<Decide>,
+    decision_cache: DashMap<BlockHash, QuorumCertificate>,
 }
 
 impl<B: BlockContents + 'static> HotStuffInner<B> {
@@ -338,6 +342,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     stage: Stage::Prepare,
                     view_number: current_view,
                 };
+                // Store the pre-commit qc
+                let mut pqc = hotstuff.prepare_qc.write().await;
+                *pqc = Some(qc.clone());
                 let pc_message = Message::PreCommit(PreCommit {
                     leaf_hash: the_hash,
                     qc,
@@ -370,6 +377,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     leaf_hash: the_hash.clone(),
                     signature,
                 });
+                // store the prepare qc
+                let mut pqc = hotstuff.prepare_qc.write().await;
+                *pqc = Some(prepare_qc);
                 hotstuff
                     .networking
                     .message_node(vote_message, leader.clone())
@@ -417,7 +427,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 if !(precommit_qc.verify(Stage::PreCommit, current_view)
                     && precommit_qc.hash == the_hash)
                 {
-                    panic!("Bad or forged qc in commit phase of view {}", current_view,);
+                    panic!("Bad or forged qc in commit phase of view {}", current_view);
                 }
                 let mut locked_qc = hotstuff.locked_qc.write().await;
                 *locked_qc = Some(commit.qc);
@@ -437,6 +447,74 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                         "Failed to message leader in commit phase of view {}",
                         current_view
                     ));
+            }
+            /*
+            Decide Phase
+             */
+            if is_leader {
+                let mut vote_queue = hotstuff.commit_vote_queue.write().await;
+                let votes = vote_queue
+                    .drain(..)
+                    .filter(|x| x.leaf_hash == the_hash)
+                    .map(|x| x.signature);
+                let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
+                    "Failed to generate QC in decide phase of view {}",
+                    current_view
+                ));
+                let qc = QuorumCertificate {
+                    hash: the_hash,
+                    signature,
+                    stage: Stage::Decide,
+                    view_number: current_view,
+                };
+                // Add QC to decision cache
+                hotstuff.decision_cache.insert(the_hash, qc.clone());
+                // Apply the state
+                let new_state = the_block.append_to(&state);
+                if new_state.is_err() {
+                    panic!(
+                        "Failed to append new block to existing state in view {}",
+                        current_view,
+                    );
+                }
+                // hack to workaround blockcontents not having a debug bound
+                let new_state = new_state.unwrap_or_else(|_| unreachable!());
+                // set the new state
+                let mut state = hotstuff.state.write().await;
+                *state = new_state;
+                // Broadcast the decision
+                let d_message = Message::Decide(Decide {
+                    leaf_hash: the_hash,
+                    qc,
+                    current_view,
+                });
+                hotstuff
+                    .networking
+                    .broadcast_message(d_message)
+                    .await
+                    .expect("Failed to broadcast message");
+            } else {
+                let decide = hotstuff
+                    .decide_waiter
+                    .wait_for(|x| x.current_view == current_view)
+                    .await;
+                let decide_qc = decide.qc.clone();
+                if !(decide_qc.verify(Stage::Commit, current_view) && decide_qc.hash == the_hash) {
+                    panic!("Bad or forged qc in decide phase of view {}", current_view);
+                }
+                // Apply new state
+                let new_state = the_block.append_to(&state);
+                if new_state.is_err() {
+                    panic!(
+                        "Failed to append new block to existing state in view {}",
+                        current_view,
+                    );
+                }
+                // hack to workaround blockcontents not having a debug bound
+                let new_state = new_state.unwrap_or_else(|_| unreachable!());
+                // set the new state
+                let mut state = hotstuff.state.write().await;
+                *state = new_state;
             }
         };
     }
