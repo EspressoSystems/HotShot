@@ -145,6 +145,12 @@ pub struct QuorumCertificate {
     view_number: u64,
 }
 
+impl QuorumCertificate {
+    pub fn verify(&self) -> bool {
+        todo!()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 /// Represents the stages of consensus
 pub enum Stage {
@@ -168,13 +174,15 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     private_key: PrivKey,
     genesis: B,
     config: RwLock<HotStuffConfig>,
-    new_view_queue: WaitQueue<NewView>,
     networking: Box<dyn NetworkingImplementation<Message<B>>>,
     transaction_queue: RwLock<Vec<B::Transaction>>,
     state: RwLock<B::State>,
     leaf_store: DashMap<BlockHash, Leaf<B>>,
-    prepare_waiter: WaitOnce<Prepare<B>>,
     locked_qc: RwLock<Option<QuorumCertificate>>,
+    new_view_queue: WaitQueue<NewView>,
+    prepare_vote_queue: RwLock<Vec<PrepareVote>>,
+    prepare_waiter: WaitOnce<Prepare<B>>,
+    precommit_waiter: WaitOnce<PreCommit>,
 }
 
 impl<B: BlockContents + 'static> HotStuffInner<B> {
@@ -228,7 +236,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             let mut state: B::State = hotstuff.state.read().await.clone();
             /*
             Prepare phase
-            */
+             */
+            let the_block;
+            let the_hash;
             if is_leader {
                 // Prepare our block
                 let mut block = B::default();
@@ -250,18 +260,21 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     .unwrap() // Unwrap can't fail, as we can't receive an empty Vec from waitqueue
                     .justify;
                 // Create the Leaf, and add it to the store
-                let leaf = Leaf::new(block, high_qc.hash);
+                let leaf = Leaf::new(block.clone(), high_qc.hash);
                 hotstuff.leaf_store.insert(leaf.hash(), leaf.clone());
                 // Broadcast out the new leaf
                 hotstuff
                     .networking
                     .broadcast_message(Message::Prepare(Prepare {
                         current_view,
-                        leaf,
+                        leaf: leaf.clone(),
                         high_qc: high_qc.clone(),
                     }))
                     .await
                     .expect("Failed to broadcast message");
+                // Export the block
+                the_block = block;
+                the_hash = leaf.hash();
             } else {
                 // Wait for the leader to send us a prepare message
                 let prepare = hotstuff
@@ -279,7 +292,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     let signature = hotstuff.private_key.partial_sign(&leaf_hash);
                     let vote = PrepareVote {
                         signature,
-                        leaf_hash,
+                        leaf_hash: leaf_hash.clone(),
                     };
                     let vote_message = Message::PrepareVote(vote);
                     hotstuff
@@ -290,10 +303,74 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                             "Failed to message leader in prepare phase of view {}",
                             current_view
                         ));
+                    the_block = leaf.item;
+                    the_hash = leaf_hash;
                 } else {
                     panic!("Bad block in prepare phase of view {}", current_view);
                 }
             }
+            /*
+            Pre-commit phase
+             */
+            if is_leader {
+                // Collect the votes we have received from the nodes
+                let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
+                let votes = vote_queue
+                    .drain(..)
+                    .filter(|x| x.leaf_hash == the_hash)
+                    .map(|x| x.signature);
+                // Generate a quorum certificate from those votes
+                let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
+                    "Failed to generate QC in pre-commit phase of view {}",
+                    current_view
+                ));
+                let qc = QuorumCertificate {
+                    hash: the_hash,
+                    signature,
+                    view_number: current_view,
+                };
+                let pc_message = Message::PreCommit(PreCommit {
+                    leaf_hash: the_hash,
+                    qc,
+                    current_view,
+                });
+                hotstuff
+                    .networking
+                    .broadcast_message(pc_message)
+                    .await
+                    .expect("Failed to broadcast message");
+            } else {
+                // Wait for the leader to send us a precommit message
+                let precommit = hotstuff
+                    .precommit_waiter
+                    .wait_for(|x| x.current_view == current_view)
+                    .await;
+                let prepare_qc = precommit.qc;
+                if !(prepare_qc.verify() && prepare_qc.hash == the_hash) {
+                    panic!(
+                        "Bad or forged qc in precommit phase of view {}",
+                        current_view
+                    );
+                }
+                let vote_message = Message::PreCommitVote(PreCommitVote {
+                    leaf_hash: the_hash.clone(),
+                });
+                hotstuff
+                    .networking
+                    .message_node(vote_message, leader.clone())
+                    .await
+                    .expect(&format!(
+                        "Failed to message leader in prepare phase of view {}",
+                        current_view
+                    ));
+            }
         };
     }
+}
+
+fn generate_qc(
+    signatures: impl IntoIterator<Item = tc::SignatureShare>,
+    key: &PrivKey,
+) -> Option<tc::Signature> {
+    todo!()
 }

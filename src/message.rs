@@ -8,6 +8,8 @@ pub enum Message<T> {
     NewView(NewView),
     Prepare(Prepare<T>),
     PrepareVote(PrepareVote),
+    PreCommit(PreCommit),
+    PreCommitVote(PreCommitVote),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -26,5 +28,17 @@ pub struct Prepare<T> {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PrepareVote {
     pub signature: SignatureShare,
+    pub leaf_hash: BlockHash,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PreCommit {
+    pub leaf_hash: BlockHash,
+    pub qc: QuorumCertificate,
+    pub current_view: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PreCommitVote {
     pub leaf_hash: BlockHash,
 }
