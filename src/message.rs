@@ -31,6 +31,7 @@ pub struct Prepare<T> {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PrepareVote {
     pub signature: SignatureShare,
+    pub id: u64,
     pub leaf_hash: BlockHash,
 }
 
@@ -45,6 +46,7 @@ pub struct PreCommit {
 pub struct PreCommitVote {
     pub leaf_hash: BlockHash,
     pub signature: SignatureShare,
+    pub id: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -58,6 +60,7 @@ pub struct Commit {
 pub struct CommitVote {
     pub leaf_hash: BlockHash,
     pub signature: SignatureShare,
+    pub id: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

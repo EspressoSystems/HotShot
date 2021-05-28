@@ -42,11 +42,9 @@ type BlockHash = [u8; 32];
 /// Opaque wrapper around threshold_crypto key
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PubKey {
-    // overall: tc::PublicKey,
-    // node: tc::PublicKeyShare,
-    /// u64 nonce used for sorting
-    ///
-    /// Used for the leader election kludge
+    set: tc::PublicKeySet,
+    node: tc::PublicKeyShare,
+    /// The portion of the KeyShare this node holds
     pub nonce: u64,
 }
 
@@ -67,13 +65,13 @@ impl Ord for PubKey {
 /// Opaque wrapper around threshold_crypto key
 #[derive(Clone, Debug)]
 pub struct PrivKey {
-    node: tc::SecretKey,
+    node: tc::SecretKeyShare,
 }
 
 impl PrivKey {
     /// Uses this private key to produce a partial signature for the given block hash
-    pub fn partial_sign(&self, _hash: &BlockHash, _stage: Stage, _view: u64) -> tc::SignatureShare {
-        todo!()
+    pub fn partial_sign(&self, hash: &BlockHash, _stage: Stage, _view: u64) -> tc::SignatureShare {
+        self.node.sign(hash)
     }
 }
 
@@ -150,8 +148,13 @@ pub struct QuorumCertificate {
 
 impl QuorumCertificate {
     /// Verifies a quorum certificate
-    pub fn verify(&self, _stage: Stage, _view: u64) -> bool {
-        todo!()
+    pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
+        // Temporary, stage and view should be included in signature in future
+        if !(stage == self.stage && view == self.view_number) {
+            key.public_key().verify(&self.signature, &self.hash)
+        } else {
+            false
+        }
     }
 }
 
@@ -353,6 +356,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 let vote = PrepareVote {
                     signature,
                     leaf_hash: leaf_hash.clone(),
+                    id: hotstuff.public_key.nonce,
                 };
                 let vote_message = Message::PrepareVote(vote);
                 hotstuff
@@ -375,15 +379,19 @@ impl<B: BlockContents + 'static> HotStuff<B> {
         if is_leader {
             // Collect the votes we have received from the nodes
             let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
-            let votes = vote_queue
+            let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| x.signature);
+                .map(|x| (x.id, x.signature))
+                .collect();
             // Generate a quorum certificate from those votes
-            let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
-                "Failed to generate QC in pre-commit phase of view {}",
-                current_view
-            ));
+            let signature =
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
+                    &format!(
+                        "Failed to generate QC in pre-commit phase of view {}",
+                        current_view
+                    ),
+                );
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature,
@@ -410,7 +418,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             let prepare_qc = precommit.qc;
-            if !(prepare_qc.verify(Stage::Prepare, current_view) && prepare_qc.hash == the_hash) {
+            if !(prepare_qc.verify(&hotstuff.public_key.set, Stage::Prepare, current_view)
+                && prepare_qc.hash == the_hash)
+            {
                 panic!(
                     "Bad or forged qc in precommit phase of view {}",
                     current_view
@@ -423,6 +433,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             let vote_message = Message::PreCommitVote(PreCommitVote {
                 leaf_hash: the_hash.clone(),
                 signature,
+                id: hotstuff.public_key.nonce,
             });
             // store the prepare qc
             let mut pqc = hotstuff.prepare_qc.write().await;
@@ -441,14 +452,18 @@ impl<B: BlockContents + 'static> HotStuff<B> {
          */
         if is_leader {
             let mut vote_queue = hotstuff.prepare_vote_queue.write().await;
-            let votes = vote_queue
+            let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| x.signature);
-            let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
-                "Failed to generate QC in commit phase of view {}",
-                current_view
-            ));
+                .map(|x| (x.id, x.signature))
+                .collect();
+            let signature =
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
+                    &format!(
+                        "Failed to generate QC in commit phase of view {}",
+                        current_view
+                    ),
+                );
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature,
@@ -471,7 +486,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             let precommit_qc = commit.qc.clone();
-            if !(precommit_qc.verify(Stage::PreCommit, current_view)
+            if !(precommit_qc.verify(&hotstuff.public_key.set, Stage::PreCommit, current_view)
                 && precommit_qc.hash == the_hash)
             {
                 panic!("Bad or forged qc in commit phase of view {}", current_view);
@@ -485,6 +500,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
             let vote_message = Message::CommitVote(CommitVote {
                 leaf_hash: the_hash,
                 signature,
+                id: hotstuff.public_key.nonce,
             });
             hotstuff
                 .networking
@@ -500,14 +516,18 @@ impl<B: BlockContents + 'static> HotStuff<B> {
          */
         if is_leader {
             let mut vote_queue = hotstuff.commit_vote_queue.write().await;
-            let votes = vote_queue
+            let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| x.signature);
-            let signature = generate_qc(votes, &hotstuff.private_key).expect(&format!(
-                "Failed to generate QC in decide phase of view {}",
-                current_view
-            ));
+                .map(|x| (x.id, x.signature))
+                .collect();
+            let signature =
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
+                    &format!(
+                        "Failed to generate QC in decide phase of view {}",
+                        current_view
+                    ),
+                );
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature,
@@ -546,7 +566,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             let decide_qc = decide.qc.clone();
-            if !(decide_qc.verify(Stage::Commit, current_view) && decide_qc.hash == the_hash) {
+            if !(decide_qc.verify(&hotstuff.public_key.set, Stage::Commit, current_view)
+                && decide_qc.hash == the_hash)
+            {
                 panic!("Bad or forged qc in decide phase of view {}", current_view);
             }
             // Apply new state
@@ -566,9 +588,9 @@ impl<B: BlockContents + 'static> HotStuff<B> {
     }
 }
 
-fn generate_qc(
-    _signatures: impl IntoIterator<Item = tc::SignatureShare>,
-    _key: &PrivKey,
+fn generate_qc<'a>(
+    signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
+    key_set: &tc::PublicKeySet,
 ) -> Option<tc::Signature> {
-    todo!()
+    key_set.combine_signatures(signatures).ok()
 }
