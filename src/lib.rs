@@ -8,27 +8,28 @@
 #![allow(unreachable_code)] // Temporary
 //! Provides a generic rust implementation of the [HotStuff](https://arxiv.org/abs/1803.05069) BFT protocol
 
+mod data;
 mod error;
 mod message;
 mod networking;
 mod replica;
+mod utility;
 
-use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use futures_channel::oneshot::Receiver;
-use futures_lite::{future, FutureExt};
+use async_std::sync::RwLock;
+use dashmap::DashMap;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
 use threshold_crypto as tc;
 
+use crate::data::*;
 use crate::error::*;
 use crate::message::*;
 use crate::networking::*;
-use crate::replica::*;
+use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 
 type Result<T> = std::result::Result<T, HotStuffError>;
 
@@ -66,6 +67,12 @@ impl Ord for PubKey {
 #[derive(Clone, Debug)]
 pub struct PrivKey {
     node: tc::SecretKey,
+}
+
+impl PrivKey {
+    pub fn partial_sign(&self, hash: &BlockHash) -> tc::SignatureShare {
+        todo!()
+    }
 }
 
 /// The block trait
@@ -121,9 +128,6 @@ impl<B: Eq> Eq for BlockRef<B> {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Block<B> {
     contents: B,
-    parent_hashes: Vec<BlockHash>,
-    parents: Vec<BlockRef<B>>,
-    quorum_certificate: Option<QuorumCertificate>,
     qc_ref: Option<BlockRef<B>>,
     extra: Vec<u8>,
     height: u64,
@@ -138,6 +142,7 @@ impl<B: BlockContents> Block<B> {}
 pub struct QuorumCertificate {
     hash: BlockHash,
     signature: tc::Signature,
+    view_number: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -151,10 +156,25 @@ pub enum Stage {
     Decide,
 }
 
+pub struct HotStuffConfig {
+    total_nodes: u32,
+    thershold: u32,
+    max_transactions: usize,
+}
+
 /// Holds the state needed to participate in HotStuff consensus
 pub struct HotStuffInner<B: BlockContents + 'static> {
     public_key: PubKey,
+    private_key: PrivKey,
     genesis: B,
+    config: RwLock<HotStuffConfig>,
+    new_view_queue: WaitQueue<NewView>,
+    networking: Box<dyn NetworkingImplementation<Message<B>>>,
+    transaction_queue: RwLock<Vec<B::Transaction>>,
+    state: RwLock<B::State>,
+    leaf_store: DashMap<BlockHash, Leaf<B>>,
+    prepare_waiter: WaitOnce<Prepare<B>>,
+    locked_qc: RwLock<Option<QuorumCertificate>>,
 }
 
 impl<B: BlockContents + 'static> HotStuffInner<B> {
@@ -171,18 +191,108 @@ pub struct HotStuff<B: BlockContents + 'static> {
 }
 
 impl<B: BlockContents + 'static> HotStuff<B> {
-    /// Main run action
-    ///
-    /// launches the background task
-    pub async fn run_consensus(&self) {
+    pub async fn extends_from(&self, leaf: &Leaf<B>, node: &BlockHash) -> bool {
+        let mut parent = leaf.parent.clone();
+        // Short circuit to enable blocks that don't have parents
+        if &parent == node {
+            return true;
+        }
+        while parent != [0_u8; 32] {
+            if &parent == node {
+                return true;
+            }
+            let next_parent = self.inner.leaf_store.get(&parent);
+            if let Some(next_parent) = next_parent {
+                parent = next_parent.parent.clone();
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+    pub async fn safe_node(&self, leaf: &Leaf<B>, qc: &QuorumCertificate) -> bool {
+        if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
+            self.extends_from(leaf, &locked_qc.hash).await && qc.view_number > locked_qc.view_number
+        } else {
+            false
+        }
+    }
+    /// Runs a single round of consensus    
+    pub async fn run_round(&self, current_view: u64) {
         let hotstuff_outer = self.clone();
         let consensus = async move {
             let hotstuff = &hotstuff_outer.inner;
-            for current_view in 0.. {
-                // Get the leader for the current round
-                let leader = hotstuff.get_leader(current_view);
-                let is_leader = hotstuff.public_key == leader;
-                // Pre-commit
+            // Get the leader for the current round
+            let leader = hotstuff.get_leader(current_view);
+            let is_leader = hotstuff.public_key == leader;
+            let mut state: B::State = hotstuff.state.read().await.clone();
+            /*
+            Prepare phase
+            */
+            if is_leader {
+                // Prepare our block
+                let mut block = B::default();
+                let mut transaction_queue = hotstuff.transaction_queue.write().await;
+                // Iterate through all the transactions, keeping the valid ones and discarding the
+                // invalid ones
+                for tx in transaction_queue.drain(..) {
+                    // Make sure the transaction is valid given the current state, otherwise, discard it
+                    let new_block = block.add_transaction(&state, &tx);
+                    if let Ok(new_block) = new_block {
+                        block = new_block;
+                    }
+                }
+                // Wait until we have met the thershold of new-view messages
+                let new_views = hotstuff.new_view_queue.wait().await;
+                let high_qc = &new_views
+                    .iter()
+                    .max_by_key(|x| x.justify.view_number)
+                    .unwrap() // Unwrap can't fail, as we can't receive an empty Vec from waitqueue
+                    .justify;
+                // Create the Leaf, and add it to the store
+                let leaf = Leaf::new(block, high_qc.hash);
+                hotstuff.leaf_store.insert(leaf.hash(), leaf.clone());
+                // Broadcast out the new leaf
+                hotstuff
+                    .networking
+                    .broadcast_message(Message::Prepare(Prepare {
+                        current_view,
+                        leaf,
+                        high_qc: high_qc.clone(),
+                    }))
+                    .await
+                    .expect("Failed to broadcast message");
+            } else {
+                // Wait for the leader to send us a prepare message
+                let prepare = hotstuff
+                    .prepare_waiter
+                    .wait_for(|x| x.current_view == current_view)
+                    .await;
+                // Add the leaf to storage
+                let leaf = prepare.leaf;
+                let leaf_hash = leaf.hash();
+                hotstuff.leaf_store.insert(leaf_hash.clone(), leaf.clone());
+                // check that the message is safe, extends from the given qc, and is valid given the
+                // current state
+                if self.safe_node(&leaf, &prepare.high_qc).await && leaf.item.validate_block(&state)
+                {
+                    let signature = hotstuff.private_key.partial_sign(&leaf_hash);
+                    let vote = PrepareVote {
+                        signature,
+                        leaf_hash,
+                    };
+                    let vote_message = Message::PrepareVote(vote);
+                    hotstuff
+                        .networking
+                        .message_node(vote_message, leader.clone())
+                        .await
+                        .expect(&format!(
+                            "Failed to message leader in prepare phase of view {}",
+                            current_view
+                        ));
+                } else {
+                    panic!("Bad block in prepare phase of view {}", current_view);
+                }
             }
         };
     }
