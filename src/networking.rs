@@ -43,19 +43,6 @@ pub enum NetworkError {
     },
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub enum NetworkMessage<M> {
-    Broadcast {
-        message: M,
-        sender: PubKey,
-    },
-    Direct {
-        message: M,
-        sender: PubKey,
-        tag: PubKey,
-    },
-}
-
 pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
