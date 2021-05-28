@@ -2,7 +2,7 @@ use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
 use futures_lite::future::Boxed as BoxedFuture;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
 mod memory_network;
@@ -40,19 +40,6 @@ pub enum NetworkError {
     },
     Other {
         inner: Box<dyn std::error::Error + Send>,
-    },
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub enum NetworkMessage<M> {
-    Broadcast {
-        message: M,
-        sender: PubKey,
-    },
-    Direct {
-        message: M,
-        sender: PubKey,
-        tag: PubKey,
     },
 }
 
