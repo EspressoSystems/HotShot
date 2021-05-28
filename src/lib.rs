@@ -49,6 +49,16 @@ pub struct PubKey {
     pub nonce: u64,
 }
 
+impl PubKey {
+    /// Testing only random key generation
+    pub(crate) fn random(nonce: u64) -> PubKey {
+        let sks = tc::SecretKeySet::random(1, &mut rand::thread_rng());
+        let set = sks.public_keys();
+        let node = set.public_key_share(nonce);
+        PubKey { set, node, nonce }
+    }
+}
+
 impl PartialOrd for PubKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.nonce.partial_cmp(&other.nonce)

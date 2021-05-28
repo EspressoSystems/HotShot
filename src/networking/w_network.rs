@@ -467,9 +467,9 @@ mod tests {
     #[async_std::test]
     async fn w_network_inner_address_smoke() -> Result<(), NetworkError> {
         // Give ourselves an arbitrary pub key
-        let own_key = PubKey { nonce: 1234 };
+        let own_key = PubKey::random(1234);
         // Make some key/address pairs
-        let pub_keys: Vec<PubKey> = (0..3).map(|x| PubKey { nonce: x }).collect();
+        let pub_keys: Vec<PubKey> = (0..3).map(|x| PubKey::random(x)).collect();
         let inputs = vec!["localhost:8080", "localhost:8081", "localhost:8082"];
         // Manually resolve them
         let mut inputs_sockets = vec![];
@@ -515,7 +515,7 @@ mod tests {
     #[async_std::test]
     async fn process_generates_once() {
         let node_list = HashMap::new();
-        let own_key = PubKey { nonce: 1234 };
+        let own_key = PubKey::random(1234);
         let port = 8087;
         let y: WNetwork<Test> = WNetwork::new_from_strings(own_key.clone(), node_list, port, None)
             .await
@@ -533,8 +533,8 @@ mod tests {
     // Tests to see if we can pass a message from node_a to node_b
     #[async_std::test]
     async fn verify_single_message() {
-        let node_a_key = PubKey { nonce: 1000 };
-        let node_b_key = PubKey { nonce: 1001 };
+        let node_a_key = PubKey::random(1000);
+        let node_b_key = PubKey::random(1001);
         // Construct the nodes
         println!("Constructing node a");
         let node_a: WNetwork<Test> =
@@ -586,8 +586,8 @@ mod tests {
     // Bidirectinal message passing
     #[async_std::test]
     async fn verify_double_message() {
-        let node_a_key = PubKey { nonce: 1002 };
-        let node_b_key = PubKey { nonce: 1003 };
+        let node_a_key = PubKey::random(1002);
+        let node_b_key = PubKey::random(1003);
         // Construct the nodes
         println!("Constructing node a");
         let node_a: WNetwork<Test> =
@@ -650,8 +650,8 @@ mod tests {
     #[async_std::test]
     async fn twenty_messsages() {
         use async_std::task::yield_now;
-        let node_a_key = PubKey { nonce: 1004 };
-        let node_b_key = PubKey { nonce: 1005 };
+        let node_a_key = PubKey::random(1004);
+        let node_b_key = PubKey::random(1005);
         // Construct the nodes
         println!("Constructing node a");
         let node_a: WNetwork<Test> =

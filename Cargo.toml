@@ -24,7 +24,7 @@ parking_lot = { version = "0.11.1", features = ["serde"] }
 serde = { version = "1.0.123", features = ["derive", "rc"] }
 snafu = { version = "0.6.10", features = ["backtraces"] }
 threshold_crypto = "0.4.0"
+rand = "0.7.3"
 
 [dev-dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
-rand = "0.8.3"

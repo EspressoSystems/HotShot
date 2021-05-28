@@ -707,7 +707,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "parking_lot",
- "rand 0.8.3",
+ "rand 0.7.3",
  "serde",
  "snafu",
  "threshold_crypto",
