@@ -70,7 +70,7 @@ pub struct PrivKey {
 }
 
 impl PrivKey {
-    pub fn partial_sign(&self, hash: &BlockHash) -> tc::SignatureShare {
+    pub fn partial_sign(&self, hash: &BlockHash, stage: Stage, view: u64) -> tc::SignatureShare {
         todo!()
     }
 }
@@ -141,12 +141,13 @@ impl<B: BlockContents> Block<B> {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QuorumCertificate {
     hash: BlockHash,
-    signature: tc::Signature,
     view_number: u64,
+    stage: Stage,
+    signature: tc::Signature,
 }
 
 impl QuorumCertificate {
-    pub fn verify(&self) -> bool {
+    pub fn verify(&self, stage: Stage, view: u64) -> bool {
         todo!()
     }
 }
@@ -154,6 +155,8 @@ impl QuorumCertificate {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 /// Represents the stages of consensus
 pub enum Stage {
+    /// Prepare Phase
+    Prepare,
     /// PreCommit Phase
     PreCommit,
     /// Commit Phase
@@ -289,7 +292,10 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 // current state
                 if self.safe_node(&leaf, &prepare.high_qc).await && leaf.item.validate_block(&state)
                 {
-                    let signature = hotstuff.private_key.partial_sign(&leaf_hash);
+                    let signature =
+                        hotstuff
+                            .private_key
+                            .partial_sign(&leaf_hash, Stage::Prepare, current_view);
                     let vote = PrepareVote {
                         signature,
                         leaf_hash: leaf_hash.clone(),
@@ -327,6 +333,7 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                 let qc = QuorumCertificate {
                     hash: the_hash,
                     signature,
+                    stage: Stage::Prepare,
                     view_number: current_view,
                 };
                 let pc_message = Message::PreCommit(PreCommit {
@@ -346,14 +353,20 @@ impl<B: BlockContents + 'static> HotStuff<B> {
                     .wait_for(|x| x.current_view == current_view)
                     .await;
                 let prepare_qc = precommit.qc;
-                if !(prepare_qc.verify() && prepare_qc.hash == the_hash) {
+                if !(prepare_qc.verify(Stage::Prepare, current_view) && prepare_qc.hash == the_hash)
+                {
                     panic!(
                         "Bad or forged qc in precommit phase of view {}",
                         current_view
                     );
                 }
+                let signature =
+                    hotstuff
+                        .private_key
+                        .partial_sign(&the_hash, Stage::PreCommit, current_view);
                 let vote_message = Message::PreCommitVote(PreCommitVote {
                     leaf_hash: the_hash.clone(),
+                    signature,
                 });
                 hotstuff
                     .networking

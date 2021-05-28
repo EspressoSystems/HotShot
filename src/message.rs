@@ -41,4 +41,5 @@ pub struct PreCommit {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreCommitVote {
     pub leaf_hash: BlockHash,
+    pub signature: SignatureShare,
 }
