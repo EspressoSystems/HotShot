@@ -3,6 +3,7 @@ use async_std::{
     task::{sleep, spawn},
 };
 use async_tungstenite::{accept_async, client_async, tungstenite::protocol, WebSocketStream};
+use futures::channel::oneshot;
 use futures::stream::SplitSink;
 use futures::{pin_mut, prelude::*, select, stream::SplitStream};
 use futures_lite::future;
@@ -324,7 +325,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         });
     }
 
-    fn generate_task(&self) -> Option<future::Boxed<Result<(), NetworkError>>> {
+    fn generate_task(
+        &self,
+        sync: oneshot::Sender<()>,
+    ) -> Option<future::Boxed<Result<(), NetworkError>>> {
         // first check to see if we have generated the task before
         let generated = self
             .tasks_generated
@@ -359,6 +363,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     println!("Listener open on port: {:?}", listen_socket);
                     // Connection processing loop
                     let mut incoming = listener.incoming();
+                    // Our port is now open, send the sync signal
+                    sync.send(()).unwrap();
                     while let Some(stream) = incoming.next().await {
                         let stream = stream.expect("Failed to bind incoming connection.");
                         let addr = stream.peer_addr().unwrap();
@@ -462,6 +468,7 @@ mod tests {
         message: u64,
     }
     use super::*;
+    use async_std::task::yield_now;
     // Test both direct from SocketAddr creation and from String creation, and sanity check the
     // results against each other
     #[async_std::test]
@@ -522,11 +529,13 @@ mod tests {
             .expect("Creating WNetwork");
 
         // First call
-        let first = y.generate_task();
+        let (x, _sync) = oneshot::channel();
+        let first = y.generate_task(x);
         assert!(first.is_some());
 
         // Second call
-        let second = y.generate_task();
+        let (x, _sync) = oneshot::channel();
+        let second = y.generate_task(x);
         assert!(second.is_none());
     }
 
@@ -548,24 +557,25 @@ mod tests {
                 .unwrap();
         // Launch the tasks
         println!("Launching node a");
+        let (x, sync) = oneshot::channel();
         let node_a_task = node_a
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node a");
         spawn(node_a_task);
+        sync.await.unwrap();
         println!("Launching node b");
+        let (x, sync) = oneshot::channel();
         let node_b_task = node_b
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node b");
         spawn(node_b_task);
+        sync.await.unwrap();
         // Manually connect the nodes, this test is not intended to cover the auto-connection
         println!("Connecting nodes");
         node_a
             .connect_to(node_b_key.clone(), "127.0.0.1:10001")
             .await
             .expect("Failed to connect to node");
-        // Let things spin up
-        println!("Sleeping to allow message to arrive");
-        sleep(Duration::from_millis(100)).await;
         // Prepare a message
         let message = Test { message: 42 };
         // Send message from a to b
@@ -574,11 +584,12 @@ mod tests {
             .message_node(message.clone(), node_b_key.clone())
             .await
             .expect("Failed to message node b");
-        // Give some time for the message to arrive
-        println!("Sleeping to allow message to arrive");
-        sleep(Duration::from_millis(50)).await;
         // attempt to pick it back up from node b
-        let recieved_messages = node_b.direct_queue().await.unwrap();
+        let mut recieved_messages = node_b.direct_queue().await.unwrap();
+        while recieved_messages.is_empty() {
+            yield_now().await;
+            recieved_messages = node_b.direct_queue().await.unwrap();
+        }
         println!("recieved: {:?}", recieved_messages);
         assert_eq!(recieved_messages[0], message);
     }
@@ -601,24 +612,25 @@ mod tests {
                 .unwrap();
         // Launch the tasks
         println!("Launching node a");
+        let (x, sync) = oneshot::channel();
         let node_a_task = node_a
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node a");
         spawn(node_a_task);
+        sync.await.unwrap();
         println!("Launching node b");
+        let (x, sync) = oneshot::channel();
         let node_b_task = node_b
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node b");
         spawn(node_b_task);
+        sync.await.unwrap();
         // Manually connect the nodes, this test is not intended to cover the auto-connection
         println!("Connecting nodes");
         node_a
             .connect_to(node_b_key.clone(), "127.0.0.1:10003")
             .await
             .expect("Failed to connect to node");
-        // Let things spin up
-        println!("Sleeping to allow message to arrive");
-        sleep(Duration::from_millis(100)).await;
         // Prepare a message
         let message = Test { message: 42 };
         // Send message from a to b
@@ -627,11 +639,12 @@ mod tests {
             .message_node(message.clone(), node_b_key.clone())
             .await
             .expect("Failed to message node b");
-        // Give some time for the message to arrive
-        println!("Sleeping to allow message to arrive");
-        sleep(Duration::from_millis(100)).await;
         // attempt to pick it back up from node b
-        let recieved_messages = node_b.direct_queue().await.unwrap();
+        let mut recieved_messages = node_b.direct_queue().await.unwrap();
+        while recieved_messages.is_empty() {
+            yield_now().await;
+            recieved_messages = node_b.direct_queue().await.unwrap();
+        }
         println!("recieved: {:?}", recieved_messages);
         assert_eq!(recieved_messages[0], message);
         // Send message from b to a
@@ -641,15 +654,17 @@ mod tests {
             .message_node(message2.clone(), node_a_key.clone())
             .await
             .expect("Failed to message node a");
-        sleep(Duration::from_millis(100)).await;
-        let recieved_messages = node_a.direct_queue().await.unwrap();
+        let mut recieved_messages = node_a.direct_queue().await.unwrap();
+        while recieved_messages.is_empty() {
+            yield_now().await;
+            recieved_messages = node_a.direct_queue().await.unwrap();
+        }
         assert_eq!(recieved_messages[0], message2);
     }
 
     // Fire off 20 messages between each node
     #[async_std::test]
     async fn twenty_messsages() {
-        use async_std::task::yield_now;
         let node_a_key = PubKey::random(1004);
         let node_b_key = PubKey::random(1005);
         // Construct the nodes
@@ -665,23 +680,25 @@ mod tests {
                 .unwrap();
         // Launch the tasks
         println!("Launching node a");
+        let (x, sync) = oneshot::channel();
         let node_a_task = node_a
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node a");
         spawn(node_a_task);
+        sync.await.unwrap();
         println!("Launching node b");
+        let (x, sync) = oneshot::channel();
         let node_b_task = node_b
-            .generate_task()
+            .generate_task(x)
             .expect("Failed to open task for node b");
         spawn(node_b_task);
+        sync.await.unwrap();
         // Manually connect the nodes, this test is not intended to cover the auto-connection
         println!("Connecting nodes");
         node_a
             .connect_to(node_b_key.clone(), "127.0.0.1:10005")
             .await
             .expect("Failed to connect to node");
-        // Sleep to allow connection to finish
-        sleep(Duration::from_millis(50)).await;
         // Fire off 20 messages
         for i in 0..20 {
             // a -> b
