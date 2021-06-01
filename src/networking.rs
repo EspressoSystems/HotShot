@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
 mod memory_network;
-mod w_network;
+pub mod w_network;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]

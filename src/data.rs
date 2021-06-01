@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{BlockContents, BlockHash};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Leaf<T> {
     pub parent: BlockHash,
     pub item: T,

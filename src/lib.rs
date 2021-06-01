@@ -354,8 +354,17 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 
     /// Returns true if a proposed leaf satisfies the safety rule
     pub async fn safe_node(&self, leaf: &Leaf<B>, qc: &QuorumCertificate) -> bool {
+        if qc.genesis {
+            return true;
+        }
         if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
-            self.extends_from(leaf, &locked_qc.hash).await && qc.view_number > locked_qc.view_number
+            let extends_from = self.extends_from(leaf, &locked_qc.hash).await;
+            let view_number = qc.view_number > locked_qc.view_number;
+            // println!(
+            //     "extends from: {} view number: {} ({},{})",
+            //     extends_from, view_number, qc.view_number, locked_qc.view_number
+            // );
+            extends_from || view_number
         } else {
             false
         }
@@ -391,10 +400,16 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
          */
         let the_block;
         let the_hash;
+        //        println!("Prepare");
         if is_leader {
             // Prepare our block
             let mut block = B::default();
+            // spin while the transaction_queue is empty
+            while hotstuff.transaction_queue.read().await.is_empty() {
+                async_std::task::yield_now().await;
+            }
             let mut transaction_queue = hotstuff.transaction_queue.write().await;
+            //            println!("Transaction Queue: {:?}", transaction_queue);
             // Iterate through all the transactions, keeping the valid ones and discarding the
             // invalid ones
             for tx in transaction_queue.drain(..) {
@@ -467,6 +482,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         /*
         Pre-commit phase
          */
+        //        println!("Precommit");
         if is_leader {
             // Collect the votes we have received from the nodes
             let mut vote_queue = hotstuff.prepare_vote_queue.wait().await;
@@ -543,12 +559,14 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         Commit Phase
          */
         if is_leader {
-            let mut vote_queue = hotstuff.prepare_vote_queue.wait().await;
+            //            println!("Commit Leader");
+            let mut vote_queue = hotstuff.precommit_vote_queue.wait().await;
             let votes: Vec<_> = vote_queue
                 .drain(..)
                 .filter(|x| x.leaf_hash == the_hash)
                 .map(|x| (x.id, x.signature))
                 .collect();
+            //            println!("leader has votes for commit");
             let signature =
                 generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
                     &format!(
@@ -574,10 +592,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .await
                 .expect("Failed to broadcast message");
         } else {
+            //            println!("Commit Follower");
             let commit = hotstuff
                 .commit_waiter
                 .wait_for(|x| x.current_view == current_view)
                 .await;
+            //            println!("follower has precommit qc");
             let precommit_qc = commit.qc.clone();
             if !(precommit_qc.verify(&hotstuff.public_key.set, Stage::PreCommit, current_view)
                 && precommit_qc.hash == the_hash)
@@ -607,6 +627,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         /*
         Decide Phase
          */
+        //        println!("Decide");
         if is_leader {
             let mut vote_queue = hotstuff.commit_vote_queue.wait().await;
             let votes: Vec<_> = vote_queue
@@ -660,12 +681,19 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             let decide_qc = decide.qc.clone();
-            if !(decide_qc.verify(&hotstuff.public_key.set, Stage::Commit, current_view)
+            // println!("Decide QC: {:?}", decide_qc);
+            // println!("The hash: {:?}", the_hash);
+            // println!(
+            //     "Decide verify: {}",
+            //     decide_qc.verify(&hotstuff.public_key.set, Stage::Decide, current_view)
+            // );
+            if !(decide_qc.verify(&hotstuff.public_key.set, Stage::Decide, current_view)
                 && decide_qc.hash == the_hash)
             {
                 panic!("Bad or forged qc in decide phase of view {}", current_view);
             }
             // Apply new state
+            //            println!("The block: {:?}", the_block);
             let new_state = the_block.append_to(&state);
             if new_state.is_err() {
                 panic!(
@@ -679,6 +707,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             let mut state = hotstuff.state.write().await;
             *state = new_state;
         }
+        // Clear the transaction queue, temporary, need background task to clear already included
+        // transactions
+
+        self.inner.transaction_queue.write().await.clear();
     }
 
     /// Spawns the background tasks for network processing for this instance
@@ -745,6 +777,11 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             .await
             .context(NetworkFault)?;
         Ok(())
+    }
+
+    /// Returns a copy of the state
+    pub async fn get_state(&self) -> B::State {
+        self.inner.state.read().await.clone()
     }
 }
 
