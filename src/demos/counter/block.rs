@@ -1,6 +1,4 @@
-use blake3::hash;
-use byteorder::{ByteOrder, LittleEndian};
-// use core::mem::size_of;
+use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
@@ -11,10 +9,12 @@ pub struct CounterBlock {
     pub tx: Option<CounterTransaction>,
 }
 
+type CounterState = u64;
+
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub enum CounterTransaction {
-    Inc { previous: u64 },
-    Genesis { state: u64 },
+    Inc { previous: CounterState },
+    Genesis { state: CounterState },
 }
 
 #[derive(Snafu, Debug)]
@@ -23,11 +23,14 @@ pub enum CounterError {
     AlreadyHasTx,
 }
 
+/// Constants to distinguish hash of a non-empty transaction from
+/// an empty one.
+const TX_SOME: [u8; 1] = [0u8];
+const TX_NONE: [u8; 1] = [1u8];
+
 impl BlockContents for CounterBlock {
-    type State = u64;
-
+    type State = CounterState;
     type Transaction = CounterTransaction;
-
     type Error = CounterError;
 
     /// Add a transation provided either
@@ -60,16 +63,16 @@ impl BlockContents for CounterBlock {
         }
     }
 
-    /// A block is valid provided either
+    /// A block is valid provided one of the following
     ///    - the transaction is an Inc and state matches the tx.previous, or
-    ///    - the transaction is a Genesis
+    ///    - the transaction is a Genesis, or
+    ///    - the block's transaction is None
     /// Note: add_transaction only accepts valid transactions
     fn validate_block(&self, state: &Self::State) -> bool {
         if let Some(tx) = &self.tx {
-            if let CounterTransaction::Inc { previous } = tx {
-                previous == state
-            } else {
-                true
+            match &tx {
+                CounterTransaction::Inc { previous } => previous == state,
+                CounterTransaction::Genesis { .. } => true,
             }
         } else {
             true
@@ -92,41 +95,32 @@ impl BlockContents for CounterBlock {
         }
     }
 
-    /// Hash self's transaction. Create a buffer one byte larger
-    /// than the state (current counter value). Use the 0th byte as
-    /// a flag to distinguish the empty transaction from the Genesis
-    /// transaction. Return the hash of the buffer.
-    fn hash(&self) -> crate::BlockHash {
-        // let mut bytes = [0_u8; 1 + size_of::<Self::State>()];
-        let mut bytes = [0_u8; 9];
-        if let Some(tx) = &self.tx {
-            match tx {
-                CounterTransaction::Inc { previous } => {
-                    LittleEndian::write_u64(&mut bytes[1..], *previous)
-                }
-                CounterTransaction::Genesis { state } => {
-                    LittleEndian::write_u64(&mut bytes[1..], *state)
-                }
-            }
-        } else {
-            // Distinguish None from Genesis.
-            bytes[0] = 1;
-        }
-        *hash(&bytes).as_bytes()
+    /// Hash a transaction. Include a flag in the hash to distinguish
+    /// the hash of a transaction from the hash of an instance with
+    /// `tx == None`.
+    fn hash_transaction(tx: &Self::Transaction) -> crate::BlockHash {
+        let mut hasher = Hasher::new();
+        hasher.update(&TX_SOME);
+        let bytes = match tx {
+            CounterTransaction::Inc { previous } => previous.to_be_bytes(),
+            CounterTransaction::Genesis { state } => state.to_be_bytes(),
+        };
+        hasher.update(&bytes);
+        *hasher.finalize().as_bytes()
     }
 
-    /// Why isn't this used above in fn hash?
-    fn hash_transaction(tx: &Self::Transaction) -> crate::BlockHash {
-        let mut bytes = [0_u8; 9];
-        match tx {
-            CounterTransaction::Inc { previous } => {
-                LittleEndian::write_u64(&mut bytes[1..], *previous)
-            }
-            CounterTransaction::Genesis { state } => {
-                LittleEndian::write_u64(&mut bytes[1..], *state)
-            }
+    /// Hash self's transaction. Prepend a byte flag to distinguish
+    /// the empty transaction from the Genesis transaction. Return the
+    /// hash of the buffer.
+    fn hash(&self) -> crate::BlockHash {
+        let mut hasher = Hasher::new();
+        if let Some(tx) = &self.tx {
+            Self::hash_transaction(tx)
+        } else {
+            // Distinguish None from Genesis.
+            hasher.update(&TX_NONE);
+            hasher.update(&Self::State::default().to_be_bytes());
+            *hasher.finalize().as_bytes()
         }
-
-        *hash(&bytes).as_bytes()
     }
 }
