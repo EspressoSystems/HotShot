@@ -104,10 +104,10 @@ mod test {
             sync.await.unwrap();
         }
         // Connect the hotstuffs
-        for (_, key, port, _) in &hotstuffs {
+        for (i, (_, key, port, _)) in hotstuffs.iter().enumerate() {
             let socket = format!("localhost:{}", port);
             // Loop through all the other hotstuffs and connect it to this one
-            for (_, key_2, port_2, network_2) in &hotstuffs {
+            for (_, key_2, port_2, network_2) in &hotstuffs[i..] {
                 println!("Connecting {} to {}", port_2, port);
                 if key != key_2 {
                     network_2
