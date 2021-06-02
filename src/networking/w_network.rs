@@ -157,6 +157,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         message: Command<T>,
     ) -> Result<(), NetworkError> {
         // Check to see if we have the node
+        println!(
+            "Send raw message {}: Finding connection to node {}",
+            self.inner.own_key.nonce, node.nonce
+        );
         let addr = self
             .inner
             .nodes
@@ -165,6 +169,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .get(node)
             .cloned()
             .context(NoSuchNode)?;
+        println!(
+            "Send raw message {}: Found connection to node {}",
+            self.inner.own_key.nonce, node.nonce
+        );
         /*
         Bincode up the command
         */
@@ -211,8 +219,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let inner = Arc::new(inner);
         let tasks_generated = Arc::new(AtomicBool::new(false));
         // Default the duration to 100ms for now
-        let keep_alive_duration =
-            keep_alive_duration.unwrap_or_else(|| Duration::from_millis(1000));
+        let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(100));
         let ping_count = Arc::new(AtomicU64::new(0));
         let pong_count = Arc::new(AtomicU64::new(0));
         Ok(Self {
@@ -260,7 +267,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             protocol::Message::Binary(bin) => {
                                 let decoded: Command<T> = bincode::deserialize(&bin[..])
                                     .expect("Failed to deserialize incoming message");
-                                println!("Node: {:?}, Message: {:?}", x.port, decoded);
+                                //println!("Node: {:?}, Message: {:?}", x.inner.own_key.nonce, decoded);
                                 // Branch on the type of command
                                 match decoded {
                                     Command::Broadcast { inner, from: _ } => {
@@ -319,10 +326,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             statement being used in such a way that that I have yet found.
              */
             loop {
-                println!("At top of event loop {}", x.port);
+                // println!("At top of event loop {}", x.inner.own_key.nonce);
                 select! {
                     _ = timer => {
-                        println!("Timer event fired {}", x.port);
+                        // println!("Timer event fired {}", x.port);
                         /*
                         Find the socket in the outgoing_connections map
 
@@ -345,7 +352,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         timer.set(sleep(x.keep_alive_duration.clone()).fuse());
                     },
                     (stop, stream) = next => {
-                        println!("Stream event fired {}", x.port);
+                        // println!("Stream event fired {}", x.port);
                         if stop {
                             break;
                         }
@@ -417,6 +424,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .boxed(),
             )
         }
+    }
+    pub async fn connection_table_size(&self) -> usize {
+        self.inner.outgoing_connections.read().await.len()
+    }
+    pub async fn nodes_table_size(&self) -> usize {
+        self.inner.nodes.read().await.len()
     }
 }
 
