@@ -4,11 +4,15 @@ use snafu::Snafu;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum HotStuffError {
-    #[snafu(display("Sanity Check Failed"))]
+    /// Sanity check failed
     SanityCheckFailure,
+    /// Attempted to deliver a block more than once
     BlockAlreadyDelivered,
+    /// New high qc is not valid
     NewHQCInvalid,
+    /// Failure in networking layer
     NetworkFault {
-        source: crate::NetworkError,
+        /// Underlying network fault
+        source: crate::networking::NetworkError,
     },
 }

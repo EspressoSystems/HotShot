@@ -2,19 +2,26 @@
 #![warn(clippy::pedantic)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]
-#![warn(clippy::clippy::missing_docs_in_private_items)]
-#![allow(dead_code)] // Temporary
-#![allow(clippy::unused_self)] // Temporary
-#![allow(unreachable_code)] // Temporary
-//! Provides a generic rust implementation of the [HotStuff](https://arxiv.org/abs/1803.05069) BFT protocol
+#![warn(clippy::missing_docs_in_private_items)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::clippy::similar_names)]
+#![allow(clippy::cast_possible_truncation)] // Temporary
+//! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT protocol
 
-mod data;
-mod demos;
-mod error;
-mod message;
-mod networking;
-mod replica;
-mod utility;
+/// Provides types useful for representing `HotStuff`'s data structures
+pub mod data;
+/// Contains integration test versions of various demos
+pub mod demos;
+/// Contains error types used by this library
+pub mod error;
+/// Contains structures used for representing network messages
+pub mod message;
+/// Contains traits describing and implementations of networking layers
+pub mod networking;
+/// Contains general utility structures and methods
+pub mod utility;
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -22,17 +29,19 @@ use std::sync::Arc;
 
 use async_std::sync::RwLock;
 use dashmap::DashMap;
-use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use threshold_crypto as tc;
 
-use crate::data::*;
-use crate::error::*;
-use crate::message::*;
-use crate::networking::*;
+use crate::data::Leaf;
+use crate::error::{HotStuffError, NetworkFault};
+use crate::message::{
+    Commit, CommitVote, Decide, Message, NewView, PreCommit, PreCommitVote, Prepare, PrepareVote,
+};
+use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 
+/// Convenience type alias
 type Result<T> = std::result::Result<T, HotStuffError>;
 
 /// The type used for block hashes
@@ -40,10 +49,12 @@ type BlockHash = [u8; 32];
 
 /// Public key type
 ///
-/// Opaque wrapper around threshold_crypto key
+/// Opaque wrapper around `threshold_crypto` key
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PubKey {
+    /// Overall public key set for the network
     set: tc::PublicKeySet,
+    /// The public key share that this node holds
     node: tc::PublicKeyShare,
     /// The portion of the KeyShare this node holds
     pub nonce: u64,
@@ -51,6 +62,7 @@ pub struct PubKey {
 
 impl PubKey {
     /// Testing only random key generation
+    #[allow(dead_code)]
     pub(crate) fn random(nonce: u64) -> PubKey {
         let sks = tc::SecretKeySet::random(1, &mut rand::thread_rng());
         let set = sks.public_keys();
@@ -73,14 +85,16 @@ impl Ord for PubKey {
 
 /// Private key stub type
 ///
-/// Opaque wrapper around threshold_crypto key
+/// Opaque wrapper around `threshold_crypto` key
 #[derive(Clone, Debug)]
 pub struct PrivKey {
+    /// This node's share of the overall secret key
     node: tc::SecretKeyShare,
 }
 
 impl PrivKey {
     /// Uses this private key to produce a partial signature for the given block hash
+    #[must_use]
     pub fn partial_sign(&self, hash: &BlockHash, _stage: Stage, _view: u64) -> tc::SignatureShare {
         self.node.sign(hash)
     }
@@ -106,6 +120,10 @@ pub trait BlockContents:
     type Error;
 
     /// Attempts to add a transaction, returning an Error if not compatible with the current state
+    ///
+    /// # Errors
+    ///
+    /// Should return an error if this transaction leads to an invalid block
     fn add_transaction(
         &self,
         state: &Self::State,
@@ -114,6 +132,10 @@ pub trait BlockContents:
     /// ensures that the block is append able to the current state
     fn validate_block(&self, state: &Self::State) -> bool;
     /// Appends the block to the state
+    ///
+    /// # Errors
+    ///
+    /// Should produce an error if this block leads to an invalid state
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error>;
     /// Produces a hash for the contents of the block
     fn hash(&self) -> BlockHash;
@@ -123,37 +145,16 @@ pub trait BlockContents:
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash;
 }
 
-/// Type alias for a mutexed, shared owernship block
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BlockRef<B>(pub Arc<Mutex<Block<B>>>);
-
-impl<B: PartialEq> PartialEq for BlockRef<B> {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0) || &*self.0.lock() == &*other.0.lock()
-    }
-}
-
-impl<B: Eq> Eq for BlockRef<B> {}
-
-/// Block struct
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Block<B> {
-    contents: B,
-    qc_ref: Option<BlockRef<B>>,
-    extra: Vec<u8>,
-    height: u64,
-    delivered: bool,
-    decision: bool,
-}
-
-impl<B: BlockContents> Block<B> {}
-
 /// The type used for quorum certs
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QuorumCertificate {
+    /// Block this QC refers to
     hash: BlockHash,
+    /// The view we were on when we made this certificate
     view_number: u64,
+    /// The stage of consensus we were on when we made this certificate
     stage: Stage,
+    /// The signature portion of this QC
     signature: Option<tc::Signature>,
     /// Temporary bypass for boostrapping
     genesis: bool,
@@ -161,6 +162,7 @@ pub struct QuorumCertificate {
 
 impl QuorumCertificate {
     /// Verifies a quorum certificate
+    #[must_use]
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
         // Temporary, stage and view should be included in signature in future
         if let Some(signature) = &self.signature {
@@ -198,13 +200,14 @@ pub struct HotStuffConfig {
     pub known_nodes: Vec<PubKey>,
 }
 
-/// Holds the state needed to participate in HotStuff consensus
+/// Holds the state needed to participate in `HotStuff` consensus
 pub struct HotStuffInner<B: BlockContents + 'static> {
     /// The public key of this node
     public_key: PubKey,
     /// The private key of this node
     private_key: PrivKey,
     /// The genesis block, used for short-circuiting during bootstrap
+    #[allow(dead_code)]
     genesis: B,
     /// Configuration items for this hotstuff instance
     config: HotStuffConfig,
@@ -243,14 +246,15 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
 impl<B: BlockContents + 'static> HotStuffInner<B> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
-        let index = view % self.config.total_nodes as u64;
+        let index = view % u64::from(self.config.total_nodes);
         self.config.known_nodes[index as usize].clone()
     }
 }
 
-/// Thread safe, shared view of a HotStuff
+/// Thread safe, shared view of a `HotStuff`
 #[derive(Clone)]
 pub struct HotStuff<B: BlockContents + Send + Sync + 'static> {
+    /// Handle to internal hotstuff implementation
     inner: Arc<HotStuffInner<B>>,
 }
 
@@ -333,7 +337,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 
     /// Returns true if the proposed leaf extends from the given block
     pub async fn extends_from(&self, leaf: &Leaf<B>, node: &BlockHash) -> bool {
-        let mut parent = leaf.parent.clone();
+        let mut parent = leaf.parent;
         // Short circuit to enable blocks that don't have parents
         if &parent == node {
             return true;
@@ -344,7 +348,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             }
             let next_parent = self.inner.leaf_store.get(&parent);
             if let Some(next_parent) = next_parent {
-                parent = next_parent.parent.clone();
+                parent = next_parent.parent;
             } else {
                 return false;
             }
@@ -367,10 +371,18 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     }
 
     /// Sends out the next view message
+    ///
+    /// # Panics
+    ///
+    /// Panics if we there is no `prepare_qc`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an underlying networking error occurs
     pub async fn next_view(&self, current_view: u64) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         // If we are the new leader, do nothing
-        if !(new_leader == self.inner.public_key) {
+        if new_leader != self.inner.public_key {
             let view_message = Message::NewView(NewView {
                 current_view,
                 justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
@@ -384,7 +396,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         Ok(())
     }
 
-    /// Runs a single round of consensus    
+    /// Runs a single round of consensus
+    ///
+    /// # Panics
+    ///
+    /// Panics if consensus hits a bad round
+    #[allow(clippy::too_many_lines)]
     pub async fn run_round(&self, current_view: u64) {
         let hotstuff = &self.inner;
         // Get the leader for the current round
@@ -445,7 +462,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             // Add the leaf to storage
             let leaf = prepare.leaf;
             let leaf_hash = leaf.hash();
-            hotstuff.leaf_store.insert(leaf_hash.clone(), leaf.clone());
+            hotstuff.leaf_store.insert(leaf_hash, leaf.clone());
             // check that the message is safe, extends from the given qc, and is valid given the
             // current state
             if self.safe_node(&leaf, &prepare.high_qc).await && leaf.item.validate_block(&state) {
@@ -455,7 +472,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                         .partial_sign(&leaf_hash, Stage::Prepare, current_view);
                 let vote = PrepareVote {
                     signature,
-                    leaf_hash: leaf_hash.clone(),
+                    leaf_hash,
                     id: hotstuff.public_key.nonce,
                 };
                 let vote_message = Message::PrepareVote(vote);
@@ -463,10 +480,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     .networking
                     .message_node(vote_message, leader.clone())
                     .await
-                    .expect(&format!(
-                        "Failed to message leader in prepare phase of view {}",
-                        current_view
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to message leader in prepare phase of view {}",
+                            current_view
+                        )
+                    });
                 the_block = leaf.item;
                 the_hash = leaf_hash;
             } else {
@@ -486,12 +505,13 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .collect();
             // Generate a quorum certificate from those votes
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
-                    &format!(
-                        "Failed to generate QC in pre-commit phase of view {}",
-                        current_view
-                    ),
-                );
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to generate QC in pre-commit phase of view {}",
+                            current_view
+                        )
+                    });
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -532,7 +552,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     .private_key
                     .partial_sign(&the_hash, Stage::PreCommit, current_view);
             let vote_message = Message::PreCommitVote(PreCommitVote {
-                leaf_hash: the_hash.clone(),
+                leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
             });
@@ -543,10 +563,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
-                .expect(&format!(
-                    "Failed to message leader in prepare phase of view {}",
-                    current_view
-                ));
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to message leader in prepare phase of view {}",
+                        current_view
+                    )
+                });
         }
         /*
         Commit Phase
@@ -559,12 +581,13 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
-                    &format!(
-                        "Failed to generate QC in commit phase of view {}",
-                        current_view
-                    ),
-                );
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to generate QC in commit phase of view {}",
+                            current_view
+                        )
+                    });
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -608,10 +631,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
-                .expect(&format!(
-                    "Failed to message leader in commit phase of view {}",
-                    current_view
-                ));
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to message leader in commit phase of view {}",
+                        current_view
+                    )
+                });
         }
         /*
         Decide Phase
@@ -624,12 +649,13 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).expect(
-                    &format!(
-                        "Failed to generate QC in decide phase of view {}",
-                        current_view
-                    ),
-                );
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to generate QC in decide phase of view {}",
+                            current_view
+                        )
+                    });
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -694,7 +720,14 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         self.inner.transaction_queue.write().await.clear();
     }
 
-    /// Spawns the background tasks for network processing for this instance
+    /// Spawns the background tasks for network processin for this instance
+    ///
+    /// These will process in the background and load items into their designated queues
+    ///
+    /// # Panics
+    ///
+    /// Panics if the underlying network implementation incorrectly routes a network request to the
+    /// wrong queue
     pub async fn spawn_networking_tasks(&self) {
         let x = self.clone();
         // Spawn broadcast processing task
@@ -747,6 +780,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     }
 
     /// Publishes a transaction to the network
+    ///
+    /// # Errors
+    ///
+    /// Will generate an error if an underlying network error occurs
     pub async fn publish_transaction_async(&self, tx: B::Transaction) -> Result<()> {
         // Add the transaction to our own queue first
         self.inner.transaction_queue.write().await.push(tx.clone());
@@ -766,6 +803,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     }
 }
 
+/// Attempts to generate a quorum certificate from the provided signatures
 fn generate_qc<'a>(
     signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
     key_set: &tc::PublicKeySet,

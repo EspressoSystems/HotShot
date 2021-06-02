@@ -10,19 +10,26 @@ use crate::networking::{ListenerSend, NetworkingImplementation, NoSuchNode};
 use crate::PubKey;
 
 #[derive(Clone)]
+/// In memory network emulator
 pub struct MemoryNetwork<T: Clone> {
+    /// Broadcast queue for each node
     broadcast: Arc<RwLock<HashMap<PubKey, VecDeque<T>>>>,
+    /// Direct queue for each nodes
     direct: Arc<RwLock<HashMap<PubKey, VecDeque<T>>>>,
+    /// The list of nodes
     nodes: Arc<parking_lot::RwLock<HashSet<PubKey>>>,
+    /// The ID for this node
     node_id: Option<PubKey>,
 }
 
 impl<T: Clone> MemoryNetwork<T> {
+    /// Creates a new `MemoryNetwork` and loads this node into it
     pub fn new(node_id: PubKey) -> Self {
         let x = Self::new_listener();
         x.add_node(node_id)
     }
 
+    /// Creates a new `MemoryNetwork` that can only receive broadcasts
     pub fn new_listener() -> Self {
         Self {
             broadcast: Arc::new(RwLock::new(HashMap::new())),
@@ -32,6 +39,7 @@ impl<T: Clone> MemoryNetwork<T> {
         }
     }
 
+    /// Creates a clone of the existing `MemoryNetwork`, but with a new node associated
     pub fn add_node(&self, node_id: PubKey) -> Self {
         let mut x = self.clone();
         x.node_id = Some(node_id.clone());
@@ -42,6 +50,7 @@ impl<T: Clone> MemoryNetwork<T> {
         x
     }
 
+    /// Creates a clone of the existing `MemoryNetwork` that can only receive broadcasts
     pub fn add_listener(&self) -> Self {
         let mut x = self.clone();
         x.node_id = None;

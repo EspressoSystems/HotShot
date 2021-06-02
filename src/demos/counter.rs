@@ -1,6 +1,7 @@
-mod block;
+/// `BlockContents` implementation for the the counter demo
+pub mod block;
 
-use block::*;
+use block::{CounterBlock, CounterTransaction};
 
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
@@ -10,11 +11,13 @@ use crate::message::Message;
 use crate::networking::w_network::WNetwork;
 use crate::{HotStuff, HotStuffConfig, PubKey};
 
-fn gen_keys(threshold: usize) -> tc::SecretKeySet {
+/// Generates the `SecretKeySet` for this BFT instance
+pub fn gen_keys(threshold: usize) -> tc::SecretKeySet {
     tc::SecretKeySet::random(threshold, &mut rand::thread_rng())
 }
 
-async fn try_network<
+/// Attempts to create a network connection with a random port
+pub async fn try_network<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 >(
     key: PubKey,
@@ -29,7 +32,8 @@ async fn try_network<
     )
 }
 
-fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
+/// Turns a `PublicKeySet` into a set of `HotStuff` `PubKey`s
+pub fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
     (0..total)
         .map(|x| PubKey {
             set: set.clone(),
@@ -39,7 +43,8 @@ fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
         .collect()
 }
 
-async fn try_hotstuff(
+/// Attempts to create a hotstuff instance
+pub async fn try_hotstuff(
     keys: &tc::SecretKeySet,
     total: usize,
     threshold: usize,
@@ -57,7 +62,7 @@ async fn try_hotstuff(
     let tc_pub_key = pub_key_set.public_key_share(node_number);
     let pub_key = PubKey {
         set: pub_key_set.clone(),
-        node: tc_pub_key.clone(),
+        node: tc_pub_key,
         nonce: node_number as u64,
     };
     let config = HotStuffConfig {

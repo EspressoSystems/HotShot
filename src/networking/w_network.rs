@@ -27,37 +27,55 @@ use crate::networking::{
 use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+/// Represents a network message
 pub enum Command<T> {
     /// A message that was broadcast to all nodes
     Broadcast {
+        /// Message being sent
         inner: T,
+        /// Who is sending it
         from: PubKey,
     },
     /// A message that was sent directly to this node
     Direct {
+        /// Message being sent
         inner: T,
+        /// Who is sending it
         from: PubKey,
+        /// Who its being sent to
         to: PubKey,
     },
     /// A message identifying the sending node
     Identify {
+        /// Who the message is from
         from: PubKey,
     },
+    /// Ping keepalive message
     Ping,
+    /// Response to ping
     Pong,
 }
 
+/// Internal state used by `WNetwork`
 struct WNetworkInner<T> {
+    /// The public key of this node
     own_key: PubKey,
+    /// Queue of incoming broadcast messages remaining to be processed
     broadcast_queue: flume::Receiver<T>,
+    /// Queue of incoming direct messages remaining to be processed    
     direct_queue: flume::Receiver<T>,
+    /// The identites of the other nodes that this node knows about
     nodes: RwLock<HashMap<PubKey, SocketAddr>>,
+    /// The list of outgoing connections
+    #[allow(clippy::clippy::type_complexity)]
     outgoing_connections: RwLock<
         HashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
     >,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
+    /// Creates a new `WNetworkInner` with the given internals
+    #[allow(dead_code)]
     fn new(
         own_key: PubKey,
         node_list: impl IntoIterator<Item = (PubKey, SocketAddr)>,
@@ -72,7 +90,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
             outgoing_connections: RwLock::new(HashMap::new()),
         }
     }
-
+    /// Creates a new `WNetworkInner` preloaded with connections to the nodes in `node_list`
+    ///
+    /// # Errors
+    ///
+    /// Will error if an underlying networking error occurs
     async fn new_from_strings(
         own_key: PubKey,
         node_list: impl IntoIterator<Item = (PubKey, String)>,
@@ -101,9 +123,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
 }
 
 #[derive(Clone)]
+/// Handle to the underlying networking implementation
 pub struct WNetwork<T> {
+    /// Pointer to the actual implementation
     inner: Arc<WNetworkInner<T>>,
+    /// Keeps track of if the track has been generated or not
     tasks_generated: Arc<AtomicBool>,
+    /// The port we are listening on
     port: Arc<u16>,
     /// Keepalive timer duration
     keep_alive_duration: Duration,
@@ -120,6 +146,11 @@ pub struct WNetwork<T> {
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     WNetwork<T>
 {
+    /// Creates a connection to the given node
+    ///
+    /// # Errors
+    ///
+    /// Will error if an underlying networking error occurs
     pub async fn connect_to(
         &self,
         key: PubKey,
@@ -127,14 +158,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     ) -> Result<(), NetworkError> {
         let mut outgoing_connections = self.inner.outgoing_connections.write().await;
         let socket = TcpStream::connect(addr).await.context(ExecutorError)?;
-        let addr = socket.peer_addr().unwrap();
+        let addr = socket.peer_addr().context(SocketDecodeError {
+            input: "connect_to",
+        })?;
         let url = format!("ws://{}", addr);
         // Bincode up an identification command
         let ident = protocol::Message::Binary(
             bincode::serialize(&Command::<T>::Identify {
                 from: self.inner.own_key.clone(),
             })
-            .unwrap(),
+            .context(FailedToSerialize)?,
         );
         // Get the socket
         let (web_socket, _) = client_async(url, socket).await.context(WError)?;
@@ -151,6 +184,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         nodes.insert(key, addr);
         Ok(())
     }
+    /// Sends a raw message to the specified node
+    ///
+    /// # Errors
+    ///
+    /// Will error if an underlying network error occurs
     async fn send_raw_message(
         &self,
         node: &PubKey,
@@ -204,6 +242,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
+    /// Creates a new `WNetwork` preloaded with connections to the nodes in `node_list`
+    ///
+    /// # Errors
+    ///
+    /// Will error if an underlying networking error occurs
     pub async fn new_from_strings(
         own_key: PubKey,
         node_list: impl IntoIterator<Item = (PubKey, String)>,
@@ -310,7 +353,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     .boxed()
                 };
             // Keep alive interrupt
-            let timer = sleep(x.keep_alive_duration.clone()).fuse();
+            let timer = sleep(x.keep_alive_duration).fuse();
             pin_mut!(timer);
             // Next item future
             let mut next = next_fut(stream).fuse();
@@ -324,6 +367,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             This requires the use of select!, and there is no ergonomic way to loop over a select!
             statement being used in such a way that that I have yet found.
              */
+            // This macro expansion includes an &mut &mut T, which clippy hates
+            #[allow(clippy::clippy::mut_mut)]
             loop {
                 select! {
                     _ = timer => {
@@ -346,7 +391,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         x.ping_count.fetch_add(1, Ordering::SeqCst);
 
                         // reset the timer
-                        timer.set(sleep(x.keep_alive_duration.clone()).fuse());
+                        timer.set(sleep(x.keep_alive_duration).fuse());
                     },
                     (stop, stream) = next => {
                         if stop {
@@ -359,7 +404,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             }
         });
     }
-
+    /// Generates the background processing task
+    ///
+    /// Will only generate the task once, subsequent calls will return `None`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
@@ -415,9 +466,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             )
         }
     }
+    /// Returns the size of the internal connection table
     pub async fn connection_table_size(&self) -> usize {
         self.inner.outgoing_connections.read().await.len()
     }
+    /// Returns the size of the internal nodes table
     pub async fn nodes_table_size(&self) -> usize {
         self.inner.nodes.read().await.len()
     }
