@@ -211,7 +211,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let inner = Arc::new(inner);
         let tasks_generated = Arc::new(AtomicBool::new(false));
         // Default the duration to 100ms for now
-        let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(100));
+        let keep_alive_duration =
+            keep_alive_duration.unwrap_or_else(|| Duration::from_millis(1000));
         let ping_count = Arc::new(AtomicU64::new(0));
         let pong_count = Arc::new(AtomicU64::new(0));
         Ok(Self {
