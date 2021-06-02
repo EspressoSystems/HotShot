@@ -52,8 +52,9 @@ struct WNetworkInner<T> {
     broadcast_queue: flume::Receiver<T>,
     direct_queue: flume::Receiver<T>,
     nodes: RwLock<HashMap<PubKey, SocketAddr>>,
-    outgoing_connections:
-        RwLock<HashMap<SocketAddr, SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
+    outgoing_connections: RwLock<
+        HashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
+    >,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
@@ -142,7 +143,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         // Identify ourselves
         outgoing.feed(ident).await.context(WError)?;
         // slot the new connection into the internal map
-        outgoing_connections.insert(addr, outgoing);
+        outgoing_connections.insert(addr, RwLock::new(outgoing));
         // Register the new inbound connection
         self.register_incoming_connection(addr, incoming).await;
         // Load into the socket map
@@ -170,9 +171,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let binary = bincode::serialize(&message).context(FailedToSerialize)?;
         let w_message = protocol::Message::Binary(binary);
         // Check to see if we have a connection
-        let mut outgoing_connections = self.inner.outgoing_connections.write().await;
-        let connection = outgoing_connections.get_mut(&addr);
-        if let Some(connection) = connection {
+        let outgoing_connections = self.inner.outgoing_connections.read().await;
+        let connection_lock = outgoing_connections.get(&addr);
+        if let Some(connection_lock) = connection_lock {
+            let mut connection = connection_lock.write().await;
             // Use the existing connection, if one exists
             connection.feed(w_message).await.context(WError)?;
             Ok(())
@@ -182,9 +184,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             // Open a new connection
             self.connect_to(node.clone(), addr).await?;
             // Grab the connection
-            let mut map = self.inner.outgoing_connections.write().await;
-            let connection = map.get_mut(&addr).expect("Newly opened connection missing");
-            connection.feed(w_message).await.context(WError)?;
+            let map = self.inner.outgoing_connections.read().await;
+            let connection = map.get(&addr).expect("Newly opened connection missing");
+            connection
+                .write()
+                .await
+                .feed(w_message)
+                .await
+                .context(WError)?;
             Ok(())
         }
     }
@@ -271,9 +278,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                         let bin = bincode::serialize(&Command::<T>::Pong).unwrap();
                                         let message = protocol::Message::Binary(bin);
                                         // Grab the socket and send the ping
-                                        let mut map = x.inner.outgoing_connections.write().await;
-                                        let socket = map.get_mut(&addr)
+                                        let map = x.inner.outgoing_connections.read().await;
+                                        let socket_lock = map.get(&addr)
                                             .expect("Received on a socket we have no record of.");
+                                        let mut socket = socket_lock.write().await;
                                         socket.feed(message).await.expect("Failed to send pong");
                                     }
                                     Command::Pong => {
@@ -312,37 +320,38 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             loop {
                 //                println!("At top of event loop {}", x.port);
                 select! {
-                                    _ = timer => {
-                //                        println!("Timer event fired {}", x.port);
-                                        /*
-                                        Find the socket in the outgoing_connections map
+                    _ = timer => {
+                        //                        println!("Timer event fired {}", x.port);
+                        /*
+                        Find the socket in the outgoing_connections map
 
-                                        Unwrap for the time being, its a violation of internal constraints and a
-                                        sign of a bug if we don't have a matching outgoing connection
-                                         */
-                                        let mut map = x.inner.outgoing_connections.write().await;
-                                        let socket = map.get_mut(&addr).unwrap();
-                                        // Prepare the ping
-                                        // Cant fail to serialize, this variant doesn't contain anything
-                                        let bytes = bincode::serialize(&Command::<T>::Ping).unwrap();
-                                        let message = protocol::Message::Binary(bytes);
-                                        // Send the ping
-                                        socket.feed(message).await.expect("failed to send ping");
-                                        // Increment the counter
-                                        x.ping_count.fetch_add(1, Ordering::SeqCst);
+                        Unwrap for the time being, its a violation of internal constraints and a
+                        sign of a bug if we don't have a matching outgoing connection
+                         */
+                        let map = x.inner.outgoing_connections.read().await;
+                        let socket_lock = map.get(&addr).unwrap();
+                        let mut socket = socket_lock.write().await;
+                        // Prepare the ping
+                        // Cant fail to serialize, this variant doesn't contain anything
+                        let bytes = bincode::serialize(&Command::<T>::Ping).unwrap();
+                        let message = protocol::Message::Binary(bytes);
+                        // Send the ping
+                        socket.feed(message).await.expect("failed to send ping");
+                        // Increment the counter
+                        x.ping_count.fetch_add(1, Ordering::SeqCst);
 
-                                        // reset the timer
-                                        timer.set(sleep(x.keep_alive_duration.clone()).fuse());
-                                    },
-                                    (stop, stream) = next => {
-                //                        println!("Stream event fired {}", x.port);
-                                        if stop {
-                                            break;
-                                        }
-                                        // Replace the future
-                                        next = next_fut(stream).fuse()
-                                    }
-                                }
+                        // reset the timer
+                        timer.set(sleep(x.keep_alive_duration.clone()).fuse());
+                    },
+                    (stop, stream) = next => {
+                        //                        println!("Stream event fired {}", x.port);
+                        if stop {
+                            break;
+                        }
+                        // Replace the future
+                        next = next_fut(stream).fuse()
+                    }
+                }
             }
         });
     }
@@ -398,7 +407,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         Register the outbound connection manually
                         */
                         let mut outgoing_connections = x.inner.outgoing_connections.write().await;
-                        outgoing_connections.insert(addr, outgoing);
+                        outgoing_connections.insert(addr, RwLock::new(outgoing));
                         // Register the inbound connection
                         x.register_incoming_connection(addr, incoming).await;
                     }
