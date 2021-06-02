@@ -445,7 +445,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                 from: w.inner.own_key.clone(),
             };
             // Iterate through every known node
-            for node in w.inner.nodes.read().await.keys() {
+            let node_list: Vec<_> = {
+                // Use a block here to make sure we drop the lock, as send_raw_message may attempt
+                // to open a new connection, via connect_to, which modifies nodes
+                let nodes_lock = w.inner.nodes.read().await;
+                nodes_lock.keys().cloned().collect()
+            };
+            for node in &node_list {
                 // Hacky work around with some futures lifetime nonsense
                 let m = m.clone();
                 // Send the node the message
