@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -49,19 +49,24 @@ pub enum Command<T> {
 
 struct WNetworkInner<T> {
     own_key: PubKey,
-    broadcast_queue: RwLock<VecDeque<T>>,
-    direct_queue: RwLock<VecDeque<T>>,
+    broadcast_queue: flume::Receiver<T>,
+    direct_queue: flume::Receiver<T>,
     nodes: RwLock<HashMap<PubKey, SocketAddr>>,
     outgoing_connections:
         RwLock<HashMap<SocketAddr, SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
-    fn new(own_key: PubKey, node_list: impl IntoIterator<Item = (PubKey, SocketAddr)>) -> Self {
+    fn new(
+        own_key: PubKey,
+        node_list: impl IntoIterator<Item = (PubKey, SocketAddr)>,
+        broadcast: flume::Receiver<T>,
+        direct: flume::Receiver<T>,
+    ) -> Self {
         Self {
             own_key,
-            broadcast_queue: RwLock::new(VecDeque::new()),
-            direct_queue: RwLock::new(VecDeque::new()),
+            broadcast_queue: broadcast,
+            direct_queue: direct,
             nodes: RwLock::new(node_list.into_iter().collect()),
             outgoing_connections: RwLock::new(HashMap::new()),
         }
@@ -70,6 +75,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
     async fn new_from_strings(
         own_key: PubKey,
         node_list: impl IntoIterator<Item = (PubKey, String)>,
+        broadcast: flume::Receiver<T>,
+        direct: flume::Receiver<T>,
     ) -> Result<Self, NetworkError> {
         let mut node_map = HashMap::new();
         for (k, v) in node_list {
@@ -84,8 +91,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
         }
         Ok(Self {
             own_key,
-            broadcast_queue: RwLock::new(VecDeque::new()),
-            direct_queue: RwLock::new(VecDeque::new()),
+            broadcast_queue: broadcast,
+            direct_queue: direct,
             nodes: RwLock::new(node_map),
             outgoing_connections: RwLock::new(HashMap::new()),
         })
@@ -103,6 +110,10 @@ pub struct WNetwork<T> {
     ping_count: Arc<AtomicU64>,
     /// Keepalive round trips, used for debugging
     pong_count: Arc<AtomicU64>,
+    /// Holds onto the broadcast channel
+    broadcast: flume::Sender<T>,
+    /// Holds onto the direct channel
+    direct: flume::Sender<T>,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
@@ -184,7 +195,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         port: u16,
         keep_alive_duration: Option<Duration>,
     ) -> Result<Self, NetworkError> {
-        let inner: WNetworkInner<T> = WNetworkInner::new_from_strings(own_key, node_list).await?;
+        // TODO: For now use small bounds on the flume channel to make sure that they block early.
+        // Investigate proper limits.
+        let (broadcast_s, broadcast_r) = flume::bounded(16);
+        let (direct_s, direct_r) = flume::bounded(16);
+        let inner: WNetworkInner<T> =
+            WNetworkInner::new_from_strings(own_key, node_list, broadcast_r, direct_r).await?;
         let inner = Arc::new(inner);
         let tasks_generated = Arc::new(AtomicBool::new(false));
         // Default the duration to 100ms for now
@@ -198,6 +214,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             inner,
             tasks_generated,
             port: Arc::new(port),
+            broadcast: broadcast_s,
+            direct: direct_s,
         })
     }
 
@@ -239,12 +257,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                 match decoded {
                                     Command::Broadcast { inner, from: _ } => {
                                         // Add the message to our broadcast queue
-                                        x.inner.broadcast_queue.write().await.push_back(inner);
+                                        x.broadcast.send_async(inner).await.unwrap()
                                     }
                                     Command::Direct { inner, from: _, to } => {
                                         // make sure this is meant for us, otherwise, discard it
                                         if x.inner.own_key == to {
-                                            x.inner.direct_queue.write().await.push_back(inner);
+                                            x.direct.send_async(inner).await.unwrap()
                                         }
                                     }
                                     Command::Ping => {
@@ -437,22 +455,44 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 
     fn broadcast_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.broadcast_queue.write().await.drain(..).collect()) }.boxed()
+        async move {
+            let mut output = vec![];
+            if w.inner.broadcast_queue.is_empty() {
+                let x = w.inner.broadcast_queue.recv_async().await.unwrap();
+                output.push(x);
+            }
+            while let Ok(x) = w.inner.broadcast_queue.try_recv() {
+                output.push(x);
+            }
+            Ok(output)
+        }
+        .boxed()
     }
 
     fn next_broadcast(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.broadcast_queue.write().await.pop_front()) }.boxed()
+        async move { Ok(Some(w.inner.broadcast_queue.recv_async().await.unwrap())) }.boxed()
     }
 
     fn direct_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.direct_queue.write().await.drain(..).collect()) }.boxed()
+        async move {
+            let mut output = vec![];
+            if w.inner.direct_queue.is_empty() {
+                let x = w.inner.direct_queue.recv_async().await.unwrap();
+                output.push(x);
+            }
+            while let Ok(x) = w.inner.direct_queue.try_recv() {
+                output.push(x);
+            }
+            Ok(output)
+        }
+        .boxed()
     }
 
     fn next_direct(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.direct_queue.write().await.pop_front()) }.boxed()
+        async move { Ok(Some(w.inner.direct_queue.recv_async().await.unwrap())) }.boxed()
     }
 
     fn known_nodes(&self) -> future::Boxed<Vec<PubKey>> {
@@ -508,9 +548,19 @@ mod tests {
         }
 
         // Get our networking implementation and don't
-        let x: WNetworkInner<Test> = WNetworkInner::new(own_key.clone(), input_sockets);
-        let y: WNetworkInner<Test> =
-            WNetworkInner::new_from_strings(own_key.clone(), input_strings.clone()).await?;
+        let (_broadcast_s, broadcast_r) = flume::bounded(16);
+        let (_direct_s, direct_r) = flume::bounded(16);
+        let x: WNetworkInner<Test> =
+            WNetworkInner::new(own_key.clone(), input_sockets, broadcast_r, direct_r);
+        let (_broadcast_s, broadcast_r) = flume::bounded(16);
+        let (_direct_s, direct_r) = flume::bounded(16);
+        let y: WNetworkInner<Test> = WNetworkInner::new_from_strings(
+            own_key.clone(),
+            input_strings.clone(),
+            broadcast_r,
+            direct_r,
+        )
+        .await?;
 
         // Compare the nodes tables for equality
         assert!(x.nodes.try_unwrap().unwrap() == y.nodes.try_unwrap().unwrap());
