@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -49,19 +49,25 @@ pub enum Command<T> {
 
 struct WNetworkInner<T> {
     own_key: PubKey,
-    broadcast_queue: RwLock<VecDeque<T>>,
-    direct_queue: RwLock<VecDeque<T>>,
+    broadcast_queue: flume::Receiver<T>,
+    direct_queue: flume::Receiver<T>,
     nodes: RwLock<HashMap<PubKey, SocketAddr>>,
-    outgoing_connections:
-        RwLock<HashMap<SocketAddr, SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
+    outgoing_connections: RwLock<
+        HashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
+    >,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
-    fn new(own_key: PubKey, node_list: impl IntoIterator<Item = (PubKey, SocketAddr)>) -> Self {
+    fn new(
+        own_key: PubKey,
+        node_list: impl IntoIterator<Item = (PubKey, SocketAddr)>,
+        broadcast: flume::Receiver<T>,
+        direct: flume::Receiver<T>,
+    ) -> Self {
         Self {
             own_key,
-            broadcast_queue: RwLock::new(VecDeque::new()),
-            direct_queue: RwLock::new(VecDeque::new()),
+            broadcast_queue: broadcast,
+            direct_queue: direct,
             nodes: RwLock::new(node_list.into_iter().collect()),
             outgoing_connections: RwLock::new(HashMap::new()),
         }
@@ -70,6 +76,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
     async fn new_from_strings(
         own_key: PubKey,
         node_list: impl IntoIterator<Item = (PubKey, String)>,
+        broadcast: flume::Receiver<T>,
+        direct: flume::Receiver<T>,
     ) -> Result<Self, NetworkError> {
         let mut node_map = HashMap::new();
         for (k, v) in node_list {
@@ -84,8 +92,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
         }
         Ok(Self {
             own_key,
-            broadcast_queue: RwLock::new(VecDeque::new()),
-            direct_queue: RwLock::new(VecDeque::new()),
+            broadcast_queue: broadcast,
+            direct_queue: direct,
             nodes: RwLock::new(node_map),
             outgoing_connections: RwLock::new(HashMap::new()),
         })
@@ -103,6 +111,10 @@ pub struct WNetwork<T> {
     ping_count: Arc<AtomicU64>,
     /// Keepalive round trips, used for debugging
     pong_count: Arc<AtomicU64>,
+    /// Holds onto the broadcast channel
+    broadcast: flume::Sender<T>,
+    /// Holds onto the direct channel
+    direct: flume::Sender<T>,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
@@ -131,7 +143,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         // Identify ourselves
         outgoing.feed(ident).await.context(WError)?;
         // slot the new connection into the internal map
-        outgoing_connections.insert(addr, outgoing);
+        outgoing_connections.insert(addr, RwLock::new(outgoing));
         // Register the new inbound connection
         self.register_incoming_connection(addr, incoming).await;
         // Load into the socket map
@@ -145,6 +157,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         message: Command<T>,
     ) -> Result<(), NetworkError> {
         // Check to see if we have the node
+        println!(
+            "Send raw message {}: Finding connection to node {}",
+            self.inner.own_key.nonce, node.nonce
+        );
         let addr = self
             .inner
             .nodes
@@ -153,15 +169,20 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .get(node)
             .cloned()
             .context(NoSuchNode)?;
+        println!(
+            "Send raw message {}: Found connection to node {}",
+            self.inner.own_key.nonce, node.nonce
+        );
         /*
         Bincode up the command
         */
         let binary = bincode::serialize(&message).context(FailedToSerialize)?;
         let w_message = protocol::Message::Binary(binary);
         // Check to see if we have a connection
-        let mut outgoing_connections = self.inner.outgoing_connections.write().await;
-        let connection = outgoing_connections.get_mut(&addr);
-        if let Some(connection) = connection {
+        let outgoing_connections = self.inner.outgoing_connections.read().await;
+        let connection_lock = outgoing_connections.get(&addr);
+        if let Some(connection_lock) = connection_lock {
+            let mut connection = connection_lock.write().await;
             // Use the existing connection, if one exists
             connection.feed(w_message).await.context(WError)?;
             Ok(())
@@ -171,9 +192,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             // Open a new connection
             self.connect_to(node.clone(), addr).await?;
             // Grab the connection
-            let mut map = self.inner.outgoing_connections.write().await;
-            let connection = map.get_mut(&addr).expect("Newly opened connection missing");
-            connection.feed(w_message).await.context(WError)?;
+            let map = self.inner.outgoing_connections.read().await;
+            let connection = map.get(&addr).expect("Newly opened connection missing");
+            connection
+                .write()
+                .await
+                .feed(w_message)
+                .await
+                .context(WError)?;
             Ok(())
         }
     }
@@ -184,7 +210,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         port: u16,
         keep_alive_duration: Option<Duration>,
     ) -> Result<Self, NetworkError> {
-        let inner: WNetworkInner<T> = WNetworkInner::new_from_strings(own_key, node_list).await?;
+        // TODO: For now use small bounds on the flume channel to make sure that they block early.
+        // Investigate proper limits.
+        let (broadcast_s, broadcast_r) = flume::bounded(16);
+        let (direct_s, direct_r) = flume::bounded(16);
+        let inner: WNetworkInner<T> =
+            WNetworkInner::new_from_strings(own_key, node_list, broadcast_r, direct_r).await?;
         let inner = Arc::new(inner);
         let tasks_generated = Arc::new(AtomicBool::new(false));
         // Default the duration to 100ms for now
@@ -198,6 +229,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             inner,
             tasks_generated,
             port: Arc::new(port),
+            broadcast: broadcast_s,
+            direct: direct_s,
         })
     }
 
@@ -234,17 +267,17 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             protocol::Message::Binary(bin) => {
                                 let decoded: Command<T> = bincode::deserialize(&bin[..])
                                     .expect("Failed to deserialize incoming message");
-//                                println!("Node: {:?}, Message: {:?}", x.port, decoded);
+                                //println!("Node: {:?}, Message: {:?}", x.inner.own_key.nonce, decoded);
                                 // Branch on the type of command
                                 match decoded {
                                     Command::Broadcast { inner, from: _ } => {
                                         // Add the message to our broadcast queue
-                                        x.inner.broadcast_queue.write().await.push_back(inner);
+                                        x.broadcast.send_async(inner).await.unwrap()
                                     }
                                     Command::Direct { inner, from: _, to } => {
                                         // make sure this is meant for us, otherwise, discard it
                                         if x.inner.own_key == to {
-                                            x.inner.direct_queue.write().await.push_back(inner);
+                                            x.direct.send_async(inner).await.unwrap()
                                         }
                                     }
                                     Command::Ping => {
@@ -253,9 +286,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                         let bin = bincode::serialize(&Command::<T>::Pong).unwrap();
                                         let message = protocol::Message::Binary(bin);
                                         // Grab the socket and send the ping
-                                        let mut map = x.inner.outgoing_connections.write().await;
-                                        let socket = map.get_mut(&addr)
+                                        let map = x.inner.outgoing_connections.read().await;
+                                        let socket_lock = map.get(&addr)
                                             .expect("Received on a socket we have no record of.");
+                                        let mut socket = socket_lock.write().await;
                                         socket.feed(message).await.expect("Failed to send pong");
                                     }
                                     Command::Pong => {
@@ -292,39 +326,40 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             statement being used in such a way that that I have yet found.
              */
             loop {
-                //                println!("At top of event loop {}", x.port);
+                // println!("At top of event loop {}", x.inner.own_key.nonce);
                 select! {
-                                    _ = timer => {
-                //                        println!("Timer event fired {}", x.port);
-                                        /*
-                                        Find the socket in the outgoing_connections map
+                    _ = timer => {
+                        // println!("Timer event fired {}", x.port);
+                        /*
+                        Find the socket in the outgoing_connections map
 
-                                        Unwrap for the time being, its a violation of internal constraints and a
-                                        sign of a bug if we don't have a matching outgoing connection
-                                         */
-                                        let mut map = x.inner.outgoing_connections.write().await;
-                                        let socket = map.get_mut(&addr).unwrap();
-                                        // Prepare the ping
-                                        // Cant fail to serialize, this variant doesn't contain anything
-                                        let bytes = bincode::serialize(&Command::<T>::Ping).unwrap();
-                                        let message = protocol::Message::Binary(bytes);
-                                        // Send the ping
-                                        socket.feed(message).await.expect("failed to send ping");
-                                        // Increment the counter
-                                        x.ping_count.fetch_add(1, Ordering::SeqCst);
+                        Unwrap for the time being, its a violation of internal constraints and a
+                        sign of a bug if we don't have a matching outgoing connection
+                         */
+                        let map = x.inner.outgoing_connections.read().await;
+                        let socket_lock = map.get(&addr).unwrap();
+                        let mut socket = socket_lock.write().await;
+                        // Prepare the ping
+                        // Cant fail to serialize, this variant doesn't contain anything
+                        let bytes = bincode::serialize(&Command::<T>::Ping).unwrap();
+                        let message = protocol::Message::Binary(bytes);
+                        // Send the ping
+                        socket.feed(message).await.expect("failed to send ping");
+                        // Increment the counter
+                        x.ping_count.fetch_add(1, Ordering::SeqCst);
 
-                                        // reset the timer
-                                        timer.set(sleep(x.keep_alive_duration.clone()).fuse());
-                                    },
-                                    (stop, stream) = next => {
-                //                        println!("Stream event fired {}", x.port);
-                                        if stop {
-                                            break;
-                                        }
-                                        // Replace the future
-                                        next = next_fut(stream).fuse()
-                                    }
-                                }
+                        // reset the timer
+                        timer.set(sleep(x.keep_alive_duration.clone()).fuse());
+                    },
+                    (stop, stream) = next => {
+                        // println!("Stream event fired {}", x.port);
+                        if stop {
+                            break;
+                        }
+                        // Replace the future
+                        next = next_fut(stream).fuse()
+                    }
+                }
             }
         });
     }
@@ -339,15 +374,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .unwrap_or(true);
         if generated {
-            //            println!("Task not generated");
+            println!("Task not generated");
             // We will only generate the tasks once, so go ahead and fault out
             None
         } else {
-            //            println!("Generating task");
+            println!("Generating task");
             let x = self.clone();
             Some(
                 async move {
-                    //                    println!("Inside task spawning future");
+                    println!("Inside task spawning future");
                     // Open up a listener
                     let listen_socket = ("0.0.0.0", *x.port)
                         .to_socket_addrs()
@@ -360,11 +395,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         .context(NoSocketsError {
                             input: x.port.to_string(),
                         })?;
-                    //                    println!("Opening listener open on port: {:?}", listen_socket);
+                    println!("Opening listener open on port: {:?}", listen_socket);
                     let listener = TcpListener::bind(listen_socket)
                         .await
                         .context(FailedToBindListener)?;
-                    //                    println!("Listener open on port: {:?}", listen_socket);
+                    println!("Listener open on port: {:?}", listen_socket);
                     // Connection processing loop
                     let mut incoming = listener.incoming();
                     // Our port is now open, send the sync signal
@@ -372,7 +407,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     while let Some(stream) = incoming.next().await {
                         let stream = stream.expect("Failed to bind incoming connection.");
                         let addr = stream.peer_addr().unwrap();
-                        //                        println!("Processing stream from: {:?}", addr);
+                        println!("Processing stream from: {:?}", addr);
                         // Process the stream and open up a new task to handle this connection
                         let ws_stream = accept_async(stream).await.expect("Error during handshake");
                         let (outgoing, incoming) = ws_stream.split();
@@ -380,7 +415,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         Register the outbound connection manually
                         */
                         let mut outgoing_connections = x.inner.outgoing_connections.write().await;
-                        outgoing_connections.insert(addr, outgoing);
+                        outgoing_connections.insert(addr, RwLock::new(outgoing));
                         // Register the inbound connection
                         x.register_incoming_connection(addr, incoming).await;
                     }
@@ -389,6 +424,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .boxed(),
             )
         }
+    }
+    pub async fn connection_table_size(&self) -> usize {
+        self.inner.outgoing_connections.read().await.len()
+    }
+    pub async fn nodes_table_size(&self) -> usize {
+        self.inner.nodes.read().await.len()
     }
 }
 
@@ -404,7 +445,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                 from: w.inner.own_key.clone(),
             };
             // Iterate through every known node
-            for node in w.inner.nodes.read().await.keys() {
+            let node_list: Vec<_> = {
+                // Use a block here to make sure we drop the lock, as send_raw_message may attempt
+                // to open a new connection, via connect_to, which modifies nodes
+                let nodes_lock = w.inner.nodes.read().await;
+                nodes_lock.keys().cloned().collect()
+            };
+            for node in &node_list {
                 // Hacky work around with some futures lifetime nonsense
                 let m = m.clone();
                 // Send the node the message
@@ -437,22 +484,44 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 
     fn broadcast_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.broadcast_queue.write().await.drain(..).collect()) }.boxed()
+        async move {
+            let mut output = vec![];
+            if w.inner.broadcast_queue.is_empty() {
+                let x = w.inner.broadcast_queue.recv_async().await.unwrap();
+                output.push(x);
+            }
+            while let Ok(x) = w.inner.broadcast_queue.try_recv() {
+                output.push(x);
+            }
+            Ok(output)
+        }
+        .boxed()
     }
 
     fn next_broadcast(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.broadcast_queue.write().await.pop_front()) }.boxed()
+        async move { Ok(Some(w.inner.broadcast_queue.recv_async().await.unwrap())) }.boxed()
     }
 
     fn direct_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.direct_queue.write().await.drain(..).collect()) }.boxed()
+        async move {
+            let mut output = vec![];
+            if w.inner.direct_queue.is_empty() {
+                let x = w.inner.direct_queue.recv_async().await.unwrap();
+                output.push(x);
+            }
+            while let Ok(x) = w.inner.direct_queue.try_recv() {
+                output.push(x);
+            }
+            Ok(output)
+        }
+        .boxed()
     }
 
     fn next_direct(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
-        async move { Ok(w.inner.direct_queue.write().await.pop_front()) }.boxed()
+        async move { Ok(Some(w.inner.direct_queue.recv_async().await.unwrap())) }.boxed()
     }
 
     fn known_nodes(&self) -> future::Boxed<Vec<PubKey>> {
@@ -508,9 +577,19 @@ mod tests {
         }
 
         // Get our networking implementation and don't
-        let x: WNetworkInner<Test> = WNetworkInner::new(own_key.clone(), input_sockets);
-        let y: WNetworkInner<Test> =
-            WNetworkInner::new_from_strings(own_key.clone(), input_strings.clone()).await?;
+        let (_broadcast_s, broadcast_r) = flume::bounded(16);
+        let (_direct_s, direct_r) = flume::bounded(16);
+        let x: WNetworkInner<Test> =
+            WNetworkInner::new(own_key.clone(), input_sockets, broadcast_r, direct_r);
+        let (_broadcast_s, broadcast_r) = flume::bounded(16);
+        let (_direct_s, direct_r) = flume::bounded(16);
+        let y: WNetworkInner<Test> = WNetworkInner::new_from_strings(
+            own_key.clone(),
+            input_strings.clone(),
+            broadcast_r,
+            direct_r,
+        )
+        .await?;
 
         // Compare the nodes tables for equality
         assert!(x.nodes.try_unwrap().unwrap() == y.nodes.try_unwrap().unwrap());

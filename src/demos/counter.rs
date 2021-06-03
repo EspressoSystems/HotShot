@@ -104,10 +104,10 @@ mod test {
             sync.await.unwrap();
         }
         // Connect the hotstuffs
-        for (_, key, port, _) in &hotstuffs {
+        for (i, (_, key, port, _)) in hotstuffs.iter().enumerate() {
             let socket = format!("localhost:{}", port);
             // Loop through all the other hotstuffs and connect it to this one
-            for (_, key_2, port_2, network_2) in &hotstuffs {
+            for (_, key_2, port_2, network_2) in &hotstuffs[i..] {
                 println!("Connecting {} to {}", port_2, port);
                 if key != key_2 {
                     network_2
@@ -121,6 +121,17 @@ mod test {
         for (hotstuff, _, _, _) in &hotstuffs {
             hotstuff.spawn_networking_tasks().await;
         }
+        // Wait for all nodes to connect to each other
+        println!("Waiting for nodes to fully connect");
+        for (_, _, _, w) in &hotstuffs {
+            while w.connection_table_size().await < 4 {
+                async_std::task::sleep(std::time::Duration::from_millis(10)).await;
+            }
+            while w.nodes_table_size().await < 4 {
+                async_std::task::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }
+        println!("Nodes should be connected");
         println!(
             "Current states: {:?}",
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
