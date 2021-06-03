@@ -100,8 +100,16 @@ mod test {
         // Boot up all the low level networking implementations
         for (_, _, _, network) in &hotstuffs {
             let (x, sync) = oneshot::channel();
-            spawn(network.generate_task(x).unwrap());
-            sync.await.unwrap();
+            match network.generate_task(x) {
+                Some(task) => {
+                    spawn(task);
+                    sync.await.expect("sync.await failed");
+                }
+                None => {
+                    println!("generate_task(x) returned None");
+                    panic!();
+                }
+            }
         }
         // Connect the hotstuffs
         for (i, (_, key, port, _)) in hotstuffs.iter().enumerate() {
