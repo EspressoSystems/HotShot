@@ -3,8 +3,8 @@ RUN mkdir /app
 WORKDIR /app
 COPY . /app
 RUN cargo audit || true
-RUN cargo clippy || true
-RUN cargo fmt -- --check || true
-RUN cargo build --release || true
-RUN cargo test --release || true
+RUN cargo clippy
+RUN cargo fmt -- --check
+RUN cargo build --release
+RUN cargo test --release 
 
