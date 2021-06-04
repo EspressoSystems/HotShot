@@ -1,7 +1,7 @@
 use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
-use futures_lite::future::Boxed as BoxedFuture;
+use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
@@ -9,6 +9,9 @@ use snafu::Snafu;
 pub mod memory_network;
 /// Websockets based networking implementation
 pub mod w_network;
+
+/// A boxed future trait object with a static lifetime
+pub type BoxedFuture<T> = BoxFuture<'static, T>;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]

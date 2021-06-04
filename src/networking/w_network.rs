@@ -1,18 +1,21 @@
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
+    sync::RwLock,
     task::{sleep, spawn},
 };
 use async_tungstenite::{accept_async, client_async, tungstenite::protocol, WebSocketStream};
-use futures::channel::oneshot;
-use futures::stream::SplitSink;
-use futures::{pin_mut, prelude::*, select, stream::SplitStream};
-use futures_lite::future;
-use futures_locks::RwLock;
+use dashmap::DashMap;
+use futures::{
+    channel::oneshot,
+    pin_mut,
+    prelude::*,
+    select,
+    stream::{SplitSink, SplitStream},
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
 use std::{
-    collections::HashMap,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -20,6 +23,7 @@ use std::{
     time::Duration,
 };
 
+use super::BoxedFuture;
 use crate::networking::{
     ExecutorError, FailedToBindListener, FailedToSerialize, NetworkError, NetworkingImplementation,
     NoSocketsError, NoSuchNode, SocketDecodeError, WError,
@@ -65,12 +69,11 @@ struct WNetworkInner<T> {
     /// Queue of incoming direct messages remaining to be processed    
     direct_queue: flume::Receiver<T>,
     /// The identites of the other nodes that this node knows about
-    nodes: RwLock<HashMap<PubKey, SocketAddr>>,
+    nodes: DashMap<PubKey, SocketAddr>,
     /// The list of outgoing connections
     #[allow(clippy::clippy::type_complexity)]
-    outgoing_connections: RwLock<
-        HashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
-    >,
+    outgoing_connections:
+        DashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
@@ -86,8 +89,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
             own_key,
             broadcast_queue: broadcast,
             direct_queue: direct,
-            nodes: RwLock::new(node_list.into_iter().collect()),
-            outgoing_connections: RwLock::new(HashMap::new()),
+            nodes: node_list.into_iter().collect(),
+            outgoing_connections: DashMap::new(),
         }
     }
     /// Creates a new `WNetworkInner` preloaded with connections to the nodes in `node_list`
@@ -101,7 +104,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
         broadcast: flume::Receiver<T>,
         direct: flume::Receiver<T>,
     ) -> Result<Self, NetworkError> {
-        let mut node_map = HashMap::new();
+        let node_map = DashMap::new();
         for (k, v) in node_list {
             let addr = v
                 .to_socket_addrs()
@@ -116,8 +119,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
             own_key,
             broadcast_queue: broadcast,
             direct_queue: direct,
-            nodes: RwLock::new(node_map),
-            outgoing_connections: RwLock::new(HashMap::new()),
+            nodes: node_map,
+            outgoing_connections: DashMap::new(),
         })
     }
 }
@@ -156,7 +159,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         key: PubKey,
         addr: impl ToSocketAddrs,
     ) -> Result<(), NetworkError> {
-        let mut outgoing_connections = self.inner.outgoing_connections.write().await;
         let socket = TcpStream::connect(addr).await.context(ExecutorError)?;
         let addr = socket.peer_addr().context(SocketDecodeError {
             input: "connect_to",
@@ -176,12 +178,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         // Identify ourselves
         outgoing.feed(ident).await.context(WError)?;
         // slot the new connection into the internal map
-        outgoing_connections.insert(addr, RwLock::new(outgoing));
+        self.inner
+            .outgoing_connections
+            .insert(addr, RwLock::new(outgoing));
         // Register the new inbound connection
         self.register_incoming_connection(addr, incoming).await;
         // Load into the socket map
-        let mut nodes = self.inner.nodes.write().await;
-        nodes.insert(key, addr);
+        self.inner.nodes.insert(key, addr);
         Ok(())
     }
     /// Sends a raw message to the specified node
@@ -195,43 +198,33 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         message: Command<T>,
     ) -> Result<(), NetworkError> {
         // Check to see if we have the node
-        println!(
-            "Send raw message {}: Finding connection to node {}",
-            self.inner.own_key.nonce, node.nonce
-        );
         let addr = self
             .inner
             .nodes
-            .read()
-            .await
             .get(node)
-            .cloned()
+            .map(|x| x.value().clone())
             .context(NoSuchNode)?;
-        println!(
-            "Send raw message {}: Found connection to node {}",
-            self.inner.own_key.nonce, node.nonce
-        );
         /*
         Bincode up the command
         */
         let binary = bincode::serialize(&message).context(FailedToSerialize)?;
         let w_message = protocol::Message::Binary(binary);
         // Check to see if we have a connection
-        let outgoing_connections = self.inner.outgoing_connections.read().await;
-        let connection_lock = outgoing_connections.get(&addr);
+        let connection_lock = self.inner.outgoing_connections.get(&addr);
         if let Some(connection_lock) = connection_lock {
             let mut connection = connection_lock.write().await;
             // Use the existing connection, if one exists
             connection.feed(w_message).await.context(WError)?;
             Ok(())
         } else {
-            // Drop outgoing_connections so that connect_to can do its thing to it
-            std::mem::drop(outgoing_connections);
             // Open a new connection
             self.connect_to(node.clone(), addr).await?;
             // Grab the connection
-            let map = self.inner.outgoing_connections.read().await;
-            let connection = map.get(&addr).expect("Newly opened connection missing");
+            let connection = self
+                .inner
+                .outgoing_connections
+                .get(&addr)
+                .expect("Newly opened connection missing");
             connection
                 .write()
                 .await
@@ -302,7 +295,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             */
             let next_fut =
                 |mut s: SplitStream<WebSocketStream<TcpStream>>|
-                                    -> future::Boxed<(bool, SplitStream<WebSocketStream<TcpStream>>)> {
+                                    -> BoxedFuture<(bool, SplitStream<WebSocketStream<TcpStream>>)> {
                     let x = x.clone();
                     async move {
                         let next = s.next().await.expect("Stream Ended").expect("Stream Error");
@@ -328,8 +321,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                         let bin = bincode::serialize(&Command::<T>::Pong).unwrap();
                                         let message = protocol::Message::Binary(bin);
                                         // Grab the socket and send the ping
-                                        let map = x.inner.outgoing_connections.read().await;
-                                        let socket_lock = map.get(&addr)
+                                        let socket_lock = x.inner.outgoing_connections.get(&addr)
                                             .expect("Received on a socket we have no record of.");
                                         let mut socket = socket_lock.write().await;
                                         socket.feed(message).await.expect("Failed to send pong");
@@ -340,8 +332,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                     }
                                     Command::Identify{from} => {
                                         // Add the node to our node list
-                                        let mut map = x.inner.nodes.write().await;
-                                        map.insert(from, addr);
+                                        x.inner.nodes.insert(from, addr);
                                     }
                                 }
                                 (false, s)
@@ -378,8 +369,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         Unwrap for the time being, its a violation of internal constraints and a
                         sign of a bug if we don't have a matching outgoing connection
                          */
-                        let map = x.inner.outgoing_connections.read().await;
-                        let socket_lock = map.get(&addr).unwrap();
+                        let socket_lock = x.inner.outgoing_connections.get(&addr).unwrap();
                         let mut socket = socket_lock.write().await;
                         // Prepare the ping
                         // Cant fail to serialize, this variant doesn't contain anything
@@ -414,7 +404,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
-    ) -> Option<future::Boxed<Result<(), NetworkError>>> {
+    ) -> Option<BoxedFuture<Result<(), NetworkError>>> {
         // first check to see if we have generated the task before
         let generated = self
             .tasks_generated
@@ -455,8 +445,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         /*
                         Register the outbound connection manually
                         */
-                        let mut outgoing_connections = x.inner.outgoing_connections.write().await;
-                        outgoing_connections.insert(addr, RwLock::new(outgoing));
+                        x.inner
+                            .outgoing_connections
+                            .insert(addr, RwLock::new(outgoing));
                         // Register the inbound connection
                         x.register_incoming_connection(addr, incoming).await;
                     }
@@ -468,18 +459,18 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
     /// Returns the size of the internal connection table
     pub async fn connection_table_size(&self) -> usize {
-        self.inner.outgoing_connections.read().await.len()
+        self.inner.outgoing_connections.len()
     }
     /// Returns the size of the internal nodes table
     pub async fn nodes_table_size(&self) -> usize {
-        self.inner.nodes.read().await.len()
+        self.inner.nodes.len()
     }
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
     NetworkingImplementation<T> for WNetwork<T>
 {
-    fn broadcast_message(&self, message: T) -> future::Boxed<Result<(), super::NetworkError>> {
+    fn broadcast_message(&self, message: T) -> BoxedFuture<Result<(), super::NetworkError>> {
         let w = self.clone();
         async move {
             // Create a command out of the message
@@ -489,10 +480,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             };
             // Iterate through every known node
             let node_list: Vec<_> = {
-                // Use a block here to make sure we drop the lock, as send_raw_message may attempt
-                // to open a new connection, via connect_to, which modifies nodes
-                let nodes_lock = w.inner.nodes.read().await;
-                nodes_lock.keys().cloned().collect()
+                // Use a block here to make sure we drop any internal lock the dashmap may hold, as
+                // send_raw_message may attempt to open a new connection, via connect_to, which
+                // modifies nodes
+                w.inner.nodes.iter().map(|x| x.key().clone()).collect()
             };
             for node in &node_list {
                 // Hacky work around with some futures lifetime nonsense
@@ -509,7 +500,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         &self,
         message: T,
         recipient: PubKey,
-    ) -> future::Boxed<Result<(), super::NetworkError>> {
+    ) -> BoxedFuture<Result<(), super::NetworkError>> {
         let w = self.clone();
         async move {
             // Create a command out of the message
@@ -525,7 +516,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn broadcast_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
+    fn broadcast_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
         async move {
             let mut output = vec![];
@@ -541,12 +532,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_broadcast(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
+    fn next_broadcast(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
         async move { Ok(Some(w.inner.broadcast_queue.recv_async().await.unwrap())) }.boxed()
     }
 
-    fn direct_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
+    fn direct_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
         let w = self.clone();
         async move {
             let mut output = vec![];
@@ -562,14 +553,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_direct(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
+    fn next_direct(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
         let w = self.clone();
         async move { Ok(Some(w.inner.direct_queue.recv_async().await.unwrap())) }.boxed()
     }
 
-    fn known_nodes(&self) -> future::Boxed<Vec<PubKey>> {
+    fn known_nodes(&self) -> BoxedFuture<Vec<PubKey>> {
         let w = self.clone();
-        async move { w.inner.nodes.read().await.keys().cloned().collect() }.boxed()
+        async move { w.inner.nodes.iter().map(|x| x.key().clone()).collect() }.boxed()
     }
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
@@ -579,12 +570,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use async_std::task::yield_now;
+    use std::collections::HashMap;
+
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
     struct Test {
         message: u64,
     }
-    use super::*;
-    use async_std::task::yield_now;
+
     // Test both direct from SocketAddr creation and from String creation, and sanity check the
     // results against each other
     #[async_std::test]
@@ -635,7 +629,16 @@ mod tests {
         .await?;
 
         // Compare the nodes tables for equality
-        assert!(x.nodes.try_unwrap().unwrap() == y.nodes.try_unwrap().unwrap());
+        assert_eq!(
+            x.nodes
+                .iter()
+                .map(|x| (x.key().clone(), x.value().clone()))
+                .collect::<HashMap<_, _>>(),
+            y.nodes
+                .iter()
+                .map(|x| (x.key().clone(), x.value().clone()))
+                .collect::<HashMap<_, _>>()
+        );
 
         // Ensure that we can construct an outer WNetwork with the same strings
         let _: WNetwork<Test> =
