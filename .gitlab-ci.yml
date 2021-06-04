@@ -4,6 +4,7 @@ stages:
 variables:
   BRANCH: $CI_COMMIT_BRANCH
   CONTAINER_IMAGE: hotstuff
+  DOCS_IMAGE: hotstuff-docs
   DOCKER_REGISTRY: 279906117593.dkr.ecr.us-east-2.amazonaws.com
 
 before_script:
@@ -17,6 +18,7 @@ build:
   stage: build
   script:
     - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_MERGE_REQUEST_ID .
+    - docker build --pull -f DockerfileDocs -t $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_MERGE_REQUEST_ID .
 
 build:
   tags:
@@ -26,5 +28,6 @@ build:
   stage: build
   script:
     - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH .
+    - docker build --pull -f DockerfileDocs -t $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_COMMIT_BRANCH .
     - docker push $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH
 

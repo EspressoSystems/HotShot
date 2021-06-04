@@ -1,0 +1,9 @@
+FROM 279906117593.dkr.ecr.us-east-2.amazonaws.com/rust:2021-03-24 as builder
+RUN mkdir /app
+WORKDIR /app/
+COPY . /app
+RUN cargo doc --no-deps --release
+FROM nginx:mainline as NGINX
+RUN rm -rv /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/target/doc /usr/share/nginx/html

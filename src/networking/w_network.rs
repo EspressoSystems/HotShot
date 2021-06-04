@@ -267,7 +267,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             protocol::Message::Binary(bin) => {
                                 let decoded: Command<T> = bincode::deserialize(&bin[..])
                                     .expect("Failed to deserialize incoming message");
-                                //println!("Node: {:?}, Message: {:?}", x.inner.own_key.nonce, decoded);
                                 // Branch on the type of command
                                 match decoded {
                                     Command::Broadcast { inner, from: _ } => {
@@ -326,10 +325,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             statement being used in such a way that that I have yet found.
              */
             loop {
-                // println!("At top of event loop {}", x.inner.own_key.nonce);
                 select! {
                     _ = timer => {
-                        // println!("Timer event fired {}", x.port);
                         /*
                         Find the socket in the outgoing_connections map
 
@@ -352,7 +349,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         timer.set(sleep(x.keep_alive_duration.clone()).fuse());
                     },
                     (stop, stream) = next => {
-                        // println!("Stream event fired {}", x.port);
                         if stop {
                             break;
                         }
@@ -374,15 +370,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .unwrap_or(true);
         if generated {
-            println!("Task not generated");
             // We will only generate the tasks once, so go ahead and fault out
             None
         } else {
-            println!("Generating task");
             let x = self.clone();
             Some(
                 async move {
-                    println!("Inside task spawning future");
                     // Open up a listener
                     let listen_socket = ("0.0.0.0", *x.port)
                         .to_socket_addrs()
@@ -395,11 +388,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         .context(NoSocketsError {
                             input: x.port.to_string(),
                         })?;
-                    println!("Opening listener open on port: {:?}", listen_socket);
                     let listener = TcpListener::bind(listen_socket)
                         .await
                         .context(FailedToBindListener)?;
-                    println!("Listener open on port: {:?}", listen_socket);
                     // Connection processing loop
                     let mut incoming = listener.incoming();
                     // Our port is now open, send the sync signal
@@ -407,7 +398,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     while let Some(stream) = incoming.next().await {
                         let stream = stream.expect("Failed to bind incoming connection.");
                         let addr = stream.peer_addr().unwrap();
-                        println!("Processing stream from: {:?}", addr);
                         // Process the stream and open up a new task to handle this connection
                         let ws_stream = accept_async(stream).await.expect("Error during handshake");
                         let (outgoing, incoming) = ws_stream.split();
