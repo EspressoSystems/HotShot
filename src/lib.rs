@@ -8,7 +8,8 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::clippy::similar_names)]
 #![allow(clippy::cast_possible_truncation)] // Temporary
-//! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT protocol
+//! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT
+//! protocol
 
 /// Provides types useful for representing `HotStuff`'s data structures
 pub mod data;
