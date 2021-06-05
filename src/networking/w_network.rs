@@ -202,7 +202,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .inner
             .nodes
             .get(node)
-            .map(|x| x.value().clone())
+            .map(|x| *x.value())
             .context(NoSuchNode)?;
         /*
         Bincode up the command
