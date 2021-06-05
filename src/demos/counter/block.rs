@@ -6,7 +6,7 @@ use crate::BlockContents;
 
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct CounterBlock {
-    pub tx: Option<CounterTransaction>,
+    pub tx: Vec<CounterTransaction>,
 }
 
 type CounterState = u64;
@@ -43,21 +43,21 @@ impl BlockContents for CounterBlock {
         state: &Self::State,
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
-        if self.tx.is_some() {
+        if !self.tx.is_empty() {
             Err(CounterError::AlreadyHasTx)
         } else {
             match tx {
                 CounterTransaction::Inc { previous } => {
                     if previous == state {
                         Ok(CounterBlock {
-                            tx: Some(tx.clone()),
+                            tx: [tx.clone()].to_vec(),
                         })
                     } else {
                         Err(CounterError::PreviousDoesNotMatch)
                     }
                 }
                 CounterTransaction::Genesis { .. } => Ok(CounterBlock {
-                    tx: Some(tx.clone()),
+                    tx: [tx.clone()].to_vec(),
                 }),
             }
         }
@@ -69,8 +69,8 @@ impl BlockContents for CounterBlock {
     ///    - the block's transaction is None
     /// Note: add_transaction only accepts valid transactions
     fn validate_block(&self, state: &Self::State) -> bool {
-        if let Some(tx) = &self.tx {
-            match &tx {
+        if !&self.tx.is_empty() {
+            match &self.tx[0] {
                 CounterTransaction::Inc { previous } => previous == state,
                 CounterTransaction::Genesis { .. } => true,
             }
@@ -85,8 +85,8 @@ impl BlockContents for CounterBlock {
     /// Usually, this would be a cryptographic hash of the previous hash
     /// and the current state. Not sure why we're not hashing here.
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
-        if let Some(tx) = &self.tx {
-            match tx {
+        if !&self.tx.is_empty() {
+            match &self.tx[0] {
                 CounterTransaction::Inc { .. } => Ok(state + 1),
                 CounterTransaction::Genesis { state } => Ok(*state),
             }
@@ -114,8 +114,16 @@ impl BlockContents for CounterBlock {
     /// hash of the buffer.
     fn hash(&self) -> crate::BlockHash {
         let mut hasher = Hasher::new();
-        if let Some(tx) = &self.tx {
-            Self::hash_transaction(tx)
+        if !&self.tx.is_empty() {
+            hasher.update(&TX_SOME);
+            for tx in &self.tx {
+                let bytes = match tx {
+                    CounterTransaction::Inc { previous } => previous.to_be_bytes(),
+                    CounterTransaction::Genesis { state } => state.to_be_bytes(),
+                };
+                hasher.update(&bytes);
+            }
+            *hasher.finalize().as_bytes()
         } else {
             // Distinguish None from Genesis.
             hasher.update(&TX_NONE);

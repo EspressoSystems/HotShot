@@ -39,7 +39,7 @@ fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
         .collect()
 }
 
-async fn try_hotstuff(
+async fn make_counter_validator(
     keys: &tc::SecretKeySet,
     total: usize,
     threshold: usize,
@@ -51,7 +51,7 @@ async fn try_hotstuff(
     WNetwork<Message<CounterBlock, CounterTransaction>>,
 ) {
     let genesis = CounterBlock {
-        tx: Some(CounterTransaction::Genesis { state: 0 }),
+        tx: [CounterTransaction::Genesis { state: 0 }].to_vec(),
     };
     let pub_key_set = keys.public_keys();
     let tc_pub_key = pub_key_set.public_key_share(node_number);
@@ -85,37 +85,58 @@ mod test {
     use futures::channel::oneshot;
     use futures::future::join_all;
 
-    #[async_std::test]
-    async fn spawn_one_hotstuff() {
-        let keys = gen_keys(1);
-        let (_hotstuff, _pub_key, _port, _networking) = try_hotstuff(&keys, 5, 4, 0).await;
+    /// A low validator count for testing
+    const VALIDATOR_COUNT: usize = 5;
+
+    /// Calculates the number of signatures required to meet the
+    /// threshold for threshold cryptography.
+    ///
+    /// Note, the threshold_crypto crate internally adds one to this
+    /// value. It takes one more signature than the threshold to
+    /// generate a threshold signature.
+    fn calc_signature_threshold(validator_count: usize) -> usize {
+        (2 * validator_count) / 3 + 1
     }
 
     #[async_std::test]
-    async fn hotstuff_counter_demo() {
-        let keys = gen_keys(3);
+    async fn spawn_one_hotstuff() {
+        let threshold = calc_signature_threshold(1);
+        // Nathan M, this calls gen_keys(0), but before it called
+        // gen_keys(1). Test still passes.
+        let keys = gen_keys(threshold - 1);
+        let (_hotstuff, _pub_key, _port, _networking) =
+            make_counter_validator(&keys, VALIDATOR_COUNT, threshold, 0).await;
+    }
+
+    #[async_std::test]
+    async fn make_counter_validator_demo() {
+        let threshold = calc_signature_threshold(VALIDATOR_COUNT);
+        let keys = gen_keys(threshold - 1);
         // Create the hotstuffs and spawn their tasks
-        let hotstuffs: Vec<(HotStuff<CounterBlock>, PubKey, u16, WNetwork<_>)> =
-            join_all((0..5).map(|x| try_hotstuff(&keys, 5, 4, x))).await;
+        let hotstuffs: Vec<(HotStuff<CounterBlock>, PubKey, u16, WNetwork<_>)> = join_all(
+            (0..VALIDATOR_COUNT)
+                .map(|ix| make_counter_validator(&keys, VALIDATOR_COUNT, threshold, ix)),
+        )
+        .await;
         // Boot up all the low level networking implementations
         for (_, _, _, network) in &hotstuffs {
-            let (x, sync) = oneshot::channel();
-            match network.generate_task(x) {
+            let (ix, sync) = oneshot::channel();
+            match network.generate_task(ix) {
                 Some(task) => {
                     spawn(task);
                     sync.await.expect("sync.await failed");
                 }
                 None => {
-                    println!("generate_task(x) returned None");
+                    println!("generate_task(ix) returned None");
                     panic!();
                 }
             }
         }
         // Connect the hotstuffs
-        for (i, (_, key, port, _)) in hotstuffs.iter().enumerate() {
+        for (ix, (_, key, port, _)) in hotstuffs.iter().enumerate() {
             let socket = format!("localhost:{}", port);
             // Loop through all the other hotstuffs and connect it to this one
-            for (_, key_2, port_2, network_2) in &hotstuffs[i..] {
+            for (_, key_2, port_2, network_2) in &hotstuffs[ix..] {
                 println!("Connecting {} to {}", port_2, port);
                 if key != key_2 {
                     network_2
@@ -132,10 +153,10 @@ mod test {
         // Wait for all nodes to connect to each other
         println!("Waiting for nodes to fully connect");
         for (_, _, _, w) in &hotstuffs {
-            while w.connection_table_size().await < 4 {
+            while w.connection_table_size().await < VALIDATOR_COUNT - 1 {
                 async_std::task::sleep(std::time::Duration::from_millis(10)).await;
             }
-            while w.nodes_table_size().await < 4 {
+            while w.nodes_table_size().await < VALIDATOR_COUNT - 1 {
                 async_std::task::sleep(std::time::Duration::from_millis(10)).await;
             }
         }
@@ -195,5 +216,10 @@ mod test {
             "Current states: {:?}",
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
         );
+    }
+
+    #[async_std::test]
+    async fn transaction_mock() {
+        assert!(true);
     }
 }
