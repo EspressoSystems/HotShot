@@ -23,10 +23,11 @@ pub enum CounterError {
     AlreadyHasTx,
 }
 
-/// Constants to distinguish hash of a non-empty transaction from
-/// an empty one.
-const TX_SOME: [u8; 1] = [0u8];
-const TX_NONE: [u8; 1] = [1u8];
+/// Value to add to the hash of a non-empty transaction
+const TX_SOME: [u8; 1] = [0_u8];
+
+/// Value to add to the hash of anempty transaction
+const TX_NONE: [u8; 1] = [1_u8];
 
 impl BlockContents for CounterBlock {
     type State = CounterState;
@@ -43,9 +44,7 @@ impl BlockContents for CounterBlock {
         state: &Self::State,
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
-        if !self.tx.is_empty() {
-            Err(CounterError::AlreadyHasTx)
-        } else {
+        if self.tx.is_empty() {
             match tx {
                 CounterTransaction::Inc { previous } => {
                     if previous == state {
@@ -60,6 +59,8 @@ impl BlockContents for CounterBlock {
                     tx: [tx.clone()].to_vec(),
                 }),
             }
+        } else {
+            Err(CounterError::AlreadyHasTx)
         }
     }
 
@@ -67,15 +68,16 @@ impl BlockContents for CounterBlock {
     ///    - the transaction is an Inc and state matches the tx.previous, or
     ///    - the transaction is a Genesis, or
     ///    - the block's transaction is None
-    /// Note: add_transaction only accepts valid transactions
+    /// Note: `add_transaction` only accepts valid transactions
     fn validate_block(&self, state: &Self::State) -> bool {
-        if !&self.tx.is_empty() {
+        if self.tx.is_empty() {
+            true
+        } else {
             match &self.tx[0] {
                 CounterTransaction::Inc { previous } => previous == state,
+                // TODO !thatonelutenist warning: `state` is being shadowed
                 CounterTransaction::Genesis { .. } => true,
             }
-        } else {
-            true
         }
     }
 
@@ -85,13 +87,13 @@ impl BlockContents for CounterBlock {
     /// Usually, this would be a cryptographic hash of the previous hash
     /// and the current state. Not sure why we're not hashing here.
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
-        if !&self.tx.is_empty() {
+        if self.tx.is_empty() {
+            Ok(*state)
+        } else {
             match &self.tx[0] {
                 CounterTransaction::Inc { .. } => Ok(state + 1),
                 CounterTransaction::Genesis { state } => Ok(*state),
             }
-        } else {
-            Ok(*state)
         }
     }
 
@@ -114,7 +116,12 @@ impl BlockContents for CounterBlock {
     /// hash of the buffer.
     fn hash(&self) -> crate::BlockHash {
         let mut hasher = Hasher::new();
-        if !&self.tx.is_empty() {
+        if self.tx.is_empty() {
+            // Distinguish None from Genesis.
+            hasher.update(&TX_NONE);
+            hasher.update(&Self::State::default().to_be_bytes());
+            *hasher.finalize().as_bytes()
+        } else {
             hasher.update(&TX_SOME);
             for tx in &self.tx {
                 let bytes = match tx {
@@ -123,11 +130,6 @@ impl BlockContents for CounterBlock {
                 };
                 hasher.update(&bytes);
             }
-            *hasher.finalize().as_bytes()
-        } else {
-            // Distinguish None from Genesis.
-            hasher.update(&TX_NONE);
-            hasher.update(&Self::State::default().to_be_bytes());
             *hasher.finalize().as_bytes()
         }
     }

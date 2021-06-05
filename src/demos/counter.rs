@@ -1,6 +1,6 @@
 mod block;
 
-use block::*;
+use block::{CounterBlock, CounterTransaction};
 
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
@@ -57,7 +57,7 @@ async fn make_counter_validator(
     let tc_pub_key = pub_key_set.public_key_share(node_number);
     let pub_key = PubKey {
         set: pub_key_set.clone(),
-        node: tc_pub_key.clone(),
+        node: tc_pub_key,
         nonce: node_number as u64,
     };
     let config = HotStuffConfig {
