@@ -14,7 +14,7 @@ use futures::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
-use tracing::{debug, error, info, instrument, trace, trace_span, Instrument};
+use tracing::{debug, debug_span, error, info, instrument, trace, Instrument};
 use tracing_unwrap::{OptionExt as OXT, ResultExt as RXT};
 
 use std::{
@@ -546,7 +546,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     }
                     Ok(())
                 }
-                .instrument(trace_span!("WNetwork Server",
+                .instrument(debug_span!("WNetwork Server",
                                         id = ?self.inner.own_key.nonce,
                                         port = ?self.port))
                 .boxed(),
@@ -591,7 +591,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             }
             Ok(())
         }
-        .instrument(trace_span!("WNetwork::broadcast_message",
+        .instrument(debug_span!("WNetwork::broadcast_message",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port,
                                 message = ?om))
@@ -619,7 +619,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             trace!("Message sent");
             Ok(())
         }
-        .instrument(trace_span!("WNetwork::message_node",
+        .instrument(debug_span!("WNetwork::message_node",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port,
                                 message = ?om,
@@ -645,7 +645,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             trace!("All available values removed from queue");
             Ok(output)
         }
-        .instrument(trace_span!("WNetwork::broadcast_queue",
+        .instrument(debug_span!("WNetwork::broadcast_queue",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port))
         .boxed()
@@ -664,7 +664,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             trace!("Message pulled from queue");
             Ok(Some(x))
         }
-        .instrument(trace_span!("WNetwork::next_broadcast",
+        .instrument(debug_span!("WNetwork::next_broadcast",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port))
         .boxed()
@@ -688,7 +688,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             trace!("All available values removed from queue");
             Ok(output)
         }
-        .instrument(trace_span!("WNetwork::direct_queue",
+        .instrument(debug_span!("WNetwork::direct_queue",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port))
         .boxed()
@@ -707,7 +707,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             trace!("Message pulled from queue");
             Ok(Some(x))
         }
-        .instrument(trace_span!("WNetwork::next_direct",
+        .instrument(debug_span!("WNetwork::next_direct",
                                 id = ?self.inner.own_key.nonce,
                                 port = ?self.port))
         .boxed()

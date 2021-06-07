@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use std::fmt::Debug;
+
 use crate::{BlockContents, BlockHash};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone)]
 /// A node in `HotStuff`'s tree
 pub struct Leaf<T> {
     /// The hash of the parent
@@ -23,5 +25,15 @@ impl<T: BlockContents> Leaf<T> {
         hasher.update(&self.parent);
         hasher.update(&BlockContents::hash(&self.item));
         *hasher.finalize().as_bytes()
+    }
+}
+
+impl<T: Debug> Debug for Leaf<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use hex_fmt::HexFmt;
+        f.debug_struct(&format!("Leaf<{}>", std::any::type_name::<T>()))
+            .field("item", &self.item)
+            .field("parent", &format!("{:12}", HexFmt(&self.parent)))
+            .finish()
     }
 }

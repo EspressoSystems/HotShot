@@ -717,6 +717,7 @@ dependencies = [
  "dashmap",
  "flume",
  "futures",
+ "hex_fmt",
  "rand 0.7.3",
  "serde",
  "snafu",

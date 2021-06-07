@@ -1,5 +1,8 @@
+use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use threshold_crypto::SignatureShare;
+
+use std::fmt::Debug;
 
 use crate::{data::Leaf, BlockHash, QuorumCertificate};
 
@@ -46,7 +49,7 @@ pub struct Prepare<T> {
     pub high_qc: QuorumCertificate,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 /// A nodes vote on the prepare field
 pub struct PrepareVote {
     /// The signature share associated with this vote
@@ -57,7 +60,17 @@ pub struct PrepareVote {
     pub leaf_hash: BlockHash,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl Debug for PrepareVote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PrepareVote")
+            .field("signature", &self.signature)
+            .field("id", &self.id)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 /// Pre-commit qc from the leader
 pub struct PreCommit {
     /// Hash of the item being worked on
@@ -68,7 +81,17 @@ pub struct PreCommit {
     pub current_view: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl Debug for PreCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreCommit")
+            .field("current_view", &self.current_view)
+            .field("qc", &self.qc)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 /// A nodes vote on the precommit stage
 pub struct PreCommitVote {
     /// Hash of the thing being voted on
@@ -79,7 +102,17 @@ pub struct PreCommitVote {
     pub id: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl Debug for PreCommitVote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreCommitVote")
+            .field("signature", &self.signature)
+            .field("id", &self.id)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 /// `Commit` qc from the leader
 pub struct Commit {
     /// Hash of the thing being worked on
@@ -90,7 +123,17 @@ pub struct Commit {
     pub current_view: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Commit")
+            .field("current_view", &self.current_view)
+            .field("qc", &self.qc)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 /// A nodes vote on the `Commit` stage
 pub struct CommitVote {
     /// Hash of the thing being voted on
@@ -101,7 +144,17 @@ pub struct CommitVote {
     pub id: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl Debug for CommitVote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommitVote")
+            .field("signature", &self.signature)
+            .field("id", &self.id)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 /// Final decision
 pub struct Decide {
     /// Hash of the thing we just decided on
@@ -110,4 +163,14 @@ pub struct Decide {
     pub qc: QuorumCertificate,
     /// the current view
     pub current_view: u64,
+}
+
+impl Debug for Decide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Decide")
+            .field("current_view", &self.current_view)
+            .field("qc", &self.qc)
+            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
+            .finish()
+    }
 }

@@ -17,6 +17,7 @@ byteorder = "1.4.3"
 dashmap = "4.0.2"
 flume = "0.10.5"
 futures = "0.3.0"
+hex_fmt = "0.3.0"
 rand = "0.7.3"
 serde = { version = "1.0.123", features = ["derive", "rc"] }
 snafu = { version = "0.6.10", features = ["backtraces"] }

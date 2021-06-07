@@ -30,6 +30,7 @@ use std::sync::Arc;
 
 use async_std::sync::RwLock;
 use dashmap::DashMap;
+use hex_fmt::HexFmt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use threshold_crypto as tc;
@@ -153,7 +154,7 @@ pub trait BlockContents:
 }
 
 /// The type used for quorum certs
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct QuorumCertificate {
     /// Block this QC refers to
     hash: BlockHash,
@@ -179,6 +180,18 @@ impl QuorumCertificate {
         } else {
             self.genesis
         }
+    }
+}
+
+impl Debug for QuorumCertificate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QuorumCertificate")
+            .field("hash", &format!("{:12}", HexFmt(&self.hash)))
+            .field("view_number", &self.view_number)
+            .field("stage", &self.stage)
+            .field("signature", &self.signature)
+            .field("genesis", &self.genesis)
+            .finish()
     }
 }
 
