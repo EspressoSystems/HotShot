@@ -51,7 +51,7 @@ type BlockHash = [u8; 32];
 /// Public key type
 ///
 /// Opaque wrapper around `threshold_crypto` key
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct PubKey {
     /// Overall public key set for the network
     set: tc::PublicKeySet,
@@ -81,6 +81,12 @@ impl PartialOrd for PubKey {
 impl Ord for PubKey {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.nonce.cmp(&other.nonce)
+    }
+}
+
+impl std::fmt::Debug for PubKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PubKey").field("id", &self.nonce).finish()
     }
 }
 

@@ -85,6 +85,8 @@ pub async fn try_hotstuff(
 
 #[cfg(test)]
 mod test {
+    use crate::utility::test_util::setup_logging;
+
     use super::*;
     use async_std::task::spawn;
     use futures::channel::oneshot;
@@ -92,12 +94,14 @@ mod test {
 
     #[async_std::test]
     async fn spawn_one_hotstuff() {
+        setup_logging();
         let keys = gen_keys(1);
         let (_hotstuff, _pub_key, _port, _networking) = try_hotstuff(&keys, 5, 4, 0).await;
     }
 
     #[async_std::test]
     async fn hotstuff_counter_demo() {
+        setup_logging();
         let keys = gen_keys(3);
         // Create the hotstuffs and spawn their tasks
         let hotstuffs: Vec<(HotStuff<CounterBlock>, PubKey, u16, WNetwork<_>)> =
