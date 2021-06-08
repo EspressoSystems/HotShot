@@ -4,29 +4,47 @@ use snafu::Snafu;
 
 use crate::BlockContents;
 
+/// The block format for the counter demo
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct CounterBlock {
+    /// A block is composed of a sequence of transactions
     pub tx: Vec<CounterTransaction>,
 }
 
+/// Type alias for the state of a counter
 type CounterState = u64;
 
+/// The transaction format for a counter demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub enum CounterTransaction {
-    Inc { previous: CounterState },
-    Genesis { state: CounterState },
+    /// Increments the counter from the specified previous state
+    Inc {
+        /// The state the counter must currently have for this transaction to be valid
+        previous: CounterState,
+    },
+    /// Force sets the counter to the given state
+    Genesis {
+        /// State to force the counter to
+        state: CounterState,
+    },
 }
 
+/// Errors that a counter can incur
 #[derive(Snafu, Debug)]
 pub enum CounterError {
+    /// Specified previous state does not match actual previous state
     PreviousDoesNotMatch,
+    /// Attempted to add a second transaction to a block
     AlreadyHasTx,
 }
 
-/// Value to add to the hash of a non-empty transaction
+/*
+Constants to distinguish hash of a non-empty transaction from
+an empty one.
+ */
+/// Constant identifying a transaction with something in it
 const TX_SOME: [u8; 1] = [0_u8];
-
-/// Value to add to the hash of anempty transaction
+/// Constant identifying an empty transaction
 const TX_NONE: [u8; 1] = [1_u8];
 
 impl BlockContents for CounterBlock {
@@ -86,6 +104,7 @@ impl BlockContents for CounterBlock {
     ///
     /// Usually, this would be a cryptographic hash of the previous hash
     /// and the current state. Not sure why we're not hashing here.
+    #[allow(clippy::clippy::shadow_unrelated)]
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
         if self.tx.is_empty() {
             Ok(*state)

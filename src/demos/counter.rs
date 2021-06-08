@@ -1,4 +1,5 @@
-mod block;
+/// `BlockContents` implementation for the the counter demo
+pub mod block;
 
 use block::{CounterBlock, CounterTransaction};
 
@@ -10,11 +11,13 @@ use crate::message::Message;
 use crate::networking::w_network::WNetwork;
 use crate::{HotStuff, HotStuffConfig, PubKey};
 
-fn gen_keys(threshold: usize) -> tc::SecretKeySet {
+/// Generates the `SecretKeySet` for this BFT instance
+pub fn gen_keys(threshold: usize) -> tc::SecretKeySet {
     tc::SecretKeySet::random(threshold, &mut rand::thread_rng())
 }
 
-async fn try_network<
+/// Attempts to create a network connection with a random port
+pub async fn try_network<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 >(
     key: PubKey,
@@ -29,7 +32,8 @@ async fn try_network<
     )
 }
 
-fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
+/// Turns a `PublicKeySet` into a set of `HotStuff` `PubKey`s
+pub fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
     (0..total)
         .map(|x| PubKey {
             set: set.clone(),
@@ -39,7 +43,8 @@ fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
         .collect()
 }
 
-async fn make_counter_validator(
+/// Attempts to create a hotstuff instance
+pub async fn try_hotstuff(
     keys: &tc::SecretKeySet,
     total: usize,
     threshold: usize,
@@ -80,6 +85,8 @@ async fn make_counter_validator(
 
 #[cfg(test)]
 mod test {
+    use crate::utility::test_util::setup_logging;
+
     use super::*;
     use async_std::task::spawn;
     use futures::channel::oneshot;
@@ -100,6 +107,7 @@ mod test {
 
     #[async_std::test]
     async fn spawn_one_hotstuff() {
+        setup_logging();
         let threshold = calc_signature_threshold(1);
         // Nathan M, this calls gen_keys(0), but before it called
         // gen_keys(1). Test still passes.
@@ -110,6 +118,7 @@ mod test {
 
     #[async_std::test]
     async fn make_counter_validator_demo() {
+        setup_logging();
         let threshold = calc_signature_threshold(VALIDATOR_COUNT);
         let keys = gen_keys(threshold - 1);
         // Create the hotstuffs and spawn their tasks

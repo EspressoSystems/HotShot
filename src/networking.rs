@@ -1,48 +1,73 @@
 use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
-use futures_lite::future::Boxed as BoxedFuture;
+use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
-mod memory_network;
+/// In memory network simulator
+pub mod memory_network;
+/// Websockets based networking implementation
 pub mod w_network;
+
+/// A boxed future trait object with a static lifetime
+pub type BoxedFuture<T> = BoxFuture<'static, T>;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum NetworkError {
-    #[snafu(display("A listener attempted to send a message"))]
+    /// A Listener failed to send a message
     ListenerSend,
+    /// Could not deliver a message to a specified recipient
     CouldNotDeliver,
+    /// Attempted to deliver a message to an unknown node
     NoSuchNode,
+    /// Failed to serialize a message
     FailedToSerialize {
+        /// Originating bincode error
         source: bincode::Error,
     },
+    /// Failed to deserealize a message
     FailedToDeserialize {
-        sourec: bincode::Error,
+        /// originating bincode error
+        source: bincode::Error,
     },
+    /// WebSockets specific error
     WError {
+        /// Originating websockets error
         source: werror::Error,
     },
+    /// Error orginiating from within the executor
     ExecutorError {
+        /// Originating async_std error
         source: async_std::io::Error,
     },
+    /// Failed to decode a socket specification
     SocketDecodeError {
+        /// Input that was given
         input: String,
+        /// Originating io error
         source: std::io::Error,
     },
+    /// Failed to bind a listener socket
     FailedToBindListener {
+        /// originating io error
         source: std::io::Error,
     },
+    /// No sockets were open
     NoSocketsError {
+        /// Input that was given
         input: String,
     },
+    /// Generic error type for compatibility if needed
     Other {
+        /// Originating error
         inner: Box<dyn std::error::Error + Send>,
     },
 }
 
+/// Describes, generically, the behaviors a networking implementation must have
 pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,

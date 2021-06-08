@@ -1,47 +1,54 @@
-use futures_lite::{future, FutureExt};
-use futures_locks::RwLock;
+use dashmap::{DashMap, DashSet};
+use futures::FutureExt;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::{ensure, OptionExt};
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::sync::Arc;
 
+use super::BoxedFuture;
 use crate::networking::{ListenerSend, NetworkingImplementation, NoSuchNode};
 use crate::PubKey;
 
 #[derive(Clone)]
+/// In memory network emulator
 pub struct MemoryNetwork<T: Clone> {
-    broadcast: Arc<RwLock<HashMap<PubKey, VecDeque<T>>>>,
-    direct: Arc<RwLock<HashMap<PubKey, VecDeque<T>>>>,
-    nodes: Arc<parking_lot::RwLock<HashSet<PubKey>>>,
+    /// Broadcast queue for each node
+    broadcast: Arc<DashMap<PubKey, VecDeque<T>>>,
+    /// Direct queue for each nodes
+    direct: Arc<DashMap<PubKey, VecDeque<T>>>,
+    /// The list of nodes
+    nodes: Arc<DashSet<PubKey>>,
+    /// The ID for this node
     node_id: Option<PubKey>,
 }
 
 impl<T: Clone> MemoryNetwork<T> {
+    /// Creates a new `MemoryNetwork` and loads this node into it
     pub fn new(node_id: PubKey) -> Self {
         let x = Self::new_listener();
         x.add_node(node_id)
     }
 
+    /// Creates a new `MemoryNetwork` that can only receive broadcasts
     pub fn new_listener() -> Self {
         Self {
-            broadcast: Arc::new(RwLock::new(HashMap::new())),
-            direct: Arc::new(RwLock::new(HashMap::new())),
+            broadcast: Arc::new(DashMap::new()),
+            direct: Arc::new(DashMap::new()),
             node_id: None,
-            nodes: Arc::new(parking_lot::RwLock::new(HashSet::new())),
+            nodes: Arc::new(DashSet::new()),
         }
     }
 
+    /// Creates a clone of the existing `MemoryNetwork`, but with a new node associated
     pub fn add_node(&self, node_id: PubKey) -> Self {
         let mut x = self.clone();
         x.node_id = Some(node_id.clone());
-        {
-            let nodes: &mut HashSet<PubKey> = &mut x.nodes.write();
-            nodes.insert(node_id);
-        }
+        x.nodes.insert(node_id);
         x
     }
 
+    /// Creates a clone of the existing `MemoryNetwork` that can only receive broadcasts
     pub fn add_listener(&self) -> Self {
         let mut x = self.clone();
         x.node_id = None;
@@ -49,23 +56,22 @@ impl<T: Clone> MemoryNetwork<T> {
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImplementation<T>
+impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static> NetworkingImplementation<T>
     for MemoryNetwork<T>
 {
-    fn broadcast_message(&self, message: T) -> future::Boxed<Result<(), super::NetworkError>> {
+    fn broadcast_message(&self, message: T) -> BoxedFuture<Result<(), super::NetworkError>> {
         let broadcast = self.broadcast.clone();
-        let nodes: Vec<PubKey> = self.nodes.read().iter().cloned().collect();
+        let nodes: Vec<PubKey> = self.nodes.iter().map(|x| x.clone()).collect();
         let is_node = self.node_id.is_some();
         async move {
             ensure!(is_node, ListenerSend);
-            let b: &mut HashMap<PubKey, VecDeque<T>> = &mut *broadcast.write().await;
             for node in nodes {
                 // Make sure there is a bucket
-                if !b.contains_key(&node) {
-                    b.insert(node.clone(), VecDeque::new());
+                if !broadcast.contains_key(&node) {
+                    broadcast.insert(node.clone(), VecDeque::new());
                 }
                 // This unwrap is safe since we ensured the bucket exists
-                b.get_mut(&node).unwrap().push_back(message.clone());
+                broadcast.get_mut(&node).unwrap().push_back(message.clone());
             }
             Ok(())
         }
@@ -76,33 +82,31 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         &self,
         message: T,
         recipient: PubKey,
-    ) -> future::Boxed<Result<(), super::NetworkError>> {
+    ) -> BoxedFuture<Result<(), super::NetworkError>> {
         let direct = self.direct.clone();
-        let node_exists = self.nodes.read().contains(&recipient);
+        let node_exists = self.nodes.contains(&recipient);
         let is_node = self.node_id.is_some();
         async move {
             ensure!(is_node, ListenerSend);
             ensure!(node_exists, NoSuchNode);
-            let d: &mut HashMap<PubKey, VecDeque<T>> = &mut *direct.write().await;
             // make sure there is a bucket
-            if !d.contains_key(&recipient) {
-                d.insert(recipient.clone(), VecDeque::new());
+            if !direct.contains_key(&recipient) {
+                direct.insert(recipient.clone(), VecDeque::new());
             }
             // This unwrap is safe since we made sure the bucket exists
-            d.get_mut(&recipient).unwrap().push_back(message);
+            direct.get_mut(&recipient).unwrap().push_back(message);
 
             Ok(())
         }
         .boxed()
     }
 
-    fn broadcast_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
+    fn broadcast_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
         let broadcast = self.broadcast.clone();
         let node_id = self.node_id.clone();
         async move {
             let node_id = node_id.context(ListenerSend)?;
-            let b: &mut HashMap<PubKey, VecDeque<T>> = &mut *broadcast.write().await;
-            if let Some(bucket) = b.get_mut(&node_id) {
+            if let Some(mut bucket) = broadcast.get_mut(&node_id) {
                 let vec = bucket.drain(..).collect();
                 Ok(vec)
             } else {
@@ -113,13 +117,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         .boxed()
     }
 
-    fn next_broadcast(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
+    fn next_broadcast(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
         let broadcast = self.broadcast.clone();
         let node_id = self.node_id.clone();
         async move {
             let node_id = node_id.context(ListenerSend)?;
-            let b: &mut HashMap<PubKey, VecDeque<T>> = &mut *broadcast.write().await;
-            if let Some(bucket) = b.get_mut(&node_id) {
+            if let Some(mut bucket) = broadcast.get_mut(&node_id) {
                 let it = bucket.pop_front();
                 Ok(it)
             } else {
@@ -130,13 +133,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         .boxed()
     }
 
-    fn direct_queue(&self) -> future::Boxed<Result<Vec<T>, super::NetworkError>> {
+    fn direct_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
         let direct = self.direct.clone();
         let node_id = self.node_id.clone();
         async move {
             let node_id = node_id.context(ListenerSend)?;
-            let d: &mut HashMap<PubKey, VecDeque<T>> = &mut *direct.write().await;
-            if let Some(bucket) = d.get_mut(&node_id) {
+            if let Some(mut bucket) = direct.get_mut(&node_id) {
                 let vec = bucket.drain(..).collect();
                 Ok(vec)
             } else {
@@ -147,13 +149,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         .boxed()
     }
 
-    fn next_direct(&self) -> future::Boxed<Result<Option<T>, super::NetworkError>> {
-        let direct = self.direct.clone();
+    fn next_direct(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
+        let direct: Arc<DashMap<PubKey, VecDeque<T>>> = self.direct.clone();
         let node_id = self.node_id.clone();
         async move {
             let node_id = node_id.context(ListenerSend)?;
-            let d: &mut HashMap<PubKey, VecDeque<T>> = &mut *direct.write().await;
-            if let Some(bucket) = d.get_mut(&node_id) {
+            if let Some(mut bucket) = direct.get_mut(&node_id) {
                 let it = bucket.pop_front();
                 Ok(it)
             } else {
@@ -164,8 +165,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + 'static> NetworkingImpleme
         .boxed()
     }
 
-    fn known_nodes(&self) -> future::Boxed<Vec<PubKey>> {
-        let nodes = self.nodes.read().iter().cloned().collect();
+    fn known_nodes(&self) -> BoxedFuture<Vec<PubKey>> {
+        let nodes = self.nodes.iter().map(|x| x.clone()).collect();
         async move { nodes }.boxed()
     }
 
