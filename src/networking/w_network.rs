@@ -77,6 +77,8 @@ struct WNetworkInner<T> {
     #[allow(clippy::clippy::type_complexity)]
     outgoing_connections:
         DashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
+    /// Holding spot for the `TcpListener` used by this `WNetwork`
+    socket: RwLock<Option<TcpListener>>,
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static> WNetworkInner<T> {
@@ -95,8 +97,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
             direct_queue: direct,
             nodes,
             outgoing_connections: DashMap::new(),
+            socket: RwLock::new(None),
         }
     }
+
     /// Creates a new `WNetworkInner` preloaded with connections to the nodes in `node_list`
     ///
     /// # Errors
@@ -113,6 +117,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
         node_list: impl IntoIterator<Item = (PubKey, String)>,
         broadcast: flume::Receiver<T>,
         direct: flume::Receiver<T>,
+        port: u16,
     ) -> Result<Self, NetworkError> {
         let node_map = DashMap::new();
         for (k, v) in node_list {
@@ -126,12 +131,32 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + 'static>
             node_map.insert(k, addr);
         }
         trace!(id = own_key.nonce, nodes = ?node_map, "Assembled nodemap");
+        // Open the socket
+        info!(?port, "Opening listener");
+        // Open up a listener
+        let listen_socket = ("0.0.0.0", port)
+            .to_socket_addrs()
+            .await
+            .context(SocketDecodeError {
+                input: port.to_string(),
+            })?
+            .into_iter()
+            .next()
+            .context(NoSocketsError {
+                input: port.to_string(),
+            })?;
+        trace!("Socket decoded, opening listener");
+        let listener = TcpListener::bind(listen_socket)
+            .await
+            .context(FailedToBindListener)?;
+        debug!(?port, "Opened new listener");
         Ok(Self {
             own_key,
             broadcast_queue: broadcast,
             direct_queue: direct,
             nodes: node_map,
             outgoing_connections: DashMap::new(),
+            socket: RwLock::new(Some(listener)),
         })
     }
 }
@@ -289,7 +314,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         debug!("Created queues");
         trace!("Creating Inner");
         let inner: WNetworkInner<T> =
-            WNetworkInner::new_from_strings(own_key, node_list, broadcast_r, direct_r).await?;
+            WNetworkInner::new_from_strings(own_key, node_list, broadcast_r, direct_r, port)
+                .await?;
         debug!("Created Inner");
         let inner = Arc::new(inner);
         let tasks_generated = Arc::new(AtomicBool::new(false));
@@ -500,24 +526,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let x = self.clone();
             Some(
                 async move {
-                    info!(port = ?x.port, "Opening listener");
-                    // Open up a listener
-                    let listen_socket = ("0.0.0.0", *x.port)
-                        .to_socket_addrs()
-                        .await
-                        .context(SocketDecodeError {
-                            input: x.port.to_string(),
-                        })?
-                        .into_iter()
-                        .next()
-                        .context(NoSocketsError {
-                            input: x.port.to_string(),
-                        })?;
-                    trace!("Socket decoded, opening listener");
-                    let listener = TcpListener::bind(listen_socket)
-                        .await
-                        .context(FailedToBindListener)?;
-                    debug!(port =?x.port, "Opened new listener");
+                    let listener: TcpListener = x.inner.socket.write().await.take().unwrap();
                     // Connection processing loop
                     let mut incoming = listener.incoming();
                     // Our port is now open, send the sync signal
@@ -780,6 +789,7 @@ mod tests {
             input_strings.clone(),
             broadcast_r,
             direct_r,
+            8882,
         )
         .await?;
 
