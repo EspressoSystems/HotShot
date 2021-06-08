@@ -30,7 +30,6 @@ use std::sync::Arc;
 
 use async_std::sync::RwLock;
 use dashmap::DashMap;
-use hex_fmt::HexFmt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use threshold_crypto as tc;
@@ -42,6 +41,8 @@ use crate::message::{
 };
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
+
+pub use crate::data::{QuorumCertificate, Stage};
 
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotStuffError>;
@@ -151,61 +152,6 @@ pub trait BlockContents:
     ///
     /// TODO: Abstract out into transaction trait
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash;
-}
-
-/// The type used for quorum certs
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct QuorumCertificate {
-    /// Block this QC refers to
-    hash: BlockHash,
-    /// The view we were on when we made this certificate
-    view_number: u64,
-    /// The stage of consensus we were on when we made this certificate
-    stage: Stage,
-    /// The signature portion of this QC
-    signature: Option<tc::Signature>,
-    /// Temporary bypass for boostrapping
-    genesis: bool,
-}
-
-impl QuorumCertificate {
-    /// Verifies a quorum certificate
-    #[must_use]
-    pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
-        // Temporary, stage and view should be included in signature in future
-        if let Some(signature) = &self.signature {
-            key.public_key().verify(&signature, &self.hash)
-                && self.stage == stage
-                && self.view_number == view
-        } else {
-            self.genesis
-        }
-    }
-}
-
-impl Debug for QuorumCertificate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("QuorumCertificate")
-            .field("hash", &format!("{:12}", HexFmt(&self.hash)))
-            .field("view_number", &self.view_number)
-            .field("stage", &self.stage)
-            .field("signature", &self.signature)
-            .field("genesis", &self.genesis)
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-/// Represents the stages of consensus
-pub enum Stage {
-    /// Prepare Phase
-    Prepare,
-    /// PreCommit Phase
-    PreCommit,
-    /// Commit Phase
-    Commit,
-    /// Decide Phase
-    Decide,
 }
 
 /// Holds configuration for a hotstuff
