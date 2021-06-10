@@ -447,7 +447,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             statement being used in such a way that that I have yet found.
              */
             // This macro expansion includes an &mut &mut T, which clippy hates
-            #[allow(clippy::clippy::mut_mut)]
+            #[allow(clippy::mut_mut)]
+            // `select!` expands to include an explicit panic, though it only triggers in a
+            // situation that would require memory corruption to occurs
+            #[allow(clippy::panic)]
             loop {
                 trace!("Top of event loop");
                 select! {
