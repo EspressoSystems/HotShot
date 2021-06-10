@@ -7,7 +7,11 @@
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::clippy::similar_names)]
-#![allow(clippy::cast_possible_truncation)] // Temporary
+// Temporary
+#![allow(clippy::cast_possible_truncation)]
+// Given that consensus should guarantee the ability to recover from errors, explicit panics should
+// be strictly forbidden
+#![warn(clippy::panic)]
 //! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT
 //! protocol
 
@@ -36,14 +40,13 @@ use snafu::ResultExt;
 use threshold_crypto as tc;
 
 use crate::data::Leaf;
-use crate::error::{HotStuffError, NetworkFault};
+use crate::error::{FailedToBroadcast, FailedToMessageLeader, HotStuffError, NetworkFault};
 use crate::message::{
     Commit, CommitVote, Decide, Message, NewView, PreCommit, PreCommitVote, Prepare, PrepareVote,
 };
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-use tracing_unwrap::ResultExt as RXT;
 
 pub use crate::data::{QuorumCertificate, Stage};
 
@@ -399,8 +402,8 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     ///
     /// Panics if consensus hits a bad round
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn run_round(&self, current_view: u64) {
+    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    pub async fn run_round(&self, current_view: u64) -> Result<()> {
         let hotstuff = &self.inner;
         // Get the leader for the current round
         let leader = hotstuff.get_leader(current_view);
@@ -462,7 +465,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     high_qc: high_qc.clone(),
                 }))
                 .await
-                .expect_or_log("Failed to broadcast message");
+                .context(FailedToBroadcast {
+                    stage: Stage::Prepare,
+                })?;
             debug!("Leaf broadcasted to network");
             // Export the block
             the_block = block;
@@ -497,19 +502,17 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     .networking
                     .message_node(vote_message, leader.clone())
                     .await
-                    .unwrap_or_else(|_| {
-                        error!("Failed to message leader!");
-                        panic!(
-                            "Failed to message leader in prepare phase of view {}",
-                            current_view
-                        )
-                    });
+                    .context(FailedToMessageLeader {
+                        stage: Stage::Prepare,
+                    })?;
                 debug!("Prepare message successfully processed");
                 the_block = leaf.item;
                 the_hash = leaf_hash;
             } else {
                 error!(?leaf, "Leaf failed safe_node predicate");
-                panic!("Bad block in prepare phase of view {}", current_view);
+                return Err(HotStuffError::BadBlock {
+                    stage: Stage::Prepare,
+                });
             }
         }
         /*
@@ -528,14 +531,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .collect();
             // Generate a quorum certificate from those votes
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
-                    .unwrap_or_else(|| {
-                        error!("Failed to generate QC in pre-commit phase");
-                        panic!(
-                            "Failed to generate QC in pre-commit phase of view {}",
-                            current_view
-                        )
-                    });
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
+                    |e| HotStuffError::FailedToAssembleQC {
+                        stage: Stage::PreCommit,
+                        source: e,
+                    },
+                )?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -558,7 +559,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .broadcast_message(pc_message)
                 .await
-                .expect_or_log("Failed to broadcast message");
+                .context(FailedToBroadcast {
+                    stage: Stage::PreCommit,
+                })?;
             debug!("Precommit message sent");
         } else {
             trace!("Waiting for precommit message to arrive from leader");
@@ -573,10 +576,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 && prepare_qc.hash == the_hash)
             {
                 error!(?prepare_qc, "Bad or forged QC prepare_qc");
-                panic!(
-                    "Bad or forged qc in precommit phase of view {}",
-                    current_view
-                );
+                return Err(HotStuffError::BadOrForgedQC {
+                    stage: Stage::PreCommit,
+                    bad_qc: prepare_qc,
+                });
             }
             debug!("Precommit qc validated");
             let signature =
@@ -596,13 +599,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
-                .unwrap_or_else(|_| {
-                    error!("Failed to message leader in precommit phase");
-                    panic!(
-                        "Failed to message leader in precommit phase of view {}",
-                        current_view
-                    )
-                });
+                .context(FailedToMessageLeader {
+                    stage: Stage::PreCommit,
+                })?;
             debug!("Precommit vote sent");
         }
         /*
@@ -619,14 +618,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
-                    .unwrap_or_else(|| {
-                        error!("Failed to generate commit qc");
-                        panic!(
-                            "Failed to generate QC in commit phase of view {}",
-                            current_view
-                        )
-                    });
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
+                    |e| HotStuffError::FailedToAssembleQC {
+                        stage: Stage::Commit,
+                        source: e,
+                    },
+                )?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -645,7 +642,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .broadcast_message(c_message)
                 .await
-                .expect_or_log("Failed to broadcast message");
+                .context(FailedToBroadcast {
+                    stage: Stage::Commit,
+                })?;
             debug!("Commit message broadcasted");
         } else {
             trace!("Waiting for commit message to arrive from leader");
@@ -659,7 +658,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 && precommit_qc.hash == the_hash)
             {
                 error!(?precommit_qc, "Bad or forged precommit qc");
-                panic!("Bad or forged qc in commit phase of view {}", current_view);
+                return Err(HotStuffError::BadOrForgedQC {
+                    stage: Stage::Commit,
+                    bad_qc: precommit_qc,
+                });
             }
             let mut locked_qc = hotstuff.locked_qc.write().await;
             trace!("precommit qc written to locked_qc");
@@ -678,12 +680,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Failed to message leader in commit phase of view {}",
-                        current_view
-                    )
-                });
+                .context(FailedToMessageLeader {
+                    stage: Stage::Commit,
+                })?;
             debug!("Commit vote sent to leader");
         }
         /*
@@ -700,14 +699,12 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set)
-                    .unwrap_or_else(|| {
-                        error!("Failed to generate commit qc");
-                        panic!(
-                            "Failed to generate QC in decide phase of view {}",
-                            current_view
-                        )
-                    });
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
+                    |e| HotStuffError::FailedToAssembleQC {
+                        stage: Stage::Decide,
+                        source: e,
+                    },
+                )?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -720,9 +717,16 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             hotstuff.decision_cache.insert(the_hash, qc.clone());
             trace!("Commit qc added to decision cache");
             // Apply the state
-            let new_state = the_block
-                .append_to(&state)
-                .expect_or_log("Failed to append new block to existing state.");
+            let new_state = the_block.append_to(&state).map_err(|error| {
+                error!(
+                    ?error,
+                    ?the_block,
+                    "Failed to append block to existing state"
+                );
+                HotStuffError::InconsistentBlock {
+                    stage: Stage::Decide,
+                }
+            })?;
             // set the new state
             let mut state = hotstuff.state.write().await;
             *state = new_state;
@@ -737,7 +741,9 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 .networking
                 .broadcast_message(d_message)
                 .await
-                .expect_or_log("Failed to broadcast message");
+                .context(FailedToBroadcast {
+                    stage: Stage::Decide,
+                })?;
             debug!("Decision broadcasted");
         } else {
             trace!("Waiting on decide QC to come in");
@@ -751,13 +757,23 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 && decide_qc.hash == the_hash)
             {
                 error!(?decide_qc, "Bad or forged commit qc");
-                panic!("Bad or forged qc in decide phase of view {}", current_view);
+                return Err(HotStuffError::BadOrForgedQC {
+                    stage: Stage::Decide,
+                    bad_qc: decide_qc,
+                });
             }
             // Apply new state
             trace!("Applying new state");
-            let new_state = the_block
-                .append_to(&state)
-                .expect_or_log("Failed to append new block to existing state");
+            let new_state = the_block.append_to(&state).map_err(|error| {
+                error!(
+                    ?error,
+                    ?the_block,
+                    "Failed to append block to existing state"
+                );
+                HotStuffError::InconsistentBlock {
+                    stage: Stage::Decide,
+                }
+            })?;
             // set the new state
             let mut state = hotstuff.state.write().await;
             *state = new_state;
@@ -768,6 +784,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 
         self.inner.transaction_queue.write().await.clear();
         trace!("Transaction queue cleared");
+        Ok(())
     }
 
     /// Spawns the background tasks for network processin for this instance
@@ -802,7 +819,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                                 Message::SubmitTransaction(d) => {
                                     hotstuff.transaction_queue.write().await.push(d)
                                 }
-                                _ => panic!("Non-broadcast transaction sent over broadcast"),
+                                _ => {
+                                    // Log the exceptional situation and proceed
+                                    warn!(?item, "Direct message received over broadcast channel");
+                                }
                             }
                         }
                         trace!("Item processed, yeilding");
@@ -841,7 +861,10 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                                 Message::CommitVote(cv) => {
                                     hotstuff.commit_vote_queue.push(cv).await
                                 }
-                                _ => panic!("Broadcast transaction sent over non-broadcast"),
+                                _ => {
+                                    // Log exceptional situation and proceed
+                                    warn!(?item, "Broadcast message received over direct channel");
+                                }
                             }
                         }
                         trace!("Item processed, yeilding");
@@ -887,6 +910,6 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 fn generate_qc<'a>(
     signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
     key_set: &tc::PublicKeySet,
-) -> Option<tc::Signature> {
-    key_set.combine_signatures(signatures).ok()
+) -> std::result::Result<tc::Signature, tc::error::Error> {
+    key_set.combine_signatures(signatures)
 }

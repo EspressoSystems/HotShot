@@ -165,7 +165,11 @@ mod test {
         join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(0))).await;
         // Running a round of consensus
         println!("Running round 1");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(1))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(1)))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Round 1 failed");
         println!(
             "Current states: {:?}",
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
@@ -182,7 +186,11 @@ mod test {
         join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(1))).await;
         // Running a round of consensus
         println!("Running round 2");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(2))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(2)))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Round 2 failed");
         println!(
             "Current states: {:?}",
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
@@ -199,7 +207,11 @@ mod test {
         join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(2))).await;
         // Running a round of consensus
         println!("Running round 3");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(3))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(3)))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Round 3 failed");
         println!(
             "Current states: {:?}",
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
