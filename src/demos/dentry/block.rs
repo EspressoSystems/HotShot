@@ -1,4 +1,4 @@
-use blake3::{traits::digest::ExtendableOutput, Hasher};
+use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, OptionExt, Snafu};
 
@@ -6,19 +6,21 @@ use std::collections::BTreeMap;
 
 use crate::{BlockContents, BlockHash};
 
-type Account = String;
-type Balance = i64;
+pub type Account = String;
+pub type Balance = i64;
 
+/// A debit
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Subtraction {
     account: Account,
-    ammount: Balance,
+    amount: Balance,
 }
 
+/// A credit
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Addition {
     account: Account,
-    ammount: Balance,
+    amount: Balance,
 }
 
 /// The error type for the dentry demo
@@ -45,10 +47,10 @@ pub struct Transaction {
 
 impl Transaction {
     /// Ensures that this transaction is at least consistent with itself
-    pub fn validate_independnt(&self) -> bool {
+    pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
         // another
-        self.add.ammount <= self.sub.ammount
+        self.add.amount <= self.sub.amount // TODO why not strict equality?
     }
 }
 
@@ -79,6 +81,17 @@ pub struct DEntryBlock {
     transactions: Vec<Transaction>,
 }
 
+// returns a new block that does not yet contain any transactions, containing any reference to
+// the current state that it will need
+//
+// TODO Note: api sketch
+fn next_block(state: &State) -> DEntryBlock {
+    DEntryBlock {
+        previous_block: state.hash_state(),
+        transactions: Vec::new(),
+    }
+}
+
 impl BlockContents for DEntryBlock {
     type State = State;
 
@@ -86,33 +99,23 @@ impl BlockContents for DEntryBlock {
 
     type Error = DEntryError;
 
-    // returns a new block that does not yet contain any transactions, containing any reference to
-    // the current state that it will need
-    //
-    // Note: api sketch
-    fn next_block(state: &Self::State) -> Self {
-        Self {
-            previous_block: state.hash_state(),
-            transactions: Vec::new(),
-        }
-    }
-
     fn add_transaction(
         &self,
         state: &Self::State,
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
         // first, make sure that the transaction is internally valid
-        if tx.validate_independnt() {
+        if tx.validate_independence() {
+            // TODO spelling
             // Now add up all the existing transactions from this block involving the subtraction,
             // we don't want to allow an account balance to go below zero
             let total_so_far: i64 = self
                 .transactions
                 .iter()
                 .filter(|x| x.sub.account == tx.sub.account)
-                .map(|x| x.sub.ammount)
+                .map(|x| x.sub.amount)
                 .sum::<i64>()
-                + tx.sub.ammount;
+                + tx.sub.amount;
             // Look up the current balance for the account, and make sure we aren't subtracting more
             // than they currently have, returning an error if the account does not exist
             let current_balance: i64 = *state
@@ -150,20 +153,20 @@ impl BlockContents for DEntryBlock {
             //
             // We first check that the transaction is internally consistent, then apply the change
             // to our trial map
-            if !tx.validate_independnt() {
+            if !tx.validate_independence() {
                 return false;
             }
             // Find the input account, and subtract the transfer balance from it, failing if it
             // doesn't exist
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account = *input_account - tx.sub.ammount;
+                *input_account = *input_account - tx.sub.amount;
             } else {
                 return false;
             }
             // Find the output account, and add the transfer balance to it, failing if it doesn't
             // exist
             if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account = *output_account + tx.add.ammount;
+                *output_account = *output_account + tx.add.amount;
             } else {
                 return false;
             }
@@ -191,18 +194,18 @@ impl BlockContents for DEntryBlock {
             //
             // We first check that the transaction is internally consistent, then apply the change
             // to our trial map
-            ensure!(tx.validate_independnt(), InconsistentTransaction);
+            ensure!(tx.validate_independence(), InconsistentTransaction);
             // Find the input account, and subtract the transfer balance from it, failing if it
             // doesn't exist
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account = *input_account - tx.sub.ammount;
+                *input_account = *input_account - tx.sub.amount;
             } else {
                 return Err(DEntryError::NoSuchInputAccount);
             }
             // Find the output account, and add the transfer balance to it, failing if it doesn't
             // exist
             if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account = *output_account + tx.add.ammount;
+                *output_account = *output_account + tx.add.amount;
             } else {
                 return Err(DEntryError::NoSuchOutputAccount);
             }
@@ -226,11 +229,23 @@ impl BlockContents for DEntryBlock {
 
     // Note: this is really used for indexing the block in storage
     fn hash(&self) -> BlockHash {
-        todo!()
+        let mut hasher = Hasher::new();
+        hasher.update(&self.previous_block);
+        self.transactions.iter().for_each(|tx| {
+            hasher.update(&Self::hash_transaction(tx));
+            ()
+        });
+        *hasher.finalize().as_bytes()
     }
 
-    // Note: this is really used for indexing the transaction in storage
+    // Note: This is used for indexing the transaction in storage
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash {
-        todo!()
+        assert!(tx.validate_independence());
+        let mut hasher = Hasher::new();
+        hasher.update(&tx.add.account.as_bytes());
+        hasher.update(&tx.add.amount.to_be_bytes());
+        hasher.update(&tx.sub.account.as_bytes());
+        hasher.update(&tx.sub.amount.to_be_bytes());
+        *hasher.finalize().as_bytes()
     }
 }
