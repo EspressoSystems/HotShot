@@ -1,13 +1,14 @@
-/// `BlockContents` implementation for the counter demo
+/// `BlockContents` implementation for the double entry bookkeeping demo
 pub mod block;
 
 use crate::message::Message;
 use crate::networking::w_network::WNetwork;
 use crate::{HotStuff, HotStuffConfig, PubKey};
 use blake3::Hasher;
-use block::{Account, Addition, Balance, DEntryBlock, State, Subtraction, Transaction};
+use block::{DEntryBlock, State, Transaction};
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::BTreeMap;
 use threshold_crypto as tc;
 
 /// Attempts to create a network connection with a random port
@@ -54,8 +55,14 @@ pub async fn try_hotstuff(
     u16,
     WNetwork<Message<DEntryBlock, Transaction>>,
 ) {
+    // TODO !corbett how do all the genesis blocks get initialized?
+    assert_eq!(
+        *Hasher::new().finalize().as_bytes(),
+        *Hasher::new().finalize().as_bytes()
+    );
     let genesis = DEntryBlock {
         previous_block: *Hasher::new().finalize().as_bytes(),
+        transactions: vec![],
     };
     let pub_key_set = keys.public_keys();
     let tc_pub_key = pub_key_set.public_key_share(node_number);
@@ -76,7 +83,9 @@ pub async fn try_hotstuff(
         &keys,
         node_number as u64,
         config,
-        State {},
+        State {
+            balances: BTreeMap::new(),
+        },
         networking.clone(),
     );
     (hotstuff, pub_key, port, networking)
@@ -91,7 +100,7 @@ mod test {
     use futures::future::join_all;
 
     #[async_std::test]
-    async fn hotstuff_counter_demo() {
+    async fn hotstuff_dentry_demo() {
         setup_logging();
         let keys = gen_keys(3);
         // Create the hotstuffs and spawn their tasks
@@ -145,7 +154,7 @@ mod test {
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
         );
         // Propose a new transaction
-        println!("Proposing to increment from 0 -> 1");
+        println!("Proposing first transaction");
         hotstuffs[0]
             .0
             .publish_transaction_async(Transaction {
@@ -171,7 +180,7 @@ mod test {
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
         );
         // Propose a new transaction
-        println!("Proposing to increment from 1 -> 2");
+        println!("Proposing second transaction");
         hotstuffs[1]
             .0
             .publish_transaction_async(Transaction {
@@ -197,7 +206,7 @@ mod test {
             join_all(hotstuffs.iter().map(|(h, _, _, _)| h.get_state())).await
         );
         // Propose a new transaction
-        println!("Proposing to increment from 2 -> 3");
+        println!("Proposing third transaction");
         hotstuffs[0]
             .0
             .publish_transaction_async(Transaction {

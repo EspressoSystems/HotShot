@@ -1,26 +1,32 @@
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, OptionExt, Snafu};
-
 use std::collections::BTreeMap;
 
 use crate::{BlockContents, BlockHash};
 
+/// An account identifier
 pub type Account = String;
+
+/// An account balance
 pub type Balance = i64;
 
 /// A debit
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Subtraction {
-    account: Account,
-    amount: Balance,
+    /// An account identifier
+    pub account: Account,
+    /// An account balance
+    pub amount: Balance,
 }
 
 /// A credit
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Addition {
-    account: Account,
-    amount: Balance,
+    /// An account identifier
+    pub account: Account,
+    /// An account balance
+    pub amount: Balance,
 }
 
 /// The error type for the dentry demo
@@ -41,8 +47,10 @@ pub enum DEntryError {
 /// The transaction for the dentry demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Transaction {
-    add: Addition,
-    sub: Subtraction,
+    // A credit
+    pub add: Addition,
+    // A debit
+    pub sub: Subtraction,
 }
 
 impl Transaction {
@@ -57,7 +65,7 @@ impl Transaction {
 /// The state for the dentry demo
 #[derive(Clone, Debug)]
 pub struct State {
-    balances: BTreeMap<Account, Balance>,
+    pub balances: BTreeMap<Account, Balance>,
 }
 
 impl State {
@@ -77,8 +85,8 @@ impl State {
 /// The block for the dentry demo
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
-    previous_block: BlockHash,
-    transactions: Vec<Transaction>,
+    pub previous_block: BlockHash,
+    pub transactions: Vec<Transaction>,
 }
 
 // returns a new block that does not yet contain any transactions, containing any reference to
