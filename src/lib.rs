@@ -114,7 +114,7 @@ impl PrivKey {
 
 /// The block trait
 pub trait BlockContents:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + Default + PartialEq + Eq + Send
+    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send
 {
     /// The type of the state machine we are applying transitions to
     type State: Clone + Send + Sync;
@@ -130,6 +130,11 @@ pub trait BlockContents:
         + Send;
     /// The error type for this state machine
     type Error: Error + Debug;
+
+    /// Creates a new block, currently devoid of transactions, given the current state.
+    ///
+    /// Allows the new block to reference any data from the state that its in.
+    fn next_block(state: &Self::State) -> Self;
 
     /// Attempts to add a transaction, returning an Error if not compatible with the current state
     ///
@@ -415,7 +420,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         let the_hash;
         if is_leader {
             // Prepare our block
-            let mut block = B::default();
+            let mut block = B::next_block(&state);
             // spin while the transaction_queue is empty
             trace!("Entering spin while we wait for transactions");
             while hotstuff.transaction_queue.read().await.is_empty() {

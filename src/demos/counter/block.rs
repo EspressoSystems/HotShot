@@ -143,4 +143,9 @@ impl BlockContents for CounterBlock {
             *hasher.finalize().as_bytes()
         }
     }
+
+    /// This demo does not include any state from the previous state, so this is a no-op
+    fn next_block(_state: &Self::State) -> Self {
+        Self::default()
+    }
 }
