@@ -118,7 +118,6 @@ impl BlockContents for DEntryBlock {
     ) -> std::result::Result<Self, Self::Error> {
         // first, make sure that the transaction is internally valid
         if tx.validate_independence() {
-            // TODO spelling
             // Now add up all the existing transactions from this block involving the subtraction,
             // we don't want to allow an account balance to go below zero
             let total_so_far: i64 = self
