@@ -31,5 +31,4 @@ build:
     - docker build --pull -f DockerfileDocs -t $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_COMMIT_BRANCH .
     - docker push $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH
     - docker push $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_COMMIT_BRANCH
-
-
+    - ecs deploy Main hotstuff_docs  --region us-east-2 --timeout -1
