@@ -5,7 +5,7 @@ use crate::message::Message;
 use crate::networking::w_network::WNetwork;
 use crate::{HotStuff, HotStuffConfig, PubKey};
 use blake3::Hasher;
-use block::{DEntryBlock, State, Transaction};
+use block::{Addition, DEntryBlock, State, Subtraction, Transaction};
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use std::collections::BTreeMap;

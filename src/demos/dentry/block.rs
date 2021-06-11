@@ -2,6 +2,7 @@ use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, OptionExt, Snafu};
 use std::collections::BTreeMap;
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 use crate::{BlockContents, BlockHash};
 
@@ -11,7 +12,7 @@ pub type Account = String;
 /// An account balance
 pub type Balance = i64;
 
-/// A debit
+/// Records a reduction in an account balance
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Subtraction {
     /// An account identifier
@@ -20,7 +21,7 @@ pub struct Subtraction {
     pub amount: Balance,
 }
 
-/// A credit
+/// Records an increase in an account balance
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Addition {
     /// An account identifier
@@ -47,9 +48,9 @@ pub enum DEntryError {
 /// The transaction for the dentry demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct Transaction {
-    // A credit
+    /// An increment to an account balance
     pub add: Addition,
-    // A debit
+    /// A decrement to an account balance
     pub sub: Subtraction,
 }
 
@@ -65,6 +66,7 @@ impl Transaction {
 /// The state for the dentry demo
 #[derive(Clone, Debug)]
 pub struct State {
+    /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
 }
 
@@ -85,7 +87,9 @@ impl State {
 /// The block for the dentry demo
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
+    /// Block state commitment
     pub previous_block: BlockHash,
+    /// Transaction vector
     pub transactions: Vec<Transaction>,
 }
 
@@ -162,6 +166,7 @@ impl BlockContents for DEntryBlock {
             // We first check that the transaction is internally consistent, then apply the change
             // to our trial map
             if !tx.validate_independence() {
+                error!("validate_independence failed");
                 return false;
             }
             // Find the input account, and subtract the transfer balance from it, failing if it
@@ -169,6 +174,7 @@ impl BlockContents for DEntryBlock {
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
                 *input_account = *input_account - tx.sub.amount;
             } else {
+                error!("no such input account");
                 return false;
             }
             // Find the output account, and add the transfer balance to it, failing if it doesn't
@@ -176,18 +182,28 @@ impl BlockContents for DEntryBlock {
             if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
                 *output_account = *output_account + tx.add.amount;
             } else {
+                error!("no such output account");
                 return false;
             }
         }
         // Loop through our account map and make sure nobody is negative
         for (_account, balance) in &trial_balances {
             if *balance < 0 {
+                error!("negative balance");
                 return false;
             }
         }
         // This block has now passed all our tests, and thus has not done anything bad, so the block
         // is valid if its previous state hash matches that of the previous state
-        return self.previous_block == state.hash_state();
+        let result = &self.previous_block == &state.hash_state();
+        if !result {
+            error!(
+                "hash failure. previous_block: {:?} hash_state: {:?}",
+                self.previous_block,
+                state.hash_state()
+            );
+        }
+        return result;
     }
 
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
