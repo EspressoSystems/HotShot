@@ -555,7 +555,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             trace!(?leaf, "Leaf added to storage");
             // check that the message is safe, extends from the given qc, and is valid given the
             // current state
-            if self.safe_node(&leaf, &prepare.high_qc).await && leaf.item.validate_block(&state) {
+            let is_safe_node = self.safe_node(&leaf, &prepare.high_qc).await;
+            if is_safe_node && leaf.item.validate_block(&state) {
                 let signature =
                     hotstuff
                         .private_key
@@ -587,6 +588,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     },
                 );
             } else {
+                error!("is_safe_node: {}", is_safe_node);
                 error!(?leaf, "Leaf failed safe_node predicate");
                 return Err(HotStuffError::BadBlock {
                     stage: Stage::Prepare,
