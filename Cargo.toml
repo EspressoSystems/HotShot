@@ -22,6 +22,7 @@ rand = "0.7.3"
 serde = { version = "1.0.123", features = ["derive", "rc"] }
 snafu = { version = "0.6.10", features = ["backtraces"] }
 threshold_crypto = "0.4.0"
+tokio = { version = "0.2.13", features = ["sync"], default-features = false }
 tracing = "0.1.26"
 tracing-error = "0.1.2"
 tracing-futures = "0.2.5"

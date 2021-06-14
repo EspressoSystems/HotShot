@@ -162,10 +162,10 @@ mod test {
             .unwrap();
         // issuing new views
         println!("Issuing new view messages");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(0))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(0, None))).await;
         // Running a round of consensus
         println!("Running round 1");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(1)))
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(1, None)))
             .await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
@@ -183,10 +183,10 @@ mod test {
             .unwrap();
         // issuing new views
         println!("Issuing new view messages");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(1))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(1, None))).await;
         // Running a round of consensus
         println!("Running round 2");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(2)))
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(2, None)))
             .await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
@@ -204,10 +204,10 @@ mod test {
             .unwrap();
         // issuing new views
         println!("Issuing new view messages");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(2))).await;
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.next_view(2, None))).await;
         // Running a round of consensus
         println!("Running round 3");
-        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(3)))
+        join_all(hotstuffs.iter().map(|(h, _, _, _)| h.run_round(3, None)))
             .await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()

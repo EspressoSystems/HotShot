@@ -21,6 +21,10 @@ pub mod data;
 pub mod demos;
 /// Contains error types used by this library
 pub mod error;
+/// Contains representations of events
+pub mod event;
+/// Contains the handle type for interacting with a `HotStuff` instance
+pub mod handle;
 /// Contains structures used for representing network messages
 pub mod message;
 /// Contains traits describing and implementations of networking layers
@@ -38,9 +42,11 @@ use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use threshold_crypto as tc;
+use tokio::sync::broadcast;
 
 use crate::data::Leaf;
 use crate::error::{FailedToBroadcast, FailedToMessageLeader, HotStuffError, NetworkFault};
+use crate::event::{Event, EventType};
 use crate::message::{
     Commit, CommitVote, Decide, Message, NewView, PreCommit, PreCommitVote, Prepare, PrepareVote,
 };
@@ -117,7 +123,7 @@ impl PrivKey {
 
 /// The block trait
 pub trait BlockContents:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send
+    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync
 {
     /// The type of the state machine we are applying transitions to
     type State: Clone + Send + Sync;
@@ -194,7 +200,7 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
-    state: RwLock<B::State>,
+    state: RwLock<Arc<B::State>>,
     /// Block storage
     leaf_store: DashMap<BlockHash, Leaf<B>>,
     /// Current locked quorum certificate
@@ -267,7 +273,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             config,
             networking: Box::new(networking),
             transaction_queue: RwLock::new(Vec::new()),
-            state: RwLock::new(starting_state),
+            state: RwLock::new(Arc::new(starting_state)),
             leaf_store: DashMap::new(),
             locked_qc: RwLock::new(Some(QuorumCertificate {
                 hash: genesis_hash,
@@ -372,7 +378,11 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     ///
     /// Returns an error if an underlying networking error occurs
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn next_view(&self, current_view: u64) -> Result<()> {
+    pub async fn next_view(
+        &self,
+        current_view: u64,
+        channel: Option<&broadcast::Sender<Event<B, B::State>>>,
+    ) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
         // If we are the new leader, do nothing
@@ -393,6 +403,16 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         } else {
             info!("Leader for this round");
         }
+        send_event(
+            channel,
+            Event {
+                view_number: current_view,
+                stage: Stage::None,
+                event: EventType::NewView {
+                    view_number: current_view,
+                },
+            },
+        );
         Ok(())
     }
 
@@ -403,7 +423,11 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     /// Panics if consensus hits a bad round
     #[allow(clippy::too_many_lines)]
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn run_round(&self, current_view: u64) -> Result<()> {
+    pub async fn run_round(
+        &self,
+        current_view: u64,
+        channel: Option<&broadcast::Sender<Event<B, B::State>>>,
+    ) -> Result<()> {
         let hotstuff = &self.inner;
         // Get the leader for the current round
         let leader = hotstuff.get_leader(current_view);
@@ -413,7 +437,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         } else {
             info!("Node is follower for current view");
         }
-        let state: B::State = hotstuff.state.read().await.clone();
+        let state: Arc<B::State> = hotstuff.state.read().await.clone();
         trace!("State copy made");
         /*
         Prepare phase
@@ -472,6 +496,16 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             // Export the block
             the_block = block;
             the_hash = leaf.hash();
+            send_event(
+                channel,
+                Event {
+                    view_number: current_view,
+                    stage: Stage::Prepare,
+                    event: EventType::Propose {
+                        block: Arc::new(the_block.clone()),
+                    },
+                },
+            );
         } else {
             trace!("Waiting for prepare message to come in");
             // Wait for the leader to send us a prepare message
@@ -508,6 +542,16 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 debug!("Prepare message successfully processed");
                 the_block = leaf.item;
                 the_hash = leaf_hash;
+                send_event(
+                    channel,
+                    Event {
+                        view_number: current_view,
+                        stage: Stage::Prepare,
+                        event: EventType::Propose {
+                            block: Arc::new(the_block.clone()),
+                        },
+                    },
+                );
             } else {
                 error!(?leaf, "Leaf failed safe_node predicate");
                 return Err(HotStuffError::BadBlock {
@@ -729,7 +773,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             })?;
             // set the new state
             let mut state = hotstuff.state.write().await;
-            *state = new_state;
+            *state = Arc::new(new_state);
             trace!("New state written");
             // Broadcast the decision
             let d_message = Message::Decide(Decide {
@@ -776,11 +820,22 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             })?;
             // set the new state
             let mut state = hotstuff.state.write().await;
-            *state = new_state;
+            *state = Arc::new(new_state);
             debug!("New state set, round finished");
         }
         // Clear the transaction queue, temporary, need background task to clear already included
         // transactions
+        send_event(
+            channel,
+            Event {
+                view_number: current_view,
+                stage: Stage::Decide,
+                event: EventType::Decide {
+                    block: Arc::new(the_block.clone()),
+                    state: self.inner.state.read().await.clone(),
+                },
+            },
+        );
 
         self.inner.transaction_queue.write().await.clear();
         trace!("Transaction queue cleared");
@@ -901,7 +956,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     }
 
     /// Returns a copy of the state
-    pub async fn get_state(&self) -> B::State {
+    pub async fn get_state(&self) -> Arc<B::State> {
         self.inner.state.read().await.clone()
     }
 }
@@ -912,4 +967,15 @@ fn generate_qc<'a>(
     key_set: &tc::PublicKeySet,
 ) -> std::result::Result<tc::Signature, tc::error::Error> {
     key_set.combine_signatures(signatures)
+}
+
+/// Sends an event over a `Some(broadcast::Sender<T>)`, does nothing otherwise
+fn send_event<B, S>(channel: Option<&broadcast::Sender<Event<B, S>>>, event: Event<B, S>)
+where
+    B: Send + Sync,
+    S: Send + Sync,
+{
+    if let Some(c) = channel {
+        let _result = c.send(event);
+    }
 }

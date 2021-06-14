@@ -84,6 +84,8 @@ impl Debug for QuorumCertificate {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 /// Represents the stages of consensus
 pub enum Stage {
+    /// Between rounds
+    None,
     /// Prepare Phase
     Prepare,
     /// PreCommit Phase
