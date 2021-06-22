@@ -89,6 +89,19 @@ impl PubKey {
         let node = set.public_key_share(nonce);
         PubKey { set, node, nonce }
     }
+    /// Temporary escape hatch to generate a `PubKey` from a `SecretKeySet` and a node id
+    ///
+    /// This _will_ be removed when shared secret generation is implemented. For now, it exists to solve the
+    /// resulting chicken and egg problem.
+    pub fn from_secret_key_set_escape_hatch(sks: &tc::SecretKeySet, node_id: u64) -> Self {
+        let pks = sks.public_keys();
+        let tc_pub_key = pks.public_key_share(node_id);
+        PubKey {
+            set: pks,
+            node: tc_pub_key,
+            nonce: node_id,
+        }
+    }
 }
 
 impl PartialOrd for PubKey {
