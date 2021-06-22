@@ -11,15 +11,17 @@ pub struct HotStuffHandle<B: BlockContents + 'static> {
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
-    sender_handle: Arc<broadcast::Sender<Event<B, B::State>>>,
+    pub(crate) sender_handle: Arc<broadcast::Sender<Event<B, B::State>>>,
     /// Internal `HotStuff` reference
-    hotstuff: HotStuff<B>,
+    pub(crate) hotstuff: HotStuff<B>,
     /// The receiver we use to receive events on
-    stream_output: broadcast::Receiver<Event<B, B::State>>,
+    pub(crate) stream_output: broadcast::Receiver<Event<B, B::State>>,
     /// Global control to pause the underlying `HotStuff`
-    pause: Arc<RwLock<bool>>,
+    pub(crate) pause: Arc<RwLock<bool>>,
     /// Override for the `pause` value that allows the `HotStuff` to run one round
-    run_once: Arc<RwLock<bool>>,
+    pub(crate) run_once: Arc<RwLock<bool>>,
+    /// Global to signify the `HotStuff` should be closed after completing the next round
+    pub(crate) shut_down: Arc<RwLock<bool>>,
 }
 
 impl<B: BlockContents + 'static> Clone for HotStuffHandle<B> {
@@ -30,6 +32,7 @@ impl<B: BlockContents + 'static> Clone for HotStuffHandle<B> {
             hotstuff: self.hotstuff.clone(),
             pause: self.pause.clone(),
             run_once: self.run_once.clone(),
+            shut_down: self.shut_down.clone(),
         }
     }
 }
@@ -133,6 +136,39 @@ impl<B: BlockContents + 'static> HotStuffHandle<B> {
     /// See documentation for `submit_transaction`
     pub fn submit_transaction_sync(&self, tx: B::Transaction) -> Result<(), HandleError> {
         block_on(self.submit_transaction(tx))
+    }
+
+    /// Signals to the underlying `HotStuff` to unpause
+    pub async fn start(&self) {
+        *self.pause.write().await = false;
+    }
+
+    /// Synchronously signals the underlying `HotStuff` to unpause
+    pub fn start_sync(&self) {
+        block_on(self.start());
+    }
+
+    /// Signals the underlying `HotStuff` to pause
+    pub async fn pause(&self) {
+        *self.pause.write().await = true;
+    }
+
+    /// Synchronously signals the underlying `HotStuff` to pause
+    pub fn pause_sync(&self) {
+        block_on(self.pause());
+    }
+
+    /// Signals the underlying `HotStuff` to run one round, if paused
+    pub async fn run_one_round(&self) {
+        let paused = self.pause.read().await;
+        if *paused {
+            *self.run_once.write().await = true;
+        }
+    }
+
+    /// Synchronously signals the underlying `HotStuff` to run one round, if paused
+    pub fn run_one_round_sync(&self) {
+        block_on(self.run_one_round())
     }
 }
 

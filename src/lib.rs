@@ -6,7 +6,7 @@
 #![allow(clippy::option_if_let_else)]
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::module_name_repetitions)]
-#![allow(clippy::clippy::similar_names)]
+#![allow(clippy::similar_names)]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
 // Given that consensus should guarantee the ability to recover from errors, explicit panics should
@@ -36,8 +36,10 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_std::sync::RwLock;
+use async_std::task::{spawn, yield_now, JoinHandle};
 use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -47,6 +49,7 @@ use tokio::sync::broadcast;
 use crate::data::Leaf;
 use crate::error::{FailedToBroadcast, FailedToMessageLeader, HotStuffError, NetworkFault};
 use crate::event::{Event, EventType};
+use crate::handle::HotStuffHandle;
 use crate::message::{
     Commit, CommitVote, Decide, Message, NewView, PreCommit, PreCommitVote, Prepare, PrepareVote,
 };
@@ -138,7 +141,7 @@ pub trait BlockContents:
         + Sync
         + Send;
     /// The error type for this state machine
-    type Error: Error + Debug;
+    type Error: Error + Debug + Send + Sync;
 
     /// Creates a new block, currently devoid of transactions, given the current state.
     ///
@@ -172,7 +175,7 @@ pub trait BlockContents:
 }
 
 /// Holds configuration for a hotstuff
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HotStuffConfig {
     /// Total number of nodes in the network
     pub total_nodes: u32,
@@ -182,6 +185,10 @@ pub struct HotStuffConfig {
     pub max_transactions: usize,
     /// List of known node's public keys, including own, sorted by nonce
     pub known_nodes: Vec<PubKey>,
+    /// Base duration for next-view timeout, in milliseconds
+    pub next_view_timeout: u64,
+    /// The exponential backoff ration for the next-view timeout
+    pub timeout_ratio: (u64, u64),
 }
 
 /// Holds the state needed to participate in `HotStuff` consensus
@@ -451,7 +458,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             // spin while the transaction_queue is empty
             trace!("Entering spin while we wait for transactions");
             while hotstuff.transaction_queue.read().await.is_empty() {
-                async_std::task::yield_now().await;
+                yield_now().await;
             }
             debug!("Unloading transactions");
             let mut transaction_queue = hotstuff.transaction_queue.write().await;
@@ -853,7 +860,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     pub async fn spawn_networking_tasks(&self) {
         let x = self.clone();
         // Spawn broadcast processing task
-        async_std::task::spawn(
+        spawn(
             async move {
                 info!("Launching broadcast processing task");
                 let networking = &x.inner.networking;
@@ -862,7 +869,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
                         trace!("No message, yeilding");
-                        async_std::task::yield_now().await;
+                        yield_now().await;
                     } else {
                         for item in queue {
                             trace!(?item, "Processing item");
@@ -881,7 +888,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                             }
                         }
                         trace!("Item processed, yeilding");
-                        async_std::task::yield_now().await;
+                        yield_now().await;
                     }
                 }
             }
@@ -892,7 +899,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         );
         let x = self.clone();
         // Spawn direct processing task
-        async_std::task::spawn(
+        spawn(
             async move {
                 info!("Launching direct processing task");
                 let hotstuff = &x.inner;
@@ -901,7 +908,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
                         trace!("No message, yeilding");
-                        async_std::task::yield_now().await;
+                        yield_now().await;
                     } else {
                         for item in queue {
                             trace!(?item, "Processing item");
@@ -923,7 +930,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                             }
                         }
                         trace!("Item processed, yeilding");
-                        async_std::task::yield_now().await;
+                        yield_now().await;
                     }
                 }
             }
@@ -958,6 +965,129 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
     /// Returns a copy of the state
     pub async fn get_state(&self) -> Arc<B::State> {
         self.inner.state.read().await.clone()
+    }
+
+    /// Initializes a new hotstuff and does the work of setting up all the background tasks
+    ///
+    /// Assumes networking implementation is already primed.
+    ///
+    /// Underlying `HotStuff` instance starts out paused, and must be unpaused
+    ///
+    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel, the
+    /// `HotStuff` instance will log the error and shut down.
+    pub async fn init(
+        genesis: B,
+        priv_keys: &tc::SecretKeySet,
+        node_id: u64,
+        config: HotStuffConfig,
+        starting_state: B::State,
+        networking: impl NetworkingImplementation<Message<B, B::Transaction>> + 'static,
+    ) -> (JoinHandle<()>, HotStuffHandle<B>) {
+        // TODO: Arbitrary channel capacity, investigate improving this
+        let (input, output) = tokio::sync::broadcast::channel(128);
+        let hotstuff = Self::new(
+            genesis,
+            priv_keys,
+            node_id,
+            config.clone(),
+            starting_state,
+            networking,
+        );
+        let pause = Arc::new(RwLock::new(true));
+        let run_once = Arc::new(RwLock::new(false));
+        let shut_down = Arc::new(RwLock::new(false));
+        // Spawn the background tasks
+        hotstuff.spawn_networking_tasks().await;
+        let handle = HotStuffHandle {
+            sender_handle: Arc::new(input.clone()),
+            hotstuff: hotstuff.clone(),
+            stream_output: output,
+            pause: pause.clone(),
+            run_once: run_once.clone(),
+            shut_down: shut_down.clone(),
+        };
+        let task = spawn(
+            async move {
+                let channel = input;
+                let default_interrupt_duration = hotstuff.inner.config.next_view_timeout;
+                let (int_mul, int_div) = hotstuff.inner.config.timeout_ratio;
+                let mut int_duration = default_interrupt_duration;
+                let mut view = 0;
+                // Hotstuff background handler loop
+                loop {
+                    // First, check for shutdown signal and break if sent
+                    if *shut_down.read().await {
+                        break;
+                    }
+                    // Capture the pause and run_once flags
+                    // Reset the run_once flag if its set
+                    let p_flag = {
+                        let p = pause.read().await;
+                        let mut r = run_once.write().await;
+                        if *r {
+                            *r = false;
+                            false
+                        } else {
+                            *p
+                        }
+                    };
+                    // If we are paused, yield and continue
+                    if p_flag {
+                        yield_now().await;
+                        continue;
+                    }
+                    // Send the next view
+                    let next_view_res = hotstuff.next_view(view, Some(&channel)).await;
+                    // If we fail to send the next view, broadcast the error and pause
+                    if let Err(e) = next_view_res {
+                        let x = channel.send(Event {
+                            view_number: view,
+                            stage: e.get_stage().unwrap_or(Stage::None),
+
+                            event: EventType::Error { error: Arc::new(e) },
+                        });
+                        if x.is_err() {
+                            error!("All event streams closed! Shutting down.");
+                            break;
+                        }
+                        *pause.write().await = true;
+                        continue;
+                    }
+                    // Increment the view counter
+                    view += 1;
+                    // run the next block, with a timeout
+                    let t = Duration::from_millis(int_duration);
+                    let round_res =
+                        async_std::future::timeout(t, hotstuff.run_round(view, Some(&channel)))
+                            .await;
+                    match round_res {
+                        // If it succeded, simply reset the timeout
+                        Ok(Ok(_)) => {
+                            int_duration = default_interrupt_duration;
+                        }
+                        // If it errored, broadcast the error, reset the timeout, and continue
+                        Ok(Err(e)) => {
+                            let x = channel.send(Event {
+                                view_number: view,
+                                stage: e.get_stage().unwrap_or(Stage::None),
+                                event: EventType::Error { error: Arc::new(e) },
+                            });
+                            if x.is_err() {
+                                error!("All event streams closed! Shutting down.");
+                                break;
+                            }
+                            continue;
+                        }
+                        // If we timed out, increase the timeout interval and continue
+                        Err(_) => {
+                            int_duration = (int_duration * int_mul) / int_div;
+                        }
+                    }
+                }
+            }
+            .instrument(info_span!("HotStuff Background Driver", id = node_id)),
+        );
+        (task, handle)
     }
 }
 

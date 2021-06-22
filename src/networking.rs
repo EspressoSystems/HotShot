@@ -63,7 +63,7 @@ pub enum NetworkError {
     /// Generic error type for compatibility if needed
     Other {
         /// Originating error
-        inner: Box<dyn std::error::Error + Send>,
+        inner: Box<dyn std::error::Error + Send + Sync>,
     },
 }
 

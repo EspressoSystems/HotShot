@@ -103,7 +103,7 @@ impl BlockContents for CounterBlock {
     ///
     /// Usually, this would be a cryptographic hash of the previous hash
     /// and the current state. Not sure why we're not hashing here.
-    #[allow(clippy::clippy::shadow_unrelated)]
+    #[allow(clippy::shadow_unrelated)]
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
         if let Some(tx) = &self.tx {
             match tx {

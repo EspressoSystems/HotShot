@@ -50,3 +50,18 @@ pub enum HotStuffError {
         source: crate::networking::NetworkError,
     },
 }
+
+impl HotStuffError {
+    /// Returns the stage this error happened in, if such information exists
+    pub fn get_stage(&self) -> Option<crate::data::Stage> {
+        match self {
+            HotStuffError::FailedToMessageLeader { stage, .. }
+            | HotStuffError::FailedToBroadcast { stage, .. }
+            | HotStuffError::BadOrForgedQC { stage, .. }
+            | HotStuffError::FailedToAssembleQC { stage, .. }
+            | HotStuffError::BadBlock { stage }
+            | HotStuffError::InconsistentBlock { stage } => Some(*stage),
+            _ => None,
+        }
+    }
+}

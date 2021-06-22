@@ -66,7 +66,7 @@ impl<T> WaitOnce<T> {
         }
     }
     // Note: This function can't actually panic as the unwrap is 'safe'
-    #[allow(clippy::clippy::missing_panics_doc)]
+    #[allow(clippy::missing_panics_doc)]
     /// Waits for the `WaitOnce` to have any contents, then applies a predicate to them. If the
     /// contents satisfy the predicate, then remove and return them, otherwise removes them and
     /// loops until contents satisfying the predicate are found

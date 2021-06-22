@@ -70,6 +70,8 @@ pub async fn try_hotstuff(
         thershold: threshold as u32,
         max_transactions: 100,
         known_nodes: set_to_keys(total, &pub_key_set),
+        next_view_timeout: 500,
+        timeout_ratio: (11, 10),
     };
     let (networking, port) = try_network(pub_key.clone()).await;
     let hotstuff = HotStuff::new(

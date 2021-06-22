@@ -74,7 +74,7 @@ struct WNetworkInner<T> {
     /// The identites of the other nodes that this node knows about
     nodes: DashMap<PubKey, SocketAddr>,
     /// The list of outgoing connections
-    #[allow(clippy::clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     outgoing_connections:
         DashMap<SocketAddr, RwLock<SplitSink<WebSocketStream<TcpStream>, protocol::Message>>>,
     /// Holding spot for the `TcpListener` used by this `WNetwork`
