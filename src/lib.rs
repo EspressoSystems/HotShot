@@ -43,7 +43,6 @@ use async_std::task::{spawn, yield_now, JoinHandle};
 use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use threshold_crypto as tc;
 use tokio::sync::broadcast;
 
 use crate::data::Leaf;
@@ -56,6 +55,9 @@ use crate::message::{
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+pub use rand;
+pub use threshold_crypto as tc;
 
 pub use crate::data::{QuorumCertificate, Stage};
 
