@@ -25,16 +25,10 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     ///
     /// TODO: Add hasher implementation to block contents trait
     pub fn hash(&self) -> BlockHash<N> {
-        let mut result = [0_u8; { N }];
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(self.parent.as_ref());
-        hasher.update(BlockContents::hash(&self.item).as_ref());
-        let x = *hasher.finalize().as_bytes();
-
-        let len = std::cmp::min(x.len(), result.len());
-        (&mut result[0..len]).copy_from_slice(&x[0..len]);
-
-        result.into()
+        let mut bytes = Vec::<u8>::new();
+        bytes.extend_from_slice(self.parent.as_ref());
+        bytes.extend_from_slice(BlockContents::hash(&self.item).as_ref());
+        T::hash_bytes(&bytes)
     }
 }
 

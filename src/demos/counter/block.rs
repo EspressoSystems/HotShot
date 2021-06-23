@@ -148,4 +148,9 @@ impl BlockContents<H_256> for CounterBlock {
     fn next_block(_state: &Self::State) -> Self {
         Self::default()
     }
+
+    fn hash_bytes(bytes: &[u8]) -> BlockHash<H_256> {
+        let hash = *blake3::hash(bytes).as_bytes();
+        hash.into()
+    }
 }

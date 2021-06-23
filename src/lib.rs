@@ -18,6 +18,7 @@
 /// Provides types useful for representing `HotStuff ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
+#[cfg(feature = "demo")]
 pub mod demos;
 /// Contains error types used by this library
 pub mod error;
@@ -194,6 +195,10 @@ pub trait BlockContents<const N: usize>:
     ///
     /// TODO: Abstract out into transaction trait
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash<N>;
+    /// Produces a hash for an arbitrary sequence of bytes
+    ///
+    /// Used to produce hashes for internal `HotStuff` control structures
+    fn hash_bytes(bytes: &[u8]) -> BlockHash<N>;
 }
 
 /// Holds configuration for a hotstuff
