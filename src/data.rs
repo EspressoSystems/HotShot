@@ -166,6 +166,14 @@ impl<const N: usize> From<[u8; N]> for BlockHash<N> {
     }
 }
 
+impl<const N: usize> Default for BlockHash<N> {
+    fn default() -> Self {
+        BlockHash {
+            inner: [0_u8; { N }],
+        }
+    }
+}
+
 impl<const N: usize> Serialize for BlockHash<N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
