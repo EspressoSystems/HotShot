@@ -44,9 +44,9 @@ pub fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
 }
 
 /// Attempts to create a hotstuff instance
-/// 
+///
 /// # Panics
-/// 
+///
 /// Will panic if there is an error in the underlying network implementation
 pub async fn try_hotstuff(
     keys: &tc::SecretKeySet,
@@ -81,7 +81,7 @@ pub async fn try_hotstuff(
         max_transactions: 100,
         known_nodes: set_to_keys(total, &pub_key_set),
         next_view_timeout: 500,
-        timeout_ratio: (11,10),
+        timeout_ratio: (11, 10),
     };
     let (networking, port) = try_network(pub_key.clone()).await;
     let hotstuff = HotStuff::new(
@@ -99,8 +99,8 @@ pub async fn try_hotstuff(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::block::{Addition, Subtraction};
+    use super::*;
     use crate::utility::test_util::setup_logging;
     use async_std::task::spawn;
     use futures::channel::oneshot;
