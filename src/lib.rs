@@ -61,6 +61,11 @@ pub use threshold_crypto as tc;
 
 pub use crate::data::{BlockHash, QuorumCertificate, Stage};
 
+/// Length, in bytes, of a 512 bit hash
+pub const H_512: usize = 64;
+/// Length, in bytes, of a 256 bit hash
+pub const H_256: usize = 32;
+
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotStuffError>;
 
