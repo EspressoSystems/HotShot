@@ -7,6 +7,11 @@ edition = "2018"
 [features]
 default = ["demo"]
 demo = ["blake3"]
+test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto"]
+
+[[example]]
+name = "dentry-simulator"
+required-features = ["demo"]
 
 [dependencies]
 async-lock = "2.4.0"
