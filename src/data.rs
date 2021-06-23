@@ -192,6 +192,7 @@ impl<'de, const N: usize> Deserialize<'de> for BlockHash<N> {
     }
 }
 
+/// `Visitor` implementation for deserializing `BlockHash`
 struct BlockHashVisitor<const N: usize>;
 
 impl<'de, const N: usize> serde::de::Visitor<'de> for BlockHashVisitor<N> {
@@ -205,13 +206,13 @@ impl<'de, const N: usize> serde::de::Visitor<'de> for BlockHashVisitor<N> {
     where
         E: serde::de::Error,
     {
-        if v.len() != { N } {
-            let x = format!("{}", { N });
-            Err(E::invalid_length(v.len(), &x.as_str()))
-        } else {
+        if v.len() == { N } {
             let mut result = [0_u8; { N }];
             result.copy_from_slice(v);
             Ok(BlockHash { inner: result })
+        } else {
+            let x = format!("{}", { N });
+            Err(E::invalid_length(v.len(), &x.as_str()))
         }
     }
 }

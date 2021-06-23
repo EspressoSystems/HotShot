@@ -44,6 +44,10 @@ pub fn set_to_keys(total: usize, set: &tc::PublicKeySet) -> Vec<PubKey> {
 }
 
 /// Attempts to create a hotstuff instance
+/// 
+/// # Panics
+/// 
+/// Will panic if there is an error in the underlying network implementation
 pub async fn try_hotstuff(
     keys: &tc::SecretKeySet,
     total: usize,

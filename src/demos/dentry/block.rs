@@ -71,6 +71,7 @@ pub struct State {
 }
 
 impl State {
+    /// Produces a hash of the current state
     fn hash_state(&self) -> BlockHash<H_256> {
         // BTreeMap sorts so this will be in a consistent order
         let mut hasher = Hasher::new();
@@ -161,7 +162,7 @@ impl BlockContents<H_256> for DEntryBlock {
             // Find the input account, and subtract the transfer balance from it, failing if it
             // doesn't exist
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account = *input_account - tx.sub.amount;
+                *input_account -= tx.sub.amount;
             } else {
                 error!("no such input account");
                 return false;
@@ -169,14 +170,14 @@ impl BlockContents<H_256> for DEntryBlock {
             // Find the output account, and add the transfer balance to it, failing if it doesn't
             // exist
             if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account = *output_account + tx.add.amount;
+                *output_account += tx.add.amount;
             } else {
                 error!("no such output account");
                 return false;
             }
         }
         // Loop through our account map and make sure nobody is negative
-        for (_account, balance) in &trial_balances {
+        for balance in trial_balances.values() {
             if *balance < 0 {
                 error!("negative balance");
                 return false;
@@ -184,7 +185,7 @@ impl BlockContents<H_256> for DEntryBlock {
         }
         // This block has now passed all our tests, and thus has not done anything bad, so the block
         // is valid if its previous state hash matches that of the previous state
-        let result = &self.previous_block == &state.hash_state();
+        let result = self.previous_block == state.hash_state();
         if !result {
             error!(
                 "hash failure. previous_block: {:?} hash_state: {:?}",
@@ -192,7 +193,7 @@ impl BlockContents<H_256> for DEntryBlock {
                 state.hash_state()
             );
         }
-        return result;
+        result
     }
 
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
@@ -211,20 +212,20 @@ impl BlockContents<H_256> for DEntryBlock {
             // Find the input account, and subtract the transfer balance from it, failing if it
             // doesn't exist
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account = *input_account - tx.sub.amount;
+                *input_account -= tx.sub.amount;
             } else {
                 return Err(DEntryError::NoSuchInputAccount);
             }
             // Find the output account, and add the transfer balance to it, failing if it doesn't
             // exist
             if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account = *output_account + tx.add.amount;
+                *output_account += tx.add.amount;
             } else {
                 return Err(DEntryError::NoSuchOutputAccount);
             }
         }
         // Loop through our account map and make sure nobody is negative
-        for (_account, balance) in &trial_balances {
+        for balance in trial_balances.values() {
             if *balance < 0 {
                 return Err(DEntryError::InsufficentBalance);
             }
@@ -246,7 +247,6 @@ impl BlockContents<H_256> for DEntryBlock {
         hasher.update(&self.previous_block.as_ref());
         self.transactions.iter().for_each(|tx| {
             hasher.update(&Self::hash_transaction(tx).as_ref());
-            ()
         });
         let x = *hasher.finalize().as_bytes();
         x.into()
