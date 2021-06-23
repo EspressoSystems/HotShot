@@ -15,7 +15,7 @@
 //! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT
 //! protocol
 
-/// Provides types useful for representing `HotStuff`'s data structures
+/// Provides types useful for representing `HotStuff ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
 pub mod demos;
@@ -59,13 +59,10 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 pub use rand;
 pub use threshold_crypto as tc;
 
-pub use crate::data::{QuorumCertificate, Stage};
+pub use crate::data::{BlockHash, QuorumCertificate, Stage};
 
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotStuffError>;
-
-/// The type used for block hashes
-type BlockHash = [u8; 32];
 
 /// Public key type
 ///
@@ -134,13 +131,18 @@ pub struct PrivKey {
 impl PrivKey {
     /// Uses this private key to produce a partial signature for the given block hash
     #[must_use]
-    pub fn partial_sign(&self, hash: &BlockHash, _stage: Stage, _view: u64) -> tc::SignatureShare {
+    pub fn partial_sign<const N: usize>(
+        &self,
+        hash: &BlockHash<N>,
+        _stage: Stage,
+        _view: u64,
+    ) -> tc::SignatureShare {
         self.node.sign(hash)
     }
 }
 
 /// The block trait
-pub trait BlockContents:
+pub trait BlockContents<const N: usize>:
     Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync
 {
     /// The type of the state machine we are applying transitions to
@@ -182,11 +184,11 @@ pub trait BlockContents:
     /// Should produce an error if this block leads to an invalid state
     fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error>;
     /// Produces a hash for the contents of the block
-    fn hash(&self) -> BlockHash;
+    fn hash(&self) -> BlockHash<N>;
     /// Produces a hash for a transaction
     ///
     /// TODO: Abstract out into transaction trait
-    fn hash_transaction(tx: &Self::Transaction) -> BlockHash;
+    fn hash_transaction(tx: &Self::Transaction) -> BlockHash<N>;
 }
 
 /// Holds configuration for a hotstuff
@@ -207,7 +209,7 @@ pub struct HotStuffConfig {
 }
 
 /// Holds the state needed to participate in `HotStuff` consensus
-pub struct HotStuffInner<B: BlockContents + 'static> {
+pub struct HotStuffInner<B: BlockContents<N> + 'static, const N: usize> {
     /// The public key of this node
     public_key: PubKey,
     /// The private key of this node
@@ -218,38 +220,38 @@ pub struct HotStuffInner<B: BlockContents + 'static> {
     /// Configuration items for this hotstuff instance
     config: HotStuffConfig,
     /// Networking interface for this hotstuff instance
-    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction>>>,
+    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction, N>>>,
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
     state: RwLock<Arc<B::State>>,
     /// Block storage
-    leaf_store: DashMap<BlockHash, Leaf<B>>,
+    leaf_store: DashMap<BlockHash<N>, Leaf<B, N>>,
     /// Current locked quorum certificate
-    locked_qc: RwLock<Option<QuorumCertificate>>,
+    locked_qc: RwLock<Option<QuorumCertificate<N>>>,
     /// Current prepare quorum certificate
-    prepare_qc: RwLock<Option<QuorumCertificate>>,
+    prepare_qc: RwLock<Option<QuorumCertificate<N>>>,
     /// Unprocessed NextView messages
-    new_view_queue: WaitQueue<NewView>,
+    new_view_queue: WaitQueue<NewView<N>>,
     /// Unprocessed PrepareVote messages
-    prepare_vote_queue: WaitQueue<PrepareVote>,
+    prepare_vote_queue: WaitQueue<PrepareVote<N>>,
     /// Unprocessed PreCommit messages
-    precommit_vote_queue: WaitQueue<PreCommitVote>,
+    precommit_vote_queue: WaitQueue<PreCommitVote<N>>,
     /// Unprocessed CommitVote messages
-    commit_vote_queue: WaitQueue<CommitVote>,
+    commit_vote_queue: WaitQueue<CommitVote<N>>,
     /// Currently pending Prepare message
-    prepare_waiter: WaitOnce<Prepare<B>>,
+    prepare_waiter: WaitOnce<Prepare<B, N>>,
     /// Currently pending precommit message
-    precommit_waiter: WaitOnce<PreCommit>,
+    precommit_waiter: WaitOnce<PreCommit<N>>,
     /// Currently pending Commit message
-    commit_waiter: WaitOnce<Commit>,
+    commit_waiter: WaitOnce<Commit<N>>,
     /// Currently pending decide message
-    decide_waiter: WaitOnce<Decide>,
+    decide_waiter: WaitOnce<Decide<N>>,
     /// Map from a block's hash to its decision QC
-    decision_cache: DashMap<BlockHash, QuorumCertificate>,
+    decision_cache: DashMap<BlockHash<N>, QuorumCertificate<N>>,
 }
 
-impl<B: BlockContents + 'static> HotStuffInner<B> {
+impl<B: BlockContents<N> + 'static, const N: usize> HotStuffInner<B, N> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
         let index = view % u64::from(self.config.total_nodes);
@@ -259,12 +261,12 @@ impl<B: BlockContents + 'static> HotStuffInner<B> {
 
 /// Thread safe, shared view of a `HotStuff`
 #[derive(Clone)]
-pub struct HotStuff<B: BlockContents + Send + Sync + 'static> {
+pub struct HotStuff<B: BlockContents<N> + Send + Sync + 'static, const N: usize> {
     /// Handle to internal hotstuff implementation
-    inner: Arc<HotStuffInner<B>>,
+    inner: Arc<HotStuffInner<B, N>>,
 }
 
-impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
+impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N> {
     /// Creates a new hotstuff with the given configuration options and sets it up with the given
     /// genesis block
     #[instrument(skip(genesis, priv_keys, starting_state, networking))]
@@ -274,7 +276,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         nonce: u64,
         config: HotStuffConfig,
         starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction>> + 'static,
+        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
     ) -> Self {
         info!("Creating a new hotstuff");
         let pub_key_set = priv_keys.public_keys();
@@ -334,7 +336,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         inner.leaf_store.insert(
             genesis_hash,
             Leaf {
-                parent: [0_u8; 32],
+                parent: [0_u8; { N }].into(),
                 item: genesis,
             },
         );
@@ -345,14 +347,14 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 
     /// Returns true if the proposed leaf extends from the given block
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn extends_from(&self, leaf: &Leaf<B>, node: &BlockHash) -> bool {
+    pub async fn extends_from(&self, leaf: &Leaf<B, N>, node: &BlockHash<N>) -> bool {
         let mut parent = leaf.parent;
         // Short circuit to enable blocks that don't have parents
         if &parent == node {
             trace!("leaf extends from node through short-circuit");
             return true;
         }
-        while parent != [0_u8; 32] {
+        while parent != BlockHash::from_array([0_u8; { N }]) {
             if &parent == node {
                 trace!(?parent, "Leaf extends from");
                 return true;
@@ -371,7 +373,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
 
     /// Returns true if a proposed leaf satisfies the safety rule
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn safe_node(&self, leaf: &Leaf<B>, qc: &QuorumCertificate) -> bool {
+    pub async fn safe_node(&self, leaf: &Leaf<B, N>, qc: &QuorumCertificate<N>) -> bool {
         if qc.genesis {
             info!("Safe node check bypassed due to genesis flag");
             return true;
@@ -425,7 +427,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         } else {
             info!("Leader for this round");
         }
-        send_event(
+        send_event::<B, B::State, { N }>(
             channel,
             Event {
                 view_number: current_view,
@@ -518,7 +520,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
             // Export the block
             the_block = block;
             the_hash = leaf.hash();
-            send_event(
+            send_event::<B, B::State, { N }>(
                 channel,
                 Event {
                     view_number: current_view,
@@ -564,7 +566,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 debug!("Prepare message successfully processed");
                 the_block = leaf.item;
                 the_hash = leaf_hash;
-                send_event(
+                send_event::<B, B::State, { N }>(
                     channel,
                     Event {
                         view_number: current_view,
@@ -644,7 +646,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 error!(?prepare_qc, "Bad or forged QC prepare_qc");
                 return Err(HotStuffError::BadOrForgedQC {
                     stage: Stage::PreCommit,
-                    bad_qc: prepare_qc,
+                    bad_qc: prepare_qc.to_vec_cert(),
                 });
             }
             debug!("Precommit qc validated");
@@ -726,7 +728,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 error!(?precommit_qc, "Bad or forged precommit qc");
                 return Err(HotStuffError::BadOrForgedQC {
                     stage: Stage::Commit,
-                    bad_qc: precommit_qc,
+                    bad_qc: precommit_qc.to_vec_cert(),
                 });
             }
             let mut locked_qc = hotstuff.locked_qc.write().await;
@@ -825,7 +827,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
                 error!(?decide_qc, "Bad or forged commit qc");
                 return Err(HotStuffError::BadOrForgedQC {
                     stage: Stage::Decide,
-                    bad_qc: decide_qc,
+                    bad_qc: decide_qc.to_vec_cert(),
                 });
             }
             // Apply new state
@@ -847,7 +849,7 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         }
         // Clear the transaction queue, temporary, need background task to clear already included
         // transactions
-        send_event(
+        send_event::<B, B::State, { N }>(
             channel,
             Event {
                 view_number: current_view,
@@ -996,8 +998,8 @@ impl<B: BlockContents + Sync + Send + 'static> HotStuff<B> {
         node_id: u64,
         config: HotStuffConfig,
         starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction>> + 'static,
-    ) -> (JoinHandle<()>, HotStuffHandle<B>) {
+        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
+    ) -> (JoinHandle<()>, HotStuffHandle<B, N>) {
         // TODO: Arbitrary channel capacity, investigate improving this
         let (input, output) = tokio::sync::broadcast::channel(128);
         let hotstuff = Self::new(
@@ -1115,8 +1117,10 @@ fn generate_qc<'a>(
 }
 
 /// Sends an event over a `Some(broadcast::Sender<T>)`, does nothing otherwise
-fn send_event<B, S>(channel: Option<&broadcast::Sender<Event<B, S>>>, event: Event<B, S>)
-where
+fn send_event<B, S, const N: usize>(
+    channel: Option<&broadcast::Sender<Event<B, S>>>,
+    event: Event<B, S>,
+) where
     B: Send + Sync,
     S: Send + Sync,
 {

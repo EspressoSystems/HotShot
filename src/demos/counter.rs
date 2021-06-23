@@ -50,10 +50,10 @@ pub async fn try_hotstuff(
     threshold: usize,
     node_number: usize,
 ) -> (
-    HotStuff<CounterBlock>,
+    HotStuff<CounterBlock, 32>,
     PubKey,
     u16,
-    WNetwork<Message<CounterBlock, CounterTransaction>>,
+    WNetwork<Message<CounterBlock, CounterTransaction, 32>>,
 ) {
     let genesis = CounterBlock {
         tx: Some(CounterTransaction::Genesis { state: 0 }),
@@ -106,7 +106,7 @@ mod test {
         setup_logging();
         let keys = gen_keys(3);
         // Create the hotstuffs and spawn their tasks
-        let hotstuffs: Vec<(HotStuff<CounterBlock>, PubKey, u16, WNetwork<_>)> =
+        let hotstuffs: Vec<(HotStuff<CounterBlock, 32>, PubKey, u16, WNetwork<_>)> =
             join_all((0..5).map(|x| try_hotstuff(&keys, 5, 4, x))).await;
         // Boot up all the low level networking implementations
         for (_, _, _, network) in &hotstuffs {

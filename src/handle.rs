@@ -7,13 +7,13 @@ use std::sync::Arc;
 use crate::{error::HotStuffError, event::Event, BlockContents, HotStuff};
 
 /// Handle for interacting with a `HotStuff` instance
-pub struct HotStuffHandle<B: BlockContents + 'static> {
+pub struct HotStuffHandle<B: BlockContents<N> + 'static, const N: usize> {
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
     pub(crate) sender_handle: Arc<broadcast::Sender<Event<B, B::State>>>,
     /// Internal `HotStuff` reference
-    pub(crate) hotstuff: HotStuff<B>,
+    pub(crate) hotstuff: HotStuff<B, N>,
     /// The receiver we use to receive events on
     pub(crate) stream_output: broadcast::Receiver<Event<B, B::State>>,
     /// Global control to pause the underlying `HotStuff`
@@ -24,7 +24,7 @@ pub struct HotStuffHandle<B: BlockContents + 'static> {
     pub(crate) shut_down: Arc<RwLock<bool>>,
 }
 
-impl<B: BlockContents + 'static> Clone for HotStuffHandle<B> {
+impl<B: BlockContents<N> + 'static, const N: usize> Clone for HotStuffHandle<B, N> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -37,7 +37,7 @@ impl<B: BlockContents + 'static> Clone for HotStuffHandle<B> {
     }
 }
 
-impl<B: BlockContents + 'static> HotStuffHandle<B> {
+impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
     /// Will return the next event in the queue
     ///
     /// # Errors

@@ -24,7 +24,7 @@ pub enum HotStuffError {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
         /// The bad quorum certificate
-        bad_qc: crate::data::QuorumCertificate,
+        bad_qc: crate::data::VecQuorumCertificate,
     },
     /// Failed to assemble a quorum certificate
     FailedToAssembleQC {

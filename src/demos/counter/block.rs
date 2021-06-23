@@ -2,7 +2,7 @@ use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
-use crate::BlockContents;
+use crate::{BlockContents, BlockHash};
 
 /// The block format for the counter demo
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -47,7 +47,7 @@ const TX_SOME: [u8; 1] = [0_u8];
 /// Constant identifying an empty transaction
 const TX_NONE: [u8; 1] = [1_u8];
 
-impl BlockContents for CounterBlock {
+impl BlockContents<32> for CounterBlock {
     type State = CounterState;
     type Transaction = CounterTransaction;
     type Error = CounterError;
@@ -118,7 +118,7 @@ impl BlockContents for CounterBlock {
     /// Hash a transaction. Include a flag in the hash to distinguish
     /// the hash of a transaction from the hash of an instance with
     /// `tx == None`.
-    fn hash_transaction(tx: &Self::Transaction) -> crate::BlockHash {
+    fn hash_transaction(tx: &Self::Transaction) -> crate::BlockHash<32> {
         let mut hasher = Hasher::new();
         hasher.update(&TX_SOME);
         let bytes = match tx {
@@ -126,13 +126,13 @@ impl BlockContents for CounterBlock {
             CounterTransaction::Genesis { state } => state.to_be_bytes(),
         };
         hasher.update(&bytes);
-        *hasher.finalize().as_bytes()
+        BlockHash::from_array(*hasher.finalize().as_bytes())
     }
 
     /// Hash self's transaction. Prepend a byte flag to distinguish
     /// the empty transaction from the Genesis transaction. Return the
     /// hash of the buffer.
-    fn hash(&self) -> crate::BlockHash {
+    fn hash(&self) -> crate::BlockHash<32> {
         let mut hasher = Hasher::new();
         if let Some(tx) = &self.tx {
             Self::hash_transaction(tx)
@@ -140,7 +140,7 @@ impl BlockContents for CounterBlock {
             // Distinguish None from Genesis.
             hasher.update(&TX_NONE);
             hasher.update(&Self::State::default().to_be_bytes());
-            *hasher.finalize().as_bytes()
+            BlockHash::from_array(*hasher.finalize().as_bytes())
         }
     }
 

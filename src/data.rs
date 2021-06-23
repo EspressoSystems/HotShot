@@ -4,33 +4,41 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto as tc;
 
-use crate::{BlockContents, BlockHash};
+use crate::BlockContents;
 
 #[derive(Serialize, Deserialize, Clone)]
 /// A node in `HotStuff`'s tree
-pub struct Leaf<T> {
+pub struct Leaf<T, const N: usize> {
     /// The hash of the parent
-    pub parent: BlockHash,
+    pub parent: BlockHash<N>,
     /// The item in the node
     pub item: T,
 }
 
-impl<T: BlockContents> Leaf<T> {
+impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     /// Creates a new leaf with the specified contents
-    pub fn new(item: T, parent: BlockHash) -> Self {
+    pub fn new(item: T, parent: BlockHash<N>) -> Self {
         Leaf { parent, item }
     }
 
     /// Hashes the leaf with Blake3
-    pub fn hash(&self) -> BlockHash {
+    ///
+    /// TODO: Add hasher implementation to block contents trait
+    pub fn hash(&self) -> BlockHash<N> {
+        let mut result = [0_u8; { N }];
         let mut hasher = blake3::Hasher::new();
-        hasher.update(&self.parent);
-        hasher.update(&BlockContents::hash(&self.item));
-        *hasher.finalize().as_bytes()
+        hasher.update(self.parent.as_ref());
+        hasher.update(BlockContents::hash(&self.item).as_ref());
+        let x = *hasher.finalize().as_bytes();
+
+        let len = std::cmp::min(x.len(), result.len());
+        (&mut result[0..len]).copy_from_slice(&x[0..len]);
+
+        result.into()
     }
 }
 
-impl<T: Debug> Debug for Leaf<T> {
+impl<T: Debug, const N: usize> Debug for Leaf<T, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!("Leaf<{}>", std::any::type_name::<T>()))
             .field("item", &self.item)
@@ -41,9 +49,9 @@ impl<T: Debug> Debug for Leaf<T> {
 
 /// The type used for quorum certs
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct QuorumCertificate {
+pub struct QuorumCertificate<const N: usize> {
     /// Block this QC refers to
-    pub(crate) hash: BlockHash,
+    pub(crate) hash: BlockHash<N>,
     /// The view we were on when we made this certificate
     pub(crate) view_number: u64,
     /// The stage of consensus we were on when we made this certificate
@@ -54,7 +62,7 @@ pub struct QuorumCertificate {
     pub(crate) genesis: bool,
 }
 
-impl QuorumCertificate {
+impl<const N: usize> QuorumCertificate<N> {
     /// Verifies a quorum certificate
     #[must_use]
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
@@ -67,9 +75,49 @@ impl QuorumCertificate {
             self.genesis
         }
     }
+
+    /// Converts to a vector based cert
+    pub fn to_vec_cert(&self) -> VecQuorumCertificate {
+        VecQuorumCertificate {
+            hash: self.hash.as_ref().to_vec(),
+            view_number: self.view_number,
+            stage: self.stage,
+            signature: self.signature.clone(),
+            genesis: self.genesis,
+        }
+    }
 }
 
-impl Debug for QuorumCertificate {
+impl<const N: usize> Debug for QuorumCertificate<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QuorumCertificate")
+            .field("hash", &format!("{:12}", HexFmt(&self.hash)))
+            .field("view_number", &self.view_number)
+            .field("stage", &self.stage)
+            .field("signature", &self.signature)
+            .field("genesis", &self.genesis)
+            .finish()
+    }
+}
+
+/// Vectorized quorum cert, used for debugging
+///
+/// Mainly exists to work around issuse with snafu
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct VecQuorumCertificate {
+    /// Block this QC refers to
+    pub(crate) hash: Vec<u8>,
+    /// The view we were on when we made this certificate
+    pub(crate) view_number: u64,
+    /// The stage of consensus we were on when we made this certificate
+    pub(crate) stage: Stage,
+    /// The signature portion of this QC
+    pub(crate) signature: Option<tc::Signature>,
+    /// Temporary bypass for boostrapping
+    pub(crate) genesis: bool,
+}
+
+impl Debug for VecQuorumCertificate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QuorumCertificate")
             .field("hash", &format!("{:12}", HexFmt(&self.hash)))
@@ -94,4 +142,74 @@ pub enum Stage {
     Commit,
     /// Decide Phase
     Decide,
+}
+
+/// The type used for block hashes
+///
+/// Thin wrapper around a [u8; N] to provide serialize and deserialize functionality
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
+pub struct BlockHash<const N: usize> {
+    /// The underlying array
+    inner: [u8; N],
+}
+
+impl<const N: usize> BlockHash<N> {
+    /// Converts an array of the correct size into a `BlockHash`
+    pub const fn from_array(input: [u8; N]) -> Self {
+        Self { inner: input }
+    }
+}
+
+impl<const N: usize> AsRef<[u8]> for BlockHash<N> {
+    fn as_ref(&self) -> &[u8] {
+        &self.inner
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for BlockHash<N> {
+    fn from(input: [u8; N]) -> Self {
+        Self::from_array(input)
+    }
+}
+
+impl<const N: usize> Serialize for BlockHash<N> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bytes(&self.inner)
+    }
+}
+
+impl<'de, const N: usize> Deserialize<'de> for BlockHash<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(BlockHashVisitor::<N>)
+    }
+}
+
+struct BlockHashVisitor<const N: usize>;
+
+impl<'de, const N: usize> serde::de::Visitor<'de> for BlockHashVisitor<N> {
+    type Value = BlockHash<N>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "a byte array of length {}", { N })
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if v.len() != { N } {
+            let x = format!("{}", { N });
+            Err(E::invalid_length(v.len(), &x.as_str()))
+        } else {
+            let mut result = [0_u8; { N }];
+            result.copy_from_slice(v);
+            Ok(BlockHash { inner: result })
+        }
+    }
 }
