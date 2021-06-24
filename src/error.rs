@@ -6,6 +6,7 @@ use snafu::Snafu;
 #[non_exhaustive]
 pub enum HotStuffError {
     /// Failed to Message the leader in the given stage
+    #[snafu(display("Failed to message leader in stage {:?}: {}", stage, source))]
     FailedToMessageLeader {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
@@ -13,6 +14,7 @@ pub enum HotStuffError {
         source: crate::networking::NetworkError,
     },
     /// Failed to broadcast a message on the network
+    #[snafu(display("Failed to broadcast a message in stage {:?}: {}", stage, source))]
     FailedToBroadcast {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
@@ -20,6 +22,7 @@ pub enum HotStuffError {
         source: crate::networking::NetworkError,
     },
     /// Bad or forged quorum certificate
+    #[snafu(display("Bad or forged QC in stage {:?}", stage))]
     BadOrForgedQC {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
@@ -27,6 +30,11 @@ pub enum HotStuffError {
         bad_qc: crate::data::VecQuorumCertificate,
     },
     /// Failed to assemble a quorum certificate
+    #[snafu(display(
+        "Failed to assemble quorum certificate in stage {:?}: {}",
+        stage,
+        source
+    ))]
     FailedToAssembleQC {
         /// The stage the error occurred in
         stage: crate::data::Stage,
@@ -35,16 +43,19 @@ pub enum HotStuffError {
         source: threshold_crypto::error::Error,
     },
     /// A block failed verification
+    #[snafu(display("Bad block in stage: {:?}", stage))]
     BadBlock {
         /// The stage the error occurred in
         stage: crate::data::Stage,
     },
     /// A block was not consistent with the existing state
+    #[snafu(display("Inconsistent block in stage: {:?}", stage))]
     InconsistentBlock {
         /// The stage the error occurred in
         stage: crate::data::Stage,
     },
     /// Failure in networking layer
+    #[snafu(display("Failure in networking layer: {}", source))]
     NetworkFault {
         /// Underlying network fault
         source: crate::networking::NetworkError,
