@@ -126,7 +126,6 @@ async fn main() {
     debug!("Running through prebaked transactions");
     for (round, tx) in prebaked_txns.into_iter().enumerate() {
         println!("Round {}:", round);
-        println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
         hotstuffs[0]
@@ -274,8 +273,7 @@ fn setup_tracing() {
                 };
     let fmt_layer = fmt::Layer::default()
         .with_span_events(internal_event_filter)
-        .with_writer(std::io::stderr)
-        .pretty();
+        .with_writer(std::io::stderr);
     Registry::default()
         .with(EnvFilter::from_default_env())
         .with(ErrorLayer::default())
