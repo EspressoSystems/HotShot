@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 /// A status event emitted by a `HotStuff` instance
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Event<B: Send + Sync, S: Send + Sync> {
     /// The view number that this event originates from
     pub view_number: u64,
@@ -16,7 +16,7 @@ pub struct Event<B: Send + Sync, S: Send + Sync> {
 
 /// The types of event that can be emitted by a `HotStuff` instance
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EventType<B: Send + Sync, S: Send + Sync> {
     /// An error occurred and the round was not completed
     Error {
