@@ -123,21 +123,27 @@ async fn main() {
     let mut state = None;
 
     println!("Running through prebaked transactions");
+    debug!("Running through prebaked transactions");
     for (round, tx) in prebaked_txns.into_iter().enumerate() {
         println!("Round {}:", round);
+        println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
+        debug!("Proposing: {:?}", tx);
         hotstuffs[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
+        debug!("Unlocking round");
         for hotstuff in &hotstuffs {
             hotstuff.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
+        debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
         for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+            debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryBlock, State> = hotstuff
                 .next_event()
                 .await
@@ -150,6 +156,7 @@ async fn main() {
                     .expect("Hotstuff unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
+            debug!(?node_id, "Decision emitted");
             if let EventType::Decide { block, state } = event.event {
                 blocks.push(block);
                 states.push(state);
@@ -157,6 +164,7 @@ async fn main() {
                 unreachable!()
             }
         }
+        debug!("All nodes reached decision");
         assert!(states.len() as u64 == nodes);
         assert!(blocks.len() as u64 == nodes);
         let b_test = &blocks[0];
@@ -174,23 +182,30 @@ async fn main() {
         }
         state = Some(s_test.clone());
     }
+
     println!("Running random transactions");
+    debug!("Running random transactions");
     for round in prebaked_count..opt.transactions {
+        debug!(?round);
         let tx = random_transaction(state.as_ref().unwrap(), &mut rng);
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
+        debug!("Proposing: {:?}", tx);
         hotstuffs[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
+        debug!("Unlocking round");
         for hotstuff in &hotstuffs {
             hotstuff.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
+        debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
         for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+            debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryBlock, State> = hotstuff
                 .next_event()
                 .await
@@ -203,6 +218,7 @@ async fn main() {
                     .expect("Hotstuff unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
+            debug!(?node_id, "Decision emitted");
             if let EventType::Decide { block, state } = event.event {
                 blocks.push(block);
                 states.push(state);
@@ -210,6 +226,7 @@ async fn main() {
                 unreachable!()
             }
         }
+        debug!("All nodes reached decision");
         assert!(states.len() as u64 == nodes);
         assert!(blocks.len() as u64 == nodes);
         let b_test = &blocks[0];
@@ -258,7 +275,7 @@ fn setup_tracing() {
     let fmt_layer = fmt::Layer::default()
         .with_span_events(internal_event_filter)
         .with_writer(std::io::stderr)
-        .json();
+        .pretty();
     Registry::default()
         .with(EnvFilter::from_default_env())
         .with(ErrorLayer::default())
