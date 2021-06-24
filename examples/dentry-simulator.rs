@@ -257,6 +257,7 @@ fn setup_tracing() {
                 };
     let fmt_layer = fmt::Layer::default()
         .with_span_events(internal_event_filter)
+        .with_writer(std::io::stderr)
         .json();
     Registry::default()
         .with(EnvFilter::from_default_env())
