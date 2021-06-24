@@ -40,16 +40,20 @@ impl<T> WaitQueue<T> {
 
     /// Waits with a filter, discarding elements that don't meet the requirements
     pub async fn wait_for(&self, f: impl Fn(&T) -> bool) -> Vec<T> {
-        let mut guard = self
-            .condvar
-            .wait_until(self.queue.lock().await, |queue| {
-                queue.retain(&f);
-                queue.len() >= self.wait_limit
-            })
-            .await;
-        let mut replacement = Vec::new();
-        std::mem::swap(&mut replacement, &mut *guard);
-        replacement
+        loop {
+            let mut guard = self
+                .condvar
+                .wait_until(self.queue.lock().await, |queue| {
+                    queue.len() >= self.wait_limit
+                })
+                .await;
+            guard.retain(&f);
+            if guard.len() >= self.wait_limit {
+                let mut replacement = Vec::new();
+                std::mem::swap(&mut replacement, &mut *guard);
+                return replacement;
+            }
+        }
     }
 
     /// Insert a value into the queue
