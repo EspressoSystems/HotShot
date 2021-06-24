@@ -65,6 +65,7 @@ pub struct PrepareVote<const N: usize> {
 impl<const N: usize> Debug for PrepareVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PrepareVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
@@ -109,6 +110,7 @@ pub struct PreCommitVote<const N: usize> {
 impl<const N: usize> Debug for PreCommitVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PreCommitVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
@@ -153,6 +155,7 @@ pub struct CommitVote<const N: usize> {
 impl<const N: usize> Debug for CommitVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CommitVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
