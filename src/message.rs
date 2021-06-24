@@ -58,11 +58,14 @@ pub struct PrepareVote<const N: usize> {
     pub id: u64,
     /// Hash of the item being voted on
     pub leaf_hash: BlockHash<N>,
+    /// The view this vote was cast for
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for PrepareVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PrepareVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
@@ -100,11 +103,14 @@ pub struct PreCommitVote<const N: usize> {
     pub signature: SignatureShare,
     /// The id of the voting node
     pub id: u64,
+    /// The view this vote was cast format
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for PreCommitVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PreCommitVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
@@ -142,11 +148,14 @@ pub struct CommitVote<const N: usize> {
     pub signature: SignatureShare,
     /// the id of this voting node
     pub id: u64,
+    /// The view this vote was cast forbidden
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for CommitVote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CommitVote")
+            .field("current_view", &self.current_view)
             .field("signature", &self.signature)
             .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
