@@ -119,7 +119,8 @@ async fn main() {
         .await;
 
     let prebaked_txns = prebaked_transactions();
-    // let prebaked_count = prebaked_txns.len();
+    let prebaked_count = prebaked_txns.len() as u64;
+    let mut state = None;
 
     println!("Running through prebaked transactions");
     for (round, tx) in prebaked_txns.into_iter().enumerate() {
@@ -171,6 +172,60 @@ async fn main() {
         for (account, balance) in &s_test.balances {
             println!("    - {}: {}", account, balance);
         }
+        state = Some(s_test.clone());
+    }
+    println!("Running random transactions");
+    for round in prebaked_count..opt.transactions {
+        let tx = random_transaction(state.as_ref().unwrap(), &mut rng);
+        println!("Round {}:", round);
+        println!("  - Proposing: {:?}", tx);
+        hotstuffs[0]
+            .submit_transaction(tx)
+            .await
+            .expect("Failed to submit transaction");
+        println!("  - Unlocking round");
+        for hotstuff in &hotstuffs {
+            hotstuff.run_one_round().await;
+        }
+        println!("  - Waiting for consensus to occur");
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
+        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+            let mut event: Event<DEntryBlock, State> = hotstuff
+                .next_event()
+                .await
+                .expect("Hotstuff unexpectedly closed");
+            while !matches!(event.event, EventType::Decide { .. }) {
+                debug! {?node_id, ?event};
+                event = hotstuff
+                    .next_event()
+                    .await
+                    .expect("Hotstuff unexpectedly closed");
+            }
+            println!("    - Node {} reached decision", node_id);
+            if let EventType::Decide { block, state } = event.event {
+                blocks.push(block);
+                states.push(state);
+            } else {
+                unreachable!()
+            }
+        }
+        assert!(states.len() as u64 == nodes);
+        assert!(blocks.len() as u64 == nodes);
+        let b_test = &blocks[0];
+        for b in &blocks[1..] {
+            assert!(b == b_test);
+        }
+        let s_test = &states[0];
+        for s in &states[1..] {
+            assert!(s == s_test);
+        }
+        println!("  - All states match");
+        println!("  - Balances:");
+        for (account, balance) in &s_test.balances {
+            println!("    - {}: {}", account, balance);
+        }
+        state = Some(s_test.clone());
     }
 }
 
@@ -202,8 +257,7 @@ fn setup_tracing() {
                 };
     let fmt_layer = fmt::Layer::default()
         .with_span_events(internal_event_filter)
-        .with_ansi(true)
-        .pretty();
+        .json();
     Registry::default()
         .with(EnvFilter::from_default_env())
         .with(ErrorLayer::default())
@@ -291,4 +345,22 @@ async fn get_hotstuff(
     let (_, h) = HotStuff::init(genesis, keys, node_id, config, state.clone(), networking).await;
     debug!("hotstuff launched");
     h
+}
+
+/// Provides a random valid transaction from the current state
+fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
+    use rand::seq::IteratorRandom;
+    let input_account = state.balances.keys().choose(&mut rng).unwrap();
+    let output_account = state.balances.keys().choose(&mut rng).unwrap();
+    let amount = rng.gen_range(0, state.balances[input_account]);
+    Transaction {
+        add: Addition {
+            account: output_account.to_string(),
+            amount,
+        },
+        sub: Subtraction {
+            account: input_account.to_string(),
+            amount,
+        },
+    }
 }
