@@ -58,6 +58,8 @@ pub struct PrepareVote<const N: usize> {
     pub id: u64,
     /// Hash of the item being voted on
     pub leaf_hash: BlockHash<N>,
+    /// The view this vote was cast for
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for PrepareVote<N> {
@@ -100,6 +102,8 @@ pub struct PreCommitVote<const N: usize> {
     pub signature: SignatureShare,
     /// The id of the voting node
     pub id: u64,
+    /// The view this vote was cast format
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for PreCommitVote<N> {
@@ -142,6 +146,8 @@ pub struct CommitVote<const N: usize> {
     pub signature: SignatureShare,
     /// the id of this voting node
     pub id: u64,
+    /// The view this vote was cast forbidden
+    pub current_view: u64,
 }
 
 impl<const N: usize> Debug for CommitVote<N> {

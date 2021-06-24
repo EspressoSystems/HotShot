@@ -565,6 +565,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     signature,
                     leaf_hash,
                     id: hotstuff.public_key.nonce,
+                    current_view,
                 };
                 let vote_message = Message::PrepareVote(vote);
                 hotstuff
@@ -602,7 +603,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         if is_leader {
             // Collect the votes we have received from the nodes
             trace!("Waiting for threshold number of incoming votes to arrive");
-            let mut vote_queue = hotstuff.prepare_vote_queue.wait().await;
+            let mut vote_queue = hotstuff
+                .prepare_vote_queue
+                .wait_for(|x| x.current_view == current_view)
+                .await;
             debug!("Received threshold number of votes");
             let votes: Vec<_> = vote_queue
                 .drain(..)
@@ -670,6 +674,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
+                current_view,
             });
             // store the prepare qc
             let mut pqc = hotstuff.prepare_qc.write().await;
@@ -690,7 +695,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         info!("Entering commit phase");
         if is_leader {
             trace!("Waiting for threshold of precommit votes to arrive");
-            let mut vote_queue = hotstuff.precommit_vote_queue.wait().await;
+            let mut vote_queue = hotstuff
+                .precommit_vote_queue
+                .wait_for(|x| x.current_view == current_view)
+                .await;
             debug!("Threshold of precommit votes recieved");
             let votes: Vec<_> = vote_queue
                 .drain(..)
@@ -754,6 +762,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
+                current_view,
             });
             trace!("Commit vote packed");
             hotstuff
@@ -771,7 +780,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         info!("Entering decide phase");
         if is_leader {
             trace!("Waiting for threshold number of commit votes to arrive");
-            let mut vote_queue = hotstuff.commit_vote_queue.wait().await;
+            let mut vote_queue = hotstuff
+                .commit_vote_queue
+                .wait_for(|x| x.current_view == current_view)
+                .await;
             debug!("Received threshold number of commit votes");
             let votes: Vec<_> = vote_queue
                 .drain(..)
