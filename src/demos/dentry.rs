@@ -20,7 +20,7 @@ pub async fn try_network<
     // TODO: Actually attempt to open the port and find a new one if it doens't work
     let port = rand::thread_rng().gen_range(2000, 5000);
     (
-        WNetwork::new_from_strings(key, vec![], port, None)
+        WNetwork::new(key, port, None)
             .await
             .expect("Failed to create network"),
         port,
@@ -149,9 +149,6 @@ mod test {
         println!("Waiting for nodes to fully connect");
         for (_, _, _, w) in &hotstuffs {
             while w.connection_table_size().await < 4 {
-                async_std::task::sleep(std::time::Duration::from_millis(10)).await;
-            }
-            while w.nodes_table_size().await < 4 {
                 async_std::task::sleep(std::time::Duration::from_millis(10)).await;
             }
         }

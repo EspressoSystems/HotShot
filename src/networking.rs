@@ -65,6 +65,12 @@ pub enum NetworkError {
         /// Originating error
         inner: Box<dyn std::error::Error + Send + Sync>,
     },
+    /// Channel error
+    ChannelSend,
+    /// Could not complete handshake
+    IdentityHandshake,
+    /// The underlying connection has been shut down
+    ShutDown,
 }
 
 /// Describes, generically, the behaviors a networking implementation must have
