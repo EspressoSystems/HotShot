@@ -485,6 +485,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             // spin while the transaction_queue is empty
             trace!("Entering spin while we wait for transactions");
             while hotstuff.transaction_queue.read().await.is_empty() {
+                trace!("executing transaction queue spin cycle");
                 yield_now().await;
             }
             debug!("Unloading transactions");
@@ -779,7 +780,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
          */
         info!("Entering decide phase");
         if is_leader {
-            trace!("Waiting for threshold number of commit votes to arrive");
+            trace!(
+                ?current_view,
+                "Waiting for threshold number of commit votes to arrive"
+            );
             let mut vote_queue = hotstuff
                 .commit_vote_queue
                 .wait_for(|x| x.current_view == current_view)
@@ -838,7 +842,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 })?;
             debug!("Decision broadcasted");
         } else {
-            trace!("Waiting on decide QC to come in");
+            trace!(?current_view, "Waiting on decide QC to come in");
             let decide = hotstuff
                 .decide_waiter
                 .wait_for(|x| x.current_view == current_view)

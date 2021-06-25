@@ -52,7 +52,7 @@ impl<T: Debug> WaitQueue<T> {
         trace!("Acquired lock");
         let mut replacement = Vec::new();
         std::mem::swap(&mut replacement, &mut *guard);
-        return replacement;
+        replacement
     }
 
     /// Insert a value into the queue
@@ -92,21 +92,32 @@ impl<T: Debug> WaitOnce<T> {
     /// loops until contents satisfying the predicate are found
     #[instrument(skip(self, closure))]
     pub async fn wait_for(&self, closure: impl Fn(&T) -> bool) -> T {
-        let mut x = None;
-        trace!("Entering wait loop");
-        while x.is_none() {
-            trace!("Waiting on lock");
-            let mut guard = self.condvar.wait(self.item.lock().await).await;
-            trace!("Lock aquired");
-            if guard.is_some() && closure(guard.as_mut().unwrap()) {
-                trace!(?guard, "Value passed filter");
-                std::mem::swap(&mut x, &mut *guard);
-            } else {
-                trace!(?guard, "Value failed filter");
-                std::mem::drop(std::mem::replace(&mut *guard, None));
-            }
-        }
-        x.unwrap()
+        trace!("Waiting for lock");
+        let mut guard = self
+            .condvar
+            .wait_until(self.item.lock().await, |item| {
+                trace!("Inside condvar");
+                match item {
+                    Some(i) => {
+                        if closure(i) {
+                            trace!(?i, "Item passed filter");
+                            true
+                        } else {
+                            trace!(?i, "Item failed filter, resetting");
+                            *item = None;
+                            false
+                        }
+                    }
+                    None => {
+                        trace!("No item");
+                        false
+                    }
+                }
+            })
+            .await;
+        let mut replacement = None;
+        std::mem::swap(&mut replacement, &mut *guard);
+        replacement.unwrap()
     }
 
     /// Waits for the `WaitOnce` to have any contents, then removes and returns them
@@ -118,9 +129,11 @@ impl<T: Debug> WaitOnce<T> {
     #[instrument(skip(self))]
     pub async fn put(&self, item: T) {
         trace!("Waiting on lock");
-        *self.item.lock().await = Some(item);
+        let mut i = self.item.lock().await;
         trace!("Lock aquired");
-        self.condvar.notify_one();
+        *i = Some(item);
+        self.condvar.notify_all();
+        trace!("Condvar notified");
     }
 }
 
