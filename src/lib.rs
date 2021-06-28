@@ -210,7 +210,7 @@ pub struct HotStuffConfig {
     pub thershold: u32,
     /// Maximum transactions per block
     pub max_transactions: usize,
-    /// List of known node's public keys, including own, sorted by nonce
+    /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<PubKey>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
@@ -1123,8 +1123,18 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                             }
                             continue;
                         }
-                        // If we timed out, increase the timeout interval and continue
+                        // if we timed out, log it, send the event, and increase the timeout
                         Err(_) => {
+                            warn!("Round timed out");
+                            let x = channel.send(Event {
+                                view_number: view,
+                                stage: Stage::None,
+                                event: EventType::ViewTimeout { view_number: view },
+                            });
+                            if x.is_err() {
+                                error!("All event streams closed! Shutting down.");
+                                break;
+                            }
                             int_duration = (int_duration * int_mul) / int_div;
                         }
                     }
