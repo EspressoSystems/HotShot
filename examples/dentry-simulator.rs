@@ -6,7 +6,7 @@ use std::{
     env::{var, VarError},
 };
 use structopt::StructOpt;
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     fmt::{self, format::FmtSpan},
@@ -210,6 +210,10 @@ async fn main() {
                 .await
                 .expect("Hotstuff unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
+                if matches!(event.event, EventType::ViewTimeout {..}){
+                    error!(?event,"Round timed out!");
+                    panic!("Round failed");
+                }
                 debug! {?node_id, ?event};
                 event = hotstuff
                     .next_event()
@@ -353,7 +357,7 @@ async fn get_hotstuff(
         thershold: threshold as u32,
         max_transactions: 100,
         known_nodes,
-        next_view_timeout: 500,
+        next_view_timeout: 250,
         timeout_ratio: (11, 10),
     };
     debug!(?config);
