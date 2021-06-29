@@ -118,7 +118,9 @@ mod test {
             let (x, sync) = oneshot::channel();
             match network.generate_task(x) {
                 Some(task) => {
-                    spawn(task);
+                    task.into_iter().for_each(|x| {
+                        spawn(x);
+                    });
                     sync.await.expect("sync.await failed");
                 }
                 None => {

@@ -556,7 +556,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
-    ) -> Option<BoxedFuture<Result<(), NetworkError>>> {
+    ) -> Option<Vec<BoxedFuture<Result<(), NetworkError>>>> {
         let generated = self
             .inner
             .tasks_started
@@ -614,12 +614,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 }
                 todo!()
             };
-            Some(
-                fut.instrument(info_span!("WNetwork Server",
+            Some(vec![fut
+                .instrument(info_span!("WNetwork Server",
                                         id = ?self.inner.pub_key.nonce,
                                         addr = ?self.inner.socket))
-                    .boxed(),
-            )
+                .boxed()])
         }
     }
     /// Returns the size of the internal connection table
@@ -856,7 +855,9 @@ mod tests {
         let x = network
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
     }
 
@@ -870,7 +871,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -878,7 +881,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -901,7 +906,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -909,7 +916,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -974,7 +983,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -982,7 +993,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        spawn(x);
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
