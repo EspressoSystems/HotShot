@@ -1,7 +1,7 @@
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
-    task::spawn,
+    task::{sleep, spawn},
 };
 use async_tungstenite::{
     accept_async, client_async,
@@ -22,7 +22,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use super::BoxedFuture;
@@ -90,14 +90,16 @@ impl<T> Command<T> {
 }
 
 /// The handle used for interacting with a `WNetwork` connection
+#[derive(Clone)]
 struct Handle<T> {
     /// Messages to be sent by this node
     outbound: flume::Sender<Command<T>>,
     /// The address of the remote
-    #[allow(dead_code)] // This will be used in future
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
     shutdown: Arc<RwLock<bool>>,
+    /// The last time the remote sent us a message
+    last_message: Arc<Mutex<Instant>>,
 }
 
 /// The inner shared state of a `WNetwork` instance
@@ -120,6 +122,8 @@ struct WNetworkInner<T> {
     tasks_started: AtomicBool,
     /// Holds onto to a TCP socket between binding and task start
     socket_holder: Mutex<Option<TcpListener>>,
+    /// Duration in between keepalive pings
+    keep_alive_duration: Duration,
 }
 
 /// Shared waiting state for a `WNetwork` instance
@@ -238,10 +242,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (s_outbound, r_outbound) = flume::bounded(128);
         trace!("Opened channels");
         let shutdown = Arc::new(RwLock::new(false));
+        let last_message = Arc::new(Mutex::new(Instant::now()));
         let handle = Handle {
             outbound: s_outbound,
             remote_socket,
             shutdown: shutdown.clone(),
+            last_message: last_message.clone(),
         };
         // For the wire format, we use bincode with the following options:
         //   - Limit of 16KiB per message
@@ -295,6 +301,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 match m {
                     Combo::Message(m) => {
                         trace!(?m, "Incoming websockets message");
+                        // Update the message timer
+                        // Do this inside a block to make sure the lock doesn't leak
+                        {
+                            let mut lock = last_message.lock().await;
+                            *lock = Instant::now();
+                        }
                         // Attempt to decode the message
                         match m {
                             Message::Binary(vec) => {
@@ -444,7 +456,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         key: PubKey,
         addr: impl ToSocketAddrs + Debug,
     ) -> Result<(), NetworkError> {
-        // First check to see if we have the node in the map
+        /*
+        First check to see if we have the node in the map
+        */
         if self.inner.handles.contains_key(&key) {
             debug!(?key, "Already have a connection to node");
             Ok(())
@@ -501,6 +515,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     ) -> Result<Self, NetworkError> {
         let (s_direct, r_direct) = flume::bounded(128);
         let (s_broadcast, r_broadcast) = flume::bounded(128);
+        let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(500));
         trace!("Created queues");
         let s_string = format!("localhost:{}", port);
         let s_addr = match s_string.to_socket_addrs().await {
@@ -537,6 +552,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             },
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
+            keep_alive_duration,
         };
         let w = Self {
             inner: Arc::new(inner),
@@ -566,9 +582,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             warn!("Task already generated, returning nothing");
             None
         } else {
-            trace!("Creating task");
+            trace!("Creating tasks");
             let w = self.clone();
-            let fut = async move {
+            /*
+            Create the listener background task
+
+            This task is responsible for accepting incoming connections.
+            */
+            let listener_future = async move {
                 debug!("Launching server");
                 // Unwrap is safe due to atomic guard
                 let listener: TcpListener = w.inner.socket_holder.lock().await.take().unwrap();
@@ -614,16 +635,101 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 }
                 todo!()
             };
-            Some(vec![fut
-                .instrument(info_span!("WNetwork Server",
+            let w = self.clone();
+            /*
+            Create the patrol background task
+
+            This task is responsible for checking each task to make sure that the timeout is not exceeded,
+            sending a ping, and removing the task from the pool if no response is received.
+            */
+            let patrol_future = async move {
+                let sleep_dur = w.inner.keep_alive_duration;
+                loop {
+                    trace!("going to sleep");
+                    // Sleep for timeout duration.
+                    // We don't bother checking if we have slept the correct amount of time, since
+                    // it doesn't really matter in this case. Patrolling for stale nodes _too_
+                    // frequently won't really hurt.
+                    sleep(sleep_dur).await;
+                    debug!("Patrol task woken up");
+                    // Get a copy of all the handles
+                    let handles: Vec<_> = w
+                        .inner
+                        .handles
+                        .iter()
+                        .map(|x| (x.key().clone(), x.value().clone()))
+                        .collect();
+                    trace!("Handles collected");
+                    // Get current instant
+                    let now = Instant::now();
+                    trace!(?now);
+                    // Loop through the handles
+                    for (pub_key, handle) in handles {
+                        trace!("Checking handle {:?}", handle.remote_socket);
+                        // Get the last message time inside a block, to make sure we don't hold the
+                        // lock for longer than needed
+                        let last_message_time = { *handle.last_message.lock().await };
+                        let duration = now.checked_duration_since(last_message_time);
+                        if let Some(duration) = duration {
+                            trace!(?handle.remote_socket, "Grabbed duration");
+                            if duration >= sleep_dur {
+                                debug!(?handle.remote_socket, ?duration, "Remote has gone stale, pinging");
+                                let w = w.clone();
+                                spawn(async move {
+                                    w.ping_remote(pub_key, handle).await;
+                                });
+                            } else {
+                                trace!(?handle.remote_socket, ?duration, "Remote has recent message");
+                            }
+                        } else {
+                            trace!(?handle.remote_socket, "Last message was after we started patrol");
+                        }
+                    }
+                }
+            };
+            Some(vec![
+                listener_future
+                    .instrument(info_span!("WNetwork Server",
                                         id = ?self.inner.pub_key.nonce,
                                         addr = ?self.inner.socket))
-                .boxed()])
+                    .boxed(),
+                patrol_future
+                    .instrument(info_span!("WNetwork Patrol",
+                                           id = ?self.inner.pub_key.nonce,
+                                           addr = ?self.inner.socket
+                    ))
+                    .boxed(),
+            ])
         }
     }
     /// Returns the size of the internal connection table
     pub async fn connection_table_size(&self) -> usize {
         self.inner.handles.len()
+    }
+    /// Pings a remote, removing the remote from the handles table if the ping fails
+    #[instrument(skip(self,handle), fields(id = ?self.inner.pub_key.nonce))]
+    async fn ping_remote(&self, remote: PubKey, handle: Handle<T>) {
+        trace!("Packing up ping command");
+        let id = self.get_next_message_id();
+        let command = Command::Ping { id };
+        trace!("Registering ack waiter");
+        let (send, recv) = oneshot::channel();
+        self.inner.waiters.acked.insert(id, send);
+        trace!("Waiter inserted");
+        let res = handle.outbound.send_async(command).await;
+        if res.is_ok() {
+            debug!("Ping sent to remote");
+            let duration = self.inner.keep_alive_duration;
+            if let Ok(Ok(_)) = async_std::future::timeout(duration, recv).await {
+                debug!("Received ping from remote");
+            } else {
+                error!("Remote did not respond in time! Removing from node map");
+                self.inner.handles.remove(&remote);
+            }
+        } else {
+            error!("Handle has been shutdown! Removing from node map");
+            self.inner.handles.remove(&remote);
+        }
     }
 }
 
@@ -824,6 +930,26 @@ mod tests {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
             let res = WNetwork::new(pub_key.clone(), port, None).await;
+            if let Ok(n) = res {
+                return (pub_key, n, port);
+            } else {
+                warn!(?port, "Port opening failed");
+            }
+        }
+        panic!("Failed to generate a connection");
+    }
+
+    #[instrument]
+    async fn get_wnetwork_timeout(timeout: u64) -> (PubKey, WNetwork<Test>, u16) {
+        let timeout = Duration::from_millis(timeout);
+        let mut rng = rand::thread_rng();
+        let nonce: u64 = rng.gen();
+        debug!(?nonce, "Generating PubKey with id");
+        let pub_key = PubKey::random(nonce);
+        for _ in 0..10 {
+            let port: u16 = rng.gen_range(3000, 8000);
+            debug!(?port, "Attempting port");
+            let res = WNetwork::new(pub_key.clone(), port, Some(timeout)).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             } else {
@@ -1045,5 +1171,41 @@ mod tests {
         output.sort();
         // Check for equality
         assert_eq!(output, messages);
+    }
+
+    // Check to make sure the patrol task doesn't crash anything
+    #[async_std::test]
+    async fn patrol_task() {
+        setup_logging();
+        // Spawn two w_networks with a timeout of 25ms
+        // Spawn first wnetwork
+        let (_key1, network1, _port1) = get_wnetwork_timeout(25).await;
+        let (sync, r) = oneshot::channel();
+        let x = network1
+            .generate_task(sync)
+            .expect("Failed to generate task");
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
+        r.await.unwrap();
+        // Spawn second wnetwork
+        let (key2, network2, port2) = get_wnetwork_timeout(25).await;
+        let (sync, r) = oneshot::channel();
+        let x = network2
+            .generate_task(sync)
+            .expect("Failed to generate task");
+        x.into_iter().for_each(|x| {
+            spawn(x);
+        });
+        r.await.unwrap();
+        // Connect 1 to 2
+        let addr = format!("localhost:{}", port2);
+        network1
+            .connect_to(key2.clone(), &addr)
+            .await
+            .expect("Failed to connect nodes");
+        // Wait 100ms to make sure that nothing crashes
+        // Currently, the log output needs to be inspected to make sure that nothing bad happened
+        sleep(Duration::from_millis(100)).await
     }
 }
