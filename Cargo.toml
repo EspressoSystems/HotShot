@@ -34,10 +34,21 @@ async-std = { version = "1.9.0", features = ["attributes"] }
 tracing-subscriber = "0.2.18"
 
 
+### Profiles
+###
+### Note: these only apply to example executables or tests built from within this crate. They have
+### no effect on crates that depend on this crate.
+
 ## Apply some optimizations to test dependencies in debug/test builds
+
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
+
 # Optimize tc a lot
 [profile.dev.package.threshold_crypto]
 opt-level = 3
+
+## Enable LTO for release profile
+[profile.release]
+lto = "thin"
