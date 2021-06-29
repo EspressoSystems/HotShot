@@ -9,7 +9,6 @@ default = ["demo"]
 demo = ["blake3"]
 
 [dependencies]
-async-lock = "2.4.0"
 async-std = { version = "1.9.0", features = ["unstable"] }
 async-tls = "0.11.0"
 async-tungstenite = { version = "0.13.0", features = ["async-tls", "async-std-runtime"] }
@@ -33,3 +32,12 @@ tracing-unwrap = "0.9.2"
 [dev-dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
 tracing-subscriber = "0.2.18"
+
+
+## Apply some optimizations to test dependencies in debug/test builds
+# Generally optimize dependencies a little
+[profile.dev.package."*"]
+opt-level = 1
+# Optimize tc a lot
+[profile.dev.package.threshold_crypto]
+opt-level = 3
