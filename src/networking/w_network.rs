@@ -22,7 +22,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use super::BoxedFuture;
@@ -98,6 +98,8 @@ struct Handle<T> {
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
     shutdown: Arc<RwLock<bool>>,
+    /// The last time the remote sent us a message
+    last_message: Arc<Mutex<Instant>>,
 }
 
 /// The inner shared state of a `WNetwork` instance
@@ -240,10 +242,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (s_outbound, r_outbound) = flume::bounded(128);
         trace!("Opened channels");
         let shutdown = Arc::new(RwLock::new(false));
+        let last_message = Arc::new(Mutex::new(Instant::now()));
         let handle = Handle {
             outbound: s_outbound,
             remote_socket,
             shutdown: shutdown.clone(),
+            last_message: last_message.clone(),
         };
         // For the wire format, we use bincode with the following options:
         //   - Limit of 16KiB per message
@@ -297,6 +301,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 match m {
                     Combo::Message(m) => {
                         trace!(?m, "Incoming websockets message");
+                        // Update the message timer
+                        // Do this inside a block to make sure the lock doesn't leak
+                        {
+                            let mut lock = last_message.lock().await;
+                            *lock = Instant::now();
+                        }
                         // Attempt to decode the message
                         match m {
                             Message::Binary(vec) => {
