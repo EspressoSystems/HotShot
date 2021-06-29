@@ -120,6 +120,8 @@ struct WNetworkInner<T> {
     tasks_started: AtomicBool,
     /// Holds onto to a TCP socket between binding and task start
     socket_holder: Mutex<Option<TcpListener>>,
+    /// Duration in between keepalive pings
+    keep_alive_duration: Duration,
 }
 
 /// Shared waiting state for a `WNetwork` instance
@@ -501,6 +503,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     ) -> Result<Self, NetworkError> {
         let (s_direct, r_direct) = flume::bounded(128);
         let (s_broadcast, r_broadcast) = flume::bounded(128);
+        let keep_alive_duration = keep_alive_duration.unwrap_or(Duration::from_millis(500));
         trace!("Created queues");
         let s_string = format!("localhost:{}", port);
         let s_addr = match s_string.to_socket_addrs().await {
@@ -537,6 +540,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             },
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
+            keep_alive_duration,
         };
         let w = Self {
             inner: Arc::new(inner),
