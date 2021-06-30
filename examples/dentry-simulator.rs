@@ -1,7 +1,7 @@
 use futures::future::join_all;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Instant};
 use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
@@ -114,6 +114,8 @@ async fn main() {
     let prebaked_txns = prebaked_transactions();
     let prebaked_count = prebaked_txns.len() as u64;
     let mut state = None;
+
+    let start = Instant::now();
 
     println!("Running through prebaked transactions");
     debug!("Running through prebaked transactions");
@@ -244,6 +246,16 @@ async fn main() {
         }
         state = Some(s_test.clone());
     }
+
+    let end = Instant::now();
+    println!("");
+    let duration = end.duration_since(start);
+    let time = duration.as_secs_f64();
+    let per_round = time / (opt.transactions as f64);
+    println!(
+        "Completed {} rounds of consensus in {:.3} seconds ({:.3} seconds / round)",
+        opt.transactions, time, per_round
+    );
 }
 
 /// Provides the initial state for the simulation
@@ -275,8 +287,8 @@ async fn get_networking<
 ) -> (WNetwork<T>, u16, PubKey) {
     let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
     debug!(?pub_key);
-    for attempt in 0..10 {
-        let port: u16 = rng.gen_range(2000, 8000);
+    for attempt in 0..50 {
+        let port: u16 = rng.gen_range(10_000, 50_000);
         debug!(
             ?attempt,
             ?port,
