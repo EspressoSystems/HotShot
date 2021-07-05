@@ -18,7 +18,7 @@
 /// Provides types useful for representing `HotStuff ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
-#[cfg(any(feature = "demo", test))]
+#[cfg(any(feature = "demo"))]
 pub mod demos;
 /// Contains error types used by this library
 pub mod error;
