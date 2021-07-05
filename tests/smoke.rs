@@ -120,6 +120,8 @@ async fn ten_tx_seven_nodes() {
         }
         info!("All states match");
         trace!(state = ?states[0], block = ?blocks[0]);
+        assert_eq!(blocks[0].transactions.len(), 1);
+        assert_eq!(blocks[0].transactions, vec![tx])
     }
 }
 
@@ -229,5 +231,7 @@ async fn ten_tx_five_nodes() {
         }
         info!("All states match");
         trace!(state = ?states[0], block = ?blocks[0]);
+        assert_eq!(blocks[0].transactions.len(), 1);
+        assert_eq!(blocks[0].transactions, vec![tx])
     }
 }

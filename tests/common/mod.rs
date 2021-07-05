@@ -1,6 +1,6 @@
 use hotstuff::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env::{var, VarError};
 use std::sync::Once;
 use tracing_error::ErrorLayer;
@@ -22,7 +22,10 @@ pub fn get_starting_state() -> State {
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    State { balances }
+    State {
+        balances,
+        nonces: BTreeSet::default(),
+    }
 }
 
 /// Provides a common list of transactions
@@ -37,6 +40,7 @@ pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
                 account: "Joe".to_string(),
                 amount: 100,
             },
+            nonce: 0,
         },
         Transaction {
             add: Addition {
@@ -47,6 +51,7 @@ pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
                 account: "Joe".to_string(),
                 amount: 25,
             },
+            nonce: 1,
         },
         Transaction {
             add: Addition {
@@ -57,6 +62,7 @@ pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
                 account: "Nathan Y".to_string(),
                 amount: 534044,
             },
+            nonce: 2,
         },
         Transaction {
             add: Addition {
@@ -67,6 +73,7 @@ pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
                 account: "Joe".to_string(),
                 amount: 957954,
             },
+            nonce: 3,
         },
         Transaction {
             add: Addition {
@@ -77,56 +84,62 @@ pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
                 account: "Ian".to_string(),
                 amount: 40,
             },
+            nonce: 4,
         },
         Transaction {
             add: Addition {
                 account: "John".to_string(),
-                amount: 404795,
+                amount: 83187,
             },
             sub: Subtraction {
-                account: "Nathan M".to_string(),
-                amount: 404795,
+                account: "John".to_string(),
+                amount: 83187,
             },
+            nonce: 5,
         },
         Transaction {
             add: Addition {
                 account: "Joe".to_string(),
-                amount: 41312,
-            },
-            sub: Subtraction {
-                account: "Joe".to_string(),
-                amount: 41312,
-            },
-        },
-        Transaction {
-            add: Addition {
-                account: "Joe".to_string(),
-                amount: 67763,
+                amount: 340375,
             },
             sub: Subtraction {
                 account: "Nathan M".to_string(),
-                amount: 67763,
+                amount: 340375,
             },
+            nonce: 6,
         },
         Transaction {
             add: Addition {
                 account: "Ian".to_string(),
-                amount: 738477,
+                amount: 180862,
             },
             sub: Subtraction {
                 account: "John".to_string(),
-                amount: 738477,
+                amount: 180862,
             },
+            nonce: 7,
         },
         Transaction {
             add: Addition {
-                account: "Joe".to_string(),
-                amount: 945443,
-            },
-            sub: Subtraction {
                 account: "Nathan Y".to_string(),
-                amount: 945443,
+                amount: 373073,
             },
+            sub: Subtraction {
+                account: "Joe".to_string(),
+                amount: 373073,
+            },
+            nonce: 8,
+        },
+        Transaction {
+            add: Addition {
+                account: "Nathan Y".to_string(),
+                amount: 71525,
+            },
+            sub: Subtraction {
+                account: "Nathan M".to_string(),
+                amount: 71525,
+            },
+            nonce: 9,
         },
     ]
 }

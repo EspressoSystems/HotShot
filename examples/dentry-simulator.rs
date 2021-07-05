@@ -1,7 +1,10 @@
 use futures::future::join_all;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{collections::BTreeMap, time::Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Instant,
+};
 use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
@@ -43,6 +46,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
                 account: "Joe".to_string(),
                 amount: 100,
             },
+            nonce: 0,
         },
         Transaction {
             add: Addition {
@@ -53,6 +57,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
                 account: "Joe".to_string(),
                 amount: 25,
             },
+            nonce: 1,
         },
     ]
 }
@@ -270,7 +275,10 @@ fn inital_state() -> State {
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    State { balances }
+    State {
+        balances,
+        nonces: BTreeSet::default(),
+    }
 }
 
 /// Trys to get a networking implementation with the given id
@@ -357,5 +365,6 @@ fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transacti
             account: input_account.to_string(),
             amount,
         },
+        nonce: rng.gen(),
     }
 }

@@ -1,7 +1,7 @@
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, OptionExt, Snafu};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tracing::error;
 
 use crate::{BlockContents, BlockHash, H_256};
@@ -43,6 +43,8 @@ pub enum DEntryError {
     InsufficentBalance,
     /// Previous state commitment does not match
     PreviousStateMismatch,
+    /// Nonce was reused
+    ReusedNonce,
 }
 
 /// The transaction for the dentry demo
@@ -52,6 +54,8 @@ pub struct Transaction {
     pub add: Addition,
     /// A decrement to an account balance
     pub sub: Subtraction,
+    /// The nonce for a transaction, no two transactions can have the same nonce
+    pub nonce: u64,
 }
 
 impl Transaction {
@@ -68,6 +72,8 @@ impl Transaction {
 pub struct State {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
+    /// Set of previously seen nonces
+    pub nonces: BTreeSet<u64>,
 }
 
 impl State {
@@ -80,6 +86,10 @@ impl State {
             hasher.update(account.as_bytes());
             // then balance
             hasher.update(&balance.to_be_bytes());
+        }
+        // Add nonces to hash
+        for nonce in &self.nonces {
+            hasher.update(&nonce.to_be_bytes());
         }
         let x = *hasher.finalize().as_bytes();
         x.into()
@@ -109,6 +119,15 @@ impl BlockContents<H_256> for DEntryBlock {
     ) -> std::result::Result<Self, Self::Error> {
         // first, make sure that the transaction is internally valid
         if tx.validate_independence() {
+            // Check to make sure the nonce isn't used before
+            // Current state first
+            if state.nonces.contains(&tx.nonce) {
+                return Err(DEntryError::ReusedNonce);
+            }
+            // Then check the previous transactions in the block
+            if self.transactions.iter().any(|x| x.nonce == tx.nonce) {
+                return Err(DEntryError::ReusedNonce);
+            }
             // Now add up all the existing transactions from this block involving the subtraction,
             // we don't want to allow an account balance to go below zero
             let total_so_far: i64 = self
@@ -175,6 +194,10 @@ impl BlockContents<H_256> for DEntryBlock {
                 error!("no such output account");
                 return false;
             }
+            // Check to make sure the nonce isn't used
+            if state.nonces.contains(&tx.nonce) {
+                return false;
+            }
         }
         // Loop through our account map and make sure nobody is negative
         for balance in trial_balances.values() {
@@ -223,6 +246,10 @@ impl BlockContents<H_256> for DEntryBlock {
             } else {
                 return Err(DEntryError::NoSuchOutputAccount);
             }
+            // Check for nonce reuse
+            if state.nonces.contains(&tx.nonce) {
+                return Err(DEntryError::ReusedNonce);
+            }
         }
         // Loop through our account map and make sure nobody is negative
         for balance in trial_balances.values() {
@@ -233,8 +260,14 @@ impl BlockContents<H_256> for DEntryBlock {
         // Make sure our previous state commitment matches the provided state
         if self.previous_block == state.hash_state() {
             // This block has now passed all our tests, and thus has not done anything bad
+            // Add the nonces from this block
+            let mut nonces = state.nonces.clone();
+            for tx in &self.transactions {
+                nonces.insert(tx.nonce);
+            }
             Ok(State {
                 balances: trial_balances,
+                nonces,
             })
         } else {
             Err(DEntryError::PreviousStateMismatch)
@@ -260,6 +293,7 @@ impl BlockContents<H_256> for DEntryBlock {
         hasher.update(&tx.add.amount.to_be_bytes());
         hasher.update(&tx.sub.account.as_bytes());
         hasher.update(&tx.sub.amount.to_be_bytes());
+        hasher.update(&tx.nonce.to_be_bytes());
         let x = *hasher.finalize().as_bytes();
         x.into()
     }
