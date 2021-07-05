@@ -10,7 +10,7 @@ use async_tungstenite::{
 };
 use bincode::Options;
 use dashmap::DashMap;
-use futures::{channel::oneshot, prelude::*};
+use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -736,12 +736,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
     NetworkingImplementation<T> for WNetwork<T>
 {
-    fn broadcast_message(&self, message: T) -> BoxedFuture<Result<(), super::NetworkError>> {
-        let w = self.clone();
+    fn broadcast_message(&self, message: T) -> BoxFuture<'_, Result<(), super::NetworkError>> {
         async move {
             debug!(?message, "Broadcasting message");
             // Visit each handle in the map
-            for x in w.inner.handles.iter() {
+            for x in self.inner.handles.iter() {
                 // "Destruct" the RefMulti
                 let (key, handle) = x.pair();
                 trace!(?key, "Attempting to message remote");
@@ -751,10 +750,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                     return Err(NetworkError::CouldNotDeliver);
                 }
                 // Pack up the message into a command
-                let id = w.get_next_message_id();
+                let id = self.get_next_message_id();
                 let command = Command::Broadcast {
                     inner: message.clone(),
-                    from: w.inner.pub_key.clone(),
+                    from: self.inner.pub_key.clone(),
                     id,
                 };
                 trace!(?command, "Packed up command");
@@ -778,13 +777,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         &self,
         message: T,
         recipient: PubKey,
-    ) -> BoxedFuture<Result<(), super::NetworkError>> {
-        let w = self.clone();
+    ) -> BoxFuture<'_, Result<(), super::NetworkError>> {
         let r_id = recipient.nonce;
         async move {
             debug!(?message, "Messaging node");
             // Attempt to locate node
-            if let Some(h) = w.inner.handles.get(&recipient) {
+            if let Some(h) = self.inner.handles.get(&recipient) {
                 trace!("Handle found");
                 let handle = h.value();
                 // Flag an error if this handle was shut down
@@ -793,10 +791,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                     return Err(NetworkError::CouldNotDeliver);
                 }
                 // Pack up the message into a command
-                let id = w.get_next_message_id();
+                let id = self.get_next_message_id();
                 let command = Command::Direct {
                     inner: message,
-                    from: w.inner.pub_key.clone(),
+                    from: self.inner.pub_key.clone(),
                     to: recipient,
                     id,
                 };
@@ -821,16 +819,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn broadcast_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
-        let w = self.clone();
+    fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<T>, super::NetworkError>> {
         async move {
             let mut ret = Vec::new();
             // Wait for the first message to come up
-            let first = w.inner.outputs.broadcast.recv_async().await;
+            let first = self.inner.outputs.broadcast.recv_async().await;
             if let Ok(first) = first {
                 trace!(?first, "First message in broadcast queue found");
                 ret.push(first);
-                while let Ok(x) = w.inner.outputs.broadcast.try_recv() {
+                while let Ok(x) = self.inner.outputs.broadcast.try_recv() {
                     ret.push(x);
                 }
                 Ok(ret)
@@ -843,11 +840,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_broadcast(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
-        let w = self.clone();
+    fn next_broadcast(&self) -> BoxFuture<'_, Result<Option<T>, super::NetworkError>> {
         async move {
             debug!("Awaiting next broadcast");
-            let x = w.inner.outputs.broadcast.recv_async().await;
+            let x = self.inner.outputs.broadcast.recv_async().await;
             if let Ok(x) = x {
                 trace!(?x, "Found Broadcast");
                 Ok(Some(x))
@@ -860,16 +856,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn direct_queue(&self) -> BoxedFuture<Result<Vec<T>, super::NetworkError>> {
-        let w = self.clone();
+    fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<T>, super::NetworkError>> {
         async move {
             let mut ret = Vec::new();
             // Wait for the first message to come up
-            let first = w.inner.outputs.direct.recv_async().await;
+            let first = self.inner.outputs.direct.recv_async().await;
             if let Ok(first) = first {
                 trace!(?first, "First message in direct queue found");
                 ret.push(first);
-                while let Ok(x) = w.inner.outputs.direct.try_recv() {
+                while let Ok(x) = self.inner.outputs.direct.try_recv() {
                     ret.push(x);
                 }
                 Ok(ret)
@@ -882,11 +877,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_direct(&self) -> BoxedFuture<Result<Option<T>, super::NetworkError>> {
-        let w = self.clone();
+    fn next_direct(&self) -> BoxFuture<'_, Result<Option<T>, super::NetworkError>> {
         async move {
             debug!("Awaiting next direct message");
-            let x = w.inner.outputs.direct.recv_async().await;
+            let x = self.inner.outputs.direct.recv_async().await;
             if let Ok(x) = x {
                 trace!(?x, "Found direct message");
                 Ok(Some(x))
@@ -899,9 +893,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn known_nodes(&self) -> BoxedFuture<Vec<PubKey>> {
-        let w = self.clone();
-        async move { w.inner.handles.iter().map(|x| x.key().clone()).collect() }.boxed()
+    fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>> {
+        async move { self.inner.handles.iter().map(|x| x.key().clone()).collect() }.boxed()
     }
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
