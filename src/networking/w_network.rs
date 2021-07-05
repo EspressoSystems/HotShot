@@ -840,13 +840,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<Option<T>, super::NetworkError>> {
+    fn next_broadcast(&self) -> BoxFuture<'_, Result<T, super::NetworkError>> {
         async move {
             debug!("Awaiting next broadcast");
             let x = self.inner.outputs.broadcast.recv_async().await;
             if let Ok(x) = x {
                 trace!(?x, "Found Broadcast");
-                Ok(Some(x))
+                Ok(x)
             } else {
                 error!("The underlying WNetwork has shutdown");
                 Err(NetworkError::ShutDown)
@@ -877,13 +877,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .boxed()
     }
 
-    fn next_direct(&self) -> BoxFuture<'_, Result<Option<T>, super::NetworkError>> {
+    fn next_direct(&self) -> BoxFuture<'_, Result<T, super::NetworkError>> {
         async move {
             debug!("Awaiting next direct message");
             let x = self.inner.outputs.direct.recv_async().await;
             if let Ok(x) = x {
                 trace!(?x, "Found direct message");
-                Ok(Some(x))
+                Ok(x)
             } else {
                 error!("The underlying WNetwork has shutdown");
                 Err(NetworkError::ShutDown)
@@ -1059,8 +1059,7 @@ mod tests {
             let message = network2
                 .next_direct()
                 .await
-                .expect("Failed to receive message")
-                .expect("Received nothing");
+                .expect("Failed to receive message");
             output.push(message);
         }
         output.sort();
@@ -1080,8 +1079,7 @@ mod tests {
             let message = network1
                 .next_direct()
                 .await
-                .expect("Failed to receive message")
-                .expect("Received nothing");
+                .expect("Failed to receive message");
             output.push(message);
         }
         output.sort();
@@ -1136,8 +1134,7 @@ mod tests {
             let message = network2
                 .next_broadcast()
                 .await
-                .expect("Failed to receive message")
-                .expect("Received nothing");
+                .expect("Failed to receive message");
             output.push(message);
         }
         output.sort();
@@ -1157,8 +1154,7 @@ mod tests {
             let message = network1
                 .next_broadcast()
                 .await
-                .expect("Failed to receive message")
-                .expect("Received nothing");
+                .expect("Failed to receive message");
             output.push(message);
         }
         output.sort();

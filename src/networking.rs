@@ -95,13 +95,13 @@ where
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<Option<M>, NetworkError>>;
+    fn next_broadcast(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
     /// Moves out the entire queue of received direct messages to this node
     fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>>;
     /// Provides a future for the next received direct message to this node
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_direct(&self) -> BoxFuture<'_, Result<Option<M>, NetworkError>>;
+    fn next_direct(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
     /// Node's currently known to the networking implementation
     ///
     /// Kludge function to work around leader election
