@@ -6,7 +6,7 @@ use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
 use hotstuff::{
-    demos::dentry::block::*,
+    demos::dentry::*,
     event::{Event, EventType},
     handle::HotStuffHandle,
     message::Message,

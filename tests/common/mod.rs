@@ -1,4 +1,4 @@
-use hotstuff::demos::dentry::block::{Account, Addition, Balance, State, Subtraction, Transaction};
+use hotstuff::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
 
 use std::collections::BTreeMap;
 use std::env::{var, VarError};

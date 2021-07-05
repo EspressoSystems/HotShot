@@ -6,7 +6,7 @@ use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use tracing::{debug, error, info, instrument, trace};
 
 use hotstuff::{
-    demos::dentry::block::*,
+    demos::dentry::*,
     event::{Event, EventType},
     handle::HotStuffHandle,
     message::Message,
