@@ -435,7 +435,13 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 .context(NetworkFault)?;
             trace!("View change message sent");
         } else {
-            info!("Leader for this round");
+            info!("Leader for this round, sending self new_view");
+            let view_message = NewView {
+                current_view,
+                justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
+            };
+            trace!("NewView packed");
+            self.inner.new_view_queue.push(view_message).await;
         }
         send_event::<B, B::State, { N }>(
             channel,
@@ -541,6 +547,18 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     },
                 },
             );
+            // Make a prepare signature and send it to ourselves
+            let signature =
+                hotstuff
+                    .private_key
+                    .partial_sign(&the_hash, Stage::Prepare, current_view);
+            let vote = PrepareVote {
+                signature,
+                leaf_hash: the_hash,
+                id: hotstuff.public_key.nonce,
+                current_view,
+            };
+            hotstuff.prepare_vote_queue.push(vote).await;
         } else {
             trace!("Waiting for prepare message to come in");
             // Wait for the leader to send us a prepare message
@@ -648,6 +666,18 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     stage: Stage::PreCommit,
                 })?;
             debug!("Precommit message sent");
+            // Make a pre commit vote and send it to ourselves
+            let signature =
+                hotstuff
+                    .private_key
+                    .partial_sign(&the_hash, Stage::PreCommit, current_view);
+            let vote_message = PreCommitVote {
+                leaf_hash: the_hash,
+                signature,
+                id: hotstuff.public_key.nonce,
+                current_view,
+            };
+            hotstuff.precommit_vote_queue.push(vote_message).await;
         } else {
             trace!("Waiting for precommit message to arrive from leader");
             // Wait for the leader to send us a precommit message
@@ -735,6 +765,18 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     stage: Stage::Commit,
                 })?;
             debug!("Commit message broadcasted");
+            // Make a commit vote and send it to ourselves
+            let signature =
+                hotstuff
+                    .private_key
+                    .partial_sign(&the_hash, Stage::Commit, current_view);
+            let vote_message = CommitVote {
+                leaf_hash: the_hash,
+                signature,
+                id: hotstuff.public_key.nonce,
+                current_view,
+            };
+            hotstuff.commit_vote_queue.push(vote_message).await;
         } else {
             trace!("Waiting for commit message to arrive from leader");
             let commit = hotstuff
