@@ -47,7 +47,7 @@ use snafu::ResultExt;
 use tokio::sync::broadcast;
 
 use crate::data::Leaf;
-use crate::error::{FailedToBroadcast, FailedToMessageLeader, PhaseLockError, NetworkFault};
+use crate::error::{FailedToBroadcast, FailedToMessageLeader, NetworkFault, PhaseLockError};
 use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
@@ -631,13 +631,14 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 .map(|x| (x.id, x.signature))
                 .collect();
             // Generate a quorum certificate from those votes
-            let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
-                    |e| PhaseLockError::FailedToAssembleQC {
-                        stage: Stage::PreCommit,
-                        source: e,
-                    },
-                )?;
+            let signature = generate_qc(
+                votes.iter().map(|(x, y)| (*x, y)),
+                &phaselock.public_key.set,
+            )
+            .map_err(|e| PhaseLockError::FailedToAssembleQC {
+                stage: Stage::PreCommit,
+                source: e,
+            })?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -734,13 +735,14 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 .filter(|x| x.leaf_hash == the_hash)
                 .map(|x| (x.id, x.signature))
                 .collect();
-            let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
-                    |e| PhaseLockError::FailedToAssembleQC {
-                        stage: Stage::Commit,
-                        source: e,
-                    },
-                )?;
+            let signature = generate_qc(
+                votes.iter().map(|(x, y)| (*x, y)),
+                &phaselock.public_key.set,
+            )
+            .map_err(|e| PhaseLockError::FailedToAssembleQC {
+                stage: Stage::Commit,
+                source: e,
+            })?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),
@@ -834,13 +836,14 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 .filter(|x| x.leaf_hash == the_hash)
                 .map(|x| (x.id, x.signature))
                 .collect();
-            let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
-                    |e| PhaseLockError::FailedToAssembleQC {
-                        stage: Stage::Decide,
-                        source: e,
-                    },
-                )?;
+            let signature = generate_qc(
+                votes.iter().map(|(x, y)| (*x, y)),
+                &phaselock.public_key.set,
+            )
+            .map_err(|e| PhaseLockError::FailedToAssembleQC {
+                stage: Stage::Decide,
+                source: e,
+            })?;
             let qc = QuorumCertificate {
                 hash: the_hash,
                 signature: Some(signature),

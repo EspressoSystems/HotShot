@@ -101,7 +101,9 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
                 Err(HandleError::ShutDown) => return Err(HandleError::ShutDown),
                 // As try_next event can only return HandleError::Skipped or HandleError::ShutDown,
                 // it would be nonsensical if we end up here
-                _ => unreachable!("Impossible to reach branch in PhaseLockHandle::available_events"),
+                _ => {
+                    unreachable!("Impossible to reach branch in PhaseLockHandle::available_events")
+                }
             }
         }
         Ok(output)
