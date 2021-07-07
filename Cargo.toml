@@ -1,5 +1,5 @@
 [package]
-name = "hotstuff"
+name = "phaselock"
 version = "0.0.0"
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
 edition = "2018"

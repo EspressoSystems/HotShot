@@ -1,10 +1,10 @@
 use snafu::Snafu;
 
-/// Error type for `HotStuff`
+/// Error type for `PhaseLock`
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 #[non_exhaustive]
-pub enum HotStuffError {
+pub enum PhaseLockError {
     /// Failed to Message the leader in the given stage
     #[snafu(display("Failed to message leader in stage {:?}: {}", stage, source))]
     FailedToMessageLeader {
@@ -62,16 +62,16 @@ pub enum HotStuffError {
     },
 }
 
-impl HotStuffError {
+impl PhaseLockError {
     /// Returns the stage this error happened in, if such information exists
     pub fn get_stage(&self) -> Option<crate::data::Stage> {
         match self {
-            HotStuffError::FailedToMessageLeader { stage, .. }
-            | HotStuffError::FailedToBroadcast { stage, .. }
-            | HotStuffError::BadOrForgedQC { stage, .. }
-            | HotStuffError::FailedToAssembleQC { stage, .. }
-            | HotStuffError::BadBlock { stage }
-            | HotStuffError::InconsistentBlock { stage } => Some(*stage),
+            PhaseLockError::FailedToMessageLeader { stage, .. }
+            | PhaseLockError::FailedToBroadcast { stage, .. }
+            | PhaseLockError::BadOrForgedQC { stage, .. }
+            | PhaseLockError::FailedToAssembleQC { stage, .. }
+            | PhaseLockError::BadBlock { stage }
+            | PhaseLockError::InconsistentBlock { stage } => Some(*stage),
             _ => None,
         }
     }

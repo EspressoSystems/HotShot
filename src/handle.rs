@@ -4,32 +4,32 @@ use tokio::sync::broadcast::{self, RecvError, TryRecvError};
 
 use std::sync::Arc;
 
-use crate::{error::HotStuffError, event::Event, BlockContents, HotStuff};
+use crate::{error::PhaseLockError, event::Event, BlockContents, PhaseLock};
 
-/// Handle for interacting with a `HotStuff` instance
-pub struct HotStuffHandle<B: BlockContents<N> + 'static, const N: usize> {
+/// Handle for interacting with a `PhaseLock` instance
+pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
     pub(crate) sender_handle: Arc<broadcast::Sender<Event<B, B::State>>>,
-    /// Internal `HotStuff` reference
-    pub(crate) hotstuff: HotStuff<B, N>,
+    /// Internal `PhaseLock` reference
+    pub(crate) phaselock: PhaseLock<B, N>,
     /// The receiver we use to receive events on
     pub(crate) stream_output: broadcast::Receiver<Event<B, B::State>>,
-    /// Global control to pause the underlying `HotStuff`
+    /// Global control to pause the underlying `PhaseLock`
     pub(crate) pause: Arc<RwLock<bool>>,
-    /// Override for the `pause` value that allows the `HotStuff` to run one round
+    /// Override for the `pause` value that allows the `PhaseLock` to run one round
     pub(crate) run_once: Arc<RwLock<bool>>,
-    /// Global to signify the `HotStuff` should be closed after completing the next round
+    /// Global to signify the `PhaseLock` should be closed after completing the next round
     pub(crate) shut_down: Arc<RwLock<bool>>,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> Clone for HotStuffHandle<B, N> {
+impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B, N> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
             stream_output: self.sender_handle.subscribe(),
-            hotstuff: self.hotstuff.clone(),
+            phaselock: self.phaselock.clone(),
             pause: self.pause.clone(),
             run_once: self.run_once.clone(),
             shut_down: self.shut_down.clone(),
@@ -37,12 +37,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> Clone for HotStuffHandle<B, 
     }
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
+impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// Will return the next event in the queue
     ///
     /// # Errors
     ///
-    /// - Will return `HandleError::Closed` if the underlying `HotStuff` has been closed.
+    /// - Will return `HandleError::Closed` if the underlying `PhaseLock` has been closed.
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
@@ -68,7 +68,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
     ///
     /// # Errors
     ///
-    /// - Will return `HandleError::ShutDown` if the underlying `HotStuff` instance has shut down
+    /// - Will return `HandleError::ShutDown` if the underlying `PhaseLock` instance has shut down
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
@@ -89,7 +89,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
     ///
     /// # Errors
     ///
-    /// Will return `HandleError::ShutDown` if the underlying `HotStuff` instance has been shut down.
+    /// Will return `HandleError::ShutDown` if the underlying `PhaseLock` instance has been shut down.
     pub fn availible_events(&mut self) -> Result<Vec<Event<B, B::State>>, HandleError> {
         let mut output = vec![];
         // Loop to pull out all the outputs
@@ -101,35 +101,35 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
                 Err(HandleError::ShutDown) => return Err(HandleError::ShutDown),
                 // As try_next event can only return HandleError::Skipped or HandleError::ShutDown,
                 // it would be nonsensical if we end up here
-                _ => unreachable!("Impossible to reach branch in HotStuffHandle::available_events"),
+                _ => unreachable!("Impossible to reach branch in PhaseLockHandle::available_events"),
             }
         }
         Ok(output)
     }
 
-    /// Gets the current commited state of the `HotStuff` instance.
+    /// Gets the current commited state of the `PhaseLock` instance.
     pub async fn get_state(&self) -> Arc<B::State> {
-        self.hotstuff.get_state().await
+        self.phaselock.get_state().await
     }
 
-    /// Gets the current commited state of the `HotStuff` instance, blocking on the future
+    /// Gets the current commited state of the `PhaseLock` instance, blocking on the future
     pub fn get_state_sync(&self) -> Arc<B::State> {
         block_on(self.get_state())
     }
 
-    /// Submits a transaction to the backing `HotStuff` instance.
+    /// Submits a transaction to the backing `PhaseLock` instance.
     ///
     /// # Errors
     ///
-    /// Will return a `HandleError::Transaction` if some error occurs in the underlying `HotStuff` instance.
+    /// Will return a `HandleError::Transaction` if some error occurs in the underlying `PhaseLock` instance.
     pub async fn submit_transaction(&self, tx: B::Transaction) -> Result<(), HandleError> {
-        self.hotstuff
+        self.phaselock
             .publish_transaction_async(tx)
             .await
             .context(Transaction)
     }
 
-    /// Sycronously sumbits a transaction to the backing `HotStuff` instance.
+    /// Sycronously sumbits a transaction to the backing `PhaseLock` instance.
     ///
     /// # Errors
     ///
@@ -138,27 +138,27 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
         block_on(self.submit_transaction(tx))
     }
 
-    /// Signals to the underlying `HotStuff` to unpause
+    /// Signals to the underlying `PhaseLock` to unpause
     pub async fn start(&self) {
         *self.pause.write().await = false;
     }
 
-    /// Synchronously signals the underlying `HotStuff` to unpause
+    /// Synchronously signals the underlying `PhaseLock` to unpause
     pub fn start_sync(&self) {
         block_on(self.start());
     }
 
-    /// Signals the underlying `HotStuff` to pause
+    /// Signals the underlying `PhaseLock` to pause
     pub async fn pause(&self) {
         *self.pause.write().await = true;
     }
 
-    /// Synchronously signals the underlying `HotStuff` to pause
+    /// Synchronously signals the underlying `PhaseLock` to pause
     pub fn pause_sync(&self) {
         block_on(self.pause());
     }
 
-    /// Signals the underlying `HotStuff` to run one round, if paused
+    /// Signals the underlying `PhaseLock` to run one round, if paused
     pub async fn run_one_round(&self) {
         let paused = self.pause.read().await;
         if *paused {
@@ -166,15 +166,15 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffHandle<B, N> {
         }
     }
 
-    /// Synchronously signals the underlying `HotStuff` to run one round, if paused
+    /// Synchronously signals the underlying `PhaseLock` to run one round, if paused
     pub fn run_one_round_sync(&self) {
         block_on(self.run_one_round())
     }
 }
 
-/// Represents the types of errors that can be returned by a `HotStuffHandle`
+/// Represents the types of errors that can be returned by a `PhaseLockHandle`
 #[derive(Snafu, Debug)]
-#[allow(clippy::large_enum_variant)] // HotStuff error isn't that big, and these are _errors_ after all
+#[allow(clippy::large_enum_variant)] // PhaseLock error isn't that big, and these are _errors_ after all
 pub enum HandleError {
     /// This handle has not had an event pulled out of it for too long, and some messages were
     /// skipped
@@ -182,11 +182,11 @@ pub enum HandleError {
         /// The number of messages skipped
         ammount: u64,
     },
-    /// The `HotStuff` instance this handle references has shut down
+    /// The `PhaseLock` instance this handle references has shut down
     ShutDown,
-    /// An error occured in the underlying `HotStuff` implementation while submitting a transaction
+    /// An error occured in the underlying `PhaseLock` implementation while submitting a transaction
     Transaction {
-        /// The underlying `HotStuff` error
-        source: HotStuffError,
+        /// The underlying `PhaseLock` error
+        source: PhaseLockError,
     },
 }

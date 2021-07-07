@@ -5,13 +5,13 @@ use common::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use tracing::{debug, error, info, instrument, trace};
 
-use hotstuff::{
+use phaselock::{
     demos::dentry::*,
     event::{Event, EventType},
-    handle::HotStuffHandle,
+    handle::PhaseLockHandle,
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
-    tc, HotStuff, HotStuffConfig, PubKey, H_256,
+    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
 #[async_std::test]
@@ -39,9 +39,9 @@ async fn ten_tx_seven_nodes() {
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
-    // Create the hotstuffs
+    // Create the phaselocks
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
-    let config = HotStuffConfig {
+    let config = PhaseLockConfig {
         total_nodes: nodes as u32,
         thershold: threshold as u32,
         max_transactions: 100,
@@ -52,9 +52,9 @@ async fn ten_tx_seven_nodes() {
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut hotstuffs: Vec<HotStuffHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = HotStuff::init(
+        let (_, h) = PhaseLock::init(
             gensis.clone(),
             &sks,
             node_id,
@@ -63,41 +63,41 @@ async fn ten_tx_seven_nodes() {
             networkings[node_id as usize].0.clone(),
         )
         .await;
-        hotstuffs.push(h);
+        phaselocks.push(h);
     }
 
     let transactions = get_ten_prebaked_trasnactions();
     assert_eq!(transactions.len(), 10);
-    info!("Hotstuffs prepared, running prebaked transactions");
+    info!("PhaseLocks prepared, running prebaked transactions");
     for (round, tx) in transactions.into_iter().enumerate() {
         info!(?round, ?tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         info!("Transaction submitted, unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 trace!(?node_id, ?event);
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             debug!(?node_id, "Node reached decision");
             if let EventType::Decide { block, state } = event.event {
@@ -150,9 +150,9 @@ async fn ten_tx_five_nodes() {
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
-    // Create the hotstuffs
+    // Create the phaselocks
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
-    let config = HotStuffConfig {
+    let config = PhaseLockConfig {
         total_nodes: nodes as u32,
         thershold: threshold as u32,
         max_transactions: 100,
@@ -163,9 +163,9 @@ async fn ten_tx_five_nodes() {
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut hotstuffs: Vec<HotStuffHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = HotStuff::init(
+        let (_, h) = PhaseLock::init(
             gensis.clone(),
             &sks,
             node_id,
@@ -174,41 +174,41 @@ async fn ten_tx_five_nodes() {
             networkings[node_id as usize].0.clone(),
         )
         .await;
-        hotstuffs.push(h);
+        phaselocks.push(h);
     }
 
     let transactions = get_ten_prebaked_trasnactions();
     assert_eq!(transactions.len(), 10);
-    info!("Hotstuffs prepared, running prebaked transactions");
+    info!("PhaseLocks prepared, running prebaked transactions");
     for (round, tx) in transactions.into_iter().enumerate() {
         info!(?round, ?tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         info!("Transaction submitted, unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 trace!(?node_id, ?event);
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             debug!(?node_id, "Node reached decision");
             if let EventType::Decide { block, state } = event.event {

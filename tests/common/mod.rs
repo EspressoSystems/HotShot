@@ -1,4 +1,4 @@
-use hotstuff::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
+use phaselock::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::env::{var, VarError};

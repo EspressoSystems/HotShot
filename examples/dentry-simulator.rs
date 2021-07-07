@@ -8,13 +8,13 @@ use std::{
 use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
-use hotstuff::{
+use phaselock::{
     demos::dentry::*,
     event::{Event, EventType},
-    handle::HotStuffHandle,
+    handle::PhaseLockHandle,
     message::Message,
     networking::w_network::WNetwork,
-    tc, HotStuff, HotStuffConfig, PubKey, H_256,
+    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
 mod common;
@@ -108,11 +108,11 @@ async fn main() {
             async_std::task::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
-    // Create the hotstuffs
-    let mut hotstuffs: Vec<HotStuffHandle<_, H_256>> =
+    // Create the phaselocks
+    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> =
         join_all(networkings.into_iter().map(|(network, _, pk)| {
             let node_id = pk.nonce;
-            get_hotstuff(&sks, nodes, threshold, node_id, network, &inital_state)
+            get_phaselock(&sks, nodes, threshold, node_id, network, &inital_state)
         }))
         .await;
 
@@ -128,35 +128,35 @@ async fn main() {
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 debug! {?node_id, ?event};
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
@@ -194,35 +194,35 @@ async fn main() {
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 debug! {?node_id, ?event};
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
@@ -287,7 +287,7 @@ fn inital_state() -> State {
 #[instrument(skip(rng, sks))]
 async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
-    R: hotstuff::rand::Rng,
+    R: phaselock::rand::Rng,
 >(
     sks: &tc::SecretKeySet,
     node_id: u64,
@@ -322,20 +322,20 @@ async fn get_networking<
     panic!("Failed to open a port");
 }
 
-/// Creates a hotstuff
+/// Creates a phaselock
 #[instrument(skip(keys, networking, state))]
-async fn get_hotstuff(
+async fn get_phaselock(
     keys: &tc::SecretKeySet,
     nodes: u64,
     threshold: u64,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
     state: &State,
-) -> HotStuffHandle<DEntryBlock, H_256> {
+) -> PhaseLockHandle<DEntryBlock, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
         .collect();
-    let config = HotStuffConfig {
+    let config = PhaseLockConfig {
         total_nodes: nodes as u32,
         thershold: threshold as u32,
         max_transactions: 100,
@@ -345,8 +345,8 @@ async fn get_hotstuff(
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
-    let (_, h) = HotStuff::init(genesis, keys, node_id, config, state.clone(), networking).await;
-    debug!("hotstuff launched");
+    let (_, h) = PhaseLock::init(genesis, keys, node_id, config, state.clone(), networking).await;
+    debug!("phaselock launched");
     h
 }
 

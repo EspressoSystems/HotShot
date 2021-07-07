@@ -12,10 +12,10 @@
 // Given that consensus should guarantee the ability to recover from errors, explicit panics should
 // be strictly forbidden
 #![warn(clippy::panic)]
-//! Provides a generic rust implementation of the [`HotStuff`](https://arxiv.org/abs/1803.05069) BFT
+//! Provides a generic rust implementation of the [`PhaseLock`](https://arxiv.org/abs/1803.05069) BFT
 //! protocol
 
-/// Provides types useful for representing `HotStuff ()`'s data structures
+/// Provides types useful for representing `PhaseLock ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
 #[cfg(any(feature = "demo"))]
@@ -24,7 +24,7 @@ pub mod demos;
 pub mod error;
 /// Contains representations of events
 pub mod event;
-/// Contains the handle type for interacting with a `HotStuff` instance
+/// Contains the handle type for interacting with a `PhaseLock` instance
 pub mod handle;
 /// Contains structures used for representing network messages
 pub mod message;
@@ -47,9 +47,9 @@ use snafu::ResultExt;
 use tokio::sync::broadcast;
 
 use crate::data::Leaf;
-use crate::error::{FailedToBroadcast, FailedToMessageLeader, HotStuffError, NetworkFault};
+use crate::error::{FailedToBroadcast, FailedToMessageLeader, PhaseLockError, NetworkFault};
 use crate::event::{Event, EventType};
-use crate::handle::HotStuffHandle;
+use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
@@ -66,7 +66,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Convenience type alias
-type Result<T> = std::result::Result<T, HotStuffError>;
+type Result<T> = std::result::Result<T, PhaseLockError>;
 
 /// Public key type
 ///
@@ -195,13 +195,13 @@ pub trait BlockContents<const N: usize>:
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash<N>;
     /// Produces a hash for an arbitrary sequence of bytes
     ///
-    /// Used to produce hashes for internal `HotStuff` control structures
+    /// Used to produce hashes for internal `PhaseLock` control structures
     fn hash_bytes(bytes: &[u8]) -> BlockHash<N>;
 }
 
-/// Holds configuration for a hotstuff
+/// Holds configuration for a phaselock
 #[derive(Debug, Clone)]
-pub struct HotStuffConfig {
+pub struct PhaseLockConfig {
     /// Total number of nodes in the network
     pub total_nodes: u32,
     /// Nodes required to reach a decision
@@ -216,8 +216,8 @@ pub struct HotStuffConfig {
     pub timeout_ratio: (u64, u64),
 }
 
-/// Holds the state needed to participate in `HotStuff` consensus
-pub struct HotStuffInner<B: BlockContents<N> + 'static, const N: usize> {
+/// Holds the state needed to participate in `PhaseLock` consensus
+pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     /// The public key of this node
     public_key: PubKey,
     /// The private key of this node
@@ -225,9 +225,9 @@ pub struct HotStuffInner<B: BlockContents<N> + 'static, const N: usize> {
     /// The genesis block, used for short-circuiting during bootstrap
     #[allow(dead_code)]
     genesis: B,
-    /// Configuration items for this hotstuff instance
-    config: HotStuffConfig,
-    /// Networking interface for this hotstuff instance
+    /// Configuration items for this phaselock instance
+    config: PhaseLockConfig,
+    /// Networking interface for this phaselock instance
     networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction, N>>>,
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
@@ -259,7 +259,7 @@ pub struct HotStuffInner<B: BlockContents<N> + 'static, const N: usize> {
     decision_cache: DashMap<BlockHash<N>, QuorumCertificate<N>>,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> HotStuffInner<B, N> {
+impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockInner<B, N> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
         let index = view % u64::from(self.config.total_nodes);
@@ -267,32 +267,32 @@ impl<B: BlockContents<N> + 'static, const N: usize> HotStuffInner<B, N> {
     }
 }
 
-/// Thread safe, shared view of a `HotStuff`
+/// Thread safe, shared view of a `PhaseLock`
 #[derive(Clone)]
-pub struct HotStuff<B: BlockContents<N> + Send + Sync + 'static, const N: usize> {
-    /// Handle to internal hotstuff implementation
-    inner: Arc<HotStuffInner<B, N>>,
+pub struct PhaseLock<B: BlockContents<N> + Send + Sync + 'static, const N: usize> {
+    /// Handle to internal phaselock implementation
+    inner: Arc<PhaseLockInner<B, N>>,
 }
 
-impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N> {
-    /// Creates a new hotstuff with the given configuration options and sets it up with the given
+impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N> {
+    /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
     #[instrument(skip(genesis, priv_keys, starting_state, networking))]
     pub fn new(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
         nonce: u64,
-        config: HotStuffConfig,
+        config: PhaseLockConfig,
         starting_state: B::State,
         networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
     ) -> Self {
-        info!("Creating a new hotstuff");
+        info!("Creating a new phaselock");
         let pub_key_set = priv_keys.public_keys();
         let node_priv_key = priv_keys.secret_key_share(nonce);
         let node_pub_key = node_priv_key.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
         let t = config.thershold as usize;
-        let inner = HotStuffInner {
+        let inner = PhaseLockInner {
             public_key: PubKey {
                 set: pub_key_set,
                 node: node_pub_key,
@@ -466,16 +466,16 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         current_view: u64,
         channel: Option<&broadcast::Sender<Event<B, B::State>>>,
     ) -> Result<()> {
-        let hotstuff = &self.inner;
+        let phaselock = &self.inner;
         // Get the leader for the current round
-        let leader = hotstuff.get_leader(current_view);
-        let is_leader = hotstuff.public_key == leader;
+        let leader = phaselock.get_leader(current_view);
+        let is_leader = phaselock.public_key == leader;
         if is_leader {
             info!("Node is leader for current view");
         } else {
             info!("Node is follower for current view");
         }
-        let state: Arc<B::State> = hotstuff.state.read().await.clone();
+        let state: Arc<B::State> = phaselock.state.read().await.clone();
         trace!("State copy made");
         /*
         Prepare phase
@@ -488,12 +488,12 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             let mut block = B::next_block(&state);
             // spin while the transaction_queue is empty
             trace!("Entering spin while we wait for transactions");
-            while hotstuff.transaction_queue.read().await.is_empty() {
+            while phaselock.transaction_queue.read().await.is_empty() {
                 trace!("executing transaction queue spin cycle");
                 yield_now().await;
             }
             debug!("Unloading transactions");
-            let mut transaction_queue = hotstuff.transaction_queue.write().await;
+            let mut transaction_queue = phaselock.transaction_queue.write().await;
             // Iterate through all the transactions, keeping the valid ones and discarding the
             // invalid ones
             for tx in transaction_queue.drain(..) {
@@ -508,7 +508,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             }
             // Wait until we have met the thershold of new-view messages
             debug!("Waiting for minimum number of new view messages to arrive");
-            let new_views = hotstuff.new_view_queue.wait().await;
+            let new_views = phaselock.new_view_queue.wait().await;
             trace!("New view messages arrived");
             let high_qc = &new_views
                 .iter()
@@ -517,10 +517,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 .justify;
             // Create the Leaf, and add it to the store
             let leaf = Leaf::new(block.clone(), high_qc.hash);
-            hotstuff.leaf_store.insert(leaf.hash(), leaf.clone());
+            phaselock.leaf_store.insert(leaf.hash(), leaf.clone());
             debug!(?leaf, "Leaf created and added to store");
             // Broadcast out the new leaf
-            hotstuff
+            phaselock
                 .networking
                 .broadcast_message(Message::Prepare(Prepare {
                     current_view,
@@ -547,20 +547,20 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             );
             // Make a prepare signature and send it to ourselves
             let signature =
-                hotstuff
+                phaselock
                     .private_key
                     .partial_sign(&the_hash, Stage::Prepare, current_view);
             let vote = Vote {
                 signature,
                 leaf_hash: the_hash,
-                id: hotstuff.public_key.nonce,
+                id: phaselock.public_key.nonce,
                 current_view,
             };
-            hotstuff.prepare_vote_queue.push(vote).await;
+            phaselock.prepare_vote_queue.push(vote).await;
         } else {
             trace!("Waiting for prepare message to come in");
             // Wait for the leader to send us a prepare message
-            let prepare = hotstuff
+            let prepare = phaselock
                 .prepare_waiter
                 .wait_for(|x| x.current_view == current_view)
                 .await;
@@ -568,24 +568,24 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             // Add the leaf to storage
             let leaf = prepare.leaf;
             let leaf_hash = leaf.hash();
-            hotstuff.leaf_store.insert(leaf_hash, leaf.clone());
+            phaselock.leaf_store.insert(leaf_hash, leaf.clone());
             trace!(?leaf, "Leaf added to storage");
             // check that the message is safe, extends from the given qc, and is valid given the
             // current state
             let is_safe_node = self.safe_node(&leaf, &prepare.high_qc).await;
             if is_safe_node && leaf.item.validate_block(&state) {
                 let signature =
-                    hotstuff
+                    phaselock
                         .private_key
                         .partial_sign(&leaf_hash, Stage::Prepare, current_view);
                 let vote = Vote {
                     signature,
                     leaf_hash,
-                    id: hotstuff.public_key.nonce,
+                    id: phaselock.public_key.nonce,
                     current_view,
                 };
                 let vote_message = Message::PrepareVote(vote);
-                hotstuff
+                phaselock
                     .networking
                     .message_node(vote_message, leader.clone())
                     .await
@@ -608,7 +608,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             } else {
                 error!("is_safe_node: {}", is_safe_node);
                 error!(?leaf, "Leaf failed safe_node predicate");
-                return Err(HotStuffError::BadBlock {
+                return Err(PhaseLockError::BadBlock {
                     stage: Stage::Prepare,
                 });
             }
@@ -620,7 +620,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         if is_leader {
             // Collect the votes we have received from the nodes
             trace!("Waiting for threshold number of incoming votes to arrive");
-            let mut vote_queue = hotstuff
+            let mut vote_queue = phaselock
                 .prepare_vote_queue
                 .wait_for(|x| x.current_view == current_view)
                 .await;
@@ -632,8 +632,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 .collect();
             // Generate a quorum certificate from those votes
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
-                    |e| HotStuffError::FailedToAssembleQC {
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
+                    |e| PhaseLockError::FailedToAssembleQC {
                         stage: Stage::PreCommit,
                         source: e,
                     },
@@ -647,7 +647,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             };
             debug!(?qc, "Pre-commit QC generated");
             // Store the pre-commit qc
-            let mut pqc = hotstuff.prepare_qc.write().await;
+            let mut pqc = phaselock.prepare_qc.write().await;
             trace!("Pre-commit qc stored in prepare_qc");
             *pqc = Some(qc.clone());
             let pc_message = Message::PreCommit(PreCommit {
@@ -656,7 +656,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 current_view,
             });
             trace!("Precommit message packed, sending");
-            hotstuff
+            phaselock
                 .networking
                 .broadcast_message(pc_message)
                 .await
@@ -666,50 +666,50 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             debug!("Precommit message sent");
             // Make a pre commit vote and send it to ourselves
             let signature =
-                hotstuff
+                phaselock
                     .private_key
                     .partial_sign(&the_hash, Stage::PreCommit, current_view);
             let vote_message = Vote {
                 leaf_hash: the_hash,
                 signature,
-                id: hotstuff.public_key.nonce,
+                id: phaselock.public_key.nonce,
                 current_view,
             };
-            hotstuff.precommit_vote_queue.push(vote_message).await;
+            phaselock.precommit_vote_queue.push(vote_message).await;
         } else {
             trace!("Waiting for precommit message to arrive from leader");
             // Wait for the leader to send us a precommit message
-            let precommit = hotstuff
+            let precommit = phaselock
                 .precommit_waiter
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             debug!(?precommit, "Received precommit message from leader");
             let prepare_qc = precommit.qc;
-            if !(prepare_qc.verify(&hotstuff.public_key.set, Stage::Prepare, current_view)
+            if !(prepare_qc.verify(&phaselock.public_key.set, Stage::Prepare, current_view)
                 && prepare_qc.hash == the_hash)
             {
                 error!(?prepare_qc, "Bad or forged QC prepare_qc");
-                return Err(HotStuffError::BadOrForgedQC {
+                return Err(PhaseLockError::BadOrForgedQC {
                     stage: Stage::PreCommit,
                     bad_qc: prepare_qc.to_vec_cert(),
                 });
             }
             debug!("Precommit qc validated");
             let signature =
-                hotstuff
+                phaselock
                     .private_key
                     .partial_sign(&the_hash, Stage::PreCommit, current_view);
             let vote_message = Message::PreCommitVote(Vote {
                 leaf_hash: the_hash,
                 signature,
-                id: hotstuff.public_key.nonce,
+                id: phaselock.public_key.nonce,
                 current_view,
             });
             // store the prepare qc
-            let mut pqc = hotstuff.prepare_qc.write().await;
+            let mut pqc = phaselock.prepare_qc.write().await;
             *pqc = Some(prepare_qc);
             trace!("Prepare QC stored");
-            hotstuff
+            phaselock
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
@@ -724,7 +724,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         info!("Entering commit phase");
         if is_leader {
             trace!("Waiting for threshold of precommit votes to arrive");
-            let mut vote_queue = hotstuff
+            let mut vote_queue = phaselock
                 .precommit_vote_queue
                 .wait_for(|x| x.current_view == current_view)
                 .await;
@@ -735,8 +735,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
-                    |e| HotStuffError::FailedToAssembleQC {
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
+                    |e| PhaseLockError::FailedToAssembleQC {
                         stage: Stage::Commit,
                         source: e,
                     },
@@ -755,7 +755,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 current_view,
             });
             trace!(?c_message, "Commit message packed");
-            hotstuff
+            phaselock
                 .networking
                 .broadcast_message(c_message)
                 .await
@@ -765,48 +765,48 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             debug!("Commit message broadcasted");
             // Make a commit vote and send it to ourselves
             let signature =
-                hotstuff
+                phaselock
                     .private_key
                     .partial_sign(&the_hash, Stage::Commit, current_view);
             let vote_message = Vote {
                 leaf_hash: the_hash,
                 signature,
-                id: hotstuff.public_key.nonce,
+                id: phaselock.public_key.nonce,
                 current_view,
             };
-            hotstuff.commit_vote_queue.push(vote_message).await;
+            phaselock.commit_vote_queue.push(vote_message).await;
         } else {
             trace!("Waiting for commit message to arrive from leader");
-            let commit = hotstuff
+            let commit = phaselock
                 .commit_waiter
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             debug!(?commit, "Received commit message from leader");
             let precommit_qc = commit.qc.clone();
-            if !(precommit_qc.verify(&hotstuff.public_key.set, Stage::PreCommit, current_view)
+            if !(precommit_qc.verify(&phaselock.public_key.set, Stage::PreCommit, current_view)
                 && precommit_qc.hash == the_hash)
             {
                 error!(?precommit_qc, "Bad or forged precommit qc");
-                return Err(HotStuffError::BadOrForgedQC {
+                return Err(PhaseLockError::BadOrForgedQC {
                     stage: Stage::Commit,
                     bad_qc: precommit_qc.to_vec_cert(),
                 });
             }
-            let mut locked_qc = hotstuff.locked_qc.write().await;
+            let mut locked_qc = phaselock.locked_qc.write().await;
             trace!("precommit qc written to locked_qc");
             *locked_qc = Some(commit.qc);
             let signature =
-                hotstuff
+                phaselock
                     .private_key
                     .partial_sign(&the_hash, Stage::Commit, current_view);
             let vote_message = Message::CommitVote(Vote {
                 leaf_hash: the_hash,
                 signature,
-                id: hotstuff.public_key.nonce,
+                id: phaselock.public_key.nonce,
                 current_view,
             });
             trace!("Commit vote packed");
-            hotstuff
+            phaselock
                 .networking
                 .message_node(vote_message, leader.clone())
                 .await
@@ -824,7 +824,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 ?current_view,
                 "Waiting for threshold number of commit votes to arrive"
             );
-            let mut vote_queue = hotstuff
+            let mut vote_queue = phaselock
                 .commit_vote_queue
                 .wait_for(|x| x.current_view == current_view)
                 .await;
@@ -835,8 +835,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 .map(|x| (x.id, x.signature))
                 .collect();
             let signature =
-                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &hotstuff.public_key.set).map_err(
-                    |e| HotStuffError::FailedToAssembleQC {
+                generate_qc(votes.iter().map(|(x, y)| (*x, y)), &phaselock.public_key.set).map_err(
+                    |e| PhaseLockError::FailedToAssembleQC {
                         stage: Stage::Decide,
                         source: e,
                     },
@@ -850,7 +850,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             };
             debug!(?qc, "Commit qc generated");
             // Add QC to decision cache
-            hotstuff.decision_cache.insert(the_hash, qc.clone());
+            phaselock.decision_cache.insert(the_hash, qc.clone());
             trace!("Commit qc added to decision cache");
             // Apply the state
             let new_state = the_block.append_to(&state).map_err(|error| {
@@ -859,12 +859,12 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     ?the_block,
                     "Failed to append block to existing state"
                 );
-                HotStuffError::InconsistentBlock {
+                PhaseLockError::InconsistentBlock {
                     stage: Stage::Decide,
                 }
             })?;
             // set the new state
-            let mut state = hotstuff.state.write().await;
+            let mut state = phaselock.state.write().await;
             *state = Arc::new(new_state);
             trace!("New state written");
             // Broadcast the decision
@@ -873,7 +873,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 qc,
                 current_view,
             });
-            hotstuff
+            phaselock
                 .networking
                 .broadcast_message(d_message)
                 .await
@@ -883,17 +883,17 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             debug!("Decision broadcasted");
         } else {
             trace!(?current_view, "Waiting on decide QC to come in");
-            let decide = hotstuff
+            let decide = phaselock
                 .decide_waiter
                 .wait_for(|x| x.current_view == current_view)
                 .await;
             debug!(?decide, "Decision message arrived");
             let decide_qc = decide.qc.clone();
-            if !(decide_qc.verify(&hotstuff.public_key.set, Stage::Decide, current_view)
+            if !(decide_qc.verify(&phaselock.public_key.set, Stage::Decide, current_view)
                 && decide_qc.hash == the_hash)
             {
                 error!(?decide_qc, "Bad or forged commit qc");
-                return Err(HotStuffError::BadOrForgedQC {
+                return Err(PhaseLockError::BadOrForgedQC {
                     stage: Stage::Decide,
                     bad_qc: decide_qc.to_vec_cert(),
                 });
@@ -906,12 +906,12 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     ?the_block,
                     "Failed to append block to existing state"
                 );
-                HotStuffError::InconsistentBlock {
+                PhaseLockError::InconsistentBlock {
                     stage: Stage::Decide,
                 }
             })?;
             // set the new state
-            let mut state = hotstuff.state.write().await;
+            let mut state = phaselock.state.write().await;
             *state = Arc::new(new_state);
             debug!("New state set, round finished");
         }
@@ -949,7 +949,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
             async move {
                 info!("Launching broadcast processing task");
                 let networking = &x.inner.networking;
-                let hotstuff = &x.inner;
+                let phaselock = &x.inner;
                 while let Ok(queue) = networking.broadcast_queue().await {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
@@ -959,12 +959,12 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                         for item in queue {
                             trace!(?item, "Processing item");
                             match item {
-                                Message::Prepare(p) => hotstuff.prepare_waiter.put(p).await,
-                                Message::PreCommit(pc) => hotstuff.precommit_waiter.put(pc).await,
-                                Message::Commit(c) => hotstuff.commit_waiter.put(c).await,
-                                Message::Decide(d) => hotstuff.decide_waiter.put(d).await,
+                                Message::Prepare(p) => phaselock.prepare_waiter.put(p).await,
+                                Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
+                                Message::Commit(c) => phaselock.commit_waiter.put(c).await,
+                                Message::Decide(d) => phaselock.decide_waiter.put(d).await,
                                 Message::SubmitTransaction(d) => {
-                                    hotstuff.transaction_queue.write().await.push(d)
+                                    phaselock.transaction_queue.write().await.push(d)
                                 }
                                 _ => {
                                     // Log the exceptional situation and proceed
@@ -978,7 +978,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 }
             }
             .instrument(info_span!(
-                "Hotstuff Broadcast Task",
+                "PhaseLock Broadcast Task",
                 id = self.inner.public_key.nonce
             )),
         );
@@ -987,7 +987,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         spawn(
             async move {
                 info!("Launching direct processing task");
-                let hotstuff = &x.inner;
+                let phaselock = &x.inner;
                 let networking = &x.inner.networking;
                 while let Ok(queue) = networking.direct_queue().await {
                     debug!(?queue, "Processing messages");
@@ -998,15 +998,15 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                         for item in queue {
                             trace!(?item, "Processing item");
                             match item {
-                                Message::NewView(nv) => hotstuff.new_view_queue.push(nv).await,
+                                Message::NewView(nv) => phaselock.new_view_queue.push(nv).await,
                                 Message::PrepareVote(pv) => {
-                                    hotstuff.prepare_vote_queue.push(pv).await
+                                    phaselock.prepare_vote_queue.push(pv).await
                                 }
                                 Message::PreCommitVote(pcv) => {
-                                    hotstuff.precommit_vote_queue.push(pcv).await
+                                    phaselock.precommit_vote_queue.push(pcv).await
                                 }
                                 Message::CommitVote(cv) => {
-                                    hotstuff.commit_vote_queue.push(cv).await
+                                    phaselock.commit_vote_queue.push(cv).await
                                 }
                                 _ => {
                                     // Log exceptional situation and proceed
@@ -1020,7 +1020,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 }
             }
             .instrument(info_span!(
-                "Hotstuff Direct Task",
+                "PhaseLock Direct Task",
                 id = self.inner.public_key.nonce
             )),
         );
@@ -1052,25 +1052,25 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         self.inner.state.read().await.clone()
     }
 
-    /// Initializes a new hotstuff and does the work of setting up all the background tasks
+    /// Initializes a new phaselock and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
-    /// Underlying `HotStuff` instance starts out paused, and must be unpaused
+    /// Underlying `PhaseLock` instance starts out paused, and must be unpaused
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel, the
-    /// `HotStuff` instance will log the error and shut down.
+    /// `PhaseLock` instance will log the error and shut down.
     pub async fn init(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
         node_id: u64,
-        config: HotStuffConfig,
+        config: PhaseLockConfig,
         starting_state: B::State,
         networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
-    ) -> (JoinHandle<()>, HotStuffHandle<B, N>) {
+    ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
         // TODO: Arbitrary channel capacity, investigate improving this
         let (input, output) = tokio::sync::broadcast::channel(128);
-        let hotstuff = Self::new(
+        let phaselock = Self::new(
             genesis,
             priv_keys,
             node_id,
@@ -1082,10 +1082,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         let run_once = Arc::new(RwLock::new(false));
         let shut_down = Arc::new(RwLock::new(false));
         // Spawn the background tasks
-        hotstuff.spawn_networking_tasks().await;
-        let handle = HotStuffHandle {
+        phaselock.spawn_networking_tasks().await;
+        let handle = PhaseLockHandle {
             sender_handle: Arc::new(input.clone()),
-            hotstuff: hotstuff.clone(),
+            phaselock: phaselock.clone(),
             stream_output: output,
             pause: pause.clone(),
             run_once: run_once.clone(),
@@ -1094,11 +1094,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
         let task = spawn(
             async move {
                 let channel = input;
-                let default_interrupt_duration = hotstuff.inner.config.next_view_timeout;
-                let (int_mul, int_div) = hotstuff.inner.config.timeout_ratio;
+                let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
+                let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
                 let mut int_duration = default_interrupt_duration;
                 let mut view = 0;
-                // Hotstuff background handler loop
+                // PhaseLock background handler loop
                 loop {
                     // First, check for shutdown signal and break if sent
                     if *shut_down.read().await {
@@ -1122,7 +1122,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                         continue;
                     }
                     // Send the next view
-                    let next_view_res = hotstuff.next_view(view, Some(&channel)).await;
+                    let next_view_res = phaselock.next_view(view, Some(&channel)).await;
                     // If we fail to send the next view, broadcast the error and pause
                     if let Err(e) = next_view_res {
                         let x = channel.send(Event {
@@ -1143,7 +1143,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     // run the next block, with a timeout
                     let t = Duration::from_millis(int_duration);
                     let round_res =
-                        async_std::future::timeout(t, hotstuff.run_round(view, Some(&channel)))
+                        async_std::future::timeout(t, phaselock.run_round(view, Some(&channel)))
                             .await;
                     match round_res {
                         // If it succeded, simply reset the timeout
@@ -1180,7 +1180,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     }
                 }
             }
-            .instrument(info_span!("HotStuff Background Driver", id = node_id)),
+            .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
         );
         (task, handle)
     }

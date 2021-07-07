@@ -7,7 +7,7 @@ use threshold_crypto as tc;
 use crate::BlockContents;
 
 #[derive(Serialize, Deserialize, Clone)]
-/// A node in `HotStuff`'s tree
+/// A node in `PhaseLock`'s tree
 pub struct Leaf<T, const N: usize> {
     /// The hash of the parent
     pub parent: BlockHash<N>,

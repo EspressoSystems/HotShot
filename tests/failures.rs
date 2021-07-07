@@ -7,13 +7,13 @@ use tracing::{debug, info, instrument, trace, warn};
 
 use std::collections::VecDeque;
 
-use hotstuff::{
+use phaselock::{
     demos::dentry::*,
     event::{Event, EventType},
-    handle::HotStuffHandle,
+    handle::PhaseLockHandle,
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
-    tc, HotStuff, HotStuffConfig, PubKey, H_256,
+    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
 // This test simulates a single permanent failed node
@@ -42,9 +42,9 @@ async fn single_permanent_failure() {
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
-    // Create the hotstuffs
+    // Create the phaselocks
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
-    let config = HotStuffConfig {
+    let config = PhaseLockConfig {
         total_nodes: nodes as u32,
         thershold: threshold as u32,
         max_transactions: 100,
@@ -55,9 +55,9 @@ async fn single_permanent_failure() {
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut hotstuffs: Vec<HotStuffHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = HotStuff::init(
+        let (_, h) = PhaseLock::init(
             gensis.clone(),
             &sks,
             node_id,
@@ -66,43 +66,43 @@ async fn single_permanent_failure() {
             networkings[node_id as usize].0.clone(),
         )
         .await;
-        hotstuffs.push(h);
+        phaselocks.push(h);
     }
 
     // Simulate the node being failed by taking it out, so it never gets unpaused
-    let _failed_node = hotstuffs.pop();
+    let _failed_node = phaselocks.pop();
 
     let mut transactions: VecDeque<_> = get_ten_prebaked_trasnactions().into_iter().collect();
     assert_eq!(transactions.len(), 10);
-    info!("Hotstuffs prepared, running prebaked transactions");
+    info!("PhaseLocks prepared, running prebaked transactions");
     let mut round = 1;
     while transactions.len() > 0 {
         let tx = transactions.pop_front().unwrap();
         info!(?round, ?tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         info!("Transaction submitted, unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
         let mut failed = false;
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             // Skip all messages from previous rounds
             while event.view_number < round {
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             // Actually wait for decision
             while !matches!(event.event, EventType::Decide { .. }) {
@@ -112,10 +112,10 @@ async fn single_permanent_failure() {
                     break;
                 }
                 trace!(?node_id, ?event);
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             if failed {
                 // put the tx back where we found it and break
@@ -181,9 +181,9 @@ async fn double_permanent_failure() {
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
-    // Create the hotstuffs
+    // Create the phaselocks
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
-    let config = HotStuffConfig {
+    let config = PhaseLockConfig {
         total_nodes: nodes as u32,
         thershold: threshold as u32,
         max_transactions: 100,
@@ -194,9 +194,9 @@ async fn double_permanent_failure() {
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut hotstuffs: Vec<HotStuffHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = HotStuff::init(
+        let (_, h) = PhaseLock::init(
             gensis.clone(),
             &sks,
             node_id,
@@ -205,44 +205,44 @@ async fn double_permanent_failure() {
             networkings[node_id as usize].0.clone(),
         )
         .await;
-        hotstuffs.push(h);
+        phaselocks.push(h);
     }
 
     // Simulate the nodes being failed by taking them out, so they never gets unpaused
-    let _failed_node_1 = hotstuffs.pop();
-    let _failed_node_2 = hotstuffs.pop();
+    let _failed_node_1 = phaselocks.pop();
+    let _failed_node_2 = phaselocks.pop();
 
     let mut transactions: VecDeque<_> = get_ten_prebaked_trasnactions().into_iter().collect();
     assert_eq!(transactions.len(), 10);
-    info!("Hotstuffs prepared, running prebaked transactions");
+    info!("PhaseLocks prepared, running prebaked transactions");
     let mut round = 1;
     while transactions.len() > 0 {
         let tx = transactions.pop_front().unwrap();
         info!(?round, ?tx);
-        hotstuffs[0]
+        phaselocks[0]
             .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         info!("Transaction submitted, unlocking round");
-        for hotstuff in &hotstuffs {
-            hotstuff.run_one_round().await;
+        for phaselock in &phaselocks {
+            phaselock.run_one_round().await;
         }
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
         let mut failed = false;
-        for (node_id, hotstuff) in hotstuffs.iter_mut().enumerate() {
+        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotstuff
+            let mut event: Event<DEntryBlock, State> = phaselock
                 .next_event()
                 .await
-                .expect("Hotstuff unexpectedly closed");
+                .expect("PhaseLock unexpectedly closed");
             // Skip all messages from previous rounds
             while event.view_number < round {
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             // Actually wait for decision
             while !matches!(event.event, EventType::Decide { .. }) {
@@ -252,10 +252,10 @@ async fn double_permanent_failure() {
                     break;
                 }
                 trace!(?node_id, ?event);
-                event = hotstuff
+                event = phaselock
                     .next_event()
                     .await
-                    .expect("Hotstuff unexpectedly closed");
+                    .expect("PhaseLock unexpectedly closed");
             }
             if failed {
                 // put the tx back where we found it and break

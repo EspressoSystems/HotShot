@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use crate::{data::Leaf, BlockHash, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-/// Represents the messages `HotStuff` nodes send to each other
+/// Represents the messages `PhaseLock` nodes send to each other
 pub enum Message<B, T, const N: usize> {
     /// Signals start of a new view
     NewView(NewView<N>),

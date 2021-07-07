@@ -1,8 +1,8 @@
-use crate::{data::Stage, HotStuffError};
+use crate::{data::Stage, PhaseLockError};
 
 use std::sync::Arc;
 
-/// A status event emitted by a `HotStuff` instance
+/// A status event emitted by a `PhaseLock` instance
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct Event<B: Send + Sync, S: Send + Sync> {
@@ -14,14 +14,14 @@ pub struct Event<B: Send + Sync, S: Send + Sync> {
     pub event: EventType<B, S>,
 }
 
-/// The types of event that can be emitted by a `HotStuff` instance
+/// The types of event that can be emitted by a `PhaseLock` instance
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum EventType<B: Send + Sync, S: Send + Sync> {
     /// An error occurred and the round was not completed
     Error {
         /// The underlying error
-        error: Arc<HotStuffError>,
+        error: Arc<PhaseLockError>,
     },
     /// A new block was proposed
     Propose {
