@@ -2,7 +2,10 @@
 name = "phaselock"
 version = "0.0.0"
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+description = "PhaseLock consesus module"
 edition = "2018"
+readme = "README.md"
+
 
 [features]
 default = ["demo"]
