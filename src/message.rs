@@ -14,15 +14,15 @@ pub enum Message<B, T, const N: usize> {
     /// Contains the prepare qc from the leader
     Prepare(Prepare<B, N>),
     /// A nodes vote on the prepare stage
-    PrepareVote(PrepareVote<N>),
+    PrepareVote(Vote<N>),
     /// Contains the precommit qc from the leader
     PreCommit(PreCommit<N>),
     /// A node's vote on the precommit stage
-    PreCommitVote(PreCommitVote<N>),
+    PreCommitVote(Vote<N>),
     /// Contains the commit qc from the leader
     Commit(Commit<N>),
     /// A node's vote on the commit stage
-    CommitVote(CommitVote<N>),
+    CommitVote(Vote<N>),
     /// Contains the decide qc from the leader
     Decide(Decide<N>),
     /// Contains a transaction to be submitted
@@ -51,7 +51,7 @@ pub struct Prepare<T, const N: usize> {
 
 #[derive(Serialize, Deserialize, Clone)]
 /// A nodes vote on the prepare field
-pub struct PrepareVote<const N: usize> {
+pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
     pub signature: SignatureShare,
     /// Id of the voting nodes
@@ -62,7 +62,7 @@ pub struct PrepareVote<const N: usize> {
     pub current_view: u64,
 }
 
-impl<const N: usize> Debug for PrepareVote<N> {
+impl<const N: usize> Debug for Vote<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PrepareVote")
             .field("current_view", &self.current_view)
@@ -95,30 +95,6 @@ impl<const N: usize> Debug for PreCommit<N> {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-/// A nodes vote on the precommit stage
-pub struct PreCommitVote<const N: usize> {
-    /// Hash of the thing being voted on
-    pub leaf_hash: BlockHash<N>,
-    /// The signature share for this vote
-    pub signature: SignatureShare,
-    /// The id of the voting node
-    pub id: u64,
-    /// The view this vote was cast format
-    pub current_view: u64,
-}
-
-impl<const N: usize> Debug for PreCommitVote<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PreCommitVote")
-            .field("current_view", &self.current_view)
-            .field("signature", &self.signature)
-            .field("id", &self.id)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
 /// `Commit` qc from the leader
 pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
@@ -134,30 +110,6 @@ impl<const N: usize> Debug for Commit<N> {
         f.debug_struct("Commit")
             .field("current_view", &self.current_view)
             .field("qc", &self.qc)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-/// A nodes vote on the `Commit` stage
-pub struct CommitVote<const N: usize> {
-    /// Hash of the thing being voted on
-    pub leaf_hash: BlockHash<N>,
-    /// signature share for this vote
-    pub signature: SignatureShare,
-    /// the id of this voting node
-    pub id: u64,
-    /// The view this vote was cast forbidden
-    pub current_view: u64,
-}
-
-impl<const N: usize> Debug for CommitVote<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CommitVote")
-            .field("current_view", &self.current_view)
-            .field("signature", &self.signature)
-            .field("id", &self.id)
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
             .finish()
     }

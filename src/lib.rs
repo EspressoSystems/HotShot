@@ -50,9 +50,7 @@ use crate::data::Leaf;
 use crate::error::{FailedToBroadcast, FailedToMessageLeader, HotStuffError, NetworkFault};
 use crate::event::{Event, EventType};
 use crate::handle::HotStuffHandle;
-use crate::message::{
-    Commit, CommitVote, Decide, Message, NewView, PreCommit, PreCommitVote, Prepare, PrepareVote,
-};
+use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -244,11 +242,11 @@ pub struct HotStuffInner<B: BlockContents<N> + 'static, const N: usize> {
     /// Unprocessed NextView messages
     new_view_queue: WaitQueue<NewView<N>>,
     /// Unprocessed PrepareVote messages
-    prepare_vote_queue: WaitQueue<PrepareVote<N>>,
+    prepare_vote_queue: WaitQueue<Vote<N>>,
     /// Unprocessed PreCommit messages
-    precommit_vote_queue: WaitQueue<PreCommitVote<N>>,
+    precommit_vote_queue: WaitQueue<Vote<N>>,
     /// Unprocessed CommitVote messages
-    commit_vote_queue: WaitQueue<CommitVote<N>>,
+    commit_vote_queue: WaitQueue<Vote<N>>,
     /// Currently pending Prepare message
     prepare_waiter: WaitOnce<Prepare<B, N>>,
     /// Currently pending precommit message
@@ -552,7 +550,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 hotstuff
                     .private_key
                     .partial_sign(&the_hash, Stage::Prepare, current_view);
-            let vote = PrepareVote {
+            let vote = Vote {
                 signature,
                 leaf_hash: the_hash,
                 id: hotstuff.public_key.nonce,
@@ -580,7 +578,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                     hotstuff
                         .private_key
                         .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-                let vote = PrepareVote {
+                let vote = Vote {
                     signature,
                     leaf_hash,
                     id: hotstuff.public_key.nonce,
@@ -671,7 +669,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 hotstuff
                     .private_key
                     .partial_sign(&the_hash, Stage::PreCommit, current_view);
-            let vote_message = PreCommitVote {
+            let vote_message = Vote {
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
@@ -701,7 +699,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 hotstuff
                     .private_key
                     .partial_sign(&the_hash, Stage::PreCommit, current_view);
-            let vote_message = Message::PreCommitVote(PreCommitVote {
+            let vote_message = Message::PreCommitVote(Vote {
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
@@ -770,7 +768,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 hotstuff
                     .private_key
                     .partial_sign(&the_hash, Stage::Commit, current_view);
-            let vote_message = CommitVote {
+            let vote_message = Vote {
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
@@ -801,7 +799,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> HotStuff<B, N>
                 hotstuff
                     .private_key
                     .partial_sign(&the_hash, Stage::Commit, current_view);
-            let vote_message = Message::CommitVote(CommitVote {
+            let vote_message = Message::CommitVote(Vote {
                 leaf_hash: the_hash,
                 signature,
                 id: hotstuff.public_key.nonce,
