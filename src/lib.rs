@@ -30,6 +30,8 @@ pub mod handle;
 pub mod message;
 /// Contains traits describing and implementations of networking layers
 pub mod networking;
+/// Contains traits consumed by `HotStuff`
+pub mod traits;
 /// Contains general utility structures and methods
 pub mod utility;
 
