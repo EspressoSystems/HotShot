@@ -1008,6 +1008,7 @@ dependencies = [
  "structopt",
  "threshold_crypto",
  "tokio",
+ "toml",
  "tracing",
  "tracing-error",
  "tracing-futures",
@@ -1586,6 +1587,15 @@ dependencies = [
  "bytes 0.5.6",
  "fnv",
  "pin-project-lite 0.1.12",
+]
+
+[[package]]
+name = "toml"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "758664fc71a3a69038656bee8b6be6477d2a6c315a6b81f7081f591bffa4111f"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
