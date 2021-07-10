@@ -5,36 +5,33 @@ title = "Node Configuration"
 # Seed number used to generate secret key set for all nodes
 seed = 1234
 
-# Number of nodes
-node_count = 7
-
 # Node information
 [nodes]
 
 [nodes.1]
-ip = 1.2.3.1
-port = 8080
+ip = "localhost"
+port = 19392
 
 [nodes.2]
-ip = 1.2.3.2
-port = 8080
+ip = "localhost"
+port = 26940
 
 [nodes.3]
-ip = 1.2.3.3
-port = 8080
+ip = "localhost"
+port = 21396
 
 [nodes.4]
-ip = 1.2.3.4
-port = 8080
+ip = "localhost"
+port = 14967
 
 [nodes.5]
-ip = 1.2.3.5
-port = 8080
+ip = "localhost"
+port = 18333
 
 [nodes.6]
-ip = 1.2.3.6
-port = 8080
+ip = "localhost"
+port = 35254
 
 [nodes.7]
-ip = 1.2.3.7
-port = 8080
+ip = "localhost"
+port = 47196
