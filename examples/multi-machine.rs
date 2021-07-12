@@ -122,6 +122,7 @@ async fn init_phaselock(
         known_nodes,
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
@@ -227,12 +228,13 @@ async fn main() {
         },
         nonce: 0,
     };
+    println!("  - Proposing: {:?}", tx);
+    debug!("Proposing: {:?}", tx);
     // TODO: txn leader may not be this node
     phaselock
         .submit_transaction(tx)
         .await
         .expect("Failed to submit transaction");
-
     println!("  - Unlocking round");
     debug!("Unlocking round");
     phaselock.run_one_round().await;
@@ -244,7 +246,8 @@ async fn main() {
         .next_event()
         .await
         .expect("PhaseLock unexpectedly closed");
-    // TODO: fix the failure here
+    // TODO: fix the failure:
+    // thread 'main' panicked at 'Round failed'
     while !matches!(event.event, EventType::Decide { .. }) {
         if matches!(event.event, EventType::ViewTimeout { .. }) {
             error!(?event, "Round timed out!");
