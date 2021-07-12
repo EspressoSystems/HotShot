@@ -1,0 +1,5 @@
+[registries]
+translucence = { index = "https://dl.cloudsmith.io/basic/translucence/tl/cargo/index.git" }
+
+[net]
+git-fetch-with-cli = true

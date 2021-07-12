@@ -342,6 +342,7 @@ async fn get_phaselock(
         known_nodes,
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let genesis = DEntryBlock::default();

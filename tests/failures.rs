@@ -51,6 +51,7 @@ async fn single_permanent_failure() {
         known_nodes,
         next_view_timeout: 1_000,
         timeout_ratio: (11, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();
@@ -190,6 +191,7 @@ async fn double_permanent_failure() {
         known_nodes,
         next_view_timeout: 800,
         timeout_ratio: (15, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();
