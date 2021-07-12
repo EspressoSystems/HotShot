@@ -45,4 +45,14 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
         /// The view that timed out
         view_number: u64,
     },
+    /// The current node is the leader for this view
+    Leader {
+        /// The current view number
+        view_number: u64,
+    },
+    /// The current node is a follower for this view
+    Follower {
+        /// The current view number
+        view_number: u64,
+    },
 }

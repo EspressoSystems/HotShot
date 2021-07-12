@@ -474,8 +474,28 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         let is_leader = phaselock.public_key == leader;
         if is_leader {
             info!("Node is leader for current view");
+            send_event::<B, B::State, { N }>(
+                channel,
+                Event {
+                    view_number: current_view,
+                    stage: Stage::None,
+                    event: EventType::Leader {
+                        view_number: current_view,
+                    },
+                },
+            );
         } else {
             info!("Node is follower for current view");
+            send_event::<B, B::State, { N }>(
+                channel,
+                Event {
+                    view_number: current_view,
+                    stage: Stage::None,
+                    event: EventType::Follower {
+                        view_number: current_view,
+                    },
+                },
+            );
         }
         let state: Arc<B::State> = phaselock.state.read().await.clone();
         trace!("State copy made");
