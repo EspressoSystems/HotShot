@@ -46,7 +46,7 @@ async fn single_permanent_failure() {
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
     let config = PhaseLockConfig {
         total_nodes: nodes as u32,
-        thershold: threshold as u32,
+        threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
         next_view_timeout: 1_000,
@@ -185,7 +185,7 @@ async fn double_permanent_failure() {
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
     let config = PhaseLockConfig {
         total_nodes: nodes as u32,
-        thershold: threshold as u32,
+        threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
         next_view_timeout: 800,

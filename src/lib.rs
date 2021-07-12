@@ -205,7 +205,7 @@ pub struct PhaseLockConfig {
     /// Total number of nodes in the network
     pub total_nodes: u32,
     /// Nodes required to reach a decision
-    pub thershold: u32,
+    pub threshold: u32,
     /// Maximum transactions per block
     pub max_transactions: usize,
     /// List of known node's public keys, including own, sorted by nonce ()
@@ -291,7 +291,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         let node_priv_key = priv_keys.secret_key_share(nonce);
         let node_pub_key = node_priv_key.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
-        let t = config.thershold as usize;
+        let t = config.threshold as usize;
         let inner = PhaseLockInner {
             public_key: PubKey {
                 set: pub_key_set,
@@ -506,7 +506,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                     warn!(?tx, "Invalid transaction rejected");
                 }
             }
-            // Wait until we have met the thershold of new-view messages
+            // Wait until we have met the threshold of new-view messages
             debug!("Waiting for minimum number of new view messages to arrive");
             let new_views = phaselock.new_view_queue.wait().await;
             trace!("New view messages arrived");

@@ -1,14 +1,20 @@
 use phaselock::{
-    demos::dentry::*, message::Message, networking::w_network::WNetwork, tc, PubKey, H_256,
+    demos::dentry::*,
+    event::{Event, EventType},
+    handle::PhaseLockHandle,
+    message::Message,
+    networking::w_network::WNetwork,
+    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use structopt::StructOpt;
 use toml::Value;
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -80,13 +86,65 @@ async fn get_networking<
     panic!("Failed to open a port");
 }
 
+/// Creates a phaselock with initial state for simulation.
+async fn init_phaselock(
+    keys: &tc::SecretKeySet,
+    nodes: u64,
+    threshold: u64,
+    node_id: u64,
+    networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
+) -> PhaseLockHandle<DEntryBlock, H_256> {
+    // Create initial state
+    let balances: BTreeMap<Account, Balance> = vec![
+        ("Joe", 1_000_000),
+        ("Nathan M", 500_000),
+        ("John", 400_000),
+        ("Nathan Y", 600_000),
+        ("Ian", 0),
+    ]
+    .into_iter()
+    .map(|(x, y)| (x.to_string(), y))
+    .collect();
+    let init_state = State {
+        balances,
+        nonces: BTreeSet::default(),
+    };
+
+    // Create the phaselock
+    let known_nodes: Vec<_> = (0..nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
+        .collect();
+
+    let config = PhaseLockConfig {
+        total_nodes: nodes as u32,
+        threshold: threshold as u32,
+        max_transactions: 100,
+        known_nodes,
+        next_view_timeout: 10000,
+        timeout_ratio: (11, 10),
+    };
+    debug!(?config);
+    let genesis = DEntryBlock::default();
+    let (_, h) = PhaseLock::init(
+        genesis,
+        keys,
+        node_id,
+        config,
+        init_state.clone(),
+        networking,
+    )
+    .await;
+    debug!("phaselock launched");
+    h
+}
+
 #[async_std::main]
 async fn main() {
     // Read configuration file path and node id from options
     let config_path_str = NodeOpt::from_args().config;
     let path = Path::new(&config_path_str);
     let own_id = NodeOpt::from_args().id;
-    println!("Connecting node {}", own_id);
+    println!("  - Connecting node {}", own_id);
 
     // Read node info from node configuration file
     let mut config_file = match File::open(&path) {
@@ -99,7 +157,6 @@ async fn main() {
     config_file
         .read_to_string(&mut config_str)
         .unwrap_or_else(|err| panic!("Error while reading node config: [{}]", err));
-    println!("{}", config_str);
 
     let node_config: Value = match toml::from_str(&config_str) {
         Ok(info) => info,
@@ -108,7 +165,7 @@ async fn main() {
         }
     };
 
-    // Generate secret key set and get the public key
+    // Get secret key set
     let seed: u64 = match node_config["seed"].as_integer() {
         Some(seed) => seed as u64,
         None => {
@@ -124,9 +181,8 @@ async fn main() {
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
-    let pub_key = phaselock::PubKey::from_secret_key_set_escape_hatch(&sks, own_id);
 
-    // Spawn the networking backends and connect them together
+    // Spawn the networking backends of all other nodes
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
         WNetwork<Message<DEntryBlock, Transaction, H_256>>,
@@ -135,25 +191,13 @@ async fn main() {
         u16,
     )> = Vec::new();
     for id in 1..(nodes + 1) {
-        if id != own_id {
-            let (ip, port) = get_host(node_config.clone(), id);
-            let (network, pub_key) = get_networking(&sks, id, port).await;
-            networkings.push((network, pub_key, ip, port));
-        }
+        let (ip, port) = get_host(node_config.clone(), id);
+        let (network, pub_key) = get_networking(&sks, id, port).await;
+        networkings.push((network.clone(), pub_key, ip, port));
     }
 
     // Connect the networking implementations
-    let (_, own_port) = get_host(node_config.clone(), own_id);
-    let own_network = match WNetwork::<Message<DEntryBlock, Transaction, H_256>>::new(
-        pub_key.clone(),
-        own_port,
-        None,
-    )
-    .await
-    {
-        Ok(n) => n,
-        _ => panic!("Failed to open a port"),
-    };
+    let (own_network, _, _, _) = networkings[(own_id - 1) as usize].clone();
     for (_, key, ip, port) in networkings.iter() {
         let socket = format!("{}:{}", ip, port);
         own_network
@@ -166,6 +210,59 @@ async fn main() {
     while (own_network.connection_table_size().await as u64) < nodes - 1 {
         async_std::task::sleep(std::time::Duration::from_millis(10)).await;
     }
+    println!("Networks connected");
 
-    println!("Node {} connected", own_id);
+    // Create the phaselock
+    let mut phaselock = init_phaselock(&sks, nodes, threshold, own_id, own_network).await;
+
+    // Submit a transaction
+    let tx = Transaction {
+        add: Addition {
+            account: "Ian".to_string(),
+            amount: 100,
+        },
+        sub: Subtraction {
+            account: "Joe".to_string(),
+            amount: 100,
+        },
+        nonce: 0,
+    };
+    // TODO: txn leader may not be this node
+    phaselock
+        .submit_transaction(tx)
+        .await
+        .expect("Failed to submit transaction");
+
+    println!("  - Unlocking round");
+    debug!("Unlocking round");
+    phaselock.run_one_round().await;
+
+    // Start consensus
+    println!("  - Waiting for consensus to occur");
+    debug!("Waiting for consensus to occur");
+    let mut event: Event<DEntryBlock, State> = phaselock
+        .next_event()
+        .await
+        .expect("PhaseLock unexpectedly closed");
+    // TODO: fix the failure here
+    while !matches!(event.event, EventType::Decide { .. }) {
+        if matches!(event.event, EventType::ViewTimeout { .. }) {
+            error!(?event, "Round timed out!");
+            panic!("Round failed");
+        }
+        event = phaselock
+            .next_event()
+            .await
+            .expect("PhaseLock unexpectedly closed");
+    }
+    println!("Node {} reached decision", own_id);
+    debug!(?own_id, "Decision emitted");
+    if let EventType::Decide { block: _, state } = event.event {
+        println!("  - Balances:");
+        for (account, balance) in &state.balances {
+            println!("    - {}: {}", account, balance);
+        }
+    } else {
+        unreachable!()
+    }
 }
