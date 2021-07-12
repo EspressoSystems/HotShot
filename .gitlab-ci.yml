@@ -1,34 +1,106 @@
+image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.53
+
 stages:
+  - lint
+  - check
   - build
+  - test
 
 variables:
-  BRANCH: $CI_COMMIT_BRANCH
-  CONTAINER_IMAGE: hotstuff
-  DOCS_IMAGE: hotstuff-docs
-  DOCKER_REGISTRY: 279906117593.dkr.ecr.us-east-2.amazonaws.com
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
 
+# Override git urls to use ci-job-token
 before_script:
-  - docker info
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf git://gitlab.com
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf ssh://git@gitlab.com
+  - git config --global url."https://dl.cloudsmith.io/${CLOUDSMITH_ENTITLEMENT}/".insteadOf https://dl.cloudsmith.io/basic/
+  - echo ""
+
+lint:fmt:
+  stage: lint
+  tags:
+    - docker
+  script:
+    - cargo fmt -- --check
+  cache:
+    key: fmt-cache
+    paths:
+      - .cargo/
+      - target/
+
+lint:clippy:
+  stage: lint
+  tags:
+    - docker
+  script:
+    - cargo clippy -- -D warnings
+  cache:
+    key: clippy-cache
+    paths:
+      - .cargo/
+      - target/
+  allow_failure: true
+
+lint:audit:
+  stage: lint
+  tags:
+    - docker
+  script:
+    - cargo audit
+  cache:
+    key: audit-cache
+    paths:
+      - .cargo/
+      - target/
+  allow_failure: true
+  
+check:
+  stage: check
+  tags:
+    - docker
+  script:
+    - cargo check
+  cache:
+    key: check-cache
+    paths:
+      - .cargo/
+      - target/
 
 build:
-  tags:
-    - shell
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
   stage: build
+  tags:
+    - docker
   script:
-    - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_MERGE_REQUEST_ID .
-    - docker build --pull -f DockerfileDocs -t $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_MERGE_REQUEST_ID .
+    - cargo build --release --examples
+  artifacts:
+    paths:
+      - target/release/examples/dentry-simulator
+    expire_in: 2 weeks
+  cache:
+    key: build-cache
+    paths:
+      - .cargo/
+      - target/    
 
-build:
+test:cargo:
+  stage: test
   tags:
-    - shell
-  rules:
-    - if: $CI_COMMIT_BRANCH
-  stage: build
+    - docker
   script:
-    - docker build --pull -t $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH .
-    - docker build --pull -f DockerfileDocs -t $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_COMMIT_BRANCH .
-    - docker push $DOCKER_REGISTRY/$CONTAINER_IMAGE:$CI_COMMIT_BRANCH
-    - docker push $DOCKER_REGISTRY/$DOCS_IMAGE:$CI_COMMIT_BRANCH
-    - ecs deploy Main hotstuff_docs  --region us-east-2 --timeout -1
+    - cargo test --release --all-features
+  dependencies: []
+  cache:
+    key: test-cache
+    paths:
+      - .cargo/
+      - target/
+
+test:dentry-simulator:
+  stage: test
+  tags:
+    - docker
+  script:
+    - ./target/release/examples/dentry-simulator
+  dependencies:
+    - build
+    
