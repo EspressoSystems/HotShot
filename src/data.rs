@@ -152,6 +152,16 @@ impl<const N: usize> BlockHash<N> {
     pub const fn from_array(input: [u8; N]) -> Self {
         Self { inner: input }
     }
+
+    /// Testing only random generation of a `BlockHash`
+    #[cfg(test)]
+    pub fn random() -> Self {
+        use rand::Rng;
+        let mut array = [0_u8; N];
+        let mut rng = rand::thread_rng();
+        rng.fill(&mut array[..]);
+        Self { inner: array }
+    }
 }
 
 impl<const N: usize> AsRef<[u8]> for BlockHash<N> {

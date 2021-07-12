@@ -57,3 +57,88 @@ pub trait BlockContents<const N: usize>:
     /// Used to produce hashes for internal `HotStuff` control structures
     fn hash_bytes(bytes: &[u8]) -> BlockHash<N>;
 }
+
+/// Dummy implementation of `BlockContents` for unit tests
+#[cfg(test)]
+pub mod dummy {
+    use super::*;
+    use blake3::Hasher;
+    use rand::Rng;
+    use serde::Deserialize;
+
+    /// The dummy block
+    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct DummyBlock {
+        /// Some dummy data
+        nonce: u64,
+    }
+
+    impl DummyBlock {
+        /// Generate a random DummyBlock
+        pub fn random() -> Self {
+            let x = rand::thread_rng().gen();
+            Self { nonce: x }
+        }
+    }
+
+    /// Dummy error
+    #[derive(Debug)]
+    pub struct DummyError;
+
+    impl std::error::Error for DummyError {}
+
+    impl std::fmt::Display for DummyError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("A bad thing happened")
+        }
+    }
+
+    impl BlockContents<32> for DummyBlock {
+        type State = ();
+
+        type Transaction = ();
+
+        type Error = DummyError;
+
+        fn next_block(_state: &Self::State) -> Self {
+            Self::random()
+        }
+
+        fn add_transaction(
+            &self,
+            _state: &Self::State,
+            _tx: &Self::Transaction,
+        ) -> std::result::Result<Self, Self::Error> {
+            Err(DummyError)
+        }
+
+        fn validate_block(&self, _state: &Self::State) -> bool {
+            true
+        }
+
+        fn append_to(&self, _state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
+            Err(DummyError)
+        }
+
+        fn hash(&self) -> BlockHash<32> {
+            let mut hasher = Hasher::new();
+            hasher.update(&self.nonce.to_le_bytes());
+            let x = *hasher.finalize().as_bytes();
+            x.into()
+        }
+
+        fn hash_transaction(_tx: &Self::Transaction) -> BlockHash<32> {
+            let mut hasher = Hasher::new();
+            hasher.update(&[1_u8]);
+            let x = *hasher.finalize().as_bytes();
+            x.into()
+        }
+
+        fn hash_bytes(bytes: &[u8]) -> BlockHash<32> {
+            let mut hasher = Hasher::new();
+            hasher.update(bytes);
+            let x = *hasher.finalize().as_bytes();
+            x.into()
+        }
+    }
+}
