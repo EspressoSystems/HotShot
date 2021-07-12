@@ -16,6 +16,8 @@ use structopt::StructOpt;
 use toml::Value;
 use tracing::{debug, error};
 
+mod common;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "Multi-machine concensus",
@@ -141,6 +143,7 @@ async fn init_phaselock(
 
 #[async_std::main]
 async fn main() {
+    common::setup_tracing();
     // Read configuration file path and node id from options
     let config_path_str = NodeOpt::from_args().config;
     let path = Path::new(&config_path_str);
@@ -183,23 +186,23 @@ async fn main() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
 
+    let (own_network, _own_key) =
+        get_networking(&sks, own_id, get_host(node_config.clone(), own_id).1).await;
     // Spawn the networking backends of all other nodes
     #[allow(clippy::type_complexity)]
-    let mut networkings: Vec<(
-        WNetwork<Message<DEntryBlock, Transaction, H_256>>,
-        PubKey,
-        String,
-        u16,
-    )> = Vec::new();
+    let mut networkings: Vec<(PubKey, String, u16)> = Vec::new();
     for id in 1..(nodes + 1) {
         let (ip, port) = get_host(node_config.clone(), id);
-        let (network, pub_key) = get_networking(&sks, id, port).await;
-        networkings.push((network.clone(), pub_key, ip, port));
+        let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, id);
+        networkings.push((pub_key, ip, port));
     }
 
+    // Pause for 10 seconds to give time for all nodes to come up so that we can actually connect to
+    // them
+    async_std::task::sleep(std::time::Duration::from_millis(10_000)).await;
+
     // Connect the networking implementations
-    let (own_network, _, _, _) = networkings[(own_id - 1) as usize].clone();
-    for (_, key, ip, port) in networkings.iter() {
+    for (key, ip, port) in networkings {
         let socket = format!("{}:{}", ip, port);
         own_network
             .connect_to(key.clone(), &socket)
