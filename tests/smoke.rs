@@ -48,6 +48,7 @@ async fn ten_tx_seven_nodes() {
         known_nodes,
         next_view_timeout: 10_000,
         timeout_ratio: (11, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();
@@ -159,6 +160,7 @@ async fn ten_tx_five_nodes() {
         known_nodes,
         next_view_timeout: 10_000,
         timeout_ratio: (11, 10),
+        round_start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();

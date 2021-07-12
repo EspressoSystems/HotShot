@@ -40,7 +40,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_std::sync::RwLock;
-use async_std::task::{spawn, yield_now, JoinHandle};
+use async_std::task::{sleep, spawn, yield_now, JoinHandle};
 use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -214,6 +214,8 @@ pub struct PhaseLockConfig {
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    pub round_start_delay: u64,
 }
 
 /// Holds the state needed to participate in `PhaseLock` consensus
@@ -484,6 +486,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         let the_block;
         let the_hash;
         if is_leader {
+            // Insert our artificial delay to allow transactions to come in
+            let round_start_delay = Duration::from_millis(self.inner.config.round_start_delay);
+            sleep(round_start_delay).await;
+
             // Prepare our block
             let mut block = B::next_block(&state);
             // spin while the transaction_queue is empty
