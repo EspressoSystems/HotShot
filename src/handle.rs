@@ -7,7 +7,9 @@ use tokio::sync::broadcast::{
 
 use std::sync::Arc;
 
-use crate::{error::PhaseLockError, event::Event, BlockContents, PhaseLock};
+use crate::{
+    error::PhaseLockError, event::Event, traits::storage::Storage, BlockContents, PhaseLock,
+};
 
 /// Handle for interacting with a `PhaseLock` instance
 pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
@@ -25,6 +27,8 @@ pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
     pub(crate) run_once: Arc<RwLock<bool>>,
     /// Global to signify the `PhaseLock` should be closed after completing the next round
     pub(crate) shut_down: Arc<RwLock<bool>>,
+    /// Our copy of the `Storage` view for a phaselock
+    pub(crate) storage: Box<dyn Storage<B, N>>,
 }
 
 impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B, N> {
@@ -36,6 +40,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B,
             pause: self.pause.clone(),
             run_once: self.run_once.clone(),
             shut_down: self.shut_down.clone(),
+            storage: self.storage.obj_clone(),
         }
     }
 }
@@ -174,6 +179,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// Synchronously signals the underlying `PhaseLock` to run one round, if paused
     pub fn run_one_round_sync(&self) {
         block_on(self.run_one_round())
+    }
+
+    /// Provides a reference to the underlying storage for this `PhaseLock`, allowing access to
+    /// historical data
+    pub fn storage(&self) -> &dyn Storage<B, N> {
+        self.storage.as_ref()
     }
 }
 

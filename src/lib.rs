@@ -1043,6 +1043,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
         // TODO: Arbitrary channel capacity, investigate improving this
         let (input, output) = tokio::sync::broadcast::channel(128);
+        // Save a clone of the storage for the handle
+        let handle_storage = storage.obj_clone();
         let phaselock = Self::new(
             genesis,
             priv_keys,
@@ -1065,6 +1067,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             pause: pause.clone(),
             run_once: run_once.clone(),
             shut_down: shut_down.clone(),
+            storage: handle_storage,
         };
         let task = spawn(
             async move {
