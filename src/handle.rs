@@ -1,6 +1,9 @@
 use async_std::{sync::RwLock, task::block_on};
 use snafu::{ResultExt, Snafu};
-use tokio::sync::broadcast::{self, RecvError, TryRecvError};
+use tokio::sync::broadcast::{
+    self,
+    error::{RecvError, TryRecvError},
+};
 
 use std::sync::Arc;
 
