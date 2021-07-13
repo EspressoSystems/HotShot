@@ -62,6 +62,7 @@ pub use threshold_crypto as tc;
 pub use crate::{
     data::{BlockHash, QuorumCertificate, Stage},
     traits::block_contents::BlockContents,
+    traits::storage::Storage,
 };
 
 /// Length, in bytes, of a 512 bit hash
@@ -209,6 +210,8 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     decide_waiter: WaitOnce<Decide<N>>,
     /// Map from a block's hash to its decision QC
     decision_cache: DashMap<BlockHash<N>, QuorumCertificate<N>>,
+    /// This `PhaseLock` instance's storage backend
+    storage: Box<dyn Storage<B, N>>,
 }
 
 impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockInner<B, N> {
@@ -229,7 +232,7 @@ pub struct PhaseLock<B: BlockContents<N> + Send + Sync + 'static, const N: usize
 impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N> {
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
-    #[instrument(skip(genesis, priv_keys, starting_state, networking))]
+    #[instrument(skip(genesis, priv_keys, starting_state, networking, storage))]
     pub fn new(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
@@ -237,6 +240,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         config: PhaseLockConfig,
         starting_state: B::State,
         networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
+        storage: impl Storage<B, N> + 'static,
     ) -> Self {
         info!("Creating a new phaselock");
         let pub_key_set = priv_keys.public_keys();
@@ -282,6 +286,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             commit_waiter: WaitOnce::new(),
             decide_waiter: WaitOnce::new(),
             decision_cache: DashMap::new(),
+            storage: Box::new(storage),
         };
         inner.decision_cache.insert(
             genesis_hash,
@@ -1046,6 +1051,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         config: PhaseLockConfig,
         starting_state: B::State,
         networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
+        storage: impl Storage<B, N> + 'static,
     ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
         // TODO: Arbitrary channel capacity, investigate improving this
         let (input, output) = tokio::sync::broadcast::channel(128);
@@ -1056,6 +1062,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             config.clone(),
             starting_state,
             networking,
+            storage,
         );
         let pause = Arc::new(RwLock::new(true));
         let run_once = Arc::new(RwLock::new(false));

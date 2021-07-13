@@ -14,7 +14,9 @@ use phaselock::{
     handle::PhaseLockHandle,
     message::Message,
     networking::w_network::WNetwork,
-    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
+    tc,
+    traits::storage::memory_storage::MemoryStorage,
+    PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
 mod common;
@@ -346,7 +348,16 @@ async fn get_phaselock(
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
-    let (_, h) = PhaseLock::init(genesis, keys, node_id, config, state.clone(), networking).await;
+    let (_, h) = PhaseLock::init(
+        genesis,
+        keys,
+        node_id,
+        config,
+        state.clone(),
+        networking,
+        MemoryStorage::default(),
+    )
+    .await;
     debug!("phaselock launched");
     h
 }

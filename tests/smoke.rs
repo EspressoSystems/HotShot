@@ -11,7 +11,9 @@ use phaselock::{
     handle::PhaseLockHandle,
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
-    tc, PhaseLock, PhaseLockConfig, PubKey, H_256,
+    tc,
+    traits::storage::memory_storage::MemoryStorage,
+    PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
 #[async_std::test]
@@ -62,6 +64,7 @@ async fn ten_tx_seven_nodes() {
             config.clone(),
             state.clone(),
             networkings[node_id as usize].0.clone(),
+            MemoryStorage::default(),
         )
         .await;
         phaselocks.push(h);
@@ -174,6 +177,7 @@ async fn ten_tx_five_nodes() {
             config.clone(),
             state.clone(),
             networkings[node_id as usize].0.clone(),
+            MemoryStorage::default(),
         )
         .await;
         phaselocks.push(h);
