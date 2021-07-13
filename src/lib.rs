@@ -42,7 +42,6 @@ use std::time::Duration;
 
 use async_std::sync::RwLock;
 use async_std::task::{sleep, spawn, yield_now, JoinHandle};
-use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use tokio::sync::broadcast;
@@ -62,7 +61,7 @@ pub use threshold_crypto as tc;
 pub use crate::{
     data::{BlockHash, QuorumCertificate, Stage},
     traits::block_contents::BlockContents,
-    traits::storage::Storage,
+    traits::storage::{Storage, StorageResult},
 };
 
 /// Length, in bytes, of a 512 bit hash
@@ -186,8 +185,6 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
     state: RwLock<Arc<B::State>>,
-    /// Block storage
-    leaf_store: DashMap<BlockHash<N>, Leaf<B, N>>,
     /// Current locked quorum certificate
     locked_qc: RwLock<Option<QuorumCertificate<N>>>,
     /// Current prepare quorum certificate
@@ -208,8 +205,6 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     commit_waiter: WaitOnce<Commit<N>>,
     /// Currently pending decide message
     decide_waiter: WaitOnce<Decide<N>>,
-    /// Map from a block's hash to its decision QC
-    decision_cache: DashMap<BlockHash<N>, QuorumCertificate<N>>,
     /// This `PhaseLock` instance's storage backend
     storage: Box<dyn Storage<B, N>>,
 }
@@ -233,7 +228,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
     #[instrument(skip(genesis, priv_keys, starting_state, networking, storage))]
-    pub fn new(
+    pub async fn new(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
         nonce: u64,
@@ -262,7 +257,6 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             networking: Box::new(networking),
             transaction_queue: RwLock::new(Vec::new()),
             state: RwLock::new(Arc::new(starting_state)),
-            leaf_store: DashMap::new(),
             locked_qc: RwLock::new(Some(QuorumCertificate {
                 hash: genesis_hash,
                 view_number: 0,
@@ -285,26 +279,22 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             precommit_waiter: WaitOnce::new(),
             commit_waiter: WaitOnce::new(),
             decide_waiter: WaitOnce::new(),
-            decision_cache: DashMap::new(),
             storage: Box::new(storage),
         };
-        inner.decision_cache.insert(
-            genesis_hash,
-            QuorumCertificate {
-                hash: genesis_hash,
-                view_number: 0,
-                stage: Stage::Decide,
-                signature: None,
-                genesis: true,
-            },
-        );
-        inner.leaf_store.insert(
-            genesis_hash,
-            Leaf {
+        inner.storage.insert_qc(QuorumCertificate {
+            hash: genesis_hash,
+            view_number: 0,
+            stage: Stage::Decide,
+            signature: None,
+            genesis: true,
+        });
+        inner
+            .storage
+            .insert_leaf(Leaf {
                 parent: [0_u8; { N }].into(),
                 item: genesis,
-            },
-        );
+            })
+            .await;
         Self {
             inner: Arc::new(inner),
         }
@@ -324,8 +314,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 trace!(?parent, "Leaf extends from");
                 return true;
             }
-            let next_parent = self.inner.leaf_store.get(&parent);
-            if let Some(next_parent) = next_parent {
+            let next_parent = self.inner.storage.get_leaf(&parent).await;
+            if let StorageResult::Some(next_parent) = next_parent {
                 parent = next_parent.parent;
             } else {
                 error!("Leaf does not extend from node");
@@ -498,7 +488,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 .justify;
             // Create the Leaf, and add it to the store
             let leaf = Leaf::new(block.clone(), high_qc.hash);
-            phaselock.leaf_store.insert(leaf.hash(), leaf.clone());
+            phaselock.storage.insert_leaf(leaf.clone()).await;
             debug!(?leaf, "Leaf created and added to store");
             // Broadcast out the new leaf
             phaselock
@@ -547,10 +537,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 .await;
             debug!(?prepare, "Prepare message received from leader");
             // Add the leaf to storage
-            let leaf = prepare.leaf;
-            let leaf_hash = leaf.hash();
-            phaselock.leaf_store.insert(leaf_hash, leaf.clone());
-            trace!(?leaf, "Leaf added to storage");
+            let (leaf, leaf_hash) = (prepare.leaf.clone(), prepare.leaf.hash());
+            phaselock.storage.insert_leaf(leaf.clone()).await;
             // check that the message is safe, extends from the given qc, and is valid given the
             // current state
             let is_safe_node = self.safe_node(&leaf, &prepare.high_qc).await;
@@ -834,8 +822,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             };
             debug!(?qc, "Commit qc generated");
             // Add QC to decision cache
-            phaselock.decision_cache.insert(the_hash, qc.clone());
-            trace!("Commit qc added to decision cache");
+            phaselock.storage.insert_qc(qc.clone()).await;
             // Apply the state
             let new_state = the_block.append_to(&state).map_err(|error| {
                 error!(
@@ -1044,6 +1031,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel, the
     /// `PhaseLock` instance will log the error and shut down.
+    #[allow(clippy::too_many_lines)]
     pub async fn init(
         genesis: B,
         priv_keys: &tc::SecretKeySet,
@@ -1063,7 +1051,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             starting_state,
             networking,
             storage,
-        );
+        )
+        .await;
         let pause = Arc::new(RwLock::new(true));
         let run_once = Arc::new(RwLock::new(false));
         let shut_down = Arc::new(RwLock::new(false));
