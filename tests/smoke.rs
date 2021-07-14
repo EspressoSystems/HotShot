@@ -45,7 +45,7 @@ async fn ten_tx_seven_nodes() {
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
     let config = PhaseLockConfig {
         total_nodes: nodes as u32,
-        thershold: threshold as u32,
+        threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
         next_view_timeout: 10_000,
@@ -158,7 +158,7 @@ async fn ten_tx_five_nodes() {
     let known_nodes: Vec<PubKey> = networkings.iter().map(|(_, x)| x.clone()).collect();
     let config = PhaseLockConfig {
         total_nodes: nodes as u32,
-        thershold: threshold as u32,
+        threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
         next_view_timeout: 10_000,

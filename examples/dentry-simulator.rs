@@ -339,7 +339,7 @@ async fn get_phaselock(
         .collect();
     let config = PhaseLockConfig {
         total_nodes: nodes as u32,
-        thershold: threshold as u32,
+        threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
         next_view_timeout: 10000,
