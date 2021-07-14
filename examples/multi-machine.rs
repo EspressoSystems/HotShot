@@ -16,7 +16,7 @@ use std::io::Read;
 use std::path::Path;
 use structopt::StructOpt;
 use toml::Value;
-use tracing::{debug, error};
+use tracing::debug;
 
 mod common;
 
@@ -42,18 +42,8 @@ struct NodeOpt {
 /// Gets IP address and port number of a node from node configuration file.
 fn get_host(node_config: Value, node_id: u64) -> (String, u16) {
     let node = &node_config["nodes"][node_id.to_string()];
-    let ip = match node["ip"].as_str() {
-        Some(ip) => ip.to_owned(),
-        None => {
-            panic!("Missing IP info")
-        }
-    };
-    let port = match node["port"].as_integer() {
-        Some(port) => port as u16,
-        None => {
-            panic!("Missing port info")
-        }
-    };
+    let ip = node["ip"].as_str().expect("Missing IP info").to_owned();
+    let port = node["port"].as_integer().expect("Missing port info") as u16;
     (ip, port)
 }
 
@@ -174,37 +164,24 @@ async fn main() {
     println!("  - Spawning network for node {}", own_id);
 
     // Read node info from node configuration file
-    let mut config_file = match File::open(&path) {
-        Ok(file) => file,
-        Err(_) => {
-            panic!("Cannot find node config file: {}", path.display());
-        }
-    };
+    let mut config_file =
+        File::open(&path).expect(&format!("Cannot find node config file: {}", path.display()));
     let mut config_str = String::new();
     config_file
         .read_to_string(&mut config_str)
         .unwrap_or_else(|err| panic!("Error while reading node config: [{}]", err));
 
-    let node_config: Value = match toml::from_str(&config_str) {
-        Ok(info) => info,
-        Err(_) => {
-            panic!("Error while reading node config file")
-        }
-    };
+    let node_config: Value =
+        toml::from_str(&config_str).expect("Error while reading node config file");
 
     // Get secret key set
-    let seed: u64 = match node_config["seed"].as_integer() {
-        Some(seed) => seed as u64,
-        None => {
-            panic!("Missing seed value")
-        }
-    };
-    let nodes = match node_config["nodes"].as_table() {
-        Some(nodes) => nodes.len() as u64,
-        None => {
-            panic!("Missing nodes info")
-        }
-    };
+    let seed: u64 = node_config["seed"]
+        .as_integer()
+        .expect("Missing seed value") as u64;
+    let nodes = node_config["nodes"]
+        .as_table()
+        .expect("Missing nodes info")
+        .len() as u64;
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
@@ -244,6 +221,7 @@ async fn main() {
     // Initialize the state and phaselock
     let (mut own_state, mut phaselock) =
         init_state_and_phaselock(&sks, nodes, threshold, own_id, own_network).await;
+    phaselock.start().await;
 
     // Run random transactions
     println!("Running 3 random transactions");
@@ -251,17 +229,7 @@ async fn main() {
     let mut round: u64 = 1;
     while round < 4 {
         debug!(?round);
-        let tx = random_transaction(&own_state, &mut rng);
         println!("Round {}:", round);
-        println!("  - Proposing: {:?}", tx);
-        debug!("Proposing: {:?}", tx);
-        phaselock
-            .submit_transaction(tx)
-            .await
-            .expect("Failed to submit transaction");
-        println!("  - Unlocking round");
-        debug!("Unlocking round");
-        phaselock.run_one_round().await;
 
         // Start consensus
         println!("  - Waiting for consensus to occur");
@@ -271,9 +239,14 @@ async fn main() {
             .await
             .expect("PhaseLock unexpectedly closed");
         while !matches!(event.event, EventType::Decide { .. }) {
-            if matches!(event.event, EventType::ViewTimeout { .. }) {
-                error!(?event, "Round timed out!");
-                panic!("Round failed");
+            if matches!(event.event, EventType::Leader { .. }) {
+                let tx = random_transaction(&own_state, &mut rng);
+                println!("  - Proposing: {:?}", tx);
+                debug!("Proposing: {:?}", tx);
+                phaselock
+                    .submit_transaction(tx)
+                    .await
+                    .expect("Failed to submit transaction");
             }
             event = phaselock
                 .next_event()
