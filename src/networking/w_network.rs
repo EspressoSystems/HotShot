@@ -445,7 +445,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok((pk, handle))
         }
     }
-    /// Creates a connection to the given node
+    /// Creates a connection to the given node.
+    ///
+    /// If the connection does not succeed immediately, pause and retry. Use `connection_table_size()`
+    /// to get the number of connected nodes.
     ///
     /// # Errors
     ///

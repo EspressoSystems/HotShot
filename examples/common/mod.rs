@@ -7,6 +7,9 @@ use tracing_subscriber::{
 };
 
 /// Configures and installs the tracing listener
+///
+/// Call this function as the first thing in `main()` and set up `RUST_LOG` environment variable, e.g.,
+/// export RUST_LOG="phaselock=debug,phaselock::networking=error".
 pub fn setup_tracing() {
     let internal_event_filter =
                 match var("RUST_LOG_SPAN_EVENTS") {

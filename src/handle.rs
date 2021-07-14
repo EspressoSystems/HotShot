@@ -129,6 +129,8 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
 
     /// Submits a transaction to the backing `PhaseLock` instance.
     ///
+    /// The current node broadcasts the transaction to all nodes on the network, but it may not be the leader.
+    ///
     /// # Errors
     ///
     /// Will return a `HandleError::Transaction` if some error occurs in the underlying `PhaseLock` instance.
@@ -168,7 +170,9 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
         block_on(self.pause());
     }
 
-    /// Signals the underlying `PhaseLock` to run one round, if paused
+    /// Signals the underlying `PhaseLock` to run one round, if paused.
+    ///
+    /// Do not call this function if `PhaseLock` has been unpaused by `PhaseLockHandle::start`.
     pub async fn run_one_round(&self) {
         let paused = self.pause.read().await;
         if *paused {
