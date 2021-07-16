@@ -180,7 +180,7 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     /// Configuration items for this phaselock instance
     config: PhaseLockConfig,
     /// Networking interface for this phaselock instance
-    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction, N>>>,
+    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction, B::State, N>>>,
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
@@ -234,7 +234,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         nonce: u64,
         config: PhaseLockConfig,
         starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
+        networking: impl NetworkingImplementation<Message<B, B::Transaction, B::State, N>> + 'static,
         storage: impl Storage<B, N> + 'static,
     ) -> Self {
         info!("Creating a new phaselock");
@@ -1038,7 +1038,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         node_id: u64,
         config: PhaseLockConfig,
         starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
+        networking: impl NetworkingImplementation<Message<B, B::Transaction, B::State, N>> + 'static,
         storage: impl Storage<B, N> + 'static,
     ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
         // TODO: Arbitrary channel capacity, investigate improving this

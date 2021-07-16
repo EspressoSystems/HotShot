@@ -9,7 +9,7 @@ pub trait BlockContents<const N: usize>:
     Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync
 {
     /// The type of the state machine we are applying transitions to
-    type State: Clone + Send + Sync;
+    type State: Clone + Send + Sync + Serialize + DeserializeOwned + Debug;
     /// The type of the transitions we are applying
     type Transaction: Clone
         + Serialize

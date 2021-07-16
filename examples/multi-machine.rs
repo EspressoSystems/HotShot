@@ -84,7 +84,7 @@ async fn init_state_and_phaselock(
     nodes: u64,
     threshold: u64,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
 ) -> (State, PhaseLockHandle<DEntryBlock, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![

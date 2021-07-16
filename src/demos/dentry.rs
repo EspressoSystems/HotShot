@@ -68,7 +68,7 @@ impl Transaction {
 }
 
 /// The state for the dentry demo
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,

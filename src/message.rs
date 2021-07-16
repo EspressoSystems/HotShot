@@ -8,7 +8,7 @@ use crate::{data::Leaf, BlockHash, PubKey, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Represents the messages `PhaseLock` nodes send to each other
-pub enum Message<B, T, const N: usize> {
+pub enum Message<B, T, S, const N: usize> {
     /// Signals start of a new view
     NewView(NewView<N>),
     /// Contains the prepare qc from the leader
@@ -27,6 +27,10 @@ pub enum Message<B, T, const N: usize> {
     Decide(Decide<N>),
     /// Contains a transaction to be submitted
     SubmitTransaction(T),
+    /// Contains a [`Query`]
+    Query(Query<N>),
+    /// Contains a [`Response`]
+    Response(Response<B, S, N>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
