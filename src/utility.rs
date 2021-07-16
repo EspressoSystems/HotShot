@@ -1,3 +1,5 @@
+/// Provides types useful for waiting on a value matching a particular key to arrive
+pub mod waitmap;
 /// Provides types useful for waiting on certain values to arrive
 pub mod waitqueue;
 
