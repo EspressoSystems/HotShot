@@ -4,7 +4,7 @@ use threshold_crypto::SignatureShare;
 
 use std::fmt::Debug;
 
-use crate::{data::Leaf, BlockHash, QuorumCertificate};
+use crate::{data::Leaf, BlockHash, PubKey, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Represents the messages `PhaseLock` nodes send to each other
@@ -134,4 +134,87 @@ impl<const N: usize> Debug for Decide<N> {
             .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
             .finish()
     }
+}
+
+/// Describes the type of queries that can be made of a [`PhaseLock`](crate::PhaseLock)
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum QueryType<const N: usize> {
+    /// Request a particular block from a [`PhaseLock`](crate::PhaseLock)
+    Block {
+        /// The hash of the block
+        hash: BlockHash<N>,
+    },
+    /// Request a particular historical state from a [`PhaseLock`](crate::PhaseLock)
+    State {
+        /// The hash of the state
+        hash: BlockHash<N>,
+    },
+    /// Request the node's current view number
+    ViewNumber,
+    /// Request a particular [`Leaf`] from a [`PhaseLock`](crate::PhaseLock) node
+    Leaf {
+        /// The hash of the [`Leaf`]
+        hash: BlockHash<N>,
+    },
+    /// Request the [`QuorumCertificate`](crate::data::QuorumCertificate) for a particular leaf
+    QuorumCertificate {
+        /// The hash of the [`Leaf`] we want the QC for
+        hash: BlockHash<N>,
+    },
+}
+
+/// Describes a singular query being sent to a [`PhaseLock`](crate::PhaseLock)
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Query<const N: usize> {
+    /// The type and other data for the query
+    query: QueryType<N>,
+    /// The public key of the sender
+    sender: PubKey,
+    /// A discriminator value used by the sender to tell messages apart
+    nonce: u64,
+}
+
+/// Describes the type of response to a query
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ResponseType<B, S, const N: usize> {
+    /// The requested block
+    Block {
+        /// The block itself
+        block: B,
+    },
+    /// The requested state
+    State {
+        /// The state itself
+        state: S,
+    },
+    /// The current view number
+    ViewNumber {
+        /// Our current view number
+        view: u64,
+    },
+    /// The requested leaf
+    Leaf {
+        /// The leaf itself
+        leaf: Leaf<B, N>,
+    },
+    /// The requested quorum certificate
+    QuorumCertificate {
+        /// the [`QuorumCertificate`] itself
+        qc: QuorumCertificate<N>,
+    },
+}
+
+/// Describes a response to a given query
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Response<B, S, const N: usize> {
+    /// The response proper
+    ///
+    /// Will be `None` if the query sender asked for data we do not have
+    response: Option<ResponseType<B, S, N>>,
+    /// The public key of the node sending this response
+    sender: PubKey,
+    /// The discriminator
+    ///
+    /// Needs to be the same as the discriminator sent in the initial [`Query`]
+    nonce: u64,
 }
