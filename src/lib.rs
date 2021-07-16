@@ -35,6 +35,10 @@ pub mod traits;
 /// Contains general utility structures and methods
 pub mod utility;
 
+/// Contains unit tests for [`PhaseLock`] module
+#[cfg(test)]
+mod unit_tests;
+
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
