@@ -1,6 +1,5 @@
 #![cfg(feature = "demo")]
-mod common;
-use common::*;
+use crate::common::*;
 
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use tracing::{debug, info, instrument, trace, warn};
