@@ -57,7 +57,7 @@ async fn get_networking<
     node_id: u64,
     port: u16,
 ) -> (WNetwork<T>, PubKey) {
-    let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
+    let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id-1);
     debug!(?pub_key);
     let network = WNetwork::new(pub_key.clone(), port, None).await;
     if let Ok(n) = network {
