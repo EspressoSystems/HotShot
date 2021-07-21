@@ -182,6 +182,7 @@ async fn main() {
         .as_table()
         .expect("Missing nodes info")
         .len() as u64;
+    println!("{} nodes",nodes);
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
@@ -194,7 +195,7 @@ async fn main() {
     for id in 1..(nodes + 1) {
         if id != own_id {
             let (ip, port) = get_host(node_config.clone(), id);
-            let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, id);
+            let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, id-1);
             other_nodes.push((id, pub_key, ip, port));
         }
     }
