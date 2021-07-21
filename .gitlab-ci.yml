@@ -102,6 +102,7 @@ test:dentry-simulator:
     - docker
   script:
     - ./target/release/examples/dentry-simulator
+    - ./target/release/examples/multi-machine
   dependencies:
     - build
     
