@@ -101,10 +101,17 @@ test:dentry-simulator:
   stage: test
   tags:
     - docker
+  variables:
+    RUST_LOG: "trace"
+    RUST_LOG_FORMAT: "json"
   script:
-    - ./target/release/examples/dentry-simulator
+    - './target/release/examples/dentry-simulator 2> >(zstd -1 > trace.json.zst)'
   dependencies:
     - build
+  artifacts:
+    paths:
+      - trace.json.zst
+    expire_in: 1 day
     
 pages:
   stage: doc
