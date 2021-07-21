@@ -171,11 +171,11 @@ pub enum QueryType<const N: usize> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Query<const N: usize> {
     /// The type and other data for the query
-    query: QueryType<N>,
+    pub query: QueryType<N>,
     /// The public key of the sender
-    sender: PubKey,
+    pub sender: PubKey,
     /// A discriminator value used by the sender to tell messages apart
-    nonce: u64,
+    pub nonce: u64,
 }
 
 /// Describes the type of response to a query
@@ -214,11 +214,11 @@ pub struct Response<B, S, const N: usize> {
     /// The response proper
     ///
     /// Will be `None` if the query sender asked for data we do not have
-    response: Option<ResponseType<B, S, N>>,
+    pub response: Option<ResponseType<B, S, N>>,
     /// The public key of the node sending this response
-    sender: PubKey,
+    pub sender: PubKey,
     /// The discriminator
     ///
     /// Needs to be the same as the discriminator sent in the initial [`Query`]
-    nonce: u64,
+    pub nonce: u64,
 }

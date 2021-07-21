@@ -54,7 +54,10 @@ use crate::data::Leaf;
 use crate::error::{FailedToBroadcast, FailedToMessageLeader, NetworkFault, PhaseLockError};
 use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
-use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
+use crate::message::{
+    Commit, Decide, Message, NewView, PreCommit, Prepare, Query, QueryType, Response, ResponseType,
+    Vote,
+};
 use crate::networking::NetworkingImplementation;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -211,6 +214,10 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     decide_waiter: WaitOnce<Decide<N>>,
     /// This `PhaseLock` instance's storage backend
     storage: Box<dyn Storage<B, N>>,
+    /// The ends of the query queue
+    query_queue: (flume::Sender<Query<N>>, flume::Receiver<Query<N>>),
+    /// The most recently attempted view number
+    most_recent_view: RwLock<u64>,
 }
 
 impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockInner<B, N> {
@@ -284,6 +291,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             commit_waiter: WaitOnce::new(),
             decide_waiter: WaitOnce::new(),
             storage: Box::new(storage),
+            query_queue: flume::bounded(128),
+            most_recent_view: RwLock::new(0),
         };
         inner.storage.insert_qc(QuorumCertificate {
             hash: genesis_hash,
@@ -418,6 +427,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         channel: Option<&broadcast::Sender<Event<B, B::State>>>,
     ) -> Result<()> {
         let phaselock = &self.inner;
+        // Update the most recent view value
+        *phaselock.most_recent_view.write().await = current_view;
         // Get the leader for the current round
         let leader = phaselock.get_leader(current_view);
         let is_leader = phaselock.public_key == leader;
@@ -909,6 +920,157 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         Ok(())
     }
 
+    /// The logic for the background broadcast processing task
+    #[instrument(skip(self), fields(id = self.inner.public_key.nonce))]
+    async fn process_broadcasts(&self) {
+        info!("Launching broadcast processing task");
+        let networking = &self.inner.networking;
+        let phaselock = &self.inner;
+        let query_input = phaselock.query_queue.0.clone();
+        while let Ok(queue) = networking.broadcast_queue().await {
+            debug!(?queue, "Processing messages");
+            if queue.is_empty() {
+                trace!("No message, yeilding");
+                yield_now().await;
+            } else {
+                for item in queue {
+                    trace!(?item, "Processing item");
+                    match item {
+                        Message::Prepare(p) => phaselock.prepare_waiter.put(p).await,
+                        Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
+                        Message::Commit(c) => phaselock.commit_waiter.put(c).await,
+                        Message::Decide(d) => phaselock.decide_waiter.put(d).await,
+                        Message::SubmitTransaction(d) => {
+                            phaselock.transaction_queue.write().await.push(d)
+                        }
+                        Message::Query(q) => {
+                            if query_input.send_async(q).await.is_err() {
+                                error!("Query queue listener dropped.");
+                            }
+                        }
+                        _ => {
+                            // Log the exceptional situation and proceed
+                            warn!(?item, "Direct message received over broadcast channel");
+                        }
+                    }
+                }
+                trace!("Item processed, yeilding");
+                yield_now().await;
+            }
+        }
+    }
+
+    /// The logic for the background direct message processing task
+    #[instrument(skip(self), fields(id = self.inner.public_key.nonce))]
+    async fn process_directs(&self) {
+        info!("Launching direct processing task");
+        let phaselock = &self.inner;
+        let networking = &self.inner.networking;
+        let query_input = phaselock.query_queue.0.clone();
+        while let Ok(queue) = networking.direct_queue().await {
+            debug!(?queue, "Processing messages");
+            if queue.is_empty() {
+                trace!("No message, yeilding");
+                yield_now().await;
+            } else {
+                for item in queue {
+                    trace!(?item, "Processing item");
+                    match item {
+                        Message::NewView(nv) => phaselock.new_view_queue.push(nv).await,
+                        Message::PrepareVote(pv) => phaselock.prepare_vote_queue.push(pv).await,
+                        Message::PreCommitVote(pcv) => {
+                            phaselock.precommit_vote_queue.push(pcv).await
+                        }
+                        Message::CommitVote(cv) => phaselock.commit_vote_queue.push(cv).await,
+                        Message::Query(q) => {
+                            if query_input.send_async(q).await.is_err() {
+                                error!("Query queue listener dropped.");
+                            }
+                        }
+                        _ => {
+                            // Log exceptional situation and proceed
+                            warn!(?item, "Broadcast message received over direct channel");
+                        }
+                    }
+                }
+                trace!("Item processed, yeilding");
+                yield_now().await;
+            }
+        }
+    }
+
+    /// The logic for the background query task
+    #[instrument(skip(self), fields(id = self.inner.public_key.nonce))]
+    async fn process_queries(&self) {
+        info!("Launching query processing task");
+        let phaselock = &self.inner;
+        let networking = &self.inner.networking;
+        let query_output = phaselock.query_queue.1.clone();
+        while let Ok(query) = query_output.recv_async().await {
+            debug!(?query, "Processing query");
+            let nonce = query.nonce;
+            let sender = query.sender;
+            let response: Option<ResponseType<B, B::State, N>> = match query.query {
+                QueryType::Block { hash } => {
+                    trace!(?hash, "Looking up block");
+                    let block = phaselock.storage.get_block(&hash).await;
+                    if let StorageResult::Some(block) = block {
+                        trace!(?block, "Found Block");
+                        Some(ResponseType::Block { block })
+                    } else {
+                        warn!(?hash, ?sender, "Remote requested non-existent block");
+                        None
+                    }
+                }
+                QueryType::State { .. } => {
+                    // TODO: Implement this when we have state storage figured out
+                    error!("Attempted to query state, this action is not yet supported");
+                    None
+                }
+                QueryType::ViewNumber => {
+                    trace!("Providing current view number");
+                    let view: u64 = *phaselock.most_recent_view.read().await;
+                    Some(ResponseType::ViewNumber { view })
+                }
+                QueryType::Leaf { hash } => {
+                    trace!(?hash, "Looking up leaf");
+                    let leaf = phaselock.storage.get_leaf(&hash).await;
+                    if let StorageResult::Some(leaf) = leaf {
+                        trace!(?leaf, "Found leaf");
+                        Some(ResponseType::Leaf { leaf })
+                    } else {
+                        warn!(?hash, ?sender, "Remote requested non-existent leaf");
+                        None
+                    }
+                }
+                QueryType::QuorumCertificate { hash } => {
+                    trace!(?hash, "Looking up quorum cert");
+                    let qc = phaselock.storage.get_qc(&hash).await;
+                    if let StorageResult::Some(qc) = qc {
+                        trace!(?qc, "Found quorum cert");
+                        Some(ResponseType::QuorumCertificate { qc })
+                    } else {
+                        warn!(?hash, ?sender, "Remote requested non-existent qc");
+                        None
+                    }
+                }
+            };
+            // Package up response
+            let response = Response {
+                response,
+                sender: phaselock.public_key.clone(),
+                nonce,
+            };
+            debug!(?response, "Sending response");
+            let message = Message::Response(response);
+            let res = networking.message_node(message, sender).await;
+            match res {
+                Ok(_) => debug!("Sent response to query"),
+                Err(e) => error!(?e, "Failed to respond to query"),
+            };
+        }
+    }
+
     /// Spawns the background tasks for network processin for this instance
     ///
     /// These will process in the background and load items into their designated queues
@@ -920,85 +1082,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     pub async fn spawn_networking_tasks(&self) {
         let x = self.clone();
         // Spawn broadcast processing task
-        spawn(
-            async move {
-                info!("Launching broadcast processing task");
-                let networking = &x.inner.networking;
-                let phaselock = &x.inner;
-                while let Ok(queue) = networking.broadcast_queue().await {
-                    debug!(?queue, "Processing messages");
-                    if queue.is_empty() {
-                        trace!("No message, yeilding");
-                        yield_now().await;
-                    } else {
-                        for item in queue {
-                            trace!(?item, "Processing item");
-                            match item {
-                                Message::Prepare(p) => phaselock.prepare_waiter.put(p).await,
-                                Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
-                                Message::Commit(c) => phaselock.commit_waiter.put(c).await,
-                                Message::Decide(d) => phaselock.decide_waiter.put(d).await,
-                                Message::SubmitTransaction(d) => {
-                                    phaselock.transaction_queue.write().await.push(d)
-                                }
-                                _ => {
-                                    // Log the exceptional situation and proceed
-                                    warn!(?item, "Direct message received over broadcast channel");
-                                }
-                            }
-                        }
-                        trace!("Item processed, yeilding");
-                        yield_now().await;
-                    }
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Broadcast Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
+        spawn(async move { x.process_broadcasts().await });
         let x = self.clone();
         // Spawn direct processing task
-        spawn(
-            async move {
-                info!("Launching direct processing task");
-                let phaselock = &x.inner;
-                let networking = &x.inner.networking;
-                while let Ok(queue) = networking.direct_queue().await {
-                    debug!(?queue, "Processing messages");
-                    if queue.is_empty() {
-                        trace!("No message, yeilding");
-                        yield_now().await;
-                    } else {
-                        for item in queue {
-                            trace!(?item, "Processing item");
-                            match item {
-                                Message::NewView(nv) => phaselock.new_view_queue.push(nv).await,
-                                Message::PrepareVote(pv) => {
-                                    phaselock.prepare_vote_queue.push(pv).await
-                                }
-                                Message::PreCommitVote(pcv) => {
-                                    phaselock.precommit_vote_queue.push(pcv).await
-                                }
-                                Message::CommitVote(cv) => {
-                                    phaselock.commit_vote_queue.push(cv).await
-                                }
-                                _ => {
-                                    // Log exceptional situation and proceed
-                                    warn!(?item, "Broadcast message received over direct channel");
-                                }
-                            }
-                        }
-                        trace!("Item processed, yeilding");
-                        yield_now().await;
-                    }
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Direct Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
+        spawn(async move { x.process_directs().await });
     }
 
     /// Publishes a transaction to the network
