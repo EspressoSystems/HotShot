@@ -224,10 +224,10 @@ async fn main() {
     phaselock.start().await;
 
     // Run random transactions
-    println!("Running 3 random transactions");
-    debug!("Running 3 random transactions");
+    println!("Running random transactions");
+    debug!("Running random transactions");
     let mut round: u64 = 1;
-    while round < 4 {
+    loop {
         debug!(?round);
         println!("Round {}:", round);
 
@@ -266,9 +266,9 @@ async fn main() {
         }
         round = round + 1;
 
-        let mut line = String::new();
-        println!("Hit any key to start the next round...");
-        std::io::stdin().read_line(&mut line).unwrap();
+        // let mut line = String::new();
+        // println!("Hit any key to start the next round...");
+        // std::io::stdin().read_line(&mut line).unwrap();
     }
 
     println!("All rounds completed");
