@@ -38,7 +38,8 @@ pub enum NetworkError {
         /// Originating websockets error
         source: werror::Error,
     },
-    /// Error orginiating from within the executor: {}
+    /// Error originating from within the executor
+    #[snafu(display("Error originating from within the executor: {}", source))]
     ExecutorError {
         /// Originating async_std error
         source: async_std::io::Error,
