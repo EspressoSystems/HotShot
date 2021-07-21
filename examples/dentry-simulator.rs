@@ -97,7 +97,7 @@ async fn main() {
     for (i, (n, _, self_key)) in networkings.iter().enumerate() {
         for (_, port, key) in networkings[i..].iter() {
             if key != self_key {
-                let socket = format!("localhost:{}", port);
+                let socket = format!("0.0.0.0:{}", port);
                 n.connect_to(key.clone(), &socket)
                     .await
                     .expect("Unable to connect to node");
