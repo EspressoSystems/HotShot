@@ -520,7 +520,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (s_broadcast, r_broadcast) = flume::bounded(128);
         let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(500));
         trace!("Created queues");
-        let s_string = format!("localhost:{}", port);
+        let s_string = format!("0.0.0.0:{}", port);
         let s_addr = match s_string.to_socket_addrs().await {
             Ok(mut x) => x.next().context(NoSocketsError { input: s_string })?,
             Err(e) => {
