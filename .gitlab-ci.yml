@@ -76,6 +76,7 @@ build:
   artifacts:
     paths:
       - target/release/examples/dentry-simulator
+      - target/release/examples/multi-machine
     expire_in: 2 weeks
   cache:
     key: build-cache
@@ -102,7 +103,6 @@ test:dentry-simulator:
     - docker
   script:
     - ./target/release/examples/dentry-simulator
-    - ./target/release/examples/multi-machine
   dependencies:
     - build
     
