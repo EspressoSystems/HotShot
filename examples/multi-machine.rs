@@ -205,7 +205,7 @@ async fn main() {
         while own_network.connect_to(key.clone(), &socket).await.is_err() {
             println!("  - Retrying");
             debug!("Retrying");
-            async_std::task::sleep(std::time::Duration::from_millis(10_000)).await;
+            async_std::task::sleep(std::time::Duration::from_millis(100)).await;
         }
         println!("  - Connected to node {}", id);
         debug!("Connected to node {}", id);
