@@ -159,6 +159,7 @@ pub struct PhaseLockConfig {
     /// Maximum transactions per block
     pub max_transactions: usize,
     /// List of known node's public keys, including own, sorted by nonce ()
+    /// Note: The list of every node must be the same
     pub known_nodes: Vec<PubKey>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
