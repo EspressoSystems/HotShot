@@ -8,30 +8,30 @@ seed = 1234
 # Node information
 [nodes]
 
-[nodes.1]
+[nodes.0]
 ip = "localhost"
 port = 19392
 
-[nodes.2]
+[nodes.1]
 ip = "localhost"
 port = 26940
 
-[nodes.3]
+[nodes.2]
 ip = "localhost"
 port = 21396
 
-[nodes.4]
+[nodes.3]
 ip = "localhost"
 port = 14967
 
-[nodes.5]
+[nodes.4]
 ip = "localhost"
 port = 18333
 
-[nodes.6]
+[nodes.5]
 ip = "localhost"
 port = 35254
 
-[nodes.7]
+[nodes.6]
 ip = "localhost"
 port = 47196

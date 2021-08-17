@@ -20,6 +20,8 @@ use tracing::debug;
 
 mod common;
 
+const TRANSACTION_COUNT: u64 = 10;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "Multi-machine concensus",
@@ -35,7 +37,7 @@ struct NodeOpt {
     config: String,
 
     /// Id of the current node
-    #[structopt(long = "id", short = "i", default_value = "1")]
+    #[structopt(long = "id", short = "i", default_value = "0")]
     id: u64,
 }
 
@@ -103,7 +105,7 @@ async fn init_state_and_phaselock(
     };
 
     // Create the initial phaselock
-    let known_nodes: Vec<_> = (0..nodes)
+    let known_nodes: Vec<_> = (1..(nodes + 1))
         .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
         .collect();
 
@@ -191,7 +193,7 @@ async fn main() {
         get_networking(&sks, own_id, get_host(node_config.clone(), own_id).1).await;
     #[allow(clippy::type_complexity)]
     let mut other_nodes: Vec<(u64, PubKey, String, u16)> = Vec::new();
-    for id in 1..(nodes + 1) {
+    for id in 0..nodes {
         if id != own_id {
             let (ip, port) = get_host(node_config.clone(), id);
             let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, id);
@@ -224,10 +226,10 @@ async fn main() {
     phaselock.start().await;
 
     // Run random transactions
-    println!("Running 3 random transactions");
-    debug!("Running 3 random transactions");
-    let mut round: u64 = 1;
-    while round < 4 {
+    println!("Running random transactions");
+    debug!("Running random transactions");
+    let mut round: u64 = 0;
+    while round < TRANSACTION_COUNT {
         debug!(?round);
         println!("Round {}:", round);
 
