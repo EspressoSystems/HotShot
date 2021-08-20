@@ -30,6 +30,8 @@ pub mod handle;
 pub mod message;
 /// Contains traits describing and implementations of networking layers
 pub mod networking;
+/// Contains state machine representations of the round logic
+pub mod state_machines;
 /// Contains traits consumed by `HotStuff`
 pub mod traits;
 /// Contains general utility structures and methods
