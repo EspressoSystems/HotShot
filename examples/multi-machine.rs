@@ -55,11 +55,9 @@ fn get_host(node_config: Value, node_id: u64) -> (String, u16) {
 async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 >(
-    sks: &tc::SecretKeySet,
-    node_id: u64,
+    pub_key: PubKey,
     port: u16,
 ) -> (WNetwork<T>, PubKey) {
-    let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
     debug!(?pub_key);
     let network = WNetwork::new(pub_key.clone(), port, None).await;
     if let Ok(n) = network {
@@ -81,8 +79,11 @@ async fn get_networking<
 }
 
 /// Creates the initial state and phaselock for simulation.
+// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_phaselock(
     keys: &tc::SecretKeySet,
+    public_keys: tc::PublicKeySet,
+    secret_key_share: tc::SecretKeyShare,
     nodes: u64,
     threshold: u64,
     node_id: u64,
@@ -122,7 +123,8 @@ async fn init_state_and_phaselock(
     let genesis = DEntryBlock::default();
     let (_, phaselock) = PhaseLock::init(
         genesis,
-        keys,
+        public_keys,
+        secret_key_share,
         node_id,
         config,
         state.clone(),
@@ -186,17 +188,23 @@ async fn main() {
         .len() as u64;
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
-    let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
+    let secret_keys = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
+    let public_keys = secret_keys.public_keys();
+    let secret_key_share = secret_keys.secret_key_share(own_id);
 
     // Get networking information
-    let (own_network, _) =
-        get_networking(&sks, own_id, get_host(node_config.clone(), own_id).1).await;
+    // TODO: read `PubKey`s from files.
+    let (own_network, _) = get_networking(
+        PubKey::from_secret_key_set_escape_hatch(&secret_keys, own_id),
+        get_host(node_config.clone(), own_id).1,
+    )
+    .await;
     #[allow(clippy::type_complexity)]
     let mut other_nodes: Vec<(u64, PubKey, String, u16)> = Vec::new();
     for id in 0..nodes {
         if id != own_id {
             let (ip, port) = get_host(node_config.clone(), id);
-            let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, id);
+            let pub_key = PubKey::from_secret_key_set_escape_hatch(&secret_keys, id);
             other_nodes.push((id, pub_key, ip, port));
         }
     }
@@ -221,8 +229,16 @@ async fn main() {
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselock
-    let (mut own_state, mut phaselock) =
-        init_state_and_phaselock(&sks, nodes, threshold, own_id, own_network).await;
+    let (mut own_state, mut phaselock) = init_state_and_phaselock(
+        &secret_keys,
+        public_keys,
+        secret_key_share,
+        nodes,
+        threshold,
+        own_id,
+        own_network,
+    )
+    .await;
     phaselock.start().await;
 
     // Run random transactions

@@ -59,7 +59,8 @@ async fn ten_tx_seven_nodes() {
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
-            &sks,
+            sks.public_keys(),
+            sks.secret_key_share(node_id),
             node_id,
             config.clone(),
             state.clone(),
@@ -172,7 +173,8 @@ async fn ten_tx_five_nodes() {
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
-            &sks,
+            sks.public_keys(),
+            sks.secret_key_share(node_id),
             node_id,
             config.clone(),
             state.clone(),

@@ -227,10 +227,12 @@ pub struct PhaseLock<B: BlockContents<N> + Send + Sync + 'static, const N: usize
 impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N> {
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
-    #[instrument(skip(genesis, priv_keys, starting_state, networking, storage))]
+    #[allow(clippy::too_many_lines)]
+    #[instrument(skip(genesis, secret_key_share, starting_state, networking, storage))]
     pub async fn new(
         genesis: B,
-        priv_keys: &tc::SecretKeySet,
+        public_keys: tc::PublicKeySet,
+        secret_key_share: tc::SecretKeyShare,
         nonce: u64,
         config: PhaseLockConfig,
         starting_state: B::State,
@@ -238,19 +240,17 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         storage: impl Storage<B, N> + 'static,
     ) -> Self {
         info!("Creating a new phaselock");
-        let pub_key_set = priv_keys.public_keys();
-        let node_priv_key = priv_keys.secret_key_share(nonce);
-        let node_pub_key = node_priv_key.public_key_share();
+        let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
         let t = config.threshold as usize;
         let inner = PhaseLockInner {
             public_key: PubKey {
-                set: pub_key_set,
+                set: public_keys,
                 node: node_pub_key,
                 nonce,
             },
             private_key: PrivKey {
-                node: node_priv_key,
+                node: secret_key_share,
             },
             genesis: genesis.clone(),
             config,
@@ -1034,7 +1034,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     #[allow(clippy::too_many_lines)]
     pub async fn init(
         genesis: B,
-        priv_keys: &tc::SecretKeySet,
+        public_keys: tc::PublicKeySet,
+        secret_key_share: tc::SecretKeyShare,
         node_id: u64,
         config: PhaseLockConfig,
         starting_state: B::State,
@@ -1047,7 +1048,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         let handle_storage = storage.obj_clone();
         let phaselock = Self::new(
             genesis,
-            priv_keys,
+            public_keys,
+            secret_key_share,
             node_id,
             config.clone(),
             starting_state,

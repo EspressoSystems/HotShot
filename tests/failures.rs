@@ -62,7 +62,8 @@ async fn single_permanent_failure() {
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
-            &sks,
+            sks.public_keys(),
+            sks.secret_key_share(node_id),
             node_id,
             config.clone(),
             state.clone(),
@@ -203,7 +204,8 @@ async fn double_permanent_failure() {
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
-            &sks,
+            sks.public_keys(),
+            sks.secret_key_share(node_id),
             node_id,
             config.clone(),
             state.clone(),
