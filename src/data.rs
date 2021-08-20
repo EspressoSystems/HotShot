@@ -62,7 +62,7 @@ impl<const N: usize> QuorumCertificate<N> {
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
         // Temporary, stage and view should be included in signature in future
         if let Some(signature) = &self.signature {
-            key.public_key().verify(&signature, &self.hash)
+            key.public_key().verify(signature, &self.hash)
                 && self.stage == stage
                 && self.view_number == view
         } else {

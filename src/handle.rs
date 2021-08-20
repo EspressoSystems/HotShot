@@ -110,7 +110,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
                 // As try_next event can only return HandleError::Skipped or HandleError::ShutDown,
                 // it would be nonsensical if we end up here
                 _ => {
-                    unreachable!("Impossible to reach branch in PhaseLockHandle::available_events")
+                    unreachable!("Impossible to reach branch in PhaseLockHandle::available_events");
                 }
             }
         }
@@ -182,7 +182,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
 
     /// Synchronously signals the underlying `PhaseLock` to run one round, if paused
     pub fn run_one_round_sync(&self) {
-        block_on(self.run_one_round())
+        block_on(self.run_one_round());
     }
 
     /// Provides a reference to the underlying storage for this `PhaseLock`, allowing access to

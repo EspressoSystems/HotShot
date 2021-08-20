@@ -277,9 +277,9 @@ impl BlockContents<H_256> for DEntryBlock {
     // Note: this is really used for indexing the block in storage
     fn hash(&self) -> BlockHash<H_256> {
         let mut hasher = Hasher::new();
-        hasher.update(&self.previous_block.as_ref());
+        hasher.update(self.previous_block.as_ref());
         self.transactions.iter().for_each(|tx| {
-            hasher.update(&Self::hash_transaction(tx).as_ref());
+            hasher.update(Self::hash_transaction(tx).as_ref());
         });
         let x = *hasher.finalize().as_bytes();
         x.into()
@@ -289,9 +289,9 @@ impl BlockContents<H_256> for DEntryBlock {
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash<H_256> {
         assert!(tx.validate_independence());
         let mut hasher = Hasher::new();
-        hasher.update(&tx.add.account.as_bytes());
+        hasher.update(tx.add.account.as_bytes());
         hasher.update(&tx.add.amount.to_be_bytes());
-        hasher.update(&tx.sub.account.as_bytes());
+        hasher.update(tx.sub.account.as_bytes());
         hasher.update(&tx.sub.amount.to_be_bytes());
         hasher.update(&tx.nonce.to_be_bytes());
         let x = *hasher.finalize().as_bytes();
