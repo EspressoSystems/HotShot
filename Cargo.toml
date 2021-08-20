@@ -4,7 +4,7 @@ description = "PhaseLock consesus module"
 edition = "2018"
 name = "phaselock"
 readme = "README.md"
-version = "0.0.1-dev"
+version = "0.0.1"
 
 [features]
 default = ["demo"]
