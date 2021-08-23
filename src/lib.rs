@@ -229,7 +229,7 @@ pub struct PhaseLock<B: BlockContents<N> + Send + Sync + 'static, const N: usize
 impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N> {
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     #[instrument(skip(genesis, secret_key_share, starting_state, networking, storage))]
     pub async fn new(
         genesis: B,
@@ -937,7 +937,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                                 Message::Commit(c) => phaselock.commit_waiter.put(c).await,
                                 Message::Decide(d) => phaselock.decide_waiter.put(d).await,
                                 Message::SubmitTransaction(d) => {
-                                    phaselock.transaction_queue.write().await.push(d)
+                                    phaselock.transaction_queue.write().await.push(d);
                                 }
                                 _ => {
                                     // Log the exceptional situation and proceed
@@ -973,13 +973,13 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                             match item {
                                 Message::NewView(nv) => phaselock.new_view_queue.push(nv).await,
                                 Message::PrepareVote(pv) => {
-                                    phaselock.prepare_vote_queue.push(pv).await
+                                    phaselock.prepare_vote_queue.push(pv).await;
                                 }
                                 Message::PreCommitVote(pcv) => {
-                                    phaselock.precommit_vote_queue.push(pcv).await
+                                    phaselock.precommit_vote_queue.push(pcv).await;
                                 }
                                 Message::CommitVote(cv) => {
-                                    phaselock.commit_vote_queue.push(cv).await
+                                    phaselock.commit_vote_queue.push(cv).await;
                                 }
                                 _ => {
                                     // Log exceptional situation and proceed
@@ -1033,7 +1033,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel, the
     /// `PhaseLock` instance will log the error and shut down.
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
         genesis: B,
         public_keys: tc::PublicKeySet,
