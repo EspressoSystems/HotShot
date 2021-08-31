@@ -106,7 +106,7 @@ async fn init_state_and_phaselock(
     };
 
     // Create the initial phaselock
-    let known_nodes: Vec<_> = (1..(nodes + 1))
+    let known_nodes: Vec<_> = (0..nodes)
         .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
         .collect();
 
@@ -244,8 +244,8 @@ async fn main() {
     // Run random transactions
     println!("Running random transactions");
     debug!("Running random transactions");
-    let mut round: u64 = 0;
-    while round < TRANSACTION_COUNT {
+    let mut round: u64 = 1;
+    while round < TRANSACTION_COUNT + 1 {
         debug!(?round);
         println!("Round {}:", round);
 
