@@ -15,8 +15,8 @@
 //! Provides a generic rust implementation of the [`PhaseLock`](https://arxiv.org/abs/1803.05069) BFT
 //! protocol
 
-/// Contains structures and functions for committe election
-pub mod committe;
+/// Contains structures and functions for committee election
+pub mod committee;
 /// Provides types useful for representing `PhaseLock ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
