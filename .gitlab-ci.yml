@@ -96,6 +96,7 @@ test:cargo:
     paths:
       - .cargo-home/
       - target/
+  retry: 2
 
 test:dentry-simulator:
   stage: test
@@ -105,6 +106,7 @@ test:dentry-simulator:
     - ./target/release/examples/dentry-simulator
   dependencies:
     - build
+  retry: 2
     
 pages:
   stage: doc
