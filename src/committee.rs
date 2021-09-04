@@ -5,19 +5,17 @@ use std::hash::Hasher as HashSetHasher;
 
 pub use threshold_crypto as tc;
 
-/// Seed for committee election.
+/// Seed for committee election, changed in each round.
 pub type CommitteeSeed = [u8; H_256];
 
 /// VRF output for committee election.
 pub type CommitteeVrf = [u8; H_256];
 
 /// Error type for committee eleciton.
+#[derive(Debug, PartialEq)]
 pub enum CommitteeError {
     /// The VRF signature is not the correct signature from the public key and the message.
     IncorrectVrfSignature,
-
-    /// The VRF output doesn not equal the hash of the VRF signature.
-    IncorrectVrfOutput,
 
     /// The VRF seed exceeds stake.
     InvaildVrfSeed,
@@ -28,10 +26,10 @@ pub enum CommitteeError {
 
 /// Signs the VRF signature.
 pub fn sign_vrf(
-    secret_key_share: &tc::SecretKeyShare,
+    vrf_secret_key_share: &tc::SecretKeyShare,
     committee_seed: CommitteeSeed,
 ) -> tc::SignatureShare {
-    secret_key_share.sign(committee_seed)
+    vrf_secret_key_share.sign(committee_seed)
 }
 
 /// Computes the VRF output for committee election associated with the signature.
@@ -41,25 +39,20 @@ pub fn compute_vrf(vrf_signature: &tc::SignatureShare) -> CommitteeVrf {
     *hasher.finalize().as_bytes()
 }
 
-/// Verifies VRF signature and output.
+/// Verifies a VRF signature and computes the VRF output.
 ///
 /// # Errors
-/// Returns an error if either of the following:
-/// 1. The VRF signature is not the correct signature from the VRF public key and the committee seed.
-/// 2. The VRF output doesn not equal the hash of the VRF signature.
-pub fn verify_vrf(
-    vrf: &CommitteeVrf,
+/// Returns an error if the VRF signature is not the correct signature from the VRF public key
+/// and the committee seed.
+pub fn verify_signature_and_compute_vrf(
     vrf_signature: &tc::SignatureShare,
-    vrf_public_key: tc::PublicKey,
+    vrf_public_key: tc::PublicKeyShare,
     committee_seed: CommitteeSeed,
-) -> Result<(), CommitteeError> {
-    if !vrf_public_key.verify(&vrf_signature.0, committee_seed) {
+) -> Result<CommitteeVrf, CommitteeError> {
+    if !vrf_public_key.verify(&vrf_signature, committee_seed) {
         return Err(CommitteeError::IncorrectVrfSignature);
     }
-    if compute_vrf(vrf_signature) != *vrf {
-        return Err(CommitteeError::IncorrectVrfOutput);
-    }
-    Ok(())
+    Ok(compute_vrf(vrf_signature))
 }
 
 /// Determines whether a seeded VRF should be selected.
@@ -152,4 +145,60 @@ pub fn get_leader<S: HashSetHasher>(committee_members: &[(u64, HashSet<u64, S>)]
         .iter()
         .max_by_key(|(_, vrf_seeds)| vrf_seeds.len())
         .map(|(leader_id, _)| *leader_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
+
+    const SECRET_KEYS_SEED: u64 = 1234;
+    const COMMITTEE_SEED: [u8; H_256] = [20; 32];
+    const INCORRECT_COMMITTEE_SEED: [u8; H_256] = [23; 32];
+    const THRESHOLD: u64 = 1000;
+    const HONEST_NODE_ID: u64 = 30;
+    const BYZANTINE_NODE_ID: u64 = 45;
+
+    #[test]
+    fn test_vrf() {
+        // Generate keys
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let secret_key_share_honest = secret_keys.secret_key_share(HONEST_NODE_ID);
+        let secret_key_share_byzantine = secret_keys.secret_key_share(BYZANTINE_NODE_ID);
+        let public_keys = secret_keys.public_keys();
+        let public_key_honest = public_keys.public_key_share(HONEST_NODE_ID);
+        let public_key_byzantine = public_keys.public_key_share(BYZANTINE_NODE_ID);
+
+        // VRF verification should pass with the correct VRF signature and output
+        let signature = sign_vrf(&secret_key_share_honest, COMMITTEE_SEED);
+        let vrf = compute_vrf(&signature);
+        let verification =
+            verify_signature_and_compute_vrf(&signature, public_key_honest, COMMITTEE_SEED);
+        assert_eq!(verification, Ok(vrf));
+
+        // VRF verification should fail if the signature does not correspond to the public key
+        let signature_byzantine = sign_vrf(&secret_key_share_byzantine, COMMITTEE_SEED);
+        let verification = verify_signature_and_compute_vrf(
+            &signature_byzantine,
+            public_key_honest,
+            COMMITTEE_SEED,
+        );
+        assert_eq!(
+            verification,
+            Err(CommitteeError::IncorrectVrfSignature)
+        );
+
+        // VRF verification should fail if the signature does not correspond to the committee seed
+        let signature_byzantine = sign_vrf(&secret_key_share_byzantine, INCORRECT_COMMITTEE_SEED);
+        let verification = verify_signature_and_compute_vrf(
+            &signature_byzantine,
+            public_key_byzantine,
+            COMMITTEE_SEED,
+        );
+        assert_eq!(
+            verification,
+            Err(CommitteeError::IncorrectVrfSignature)
+        );
+    }
 }
