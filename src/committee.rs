@@ -184,10 +184,7 @@ mod tests {
             public_key_honest,
             COMMITTEE_SEED,
         );
-        assert_eq!(
-            verification,
-            Err(CommitteeError::IncorrectVrfSignature)
-        );
+        assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
         // VRF verification should fail if the signature does not correspond to the committee seed
         let signature_byzantine = sign_vrf(&secret_key_share_byzantine, INCORRECT_COMMITTEE_SEED);
@@ -196,9 +193,6 @@ mod tests {
             public_key_byzantine,
             COMMITTEE_SEED,
         );
-        assert_eq!(
-            verification,
-            Err(CommitteeError::IncorrectVrfSignature)
-        );
+        assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
     }
 }
