@@ -1,5 +1,7 @@
 use async_std::{sync::RwLock, task::block_on};
-use flume::{Receiver, RecvError, SendError, Sender};
+use flume::{Receiver, Sender};
+
+pub use flume::{RecvError, SendError};
 
 use std::{
     collections::HashMap,
@@ -48,7 +50,7 @@ where
     ///
     /// Will return `Err` if one of the downstream receivers was disconnected without being properly
     /// dropped.
-    pub async fn send(&self, item: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, item: T) -> Result<(), SendError<T>> {
         let map = async_std::task::block_on(self.inner.outputs.read());
         for sender in map.values() {
             sender.send(item.clone())?;
@@ -67,6 +69,11 @@ where
             output: recv,
             handle: self.clone(),
         }
+    }
+
+    /// Synchronously creates a new handle
+    pub fn handle_sync(&self) -> BroadcastReceiver<T> {
+        block_on(self.handle_async())
     }
 }
 
@@ -102,6 +109,11 @@ where
         self.output.recv()
     }
 
+    /// Returns a value, if one is available
+    pub fn try_recv(&self) -> Option<T> {
+        self.output.try_recv().ok()
+    }
+
     /// Asynchronously clones this handle
     pub async fn clone_async(&self) -> Self {
         self.handle.handle_async().await
@@ -123,4 +135,17 @@ where
     fn clone(&self) -> Self {
         block_on(self.clone_async())
     }
+}
+
+/// Creates a sender, receiver pair
+pub fn channel<T: Clone>() -> (BroadcastSender<T>, BroadcastReceiver<T>) {
+    let inner = BroadcastSenderInner {
+        count: AtomicUsize::from(0),
+        outputs: RwLock::new(HashMap::new()),
+    };
+    let input = BroadcastSender {
+        inner: Arc::new(inner),
+    };
+    let output = input.handle_sync();
+    (input, output)
 }

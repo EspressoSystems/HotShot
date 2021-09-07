@@ -46,7 +46,7 @@ use async_std::sync::RwLock;
 use async_std::task::{sleep, spawn, yield_now, JoinHandle};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use tokio::sync::broadcast;
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 use crate::data::Leaf;
 use crate::error::{FailedToBroadcast, FailedToMessageLeader, NetworkFault, PhaseLockError};
@@ -54,8 +54,8 @@ use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
 use crate::networking::NetworkingImplementation;
+use crate::utility::broadcast::BroadcastSender;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 pub use rand;
 pub use threshold_crypto as tc;
@@ -358,11 +358,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     /// # Errors
     ///
     /// Returns an error if an underlying networking error occurs
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
     pub async fn next_view(
         &self,
         current_view: u64,
-        channel: Option<&broadcast::Sender<Event<B, B::State>>>,
+        channel: Option<&BroadcastSender<Event<B, B::State>>>,
     ) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
@@ -399,7 +399,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                     view_number: current_view,
                 },
             },
-        );
+        )
+        .await;
         Ok(())
     }
 
@@ -409,11 +410,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     ///
     /// Panics if consensus hits a bad round
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
     pub async fn run_round(
         &self,
         current_view: u64,
-        channel: Option<&broadcast::Sender<Event<B, B::State>>>,
+        channel: Option<&BroadcastSender<Event<B, B::State>>>,
     ) -> Result<()> {
         let phaselock = &self.inner;
         // Get the leader for the current round
@@ -430,7 +431,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         view_number: current_view,
                     },
                 },
-            );
+            )
+            .await;
         } else {
             info!("Node is follower for current view");
             send_event::<B, B::State, { N }>(
@@ -442,7 +444,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         view_number: current_view,
                     },
                 },
-            );
+            )
+            .await;
         }
         let state: Arc<B::State> = phaselock.state.read().await.clone();
         trace!("State copy made");
@@ -517,7 +520,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         block: Arc::new(the_block.clone()),
                     },
                 },
-            );
+            )
+            .await;
             // Make a prepare signature and send it to ourselves
             let signature =
                 phaselock
@@ -575,7 +579,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                             block: Arc::new(the_block.clone()),
                         },
                     },
-                );
+                )
+                .await;
             } else {
                 error!("is_safe_node: {}", is_safe_node);
                 error!(?leaf, "Leaf failed safe_node predicate");
@@ -900,7 +905,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                     state: self.inner.state.read().await.clone(),
                 },
             },
-        );
+        )
+        .await;
 
         self.inner.transaction_queue.write().await.clear();
         trace!("Transaction queue cleared");
@@ -1044,8 +1050,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
         storage: impl Storage<B, N> + 'static,
     ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
-        // TODO: Arbitrary channel capacity, investigate improving this
-        let (input, output) = tokio::sync::broadcast::channel(128);
+        let (input, output) = crate::utility::broadcast::channel();
         // Save a clone of the storage for the handle
         let handle_storage = storage.obj_clone();
         let phaselock = Self::new(
@@ -1107,12 +1112,14 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                     let next_view_res = phaselock.next_view(view, Some(&channel)).await;
                     // If we fail to send the next view, broadcast the error and pause
                     if let Err(e) = next_view_res {
-                        let x = channel.send(Event {
-                            view_number: view,
-                            stage: e.get_stage().unwrap_or(Stage::None),
+                        let x = channel
+                            .send_async(Event {
+                                view_number: view,
+                                stage: e.get_stage().unwrap_or(Stage::None),
 
-                            event: EventType::Error { error: Arc::new(e) },
-                        });
+                                event: EventType::Error { error: Arc::new(e) },
+                            })
+                            .await;
                         if x.is_err() {
                             error!("All event streams closed! Shutting down.");
                             break;
@@ -1134,11 +1141,13 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         }
                         // If it errored, broadcast the error, reset the timeout, and continue
                         Ok(Err(e)) => {
-                            let x = channel.send(Event {
-                                view_number: view,
-                                stage: e.get_stage().unwrap_or(Stage::None),
-                                event: EventType::Error { error: Arc::new(e) },
-                            });
+                            let x = channel
+                                .send_async(Event {
+                                    view_number: view,
+                                    stage: e.get_stage().unwrap_or(Stage::None),
+                                    event: EventType::Error { error: Arc::new(e) },
+                                })
+                                .await;
                             if x.is_err() {
                                 error!("All event streams closed! Shutting down.");
                                 break;
@@ -1148,11 +1157,13 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         // if we timed out, log it, send the event, and increase the timeout
                         Err(_) => {
                             warn!("Round timed out");
-                            let x = channel.send(Event {
-                                view_number: view,
-                                stage: Stage::None,
-                                event: EventType::ViewTimeout { view_number: view },
-                            });
+                            let x = channel
+                                .send_async(Event {
+                                    view_number: view,
+                                    stage: Stage::None,
+                                    event: EventType::ViewTimeout { view_number: view },
+                                })
+                                .await;
                             if x.is_err() {
                                 error!("All event streams closed! Shutting down.");
                                 break;
@@ -1176,15 +1187,15 @@ fn generate_qc<'a>(
     key_set.combine_signatures(signatures)
 }
 
-/// Sends an event over a `Some(broadcast::Sender<T>)`, does nothing otherwise
-fn send_event<B, S, const N: usize>(
-    channel: Option<&broadcast::Sender<Event<B, S>>>,
+/// Sends an event over a `Some(BroadcastSender<T>)`, does nothing otherwise
+async fn send_event<B, S, const N: usize>(
+    channel: Option<&BroadcastSender<Event<B, S>>>,
     event: Event<B, S>,
 ) where
-    B: Send + Sync,
-    S: Send + Sync,
+    B: Send + Sync + Clone,
+    S: Send + Sync + Clone,
 {
     if let Some(c) = channel {
-        let _result = c.send(event);
+        let _result = c.send_async(event).await;
     }
 }
