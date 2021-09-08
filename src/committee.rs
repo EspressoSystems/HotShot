@@ -11,6 +11,16 @@ pub type CommitteeSeed = [u8; H_256];
 /// VRF output for committee election.
 pub type CommitteeVrf = [u8; H_256];
 
+/// Hash of a seeded VRF.
+pub type SeededVrfHash = [u8; H_256];
+
+/// Selection threshold for the seeded VRF hash.
+///
+/// Should be constructed by `p * pow(2, 256)`, where `p` is the predetermined
+/// probablistic of a stake being selected. A seeded VRF hash will be selected
+/// iff it's smaller than the selection threshold.
+pub type SelectionThreshold = [u8; H_256];
+
 /// Error type for committee eleciton.
 #[derive(Debug, PartialEq)]
 pub enum CommitteeError {
@@ -55,6 +65,16 @@ pub fn verify_signature_and_compute_vrf(
     Ok(compute_vrf(vrf_signature))
 }
 
+/// Determines whether the hash of a seeded VRF should be selected.
+///
+/// A seeded VRF hash will be selected iff it's smaller than the hash selection threshold.
+pub fn select_seeded_vrf_hash(
+    seeded_vrf_hash: SeededVrfHash,
+    selection_threshold: SelectionThreshold,
+) -> bool {
+    seeded_vrf_hash < selection_threshold
+}
+
 /// Determines whether a seeded VRF should be selected.
 ///
 /// # Arguments
@@ -62,23 +82,16 @@ pub fn verify_signature_and_compute_vrf(
 /// * `vrf_seed` - The seed for hash calculation, in the range of `[0, stake]`, where
 /// `stake` is a predetermined value representing the weight of the associated VRF public
 /// key.
-///
-/// * `committee_size` - The stake, rather than number of nodes, needed to form a committee.
 pub fn select_seeded_vrf(
     vrf: &CommitteeVrf,
     vrf_seed: u64,
-    total_stake: u64,
-    committee_size: u64,
+    selection_threshold: SelectionThreshold,
 ) -> bool {
     let mut hasher = Hasher::new();
     hasher.update(vrf);
     hasher.update(&vrf_seed.to_be_bytes());
     let hash = *hasher.finalize().as_bytes();
-    let mut hash_int: u64 = 0;
-    for i in hash {
-        hash_int = (hash_int << 8) + u64::from(i);
-    }
-    hash_int < total_stake * (u64::pow(2, 256)) / committee_size
+    select_seeded_vrf_hash(hash, selection_threshold)
 }
 
 /// Determines the participation of a VRF.
@@ -88,19 +101,14 @@ pub fn select_seeded_vrf(
 /// representing the weight of the associated VRF public key.
 ///
 /// Returns the set of `vrf_seed`s such that `H(vrf | vrf_seed)` is selected.
-///
-/// # Arguments
-/// * `committee_size` - The stake, rather than number of nodes, needed to form a
-/// committee.
 pub fn select_vrf(
     vrf: &CommitteeVrf,
     stake: u64,
-    total_stake: u64,
-    committee_size: u64,
+    selection_threshold: SelectionThreshold,
 ) -> HashSet<u64> {
     let mut selected_seeds = HashSet::new();
     for vrf_seed in 0..stake {
-        if select_seeded_vrf(vrf, vrf_seed, committee_size, total_stake) {
+        if select_seeded_vrf(vrf, vrf_seed, selection_threshold) {
             selected_seeds.insert(vrf_seed);
         }
     }
@@ -113,22 +121,17 @@ pub fn select_vrf(
 /// Returns an error if any `vrf_seed` in `selected_vrf_seeds`:
 /// 1. is larger than the stake associated VRF public key, or
 /// 2. constructs an `H(vrf | vrf_seed)` that should not be selected.
-///
-/// # Arguments
-/// * `committee_size` - The stake, rather than number of nodes, needed to form a
-/// committee.
 pub fn verify_selection<S: HashSetHasher>(
     vrf: &CommitteeVrf,
     selected_vrf_seeds: HashSet<u64, S>,
     stake: u64,
-    total_stake: u64,
-    committee_size: u64,
+    selection_threshold: SelectionThreshold,
 ) -> Result<(), CommitteeError> {
     for vrf_seed in selected_vrf_seeds {
         if vrf_seed >= stake {
             return Err(CommitteeError::InvaildVrfSeed);
         }
-        if !select_seeded_vrf(vrf, vrf_seed, committee_size, total_stake) {
+        if !select_seeded_vrf(vrf, vrf_seed, selection_threshold) {
             return Err(CommitteeError::NotSelected);
         }
     }
@@ -153,14 +156,20 @@ mod tests {
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 
     const SECRET_KEYS_SEED: u64 = 1234;
-    const COMMITTEE_SEED: [u8; H_256] = [20; 32];
-    const INCORRECT_COMMITTEE_SEED: [u8; H_256] = [23; 32];
+    const COMMITTEE_SEED: [u8; H_256] = [20; H_256];
+    const INCORRECT_COMMITTEE_SEED: [u8; H_256] = [23; H_256];
     const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
+    const STAKE: u64 = 55;
+    const SELECTION_THRESHOLD: SelectionThreshold = [
+        128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0,
+    ];
 
+    // Test VRF signing, computation and verification
     #[test]
-    fn test_vrf() {
+    fn test_vrf_computation() {
         // Generate keys
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
         let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
@@ -194,5 +203,23 @@ mod tests {
             COMMITTEE_SEED,
         );
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
+    }
+
+    // Test VRF selection
+    #[test]
+    fn test_vrf_selection() {
+        // Generate keys
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
+
+        // Get the VRF output
+        let signature = sign_vrf(&secret_key_share, COMMITTEE_SEED);
+        let vrf = compute_vrf(&signature);
+
+        // VRF selection should produces deterministic results
+        let selected_vrf_seeds_1 = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+        let selected_vrf_seeds_2 = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+        assert_eq!(selected_vrf_seeds_1, selected_vrf_seeds_2);
     }
 }
