@@ -1,3 +1,5 @@
+/// Provides an unbounded size broadcast async-aware queue
+pub mod broadcast;
 /// Provides types useful for waiting on certain values to arrive
 pub mod waitqueue;
 

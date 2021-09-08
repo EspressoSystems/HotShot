@@ -1,14 +1,13 @@
 use async_std::{sync::RwLock, task::block_on};
 use snafu::{ResultExt, Snafu};
-use tokio::sync::broadcast::{
-    self,
-    error::{RecvError, TryRecvError},
-};
-
 use std::sync::Arc;
 
 use crate::{
-    error::PhaseLockError, event::Event, traits::storage::Storage, BlockContents, PhaseLock,
+    error::PhaseLockError,
+    event::Event,
+    traits::storage::Storage,
+    utility::broadcast::{BroadcastReceiver, BroadcastSender},
+    BlockContents, PhaseLock,
 };
 
 /// Handle for interacting with a `PhaseLock` instance
@@ -16,11 +15,11 @@ pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
-    pub(crate) sender_handle: Arc<broadcast::Sender<Event<B, B::State>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<B, B::State>>>,
     /// Internal `PhaseLock` reference
     pub(crate) phaselock: PhaseLock<B, N>,
     /// The receiver we use to receive events on
-    pub(crate) stream_output: broadcast::Receiver<Event<B, B::State>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<B, B::State>>,
     /// Global control to pause the underlying `PhaseLock`
     pub(crate) pause: Arc<RwLock<bool>>,
     /// Override for the `pause` value that allows the `PhaseLock` to run one round
@@ -35,7 +34,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B,
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
-            stream_output: self.sender_handle.subscribe(),
+            stream_output: self.sender_handle.handle_sync(),
             phaselock: self.phaselock.clone(),
             pause: self.pause.clone(),
             run_once: self.run_once.clone(),
@@ -55,11 +54,10 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
     pub async fn next_event(&mut self) -> Result<Event<B, B::State>, HandleError> {
-        let result = self.stream_output.recv().await;
+        let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
-            Err(RecvError::Closed) => Err(HandleError::ShutDown),
-            Err(RecvError::Lagged(x)) => Err(HandleError::Skipped { ammount: x }),
+            Err(_) => Err(HandleError::ShutDown),
         }
     }
     /// Syncronous version of `next_event`
@@ -82,12 +80,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     ///   returning the oldest value still in queue.
     pub fn try_next_event(&mut self) -> Result<Option<Event<B, B::State>>, HandleError> {
         let result = self.stream_output.try_recv();
-        match result {
-            Ok(result) => Ok(Some(result)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Closed) => Err(HandleError::ShutDown),
-            Err(TryRecvError::Lagged(ammount)) => Err(HandleError::Skipped { ammount }),
-        }
+        Ok(result)
     }
 
     /// Will pull all the currently available events out of the event queue.
@@ -105,7 +98,6 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
             match self.try_next_event() {
                 Ok(Some(x)) => output.push(x),
                 Ok(None) => break,
-                Err(HandleError::Skipped { .. }) => continue,
                 Err(HandleError::ShutDown) => return Err(HandleError::ShutDown),
                 // As try_next event can only return HandleError::Skipped or HandleError::ShutDown,
                 // it would be nonsensical if we end up here
@@ -196,12 +188,6 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
 #[derive(Snafu, Debug)]
 #[allow(clippy::large_enum_variant)] // PhaseLock error isn't that big, and these are _errors_ after all
 pub enum HandleError {
-    /// This handle has not had an event pulled out of it for too long, and some messages were
-    /// skipped
-    Skipped {
-        /// The number of messages skipped
-        ammount: u64,
-    },
     /// The `PhaseLock` instance this handle references has shut down
     ShutDown,
     /// An error occured in the underlying `PhaseLock` implementation while submitting a transaction
