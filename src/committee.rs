@@ -1,7 +1,6 @@
 use crate::H_256;
 use blake3::Hasher;
 use std::collections::HashSet;
-use std::hash::Hasher as HashSetHasher;
 
 pub use threshold_crypto as tc;
 
@@ -121,9 +120,10 @@ pub fn select_vrf(
 /// Returns an error if any `vrf_seed` in `selected_vrf_seeds`:
 /// 1. is larger than the stake associated VRF public key, or
 /// 2. constructs an `H(vrf | vrf_seed)` that should not be selected.
-pub fn verify_selection<S: HashSetHasher>(
+#[allow(clippy::implicit_hasher)]
+pub fn verify_selection(
     vrf: &CommitteeVrf,
-    selected_vrf_seeds: HashSet<u64, S>,
+    selected_vrf_seeds: HashSet<u64>,
     stake: u64,
     selection_threshold: SelectionThreshold,
 ) -> Result<(), CommitteeError> {
@@ -143,7 +143,8 @@ pub fn verify_selection<S: HashSetHasher>(
 /// # Arguments
 /// * `committee_members` - A list of tuples, each consisting of a member ID and a set of
 /// selected VRF seeds.
-pub fn get_leader<S: HashSetHasher>(committee_members: &[(u64, HashSet<u64, S>)]) -> Option<u64> {
+#[allow(clippy::implicit_hasher)]
+pub fn get_leader(committee_members: &[(u64, HashSet<u64>)]) -> Option<u64> {
     committee_members
         .iter()
         .max_by_key(|(_, vrf_seeds)| vrf_seeds.len())
@@ -164,12 +165,12 @@ mod tests {
     const STAKE: u64 = 55;
     const SELECTION_THRESHOLD: SelectionThreshold = [
         128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0,
+        0, 1,
     ];
 
-    // Test VRF signing, computation and verification
+    // Test the verification of VRF output
     #[test]
-    fn test_vrf_computation() {
+    fn test_vrf_output() {
         // Generate keys
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
         let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
@@ -205,6 +206,43 @@ mod tests {
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
     }
 
+    // Test the selection of seeded VRF hash
+    #[test]
+    fn test_hash_selection() {
+        let seeded_vrf_hash_1: SelectionThreshold = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let seeded_vrf_hash_2: SelectionThreshold = [
+            128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        ];
+        let seeded_vrf_hash_3: SelectionThreshold = [
+            128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 1,
+        ];
+        let seeded_vrf_hash_4: SelectionThreshold = [
+            200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 1,
+        ];
+        assert!(select_seeded_vrf_hash(
+            seeded_vrf_hash_1,
+            SELECTION_THRESHOLD
+        ));
+        assert!(select_seeded_vrf_hash(
+            seeded_vrf_hash_2,
+            SELECTION_THRESHOLD
+        ));
+        assert!(!select_seeded_vrf_hash(
+            seeded_vrf_hash_3,
+            SELECTION_THRESHOLD
+        ));
+        assert!(!select_seeded_vrf_hash(
+            seeded_vrf_hash_4,
+            SELECTION_THRESHOLD
+        ));
+    }
+
     // Test VRF selection
     #[test]
     fn test_vrf_selection() {
@@ -218,8 +256,37 @@ mod tests {
         let vrf = compute_vrf(&signature);
 
         // VRF selection should produces deterministic results
-        let selected_vrf_seeds_1 = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
-        let selected_vrf_seeds_2 = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
-        assert_eq!(selected_vrf_seeds_1, selected_vrf_seeds_2);
+        let selected_vrf_seeds = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+        let selected_vrf_seeds_again = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+        assert_eq!(selected_vrf_seeds, selected_vrf_seeds_again);
+    }
+
+    // Test the verification of VRF selection
+    #[test]
+    fn test_selection_verification() {
+        // Generate keys
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
+
+        // Get the VRF selection results
+        let signature = sign_vrf(&secret_key_share, COMMITTEE_SEED);
+        let vrf = compute_vrf(&signature);
+        let mut selected_vrf_seeds = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+
+        // VRF verification should pass with the correct vrf seeds
+        let verification =
+            verify_selection(&vrf, selected_vrf_seeds.clone(), STAKE, SELECTION_THRESHOLD);
+        assert!(verification.is_ok());
+
+        // VRF verification should fail if any vrf seed is larger than the stake
+        let verification =
+            verify_selection(&vrf, selected_vrf_seeds.clone(), 10, SELECTION_THRESHOLD);
+        assert_eq!(verification, Err(CommitteeError::InvaildVrfSeed));
+
+        // VRF verification should fail if any vrf seed should not be selected
+        selected_vrf_seeds.insert(50);
+        let verification = verify_selection(&vrf, selected_vrf_seeds, STAKE, SELECTION_THRESHOLD);
+        assert_eq!(verification, Err(CommitteeError::NotSelected));
     }
 }
