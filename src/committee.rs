@@ -34,6 +34,7 @@ pub enum CommitteeError {
 fn compute_vrf(vrf_signature: &tc::SignatureShare) -> CommitteeVrf {
     let mut hasher = Hasher::new();
     hasher.update(&vrf_signature.to_bytes());
+    hasher.update("VRF output".as_bytes());
     *hasher.finalize().as_bytes()
 }
 
@@ -62,6 +63,7 @@ fn select_seeded_vrf(
     let mut hasher = Hasher::new();
     hasher.update(vrf);
     hasher.update(&vrf_seed.to_be_bytes());
+    hasher.update("Seeded VRF".as_bytes());
     let hash = *hasher.finalize().as_bytes();
     select_seeded_vrf_hash(hash, selection_threshold)
 }
