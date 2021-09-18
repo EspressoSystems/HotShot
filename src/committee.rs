@@ -10,9 +10,6 @@ pub type CommitteeSeed = [u8; H_256];
 /// VRF output for committee election.
 pub type CommitteeVrf = [u8; H_256];
 
-/// Hash of a seeded VRF.
-pub type SeededVrfHash = [u8; H_256];
-
 /// Selection threshold for the seeded VRF hash.
 ///
 /// Should be constructed by `p * pow(2, 256)`, where `p` is the predetermined
@@ -33,42 +30,18 @@ pub enum CommitteeError {
     NotSelected,
 }
 
-/// Signs the VRF signature.
-pub fn sign_vrf(
-    vrf_secret_key_share: &tc::SecretKeyShare,
-    committee_seed: CommitteeSeed,
-) -> tc::SignatureShare {
-    vrf_secret_key_share.sign(committee_seed)
-}
-
 /// Computes the VRF output for committee election associated with the signature.
-pub fn compute_vrf(vrf_signature: &tc::SignatureShare) -> CommitteeVrf {
+fn compute_vrf(vrf_signature: &tc::SignatureShare) -> CommitteeVrf {
     let mut hasher = Hasher::new();
     hasher.update(&vrf_signature.to_bytes());
     *hasher.finalize().as_bytes()
 }
 
-/// Verifies a VRF signature and computes the VRF output.
-///
-/// # Errors
-/// Returns an error if the VRF signature is not the correct signature from the VRF public key
-/// and the committee seed.
-pub fn verify_signature_and_compute_vrf(
-    vrf_signature: &tc::SignatureShare,
-    vrf_public_key: tc::PublicKeyShare,
-    committee_seed: CommitteeSeed,
-) -> Result<CommitteeVrf, CommitteeError> {
-    if !vrf_public_key.verify(&vrf_signature, committee_seed) {
-        return Err(CommitteeError::IncorrectVrfSignature);
-    }
-    Ok(compute_vrf(vrf_signature))
-}
-
 /// Determines whether the hash of a seeded VRF should be selected.
 ///
 /// A seeded VRF hash will be selected iff it's smaller than the hash selection threshold.
-pub fn select_seeded_vrf_hash(
-    seeded_vrf_hash: SeededVrfHash,
+fn select_seeded_vrf_hash(
+    seeded_vrf_hash: [u8; H_256],
     selection_threshold: SelectionThreshold,
 ) -> bool {
     seeded_vrf_hash < selection_threshold
@@ -81,7 +54,7 @@ pub fn select_seeded_vrf_hash(
 /// * `vrf_seed` - The seed for hash calculation, in the range of `[0, stake]`, where
 /// `stake` is a predetermined value representing the weight of the associated VRF public
 /// key.
-pub fn select_seeded_vrf(
+fn select_seeded_vrf(
     vrf: &CommitteeVrf,
     vrf_seed: u64,
     selection_threshold: SelectionThreshold,
@@ -91,51 +64,6 @@ pub fn select_seeded_vrf(
     hasher.update(&vrf_seed.to_be_bytes());
     let hash = *hasher.finalize().as_bytes();
     select_seeded_vrf_hash(hash, selection_threshold)
-}
-
-/// Determines the participation of a VRF.
-///
-/// Each VRF output is associated with a VRF public key. The number of votes a VRF public
-/// key has is in the range of `[0, stake]`, where `stake` is a predetermined value
-/// representing the weight of the associated VRF public key.
-///
-/// Returns the set of `vrf_seed`s such that `H(vrf | vrf_seed)` is selected.
-pub fn select_vrf(
-    vrf: &CommitteeVrf,
-    stake: u64,
-    selection_threshold: SelectionThreshold,
-) -> HashSet<u64> {
-    let mut selected_seeds = HashSet::new();
-    for vrf_seed in 0..stake {
-        if select_seeded_vrf(vrf, vrf_seed, selection_threshold) {
-            selected_seeds.insert(vrf_seed);
-        }
-    }
-    selected_seeds
-}
-
-/// Verifies the participation of a VRF.
-///
-/// # Errors
-/// Returns an error if any `vrf_seed` in `selected_vrf_seeds`:
-/// 1. is larger than the stake associated VRF public key, or
-/// 2. constructs an `H(vrf | vrf_seed)` that should not be selected.
-#[allow(clippy::implicit_hasher)]
-pub fn verify_selection(
-    vrf: &CommitteeVrf,
-    selected_vrf_seeds: HashSet<u64>,
-    stake: u64,
-    selection_threshold: SelectionThreshold,
-) -> Result<(), CommitteeError> {
-    for vrf_seed in selected_vrf_seeds {
-        if vrf_seed >= stake {
-            return Err(CommitteeError::InvaildVrfSeed);
-        }
-        if !select_seeded_vrf(vrf, vrf_seed, selection_threshold) {
-            return Err(CommitteeError::NotSelected);
-        }
-    }
-    Ok(())
 }
 
 /// Gets the leader's ID given a list of committee members.
@@ -149,6 +77,81 @@ pub fn get_leader(committee_members: &[(u64, HashSet<u64>)]) -> Option<u64> {
         .iter()
         .max_by_key(|(_, vrf_seeds)| vrf_seeds.len())
         .map(|(leader_id, _)| *leader_id)
+}
+
+/// A structure for verifiable committee participation results.
+pub struct VrfProof {
+    /// The VRF signature share.
+    pub signature: tc::SignatureShare,
+
+    /// The set of stake such that `H(vrf | stake)` is selected.
+    ///
+    /// Stake is in the range of `[0, total_stake]`, where `total_stake` is a predetermined
+    /// value representing the weight of the associated VRF public key, i.e., the maximum votes it
+    /// may have. The size of the set is the actual number of votes granted in the current round.
+    pub selected_stake: HashSet<u64>,
+}
+
+impl VrfProof {
+    /// Signs the VRF signature and determines the participation.
+    pub fn new(
+        vrf_secret_key_share: &tc::SecretKeyShare,
+        total_stake: u64,
+        committee_seed: CommitteeSeed,
+        selection_threshold: SelectionThreshold,
+    ) -> Self {
+        let signature = vrf_secret_key_share.sign(committee_seed);
+
+        let vrf = compute_vrf(&signature);
+        let mut selected_stake = HashSet::new();
+        for stake in 0..total_stake {
+            if select_seeded_vrf(&vrf, stake, selection_threshold) {
+                selected_stake.insert(stake);
+            }
+        }
+
+        Self {
+            signature,
+            selected_stake,
+        }
+    }
+
+    /// Verifies the committee selection.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    ///
+    /// 1. the VRF signature is not the correct signature from the VRF public key and the
+    /// committee seed, or
+    ///
+    /// 2. any `stake` in `selected_stake`:
+    ///
+    ///     2.1 is larger than the stake associated VRF public key, or
+    ///
+    ///     2.2 constructs an `H(vrf | vrf_seed)` that should not be selected.
+    #[allow(clippy::implicit_hasher)]
+    pub fn verify(
+        &self,
+        vrf_public_key: tc::PublicKeyShare,
+        total_stake: u64,
+        committee_seed: CommitteeSeed,
+        selection_threshold: SelectionThreshold,
+    ) -> Result<(), CommitteeError> {
+        if !vrf_public_key.verify(&self.signature, committee_seed) {
+            return Err(CommitteeError::IncorrectVrfSignature);
+        }
+        let vrf = compute_vrf(&self.signature);
+
+        for stake in self.selected_stake.clone() {
+            if stake >= total_stake {
+                return Err(CommitteeError::InvaildVrfSeed);
+            }
+            if !select_seeded_vrf(&vrf, stake, selection_threshold) {
+                return Err(CommitteeError::NotSelected);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
