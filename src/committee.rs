@@ -261,7 +261,12 @@ mod tests {
             COMMITTEE_SEED,
             SELECTION_THRESHOLD,
         );
-        proof.selected_stake.insert(50);
+        for i in 0..TOTAL_STAKE {
+            // Try to add a stake that shouldn't be selected
+            if proof.selected_stake.insert(i) {
+                break;
+            }
+        }
         let verification =
             proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::NotSelected));
