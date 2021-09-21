@@ -1,6 +1,6 @@
 use crate::H_256;
 use blake3::Hasher;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub use threshold_crypto as tc;
 
@@ -10,11 +10,11 @@ pub type CommitteeSeed = [u8; H_256];
 /// VRF output for committee election.
 pub type CommitteeVrf = [u8; H_256];
 
-/// Selection threshold for the seeded VRF hash.
+/// The threshold for stake selection.
 ///
-/// Should be constructed by `p * pow(2, 256)`, where `p` is the predetermined
-/// probablistic of a stake being selected. A seeded VRF hash will be selected
-/// iff it's smaller than the selection threshold.
+/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
+/// being selected. A stake will be selected iff `H(vrf | stake)` is smaller than the selection
+/// threshold.
 pub type SelectionThreshold = [u8; H_256];
 
 /// Error type for committee eleciton.
@@ -81,6 +81,15 @@ pub fn get_leader(committee_members: &[(u64, HashSet<u64>)]) -> Option<u64> {
         .map(|(leader_id, _)| *leader_id)
 }
 
+/// Committee records for verifying VRF proofs.
+pub struct CommitteeRecords {
+    /// A table mapping public key shares with the corresponding total stake.
+    stake_table: HashMap<tc::PublicKeyShare, u64>,
+
+    /// The threshold for stake selection.
+    selection_threshold: SelectionThreshold,
+}
+
 /// A structure for verifiable committee participation results.
 pub struct VrfProof {
     /// The VRF signature share.
@@ -130,22 +139,26 @@ impl VrfProof {
     ///
     ///     2.1 is larger than the stake associated VRF public key, or
     ///
-    ///     2.2 constructs an `H(vrf | vrf_seed)` that should not be selected.
+    ///     2.2 constructs an `H(vrf | stake)` that should not be selected.
     #[allow(clippy::implicit_hasher)]
     pub fn verify(
         &self,
         vrf_public_key: tc::PublicKeyShare,
-        total_stake: u64,
         committee_seed: CommitteeSeed,
-        selection_threshold: SelectionThreshold,
+        committee_records: &CommitteeRecords,
     ) -> Result<(), CommitteeError> {
         if !vrf_public_key.verify(&self.signature, committee_seed) {
             return Err(CommitteeError::IncorrectVrfSignature);
         }
         let vrf = compute_vrf(&self.signature);
 
+        let total_stake = committee_records
+            .stake_table
+            .get(&vrf_public_key)
+            .unwrap_or(&0);
+        let selection_threshold = committee_records.selection_threshold;
         for stake in self.selected_stake.clone() {
-            if stake >= total_stake {
+            if stake >= *total_stake {
                 return Err(CommitteeError::InvaildVrfSeed);
             }
             if !select_seeded_vrf(&vrf, stake, selection_threshold) {
