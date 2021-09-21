@@ -261,6 +261,7 @@ mod tests {
             COMMITTEE_SEED,
             SELECTION_THRESHOLD,
         );
+        // TODO: Selected stake in local test and CI are different (https://gitlab.com/translucence/systems/phaselock/-/issues/34)
         for i in 0..TOTAL_STAKE {
             // Try to add a stake that shouldn't be selected
             if proof.selected_stake.insert(i) {
