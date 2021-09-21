@@ -20,13 +20,13 @@ pub type SelectionThreshold = [u8; H_256];
 /// Error type for committee eleciton.
 #[derive(Debug, PartialEq)]
 pub enum CommitteeError {
-    /// The VRF signature is not the correct signature from the public key and the message.
+    /// The VRF signature is not the correct signature from the public key share and the message.
     IncorrectVrfSignature,
 
-    /// The VRF seed exceeds stake.
-    InvaildVrfSeed,
+    /// The selected stake exceeds the total stake.
+    InvaildStake,
 
-    /// The seeded VRF should not be elected.
+    /// The stake should not be elected.
     NotSelected,
 }
 
@@ -98,8 +98,8 @@ pub struct VrfProof {
     /// The set of stake such that `H(vrf | stake)` is selected.
     ///
     /// Stake is in the range of `[0, total_stake]`, where `total_stake` is a predetermined
-    /// value representing the weight of the associated VRF public key, i.e., the maximum votes it
-    /// may have. The size of the set is the actual number of votes granted in the current round.
+    /// value representing the weight of the associated VRF public key share, i.e., the maximum
+    /// votes it may have. The size of the set is the actual number of votes granted in the current round.
     pub selected_stake: HashSet<u64>,
 }
 
@@ -132,34 +132,34 @@ impl VrfProof {
     /// # Errors
     /// Returns an error if:
     ///
-    /// 1. the VRF signature is not the correct signature from the VRF public key and the
+    /// 1. the VRF signature is not the correct signature from the VRF public key share and the
     /// committee seed, or
     ///
     /// 2. any `stake` in `selected_stake`:
     ///
-    ///     2.1 is larger than the stake associated VRF public key, or
+    ///     2.1 is larger than the total stake of the associated VRF public key share, or
     ///
     ///     2.2 constructs an `H(vrf | stake)` that should not be selected.
     #[allow(clippy::implicit_hasher)]
     pub fn verify(
         &self,
-        vrf_public_key: tc::PublicKeyShare,
+        vrf_public_key_share: tc::PublicKeyShare,
         committee_seed: CommitteeSeed,
         committee_records: &CommitteeRecords,
     ) -> Result<(), CommitteeError> {
-        if !vrf_public_key.verify(&self.signature, committee_seed) {
+        if !vrf_public_key_share.verify(&self.signature, committee_seed) {
             return Err(CommitteeError::IncorrectVrfSignature);
         }
         let vrf = compute_vrf(&self.signature);
 
         let total_stake = committee_records
             .stake_table
-            .get(&vrf_public_key)
+            .get(&vrf_public_key_share)
             .unwrap_or(&0);
         let selection_threshold = committee_records.selection_threshold;
         for stake in self.selected_stake.clone() {
             if stake >= *total_stake {
-                return Err(CommitteeError::InvaildVrfSeed);
+                return Err(CommitteeError::InvaildStake);
             }
             if !select_seeded_vrf(&vrf, stake, selection_threshold) {
                 return Err(CommitteeError::NotSelected);
@@ -180,48 +180,91 @@ mod tests {
     const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
-    const STAKE: u64 = 55;
+    const TOTAL_STAKE: u64 = 55;
     const SELECTION_THRESHOLD: SelectionThreshold = [
         128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 1,
     ];
 
-    // Test the verification of VRF output
+    // Helper function to construct committee records
+    fn dummy_committee_records(vrf_public_key_share: tc::PublicKeyShare) -> CommitteeRecords {
+        let mut stake_table = HashMap::new();
+        stake_table.insert(vrf_public_key_share, TOTAL_STAKE);
+        CommitteeRecords {
+            stake_table,
+            selection_threshold: SELECTION_THRESHOLD,
+        }
+    }
+
+    // Test the verification of VRF proof
     #[test]
-    fn test_vrf_output() {
+    fn test_vrf_verification() {
         // Generate keys
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
         let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
         let secret_key_share_honest = secret_keys.secret_key_share(HONEST_NODE_ID);
         let secret_key_share_byzantine = secret_keys.secret_key_share(BYZANTINE_NODE_ID);
         let public_keys = secret_keys.public_keys();
-        let public_key_honest = public_keys.public_key_share(HONEST_NODE_ID);
-        let public_key_byzantine = public_keys.public_key_share(BYZANTINE_NODE_ID);
+        let public_key_share_honest = public_keys.public_key_share(HONEST_NODE_ID);
+        let committee_records = dummy_committee_records(public_key_share_honest);
 
-        // VRF verification should pass with the correct VRF signature and output
-        let signature = sign_vrf(&secret_key_share_honest, COMMITTEE_SEED);
-        let vrf = compute_vrf(&signature);
+        // VRF verification should pass with the correct secret key share, total stake, committee seed,
+        // and selection threshold
+        let proof = VrfProof::new(
+            &secret_key_share_honest,
+            TOTAL_STAKE,
+            COMMITTEE_SEED,
+            SELECTION_THRESHOLD,
+        );
         let verification =
-            verify_signature_and_compute_vrf(&signature, public_key_honest, COMMITTEE_SEED);
-        assert_eq!(verification, Ok(vrf));
+            proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
+        assert!(verification.is_ok());
 
-        // VRF verification should fail if the signature does not correspond to the public key
-        let signature_byzantine = sign_vrf(&secret_key_share_byzantine, COMMITTEE_SEED);
-        let verification = verify_signature_and_compute_vrf(
-            &signature_byzantine,
-            public_key_honest,
+        // VRF verification should fail if the secret key share does not correspond to the public key share
+        let proof = VrfProof::new(
+            &secret_key_share_byzantine,
+            TOTAL_STAKE,
             COMMITTEE_SEED,
+            SELECTION_THRESHOLD,
         );
+        let verification =
+            proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
-        // VRF verification should fail if the signature does not correspond to the committee seed
-        let signature_byzantine = sign_vrf(&secret_key_share_byzantine, INCORRECT_COMMITTEE_SEED);
-        let verification = verify_signature_and_compute_vrf(
-            &signature_byzantine,
-            public_key_byzantine,
-            COMMITTEE_SEED,
+        // VRF verification should fail if the committee seed used for proof generation is incorrect
+        let proof = VrfProof::new(
+            &secret_key_share_honest,
+            TOTAL_STAKE,
+            INCORRECT_COMMITTEE_SEED,
+            SELECTION_THRESHOLD,
         );
+        let verification =
+            proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
+
+        // VRF verification should fail if any selected stake is larger than the total stake
+        let mut proof = VrfProof::new(
+            &secret_key_share_honest,
+            TOTAL_STAKE,
+            COMMITTEE_SEED,
+            SELECTION_THRESHOLD,
+        );
+        proof.selected_stake.insert(56);
+        let verification =
+            proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
+        assert_eq!(verification, Err(CommitteeError::InvaildStake));
+
+        // VRF verification should fail if any stake should not be selected
+        let mut proof = VrfProof::new(
+            &secret_key_share_honest,
+            TOTAL_STAKE,
+            COMMITTEE_SEED,
+            SELECTION_THRESHOLD,
+        );
+        proof.selected_stake.insert(50);
+        let verification =
+            proof.verify(public_key_share_honest, COMMITTEE_SEED, &committee_records);
+        assert_eq!(verification, Err(CommitteeError::NotSelected));
     }
 
     // Test the selection of seeded VRF hash
@@ -270,41 +313,12 @@ mod tests {
         let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
 
         // Get the VRF output
-        let signature = sign_vrf(&secret_key_share, COMMITTEE_SEED);
+        let signature = secret_key_share.sign(COMMITTEE_SEED);
         let vrf = compute_vrf(&signature);
 
         // VRF selection should produces deterministic results
-        let selected_vrf_seeds = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
-        let selected_vrf_seeds_again = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
+        let selected_vrf_seeds = select_seeded_vrf(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+        let selected_vrf_seeds_again = select_seeded_vrf(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         assert_eq!(selected_vrf_seeds, selected_vrf_seeds_again);
-    }
-
-    // Test the verification of VRF selection
-    #[test]
-    fn test_selection_verification() {
-        // Generate keys
-        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
-        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
-        let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
-
-        // Get the VRF selection results
-        let signature = sign_vrf(&secret_key_share, COMMITTEE_SEED);
-        let vrf = compute_vrf(&signature);
-        let mut selected_vrf_seeds = select_vrf(&vrf, STAKE, SELECTION_THRESHOLD);
-
-        // VRF verification should pass with the correct vrf seeds
-        let verification =
-            verify_selection(&vrf, selected_vrf_seeds.clone(), STAKE, SELECTION_THRESHOLD);
-        assert!(verification.is_ok());
-
-        // VRF verification should fail if any vrf seed is larger than the stake
-        let verification =
-            verify_selection(&vrf, selected_vrf_seeds.clone(), 10, SELECTION_THRESHOLD);
-        assert_eq!(verification, Err(CommitteeError::InvaildVrfSeed));
-
-        // VRF verification should fail if any vrf seed should not be selected
-        selected_vrf_seeds.insert(50);
-        let verification = verify_selection(&vrf, selected_vrf_seeds, STAKE, SELECTION_THRESHOLD);
-        assert_eq!(verification, Err(CommitteeError::NotSelected));
     }
 }
