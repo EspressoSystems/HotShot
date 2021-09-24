@@ -23,7 +23,7 @@ impl CommitteeSeed {
 /// The threshold for stake selection.
 ///
 /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
-/// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the 
+/// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the
 /// selection threshold.
 pub type SelectionThreshold = [u8; H_256];
 
@@ -384,8 +384,10 @@ mod tests {
         let vrf = CommitteeElection::evaluate(&signature);
 
         // VRF selection should produces deterministic results
-        let selected_stake = CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
-        let selected_stake_again = CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+        let selected_stake =
+            CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+        let selected_stake_again =
+            CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         assert_eq!(selected_stake, selected_stake_again);
     }
 }
