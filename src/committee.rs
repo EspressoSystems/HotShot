@@ -5,17 +5,14 @@ use std::collections::{HashMap, HashSet};
 pub use threshold_crypto as tc;
 
 /// Seed for committee election, changed in each round.
-pub struct CommitteeSeed {
-    /// Seed bytes.
-    inner: [u8; H_256],
-}
+pub struct CommitteeSeed([u8; H_256]);
 
 impl CommitteeSeed {
     /// Adds a domain separator to the committee seed for VRF proof and verification.
     pub fn to_message(&self) -> [u8; H_256] {
         let mut hasher = Hasher::new();
         hasher.update("Committee seed".as_bytes());
-        hasher.update(&self.inner);
+        hasher.update(&self.0);
         *hasher.finalize().as_bytes()
     }
 }
@@ -32,6 +29,9 @@ pub type SelectionThreshold = [u8; H_256];
 pub enum CommitteeError {
     /// The VRF signature is not the correct signature from the public key share and the message.
     IncorrectVrfSignature,
+
+    /// The stake associated with a public key isn't found in the committee records.
+    UnknownStake,
 
     /// The selected stake exceeds the total stake.
     InvaildStake,
@@ -66,10 +66,10 @@ pub fn get_leader(committee_members: &[(u64, HashSet<u64>)]) -> Option<u64> {
 /// Committee records for verifying VRF proofs.
 pub struct CommitteeRecords {
     /// A table mapping public key shares with the corresponding total stake.
-    stake_table: HashMap<tc::PublicKeyShare, u64>,
+    pub stake_table: HashMap<tc::PublicKeyShare, u64>,
 
     /// The threshold for stake selection.
-    selection_threshold: SelectionThreshold,
+    pub selection_threshold: SelectionThreshold,
 }
 
 // TODO: associate with TEModelParameter which specifies which curve is used.
@@ -182,10 +182,12 @@ impl CommitteeElection {
         }
         let vrf_output = Self::evaluate(&self.vrf_proof);
 
-        let total_stake = committee_records
-            .stake_table
-            .get(&vrf_public_key)
-            .unwrap_or(&0);
+        let total_stake = match committee_records.stake_table.get(&vrf_public_key) {
+            Some(stake) => stake,
+            None => {
+                return Err(CommitteeError::UnknownStake);
+            }
+        };
         let selection_threshold = committee_records.selection_threshold;
         for stake in self.selected_stake.clone() {
             if stake >= *total_stake {
@@ -236,8 +238,8 @@ mod tests {
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 
     const SECRET_KEYS_SEED: u64 = 1234;
-    const COMMITTEE_SEED: CommitteeSeed = CommitteeSeed { inner: [20; H_256] };
-    const INCORRECT_COMMITTEE_SEED: CommitteeSeed = CommitteeSeed { inner: [23; H_256] };
+    const COMMITTEE_SEED: CommitteeSeed = CommitteeSeed([20; H_256]);
+    const INCORRECT_COMMITTEE_SEED: CommitteeSeed = CommitteeSeed([23; H_256]);
     const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
