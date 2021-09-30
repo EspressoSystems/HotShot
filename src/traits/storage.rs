@@ -14,7 +14,7 @@ pub enum StorageResult<T> {
     /// The item was not found
     None,
     /// An error occurred
-    Err(Box<dyn std::error::Error + 'static>),
+    Err(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl<T> StorageResult<T> {
@@ -74,6 +74,14 @@ pub trait Storage<B: BlockContents<N> + 'static, const N: usize>: Send + Sync {
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>>;
     /// Inserts a leaf
     fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>>;
+    /// Inserts a `State`, indexed by the hash of the `Leaf` that created it
+    fn insert_state(&self, state: B::State, hash: BlockHash<N>)
+        -> BoxFuture<'_, StorageResult<()>>;
+    /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
+    fn get_state<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b BlockHash<N>,
+    ) -> BoxFuture<'_, StorageResult<B::State>>;
     /// Object safe clone of the `Storage` implementation
     fn obj_clone(&self) -> Box<dyn Storage<B, N>>;
 }

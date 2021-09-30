@@ -32,6 +32,8 @@ pub mod handle;
 pub mod message;
 /// Contains traits describing and implementations of networking layers
 pub mod networking;
+/// Representation of the round logic as state machine
+pub mod state_machine;
 /// Contains traits consumed by `HotStuff`
 pub mod traits;
 /// Contains general utility structures and methods
@@ -43,13 +45,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_std::sync::RwLock;
-use async_std::task::{sleep, spawn, yield_now, JoinHandle};
+use async_std::task::{spawn, yield_now, JoinHandle};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 use crate::data::Leaf;
-use crate::error::{FailedToBroadcast, FailedToMessageLeader, NetworkFault, PhaseLockError};
+use crate::error::{NetworkFault, PhaseLockError};
 use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
@@ -186,7 +188,9 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     /// Pending transactions
     transaction_queue: RwLock<Vec<B::Transaction>>,
     /// Current state
-    state: RwLock<Arc<B::State>>,
+    committed_state: RwLock<Arc<B::State>>,
+    /// Current committed leaf
+    committed_leaf: RwLock<BlockHash<N>>,
     /// Current locked quorum certificate
     locked_qc: RwLock<Option<QuorumCertificate<N>>>,
     /// Current prepare quorum certificate
@@ -245,6 +249,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
         let t = config.threshold as usize;
+        let leaf = Leaf {
+            parent: [0_u8; { N }].into(),
+            item: genesis.clone(),
+        };
         let inner = PhaseLockInner {
             public_key: PubKey {
                 set: public_keys,
@@ -258,16 +266,19 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             config,
             networking: Box::new(networking),
             transaction_queue: RwLock::new(Vec::new()),
-            state: RwLock::new(Arc::new(starting_state)),
+            committed_state: RwLock::new(Arc::new(starting_state.clone())),
+            committed_leaf: RwLock::new(leaf.hash()),
             locked_qc: RwLock::new(Some(QuorumCertificate {
-                hash: genesis_hash,
+                block_hash: genesis_hash,
+                leaf_hash: leaf.hash(),
                 view_number: 0,
                 stage: Stage::Decide,
                 signature: None,
                 genesis: true,
             })),
             prepare_qc: RwLock::new(Some(QuorumCertificate {
-                hash: genesis_hash,
+                block_hash: genesis_hash,
+                leaf_hash: leaf.hash(),
                 view_number: 0,
                 stage: Stage::Prepare,
                 signature: None,
@@ -284,7 +295,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             storage: Box::new(storage),
         };
         inner.storage.insert_qc(QuorumCertificate {
-            hash: genesis_hash,
+            block_hash: genesis_hash,
+            leaf_hash: leaf.hash(),
             view_number: 0,
             stage: Stage::Decide,
             signature: None,
@@ -296,6 +308,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                 parent: [0_u8; { N }].into(),
                 item: genesis,
             })
+            .await;
+        error!("Genesis leaf hash: {:?}", leaf.hash());
+        inner
+            .storage
+            .insert_state(starting_state, leaf.hash())
             .await;
         Self {
             inner: Arc::new(inner),
@@ -336,7 +353,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             return true;
         }
         if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
-            let extends_from = self.extends_from(leaf, &locked_qc.hash).await;
+            let extends_from = self.extends_from(leaf, &locked_qc.block_hash).await;
             let view_number = qc.view_number > locked_qc.view_number;
             let result = extends_from || view_number;
             if !result {
@@ -406,6 +423,8 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
 
     /// Runs a single round of consensus
     ///
+    /// Returns the view number of the round that was completed.
+    ///
     /// # Panics
     ///
     /// Panics if consensus hits a bad round
@@ -415,502 +434,9 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
         &self,
         current_view: u64,
         channel: Option<&BroadcastSender<Event<B, B::State>>>,
-    ) -> Result<()> {
-        let phaselock = &self.inner;
-        // Get the leader for the current round
-        let leader = phaselock.get_leader(current_view);
-        let is_leader = phaselock.public_key == leader;
-        if is_leader {
-            info!("Node is leader for current view");
-            send_event::<B, B::State, { N }>(
-                channel,
-                Event {
-                    view_number: current_view,
-                    stage: Stage::None,
-                    event: EventType::Leader {
-                        view_number: current_view,
-                    },
-                },
-            )
-            .await;
-        } else {
-            info!("Node is follower for current view");
-            send_event::<B, B::State, { N }>(
-                channel,
-                Event {
-                    view_number: current_view,
-                    stage: Stage::None,
-                    event: EventType::Follower {
-                        view_number: current_view,
-                    },
-                },
-            )
-            .await;
-        }
-        let state: Arc<B::State> = phaselock.state.read().await.clone();
-        trace!("State copy made");
-        /*
-        Prepare phase
-         */
-        info!("Entering prepare phase");
-        let the_block;
-        let the_hash;
-        if is_leader {
-            // Insert our artificial delay to allow transactions to come in
-            let round_start_delay = Duration::from_millis(self.inner.config.round_start_delay);
-            sleep(round_start_delay).await;
-
-            // Prepare our block
-            let mut block = B::next_block(&state);
-            // spin while the transaction_queue is empty
-            trace!("Entering spin while we wait for transactions");
-            while phaselock.transaction_queue.read().await.is_empty() {
-                trace!("executing transaction queue spin cycle");
-                yield_now().await;
-            }
-            debug!("Unloading transactions");
-            let mut transaction_queue = phaselock.transaction_queue.write().await;
-            // Iterate through all the transactions, keeping the valid ones and discarding the
-            // invalid ones
-            for tx in transaction_queue.drain(..) {
-                // Make sure the transaction is valid given the current state, otherwise, discard it
-                let new_block = block.add_transaction(&state, &tx);
-                if let Ok(new_block) = new_block {
-                    block = new_block;
-                    debug!(?tx, "Added transaction to block");
-                } else {
-                    warn!(?tx, "Invalid transaction rejected");
-                }
-            }
-            // Wait until we have met the threshold of new-view messages
-            debug!("Waiting for minimum number of new view messages to arrive");
-            let new_views = phaselock.new_view_queue.wait().await;
-            trace!("New view messages arrived");
-            let high_qc = &new_views
-                .iter()
-                .max_by_key(|x| x.justify.view_number)
-                .unwrap() // Unwrap can't fail, as we can't receive an empty Vec from waitqueue
-                .justify;
-            // Create the Leaf, and add it to the store
-            let leaf = Leaf::new(block.clone(), high_qc.hash);
-            phaselock.storage.insert_leaf(leaf.clone()).await;
-            debug!(?leaf, "Leaf created and added to store");
-            // Broadcast out the new leaf
-            phaselock
-                .networking
-                .broadcast_message(Message::Prepare(Prepare {
-                    current_view,
-                    leaf: leaf.clone(),
-                    high_qc: high_qc.clone(),
-                }))
-                .await
-                .context(FailedToBroadcast {
-                    stage: Stage::Prepare,
-                })?;
-            debug!("Leaf broadcasted to network");
-            // Export the block
-            the_block = block;
-            the_hash = leaf.hash();
-            send_event::<B, B::State, { N }>(
-                channel,
-                Event {
-                    view_number: current_view,
-                    stage: Stage::Prepare,
-                    event: EventType::Propose {
-                        block: Arc::new(the_block.clone()),
-                    },
-                },
-            )
-            .await;
-            // Make a prepare signature and send it to ourselves
-            let signature =
-                phaselock
-                    .private_key
-                    .partial_sign(&the_hash, Stage::Prepare, current_view);
-            let vote = Vote {
-                signature,
-                leaf_hash: the_hash,
-                id: phaselock.public_key.nonce,
-                current_view,
-            };
-            phaselock.prepare_vote_queue.push(vote).await;
-        } else {
-            trace!("Waiting for prepare message to come in");
-            // Wait for the leader to send us a prepare message
-            let prepare = phaselock
-                .prepare_waiter
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!(?prepare, "Prepare message received from leader");
-            // Add the leaf to storage
-            let (leaf, leaf_hash) = (prepare.leaf.clone(), prepare.leaf.hash());
-            phaselock.storage.insert_leaf(leaf.clone()).await;
-            // check that the message is safe, extends from the given qc, and is valid given the
-            // current state
-            let is_safe_node = self.safe_node(&leaf, &prepare.high_qc).await;
-            if is_safe_node && leaf.item.validate_block(&state) {
-                let signature =
-                    phaselock
-                        .private_key
-                        .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-                let vote = Vote {
-                    signature,
-                    leaf_hash,
-                    id: phaselock.public_key.nonce,
-                    current_view,
-                };
-                let vote_message = Message::PrepareVote(vote);
-                phaselock
-                    .networking
-                    .message_node(vote_message, leader.clone())
-                    .await
-                    .context(FailedToMessageLeader {
-                        stage: Stage::Prepare,
-                    })?;
-                debug!("Prepare message successfully processed");
-                the_block = leaf.item;
-                the_hash = leaf_hash;
-                send_event::<B, B::State, { N }>(
-                    channel,
-                    Event {
-                        view_number: current_view,
-                        stage: Stage::Prepare,
-                        event: EventType::Propose {
-                            block: Arc::new(the_block.clone()),
-                        },
-                    },
-                )
-                .await;
-            } else {
-                error!("is_safe_node: {}", is_safe_node);
-                error!(?leaf, "Leaf failed safe_node predicate");
-                return Err(PhaseLockError::BadBlock {
-                    stage: Stage::Prepare,
-                });
-            }
-        }
-        /*
-        Pre-commit phase
-         */
-        info!("Entering pre-commit phase");
-        if is_leader {
-            // Collect the votes we have received from the nodes
-            trace!("Waiting for threshold number of incoming votes to arrive");
-            let mut vote_queue = phaselock
-                .prepare_vote_queue
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!("Received threshold number of votes");
-            let votes: Vec<_> = vote_queue
-                .drain(..)
-                .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| (x.id, x.signature))
-                .collect();
-            // Generate a quorum certificate from those votes
-            let signature = generate_qc(
-                votes.iter().map(|(x, y)| (*x, y)),
-                &phaselock.public_key.set,
-            )
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::PreCommit,
-                source: e,
-            })?;
-            let qc = QuorumCertificate {
-                hash: the_hash,
-                signature: Some(signature),
-                stage: Stage::Prepare,
-                view_number: current_view,
-                genesis: false,
-            };
-            debug!(?qc, "Pre-commit QC generated");
-            // Store the pre-commit qc
-            let mut pqc = phaselock.prepare_qc.write().await;
-            trace!("Pre-commit qc stored in prepare_qc");
-            *pqc = Some(qc.clone());
-            let pc_message = Message::PreCommit(PreCommit {
-                leaf_hash: the_hash,
-                qc,
-                current_view,
-            });
-            trace!("Precommit message packed, sending");
-            phaselock
-                .networking
-                .broadcast_message(pc_message)
-                .await
-                .context(FailedToBroadcast {
-                    stage: Stage::PreCommit,
-                })?;
-            debug!("Precommit message sent");
-            // Make a pre commit vote and send it to ourselves
-            let signature =
-                phaselock
-                    .private_key
-                    .partial_sign(&the_hash, Stage::PreCommit, current_view);
-            let vote_message = Vote {
-                leaf_hash: the_hash,
-                signature,
-                id: phaselock.public_key.nonce,
-                current_view,
-            };
-            phaselock.precommit_vote_queue.push(vote_message).await;
-        } else {
-            trace!("Waiting for precommit message to arrive from leader");
-            // Wait for the leader to send us a precommit message
-            let precommit = phaselock
-                .precommit_waiter
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!(?precommit, "Received precommit message from leader");
-            let prepare_qc = precommit.qc;
-            if !(prepare_qc.verify(&phaselock.public_key.set, Stage::Prepare, current_view)
-                && prepare_qc.hash == the_hash)
-            {
-                error!(?prepare_qc, "Bad or forged QC prepare_qc");
-                return Err(PhaseLockError::BadOrForgedQC {
-                    stage: Stage::PreCommit,
-                    bad_qc: prepare_qc.to_vec_cert(),
-                });
-            }
-            debug!("Precommit qc validated");
-            let signature =
-                phaselock
-                    .private_key
-                    .partial_sign(&the_hash, Stage::PreCommit, current_view);
-            let vote_message = Message::PreCommitVote(Vote {
-                leaf_hash: the_hash,
-                signature,
-                id: phaselock.public_key.nonce,
-                current_view,
-            });
-            // store the prepare qc
-            let mut pqc = phaselock.prepare_qc.write().await;
-            *pqc = Some(prepare_qc);
-            trace!("Prepare QC stored");
-            phaselock
-                .networking
-                .message_node(vote_message, leader.clone())
-                .await
-                .context(FailedToMessageLeader {
-                    stage: Stage::PreCommit,
-                })?;
-            debug!("Precommit vote sent");
-        }
-        /*
-        Commit Phase
-         */
-        info!("Entering commit phase");
-        if is_leader {
-            trace!("Waiting for threshold of precommit votes to arrive");
-            let mut vote_queue = phaselock
-                .precommit_vote_queue
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!("Threshold of precommit votes recieved");
-            let votes: Vec<_> = vote_queue
-                .drain(..)
-                .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| (x.id, x.signature))
-                .collect();
-            let signature = generate_qc(
-                votes.iter().map(|(x, y)| (*x, y)),
-                &phaselock.public_key.set,
-            )
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::Commit,
-                source: e,
-            })?;
-            let qc = QuorumCertificate {
-                hash: the_hash,
-                signature: Some(signature),
-                stage: Stage::PreCommit,
-                view_number: current_view,
-                genesis: false,
-            };
-            debug!(?qc, "Commit QC generated");
-            let c_message = Message::Commit(Commit {
-                leaf_hash: the_hash,
-                qc,
-                current_view,
-            });
-            trace!(?c_message, "Commit message packed");
-            phaselock
-                .networking
-                .broadcast_message(c_message)
-                .await
-                .context(FailedToBroadcast {
-                    stage: Stage::Commit,
-                })?;
-            debug!("Commit message broadcasted");
-            // Make a commit vote and send it to ourselves
-            let signature =
-                phaselock
-                    .private_key
-                    .partial_sign(&the_hash, Stage::Commit, current_view);
-            let vote_message = Vote {
-                leaf_hash: the_hash,
-                signature,
-                id: phaselock.public_key.nonce,
-                current_view,
-            };
-            phaselock.commit_vote_queue.push(vote_message).await;
-        } else {
-            trace!("Waiting for commit message to arrive from leader");
-            let commit = phaselock
-                .commit_waiter
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!(?commit, "Received commit message from leader");
-            let precommit_qc = commit.qc.clone();
-            if !(precommit_qc.verify(&phaselock.public_key.set, Stage::PreCommit, current_view)
-                && precommit_qc.hash == the_hash)
-            {
-                error!(?precommit_qc, "Bad or forged precommit qc");
-                return Err(PhaseLockError::BadOrForgedQC {
-                    stage: Stage::Commit,
-                    bad_qc: precommit_qc.to_vec_cert(),
-                });
-            }
-            let mut locked_qc = phaselock.locked_qc.write().await;
-            trace!("precommit qc written to locked_qc");
-            *locked_qc = Some(commit.qc);
-            let signature =
-                phaselock
-                    .private_key
-                    .partial_sign(&the_hash, Stage::Commit, current_view);
-            let vote_message = Message::CommitVote(Vote {
-                leaf_hash: the_hash,
-                signature,
-                id: phaselock.public_key.nonce,
-                current_view,
-            });
-            trace!("Commit vote packed");
-            phaselock
-                .networking
-                .message_node(vote_message, leader.clone())
-                .await
-                .context(FailedToMessageLeader {
-                    stage: Stage::Commit,
-                })?;
-            debug!("Commit vote sent to leader");
-        }
-        /*
-        Decide Phase
-         */
-        info!("Entering decide phase");
-        if is_leader {
-            trace!(
-                ?current_view,
-                "Waiting for threshold number of commit votes to arrive"
-            );
-            let mut vote_queue = phaselock
-                .commit_vote_queue
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!("Received threshold number of commit votes");
-            let votes: Vec<_> = vote_queue
-                .drain(..)
-                .filter(|x| x.leaf_hash == the_hash)
-                .map(|x| (x.id, x.signature))
-                .collect();
-            let signature = generate_qc(
-                votes.iter().map(|(x, y)| (*x, y)),
-                &phaselock.public_key.set,
-            )
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::Decide,
-                source: e,
-            })?;
-            let qc = QuorumCertificate {
-                hash: the_hash,
-                signature: Some(signature),
-                stage: Stage::Decide,
-                view_number: current_view,
-                genesis: false,
-            };
-            debug!(?qc, "Commit qc generated");
-            // Add QC to decision cache
-            phaselock.storage.insert_qc(qc.clone()).await;
-            // Apply the state
-            let new_state = the_block.append_to(&state).map_err(|error| {
-                error!(
-                    ?error,
-                    ?the_block,
-                    "Failed to append block to existing state"
-                );
-                PhaseLockError::InconsistentBlock {
-                    stage: Stage::Decide,
-                }
-            })?;
-            // set the new state
-            let mut state = phaselock.state.write().await;
-            *state = Arc::new(new_state);
-            trace!("New state written");
-            // Broadcast the decision
-            let d_message = Message::Decide(Decide {
-                leaf_hash: the_hash,
-                qc,
-                current_view,
-            });
-            phaselock
-                .networking
-                .broadcast_message(d_message)
-                .await
-                .context(FailedToBroadcast {
-                    stage: Stage::Decide,
-                })?;
-            debug!("Decision broadcasted");
-        } else {
-            trace!(?current_view, "Waiting on decide QC to come in");
-            let decide = phaselock
-                .decide_waiter
-                .wait_for(|x| x.current_view == current_view)
-                .await;
-            debug!(?decide, "Decision message arrived");
-            let decide_qc = decide.qc.clone();
-            if !(decide_qc.verify(&phaselock.public_key.set, Stage::Decide, current_view)
-                && decide_qc.hash == the_hash)
-            {
-                error!(?decide_qc, "Bad or forged commit qc");
-                return Err(PhaseLockError::BadOrForgedQC {
-                    stage: Stage::Decide,
-                    bad_qc: decide_qc.to_vec_cert(),
-                });
-            }
-            // Apply new state
-            trace!("Applying new state");
-            let new_state = the_block.append_to(&state).map_err(|error| {
-                error!(
-                    ?error,
-                    ?the_block,
-                    "Failed to append block to existing state"
-                );
-                PhaseLockError::InconsistentBlock {
-                    stage: Stage::Decide,
-                }
-            })?;
-            // set the new state
-            let mut state = phaselock.state.write().await;
-            *state = Arc::new(new_state);
-            debug!("New state set, round finished");
-        }
-        // Clear the transaction queue, temporary, need background task to clear already included
-        // transactions
-        send_event::<B, B::State, { N }>(
-            channel,
-            Event {
-                view_number: current_view,
-                stage: Stage::Decide,
-                event: EventType::Decide {
-                    block: Arc::new(the_block.clone()),
-                    state: self.inner.state.read().await.clone(),
-                },
-            },
-        )
-        .await;
-
-        self.inner.transaction_queue.write().await.clear();
-        trace!("Transaction queue cleared");
-        Ok(())
+    ) -> Result<u64> {
+        let state = state_machine::SequentialRound::new(self.clone(), current_view, channel);
+        state.await
     }
 
     /// Spawns the background tasks for network processin for this instance
@@ -938,7 +464,17 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                         for item in queue {
                             trace!(?item, "Processing item");
                             match item {
-                                Message::Prepare(p) => phaselock.prepare_waiter.put(p).await,
+                                Message::Prepare(p) => {
+                                    // Insert block into store
+                                    info!(prepare = ?p, "Inserting block and leaf into store");
+                                    let leaf = p.leaf.clone();
+                                    phaselock.storage.insert_leaf(leaf.clone()).await;
+                                    phaselock.storage.insert_block(
+                                        <B as BlockContents<N>>::hash(&leaf.item),
+                                        leaf.item,
+                                    );
+                                    phaselock.prepare_waiter.put(p).await;
+                                }
                                 Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
                                 Message::Commit(c) => phaselock.commit_waiter.put(c).await,
                                 Message::Decide(d) => phaselock.decide_waiter.put(d).await,
@@ -1028,7 +564,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
 
     /// Returns a copy of the state
     pub async fn get_state(&self) -> Arc<B::State> {
-        self.inner.state.read().await.clone()
+        self.inner.committed_state.read().await.clone()
     }
 
     /// Initializes a new phaselock and does the work of setting up all the background tasks
@@ -1136,8 +672,13 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                             .await;
                     match round_res {
                         // If it succeded, simply reset the timeout
-                        Ok(Ok(_)) => {
+                        Ok(Ok(x)) => {
                             int_duration = default_interrupt_duration;
+                            // Check if we completed the same view we started
+                            if x != view {
+                                info!(?x, ?view, "Round short circuited");
+                                view = x;
+                            }
                         }
                         // If it errored, broadcast the error, reset the timeout, and continue
                         Ok(Err(e)) => {

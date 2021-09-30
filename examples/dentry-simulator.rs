@@ -342,7 +342,7 @@ async fn get_phaselock(
         threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
-        next_view_timeout: 10000,
+        next_view_timeout: 100000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
     };

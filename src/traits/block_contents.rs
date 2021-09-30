@@ -6,10 +6,10 @@ use crate::data::BlockHash;
 
 /// The block trait
 pub trait BlockContents<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync
+    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
     /// The type of the state machine we are applying transitions to
-    type State: Clone + Send + Sync;
+    type State: Clone + Send + Sync + Debug;
     /// The type of the transitions we are applying
     type Transaction: Clone
         + Serialize

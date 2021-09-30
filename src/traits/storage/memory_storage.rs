@@ -1,7 +1,7 @@
 use async_std::sync::RwLock;
 use dashmap::DashMap;
 use futures::future::{BoxFuture, FutureExt};
-use tracing::{error, info_span, trace, Instrument};
+use tracing::{info_span, trace, Instrument};
 
 use std::sync::Arc;
 
@@ -11,7 +11,7 @@ use crate::{
         block_contents::BlockContents,
         storage::{Storage, StorageResult},
     },
-    QuorumCertificate, Stage,
+    QuorumCertificate,
 };
 
 /// Internal state for a `MemoryStorage`
@@ -36,6 +36,8 @@ struct MemoryStorageInternal<B: BlockContents<N>, const N: usize> {
     hash_to_leaf: DashMap<BlockHash<N>, usize>,
     /// Index of the `Leaf`s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
+    /// The store of states
+    states: DashMap<BlockHash<N>, B::State>,
 }
 
 /// In memory, ephemeral, storage for a `PhaseLock` instance
@@ -62,6 +64,7 @@ impl<B: BlockContents<N>, const N: usize> MemoryStorage<B, N> {
             leaves: RwLock::new(Vec::new()),
             hash_to_leaf: DashMap::new(),
             block_to_leaf: DashMap::new(),
+            states: DashMap::new(),
         };
         MemoryStorage {
             inner: Arc::new(inner),
@@ -136,22 +139,16 @@ impl<B: BlockContents<N> + 'static, const N: usize> Storage<B, N> for MemoryStor
 
     fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult<()>> {
         async move {
-            // check to make sure the qc is from the right stage
-            if qc.stage == Stage::Decide {
-                // Insert the qc into the main vec and the add the references
-                let view = qc.view_number;
-                let hash = qc.hash;
-                let mut qcs = self.inner.qcs.write().await;
-                let index = qcs.len();
-                trace!(?qc, ?index, "Inserting qc");
-                qcs.push(qc);
-                self.inner.view_to_qc.insert(view, index);
-                self.inner.hash_to_qc.insert(hash, index);
-                StorageResult::Some(())
-            } else {
-                error!(?qc, "Provided qc was not from a decide stage!");
-                StorageResult::None
-            }
+            // Insert the qc into the main vec and the add the references
+            let view = qc.view_number;
+            let hash = qc.block_hash;
+            let mut qcs = self.inner.qcs.write().await;
+            let index = qcs.len();
+            trace!(?qc, ?index, "Inserting qc");
+            qcs.push(qc);
+            self.inner.view_to_qc.insert(view, index);
+            self.inner.hash_to_qc.insert(hash, index);
+            StorageResult::Some(())
         }
         .instrument(info_span!("MemoryStorage::insert_qc"))
         .boxed()
@@ -216,6 +213,31 @@ impl<B: BlockContents<N> + 'static, const N: usize> Storage<B, N> for MemoryStor
     fn obj_clone(&self) -> Box<(dyn Storage<B, N> + 'static)> {
         Box::new(self.clone())
     }
+
+    fn insert_state(
+        &self,
+        state: B::State,
+        hash: BlockHash<N>,
+    ) -> BoxFuture<'_, StorageResult<()>> {
+        async move {
+            trace!(?hash, "Inserting state");
+            self.inner.states.insert(hash, state);
+            StorageResult::Some(())
+        }
+        .instrument(info_span!("MemoryStorage::insert_state"))
+        .boxed()
+    }
+
+    fn get_state<'b, 'a: 'b>(&self, hash: &BlockHash<N>) -> BoxFuture<'_, StorageResult<B::State>> {
+        let maybe_state = self.inner.states.get(hash);
+        let x: StorageResult<<B as BlockContents<N>>::State> = if let Some(state) = maybe_state {
+            let state = state.value().clone();
+            StorageResult::Some(state)
+        } else {
+            StorageResult::None
+        };
+        async move { x }.boxed()
+    }
 }
 
 #[cfg(test)]
@@ -227,7 +249,7 @@ mod test {
 
     fn dummy_qc(hash: BlockHash<32>, view: u64, valid: bool) -> QuorumCertificate<32> {
         QuorumCertificate {
-            hash,
+            block_hash: hash,
             view_number: view,
             stage: if valid { Stage::Decide } else { Stage::None },
             signature: None,
