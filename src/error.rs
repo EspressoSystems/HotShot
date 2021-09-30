@@ -60,6 +60,24 @@ pub enum PhaseLockError {
         /// Underlying network fault
         source: crate::networking::NetworkError,
     },
+    /// Item was not present in storage
+    ItemNotFound {
+        /// Hash of the missing item
+        hash: Vec<u8>,
+    },
+    /// Error accesing storage
+    StorageError {
+        /// Underlying error
+        err: Box<dyn std::error::Error + Send + Sync + 'static>,
+    },
+    /// Invalid state machine state
+    #[snafu(display("Invalid state machine state: {}", context))]
+    InvalidState {
+        /// Context
+        context: String,
+    },
+    /// Internal value used to drive the state machine
+    Continue,
 }
 
 impl PhaseLockError {

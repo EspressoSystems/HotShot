@@ -45,7 +45,9 @@ impl<T: Debug, const N: usize> Debug for Leaf<T, N> {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct QuorumCertificate<const N: usize> {
     /// Block this QC refers to
-    pub(crate) hash: BlockHash<N>,
+    pub(crate) block_hash: BlockHash<N>,
+    /// Leaf this QC refers to
+    pub(crate) leaf_hash: BlockHash<N>,
     /// The view we were on when we made this certificate
     pub(crate) view_number: u64,
     /// The stage of consensus we were on when we made this certificate
@@ -62,7 +64,7 @@ impl<const N: usize> QuorumCertificate<N> {
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
         // Temporary, stage and view should be included in signature in future
         if let Some(signature) = &self.signature {
-            key.public_key().verify(signature, &self.hash)
+            key.public_key().verify(signature, &self.leaf_hash)
                 && self.stage == stage
                 && self.view_number == view
         } else {
@@ -73,7 +75,7 @@ impl<const N: usize> QuorumCertificate<N> {
     /// Converts to a vector based cert
     pub fn to_vec_cert(&self) -> VecQuorumCertificate {
         VecQuorumCertificate {
-            hash: self.hash.as_ref().to_vec(),
+            hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
             stage: self.stage,
             signature: self.signature.clone(),
@@ -85,7 +87,7 @@ impl<const N: usize> QuorumCertificate<N> {
 impl<const N: usize> Debug for QuorumCertificate<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QuorumCertificate")
-            .field("hash", &format!("{:12}", HexFmt(&self.hash)))
+            .field("hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
             .field("view_number", &self.view_number)
             .field("stage", &self.stage)
             .field("signature", &self.signature)
@@ -151,6 +153,11 @@ impl<const N: usize> BlockHash<N> {
     /// Converts an array of the correct size into a `BlockHash`
     pub const fn from_array(input: [u8; N]) -> Self {
         Self { inner: input }
+    }
+
+    /// Converts this `BlockHash` to a vector
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.inner.to_vec()
     }
 
     /// Testing only random generation of a `BlockHash`

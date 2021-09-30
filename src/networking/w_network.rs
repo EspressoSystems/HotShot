@@ -169,6 +169,12 @@ pub struct WNetwork<T> {
     inner: Arc<WNetworkInner<T>>,
 }
 
+impl<T> Debug for WNetwork<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WNetwork").field("inner", &"inner").finish()
+    }
+}
+
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     WNetwork<T>
 {

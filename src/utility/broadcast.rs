@@ -5,6 +5,7 @@ pub use flume::{RecvError, SendError};
 
 use std::{
     collections::HashMap,
+    fmt::Debug,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -24,6 +25,14 @@ struct BroadcastSenderInner<T> {
 pub struct BroadcastSender<T> {
     /// Underlying shared implementation details
     inner: Arc<BroadcastSenderInner<T>>,
+}
+
+impl<T> Debug for BroadcastSender<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BroadcastSender")
+            .field("inner", &"inner")
+            .finish()
+    }
 }
 
 impl<T> BroadcastSender<T>

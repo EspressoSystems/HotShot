@@ -19,6 +19,8 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
+type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+
 mod common;
 
 use common::setup_tracing;
@@ -182,7 +184,7 @@ async fn main() {
         }
         println!("  - All states match");
         println!("  - Balances:");
-        for (account, balance) in &s_test.balances {
+        for (account, balance) in &s_test[0].balances {
             println!("    - {}: {}", account, balance);
         }
         state = Some(s_test.clone());
@@ -192,7 +194,7 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions {
         debug!(?round);
-        let tx = random_transaction(state.as_ref().unwrap(), &mut rng);
+        let tx = random_transaction(&state.as_ref().unwrap()[0], &mut rng);
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
@@ -248,14 +250,14 @@ async fn main() {
         }
         println!("  - All states match");
         println!("  - Balances:");
-        for (account, balance) in &s_test.balances {
+        for (account, balance) in &s_test[0].balances {
             println!("    - {}: {}", account, balance);
         }
         state = Some(s_test.clone());
     }
 
     let end = Instant::now();
-    println!("");
+    println!();
     let duration = end.duration_since(start);
     let time = duration.as_secs_f64();
     let per_round = time / (opt.transactions as f64);
@@ -333,7 +335,7 @@ async fn get_phaselock(
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
     state: &State,
-) -> PhaseLockHandle<DEntryBlock, H_256> {
+) -> PhaseLockHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
         .collect();
@@ -342,9 +344,10 @@ async fn get_phaselock(
         threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
-        next_view_timeout: 10000,
+        next_view_timeout: 100000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
+        start_delay: 1,
     };
     debug!(?config);
     let genesis = DEntryBlock::default();

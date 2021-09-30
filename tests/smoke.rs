@@ -16,6 +16,8 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
+type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+
 #[async_std::test]
 #[instrument]
 async fn ten_tx_seven_nodes() {
@@ -51,11 +53,12 @@ async fn ten_tx_seven_nodes() {
         next_view_timeout: 10_000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
+        start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<NODE, H_256>> = Vec::new();
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
@@ -115,18 +118,18 @@ async fn ten_tx_seven_nodes() {
         info!("All nodes reached decision");
         assert!(states.len() as u64 == nodes);
         assert!(blocks.len() as u64 == nodes);
-        let b_test = &blocks[0];
+        let b_test = &blocks[0][0];
         for b in &blocks[1..] {
-            assert!(b == b_test);
+            assert!(&b[0] == b_test);
         }
-        let s_test = &states[0];
+        let s_test = &states[0][0];
         for s in &states[1..] {
-            assert!(s == s_test);
+            assert!(&s[0] == s_test);
         }
         info!("All states match");
-        trace!(state = ?states[0], block = ?blocks[0]);
-        assert_eq!(blocks[0].transactions.len(), 1);
-        assert_eq!(blocks[0].transactions, vec![tx])
+        trace!(state = ?states[0], block = ?blocks[0][0]);
+        assert_eq!(blocks[0][0].transactions.len(), 1);
+        assert_eq!(blocks[0][0].transactions, vec![tx])
     }
 }
 
@@ -165,11 +168,12 @@ async fn ten_tx_five_nodes() {
         next_view_timeout: 10_000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
+        start_delay: 1,
     };
     debug!(?config);
     let gensis = DEntryBlock::default();
     let state = get_starting_state();
-    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> = Vec::new();
+    let mut phaselocks: Vec<PhaseLockHandle<NODE, H_256>> = Vec::new();
     for node_id in 0..nodes {
         let (_, h) = PhaseLock::init(
             gensis.clone(),
@@ -229,17 +233,17 @@ async fn ten_tx_five_nodes() {
         info!("All nodes reached decision");
         assert!(states.len() as u64 == nodes);
         assert!(blocks.len() as u64 == nodes);
-        let b_test = &blocks[0];
+        let b_test = &blocks[0][0];
         for b in &blocks[1..] {
-            assert!(b == b_test);
+            assert!(&b[0] == b_test);
         }
-        let s_test = &states[0];
+        let s_test = &states[0][0];
         for s in &states[1..] {
-            assert!(s == s_test);
+            assert!(&s[0] == s_test);
         }
         info!("All states match");
-        trace!(state = ?states[0], block = ?blocks[0]);
-        assert_eq!(blocks[0].transactions.len(), 1);
-        assert_eq!(blocks[0].transactions, vec![tx])
+        trace!(state = ?states[0], block = ?blocks[0][0]);
+        assert_eq!(blocks[0][0].transactions.len(), 1);
+        assert_eq!(blocks[0][0].transactions, vec![tx])
     }
 }

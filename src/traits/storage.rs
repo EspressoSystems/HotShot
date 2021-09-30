@@ -1,8 +1,11 @@
 use futures::future::BoxFuture;
 
-use crate::data::{BlockHash, Leaf};
-use crate::traits::block_contents::BlockContents;
-use crate::QuorumCertificate;
+use crate::{
+    data::{BlockHash, Leaf},
+    BlockContents, QuorumCertificate,
+};
+
+use super::state::State;
 
 /// `HashMap` and `Vec` based implementation of the storage trait
 pub mod memory_storage;
@@ -14,7 +17,7 @@ pub enum StorageResult<T> {
     /// The item was not found
     None,
     /// An error occurred
-    Err(Box<dyn std::error::Error + 'static>),
+    Err(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl<T> StorageResult<T> {
@@ -29,6 +32,13 @@ impl<T> StorageResult<T> {
     /// Returns true if the result is a `Err`
     pub fn is_err(&self) -> bool {
         matches!(self, StorageResult::Err(_))
+    }
+    /// Converts to an option
+    pub fn ok(self) -> Option<T> {
+        match self {
+            StorageResult::Some(x) => Some(x),
+            StorageResult::None | StorageResult::Err(_) => None,
+        }
     }
     /// Unwraps a `Some` value, panicking otherwise, this is a testing only function
     #[cfg(test)]
@@ -47,7 +57,9 @@ impl<T> StorageResult<T> {
 /// underlying storage.
 ///
 /// This trait has been constructed for object saftey over convenience.
-pub trait Storage<B: BlockContents<N> + 'static, const N: usize>: Send + Sync {
+pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>:
+    Clone + Send + Sync
+{
     /// Retrieves a block from storage, returning `None` if it could not be found in local storage
     fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'b, StorageResult<B>>;
     /// Inserts a block into storage
@@ -74,6 +86,8 @@ pub trait Storage<B: BlockContents<N> + 'static, const N: usize>: Send + Sync {
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>>;
     /// Inserts a leaf
     fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>>;
-    /// Object safe clone of the `Storage` implementation
-    fn obj_clone(&self) -> Box<dyn Storage<B, N>>;
+    /// Inserts a `State`, indexed by the hash of the `Leaf` that created it
+    fn insert_state(&self, state: S, hash: BlockHash<N>) -> BoxFuture<'_, StorageResult<()>>;
+    /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
+    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'_, StorageResult<S>>;
 }

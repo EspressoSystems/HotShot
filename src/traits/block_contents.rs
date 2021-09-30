@@ -6,10 +6,11 @@ use crate::data::BlockHash;
 
 /// The block trait
 pub trait BlockContents<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync
+    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
-    /// The type of the state machine we are applying transitions to
-    type State: Clone + Send + Sync;
+    /// The error type for this state machine
+    type Error: Error + Debug + Send + Sync;
+
     /// The type of the transitions we are applying
     type Transaction: Clone
         + Serialize
@@ -20,32 +21,16 @@ pub trait BlockContents<const N: usize>:
         + Eq
         + Sync
         + Send;
-    /// The error type for this state machine
-    type Error: Error + Debug + Send + Sync;
 
-    /// Creates a new block, currently devoid of transactions, given the current state.
-    ///
-    /// Allows the new block to reference any data from the state that its in.
-    fn next_block(state: &Self::State) -> Self;
-
-    /// Attempts to add a transaction, returning an Error if not compatible with the current state
+    /// Attempts to add a transaction, returning an Error if it would result in a structurally
+    /// invalid block
     ///
     /// # Errors
     ///
     /// Should return an error if this transaction leads to an invalid block
-    fn add_transaction(
-        &self,
-        state: &Self::State,
-        tx: &Self::Transaction,
-    ) -> std::result::Result<Self, Self::Error>;
-    /// ensures that the block is append able to the current state
-    fn validate_block(&self, state: &Self::State) -> bool;
-    /// Appends the block to the state
-    ///
-    /// # Errors
-    ///
-    /// Should produce an error if this block leads to an invalid state
-    fn append_to(&self, state: &Self::State) -> std::result::Result<Self::State, Self::Error>;
+    fn add_transaction_raw(&self, tx: &Self::Transaction)
+        -> std::result::Result<Self, Self::Error>;
+
     /// Produces a hash for the contents of the block
     fn hash(&self) -> BlockHash<N>;
     /// Produces a hash for a transaction
@@ -65,6 +50,8 @@ pub mod dummy {
     use blake3::Hasher;
     use rand::Rng;
     use serde::Deserialize;
+
+    pub use crate::traits::state::dummy::DummyState;
 
     /// The dummy block
     #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,32 +81,16 @@ pub mod dummy {
     }
 
     impl BlockContents<32> for DummyBlock {
-        type State = ();
+        type Error = DummyError;
 
         type Transaction = ();
 
-        type Error = DummyError;
-
-        fn next_block(_state: &Self::State) -> Self {
-            Self::random()
-        }
-
-        fn add_transaction(
+        fn add_transaction_raw(
             &self,
-            _state: &Self::State,
-            _tx: &Self::Transaction,
+            tx: &Self::Transaction,
         ) -> std::result::Result<Self, Self::Error> {
             Err(DummyError)
         }
-
-        fn validate_block(&self, _state: &Self::State) -> bool {
-            true
-        }
-
-        fn append_to(&self, _state: &Self::State) -> std::result::Result<Self::State, Self::Error> {
-            Err(DummyError)
-        }
-
         fn hash(&self) -> BlockHash<32> {
             let mut hasher = Hasher::new();
             hasher.update(&self.nonce.to_le_bytes());

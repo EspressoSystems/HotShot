@@ -31,9 +31,9 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
     /// A new state was decided on
     Decide {
         /// The block that was decided on
-        block: Arc<B>,
+        block: Arc<Vec<B>>,
         /// The new resulting state
-        state: Arc<S>,
+        state: Arc<Vec<S>>,
     },
     /// A new view was started by this nodes
     NewView {

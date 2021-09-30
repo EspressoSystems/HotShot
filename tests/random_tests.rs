@@ -21,6 +21,8 @@ const NEXT_VIEW_TIMEOUT: u64 = 30;
 const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (30, 10);
 const SEED: u64 = 1234;
 
+type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+
 /// Errors when trying to reach consensus.
 #[derive(Debug)]
 pub enum ConsensusError {
@@ -98,7 +100,7 @@ async fn init_state_and_phaselocks(
         PubKey,
     )>,
     updated_timeout_ratio: Option<(u64, u64)>,
-) -> (State, Vec<PhaseLockHandle<DEntryBlock, H_256>>) {
+) -> (State, Vec<PhaseLockHandle<NODE, H_256>>) {
     let state = init_state();
 
     // Create the initial phaselocks
@@ -117,6 +119,7 @@ async fn init_state_and_phaselocks(
         next_view_timeout: NEXT_VIEW_TIMEOUT,
         timeout_ratio,
         round_start_delay: 1,
+        start_delay: 1,
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
@@ -284,22 +287,22 @@ async fn fail_nodes(
             // Check consensus
             assert!(states.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
             assert!(blocks.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
-            let b_test = &blocks[0];
+            let b_test = &blocks[0][0];
             for b in &blocks[1..] {
-                if b != b_test {
+                if &b[0] != b_test {
                     return Err(ConsensusError::InconsistentAfterTxn);
                 }
             }
-            let s_test = &states[0];
+            let s_test = &states[0][0];
             for s in &states[1..] {
-                if s != s_test {
+                if &s[0] != s_test {
                     return Err(ConsensusError::InconsistentAfterTxn);
                 }
             }
             println!("All states match");
-            assert_eq!(blocks[0].transactions.len(), 1);
-            assert_eq!(blocks[0].transactions, vec![txn.clone()]);
-            state = s_test.as_ref().clone();
+            assert_eq!(blocks[0][0].transactions.len(), 1);
+            assert_eq!(blocks[0][0].transactions, vec![txn.clone()]);
+            state = s_test.clone();
 
             completed_txns += 1;
             timed_out_views = 0;
@@ -425,21 +428,24 @@ async fn mul_txns(
             // Check consensus
             assert!(states.len() as u64 == num_nodes);
             assert!(blocks.len() as u64 == num_nodes);
-            let b_test = &blocks[0];
+            let b_test = &blocks[0][0];
             for b in &blocks[1..] {
-                if b != b_test {
+                if &b[0] != b_test {
                     return Err(ConsensusError::InconsistentAfterTxn);
                 }
             }
-            let s_test = &states[0];
+            let s_test = &states[0][0];
             for s in &states[1..] {
-                if s != s_test {
+                if &s[0] != s_test {
                     return Err(ConsensusError::InconsistentAfterTxn);
                 }
             }
             println!("All states match");
-            assert_eq!(blocks[0].transactions.len(), 2);
-            assert_eq!(blocks[0].transactions, vec![txn_1.clone(), txn_2.clone()]);
+            assert_eq!(blocks[0][0].transactions.len(), 2);
+            assert_eq!(
+                blocks[0][0].transactions,
+                vec![txn_1.clone(), txn_2.clone()]
+            );
             break;
         }
 
