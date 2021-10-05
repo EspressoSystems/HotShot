@@ -1,5 +1,8 @@
 use crate::H_256;
 use blake3::Hasher;
+// use jf_primitives::vrf;
+use ark_ec::models::TEModelParameters as Parameters;
+use ark_ed_on_bls12_381::EdwardsParameters as Param381;
 use std::collections::{HashMap, HashSet};
 
 pub use threshold_crypto as tc;
@@ -74,7 +77,7 @@ pub struct CommitteeRecords {
 
 // TODO: associate with TEModelParameter which specifies which curve is used.
 /// A trait for VRF proof, evaluation and verification.
-pub trait Vrf<VrfHasher> {
+pub trait Vrf<VrfHasher, P: Parameters> {
     /// VRF public key.
     type PublicKey;
 
@@ -201,7 +204,10 @@ impl CommitteeElection {
     }
 }
 
-impl Vrf<Hasher> for CommitteeElection {
+impl<P> Vrf<Hasher, P> for CommitteeElection
+where
+    P: Parameters<BaseField = Param381>,
+{
     type PublicKey = tc::PublicKeyShare;
     type SecretKey = tc::SecretKeyShare;
     type Proof = tc::SignatureShare;

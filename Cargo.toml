@@ -16,6 +16,8 @@ name = "dentry-simulator"
 required-features = ["demo"]
 
 [dependencies]
+ark-ec = { version = "0.3.0", default-features = false }
+ark-ed-on-bls12-381 = { version = "0.3.0", default-features = false }
 async-std = { version = "1.9.0", features = ["unstable"] }
 async-tungstenite = { version = "0.14.0", features = ["async-std-runtime"] }
 bincode = "1.3.2"
@@ -25,6 +27,7 @@ dashmap = "4.0.2"
 flume = "0.10.5"
 futures = "0.3.0"
 hex_fmt = "0.3.0"
+# jf-primitives = { features=["std"], git = "ssh://git@gitlab.com/translucence/crypto/jellyfish.git", rev = "3faf4400a7ae67de18400051f57afe8e4fb6d4de"}
 rand = "0.7.3"
 serde = { version = "1.0.123", features = ["derive", "rc"] }
 snafu = { version = "0.6.10", features = ["backtraces"] }
