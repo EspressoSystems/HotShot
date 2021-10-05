@@ -204,9 +204,7 @@ impl CommitteeElection {
     }
 }
 
-impl<P> Vrf<Hasher, P> for CommitteeElection
-where
-    P: Parameters<BaseField = Param381>,
+impl Vrf<Hasher, Param381> for CommitteeElection
 {
     type PublicKey = tc::PublicKeyShare;
     type SecretKey = tc::SecretKeyShare;
