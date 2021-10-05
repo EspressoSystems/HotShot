@@ -1,17 +1,21 @@
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(rust_2018_idioms)]
-#![warn(missing_docs)]
-#![warn(clippy::missing_docs_in_private_items)]
-#![allow(clippy::option_if_let_else)]
-#![allow(clippy::must_use_candidate)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::similar_names)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+#![allow(
+    clippy::option_if_let_else,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::similar_names
+)]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
-// Given that consensus should guarantee the ability to recover from errors, explicit panics should
-// be strictly forbidden
-#![warn(clippy::panic)]
+// Temporary, should be disabled after the completion of the NodeImplementation refactor
+#![allow(clippy::type_complexity)]
 //! Provides a generic rust implementation of the [`PhaseLock`](https://arxiv.org/abs/1803.05069) BFT
 //! protocol
 
@@ -65,6 +69,7 @@ pub use threshold_crypto as tc;
 pub use crate::{
     data::{BlockHash, QuorumCertificate, Stage},
     traits::block_contents::BlockContents,
+    traits::node_implementation::NodeImplementation,
     traits::storage::{Storage, StorageResult},
 };
 
@@ -173,22 +178,23 @@ pub struct PhaseLockConfig {
 }
 
 /// Holds the state needed to participate in `PhaseLock` consensus
-pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
+pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// The public key of this node
     public_key: PubKey,
     /// The private key of this node
     private_key: PrivKey,
     /// The genesis block, used for short-circuiting during bootstrap
     #[allow(dead_code)]
-    genesis: B,
+    genesis: I::Block,
     /// Configuration items for this phaselock instance
     config: PhaseLockConfig,
     /// Networking interface for this phaselock instance
-    networking: Box<dyn NetworkingImplementation<Message<B, B::Transaction, N>>>,
+    networking: I::Networking,
     /// Pending transactions
-    transaction_queue: RwLock<Vec<B::Transaction>>,
+    transaction_queue:
+        RwLock<Vec<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction>>,
     /// Current state
-    committed_state: RwLock<Arc<B::State>>,
+    committed_state: RwLock<Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
     /// Current committed leaf
     committed_leaf: RwLock<BlockHash<N>>,
     /// Current locked quorum certificate
@@ -204,7 +210,7 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     /// Unprocessed CommitVote messages
     commit_vote_queue: WaitQueue<Vote<N>>,
     /// Currently pending Prepare message
-    prepare_waiter: WaitOnce<Prepare<B, N>>,
+    prepare_waiter: WaitOnce<Prepare<I::Block, N>>,
     /// Currently pending precommit message
     precommit_waiter: WaitOnce<PreCommit<N>>,
     /// Currently pending Commit message
@@ -212,10 +218,10 @@ pub struct PhaseLockInner<B: BlockContents<N> + 'static, const N: usize> {
     /// Currently pending decide message
     decide_waiter: WaitOnce<Decide<N>>,
     /// This `PhaseLock` instance's storage backend
-    storage: Box<dyn Storage<B, N>>,
+    storage: I::Storage,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockInner<B, N> {
+impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
         let index = view % u64::from(self.config.total_nodes);
@@ -225,25 +231,25 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockInner<B, N> {
 
 /// Thread safe, shared view of a `PhaseLock`
 #[derive(Clone)]
-pub struct PhaseLock<B: BlockContents<N> + Send + Sync + 'static, const N: usize> {
+pub struct PhaseLock<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// Handle to internal phaselock implementation
-    inner: Arc<PhaseLockInner<B, N>>,
+    inner: Arc<PhaseLockInner<I, N>>,
 }
 
-impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N> {
+impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock<I, N> {
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     #[instrument(skip(genesis, secret_key_share, starting_state, networking, storage))]
     pub async fn new(
-        genesis: B,
+        genesis: I::Block,
         public_keys: tc::PublicKeySet,
         secret_key_share: tc::SecretKeyShare,
         nonce: u64,
         config: PhaseLockConfig,
-        starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
-        storage: impl Storage<B, N> + 'static,
+        starting_state: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+        networking: I::Networking,
+        storage: I::Storage,
     ) -> Self {
         info!("Creating a new phaselock");
         let node_pub_key = secret_key_share.public_key_share();
@@ -253,7 +259,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
         };
-        let inner = PhaseLockInner {
+        let inner: PhaseLockInner<I, N> = PhaseLockInner {
             public_key: PubKey {
                 set: public_keys,
                 node: node_pub_key,
@@ -264,7 +270,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             },
             genesis: genesis.clone(),
             config,
-            networking: Box::new(networking),
+            networking,
             transaction_queue: RwLock::new(Vec::new()),
             committed_state: RwLock::new(Arc::new(starting_state.clone())),
             committed_leaf: RwLock::new(leaf.hash()),
@@ -292,7 +298,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             precommit_waiter: WaitOnce::new(),
             commit_waiter: WaitOnce::new(),
             decide_waiter: WaitOnce::new(),
-            storage: Box::new(storage),
+            storage,
         };
         inner.storage.insert_qc(QuorumCertificate {
             block_hash: genesis_hash,
@@ -321,7 +327,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
 
     /// Returns true if the proposed leaf extends from the given block
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn extends_from(&self, leaf: &Leaf<B, N>, node: &BlockHash<N>) -> bool {
+    pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &BlockHash<N>) -> bool {
         let mut parent = leaf.parent;
         // Short circuit to enable blocks that don't have parents
         if &parent == node {
@@ -347,7 +353,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
 
     /// Returns true if a proposed leaf satisfies the safety rule
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn safe_node(&self, leaf: &Leaf<B, N>, qc: &QuorumCertificate<N>) -> bool {
+    pub async fn safe_node(&self, leaf: &Leaf<I::Block, N>, qc: &QuorumCertificate<N>) -> bool {
         if qc.genesis {
             info!("Safe node check bypassed due to genesis flag");
             return true;
@@ -379,7 +385,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     pub async fn next_view(
         &self,
         current_view: u64,
-        channel: Option<&BroadcastSender<Event<B, B::State>>>,
+        channel: Option<
+            &BroadcastSender<
+                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+            >,
+        >,
     ) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
@@ -407,7 +417,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             trace!("NewView packed");
             self.inner.new_view_queue.push(view_message).await;
         }
-        send_event::<B, B::State, { N }>(
+        send_event::<
+            I::Block,
+            <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+            { N },
+        >(
             channel,
             Event {
                 view_number: current_view,
@@ -433,7 +447,11 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     pub async fn run_round(
         &self,
         current_view: u64,
-        channel: Option<&BroadcastSender<Event<B, B::State>>>,
+        channel: Option<
+            &BroadcastSender<
+                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+            >,
+        >,
     ) -> Result<u64> {
         let state = state_machine::SequentialRound::new(self.clone(), current_view, channel);
         state.await
@@ -469,10 +487,9 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
                                     info!(prepare = ?p, "Inserting block and leaf into store");
                                     let leaf = p.leaf.clone();
                                     phaselock.storage.insert_leaf(leaf.clone()).await;
-                                    phaselock.storage.insert_block(
-                                        <B as BlockContents<N>>::hash(&leaf.item),
-                                        leaf.item,
-                                    );
+                                    phaselock
+                                        .storage
+                                        .insert_block(BlockContents::hash(&leaf.item), leaf.item);
                                     phaselock.prepare_waiter.put(p).await;
                                 }
                                 Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
@@ -547,7 +564,10 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     ///
     /// Will generate an error if an underlying network error occurs
     #[instrument(skip(self), err)]
-    pub async fn publish_transaction_async(&self, tx: B::Transaction) -> Result<()> {
+    pub async fn publish_transaction_async(
+        &self,
+        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+    ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         self.inner.transaction_queue.write().await.push(tx.clone());
@@ -563,7 +583,9 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     }
 
     /// Returns a copy of the state
-    pub async fn get_state(&self) -> Arc<B::State> {
+    pub async fn get_state(
+        &self,
+    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
         self.inner.committed_state.read().await.clone()
     }
 
@@ -577,18 +599,17 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
     /// `PhaseLock` instance will log the error and shut down.
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
-        genesis: B,
+        genesis: I::Block,
         public_keys: tc::PublicKeySet,
         secret_key_share: tc::SecretKeyShare,
         node_id: u64,
         config: PhaseLockConfig,
-        starting_state: B::State,
-        networking: impl NetworkingImplementation<Message<B, B::Transaction, N>> + 'static,
-        storage: impl Storage<B, N> + 'static,
-    ) -> (JoinHandle<()>, PhaseLockHandle<B, N>) {
+        starting_state: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+        networking: I::Networking,
+        storage: I::Storage,
+    ) -> (JoinHandle<()>, PhaseLockHandle<I, N>) {
         let (input, output) = crate::utility::broadcast::channel();
         // Save a clone of the storage for the handle
-        let handle_storage = storage.obj_clone();
         let phaselock = Self::new(
             genesis,
             public_keys,
@@ -597,7 +618,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             config.clone(),
             starting_state,
             networking,
-            storage,
+            storage.clone(),
         )
         .await;
         let pause = Arc::new(RwLock::new(true));
@@ -612,7 +633,7 @@ impl<B: BlockContents<N> + Sync + Send + 'static, const N: usize> PhaseLock<B, N
             pause: pause.clone(),
             run_once: run_once.clone(),
             shut_down: shut_down.clone(),
-            storage: handle_storage,
+            storage,
         };
         let task = spawn(
             async move {

@@ -5,21 +5,26 @@ use std::sync::Arc;
 use crate::{
     error::PhaseLockError,
     event::Event,
-    traits::storage::Storage,
     utility::broadcast::{BroadcastReceiver, BroadcastSender},
-    BlockContents, PhaseLock,
+    BlockContents, NodeImplementation, PhaseLock,
 };
 
 /// Handle for interacting with a `PhaseLock` instance
-pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
+pub struct PhaseLockHandle<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<B, B::State>>>,
+    pub(crate) sender_handle: Arc<
+        BroadcastSender<
+            Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+        >,
+    >,
     /// Internal `PhaseLock` reference
-    pub(crate) phaselock: PhaseLock<B, N>,
+    pub(crate) phaselock: PhaseLock<I, N>,
     /// The receiver we use to receive events on
-    pub(crate) stream_output: BroadcastReceiver<Event<B, B::State>>,
+    pub(crate) stream_output: BroadcastReceiver<
+        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+    >,
     /// Global control to pause the underlying `PhaseLock`
     pub(crate) pause: Arc<RwLock<bool>>,
     /// Override for the `pause` value that allows the `PhaseLock` to run one round
@@ -27,10 +32,10 @@ pub struct PhaseLockHandle<B: BlockContents<N> + 'static, const N: usize> {
     /// Global to signify the `PhaseLock` should be closed after completing the next round
     pub(crate) shut_down: Arc<RwLock<bool>>,
     /// Our copy of the `Storage` view for a phaselock
-    pub(crate) storage: Box<dyn Storage<B, N>>,
+    pub(crate) storage: I::Storage,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B, N> {
+impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for PhaseLockHandle<B, N> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -39,12 +44,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> Clone for PhaseLockHandle<B,
             pause: self.pause.clone(),
             run_once: self.run_once.clone(),
             shut_down: self.shut_down.clone(),
-            storage: self.storage.obj_clone(),
+            storage: self.storage.clone(),
         }
     }
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
+impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// Will return the next event in the queue
     ///
     /// # Errors
@@ -53,7 +58,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
-    pub async fn next_event(&mut self) -> Result<Event<B, B::State>, HandleError> {
+    pub async fn next_event(
+        &mut self,
+    ) -> Result<
+        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+        HandleError,
+    > {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -67,7 +77,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// # Errors
     ///
     /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<B, B::State>, HandleError> {
+    pub fn next_event_sync(
+        &mut self,
+    ) -> Result<
+        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+        HandleError,
+    > {
         block_on(self.next_event())
     }
     /// Will attempt to immediatly pull an event out of the queue
@@ -78,7 +93,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
-    pub fn try_next_event(&mut self) -> Result<Option<Event<B, B::State>>, HandleError> {
+    pub fn try_next_event(
+        &mut self,
+    ) -> Result<
+        Option<Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
+        HandleError,
+    > {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -91,7 +111,12 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// # Errors
     ///
     /// Will return `HandleError::ShutDown` if the underlying `PhaseLock` instance has been shut down.
-    pub fn availible_events(&mut self) -> Result<Vec<Event<B, B::State>>, HandleError> {
+    pub fn availible_events(
+        &mut self,
+    ) -> Result<
+        Vec<Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
+        HandleError,
+    > {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -110,12 +135,16 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     }
 
     /// Gets the current commited state of the `PhaseLock` instance.
-    pub async fn get_state(&self) -> Arc<B::State> {
+    pub async fn get_state(
+        &self,
+    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
         self.phaselock.get_state().await
     }
 
     /// Gets the current commited state of the `PhaseLock` instance, blocking on the future
-    pub fn get_state_sync(&self) -> Arc<B::State> {
+    pub fn get_state_sync(
+        &self,
+    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
         block_on(self.get_state())
     }
 
@@ -126,7 +155,10 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// # Errors
     ///
     /// Will return a `HandleError::Transaction` if some error occurs in the underlying `PhaseLock` instance.
-    pub async fn submit_transaction(&self, tx: B::Transaction) -> Result<(), HandleError> {
+    pub async fn submit_transaction(
+        &self,
+        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+    ) -> Result<(), HandleError> {
         self.phaselock
             .publish_transaction_async(tx)
             .await
@@ -138,7 +170,10 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
     /// # Errors
     ///
     /// See documentation for `submit_transaction`
-    pub fn submit_transaction_sync(&self, tx: B::Transaction) -> Result<(), HandleError> {
+    pub fn submit_transaction_sync(
+        &self,
+        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+    ) -> Result<(), HandleError> {
         block_on(self.submit_transaction(tx))
     }
 
@@ -179,8 +214,8 @@ impl<B: BlockContents<N> + 'static, const N: usize> PhaseLockHandle<B, N> {
 
     /// Provides a reference to the underlying storage for this `PhaseLock`, allowing access to
     /// historical data
-    pub fn storage(&self) -> &dyn Storage<B, N> {
-        self.storage.as_ref()
+    pub fn storage(&self) -> &I::Storage {
+        &self.storage
     }
 }
 

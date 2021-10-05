@@ -18,24 +18,30 @@ use super::{
     Debug, Decide, Event, EventType, Leaf, Message, PhaseLock, PhaseLockError, PreCommit, Prepare,
     PubKey, QuorumCertificate, Result, ResultExt, Stage, StorageResult, Vote,
 };
-use crate::error::{FailedToBroadcast, FailedToMessageLeader};
 use crate::utility::broadcast::BroadcastSender;
+use crate::{
+    error::{FailedToBroadcast, FailedToMessageLeader},
+    networking::NetworkingImplementation,
+    traits::storage::Storage,
+    NodeImplementation,
+};
 
 // TODO(nm): state_machine_future is kind of jank, not well documented, and not quite flexible
 // enough for this. A lot of this module is boiler plate and can be macroed away. I need to write
 // such a macro library.
 
 /// Represents the round logic for sequential [`PhaseLock`]
-pub struct SequentialRound<B: BlockContents<N> + 'static, const N: usize> {
+pub struct SequentialRound<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// State machine
-    state: SequentialState<B, N>,
+    state: SequentialState<I, N>,
     /// Ref to the [`PhaseLock`] instance
-    phaselock: PhaseLock<B, N>,
+    phaselock: PhaseLock<I, N>,
     /// View number of this round
     current_view: u64,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> Future for SequentialRound<B, N>
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Future
+    for SequentialRound<I, N>
 where
     Self: Unpin,
 {
@@ -58,12 +64,16 @@ where
     }
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> SequentialRound<B, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialRound<I, N> {
     /// Creates a new state machine
     pub fn new(
-        phaselock: PhaseLock<B, N>,
+        phaselock: PhaseLock<I, N>,
         current_view: u64,
-        channel: Option<&BroadcastSender<Event<B, B::State>>>,
+        channel: Option<
+            &BroadcastSender<
+                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+            >,
+        >,
     ) -> Self {
         Self {
             state: SequentialState::Start(channel.cloned()),
@@ -75,20 +85,28 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialRound<B, N> {
 
 /// Context holder
 #[derive(Debug, Clone)]
-struct Ctx<B: BlockContents<N> + 'static, const N: usize> {
+struct Ctx<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Current commited state
-    committed_state: Arc<B::State>,
+    committed_state: Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
     /// Current commited leaf
     committed_leaf: BlockHash<N>,
     /// Handle event stream
-    channel: Option<BroadcastSender<Event<B, B::State>>>,
+    channel: Option<
+        BroadcastSender<
+            Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+        >,
+    >,
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> Ctx<B, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Ctx<I, N> {
     /// Generates a context object
     async fn get(
-        phaselock: PhaseLock<B, N>,
-        channel: Option<BroadcastSender<Event<B, B::State>>>,
+        phaselock: PhaseLock<I, N>,
+        channel: Option<
+            BroadcastSender<
+                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+            >,
+        >,
     ) -> Self {
         let committed_leaf = *phaselock.inner.committed_leaf.read().await;
         let committed_state = phaselock.inner.committed_state.read().await.clone();
@@ -100,7 +118,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> Ctx<B, N> {
     }
 
     /// sends a proposal event down the channel
-    fn send_propose(&self, view_number: u64, block: &B) {
+    fn send_propose(&self, view_number: u64, block: &I::Block) {
         if let Some(c) = self.channel.as_ref() {
             let _result = c.send(Event {
                 view_number,
@@ -124,30 +142,36 @@ impl<'a, T> std::fmt::Debug for DebugFuture<'a, T> {
 /// Represents the current state for a round of Sequential [`PhaseLock`]
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-enum SequentialState<B: BlockContents<N> + 'static, const N: usize> {
+enum SequentialState<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state of the state machine
-    Start(Option<BroadcastSender<Event<B, B::State>>>),
+    Start(
+        Option<
+            BroadcastSender<
+                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+            >,
+        >,
+    ),
     /// Waiting for context to be built
-    Ctx(DebugFuture<'static, Ctx<B, N>>),
+    Ctx(DebugFuture<'static, Ctx<I, N>>),
     /// This node is a leader
-    Leader(SequentialLeader<B, N>, Ctx<B, N>),
+    Leader(SequentialLeader<I, N>, Ctx<I, N>),
     /// This node is a replica
     Replica {
         /// State the replica is in
-        state: SequentialReplica<B, N>,
+        state: SequentialReplica<I, N>,
         /// Leader for this round
         leader: PubKey,
         /// Context object
-        ctx: Ctx<B, N>,
+        ctx: Ctx<I, N>,
     },
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> SequentialState<B, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialState<I, N> {
     #[instrument(skip(cx,phaselock), fields(id = phaselock.inner.public_key.nonce))]
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        phaselock: &mut PhaseLock<B, N>,
+        phaselock: &mut PhaseLock<I, N>,
         current_view: u64,
     ) -> Poll<Result<u64>> {
         debug!(?self);
@@ -196,29 +220,56 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialState<B, N> {
 /// Represents the leader logic for a round of Sequential [`PhaseLock`]
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-enum SequentialLeader<B: BlockContents<N> + 'static, const N: usize> {
+enum SequentialLeader<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state for A leader
     Start,
     /// Waiting for new-views to come in
-    Prepare(DebugFuture<'static, Result<(B, Leaf<B, N>, B::State)>>),
+    Prepare(
+        DebugFuture<
+            'static,
+            Result<(
+                I::Block,
+                Leaf<I::Block, N>,
+                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+            )>,
+        >,
+    ),
     /// Waiting for prepare votes to come in
-    Precommit(DebugFuture<'static, Result<(B, Leaf<B, N>, B::State)>>),
+    Precommit(
+        DebugFuture<
+            'static,
+            Result<(
+                I::Block,
+                Leaf<I::Block, N>,
+                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+            )>,
+        >,
+    ),
     /// Waiting for precommit votes to come in
-    Commit(DebugFuture<'static, Result<(B, Leaf<B, N>, B::State)>>),
+    Commit(
+        DebugFuture<
+            'static,
+            Result<(
+                I::Block,
+                Leaf<I::Block, N>,
+                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+            )>,
+        >,
+    ),
     /// Waiting for commit votes to come in
     Decide(DebugFuture<'static, Result<u64>>),
     /// Final state
     End(Result<u64>),
 }
 
-impl<B: BlockContents<N> + 'static, const N: usize> SequentialLeader<B, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialLeader<I, N> {
     #[instrument(skip(cx, phaselock), fields(id = phaselock.inner.public_key.nonce))]
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        phaselock: &mut PhaseLock<B, N>,
+        phaselock: &mut PhaseLock<I, N>,
         current_view: u64,
-        context: &Ctx<B, N>,
+        context: &Ctx<I, N>,
     ) -> Poll<Result<u64>> {
         match self {
             // Setup the PREPARE phase future
@@ -271,7 +322,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialLeader<B, N> {
                     };
                     trace!(?state, ?leaf_hash);
                     // Prepare our block
-                    let mut block = B::next_block(&state);
+                    let mut block = I::Block::next_block(&state);
                     // spin while the transaction_queue is empty
                     trace!("Entering spin while we wait for transactions");
                     while pl.inner.transaction_queue.read().await.is_empty() {
@@ -463,7 +514,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialLeader<B, N> {
                             }
                         })?;
                         let qc = QuorumCertificate {
-                            block_hash: <B as BlockContents<N>>::hash(&block),
+                            block_hash: BlockContents::hash(&block),
                             leaf_hash: new_leaf_hash,
                             view_number: current_view,
                             stage: Stage::PreCommit,
@@ -538,7 +589,7 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialLeader<B, N> {
                             }
                         })?;
                         let qc = QuorumCertificate {
-                            block_hash: <B as BlockContents<N>>::hash(&block),
+                            block_hash: BlockContents::hash(&block),
                             leaf_hash: new_leaf_hash,
                             view_number: current_view,
                             stage: Stage::Commit,
@@ -596,35 +647,35 @@ impl<B: BlockContents<N> + 'static, const N: usize> SequentialLeader<B, N> {
 /// Represents the replica logic for a round of Sequential [`PhaseLock`]
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-enum SequentialReplica<B: BlockContents<N> + 'static, const N: usize> {
+enum SequentialReplica<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state for a replica
     Start,
     /// Setup the PREPARE future
-    BeforePrepare(Prepare<B, N>),
+    BeforePrepare(Prepare<I::Block, N>),
     /// execute PREPARE phase
-    PrepareStage(DebugFuture<'static, Result<Leaf<B, N>>>),
+    PrepareStage(DebugFuture<'static, Result<Leaf<I::Block, N>>>),
     /// Setup the PRECOMMIT future
     BeforePreCommit {
         /// Leaf we are acting on
-        leaf: Leaf<B, N>,
+        leaf: Leaf<I::Block, N>,
         /// Message that triggered this action
         message: PreCommit<N>,
     },
     /// Execute the PRECOMMIT phase
-    PreCommitStage(DebugFuture<'static, Result<Leaf<B, N>>>),
+    PreCommitStage(DebugFuture<'static, Result<Leaf<I::Block, N>>>),
     /// Setup the COMMIT future
     BeforeCommit {
         /// Leaf we are acting on
-        leaf: Leaf<B, N>,
+        leaf: Leaf<I::Block, N>,
         /// Message that triggered this action
         message: Commit<N>,
     },
     /// Execute the COMMIT stage
-    CommitStage(DebugFuture<'static, Result<Leaf<B, N>>>),
+    CommitStage(DebugFuture<'static, Result<Leaf<I::Block, N>>>),
     /// Setup the DECIDE future
     BeforeDecide {
         /// Leaf we are acting on
-        leaf: Leaf<B, N>,
+        leaf: Leaf<I::Block, N>,
         /// Message that triggered this action        
         message: Decide<N>,
     },
@@ -640,12 +691,12 @@ enum SequentialReplica<B: BlockContents<N> + 'static, const N: usize> {
     /// Wait for a message matching the current stage or later to come in
     WaitForMessage {
         /// Leaf to pass on
-        leaf: Option<Leaf<B, N>>,
+        leaf: Option<Leaf<I::Block, N>>,
         /// Stage we are waiting for
         stage: Stage,
     },
     /// Waiting for a message
-    WaitingForMessage(DebugFuture<'static, Result<WaitResult<B, N>>>),
+    WaitingForMessage(DebugFuture<'static, Result<WaitResult<I::Block, N>>>),
     /// Round has finished or faulted
     End(Result<u64>),
 }
@@ -653,17 +704,17 @@ enum SequentialReplica<B: BlockContents<N> + 'static, const N: usize> {
 // TODO: Short circuiting logic
 // Probably do this by creating a wrapper method that checks the channels and then calls the future
 // if no commit qc with a higher view_number was found
-impl<B: BlockContents<N> + 'static, const N: usize> SequentialReplica<B, N> {
+impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> SequentialReplica<I, N> {
     /// Polls the replica variant of the state machine
     #[instrument(skip(cx, phaselock), fields(id = phaselock.inner.public_key.nonce))]
     #[allow(clippy::enum_glob_use)]
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        phaselock: &mut PhaseLock<B, N>,
+        phaselock: &mut PhaseLock<I, N>,
         current_view: u64,
         leader: &PubKey,
-        context: &Ctx<B, N>,
+        context: &Ctx<I, N>,
     ) -> Poll<Result<u64>> {
         use SequentialReplica::*;
         match self {
