@@ -204,8 +204,7 @@ impl CommitteeElection {
     }
 }
 
-impl Vrf<Hasher, Param381> for CommitteeElection
-{
+impl Vrf<Hasher, Param381> for CommitteeElection {
     type PublicKey = tc::PublicKeyShare;
     type SecretKey = tc::SecretKeyShare;
     type Proof = tc::SignatureShare;
