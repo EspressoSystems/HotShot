@@ -29,6 +29,7 @@ futures = "0.3.0"
 hex_fmt = "0.3.0"
 # jf-primitives = { features=["std"], git = "ssh://git@gitlab.com/translucence/crypto/jellyfish.git", rev = "3faf4400a7ae67de18400051f57afe8e4fb6d4de"}
 rand = "0.7.3"
+rand_chacha = "0.2.2"
 serde = { version = "1.0.123", features = ["derive", "rc"] }
 snafu = { version = "0.6.10", features = ["backtraces"] }
 threshold_crypto = "0.4.0"

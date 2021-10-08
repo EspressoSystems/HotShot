@@ -3,6 +3,8 @@ use blake3::Hasher;
 // use jf_primitives::vrf;
 use ark_ec::models::TEModelParameters as Parameters;
 use ark_ed_on_bls12_381::EdwardsParameters as Param381;
+use rand::Rng;
+use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
 
 pub use threshold_crypto as tc;
@@ -36,8 +38,11 @@ pub enum CommitteeError {
     /// The stake associated with a public key isn't found in the committee records.
     UnknownStake,
 
-    /// The selected stake exceeds the total stake.
-    InvaildStake,
+    /// The selected stake exceeds the total stake associated with the public key.
+    InvalidMemberStake,
+
+    /// The selected stake exceeds the total stake of all the public keys.
+    InvalidLeaderStake,
 
     /// The stake should not be elected.
     NotSelected,
@@ -51,19 +56,6 @@ fn select_seeded_vrf_hash(
     selection_threshold: SelectionThreshold,
 ) -> bool {
     seeded_vrf_hash < selection_threshold
-}
-
-/// Gets the leader's ID given a list of committee members.
-///
-/// # Arguments
-/// * `committee_members` - A list of tuples, each consisting of a member ID and a set of
-/// selected VRF seeds.
-#[allow(clippy::implicit_hasher)]
-pub fn get_leader(committee_members: &[(u64, HashSet<u64>)]) -> Option<u64> {
-    committee_members
-        .iter()
-        .max_by_key(|(_, vrf_seeds)| vrf_seeds.len())
-        .map(|(leader_id, _)| *leader_id)
 }
 
 /// Committee records for verifying VRF proofs.
@@ -117,14 +109,14 @@ pub struct CommitteeElection {
 }
 
 impl CommitteeElection {
-    /// Determines whether a stake should be selected.
+    /// Determines whether a stake should be selected into the committee.
     ///
     /// # Arguments
     ///
     /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
     /// `total_stake` is a predetermined value representing the weight of the associated VRF
     /// public key.
-    fn select_stake(
+    fn select_member_stake(
         vrf_output: &[u8; H_256],
         stake: u64,
         selection_threshold: SelectionThreshold,
@@ -149,7 +141,7 @@ impl CommitteeElection {
         let vrf_output = Self::evaluate(&vrf_proof);
         let mut selected_stake = HashSet::new();
         for stake in 0..total_stake {
-            if Self::select_stake(&vrf_output, stake, selection_threshold) {
+            if Self::select_member_stake(&vrf_output, stake, selection_threshold) {
                 selected_stake.insert(stake);
             }
         }
@@ -174,7 +166,7 @@ impl CommitteeElection {
     ///
     ///     2.2 constructs an `H(vrf_output | stake)` that should not be selected.
     #[allow(clippy::implicit_hasher)]
-    pub fn verify_selection(
+    pub fn verify_membership(
         &self,
         vrf_public_key: tc::PublicKeyShare,
         committee_seed: &CommitteeSeed,
@@ -194,13 +186,38 @@ impl CommitteeElection {
         let selection_threshold = committee_records.selection_threshold;
         for stake in self.selected_stake.clone() {
             if stake >= *total_stake {
-                return Err(CommitteeError::InvaildStake);
+                return Err(CommitteeError::InvalidMemberStake);
             }
-            if !Self::select_stake(&vrf_output, stake, selection_threshold) {
+            if !Self::select_member_stake(&vrf_output, stake, selection_threshold) {
                 return Err(CommitteeError::NotSelected);
             }
         }
         Ok(())
+    }
+
+    /// Determines the leader.
+    ///
+    /// Note: A leader doesn't necessarily have to be a commitee member.
+    pub fn select_leader(
+        committee_seed: &CommitteeSeed,
+        committee_records: &CommitteeRecords,
+    ) -> Result<tc::PublicKeyShare, CommitteeError> {
+        let mut total_stake = 0;
+        for record in committee_records.stake_table.iter() {
+            total_stake += record.1;
+        }
+        let mut prng: ChaChaRng = SeedableRng::from_seed(committee_seed.0);
+
+        let selected_stake = prng.gen_range(0, total_stake);
+
+        let mut stake_sum = 0;
+        for record in committee_records.stake_table.iter() {
+            stake_sum += record.1;
+            if stake_sum > selected_stake {
+                return Ok(*record.0);
+            }
+        }
+        Err(CommitteeError::InvalidLeaderStake)
     }
 }
 
@@ -253,9 +270,17 @@ mod tests {
     ];
 
     // Helper function to construct committee records
-    fn dummy_committee_records(vrf_public_key_share: tc::PublicKeyShare) -> CommitteeRecords {
+    fn dummy_committee_records(vrf_public_key_shares: Vec<tc::PublicKeyShare>) -> CommitteeRecords {
+        let record_size = vrf_public_key_shares.len();
+        let stake_per_record = TOTAL_STAKE / (record_size as u64);
+        let last_stake = TOTAL_STAKE - stake_per_record * (record_size as u64 - 1);
+
         let mut stake_table = HashMap::new();
-        stake_table.insert(vrf_public_key_share, TOTAL_STAKE);
+        for i in 0..record_size - 1 {
+            stake_table.insert(vrf_public_key_shares[i], stake_per_record);
+        }
+        stake_table.insert(vrf_public_key_shares[record_size - 1], last_stake);
+
         CommitteeRecords {
             stake_table,
             selection_threshold: SELECTION_THRESHOLD,
@@ -265,14 +290,14 @@ mod tests {
     // Test the verification of VRF proof
     #[test]
     fn test_vrf_verification() {
-        // Generate keys
+        // Generate records
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
         let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
         let secret_key_share_honest = secret_keys.secret_key_share(HONEST_NODE_ID);
         let secret_key_share_byzantine = secret_keys.secret_key_share(BYZANTINE_NODE_ID);
         let public_keys = secret_keys.public_keys();
         let public_key_share_honest = public_keys.public_key_share(HONEST_NODE_ID);
-        let committee_records = dummy_committee_records(public_key_share_honest);
+        let committee_records = dummy_committee_records(vec![public_key_share_honest]);
 
         // VRF verification should pass with the correct secret key share, total stake, committee seed,
         // and selection threshold
@@ -283,7 +308,7 @@ mod tests {
             SELECTION_THRESHOLD,
         );
         let verification =
-            proof.verify_selection(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
+            proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
         assert!(verification.is_ok());
 
         // VRF verification should fail if the secret key share does not correspond to the public key share
@@ -294,7 +319,7 @@ mod tests {
             SELECTION_THRESHOLD,
         );
         let verification =
-            proof.verify_selection(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
+            proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
         // VRF verification should fail if the committee seed used for proof generation is incorrect
@@ -305,7 +330,7 @@ mod tests {
             SELECTION_THRESHOLD,
         );
         let verification =
-            proof.verify_selection(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
+            proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
         // VRF verification should fail if any selected stake is larger than the total stake
@@ -317,8 +342,8 @@ mod tests {
         );
         proof.selected_stake.insert(56);
         let verification =
-            proof.verify_selection(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
-        assert_eq!(verification, Err(CommitteeError::InvaildStake));
+            proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
+        assert_eq!(verification, Err(CommitteeError::InvalidMemberStake));
 
         // VRF verification should fail if any stake should not be selected
         let mut proof = CommitteeElection::new(
@@ -335,7 +360,7 @@ mod tests {
             }
         }
         let verification =
-            proof.verify_selection(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
+            proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
         assert_eq!(verification, Err(CommitteeError::NotSelected));
     }
 
@@ -388,11 +413,31 @@ mod tests {
         let signature = secret_key_share.sign(&COMMITTEE_SEED.to_message());
         let vrf = CommitteeElection::evaluate(&signature);
 
-        // VRF selection should produces deterministic results
+        // VRF selection should produce deterministic results
         let selected_stake =
-            CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+            CommitteeElection::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         let selected_stake_again =
-            CommitteeElection::select_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+            CommitteeElection::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         assert_eq!(selected_stake, selected_stake_again);
+    }
+
+    // Test leader selection
+    #[test]
+    fn test_leader_selection() {
+        // Generate records
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let public_keys = secret_keys.public_keys();
+        let mut public_key_shares = Vec::new();
+        for i in 0..3 {
+            public_key_shares.push(public_keys.public_key_share(i));
+        }
+        let committee_records = dummy_committee_records(public_key_shares);
+
+        // Leader selection should produce deterministic results
+        let selected_leader = CommitteeElection::select_leader(&COMMITTEE_SEED, &committee_records);
+        let selected_leader_again =
+            CommitteeElection::select_leader(&COMMITTEE_SEED, &committee_records);
+        assert_eq!(selected_leader, selected_leader_again);
     }
 }

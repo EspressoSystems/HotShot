@@ -1132,6 +1132,7 @@ dependencies = [
  "hex_fmt",
  "proptest",
  "rand 0.7.3",
+ "rand_chacha 0.2.2",
  "rand_xoshiro",
  "serde",
  "snafu",
