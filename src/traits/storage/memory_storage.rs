@@ -38,11 +38,7 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     /// Index of the `Leaf`s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
     /// The store of states
-<<<<<<< HEAD
-    states: DashMap<BlockHash<N>, B::State>,
-=======
     states: DashMap<BlockHash<N>, State>,
->>>>>>> state-machine-refactor
 }
 
 /// In memory, ephemeral, storage for a `PhaseLock` instance
