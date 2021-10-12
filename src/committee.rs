@@ -9,18 +9,18 @@ use std::collections::{HashMap, HashSet};
 
 pub use threshold_crypto as tc;
 
-/// Seed for committee election, changed in each round.
-pub struct CommitteeSeed([u8; H_256]);
+// /// Seed for committee election, changed in each round.
+// pub struct CommitteeSeed([u8; H_256]);
 
-impl CommitteeSeed {
-    /// Adds a domain separator to the committee seed for VRF proof and verification.
-    pub fn to_message(&self) -> [u8; H_256] {
-        let mut hasher = Hasher::new();
-        hasher.update("Committee seed".as_bytes());
-        hasher.update(&self.0);
-        *hasher.finalize().as_bytes()
-    }
-}
+// impl CommitteeSeed {
+//     /// Adds a domain separator to the committee seed for VRF proof and verification.
+//     pub fn to_message(&self) -> [u8; H_256] {
+//         let mut hasher = Hasher::new();
+//         hasher.update("Committee seed".as_bytes());
+//         hasher.update(&self.0);
+//         *hasher.finalize().as_bytes()
+//     }
+// }
 
 /// Error type for committee eleciton.
 #[derive(Debug, PartialEq)]
@@ -133,22 +133,26 @@ pub trait Election {
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
         token: Self::VoteToken,
-        pub_key: Self::PublicKey,
+        public_key: Self::PublicKey,
         view_number: u64,
         next_state: [u8; H_256],
-    ) -> Result<Option<Self::ValidatedVoteToken>, CommitteeError>;
+    ) -> Result<Self::ValidatedVoteToken, CommitteeError>;
 
     /// Returns the number of votes a validated token has.
     fn get_vote_count(token: &Self::ValidatedVoteToken) -> u64;
 
-    // // Attempts to generate a vote token for self
-    // // Returns `None` if the number of seats would be zero
-    // fn make_vote_token(
-    //     table: &Self::StakeTable,
-    //     view_number: u64,
-    //     private_key: &Self::SecretKey,
-    //     next_state: BlockHash<N>,
-    // ) -> Option<Self::VoteToken>;
+    // TODO: make next_state: BlockHash<N>
+    /// Attempts to generate a vote token for self.
+    ///
+    /// Returns null if the number of seats is zero.
+    fn make_vote_token(
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        public_key: &Self::PublicKey,
+        secret_key: &Self::SecretKey,
+        view_number: u64,
+        next_state: [u8; H_256],
+    ) -> Result<Option<Self::VoteToken>, CommitteeError>;
 }
 
 // struct Leaf {
@@ -219,9 +223,8 @@ impl Election for CommitteeElection {
     /// Validates a vote token.
     ///
     /// Returns:
-    /// * If the token isn't valid or stake isn't found, an error.
-    /// * If the number of seat is zero, null.
-    /// * Otherwise, the validated tokan and the set of the selected stake, the size of which
+    /// * If the vote token isn't valid, stake data isn't found, or the public key shouldn't be selected: an error.
+    /// * Otherwise: the validated tokan and the set of the selected stake, the size of which
     /// represents the number of seats.
     fn get_votes(
         table: &Self::StakeTable,
@@ -230,7 +233,8 @@ impl Election for CommitteeElection {
         public_key: Self::PublicKey,
         view_number: u64,
         next_state: [u8; H_256],
-    ) -> Result<Option<Self::ValidatedVoteToken>, CommitteeError> {
+    ) -> Result<Self::ValidatedVoteToken, CommitteeError> {
+        // TODO: Make a helper function for hashing the commitee seed.
         let mut hasher = Hasher::new();
         hasher.update("Committee seed".as_bytes());
         hasher.update(&view_number.to_be_bytes());
@@ -240,8 +244,55 @@ impl Election for CommitteeElection {
             return Err(CommitteeError::IncorrectVrfSignature);
         }
 
+        // TODO: Make a helper function for calculating selected stake.
         let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
         let total_stake = match table.get(&public_key) {
+            Some(stake) => stake,
+            None => {
+                return Err(CommitteeError::UnknownStake);
+            }
+        };
+        let mut selected_stake = HashSet::new();
+        for stake in 0..*total_stake {
+            if select_member_stake(&vrf_output, stake, selection_threshold) {
+                selected_stake.insert(stake);
+            }
+        }
+
+        if selected_stake.is_empty() {
+            return Err(CommitteeError::NotSelected);
+        }
+
+        Ok((token, selected_stake))
+    }
+
+    /// Returns the number of votes a validated token has.
+    fn get_vote_count(token: &Self::ValidatedVoteToken) -> u64 {
+        token.1.len() as u64
+    }
+
+    /// Attempts to generate a vote token for self.
+    ///
+    /// Returns null if the number of seats is zero.
+    fn make_vote_token(
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        public_key: &Self::PublicKey,
+        secret_key: &Self::SecretKey,
+        view_number: u64,
+        next_state: [u8; H_256],
+    ) -> Result<Option<Self::VoteToken>, CommitteeError> {
+        // TODO: Make a helper function for hashing the commitee seed.
+        let mut hasher = Hasher::new();
+        hasher.update("Committee seed".as_bytes());
+        hasher.update(&view_number.to_be_bytes());
+        hasher.update(&next_state);
+        let hash = *hasher.finalize().as_bytes();
+        let token = <Self as Vrf<Hasher, Param381>>::prove(secret_key, &hash);
+
+        // TODO: Make a helper function for calculating selected stake.
+        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
+        let total_stake = match table.get(public_key) {
             Some(stake) => stake,
             None => {
                 return Err(CommitteeError::UnknownStake);
@@ -258,93 +309,88 @@ impl Election for CommitteeElection {
             return Ok(None);
         }
 
-        Ok(Some((token, selected_stake)))
-    }
-
-    /// Returns the number of votes a validated token has.
-    fn get_vote_count(token: &Self::ValidatedVoteToken) -> u64 {
-        token.1.len() as u64
+        Ok(Some(token))
     }
 }
 
-impl CommitteeElection {
-    // /// Creates a VRF proof and determines the participation.
-    // pub fn new(
-    //     vrf_secret_key: &tc::SecretKeyShare,
-    //     total_stake: u64,
-    //     committee_seed: &CommitteeSeed,
-    //     selection_threshold: Self::SelectionThreshold,
-    // ) -> Self {
-    //     let vrf_proof = Self::prove(vrf_secret_key, committee_seed);
+// impl CommitteeElection {
+//     /// Creates a VRF proof and determines the participation.
+//     pub fn new(
+//         vrf_secret_key: &tc::SecretKeyShare,
+//         total_stake: u64,
+//         committee_seed: &CommitteeSeed,
+//         selection_threshold: Self::SelectionThreshold,
+//     ) -> Self {
+//         let vrf_proof = Self::prove(vrf_secret_key, committee_seed);
 
-    //     let vrf_output = Self::evaluate(&vrf_proof);
-    //     let mut selected_stake = HashSet::new();
-    //     for stake in 0..total_stake {
-    //         if Self::select_member_stake(&vrf_output, stake, selection_threshold) {
-    //             selected_stake.insert(stake);
-    //         }
-    //     }
+//         let vrf_output = Self::evaluate(&vrf_proof);
+//         let mut selected_stake = HashSet::new();
+//         for stake in 0..total_stake {
+//             if Self::select_member_stake(&vrf_output, stake, selection_threshold) {
+//                 selected_stake.insert(stake);
+//             }
+//         }
 
-    //     Self {
-    //         vrf_proof,
-    //         selected_stake,
-    //     }
-    // }
+//         Self {
+//             vrf_proof,
+//             selected_stake,
+//         }
+//     }
 
-    // /// Verifies the committee selection.
-    // ///
-    // /// # Errors
-    // /// Returns an error if:
-    // ///
-    // /// 1. the VRF proof is not the correct signature from the VRF public key and the committee
-    // /// seed, or
-    // ///
-    // /// 2. any `stake` in `selected_stake`:
-    // ///
-    // ///     2.1 is larger than the total stake of the associated VRF public key, or
-    // ///
-    // ///     2.2 constructs an `H(vrf_output | stake)` that should not be selected.
-    // #[allow(clippy::implicit_hasher)]
-    // pub fn verify_membership(
-    //     &self,
-    //     vrf_public_key: tc::PublicKeyShare,
-    //     committee_seed: &CommitteeSeed,
-    //     committee_records: &CommitteeRecords,
-    // ) -> Result<(), CommitteeError> {
-    //     if !vrf_public_key.verify(&self.vrf_proof, committee_seed.to_message()) {
-    //         return Err(CommitteeError::IncorrectVrfSignature);
-    //     }
-    //     let vrf_output = Self::evaluate(&self.vrf_proof);
+//     /// Verifies the committee selection.
+//     ///
+//     /// # Errors
+//     /// Returns an error if:
+//     ///
+//     /// 1. the VRF proof is not the correct signature from the VRF public key and the committee
+//     /// seed, or
+//     ///
+//     /// 2. any `stake` in `selected_stake`:
+//     ///
+//     ///     2.1 is larger than the total stake of the associated VRF public key, or
+//     ///
+//     ///     2.2 constructs an `H(vrf_output | stake)` that should not be selected.
+//     #[allow(clippy::implicit_hasher)]
+//     pub fn verify_membership(
+//         &self,
+//         vrf_public_key: tc::PublicKeyShare,
+//         committee_seed: &CommitteeSeed,
+//         committee_records: &CommitteeRecords,
+//     ) -> Result<(), CommitteeError> {
+//         if !vrf_public_key.verify(&self.vrf_proof, committee_seed.to_message()) {
+//             return Err(CommitteeError::IncorrectVrfSignature);
+//         }
+//         let vrf_output = Self::evaluate(&self.vrf_proof);
 
-    //     let total_stake = match committee_records.stake_table.get(&vrf_public_key) {
-    //         Some(stake) => stake,
-    //         None => {
-    //             return Err(CommitteeError::UnknownStake);
-    //         }
-    //     };
-    //     let selection_threshold = committee_records.selection_threshold;
-    //     for stake in self.selected_stake.clone() {
-    //         if stake >= *total_stake {
-    //             return Err(CommitteeError::InvalidMemberStake);
-    //         }
-    //         if !Self::select_member_stake(&vrf_output, stake, selection_threshold) {
-    //             return Err(CommitteeError::NotSelected);
-    //         }
-    //     }
-    //     Ok(())
-    // }
-}
+//         let total_stake = match committee_records.stake_table.get(&vrf_public_key) {
+//             Some(stake) => stake,
+//             None => {
+//                 return Err(CommitteeError::UnknownStake);
+//             }
+//         };
+//         let selection_threshold = committee_records.selection_threshold;
+//         for stake in self.selected_stake.clone() {
+//             if stake >= *total_stake {
+//                 return Err(CommitteeError::InvalidMemberStake);
+//             }
+//             if !Self::select_member_stake(&vrf_output, stake, selection_threshold) {
+//                 return Err(CommitteeError::NotSelected);
+//             }
+//         }
+//         Ok(())
+//     }
+// }
 
 impl Vrf<Hasher, Param381> for CommitteeElection {
     type PublicKey = tc::PublicKeyShare;
     type SecretKey = tc::SecretKeyShare;
     type Proof = tc::SignatureShare;
-    type Input = CommitteeSeed;
+    type Input = [u8; H_256];
     type Output = [u8; H_256];
 
     /// Signs the VRF signature.
     fn prove(vrf_secret_key: &Self::SecretKey, vrf_input: &Self::Input) -> Self::Proof {
-        vrf_secret_key.sign(vrf_input.to_message())
+        vrf_secret_key.sign(vrf_input)
     }
 
     /// Computes the VRF output for committee election.
@@ -362,7 +408,7 @@ impl Vrf<Hasher, Param381> for CommitteeElection {
         vrf_public_key: Self::PublicKey,
         vrf_input: Self::Input,
     ) -> bool {
-        vrf_public_key.verify(&vrf_proof, vrf_input.to_message())
+        vrf_public_key.verify(&vrf_proof, vrf_input)
     }
 }
 
