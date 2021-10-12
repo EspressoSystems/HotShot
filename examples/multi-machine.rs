@@ -22,6 +22,8 @@ mod common;
 
 const TRANSACTION_COUNT: u64 = 10;
 
+type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "Multi-machine concensus",
@@ -88,7 +90,7 @@ async fn init_state_and_phaselock(
     threshold: u64,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
-) -> (State, PhaseLockHandle<DEntryBlock, H_256>) {
+) -> (State, PhaseLockHandle<Node, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -118,6 +120,7 @@ async fn init_state_and_phaselock(
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
+        start_delay: 1,
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
@@ -275,10 +278,10 @@ async fn main() {
         debug!(?own_id, "Decision emitted");
         if let EventType::Decide { block: _, state } = event.event {
             println!("  - Balances:");
-            for (account, balance) in &state.balances {
+            for (account, balance) in &state[0].balances {
                 println!("    - {}: {}", account, balance);
             }
-            own_state = state.as_ref().clone();
+            own_state = state.as_ref()[0].clone();
         } else {
             unreachable!()
         }

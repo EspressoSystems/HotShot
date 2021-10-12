@@ -8,6 +8,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::networking::{FailedToSerialize, NetworkError, NetworkingImplementation};
@@ -66,6 +67,14 @@ struct MemoryNetworkInner<T> {
 pub struct MemoryNetwork<T> {
     /// The actual internal state
     inner: Arc<MemoryNetworkInner<T>>,
+}
+
+impl<T> Debug for MemoryNetwork<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryNetwork")
+            .field("inner", &"inner")
+            .finish()
+    }
 }
 
 impl<T> MemoryNetwork<T>

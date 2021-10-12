@@ -46,7 +46,7 @@ pub mod utility;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_std::sync::RwLock;
 use async_std::task::{spawn, yield_now, JoinHandle};
@@ -142,7 +142,7 @@ impl Debug for PubKey {
 #[derive(Clone, Debug)]
 pub struct PrivKey {
     /// This node's share of the overall secret key
-    node: tc::SecretKeyShare,
+    pub(crate) node: tc::SecretKeyShare,
 }
 
 impl PrivKey {
@@ -175,6 +175,8 @@ pub struct PhaseLockConfig {
     pub timeout_ratio: (u64, u64),
     /// The delay a leader inserts before starting pre-commit, in milliseconds
     pub round_start_delay: u64,
+    /// Delay after init before starting consensus, in milliseconds
+    pub start_delay: u64,
 }
 
 /// Holds the state needed to participate in `PhaseLock` consensus
@@ -194,7 +196,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     transaction_queue:
         RwLock<Vec<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction>>,
     /// Current state
-    committed_state: RwLock<Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
+    committed_state: RwLock<Arc<I::State>>,
     /// Current committed leaf
     committed_leaf: RwLock<BlockHash<N>>,
     /// Current locked quorum certificate
@@ -247,7 +249,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         secret_key_share: tc::SecretKeyShare,
         nonce: u64,
         config: PhaseLockConfig,
-        starting_state: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+        starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
     ) -> Self {
@@ -385,11 +387,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     pub async fn next_view(
         &self,
         current_view: u64,
-        channel: Option<
-            &BroadcastSender<
-                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-            >,
-        >,
+        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
     ) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
@@ -417,11 +415,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             trace!("NewView packed");
             self.inner.new_view_queue.push(view_message).await;
         }
-        send_event::<
-            I::Block,
-            <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
-            { N },
-        >(
+        send_event::<I::Block, I::State, { N }>(
             channel,
             Event {
                 view_number: current_view,
@@ -447,13 +441,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     pub async fn run_round(
         &self,
         current_view: u64,
-        channel: Option<
-            &BroadcastSender<
-                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-            >,
-        >,
+        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
     ) -> Result<u64> {
         let state = state_machine::SequentialRound::new(self.clone(), current_view, channel);
+        // Do waitup
+        let time = Instant::now();
+        let duration = Duration::from_millis(self.inner.config.round_start_delay);
+        while Instant::now().duration_since(time) < duration {
+            async_std::task::sleep(Duration::from_millis(1)).await;
+        }
         state.await
     }
 
@@ -583,9 +579,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Returns a copy of the state
-    pub async fn get_state(
-        &self,
-    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
+    pub async fn get_state(&self) -> Arc<I::State> {
         self.inner.committed_state.read().await.clone()
     }
 
@@ -604,7 +598,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         secret_key_share: tc::SecretKeyShare,
         node_id: u64,
         config: PhaseLockConfig,
-        starting_state: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
+        starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
     ) -> (JoinHandle<()>, PhaseLockHandle<I, N>) {
@@ -637,6 +631,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         };
         let task = spawn(
             async move {
+                // Do waitup
+                let time = Instant::now();
+                let duration = Duration::from_millis(phaselock.inner.config.start_delay);
+                while Instant::now().duration_since(time) < duration {
+                    async_std::task::sleep(Duration::from_millis(1)).await;
+                }
                 let channel = input;
                 let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
                 let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;

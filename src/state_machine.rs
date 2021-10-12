@@ -11,20 +11,20 @@ use std::{
 };
 
 use futures::{future::BoxFuture, Future, FutureExt};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use super::{
     debug, error, generate_qc, trace, warn, yield_now, Arc, BlockContents, BlockHash, Commit,
     Debug, Decide, Event, EventType, Leaf, Message, PhaseLock, PhaseLockError, PreCommit, Prepare,
     PubKey, QuorumCertificate, Result, ResultExt, Stage, StorageResult, Vote,
 };
-use crate::utility::broadcast::BroadcastSender;
 use crate::{
     error::{FailedToBroadcast, FailedToMessageLeader},
     networking::NetworkingImplementation,
     traits::storage::Storage,
     NodeImplementation,
 };
+use crate::{traits::state::State, utility::broadcast::BroadcastSender};
 
 // TODO(nm): state_machine_future is kind of jank, not well documented, and not quite flexible
 // enough for this. A lot of this module is boiler plate and can be macroed away. I need to write
@@ -69,11 +69,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
     pub fn new(
         phaselock: PhaseLock<I, N>,
         current_view: u64,
-        channel: Option<
-            &BroadcastSender<
-                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-            >,
-        >,
+        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
     ) -> Self {
         Self {
             state: SequentialState::Start(channel.cloned()),
@@ -87,26 +83,18 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
 #[derive(Debug, Clone)]
 struct Ctx<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Current commited state
-    committed_state: Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
+    committed_state: Arc<I::State>,
     /// Current commited leaf
     committed_leaf: BlockHash<N>,
     /// Handle event stream
-    channel: Option<
-        BroadcastSender<
-            Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-        >,
-    >,
+    channel: Option<BroadcastSender<Event<I::Block, I::State>>>,
 }
 
 impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Ctx<I, N> {
     /// Generates a context object
     async fn get(
         phaselock: PhaseLock<I, N>,
-        channel: Option<
-            BroadcastSender<
-                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-            >,
-        >,
+        channel: Option<BroadcastSender<Event<I::Block, I::State>>>,
     ) -> Self {
         let committed_leaf = *phaselock.inner.committed_leaf.read().await;
         let committed_state = phaselock.inner.committed_state.read().await.clone();
@@ -129,6 +117,20 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Ctx<I, N>
             });
         }
     }
+
+    /// sends a decide event down the channel
+    fn send_decide(&self, view_number: u64, blocks: &[(I::Block, I::State)]) {
+        if let Some(c) = self.channel.as_ref() {
+            let _result = c.send(Event {
+                view_number,
+                stage: Stage::Prepare,
+                event: EventType::Decide {
+                    block: Arc::new(blocks.iter().map(|x| x.0.clone()).collect()),
+                    state: Arc::new(blocks.iter().map(|x| x.1.clone()).collect()),
+                },
+            });
+        }
+    }
 }
 
 /// Wraps a future to make it `Debug`
@@ -144,13 +146,7 @@ impl<'a, T> std::fmt::Debug for DebugFuture<'a, T> {
 #[allow(clippy::large_enum_variant)]
 enum SequentialState<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state of the state machine
-    Start(
-        Option<
-            BroadcastSender<
-                Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-            >,
-        >,
-    ),
+    Start(Option<BroadcastSender<Event<I::Block, I::State>>>),
     /// Waiting for context to be built
     Ctx(DebugFuture<'static, Ctx<I, N>>),
     /// This node is a leader
@@ -224,38 +220,11 @@ enum SequentialLeader<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state for A leader
     Start,
     /// Waiting for new-views to come in
-    Prepare(
-        DebugFuture<
-            'static,
-            Result<(
-                I::Block,
-                Leaf<I::Block, N>,
-                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
-            )>,
-        >,
-    ),
+    Prepare(DebugFuture<'static, Result<(I::Block, Leaf<I::Block, N>, I::State)>>),
     /// Waiting for prepare votes to come in
-    Precommit(
-        DebugFuture<
-            'static,
-            Result<(
-                I::Block,
-                Leaf<I::Block, N>,
-                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
-            )>,
-        >,
-    ),
+    Precommit(DebugFuture<'static, Result<(I::Block, Leaf<I::Block, N>, I::State)>>),
     /// Waiting for precommit votes to come in
-    Commit(
-        DebugFuture<
-            'static,
-            Result<(
-                I::Block,
-                Leaf<I::Block, N>,
-                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State,
-            )>,
-        >,
-    ),
+    Commit(DebugFuture<'static, Result<(I::Block, Leaf<I::Block, N>, I::State)>>),
     /// Waiting for commit votes to come in
     Decide(DebugFuture<'static, Result<u64>>),
     /// Final state
@@ -322,7 +291,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     };
                     trace!(?state, ?leaf_hash);
                     // Prepare our block
-                    let mut block = I::Block::next_block(&state);
+                    let mut block = state.next_block();
                     // spin while the transaction_queue is empty
                     trace!("Entering spin while we wait for transactions");
                     while pl.inner.transaction_queue.read().await.is_empty() {
@@ -335,18 +304,23 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     // invalid ones
                     for tx in transaction_queue.drain(..) {
                         // Make sure the transaction is valid given the current state, otherwise, discard it
-                        let new_block = block.add_transaction(&state, &tx);
+                        let new_block = block.add_transaction_raw(&tx);
                         if let Ok(new_block) = new_block {
-                            block = new_block;
-                            debug!(?tx, "Added transaction to block");
+                            if state.validate_block(&new_block) {
+                                block = new_block;
+                                debug!(?tx, "Added transaction to block");
+                            } else {
+                                warn!(?tx, "Invalid transaction rejected");
+                            }
                         } else {
                             warn!(?tx, "Invalid transaction rejected");
                         }
                     }
                     // Create new leaf and add it to the store
                     let new_leaf = Leaf::new(block.clone(), high_qc.leaf_hash);
-                    pl.inner.storage.insert_leaf(leaf.clone()).await;
-                    debug!(?new_leaf, "Leaf created and added to store");
+                    let the_hash = new_leaf.hash();
+                    pl.inner.storage.insert_leaf(new_leaf.clone()).await;
+                    debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
                     // Broadcast out the leaf
                     pl.inner
                         .networking
@@ -362,7 +336,6 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     // Notify our listeners
                     ctx.send_propose(current_view, &block);
                     // Make a prepare signature and send it to ourselves
-                    let the_hash = new_leaf.hash();
                     let signature =
                         pl.inner
                             .private_key
@@ -375,7 +348,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     };
                     pl.inner.prepare_vote_queue.push(vote).await;
                     // Add resulting state to storage
-                    let new_state = new_leaf.item.append_to(&state).map_err(|error| {
+                    let new_state = state.append(&new_leaf.item).map_err(|error| {
                         error!(?error, "Failed to append block to existing state");
                         PhaseLockError::InconsistentBlock {
                             stage: Stage::Prepare,
@@ -565,7 +538,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     let (block, new_leaf, state) = x?;
                     let new_leaf_hash = new_leaf.hash();
                     let pl = phaselock.clone();
-                    let _ctx = context.clone();
+                    let ctx = context.clone();
                     let fut = async move {
                         let mut vote_queue = pl
                             .inner
@@ -597,10 +570,27 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             genesis: false,
                         };
                         debug!(?qc, "decide qc generated");
+                        // Find blocks and states that were commited
+                        let mut old_state = pl.inner.committed_state.write().await;
+                        let mut old_leaf = pl.inner.committed_leaf.write().await;
+                        let mut events = vec![];
+                        let mut walk_leaf = new_leaf_hash;
+                        while walk_leaf != *old_leaf {
+                            debug!(?walk_leaf, "Looping");
+                            let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
+                            let state = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
+                            state.on_commit();
+                            events.push((block.item, state));
+                            walk_leaf = block.parent;
+                        }
+                        info!(?events, "Sending decide events");
+                        // Send decide event
+                        ctx.send_decide(current_view, &events);
+
                         // Add qc to decision cache
                         pl.inner.storage.insert_qc(qc.clone()).await;
-                        let mut old_state = pl.inner.committed_state.write().await;
                         *old_state = Arc::new(state);
+                        *old_leaf = new_leaf_hash;
                         trace!("New state written");
                         // Broadcast the decision
                         let d_message = Message::Decide(Decide {
@@ -608,6 +598,10 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             qc,
                             current_view,
                         });
+<<<<<<< HEAD
+=======
+
+>>>>>>> state-machine-refactor
                         pl.inner
                             .networking
                             .broadcast_message(d_message)
@@ -753,7 +747,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     // Check that the message is safe, extends from the given qc, and is valid given
                     // the current state
                     let is_safe_node = pl.safe_node(&leaf, &high_qc).await;
-                    if is_safe_node && leaf.item.validate_block(&state) {
+                    if is_safe_node && state.validate_block(&leaf.item) {
                         let signature = pl.inner.private_key.partial_sign(
                             &leaf_hash,
                             Stage::Prepare,
@@ -776,7 +770,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         debug!("Prepare message successfully processed");
                         ctx.send_propose(current_view, &leaf.item);
                         // Add resulting state to storage
-                        let new_state = leaf.item.append_to(&state).map_err(|error| {
+                        let new_state = state.append(&leaf.item).map_err(|error| {
                             error!(?error, "Failed to append block to existing state");
                             PhaseLockError::InconsistentBlock {
                                 stage: Stage::Prepare,
@@ -937,6 +931,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let leaf_hash = leaf.hash();
                 let message = message.clone();
                 let pl = phaselock.clone();
+                let ctx = context.clone();
                 let fut = async move {
                     let decide_qc = message.qc;
                     if !(decide_qc.verify(&pl.inner.public_key.set, Stage::Commit, current_view)
@@ -958,6 +953,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     }?;
                     let mut old_state = pl.inner.committed_state.write().await;
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
+                    let mut events = vec![];
+                    let mut walk_leaf = leaf_hash;
+                    while walk_leaf != *old_leaf {
+                        debug!(?walk_leaf, "Looping");
+                        let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
+                        let s = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
+                        s.on_commit();
+                        events.push((block.item, s));
+                        walk_leaf = block.parent;
+                    }
+                    info!(?events, "Sending decide events");
+                    // Send decide event
+                    ctx.send_decide(current_view, &events);
                     *old_state = Arc::new(state);
                     *old_leaf = leaf_hash;
                     debug!("Round finished");
@@ -977,6 +985,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
             BeforeDecideShort { message } => {
                 let message = message.clone();
                 let pl = phaselock.clone();
+                let ctx = context.clone();
                 let fut = async move {
                     let decide_qc = message.qc;
                     if !(decide_qc.verify(
@@ -1001,6 +1010,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     }?;
                     let mut old_state = pl.inner.committed_state.write().await;
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
+                    let mut events = vec![];
+                    let mut walk_leaf = leaf_hash;
+                    while walk_leaf != *old_leaf {
+                        debug!(?walk_leaf, "Looping");
+                        let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
+                        let s = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
+                        s.on_commit();
+                        events.push((block.item, s));
+                        walk_leaf = block.parent;
+                    }
+                    info!(?events, "Sending decide events");
+                    // Send decide event
+                    ctx.send_decide(current_view, &events);
                     let mut pqc = pl.inner.prepare_qc.write().await;
                     let mut lqc = pl.inner.locked_qc.write().await;
                     *old_state = Arc::new(state);

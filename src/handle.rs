@@ -14,17 +14,11 @@ pub struct PhaseLockHandle<I: NodeImplementation<N> + Send + Sync + 'static, con
     /// Handle to a sender for the output stream
     ///
     /// Kept around because we need to be able to call `subscribe` on it to generate new receivers
-    pub(crate) sender_handle: Arc<
-        BroadcastSender<
-            Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-        >,
-    >,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::Block, I::State>>>,
     /// Internal `PhaseLock` reference
     pub(crate) phaselock: PhaseLock<I, N>,
     /// The receiver we use to receive events on
-    pub(crate) stream_output: BroadcastReceiver<
-        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-    >,
+    pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State>>,
     /// Global control to pause the underlying `PhaseLock`
     pub(crate) pause: Arc<RwLock<bool>>,
     /// Override for the `pause` value that allows the `PhaseLock` to run one round
@@ -58,12 +52,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
-    pub async fn next_event(
-        &mut self,
-    ) -> Result<
-        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-        HandleError,
-    > {
+    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>, HandleError> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -77,12 +66,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// See documentation for `next_event`
-    pub fn next_event_sync(
-        &mut self,
-    ) -> Result<
-        Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>,
-        HandleError,
-    > {
+    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>, HandleError> {
         block_on(self.next_event())
     }
     /// Will attempt to immediatly pull an event out of the queue
@@ -93,12 +77,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// - Will return `HandleError::Skipped{ ammount }` if this receiver has fallen behind. `ammount`
     ///   indicates the number of messages that were skipped, and a subsequent call should succeed,
     ///   returning the oldest value still in queue.
-    pub fn try_next_event(
-        &mut self,
-    ) -> Result<
-        Option<Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
-        HandleError,
-    > {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>, HandleError> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -111,12 +90,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// Will return `HandleError::ShutDown` if the underlying `PhaseLock` instance has been shut down.
-    pub fn availible_events(
-        &mut self,
-    ) -> Result<
-        Vec<Event<I::Block, <<I as NodeImplementation<N>>::Block as BlockContents<N>>::State>>,
-        HandleError,
-    > {
+    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>, HandleError> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -135,16 +109,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     }
 
     /// Gets the current commited state of the `PhaseLock` instance.
-    pub async fn get_state(
-        &self,
-    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
+    pub async fn get_state(&self) -> Arc<I::State> {
         self.phaselock.get_state().await
     }
 
     /// Gets the current commited state of the `PhaseLock` instance, blocking on the future
-    pub fn get_state_sync(
-        &self,
-    ) -> Arc<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::State> {
+    pub fn get_state_sync(&self) -> Arc<I::State> {
         block_on(self.get_state())
     }
 

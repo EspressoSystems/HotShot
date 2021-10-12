@@ -20,7 +20,7 @@ pub fn setup_tracing() {
                     Ok(value) => {
                         value
                             .to_ascii_lowercase()
-                            .split(",")
+                            .split(',')
                             .map(|filter| match filter.trim() {
                                 "new" => FmtSpan::NEW,
                                 "enter" => FmtSpan::ENTER,
