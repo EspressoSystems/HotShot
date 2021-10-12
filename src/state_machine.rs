@@ -598,6 +598,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             qc,
                             current_view,
                         });
+
                         pl.inner
                             .networking
                             .broadcast_message(d_message)

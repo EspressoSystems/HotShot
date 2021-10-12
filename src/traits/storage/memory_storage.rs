@@ -235,31 +235,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         };
         async move { x }.boxed()
     }
-
-    fn insert_state(
-        &self,
-        state: B::State,
-        hash: BlockHash<N>,
-    ) -> BoxFuture<'_, StorageResult<()>> {
-        async move {
-            trace!(?hash, "Inserting state");
-            self.inner.states.insert(hash, state);
-            StorageResult::Some(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_state"))
-        .boxed()
-    }
-
-    fn get_state<'b, 'a: 'b>(&self, hash: &BlockHash<N>) -> BoxFuture<'_, StorageResult<B::State>> {
-        let maybe_state = self.inner.states.get(hash);
-        let x: StorageResult<<B as BlockContents<N>>::State> = if let Some(state) = maybe_state {
-            let state = state.value().clone();
-            StorageResult::Some(state)
-        } else {
-            StorageResult::None
-        };
-        async move { x }.boxed()
-    }
 }
 
 #[cfg(test)]
@@ -273,10 +248,7 @@ mod test {
     fn dummy_qc(hash: BlockHash<32>, view: u64, valid: bool) -> QuorumCertificate<32> {
         QuorumCertificate {
             block_hash: hash,
-<<<<<<< HEAD
-=======
             leaf_hash: hash,
->>>>>>> state-machine-refactor
             view_number: view,
             stage: if valid { Stage::Decide } else { Stage::None },
             signature: None,
