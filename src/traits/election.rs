@@ -89,7 +89,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         next_state: BlockHash<N>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
-        message.extend(view_number.to_le_bytes());
+        message.extend(&view_number.to_le_bytes());
         message.extend(next_state.as_ref());
         if pub_key.node.verify(&token.0, message) && table.contains(&pub_key) {
             Some(token)
@@ -106,7 +106,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         next_state: BlockHash<N>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
-        message.extend(view_number.to_le_bytes());
+        message.extend(&view_number.to_le_bytes());
         message.extend(next_state.as_ref());
         let token = private_key.node.sign(message);
         let pub_key_share = private_key.node.public_key_share();
