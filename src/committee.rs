@@ -1,11 +1,15 @@
-use crate::H_256;
 use blake3::Hasher;
+use std::marker::PhantomData;
 // use jf_primitives::vrf;
 use ark_ec::models::TEModelParameters as Parameters;
 use ark_ed_on_bls12_381::EdwardsParameters as Param381;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
+
+use crate::traits::election::Election;
+use crate::H_256;
+use crate::{BlockHash, PrivKey, PubKey};
 
 pub use threshold_crypto as tc;
 
@@ -96,107 +100,40 @@ pub trait Vrf<VrfHasher, P: Parameters> {
     fn verify(proof: Self::Proof, public_key: Self::PublicKey, input: Self::Input) -> bool;
 }
 
-/// A trait for member and leader election.
-pub trait Election {
-    /// A table mapping public keys with the corresponding total stake.
-    type StakeTable;
-
-    /// The threshold for stake selection.
-    type SelectionThreshold;
-
-    // type State;
-
-    /// Membership proof.
-    type VoteToken;
-
-    /// Verified membership proof.
-    type ValidatedVoteToken;
-
-    /// Election public key.
-    type PublicKey;
-
-    /// Election secret key.
-    type SecretKey;
-
-    // // Returns table from current commited state
-    // fn get_stake_table(state: &State) -> StakeTable;
-
-    /// Returns the leader for the current view number, given current stake table.
-    fn get_leader(
-        table: &Self::StakeTable,
-        view_number: u64,
-    ) -> Result<Self::PublicKey, CommitteeError>;
-
-    // TODO: make next_state: BlockHash<N>
-    /// Validates a vote token and returns the number of seats it has.
-    fn get_votes(
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
-        token: Self::VoteToken,
-        public_key: Self::PublicKey,
-        view_number: u64,
-        next_state: [u8; H_256],
-    ) -> Result<Self::ValidatedVoteToken, CommitteeError>;
-
-    /// Returns the number of votes a validated token has.
-    fn get_vote_count(token: &Self::ValidatedVoteToken) -> u64;
-
-    // TODO: make next_state: BlockHash<N>
-    /// Attempts to generate a vote token for self.
-    ///
-    /// Returns null if the number of seats is zero.
-    fn make_vote_token(
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
-        public_key: &Self::PublicKey,
-        secret_key: &Self::SecretKey,
-        view_number: u64,
-        next_state: [u8; H_256],
-    ) -> Result<Option<Self::VoteToken>, CommitteeError>;
-}
-
-// struct Leaf {
-//     parent: BlockHash, // Hash of the parent Leaf
-//     item: BlockContents,
-//     state_hash: BlockHash, // Hash of state created by this leaf
-// }
-
 /// A structure for committee election.
-pub struct CommitteeElection {
-    /// The VRF signature share.
-    pub vrf_proof: tc::SignatureShare,
-
-    /// The set of stake such that `H(vrf_output | stake)` is selected.
-    ///
-    /// Stake is in the range of `[0, total_stake]`, where `total_stake` is a predetermined
-    /// value representing the weight of the associated VRF public key, i.e., the maximum votes it
-    /// may have. The size of the set is the actual number of votes granted in the current round.
-    pub selected_stake: HashSet<u64>,
+pub struct DynamicCommittee<S, const N: usize> {
+    /// The nodes participating
+    nodes: HashMap<PubKey, u64>,
+    /// State phantom
+    _state_phantom: PhantomData<S>,
 }
 
-impl Election for CommitteeElection {
-    type StakeTable = HashMap<tc::PublicKeyShare, u64>;
+impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
+    type StakeTable = HashMap<PubKey, u64>;
 
     /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
     /// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the
     /// selection threshold.
     type SelectionThreshold = [u8; H_256];
 
+    // TODO: make the state nonarbitrary
+    /// Arbitrary state type, we don't use it
+    type State = S;
+
     type VoteToken = tc::SignatureShare;
 
     /// A tuple of a validated vote token and the associated selected stake.
-    type ValidatedVoteToken = (tc::SignatureShare, HashSet<u64>);
+    type ValidatedVoteToken = (PubKey, tc::SignatureShare, HashSet<u64>);
 
-    type PublicKey = tc::PublicKeyShare;
-
-    type SecretKey = tc::SecretKeyShare;
+    // TODO: make the state nonarbitrary
+    /// Clone the static table
+    fn get_state_table(&self, _state: &Self::State) -> Self::StakeTable {
+        self.nodes.clone()
+    }
 
     /// Determines the leader.
     /// Note: A leader doesn't necessarily have to be a commitee member.
-    fn get_leader(
-        table: &Self::StakeTable,
-        view_number: u64,
-    ) -> Result<Self::PublicKey, CommitteeError> {
+    fn get_leader(&self, table: &Self::StakeTable, view_number: u64) -> PubKey {
         let mut total_stake = 0;
         for record in table.iter() {
             total_stake += record.1;
@@ -214,42 +151,49 @@ impl Election for CommitteeElection {
         for record in table.iter() {
             stake_sum += record.1;
             if stake_sum > selected_stake {
-                return Ok(*record.0);
+                return record.0.clone();
             }
         }
-        Err(CommitteeError::InvalidLeaderStake)
+        unreachable!()
     }
 
     /// Validates a vote token.
     ///
     /// Returns:
-    /// * If the vote token isn't valid, stake data isn't found, or the public key shouldn't be selected: an error.
+    /// * If the vote token isn't valid, the stake data isn't found, or the public key shouldn't be selected:
+    /// null.
     /// * Otherwise: the validated tokan and the set of the selected stake, the size of which
-    /// represents the number of seats.
+    /// represents the number of votes.
+    ///
+    /// A stake is selected iff `H(vrf_output | stake) < selection_threshold`. Each stake is in the range of
+    /// `[0, total_stake]`, where `total_stake` is a predetermined value representing the weight of the
+    /// associated public key, i.e., the maximum votes it may have. The size of the set is the actual number
+    /// of votes granted in the current round.
     fn get_votes(
+        &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        token: Self::VoteToken,
-        public_key: Self::PublicKey,
         view_number: u64,
-        next_state: [u8; H_256],
-    ) -> Result<Self::ValidatedVoteToken, CommitteeError> {
-        // TODO: Make a helper function for hashing the commitee seed.
+        pub_key: PubKey,
+        token: Self::VoteToken,
+        next_state: BlockHash<N>,
+    ) -> Option<Self::ValidatedVoteToken> {
+        // TODO: Make a helper function for hashing the committee seed.
         let mut hasher = Hasher::new();
-        hasher.update("Committee seed".as_bytes());
+        hasher.update("Vote token".as_bytes());
         hasher.update(&view_number.to_be_bytes());
-        hasher.update(&next_state);
+        hasher.update(next_state.as_ref());
         let hash = *hasher.finalize().as_bytes();
-        if !public_key.verify(&token, hash) {
-            return Err(CommitteeError::IncorrectVrfSignature);
+        if !<Self as Vrf<Hasher, Param381>>::verify(token.clone(), pub_key.node, hash) {
+            return None;
         }
 
         // TODO: Make a helper function for calculating selected stake.
         let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
-        let total_stake = match table.get(&public_key) {
+        let total_stake = match table.get(&pub_key) {
             Some(stake) => stake,
             None => {
-                return Err(CommitteeError::UnknownStake);
+                return None;
             }
         };
         let mut selected_stake = HashSet::new();
@@ -260,42 +204,44 @@ impl Election for CommitteeElection {
         }
 
         if selected_stake.is_empty() {
-            return Err(CommitteeError::NotSelected);
+            return None;
         }
 
-        Ok((token, selected_stake))
+        Some((pub_key, token, selected_stake))
     }
 
     /// Returns the number of votes a validated token has.
-    fn get_vote_count(token: &Self::ValidatedVoteToken) -> u64 {
-        token.1.len() as u64
+    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
+        token.2.len() as u64
     }
 
     /// Attempts to generate a vote token for self.
     ///
-    /// Returns null if the number of seats is zero.
+    /// Returns null if the stake data isn't found or the number of votes is zero.
     fn make_vote_token(
+        &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        public_key: &Self::PublicKey,
-        secret_key: &Self::SecretKey,
         view_number: u64,
-        next_state: [u8; H_256],
-    ) -> Result<Option<Self::VoteToken>, CommitteeError> {
-        // TODO: Make a helper function for hashing the commitee seed.
+        private_key: &PrivKey,
+        next_state: BlockHash<N>,
+    ) -> Option<Self::VoteToken> {
+        // TODO: Make a helper function for hashing the committee seed.
         let mut hasher = Hasher::new();
-        hasher.update("Committee seed".as_bytes());
+        hasher.update("Vote token".as_bytes());
         hasher.update(&view_number.to_be_bytes());
-        hasher.update(&next_state);
+        hasher.update(next_state.as_ref());
         let hash = *hasher.finalize().as_bytes();
-        let token = <Self as Vrf<Hasher, Param381>>::prove(secret_key, &hash);
+        let token = <Self as Vrf<Hasher, Param381>>::prove(&private_key.node, &hash);
 
         // TODO: Make a helper function for calculating selected stake.
         let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
-        let total_stake = match table.get(public_key) {
+        let pub_key_share = private_key.node.public_key_share();
+        let pub_key = table.iter().find(|x| x.0.node == pub_key_share)?.0;
+        let total_stake = match table.get(&pub_key) {
             Some(stake) => stake,
             None => {
-                return Err(CommitteeError::UnknownStake);
+                return None;
             }
         };
         let mut selected_stake = HashSet::new();
@@ -306,14 +252,14 @@ impl Election for CommitteeElection {
         }
 
         if selected_stake.is_empty() {
-            return Ok(None);
+            return None;
         }
 
-        Ok(Some(token))
+        Some(token)
     }
 }
 
-// impl CommitteeElection {
+// impl DynamicCommittee {
 //     /// Creates a VRF proof and determines the participation.
 //     pub fn new(
 //         vrf_secret_key: &tc::SecretKeyShare,
@@ -381,7 +327,7 @@ impl Election for CommitteeElection {
 //     }
 // }
 
-impl Vrf<Hasher, Param381> for CommitteeElection {
+impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
     type PublicKey = tc::PublicKeyShare;
     type SecretKey = tc::SecretKeyShare;
     type Proof = tc::SignatureShare;
@@ -461,7 +407,7 @@ mod tests {
 
         // VRF verification should pass with the correct secret key share, total stake, committee seed,
         // and selection threshold
-        let proof = CommitteeElection::new(
+        let proof = DynamicCommittee::new(
             &secret_key_share_honest,
             TOTAL_STAKE,
             &COMMITTEE_SEED,
@@ -472,7 +418,7 @@ mod tests {
         assert!(verification.is_ok());
 
         // VRF verification should fail if the secret key share does not correspond to the public key share
-        let proof = CommitteeElection::new(
+        let proof = DynamicCommittee::new(
             &secret_key_share_byzantine,
             TOTAL_STAKE,
             &COMMITTEE_SEED,
@@ -483,7 +429,7 @@ mod tests {
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
         // VRF verification should fail if the committee seed used for proof generation is incorrect
-        let proof = CommitteeElection::new(
+        let proof = DynamicCommittee::new(
             &secret_key_share_honest,
             TOTAL_STAKE,
             &INCORRECT_COMMITTEE_SEED,
@@ -494,7 +440,7 @@ mod tests {
         assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
 
         // VRF verification should fail if any selected stake is larger than the total stake
-        let mut proof = CommitteeElection::new(
+        let mut proof = DynamicCommittee::new(
             &secret_key_share_honest,
             TOTAL_STAKE,
             &COMMITTEE_SEED,
@@ -506,7 +452,7 @@ mod tests {
         assert_eq!(verification, Err(CommitteeError::InvalidMemberStake));
 
         // VRF verification should fail if any stake should not be selected
-        let mut proof = CommitteeElection::new(
+        let mut proof = DynamicCommittee::new(
             &secret_key_share_honest,
             TOTAL_STAKE,
             &COMMITTEE_SEED,
@@ -571,13 +517,13 @@ mod tests {
 
         // Get the VRF output
         let signature = secret_key_share.sign(&COMMITTEE_SEED.to_message());
-        let vrf = CommitteeElection::evaluate(&signature);
+        let vrf = DynamicCommittee::evaluate(&signature);
 
         // VRF selection should produce deterministic results
         let selected_stake =
-            CommitteeElection::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+            DynamicCommittee::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         let selected_stake_again =
-            CommitteeElection::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
+            DynamicCommittee::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
         assert_eq!(selected_stake, selected_stake_again);
     }
 
@@ -595,9 +541,9 @@ mod tests {
         let committee_records = dummy_committee_records(public_key_shares);
 
         // Leader selection should produce deterministic results
-        let selected_leader = CommitteeElection::select_leader(&COMMITTEE_SEED, &committee_records);
+        let selected_leader = DynamicCommittee::select_leader(&COMMITTEE_SEED, &committee_records);
         let selected_leader_again =
-            CommitteeElection::select_leader(&COMMITTEE_SEED, &committee_records);
+            DynamicCommittee::select_leader(&COMMITTEE_SEED, &committee_records);
         assert_eq!(selected_leader, selected_leader_again);
     }
 }

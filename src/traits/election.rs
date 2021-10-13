@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 
-use crate::{BlockHash, PrivKey, PubKey};
+use crate::{BlockHash, PrivKey, PubKey, H_256};
 
 /// Describes how `PhaseLock` chooses committees and leaders
 pub trait Election<const N: usize> {
     /// Data structure describing the currently valid states
     type StakeTable;
+    /// The threshold for membership selection.
+    type SelectionThreshold;
     /// The state type this election implementation is bound to
     type State;
     /// A membership proof
@@ -23,6 +25,7 @@ pub trait Election<const N: usize> {
     fn get_votes(
         &self,
         table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         pub_key: PubKey,
         token: Self::VoteToken,
@@ -36,6 +39,7 @@ pub trait Election<const N: usize> {
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
         next_state: BlockHash<N>,
@@ -66,7 +70,13 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
     type StakeTable = Vec<PubKey>;
     /// Arbitrary state type, we don't use it
     type State = S;
+    // TODO: make this an arbitrary type.
+    /// Not used.
+    type SelectionThreshold = [u8; H_256];
     /// The vote token is just a signature and a pub key
+    // TODO: Is the `PubKey` necessary here? When validating the token in `get_votes`, `pub_key`
+    // is given as an input and the `PubKey` of a `VoteToken` isn't used. Can we make `VoteToken`
+    // just a `SignatureShare` while keeping the `PubKey` of the `ValidatedVoteToken`?
     type VoteToken = (threshold_crypto::SignatureShare, PubKey);
     /// Same for the validated vote token
     type ValidatedVoteToken = (threshold_crypto::SignatureShare, PubKey);
@@ -83,6 +93,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
     fn get_votes(
         &self,
         table: &Self::StakeTable,
+        _selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         pub_key: PubKey,
         token: Self::VoteToken,
@@ -101,6 +112,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
+        _selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
         next_state: BlockHash<N>,
