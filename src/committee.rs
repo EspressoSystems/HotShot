@@ -13,19 +13,6 @@ use crate::{BlockHash, PrivKey, PubKey};
 
 pub use threshold_crypto as tc;
 
-// /// Seed for committee election, changed in each round.
-// pub struct CommitteeSeed([u8; H_256]);
-
-// impl CommitteeSeed {
-//     /// Adds a domain separator to the committee seed for VRF proof and verification.
-//     pub fn to_message(&self) -> [u8; H_256] {
-//         let mut hasher = Hasher::new();
-//         hasher.update("Committee seed".as_bytes());
-//         hasher.update(&self.0);
-//         *hasher.finalize().as_bytes()
-//     }
-// }
-
 /// Error type for committee eleciton.
 #[derive(Debug, PartialEq)]
 pub enum CommitteeError {
@@ -50,26 +37,6 @@ pub enum CommitteeError {
 /// A seeded VRF hash will be selected iff it's smaller than the hash selection threshold.
 fn select_seeded_vrf_hash(seeded_vrf_hash: [u8; H_256], selection_threshold: [u8; H_256]) -> bool {
     seeded_vrf_hash < selection_threshold
-}
-
-/// Determines whether a stake should be selected into the committee.
-///
-/// # Arguments
-///
-/// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
-/// `total_stake` is a predetermined value representing the weight of the associated VRF
-/// public key.
-fn select_member_stake(
-    vrf_output: &[u8; H_256],
-    stake: u64,
-    selection_threshold: [u8; H_256],
-) -> bool {
-    let mut hasher = Hasher::new();
-    hasher.update("Seeded VRF".as_bytes());
-    hasher.update(vrf_output);
-    hasher.update(&stake.to_be_bytes());
-    let hash = *hasher.finalize().as_bytes();
-    select_seeded_vrf_hash(hash, selection_threshold)
 }
 
 // TODO: associate with TEModelParameter which specifies which curve is used.
@@ -106,6 +73,86 @@ pub struct DynamicCommittee<S, const N: usize> {
     nodes: HashMap<PubKey, u64>,
     /// State phantom
     _state_phantom: PhantomData<S>,
+}
+
+impl<S, const N: usize> DynamicCommittee<S, N> {
+    /// Hashes the view number and the next hash as the committee seed for vote token generation
+    /// and verification.
+    fn hash_commitee_seed(view_number: u64, next_state: BlockHash<N>) -> [u8; H_256] {
+        let mut hasher = Hasher::new();
+        hasher.update("Vote token".as_bytes());
+        hasher.update(&view_number.to_be_bytes());
+        hasher.update(next_state.as_ref());
+        *hasher.finalize().as_bytes()
+    }
+
+    /// Determines the number of votes a public key has.
+    ///
+    /// # Arguments
+    ///
+    /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
+    /// `total_stake` is a predetermined value representing the weight of the associated VRF
+    /// public key.
+    fn select_stake(
+        table: &<Self as Election<N>>::StakeTable,
+        selection_threshold: <Self as Election<N>>::SelectionThreshold,
+        pub_key: &PubKey,
+        token: <Self as Election<N>>::VoteToken,
+    ) -> HashSet<u64> {
+        let mut selected_stake = HashSet::new();
+
+        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
+        let total_stake = match table.get(pub_key) {
+            Some(stake) => *stake,
+            None => {
+                return selected_stake;
+            }
+        };
+
+        for stake in 0..total_stake {
+            let mut hasher = Hasher::new();
+            hasher.update("Seeded VRF".as_bytes());
+            hasher.update(&vrf_output);
+            hasher.update(&stake.to_be_bytes());
+            let hash = *hasher.finalize().as_bytes();
+            if select_seeded_vrf_hash(hash, selection_threshold) {
+                selected_stake.insert(stake);
+            }
+        }
+
+        selected_stake
+    }
+}
+
+impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
+    type PublicKey = tc::PublicKeyShare;
+    type SecretKey = tc::SecretKeyShare;
+    type Proof = tc::SignatureShare;
+    type Input = [u8; H_256];
+    type Output = [u8; H_256];
+
+    /// Signs the VRF signature.
+    fn prove(vrf_secret_key: &Self::SecretKey, vrf_input: &Self::Input) -> Self::Proof {
+        vrf_secret_key.sign(vrf_input)
+    }
+
+    /// Computes the VRF output for committee election.
+    fn evaluate(vrf_proof: &Self::Proof) -> Self::Output {
+        let mut hasher = Hasher::new();
+        hasher.update("VRF output".as_bytes());
+        hasher.update(&vrf_proof.to_bytes());
+        *hasher.finalize().as_bytes()
+    }
+
+    /// Verifies the VRF proof.
+    #[allow(clippy::implicit_hasher)]
+    fn verify(
+        vrf_proof: Self::Proof,
+        vrf_public_key: Self::PublicKey,
+        vrf_input: Self::Input,
+    ) -> bool {
+        vrf_public_key.verify(&vrf_proof, vrf_input)
+    }
 }
 
 impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
@@ -178,30 +225,12 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
         token: Self::VoteToken,
         next_state: BlockHash<N>,
     ) -> Option<Self::ValidatedVoteToken> {
-        // TODO: Make a helper function for hashing the committee seed.
-        let mut hasher = Hasher::new();
-        hasher.update("Vote token".as_bytes());
-        hasher.update(&view_number.to_be_bytes());
-        hasher.update(next_state.as_ref());
-        let hash = *hasher.finalize().as_bytes();
+        let hash = Self::hash_commitee_seed(view_number, next_state);
         if !<Self as Vrf<Hasher, Param381>>::verify(token.clone(), pub_key.node, hash) {
             return None;
         }
 
-        // TODO: Make a helper function for calculating selected stake.
-        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
-        let total_stake = match table.get(&pub_key) {
-            Some(stake) => stake,
-            None => {
-                return None;
-            }
-        };
-        let mut selected_stake = HashSet::new();
-        for stake in 0..*total_stake {
-            if select_member_stake(&vrf_output, stake, selection_threshold) {
-                selected_stake.insert(stake);
-            }
-        }
+        let selected_stake = Self::select_stake(table, selection_threshold, &pub_key, token.clone());
 
         if selected_stake.is_empty() {
             return None;
@@ -226,135 +255,18 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
         private_key: &PrivKey,
         next_state: BlockHash<N>,
     ) -> Option<Self::VoteToken> {
-        // TODO: Make a helper function for hashing the committee seed.
-        let mut hasher = Hasher::new();
-        hasher.update("Vote token".as_bytes());
-        hasher.update(&view_number.to_be_bytes());
-        hasher.update(next_state.as_ref());
-        let hash = *hasher.finalize().as_bytes();
+        let hash = Self::hash_commitee_seed(view_number, next_state);
         let token = <Self as Vrf<Hasher, Param381>>::prove(&private_key.node, &hash);
 
-        // TODO: Make a helper function for calculating selected stake.
-        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
         let pub_key_share = private_key.node.public_key_share();
         let pub_key = table.iter().find(|x| x.0.node == pub_key_share)?.0;
-        let total_stake = match table.get(&pub_key) {
-            Some(stake) => stake,
-            None => {
-                return None;
-            }
-        };
-        let mut selected_stake = HashSet::new();
-        for stake in 0..*total_stake {
-            if select_member_stake(&vrf_output, stake, selection_threshold) {
-                selected_stake.insert(stake);
-            }
-        }
+        let selected_stake = Self::select_stake(table, selection_threshold, pub_key, token.clone());
 
         if selected_stake.is_empty() {
             return None;
         }
 
         Some(token)
-    }
-}
-
-// impl DynamicCommittee {
-//     /// Creates a VRF proof and determines the participation.
-//     pub fn new(
-//         vrf_secret_key: &tc::SecretKeyShare,
-//         total_stake: u64,
-//         committee_seed: &CommitteeSeed,
-//         selection_threshold: Self::SelectionThreshold,
-//     ) -> Self {
-//         let vrf_proof = Self::prove(vrf_secret_key, committee_seed);
-
-//         let vrf_output = Self::evaluate(&vrf_proof);
-//         let mut selected_stake = HashSet::new();
-//         for stake in 0..total_stake {
-//             if Self::select_member_stake(&vrf_output, stake, selection_threshold) {
-//                 selected_stake.insert(stake);
-//             }
-//         }
-
-//         Self {
-//             vrf_proof,
-//             selected_stake,
-//         }
-//     }
-
-//     /// Verifies the committee selection.
-//     ///
-//     /// # Errors
-//     /// Returns an error if:
-//     ///
-//     /// 1. the VRF proof is not the correct signature from the VRF public key and the committee
-//     /// seed, or
-//     ///
-//     /// 2. any `stake` in `selected_stake`:
-//     ///
-//     ///     2.1 is larger than the total stake of the associated VRF public key, or
-//     ///
-//     ///     2.2 constructs an `H(vrf_output | stake)` that should not be selected.
-//     #[allow(clippy::implicit_hasher)]
-//     pub fn verify_membership(
-//         &self,
-//         vrf_public_key: tc::PublicKeyShare,
-//         committee_seed: &CommitteeSeed,
-//         committee_records: &CommitteeRecords,
-//     ) -> Result<(), CommitteeError> {
-//         if !vrf_public_key.verify(&self.vrf_proof, committee_seed.to_message()) {
-//             return Err(CommitteeError::IncorrectVrfSignature);
-//         }
-//         let vrf_output = Self::evaluate(&self.vrf_proof);
-
-//         let total_stake = match committee_records.stake_table.get(&vrf_public_key) {
-//             Some(stake) => stake,
-//             None => {
-//                 return Err(CommitteeError::UnknownStake);
-//             }
-//         };
-//         let selection_threshold = committee_records.selection_threshold;
-//         for stake in self.selected_stake.clone() {
-//             if stake >= *total_stake {
-//                 return Err(CommitteeError::InvalidMemberStake);
-//             }
-//             if !Self::select_member_stake(&vrf_output, stake, selection_threshold) {
-//                 return Err(CommitteeError::NotSelected);
-//             }
-//         }
-//         Ok(())
-//     }
-// }
-
-impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
-    type PublicKey = tc::PublicKeyShare;
-    type SecretKey = tc::SecretKeyShare;
-    type Proof = tc::SignatureShare;
-    type Input = [u8; H_256];
-    type Output = [u8; H_256];
-
-    /// Signs the VRF signature.
-    fn prove(vrf_secret_key: &Self::SecretKey, vrf_input: &Self::Input) -> Self::Proof {
-        vrf_secret_key.sign(vrf_input)
-    }
-
-    /// Computes the VRF output for committee election.
-    fn evaluate(vrf_proof: &Self::Proof) -> Self::Output {
-        let mut hasher = Hasher::new();
-        hasher.update("VRF output".as_bytes());
-        hasher.update(&vrf_proof.to_bytes());
-        *hasher.finalize().as_bytes()
-    }
-
-    /// Verifies the VRF proof.
-    #[allow(clippy::implicit_hasher)]
-    fn verify(
-        vrf_proof: Self::Proof,
-        vrf_public_key: Self::PublicKey,
-        vrf_input: Self::Input,
-    ) -> bool {
-        vrf_public_key.verify(&vrf_proof, vrf_input)
     }
 }
 
