@@ -66,5 +66,7 @@ pub mod dummy {
         fn append(&self, _block: &Self::Block) -> Result<Self, Self::Error> {
             Err(DummyError)
         }
+
+        fn on_commit(&self) {}
     }
 }
