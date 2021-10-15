@@ -7,30 +7,12 @@ use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
 
-use crate::traits::election::Election;
-use crate::H_256;
-use crate::{BlockHash, PrivKey, PubKey};
+use crate::{
+    traits::election::Election,
+    {BlockHash, PrivKey, PubKey, H_256},
+};
 
 pub use threshold_crypto as tc;
-
-/// Error type for committee eleciton.
-#[derive(Debug, PartialEq)]
-pub enum CommitteeError {
-    /// The VRF signature is not the correct signature from the public key share and the message.
-    IncorrectVrfSignature,
-
-    /// The stake associated with a public key isn't found in the committee records.
-    UnknownStake,
-
-    /// The selected stake exceeds the total stake associated with the public key.
-    InvalidMemberStake,
-
-    /// The selected stake exceeds the total stake of all the public keys.
-    InvalidLeaderStake,
-
-    /// The stake should not be elected.
-    NotSelected,
-}
 
 /// Determines whether the hash of a seeded VRF should be selected.
 ///
@@ -282,11 +264,17 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::traits::storage::StorageResult;
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 
+    // TODO: determine the bounded type after fixing get_state_table.
+    type S = StorageResult<[u8; H_256]>;
+    const N: usize = H_256;
     const SECRET_KEYS_SEED: u64 = 1234;
     const VIEW_NUMBER: u64 = 10;
+    const INCORRECT_VIEW_NUMBER: u64 = 11;
     const NEXT_STATE: [u8; H_256] = [20; H_256];
+    const INCORRECT_NEXT_STATE: [u8; H_256] = [22; H_256];
     const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
@@ -304,9 +292,9 @@ mod tests {
 
         let mut stake_table = HashMap::new();
         for i in 0..record_size - 1 {
-            stake_table.insert(vrf_public_keys[i], stake_per_record);
+            stake_table.insert(vrf_public_keys[i].clone(), stake_per_record);
         }
-        stake_table.insert(vrf_public_keys[record_size - 1], last_stake);
+        stake_table.insert(vrf_public_keys[record_size - 1].clone(), last_stake);
 
         stake_table
     }
@@ -314,152 +302,132 @@ mod tests {
     // Test the verification of VRF proof
     #[test]
     fn test_vrf_verification() {
-        // Generate records
+        // Generate keys
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
         let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
         let secret_key_share_honest = secret_keys.secret_key_share(HONEST_NODE_ID);
         let secret_key_share_byzantine = secret_keys.secret_key_share(BYZANTINE_NODE_ID);
-        let public_key_honest =
-            PubKey::from_secret_key_set_escape_hatch(&secret_keys, HONEST_NODE_ID);
-        let public_key_share_honest = public_key_honest.node;
-        // let public_keys = secret_keys.public_keys();
-        // let stake_table = dummy_stake_table(vec![public_key_honest]);
-        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let public_key_share_honest =
+            PubKey::from_secret_key_set_escape_hatch(&secret_keys, HONEST_NODE_ID).node;
 
         // VRF verification should pass with the correct secret key share, total stake, committee seed,
         // and selection threshold
-        let hash = DynamicCommittee::hash_commitee_seed(VIEW_NUMBER, next_state);
-        let token = DynamicCommittee::prove(&secret_key_share_honest, &hash);
-        let valid = DynamicCommittee::verify(token, public_key_share_honest, hash);
+        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
+        let proof = DynamicCommittee::<S, N>::prove(&secret_key_share_honest, &input);
+        let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_share_honest, input);
         assert!(valid);
 
-        // // VRF verification should fail if the secret key share does not correspond to the public key share
-        // let proof = DynamicCommittee::new(
-        //     &secret_key_share_byzantine,
-        //     TOTAL_STAKE,
-        //     &COMMITTEE_SEED,
-        //     SELECTION_THRESHOLD,
-        // );
-        // let verification =
-        //     proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
-        // assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
+        // VRF verification should fail if the secret key share does not correspond to the public key share
+        let incorrect_proof = DynamicCommittee::<S, N>::prove(&secret_key_share_byzantine, &input);
+        let valid =
+            DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_share_honest, input);
+        assert!(!valid);
 
-        // // VRF verification should fail if the committee seed used for proof generation is incorrect
-        // let proof = DynamicCommittee::new(
-        //     &secret_key_share_honest,
-        //     TOTAL_STAKE,
-        //     &INCORRECT_COMMITTEE_SEED,
-        //     SELECTION_THRESHOLD,
-        // );
-        // let verification =
-        //     proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
-        // assert_eq!(verification, Err(CommitteeError::IncorrectVrfSignature));
+        // VRF verification should fail if the view number used for proof generation is incorrect
+        let incorrect_input =
+            DynamicCommittee::<S, N>::hash_commitee_seed(INCORRECT_VIEW_NUMBER, next_state);
+        let valid = DynamicCommittee::<S, N>::verify(
+            proof.clone(),
+            public_key_share_honest,
+            incorrect_input,
+        );
+        assert!(!valid);
 
-        // // VRF verification should fail if any selected stake is larger than the total stake
-        // let mut proof = DynamicCommittee::new(
-        //     &secret_key_share_honest,
-        //     TOTAL_STAKE,
-        //     &COMMITTEE_SEED,
-        //     SELECTION_THRESHOLD,
-        // );
-        // proof.selected_stake.insert(56);
-        // let verification =
-        //     proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
-        // assert_eq!(verification, Err(CommitteeError::InvalidMemberStake));
-
-        // // VRF verification should fail if any stake should not be selected
-        // let mut proof = DynamicCommittee::new(
-        //     &secret_key_share_honest,
-        //     TOTAL_STAKE,
-        //     &COMMITTEE_SEED,
-        //     SELECTION_THRESHOLD,
-        // );
-        // // TODO: Selected stake in local test and CI are different (https://gitlab.com/translucence/systems/phaselock/-/issues/34)
-        // for i in 0..TOTAL_STAKE {
-        //     // Try to add a stake that shouldn't be selected
-        //     if proof.selected_stake.insert(i) {
-        //         break;
-        //     }
-        // }
-        // let verification =
-        //     proof.verify_membership(public_key_share_honest, &COMMITTEE_SEED, &committee_records);
-        // assert_eq!(verification, Err(CommitteeError::NotSelected));
+        // VRF verification should fail if the next state used for proof generation is incorrect
+        let incorrect_next_state = BlockHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+        let incorrect_input =
+            DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, incorrect_next_state);
+        let valid =
+            DynamicCommittee::<S, N>::verify(proof, public_key_share_honest, incorrect_input);
+        assert!(!valid);
     }
 
-    // // Test the selection of seeded VRF hash
-    // #[test]
-    // fn test_hash_selection() {
-    //     let seeded_vrf_hash_1: SelectionThreshold = [
-    //         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0,
-    //     ];
-    //     let seeded_vrf_hash_2: SelectionThreshold = [
-    //         128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0, 0,
-    //     ];
-    //     let seeded_vrf_hash_3: SelectionThreshold = [
-    //         128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0, 1,
-    //     ];
-    //     let seeded_vrf_hash_4: SelectionThreshold = [
-    //         200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 0, 1,
-    //     ];
-    //     assert!(select_seeded_vrf_hash(
-    //         seeded_vrf_hash_1,
-    //         SELECTION_THRESHOLD
-    //     ));
-    //     assert!(select_seeded_vrf_hash(
-    //         seeded_vrf_hash_2,
-    //         SELECTION_THRESHOLD
-    //     ));
-    //     assert!(!select_seeded_vrf_hash(
-    //         seeded_vrf_hash_3,
-    //         SELECTION_THRESHOLD
-    //     ));
-    //     assert!(!select_seeded_vrf_hash(
-    //         seeded_vrf_hash_4,
-    //         SELECTION_THRESHOLD
-    //     ));
-    // }
+    // Test the selection of seeded VRF hash
+    #[test]
+    fn test_hash_selection() {
+        let seeded_vrf_hash_1 = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let seeded_vrf_hash_2 = [
+            128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        ];
+        let seeded_vrf_hash_3 = [
+            128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 1,
+        ];
+        let seeded_vrf_hash_4 = [
+            200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 1,
+        ];
+        assert!(select_seeded_vrf_hash(
+            seeded_vrf_hash_1,
+            SELECTION_THRESHOLD
+        ));
+        assert!(select_seeded_vrf_hash(
+            seeded_vrf_hash_2,
+            SELECTION_THRESHOLD
+        ));
+        assert!(!select_seeded_vrf_hash(
+            seeded_vrf_hash_3,
+            SELECTION_THRESHOLD
+        ));
+        assert!(!select_seeded_vrf_hash(
+            seeded_vrf_hash_4,
+            SELECTION_THRESHOLD
+        ));
+    }
 
-    // // Test VRF selection
-    // #[test]
-    // fn test_vrf_selection() {
-    //     // Generate keys
-    //     let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
-    //     let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
-    //     let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
+    // Test stake selection for member election
+    #[test]
+    fn test_stake_selection() {
+        // Generate keys
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let secret_key_share = secret_keys.secret_key_share(HONEST_NODE_ID);
+        let pub_key = PubKey::from_secret_key_set_escape_hatch(&secret_keys, HONEST_NODE_ID);
+        let pub_keys = vec![pub_key.clone()];
 
-    //     // Get the VRF output
-    //     let signature = secret_key_share.sign(&COMMITTEE_SEED.to_message());
-    //     let vrf = DynamicCommittee::evaluate(&signature);
+        // Get the VRF proof
+        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
+        let proof = DynamicCommittee::<S, N>::prove(&secret_key_share, &input);
 
-    //     // VRF selection should produce deterministic results
-    //     let selected_stake =
-    //         DynamicCommittee::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
-    //     let selected_stake_again =
-    //         DynamicCommittee::select_member_stake(&vrf, TOTAL_STAKE, SELECTION_THRESHOLD);
-    //     assert_eq!(selected_stake, selected_stake_again);
-    // }
+        // VRF selection should produce deterministic results
+        let stake_table = dummy_stake_table(pub_keys);
+        let selected_stake = DynamicCommittee::<S, N>::select_stake(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            &pub_key.clone(),
+            proof.clone(),
+        );
+        let selected_stake_again = DynamicCommittee::<S, N>::select_stake(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            &pub_key,
+            proof,
+        );
+        assert_eq!(selected_stake, selected_stake_again);
+    }
 
-    // // Test leader selection
-    // #[test]
-    // fn test_leader_selection() {
-    //     // Generate records
-    //     let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
-    //     let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
-    //     let public_keys = secret_keys.public_keys();
-    //     let mut public_key_shares = Vec::new();
-    //     for i in 0..3 {
-    //         public_key_shares.push(public_keys.public_key_share(i));
-    //     }
-    //     let committee_records = dummy_committee_records(public_key_shares);
+    // Test leader selection
+    #[test]
+    fn test_leader_selection() {
+        // Generate records
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let mut pub_keys = Vec::new();
+        for i in 0..10 {
+            pub_keys.push(PubKey::from_secret_key_set_escape_hatch(&secret_keys, i));
+        }
+        let stake_table = dummy_stake_table(pub_keys);
+        let committee = DynamicCommittee::<S, N>::new(stake_table.clone());
 
-    //     // Leader selection should produce deterministic results
-    //     let selected_leader = DynamicCommittee::select_leader(&COMMITTEE_SEED, &committee_records);
-    //     let selected_leader_again =
-    //         DynamicCommittee::select_leader(&COMMITTEE_SEED, &committee_records);
-    //     assert_eq!(selected_leader, selected_leader_again);
-    // }
+        // Leader selection should produce deterministic results
+        let selected_leader = committee.get_leader(&stake_table, VIEW_NUMBER);
+        let selected_leader_again = committee.get_leader(&stake_table, VIEW_NUMBER);
+        assert_eq!(selected_leader, selected_leader_again);
+    }
 }

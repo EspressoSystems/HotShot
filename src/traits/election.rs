@@ -16,6 +16,7 @@ pub trait Election<const N: usize> {
     type ValidatedVoteToken;
 
     /// Returns the table from the current committed state
+    // TODO: Should this be get_stake_table?
     fn get_state_table(&self, state: &Self::State) -> Self::StakeTable;
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, table: &Self::StakeTable, view_number: u64) -> PubKey;
