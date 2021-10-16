@@ -278,6 +278,7 @@ mod tests {
     const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
+    const STAKELESS_NODE_ID: u64 = 50;
     const TOTAL_STAKE: u64 = 55;
     const SELECTION_THRESHOLD: [u8; H_256] = [
         128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -429,5 +430,128 @@ mod tests {
         let selected_leader = committee.get_leader(&stake_table, VIEW_NUMBER);
         let selected_leader_again = committee.get_leader(&stake_table, VIEW_NUMBER);
         assert_eq!(selected_leader, selected_leader_again);
+    }
+
+    // Test vote token generation and validation
+    #[test]
+    fn test_vote_token() {
+        // Generate keys
+        let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
+        let secret_keys = tc::SecretKeySet::random(THRESHOLD as usize - 1, &mut rng);
+        let private_key_honest = PrivKey {
+            node: secret_keys.secret_key_share(HONEST_NODE_ID),
+        };
+        let private_key_byzantine = PrivKey {
+            node: secret_keys.secret_key_share(BYZANTINE_NODE_ID),
+        };
+        let private_key_stakeless = PrivKey {
+            node: secret_keys.secret_key_share(STAKELESS_NODE_ID),
+        };
+        let pub_key_honest = PubKey::from_secret_key_set_escape_hatch(&secret_keys, HONEST_NODE_ID);
+        let pub_key_byzantine =
+            PubKey::from_secret_key_set_escape_hatch(&secret_keys, BYZANTINE_NODE_ID);
+        let pub_key_stakeless =
+            PubKey::from_secret_key_set_escape_hatch(&secret_keys, STAKELESS_NODE_ID);
+
+        // Build the committee
+        let mut stake_table =
+            dummy_stake_table(vec![pub_key_honest.clone(), pub_key_byzantine.clone()]);
+        stake_table.insert(pub_key_stakeless, 0);
+        let committee = DynamicCommittee::<S, N>::new(stake_table.clone());
+
+        // Vote token should be null if the public key is not selected as a member.
+        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let vote_token = committee.make_vote_token(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            &private_key_stakeless,
+            next_state,
+        );
+        assert!(vote_token.is_none());
+
+        // Votes should be granted with the correct private key, view number, and next state
+        let vote_token = committee
+            .make_vote_token(
+                &stake_table,
+                SELECTION_THRESHOLD,
+                VIEW_NUMBER,
+                &private_key_honest,
+                next_state,
+            )
+            .unwrap();
+        let votes = committee.get_votes(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            pub_key_honest.clone(),
+            vote_token.clone(),
+            next_state,
+        );
+        let validated_vote_token = votes.unwrap();
+        assert_eq!(validated_vote_token.0, pub_key_honest.clone());
+        assert_eq!(validated_vote_token.1, vote_token);
+        assert!(!validated_vote_token.2.is_empty());
+
+        // No vote should be granted if the private key does not correspond to the public key
+        let incorrect_vote_token = committee
+            .make_vote_token(
+                &stake_table,
+                SELECTION_THRESHOLD,
+                VIEW_NUMBER,
+                &private_key_byzantine,
+                next_state,
+            )
+            .unwrap();
+        let votes = committee.get_votes(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            pub_key_honest.clone(),
+            incorrect_vote_token,
+            next_state,
+        );
+        assert!(votes.is_none());
+
+        // No vote should be granted if the view number used for token generation is incorrect
+        let incorrect_vote_token = committee
+            .make_vote_token(
+                &stake_table,
+                SELECTION_THRESHOLD,
+                INCORRECT_VIEW_NUMBER,
+                &private_key_honest,
+                next_state,
+            )
+            .unwrap();
+        let votes = committee.get_votes(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            pub_key_honest.clone(),
+            incorrect_vote_token,
+            next_state,
+        );
+        assert!(votes.is_none());
+
+        // No vote should be granted if the next state used for token generation is incorrect
+        let incorrect_next_state = BlockHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+        let incorrect_vote_token = committee
+            .make_vote_token(
+                &stake_table,
+                SELECTION_THRESHOLD,
+                VIEW_NUMBER,
+                &private_key_honest,
+                incorrect_next_state,
+            )
+            .unwrap();
+        let votes = committee.get_votes(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            pub_key_honest,
+            incorrect_vote_token,
+            next_state,
+        );
+        assert!(votes.is_none());
     }
 }
