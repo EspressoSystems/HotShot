@@ -8,3 +8,9 @@ pub mod node_implementation;
 pub mod state;
 /// `Storage` trait
 pub mod storage;
+
+pub use block_contents::BlockContents;
+pub use election::Election;
+pub use node_implementation::NodeImplementation;
+pub use state::State;
+pub use storage::Storage;
