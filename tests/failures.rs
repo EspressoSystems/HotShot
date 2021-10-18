@@ -165,6 +165,7 @@ async fn single_permanent_failure() {
 //
 // With n=7, this is the maximum failures that the network can tolerate
 #[async_std::test]
+#[ignore]
 #[instrument]
 async fn double_permanent_failure() {
     setup_logging();
