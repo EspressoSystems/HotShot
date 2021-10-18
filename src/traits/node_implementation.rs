@@ -4,6 +4,8 @@ use crate::{
     message::Message, networking::NetworkingImplementation, traits::state, BlockContents, Storage,
 };
 
+use super::StatefulHandler;
+
 /// Node implementation aggregate trait
 pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'static {
     /// Block type for this consensus implementation
@@ -20,4 +22,6 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
                 N,
             >,
         > + Clone;
+    /// Stateful call back handler for this consensus implementation
+    type StatefulHandler: StatefulHandler<N, Block = Self::Block, State = Self::State>;
 }

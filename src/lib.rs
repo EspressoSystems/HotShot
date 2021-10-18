@@ -48,7 +48,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use async_std::sync::RwLock;
+use async_std::sync::{Mutex, RwLock};
 use async_std::task::{spawn, yield_now, JoinHandle};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -63,15 +63,15 @@ use crate::networking::NetworkingImplementation;
 use crate::utility::broadcast::BroadcastSender;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 
-pub use rand;
-pub use threshold_crypto as tc;
-
 pub use crate::{
     data::{BlockHash, QuorumCertificate, Stage},
     traits::block_contents::BlockContents,
     traits::node_implementation::NodeImplementation,
     traits::storage::{Storage, StorageResult},
 };
+
+pub use rand;
+pub use threshold_crypto as tc;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -221,6 +221,8 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     decide_waiter: WaitOnce<Decide<N>>,
     /// This `PhaseLock` instance's storage backend
     storage: I::Storage,
+    /// This `PhaseLock` instance's stateful callback handler
+    stateful_handler: Mutex<I::StatefulHandler>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
@@ -252,6 +254,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
+        handler: I::StatefulHandler,
     ) -> Self {
         info!("Creating a new phaselock");
         let node_pub_key = secret_key_share.public_key_share();
@@ -301,6 +304,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             commit_waiter: WaitOnce::new(),
             decide_waiter: WaitOnce::new(),
             storage,
+            stateful_handler: Mutex::new(handler),
         };
         inner.storage.insert_qc(QuorumCertificate {
             block_hash: genesis_hash,
@@ -601,6 +605,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
+        handler: I::StatefulHandler,
     ) -> (JoinHandle<()>, PhaseLockHandle<I, N>) {
         let (input, output) = crate::utility::broadcast::channel();
         // Save a clone of the storage for the handle
@@ -613,6 +618,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             starting_state,
             networking,
             storage.clone(),
+            handler,
         )
         .await;
         let pause = Arc::new(RwLock::new(true));
