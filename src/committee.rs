@@ -7,10 +7,7 @@ use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    traits::election::Election,
-    {BlockHash, PrivKey, PubKey, H_256},
-};
+use crate::{BlockHash, PrivKey, PubKey, H_256};
 
 pub use threshold_crypto as tc;
 
@@ -50,67 +47,8 @@ pub trait Vrf<VrfHasher, P: Parameters> {
 
 /// A structure for dynamic committee.
 pub struct DynamicCommittee<S, const N: usize> {
-    /// A table mapping public keys of participating nodes with their total stake.
-    stake_table: HashMap<PubKey, u64>,
     /// State phantom.
     _state_phantom: PhantomData<S>,
-}
-
-impl<S, const N: usize> DynamicCommittee<S, N> {
-    /// Creates a new dynamic committee.
-    pub fn new(stake_table: HashMap<PubKey, u64>) -> Self {
-        Self {
-            stake_table,
-            _state_phantom: PhantomData,
-        }
-    }
-
-    /// Hashes the view number and the next hash as the committee seed for vote token generation
-    /// and verification.
-    fn hash_commitee_seed(view_number: u64, next_state: BlockHash<N>) -> [u8; H_256] {
-        let mut hasher = Hasher::new();
-        hasher.update("Vote token".as_bytes());
-        hasher.update(&view_number.to_be_bytes());
-        hasher.update(next_state.as_ref());
-        *hasher.finalize().as_bytes()
-    }
-
-    /// Determines the number of votes a public key has.
-    ///
-    /// # Arguments
-    ///
-    /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
-    /// `total_stake` is a predetermined value representing the weight of the associated VRF
-    /// public key.
-    fn select_stake(
-        table: &<Self as Election<N>>::StakeTable,
-        selection_threshold: <Self as Election<N>>::SelectionThreshold,
-        pub_key: &PubKey,
-        token: <Self as Election<N>>::VoteToken,
-    ) -> HashSet<u64> {
-        let mut selected_stake = HashSet::new();
-
-        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
-        let total_stake = match table.get(pub_key) {
-            Some(stake) => *stake,
-            None => {
-                return selected_stake;
-            }
-        };
-
-        for stake in 0..total_stake {
-            let mut hasher = Hasher::new();
-            hasher.update("Seeded VRF".as_bytes());
-            hasher.update(&vrf_output);
-            hasher.update(&stake.to_be_bytes());
-            let hash = *hasher.finalize().as_bytes();
-            if select_seeded_vrf_hash(hash, selection_threshold) {
-                selected_stake.insert(stake);
-            }
-        }
-
-        selected_stake
-    }
 }
 
 impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
@@ -144,32 +82,76 @@ impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
     }
 }
 
-impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
-    type StakeTable = HashMap<PubKey, u64>;
+type StakeTable = HashMap<PubKey, u64>;
 
-    /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
-    /// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the
-    /// selection threshold.
-    type SelectionThreshold = [u8; H_256];
+/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
+/// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the
+/// selection threshold.
+type SelectionThreshold = [u8; H_256];
 
-    // TODO: make the state nonarbitrary
-    /// Arbitrary state type, we don't use it
-    type State = S;
+type VoteToken = tc::SignatureShare;
 
-    type VoteToken = tc::SignatureShare;
+/// A tuple of a validated vote token and the associated selected stake.
+type ValidatedVoteToken = (PubKey, tc::SignatureShare, HashSet<u64>);
 
-    /// A tuple of a validated vote token and the associated selected stake.
-    type ValidatedVoteToken = (PubKey, tc::SignatureShare, HashSet<u64>);
+impl<S, const N: usize> DynamicCommittee<S, N> {
+    /// Creates a new dynamic committee.
+    pub fn new() -> Self {
+        Self {
+            _state_phantom: PhantomData,
+        }
+    }
 
-    // TODO: make the state nonarbitrary
-    /// Clones the stake table.
-    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
-        self.stake_table.clone()
+    /// Hashes the view number and the next hash as the committee seed for vote token generation
+    /// and verification.
+    fn hash_commitee_seed(view_number: u64, next_state: BlockHash<N>) -> [u8; H_256] {
+        let mut hasher = Hasher::new();
+        hasher.update("Vote token".as_bytes());
+        hasher.update(&view_number.to_be_bytes());
+        hasher.update(next_state.as_ref());
+        *hasher.finalize().as_bytes()
+    }
+
+    /// Determines the number of votes a public key has.
+    ///
+    /// # Arguments
+    ///
+    /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
+    /// `total_stake` is a predetermined value representing the weight of the associated VRF
+    /// public key.
+    fn select_stake(
+        table: &StakeTable,
+        selection_threshold: SelectionThreshold,
+        pub_key: &PubKey,
+        token: VoteToken,
+    ) -> HashSet<u64> {
+        let mut selected_stake = HashSet::new();
+
+        let vrf_output = <Self as Vrf<Hasher, Param381>>::evaluate(&token);
+        let total_stake = match table.get(pub_key) {
+            Some(stake) => *stake,
+            None => {
+                return selected_stake;
+            }
+        };
+
+        for stake in 0..total_stake {
+            let mut hasher = Hasher::new();
+            hasher.update("Seeded VRF".as_bytes());
+            hasher.update(&vrf_output);
+            hasher.update(&stake.to_be_bytes());
+            let hash = *hasher.finalize().as_bytes();
+            if select_seeded_vrf_hash(hash, selection_threshold) {
+                selected_stake.insert(stake);
+            }
+        }
+
+        selected_stake
     }
 
     /// Determines the leader.
     /// Note: A leader doesn't necessarily have to be a commitee member.
-    fn get_leader(&self, table: &Self::StakeTable, view_number: u64) -> PubKey {
+    pub fn get_leader(&self, table: &StakeTable, view_number: u64) -> PubKey {
         let mut total_stake = 0;
         for record in table.iter() {
             total_stake += record.1;
@@ -205,15 +187,15 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
     /// `[0, total_stake]`, where `total_stake` is a predetermined value representing the weight of the
     /// associated public key, i.e., the maximum votes it may have. The size of the set is the actual number
     /// of votes granted in the current round.
-    fn get_votes(
+    pub fn get_votes(
         &self,
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
+        table: &StakeTable,
+        selection_threshold: SelectionThreshold,
         view_number: u64,
         pub_key: PubKey,
-        token: Self::VoteToken,
+        token: VoteToken,
         next_state: BlockHash<N>,
-    ) -> Option<Self::ValidatedVoteToken> {
+    ) -> Option<ValidatedVoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         if !<Self as Vrf<Hasher, Param381>>::verify(token.clone(), pub_key.node, hash) {
             return None;
@@ -230,21 +212,21 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
     }
 
     /// Returns the number of votes a validated token has.
-    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
+    pub fn get_vote_count(&self, token: &ValidatedVoteToken) -> u64 {
         token.2.len() as u64
     }
 
     /// Attempts to generate a vote token for self.
     ///
     /// Returns null if the stake data isn't found or the number of votes is zero.
-    fn make_vote_token(
+    pub fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
+        table: &StakeTable,
+        selection_threshold: SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
         next_state: BlockHash<N>,
-    ) -> Option<Self::VoteToken> {
+    ) -> Option<VoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         let token = <Self as Vrf<Hasher, Param381>>::prove(&private_key.node, &hash);
 
@@ -263,11 +245,9 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::traits::storage::StorageResult;
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 
-    // TODO: determine the bounded type after fixing get_stake_table.
-    type S = StorageResult<[u8; H_256]>;
+    type S = ();
     const N: usize = H_256;
     const SECRET_KEYS_SEED: u64 = 1234;
     const VIEW_NUMBER: u64 = 10;
@@ -423,7 +403,7 @@ mod tests {
             pub_keys.push(PubKey::from_secret_key_set_escape_hatch(&secret_keys, i));
         }
         let stake_table = dummy_stake_table(pub_keys);
-        let committee = DynamicCommittee::<S, N>::new(stake_table.clone());
+        let committee = DynamicCommittee::<S, N>::new();
 
         // Leader selection should produce deterministic results
         let selected_leader = committee.get_leader(&stake_table, VIEW_NUMBER);
@@ -456,7 +436,7 @@ mod tests {
         let mut stake_table =
             dummy_stake_table(vec![pub_key_honest.clone(), pub_key_byzantine.clone()]);
         stake_table.insert(pub_key_stakeless, 0);
-        let committee = DynamicCommittee::<S, N>::new(stake_table.clone());
+        let committee = DynamicCommittee::<S, N>::new();
 
         // Vote token should be null if the public key is not selected as a member.
         let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
