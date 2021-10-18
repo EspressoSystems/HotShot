@@ -21,7 +21,6 @@ fn select_seeded_vrf_hash(seeded_vrf_hash: [u8; H_256], selection_threshold: [u8
     seeded_vrf_hash < selection_threshold
 }
 
-// TODO: associate with TEModelParameter which specifies which curve is used.
 /// A trait for VRF proof, evaluation and verification.
 pub trait Vrf<VrfHasher, P: Parameters> {
     /// VRF public key.
@@ -164,7 +163,7 @@ impl<S, const N: usize> Election<N> for DynamicCommittee<S, N> {
 
     // TODO: make the state nonarbitrary
     /// Clones the stake table.
-    fn get_state_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
@@ -267,7 +266,7 @@ mod tests {
     use crate::traits::storage::StorageResult;
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 
-    // TODO: determine the bounded type after fixing get_state_table.
+    // TODO: determine the bounded type after fixing get_stake_table.
     type S = StorageResult<[u8; H_256]>;
     const N: usize = H_256;
     const SECRET_KEYS_SEED: u64 = 1234;

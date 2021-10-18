@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{BlockHash, PrivKey, PubKey, H_256};
+use crate::{BlockHash, PrivKey, PubKey};
 
 /// Describes how `PhaseLock` chooses committees and leaders
 pub trait Election<const N: usize> {
@@ -16,8 +16,7 @@ pub trait Election<const N: usize> {
     type ValidatedVoteToken;
 
     /// Returns the table from the current committed state
-    // TODO: Should this be get_stake_table?
-    fn get_state_table(&self, state: &Self::State) -> Self::StakeTable;
+    fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, table: &Self::StakeTable, view_number: u64) -> PubKey;
     /// Validates a vote token and returns the number of seats that it has
@@ -71,18 +70,14 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
     type StakeTable = Vec<PubKey>;
     /// Arbitrary state type, we don't use it
     type State = S;
-    // TODO: make this an arbitrary type.
-    /// Not used.
-    type SelectionThreshold = [u8; H_256];
-    /// The vote token is just a signature and a pub key
-    // TODO: Is the `PubKey` necessary here? When validating the token in `get_votes`, `pub_key`
-    // is given as an input and the `PubKey` of a `VoteToken` isn't used. Can we make `VoteToken`
-    // just a `SignatureShare` while keeping the `PubKey` of the `ValidatedVoteToken`?
-    type VoteToken = (threshold_crypto::SignatureShare, PubKey);
+    /// Arbitrary state type, we don't use it
+    type SelectionThreshold = S;
+    /// The vote token is just a signature
+    type VoteToken = threshold_crypto::SignatureShare;
     /// Same for the validated vote token
     type ValidatedVoteToken = (threshold_crypto::SignatureShare, PubKey);
     /// Clone the static table
-    fn get_state_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
@@ -103,8 +98,8 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
         message.extend(next_state.as_ref());
-        if pub_key.node.verify(&token.0, message) && table.contains(&pub_key) {
-            Some(token)
+        if pub_key.node.verify(&token, message) && table.contains(&pub_key) {
+            Some((token, pub_key))
         } else {
             None
         }
@@ -112,7 +107,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
     /// Simply make the partial signature
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
+        _table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
@@ -122,9 +117,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         message.extend(&view_number.to_le_bytes());
         message.extend(next_state.as_ref());
         let token = private_key.node.sign(message);
-        let pub_key_share = private_key.node.public_key_share();
-        let pub_key = table.iter().find(|x| x.node == pub_key_share)?.clone();
-        Some((token, pub_key))
+        Some(token)
     }
     /// If its a validated token, it always has one vote
     fn get_vote_count(&self, _token: &Self::ValidatedVoteToken) -> u64 {
