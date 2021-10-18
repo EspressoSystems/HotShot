@@ -15,7 +15,7 @@ use phaselock::{
     message::Message,
     networking::w_network::WNetwork,
     tc,
-    traits::storage::memory_storage::MemoryStorage,
+    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
@@ -360,6 +360,7 @@ async fn get_phaselock(
         state.clone(),
         networking,
         MemoryStorage::default(),
+        Stateless::default(),
     )
     .await;
     debug!("phaselock launched");

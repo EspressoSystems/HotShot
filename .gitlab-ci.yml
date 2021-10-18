@@ -1,4 +1,4 @@
-image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.54
+image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.55
 
 stages:
   - lint

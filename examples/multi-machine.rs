@@ -5,7 +5,7 @@ use phaselock::{
     message::Message,
     networking::w_network::WNetwork,
     tc,
-    traits::storage::memory_storage::MemoryStorage,
+    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -133,6 +133,7 @@ async fn init_state_and_phaselock(
         state.clone(),
         networking,
         MemoryStorage::default(),
+        Stateless::default(),
     )
     .await;
     debug!("phaselock launched");

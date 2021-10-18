@@ -7,7 +7,7 @@ use phaselock::{
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
     tc,
-    traits::storage::memory_storage::MemoryStorage,
+    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use proptest::prelude::*;
@@ -17,8 +17,8 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::iter::FromIterator;
 use tracing::{debug, instrument, warn};
 
-const NEXT_VIEW_TIMEOUT: u64 = 30;
-const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (30, 10);
+const NEXT_VIEW_TIMEOUT: u64 = 100;
+const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (15, 10);
 const SEED: u64 = 1234;
 
 type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>>;
@@ -134,6 +134,7 @@ async fn init_state_and_phaselocks(
             state.clone(),
             networkings[node_id as usize].0.clone(),
             MemoryStorage::default(),
+            Stateless::default(),
         )
         .await;
         if !nodes_to_fail.contains(&node_id) {
@@ -441,7 +442,7 @@ async fn mul_txns(
                 }
             }
             println!("All states match");
-            assert_eq!(blocks[0][0].transactions.len(), 2);
+            assert!(!blocks[0][0].transactions.is_empty());
             assert_eq!(
                 blocks[0][0].transactions,
                 vec![txn_1.clone(), txn_2.clone()]
