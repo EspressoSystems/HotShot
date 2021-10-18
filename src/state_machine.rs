@@ -21,10 +21,10 @@ use super::{
 use crate::{
     error::{FailedToBroadcast, FailedToMessageLeader},
     networking::NetworkingImplementation,
-    traits::storage::Storage,
+    traits::{State, StatefulHandler, Storage},
+    utility::broadcast::BroadcastSender,
     NodeImplementation,
 };
-use crate::{traits::state::State, utility::broadcast::BroadcastSender};
 
 // TODO(nm): state_machine_future is kind of jank, not well documented, and not quite flexible
 // enough for this. A lot of this module is boiler plate and can be macroed away. I need to write
@@ -585,6 +585,10 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         }
                         info!(?events, "Sending decide events");
                         // Send decide event
+                        pl.inner.stateful_handler.lock().await.notify(
+                            events.iter().map(|(x, _)| x.clone()).collect(),
+                            events.iter().map(|(_, x)| x.clone()).collect(),
+                        );
                         ctx.send_decide(current_view, &events);
 
                         // Add qc to decision cache
@@ -962,6 +966,10 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     }
                     info!(?events, "Sending decide events");
                     // Send decide event
+                    pl.inner.stateful_handler.lock().await.notify(
+                        events.iter().map(|(x, _)| x.clone()).collect(),
+                        events.iter().map(|(_, x)| x.clone()).collect(),
+                    );
                     ctx.send_decide(current_view, &events);
                     *old_state = Arc::new(state);
                     *old_leaf = leaf_hash;
@@ -1019,6 +1027,10 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     }
                     info!(?events, "Sending decide events");
                     // Send decide event
+                    pl.inner.stateful_handler.lock().await.notify(
+                        events.iter().map(|(x, _)| x.clone()).collect(),
+                        events.iter().map(|(_, x)| x.clone()).collect(),
+                    );
                     ctx.send_decide(current_view, &events);
                     let mut pqc = pl.inner.prepare_qc.write().await;
                     let mut lqc = pl.inner.locked_qc.write().await;

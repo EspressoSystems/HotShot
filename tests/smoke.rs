@@ -12,7 +12,7 @@ use phaselock::{
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
     tc,
-    traits::storage::memory_storage::MemoryStorage,
+    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
@@ -69,6 +69,7 @@ async fn ten_tx_seven_nodes() {
             state.clone(),
             networkings[node_id as usize].0.clone(),
             MemoryStorage::default(),
+            Stateless::default(),
         )
         .await;
         phaselocks.push(h);
@@ -184,6 +185,7 @@ async fn ten_tx_five_nodes() {
             state.clone(),
             networkings[node_id as usize].0.clone(),
             MemoryStorage::default(),
+            Stateless::default(),
         )
         .await;
         phaselocks.push(h);

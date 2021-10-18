@@ -345,4 +345,6 @@ where
     type Storage = MemoryStorage<DEntryBlock, State, H_256>;
 
     type Networking = NET;
+
+    type StatefulHandler = crate::traits::stateful_handler::Stateless<DEntryBlock, State, H_256>;
 }

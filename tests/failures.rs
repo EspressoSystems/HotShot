@@ -14,7 +14,7 @@ use phaselock::{
     message::Message,
     networking::memory_network::{MasterMap, MemoryNetwork},
     tc,
-    traits::storage::memory_storage::MemoryStorage,
+    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
@@ -72,6 +72,7 @@ async fn single_permanent_failure() {
             state.clone(),
             networkings[node_id as usize].0.clone(),
             MemoryStorage::default(),
+            Stateless::default(),
         )
         .await;
         phaselocks.push(h);
@@ -164,8 +165,8 @@ async fn single_permanent_failure() {
 // This test simulates two permanent failed nodes
 //
 // With n=7, this is the maximum failures that the network can tolerate
-#[async_std::test]
 #[ignore]
+#[async_std::test]
 #[instrument]
 async fn double_permanent_failure() {
     setup_logging();
@@ -216,6 +217,7 @@ async fn double_permanent_failure() {
             state.clone(),
             networkings[node_id as usize].0.clone(),
             MemoryStorage::default(),
+            Stateless::default(),
         )
         .await;
         phaselocks.push(h);
