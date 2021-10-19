@@ -60,6 +60,7 @@ use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
 use crate::networking::NetworkingImplementation;
+use crate::traits::State;
 use crate::utility::broadcast::BroadcastSender;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 
@@ -321,7 +322,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 item: genesis,
             })
             .await;
-        error!("Genesis leaf hash: {:?}", leaf.hash());
+        trace!("Genesis leaf hash: {:?}", leaf.hash());
         inner
             .storage
             .insert_state(starting_state, leaf.hash())
@@ -465,6 +466,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Panics if the underlying network implementation incorrectly routes a network request to the
     /// wrong queue
+    #[allow(clippy::too_many_lines)]
     pub async fn spawn_networking_tasks(&self) {
         let x = self.clone();
         // Spawn broadcast processing task
@@ -487,9 +489,38 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                                     info!(prepare = ?p, "Inserting block and leaf into store");
                                     let leaf = p.leaf.clone();
                                     phaselock.storage.insert_leaf(leaf.clone()).await;
-                                    phaselock
-                                        .storage
-                                        .insert_block(BlockContents::hash(&leaf.item), leaf.item);
+                                    phaselock.storage.insert_block(
+                                        BlockContents::hash(&leaf.item),
+                                        leaf.item.clone(),
+                                    );
+                                    // Attempt to get state and add it to store
+                                    let parent = phaselock.storage.get_state(&leaf.parent).await;
+                                    if let StorageResult::Some(parent_state) = parent {
+                                        let state = parent_state.append(&leaf.item);
+                                        if let Ok(state) = state {
+                                            info!(?leaf, "Inserting new state into storage");
+                                            let result = phaselock
+                                                .storage
+                                                .insert_state(state, leaf.hash())
+                                                .await;
+                                            match result {
+                                                StorageResult::Some(_) => trace!("inserted state"),
+                                                StorageResult::None => {
+                                                    error!("Invaild system state");
+                                                }
+                                                StorageResult::Err(e) => {
+                                                    error!(?e, "Failed to insert state");
+                                                }
+                                            }
+                                        } else {
+                                            error!(?leaf, "Failed to apply state change");
+                                        }
+                                    } else {
+                                        error!(
+                                            ?leaf,
+                                            "Failed to retrive parent state from storage"
+                                        );
+                                    }
                                     phaselock.prepare_waiter.put(p).await;
                                 }
                                 Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
