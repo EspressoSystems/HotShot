@@ -10,7 +10,8 @@
     clippy::option_if_let_else,
     clippy::must_use_candidate,
     clippy::module_name_repetitions,
-    clippy::similar_names
+    clippy::similar_names,
+    clippy::unused_self
 )]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]

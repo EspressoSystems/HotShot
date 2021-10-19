@@ -82,6 +82,7 @@ impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
     }
 }
 
+/// Stake table for [`DynamicCommitee`]
 type StakeTable = HashMap<PubKey, u64>;
 
 /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
@@ -89,10 +90,19 @@ type StakeTable = HashMap<PubKey, u64>;
 /// selection threshold.
 type SelectionThreshold = [u8; H_256];
 
+/// Vote token for [`DynamicCommittee`]
 type VoteToken = tc::SignatureShare;
 
 /// A tuple of a validated vote token and the associated selected stake.
 type ValidatedVoteToken = (PubKey, tc::SignatureShare, HashSet<u64>);
+
+impl<S, const N: usize> Default for DynamicCommittee<S, N> {
+    fn default() -> Self {
+        Self {
+            _state_phantom: PhantomData,
+        }
+    }
+}
 
 impl<S, const N: usize> DynamicCommittee<S, N> {
     /// Creates a new dynamic committee.
@@ -119,6 +129,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
     /// `total_stake` is a predetermined value representing the weight of the associated VRF
     /// public key.
+    #[allow(clippy::needless_pass_by_value)]
     fn select_stake(
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
