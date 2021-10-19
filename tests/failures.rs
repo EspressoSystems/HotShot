@@ -165,7 +165,6 @@ async fn single_permanent_failure() {
 // This test simulates two permanent failed nodes
 //
 // With n=7, this is the maximum failures that the network can tolerate
-#[ignore]
 #[async_std::test]
 #[instrument]
 async fn double_permanent_failure() {
@@ -198,7 +197,7 @@ async fn double_permanent_failure() {
         threshold: threshold as u32,
         max_transactions: 100,
         known_nodes,
-        next_view_timeout: 300,
+        next_view_timeout: 50,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,

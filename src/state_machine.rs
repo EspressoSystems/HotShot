@@ -520,7 +520,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             id: pl.inner.public_key.nonce,
                             current_view,
                         };
-                        pl.inner.precommit_vote_queue.push(vote_message).await;
+                        pl.inner.commit_vote_queue.push(vote_message).await;
 
                         Ok((block, new_leaf, state))
                     }
