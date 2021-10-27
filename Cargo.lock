@@ -1117,7 +1117,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock"
-version = "0.0.3"
+version = "0.0.4-dev"
 dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-381",
