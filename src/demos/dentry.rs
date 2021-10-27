@@ -333,7 +333,7 @@ impl<NET> Default for DEntryNode<NET> {
 
 impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<Message<DEntryBlock, Transaction, H_256>>
+    NET: NetworkingImplementation<Message<DEntryBlock, Transaction, State, H_256>>
         + Clone
         + Debug
         + 'static,

@@ -22,7 +22,7 @@ mod common;
 
 const TRANSACTION_COUNT: u64 = 10;
 
-type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -89,7 +89,7 @@ async fn init_state_and_phaselock(
     nodes: u64,
     threshold: u64,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
 ) -> (State, PhaseLockHandle<Node, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
@@ -172,8 +172,8 @@ async fn main() {
     println!("  - Spawning network for node {}", own_id);
 
     // Read node info from node configuration file
-    let mut config_file =
-        File::open(&path).expect(&format!("Cannot find node config file: {}", path.display()));
+    let mut config_file = File::open(&path)
+        .unwrap_or_else(|_| panic!("Cannot find node config file: {}", path.display()));
     let mut config_str = String::new();
     config_file
         .read_to_string(&mut config_str)
@@ -286,7 +286,7 @@ async fn main() {
         } else {
             unreachable!()
         }
-        round = round + 1;
+        round += 1;
 
         let mut line = String::new();
         println!("Hit any key to start the next round...");

@@ -87,7 +87,7 @@ pub mod dummy {
 
         fn add_transaction_raw(
             &self,
-            tx: &Self::Transaction,
+            _tx: &Self::Transaction,
         ) -> std::result::Result<Self, Self::Error> {
             Err(DummyError)
         }

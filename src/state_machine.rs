@@ -321,32 +321,6 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     let the_hash = new_leaf.hash();
                     pl.inner.storage.insert_leaf(new_leaf.clone()).await;
                     debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
-                    // Broadcast out the leaf
-                    pl.inner
-                        .networking
-                        .broadcast_message(Message::Prepare(Prepare {
-                            current_view,
-                            leaf: new_leaf.clone(),
-                            high_qc: high_qc.clone(),
-                        }))
-                        .await
-                        .context(FailedToBroadcast {
-                            stage: Stage::Prepare,
-                        })?;
-                    // Notify our listeners
-                    ctx.send_propose(current_view, &block);
-                    // Make a prepare signature and send it to ourselves
-                    let signature =
-                        pl.inner
-                            .private_key
-                            .partial_sign(&the_hash, Stage::Prepare, current_view);
-                    let vote = Vote {
-                        signature,
-                        leaf_hash: the_hash,
-                        id: pl.inner.public_key.nonce,
-                        current_view,
-                    };
-                    pl.inner.prepare_vote_queue.push(vote).await;
                     // Add resulting state to storage
                     let new_state = state.append(&new_leaf.item).map_err(|error| {
                         error!(?error, "Failed to append block to existing state");
@@ -368,6 +342,33 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             return Err(PhaseLockError::StorageError { err: e })
                         }
                     }
+                    // Broadcast out the leaf
+                    pl.inner
+                        .networking
+                        .broadcast_message(Message::Prepare(Prepare {
+                            current_view,
+                            leaf: new_leaf.clone(),
+                            high_qc: high_qc.clone(),
+                            state: new_state.clone(),
+                        }))
+                        .await
+                        .context(FailedToBroadcast {
+                            stage: Stage::Prepare,
+                        })?;
+                    // Notify our listeners
+                    ctx.send_propose(current_view, &block);
+                    // Make a prepare signature and send it to ourselves
+                    let signature =
+                        pl.inner
+                            .private_key
+                            .partial_sign(&the_hash, Stage::Prepare, current_view);
+                    let vote = Vote {
+                        signature,
+                        leaf_hash: the_hash,
+                        id: pl.inner.public_key.nonce,
+                        current_view,
+                    };
+                    pl.inner.prepare_vote_queue.push(vote).await;
                     Ok((block, new_leaf, new_state))
                 }
                 .boxed();
@@ -646,7 +647,7 @@ enum SequentialReplica<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Initial starting state for a replica
     Start,
     /// Setup the PREPARE future
-    BeforePrepare(Prepare<I::Block, N>),
+    BeforePrepare(Prepare<I::Block, I::State, N>),
     /// execute PREPARE phase
     PrepareStage(DebugFuture<'static, Result<Leaf<I::Block, N>>>),
     /// Setup the PRECOMMIT future
@@ -691,7 +692,7 @@ enum SequentialReplica<I: NodeImplementation<N> + 'static, const N: usize> {
         stage: Stage,
     },
     /// Waiting for a message
-    WaitingForMessage(DebugFuture<'static, Result<WaitResult<I::Block, N>>>),
+    WaitingForMessage(DebugFuture<'static, Result<WaitResult<I::Block, I::State, N>>>),
     /// Round has finished or faulted
     End(Result<u64>),
 }
@@ -1151,9 +1152,9 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
 }
 
 /// Return type for the message waiter
-enum WaitResult<B, const N: usize> {
+enum WaitResult<B, S, const N: usize> {
     /// Go to prepare stage
-    Prepare(Prepare<B, N>),
+    Prepare(Prepare<B, S, N>),
     /// Goto precommit stage
     PreCommit(Leaf<B, N>, PreCommit<N>),
     /// Goto commit stage

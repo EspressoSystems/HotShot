@@ -19,7 +19,7 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
-type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
 
 mod common;
 
@@ -88,7 +88,7 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<DEntryBlock, Transaction, H_256>>,
+        WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
         u16,
         PubKey,
     )> = Vec::new();
@@ -333,7 +333,7 @@ async fn get_phaselock(
     nodes: u64,
     threshold: u64,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, H_256>>,
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
     state: &State,
 ) -> PhaseLockHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)

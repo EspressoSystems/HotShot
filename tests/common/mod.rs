@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use phaselock::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -153,7 +155,7 @@ pub fn setup_logging() {
                     Ok(value) => {
                         value
                             .to_ascii_lowercase()
-                            .split(",")
+                            .split(',')
                             .map(|filter| match filter.trim() {
                                 "new" => FmtSpan::NEW,
                                 "enter" => FmtSpan::ENTER,
@@ -179,7 +181,7 @@ pub fn setup_logging() {
                         .with_span_events(internal_event_filter)
                         .with_ansi(true)
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -190,7 +192,7 @@ pub fn setup_logging() {
                         .with_span_events(internal_event_filter)
                         .json()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -202,7 +204,7 @@ pub fn setup_logging() {
                         .with_ansi(true)
                         .compact()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -214,7 +216,7 @@ pub fn setup_logging() {
                         .with_ansi(true)
                         .pretty()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)

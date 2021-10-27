@@ -8,11 +8,11 @@ use crate::{data::Leaf, BlockHash, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Represents the messages `PhaseLock` nodes send to each other
-pub enum Message<B, T, const N: usize> {
+pub enum Message<B, T, S, const N: usize> {
     /// Signals start of a new view
     NewView(NewView<N>),
     /// Contains the prepare qc from the leader
-    Prepare(Prepare<B, N>),
+    Prepare(Prepare<B, S, N>),
     /// A nodes vote on the prepare stage
     PrepareVote(Vote<N>),
     /// Contains the precommit qc from the leader
@@ -40,11 +40,13 @@ pub struct NewView<const N: usize> {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 /// Prepare qc from the leader
-pub struct Prepare<T, const N: usize> {
+pub struct Prepare<T, S, const N: usize> {
     /// The current view
     pub current_view: u64,
     /// The item being proposed
     pub leaf: Leaf<T, N>,
+    /// The state this proposal results in
+    pub state: S,
     /// The current high qc
     pub high_qc: QuorumCertificate<N>,
 }

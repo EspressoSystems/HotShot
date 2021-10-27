@@ -6,6 +6,12 @@ pub mod waitqueue;
 /// Provides utility functions used for testing
 #[cfg(test)]
 pub mod test_util {
+    // turn off some lints, this is a janky test method
+    #![allow(
+        clippy::panic,
+        clippy::redundant_closure_for_method_calls,
+        clippy::missing_panics_doc
+    )]
     use std::env::{var, VarError};
     use std::sync::Once;
     use tracing_error::ErrorLayer;
@@ -24,7 +30,7 @@ pub mod test_util {
                     Ok(value) => {
                         value
                             .to_ascii_lowercase()
-                            .split(",")
+                            .split(',')
                             .map(|filter| match filter.trim() {
                                 "new" => FmtSpan::NEW,
                                 "enter" => FmtSpan::ENTER,
@@ -50,7 +56,7 @@ pub mod test_util {
                         .with_span_events(internal_event_filter)
                         .with_ansi(true)
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -61,7 +67,7 @@ pub mod test_util {
                         .with_span_events(internal_event_filter)
                         .json()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -73,7 +79,7 @@ pub mod test_util {
                         .with_ansi(true)
                         .compact()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)
@@ -85,7 +91,7 @@ pub mod test_util {
                         .with_ansi(true)
                         .pretty()
                         .with_test_writer();
-                    let _subscriber = Registry::default()
+                    Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer)

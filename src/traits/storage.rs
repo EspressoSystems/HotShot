@@ -42,6 +42,7 @@ impl<T> StorageResult<T> {
     }
     /// Unwraps a `Some` value, panicking otherwise, this is a testing only function
     #[cfg(test)]
+    #[allow(clippy::panic, clippy::missing_panics_doc)]
     pub fn unwrap(self) -> T {
         if let StorageResult::Some(x) = self {
             x

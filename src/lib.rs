@@ -61,7 +61,6 @@ use crate::event::{Event, EventType};
 use crate::handle::PhaseLockHandle;
 use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
 use crate::networking::NetworkingImplementation;
-use crate::traits::State;
 use crate::utility::broadcast::BroadcastSender;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
 
@@ -214,7 +213,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// Unprocessed CommitVote messages
     commit_vote_queue: WaitQueue<Vote<N>>,
     /// Currently pending Prepare message
-    prepare_waiter: WaitOnce<Prepare<I::Block, N>>,
+    prepare_waiter: WaitOnce<Prepare<I::Block, I::State, N>>,
     /// Currently pending precommit message
     precommit_waiter: WaitOnce<PreCommit<N>>,
     /// Currently pending Commit message
@@ -494,34 +493,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                                         BlockContents::hash(&leaf.item),
                                         leaf.item.clone(),
                                     );
-                                    // Attempt to get state and add it to store
-                                    let parent = phaselock.storage.get_state(&leaf.parent).await;
-                                    if let StorageResult::Some(parent_state) = parent {
-                                        let state = parent_state.append(&leaf.item);
-                                        if let Ok(state) = state {
-                                            info!(?leaf, "Inserting new state into storage");
-                                            let result = phaselock
-                                                .storage
-                                                .insert_state(state, leaf.hash())
-                                                .await;
-                                            match result {
-                                                StorageResult::Some(_) => trace!("inserted state"),
-                                                StorageResult::None => {
-                                                    error!("Invaild system state");
-                                                }
-                                                StorageResult::Err(e) => {
-                                                    error!(?e, "Failed to insert state");
-                                                }
-                                            }
-                                        } else {
-                                            error!(?leaf, "Failed to apply state change");
-                                        }
-                                    } else {
-                                        error!(
-                                            ?leaf,
-                                            "Failed to retrive parent state from storage"
-                                        );
-                                    }
+                                    info!(?leaf, "Inserting new state into storage");
+                                    let result = phaselock
+                                        .storage
+                                        .insert_state(p.state.clone(), leaf.hash())
+                                        .await;
+                                    if let StorageResult::Err(e) = result {
+                                        error!(?e, "Error inserting state into storage");
+                                    };
+
                                     phaselock.prepare_waiter.put(p).await;
                                 }
                                 Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,

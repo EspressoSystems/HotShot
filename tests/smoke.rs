@@ -1,4 +1,5 @@
 #![cfg(feature = "demo")]
+#![allow(clippy::type_complexity)]
 mod common;
 use common::*;
 
@@ -16,7 +17,8 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 
-type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+#[allow(clippy::upper_case_acronyms)]
+type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
 
 #[async_std::test]
 #[instrument]
@@ -32,9 +34,9 @@ async fn ten_tx_seven_nodes() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(0);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
     // Generate the networking backends
-    let master = MasterMap::<Message<DEntryBlock, Transaction, H_256>>::new();
+    let master = MasterMap::<Message<DEntryBlock, Transaction, State, H_256>>::new();
     let mut networkings: Vec<(
-        MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>,
+        MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
         PubKey,
     )> = Vec::new();
     for node_id in 0..nodes {
@@ -148,9 +150,9 @@ async fn ten_tx_five_nodes() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(0);
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
     // Generate the networking backends
-    let master = MasterMap::<Message<DEntryBlock, Transaction, H_256>>::new();
+    let master = MasterMap::<Message<DEntryBlock, Transaction, State, H_256>>::new();
     let mut networkings: Vec<(
-        MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>,
+        MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
         PubKey,
     )> = Vec::new();
     for node_id in 0..nodes {

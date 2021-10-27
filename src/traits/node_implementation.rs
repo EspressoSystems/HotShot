@@ -19,6 +19,7 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
             Message<
                 Self::Block,
                 <<Self as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+                Self::State,
                 N,
             >,
         > + Clone;

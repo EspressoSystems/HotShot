@@ -934,9 +934,8 @@ mod tests {
             let res = WNetwork::new(pub_key.clone(), port, None).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
-            } else {
-                warn!(?port, "Port opening failed");
             }
+            warn!(?port, "Port opening failed");
         }
         panic!("Failed to generate a connection");
     }
@@ -954,9 +953,8 @@ mod tests {
             let res = WNetwork::new(pub_key.clone(), port, Some(timeout)).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
-            } else {
-                warn!(?port, "Port opening failed");
             }
+            warn!(?port, "Port opening failed");
         }
         panic!("Failed to generate a connection");
     }

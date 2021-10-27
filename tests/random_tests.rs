@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod common;
 
 use phaselock::{
@@ -15,13 +17,14 @@ use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::iter::FromIterator;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 const NEXT_VIEW_TIMEOUT: u64 = 100;
 const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (15, 10);
 const SEED: u64 = 1234;
 
-type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>>;
+#[allow(clippy::upper_case_acronyms)]
+type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
 
 /// Errors when trying to reach consensus.
 #[derive(Debug)]
@@ -55,7 +58,7 @@ async fn get_networkings<
     let master = MasterMap::<T>::new();
     let mut networkings: Vec<(MemoryNetwork<T>, PubKey)> = Vec::new();
     for node_id in 0..num_nodes {
-        let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+        let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
         let network = MemoryNetwork::new(pub_key.clone(), master.clone());
         networkings.push((network, pub_key));
     }
@@ -96,7 +99,7 @@ async fn init_state_and_phaselocks(
     nodes_to_fail: HashSet<u64>,
     threshold: u64,
     networkings: Vec<(
-        MemoryNetwork<Message<DEntryBlock, Transaction, H_256>>,
+        MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
         PubKey,
     )>,
     updated_timeout_ratio: Option<(u64, u64)>,
@@ -186,7 +189,8 @@ async fn fail_nodes(
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
 
     // Get networking information
-    let networkings = get_networkings(num_nodes, &sks).await;
+    let networkings =
+        get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
@@ -224,7 +228,7 @@ async fn fail_nodes(
             None => {
                 let t = random_transaction(&state, &mut rng);
                 debug!("Proposing: {:?}", t);
-                if let Err(_) = phaselocks[0].submit_transaction(t.clone()).await {
+                if phaselocks[0].submit_transaction(t.clone()).await.is_err() {
                     return Err(ConsensusError::FailedToProposeTxn);
                 }
                 println!("Transaction {} proposed", completed_txns + 1);
@@ -249,6 +253,7 @@ async fn fail_nodes(
                 event = match phaselock.next_event().await {
                     Ok(event) => event,
                     Err(err) => {
+                        error!(?err, "Error getting next event");
                         return Err(ConsensusError::PhaselockClosed(err));
                     }
                 };
@@ -262,6 +267,7 @@ async fn fail_nodes(
                 event = match phaselock.next_event().await {
                     Ok(event) => event,
                     Err(err) => {
+                        error!(?err, "Error getting next event");
                         return Err(ConsensusError::PhaselockClosed(err));
                     }
                 };
@@ -333,7 +339,8 @@ async fn mul_txns(
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
 
     // Get networking information
-    let networkings = get_networkings(num_nodes, &sks).await;
+    let networkings =
+        get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
@@ -357,15 +364,17 @@ async fn mul_txns(
     let txn_1 = random_transaction(&state, &mut rng);
     let txn_2 = random_transaction(&state, &mut rng);
     debug!("Txn 1: {:?}\n Txn 2: {:?}", txn_1, txn_2);
-    if let Err(_) = phaselocks[txn_proposer_1 as usize]
+    if phaselocks[txn_proposer_1 as usize]
         .submit_transaction(txn_1.clone())
         .await
+        .is_err()
     {
         return Err(ConsensusError::FailedToProposeTxn);
     }
-    if let Err(_) = phaselocks[txn_proposer_2 as usize]
+    if phaselocks[txn_proposer_2 as usize]
         .submit_transaction(txn_2.clone())
         .await
+        .is_err()
     {
         return Err(ConsensusError::FailedToProposeTxn);
     }
@@ -598,7 +607,7 @@ proptest! {
     fn test_fail_first_f_nodes_random(num_nodes in 30..100u64) {
         async_std::task::block_on(
             async {
-                let nodes_to_fail = HashSet::<u64>::from_iter((0..get_tolerance(num_nodes)).map(|x| x));
+                let nodes_to_fail = HashSet::<u64>::from_iter(0..get_tolerance(num_nodes));
                 fail_nodes(num_nodes, nodes_to_fail, 5, None).await.unwrap_or_else(|err| {panic!("{:?}", err)});
             }
         );
