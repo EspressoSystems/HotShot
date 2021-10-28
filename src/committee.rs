@@ -444,7 +444,7 @@ mod tests {
 
         // Build the committee
         let mut stake_table =
-            dummy_stake_table(vec![pub_key_honest.clone(), pub_key_byzantine.clone()]);
+            dummy_stake_table(&[pub_key_honest.clone(), pub_key_byzantine.clone()]);
         stake_table.insert(pub_key_stakeless, 0);
 
         // Vote token should be null if the public key is not selected as a member.
