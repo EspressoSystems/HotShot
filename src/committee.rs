@@ -162,7 +162,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     /// Determines the leader.
     /// Note: A leader doesn't necessarily have to be a commitee member.
-    pub fn get_leader(&self, table: &StakeTable, view_number: u64) -> PubKey {
+    pub fn get_leader(table: &StakeTable, view_number: u64) -> PubKey {
         let mut total_stake = 0;
         for record in table.iter() {
             total_stake += record.1;
@@ -201,7 +201,6 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     /// associated public key, i.e., the maximum votes it may have. The size of the set is the actual number
     /// of votes granted in the current round.
     pub fn get_votes(
-        &self,
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
         view_number: u64,
@@ -225,7 +224,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     }
 
     /// Returns the number of votes a validated token has.
-    pub fn get_vote_count(&self, token: &ValidatedVoteToken) -> u64 {
+    pub fn get_vote_count(token: &ValidatedVoteToken) -> u64 {
         token.2.len() as u64
     }
 
@@ -233,7 +232,6 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     ///
     /// Returns null if the stake data isn't found or the number of votes is zero.
     pub fn make_vote_token(
-        &self,
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
         view_number: u64,
@@ -278,7 +276,7 @@ mod tests {
     ];
 
     // Helper function to construct a stake table
-    fn dummy_stake_table(vrf_public_keys: Vec<PubKey>) -> HashMap<PubKey, u64> {
+    fn dummy_stake_table(vrf_public_keys: &[PubKey]) -> HashMap<PubKey, u64> {
         let record_size = vrf_public_keys.len();
         let stake_per_record = TOTAL_STAKE / (record_size as u64);
         let last_stake = TOTAL_STAKE - stake_per_record * (record_size as u64 - 1);
@@ -389,7 +387,7 @@ mod tests {
         let proof = DynamicCommittee::<S, N>::prove(&secret_key_share, &input);
 
         // VRF selection should produce deterministic results
-        let stake_table = dummy_stake_table(pub_keys);
+        let stake_table = dummy_stake_table(&pub_keys);
         let selected_stake = DynamicCommittee::<S, N>::select_stake(
             &stake_table,
             SELECTION_THRESHOLD,
@@ -415,12 +413,11 @@ mod tests {
         for i in 0..10 {
             pub_keys.push(PubKey::from_secret_key_set_escape_hatch(&secret_keys, i));
         }
-        let stake_table = dummy_stake_table(pub_keys);
-        let committee = DynamicCommittee::<S, N>::new();
+        let stake_table = dummy_stake_table(&pub_keys);
 
         // Leader selection should produce deterministic results
-        let selected_leader = committee.get_leader(&stake_table, VIEW_NUMBER);
-        let selected_leader_again = committee.get_leader(&stake_table, VIEW_NUMBER);
+        let selected_leader = DynamicCommittee::<S, N>::get_leader(&stake_table, VIEW_NUMBER);
+        let selected_leader_again = DynamicCommittee::<S, N>::get_leader(&stake_table, VIEW_NUMBER);
         assert_eq!(selected_leader, selected_leader_again);
     }
 
@@ -449,11 +446,10 @@ mod tests {
         let mut stake_table =
             dummy_stake_table(vec![pub_key_honest.clone(), pub_key_byzantine.clone()]);
         stake_table.insert(pub_key_stakeless, 0);
-        let committee = DynamicCommittee::<S, N>::new();
 
         // Vote token should be null if the public key is not selected as a member.
         let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
-        let vote_token = committee.make_vote_token(
+        let vote_token = DynamicCommittee::<S, N>::make_vote_token(
             &stake_table,
             SELECTION_THRESHOLD,
             VIEW_NUMBER,
@@ -463,16 +459,15 @@ mod tests {
         assert!(vote_token.is_none());
 
         // Votes should be granted with the correct private key, view number, and next state
-        let vote_token = committee
-            .make_vote_token(
-                &stake_table,
-                SELECTION_THRESHOLD,
-                VIEW_NUMBER,
-                &private_key_honest,
-                next_state,
-            )
-            .unwrap();
-        let votes = committee.get_votes(
+        let vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            &private_key_honest,
+            next_state,
+        )
+        .unwrap();
+        let votes = DynamicCommittee::<S, N>::get_votes(
             &stake_table,
             SELECTION_THRESHOLD,
             VIEW_NUMBER,
@@ -486,16 +481,15 @@ mod tests {
         assert!(!validated_vote_token.2.is_empty());
 
         // No vote should be granted if the private key does not correspond to the public key
-        let incorrect_vote_token = committee
-            .make_vote_token(
-                &stake_table,
-                SELECTION_THRESHOLD,
-                VIEW_NUMBER,
-                &private_key_byzantine,
-                next_state,
-            )
-            .unwrap();
-        let votes = committee.get_votes(
+        let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            &private_key_byzantine,
+            next_state,
+        )
+        .unwrap();
+        let votes = DynamicCommittee::<S, N>::get_votes(
             &stake_table,
             SELECTION_THRESHOLD,
             VIEW_NUMBER,
@@ -506,16 +500,15 @@ mod tests {
         assert!(votes.is_none());
 
         // No vote should be granted if the view number used for token generation is incorrect
-        let incorrect_vote_token = committee
-            .make_vote_token(
-                &stake_table,
-                SELECTION_THRESHOLD,
-                INCORRECT_VIEW_NUMBER,
-                &private_key_honest,
-                next_state,
-            )
-            .unwrap();
-        let votes = committee.get_votes(
+        let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            INCORRECT_VIEW_NUMBER,
+            &private_key_honest,
+            next_state,
+        )
+        .unwrap();
+        let votes = DynamicCommittee::<S, N>::get_votes(
             &stake_table,
             SELECTION_THRESHOLD,
             VIEW_NUMBER,
@@ -527,16 +520,15 @@ mod tests {
 
         // No vote should be granted if the next state used for token generation is incorrect
         let incorrect_next_state = BlockHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
-        let incorrect_vote_token = committee
-            .make_vote_token(
-                &stake_table,
-                SELECTION_THRESHOLD,
-                VIEW_NUMBER,
-                &private_key_honest,
-                incorrect_next_state,
-            )
-            .unwrap();
-        let votes = committee.get_votes(
+        let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            &stake_table,
+            SELECTION_THRESHOLD,
+            VIEW_NUMBER,
+            &private_key_honest,
+            incorrect_next_state,
+        )
+        .unwrap();
+        let votes = DynamicCommittee::<S, N>::get_votes(
             &stake_table,
             SELECTION_THRESHOLD,
             VIEW_NUMBER,
