@@ -44,6 +44,7 @@ pub mod traits;
 /// Contains general utility structures and methods
 pub mod utility;
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -63,6 +64,7 @@ use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote}
 use crate::networking::NetworkingImplementation;
 use crate::utility::broadcast::BroadcastSender;
 use crate::utility::waitqueue::{WaitOnce, WaitQueue};
+use traits::election::Election;
 
 pub use crate::{
     data::{BlockHash, QuorumCertificate, Stage},
@@ -170,6 +172,8 @@ pub struct PhaseLockConfig {
     pub max_transactions: usize,
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<PubKey>,
+    /// A table mapping public keys with their stake, used for committee election
+    pub stake_table: HashMap<PubKey, u64>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
