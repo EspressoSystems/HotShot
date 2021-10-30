@@ -58,10 +58,11 @@ async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 >(
     pub_key: PubKey,
+    listen_addr: &str,
     port: u16,
 ) -> (WNetwork<T>, PubKey) {
     debug!(?pub_key);
-    let network = WNetwork::new(pub_key.clone(), port, None).await;
+    let network = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
     if let Ok(n) = network {
         let (c, sync) = futures::channel::oneshot::channel();
         match n.generate_task(c) {
@@ -200,6 +201,7 @@ async fn main() {
     // TODO: read `PubKey`s from files.
     let (own_network, _) = get_networking(
         PubKey::from_secret_key_set_escape_hatch(&secret_keys, own_id),
+        "0.0.0.0",
         get_host(node_config.clone(), own_id).1,
     )
     .await;

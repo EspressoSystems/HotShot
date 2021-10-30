@@ -93,7 +93,7 @@ async fn main() {
         PubKey,
     )> = Vec::new();
     for node_id in 0..nodes {
-        networkings.push(get_networking(&sks, node_id, &mut rng).await);
+        networkings.push(get_networking(&sks, "0.0.0.0", node_id, &mut rng).await);
     }
     // Connect the networking implementations
     for (i, (n, _, self_key)) in networkings.iter().enumerate() {
@@ -294,6 +294,7 @@ async fn get_networking<
     R: phaselock::rand::Rng,
 >(
     sks: &tc::SecretKeySet,
+    listen_addr: &str,
     node_id: u64,
     rng: &mut R,
 ) -> (WNetwork<T>, u16, PubKey) {
@@ -306,7 +307,7 @@ async fn get_networking<
             ?port,
             "Attempting to bind network listener to port"
         );
-        let x = WNetwork::new(pub_key.clone(), port, None).await;
+        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
             match x.generate_task(c) {

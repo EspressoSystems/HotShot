@@ -292,28 +292,37 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     trace!(?state, ?leaf_hash);
                     // Prepare our block
                     let mut block = state.next_block();
-                    // spin while the transaction_queue is empty
-                    trace!("Entering spin while we wait for transactions");
-                    while pl.inner.transaction_queue.read().await.is_empty() {
-                        trace!("executing transaction queue spin cycle");
-                        yield_now().await;
-                    }
-                    debug!("Unloading transactions");
-                    let mut transaction_queue = pl.inner.transaction_queue.write().await;
-                    // Iterate through all the transactions, keeping the valid ones and discarding the
-                    // invalid ones
-                    for tx in transaction_queue.drain(..) {
-                        // Make sure the transaction is valid given the current state, otherwise, discard it
-                        let new_block = block.add_transaction_raw(&tx);
-                        if let Ok(new_block) = new_block {
-                            if state.validate_block(&new_block) {
-                                block = new_block;
-                                debug!(?tx, "Added transaction to block");
+                    let mut found_txn = false;
+                    while ! found_txn {
+                        // spin while the transaction_queue is empty
+                        trace!("Entering spin while we wait for transactions");
+                        while pl.inner.transaction_queue.read().await.is_empty() {
+                            trace!("executing transaction queue spin cycle");
+                            yield_now().await;
+                        }
+                        debug!("Unloading transactions");
+                        let mut transaction_queue = pl.inner.transaction_queue.write().await;
+                        // Iterate through all the transactions, keeping the valid ones and discarding the
+                        // invalid ones
+                        for tx in transaction_queue.drain(..) {
+                            // Make sure the transaction is valid given the current state, otherwise, discard it
+                            let new_block = block.add_transaction_raw(&tx);
+                            if let Ok(new_block) = new_block {
+                                if state.validate_block(&new_block) {
+                                    block = new_block;
+                                    debug!("Added transaction to block");
+                                    debug!(?tx);
+                                    found_txn = true;
+                                } else {
+                                    let err = state.append(&new_block).unwrap_err();
+                                    warn!("Invalid transaction rejected");
+                                    warn!(?err);
+                                    warn!(?tx);
+                                }
                             } else {
-                                warn!(?tx, "Invalid transaction rejected");
+                                warn!("Invalid transaction rejected");
+                                warn!(?tx);
                             }
-                        } else {
-                            warn!(?tx, "Invalid transaction rejected");
                         }
                     }
                     // Create new leaf and add it to the store

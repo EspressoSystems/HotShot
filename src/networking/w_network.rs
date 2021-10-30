@@ -519,6 +519,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     #[instrument(level = "trace", name = "WNetwork::new_from_strings", err)]
     pub async fn new(
         own_key: PubKey,
+        listen_addr: &str,
         port: u16,
         keep_alive_duration: Option<Duration>,
     ) -> Result<Self, NetworkError> {
@@ -526,7 +527,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (s_broadcast, r_broadcast) = flume::bounded(128);
         let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(500));
         trace!("Created queues");
-        let s_string = format!("localhost:{}", port);
+        let s_string = format!("{}:{}", listen_addr, port);
         let s_addr = match s_string.to_socket_addrs().await {
             Ok(mut x) => x.next().context(NoSocketsError { input: s_string })?,
             Err(e) => {
@@ -931,7 +932,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), port, None).await;
+            let res = WNetwork::new(pub_key.clone(), "localhost", port, None).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }
@@ -950,7 +951,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), port, Some(timeout)).await;
+            let res = WNetwork::new(pub_key.clone(), "localhost", port, Some(timeout)).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }
