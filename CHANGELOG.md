@@ -1,5 +1,8 @@
-<a name="unreleased"></a>
-## [Unreleased]
+<a name="0.0.4"></a>
+## [0.0.4] - 2021-11-01
+### Features
+- Downgrade possibly-temporary network faults to warnings
+- Improve logging when an invalid transaction is submitted
 
 
 <a name="0.0.3"></a>
@@ -35,7 +38,8 @@ Changes queue type in phaselock methods
 <a name="0.0.0"></a>
 ## 0.0.0 - 2021-07-07
 
-[Unreleased]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.3...HEAD
+[Unreleased]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.4...HEAD
+[0.0.4]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.3...0.0.4
 [0.0.3]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.2...0.0.3
 [0.0.2]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.1...0.0.2
 [0.0.1]: https://gitlab.com/translucence/systems/phaselock/compare/0.0.0...0.0.1
