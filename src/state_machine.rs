@@ -307,21 +307,17 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         for tx in transaction_queue.drain(..) {
                             // Make sure the transaction is valid given the current state, otherwise, discard it
                             let new_block = block.add_transaction_raw(&tx);
-                            if let Ok(new_block) = new_block {
-                                if state.validate_block(&new_block) {
-                                    block = new_block;
-                                    debug!("Added transaction to block");
-                                    debug!(?tx);
-                                    found_txn = true;
-                                } else {
-                                    let err = state.append(&new_block).unwrap_err();
-                                    warn!("Invalid transaction rejected");
-                                    warn!(?err);
-                                    warn!(?tx);
+                            match new_block {
+                                Ok(new_block) => {
+                                    if state.validate_block(&new_block) {
+                                        block = new_block;
+                                        found_txn = true;
+                                        debug!(?tx, "Added transaction to block");
+                                    } else {
+                                        warn!(?tx, "Invalid transaction rejected");
+                                    }
                                 }
-                            } else {
-                                warn!("Invalid transaction rejected");
-                                warn!(?tx);
+                                Err(e) => warn!(?e, ?tx, "Invalid transaction rejected"),
                             }
                         }
                     }
@@ -352,7 +348,8 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         }
                     }
                     // Broadcast out the leaf
-                    pl.inner
+                    let network_result = pl
+                        .inner
                         .networking
                         .broadcast_message(Message::Prepare(Prepare {
                             current_view,
@@ -363,7 +360,10 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         .await
                         .context(FailedToBroadcast {
                             stage: Stage::Prepare,
-                        })?;
+                        });
+                    if let Err(e) = network_result {
+                        warn!(?e, "Error broadcasting leaf");
+                    }
                     // Notify our listeners
                     ctx.send_propose(current_view, &block);
                     // Make a prepare signature and send it to ourselves
@@ -435,13 +435,17 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             qc,
                             current_view,
                         });
-                        pl.inner
+                        let network_result = pl
+                            .inner
                             .networking
                             .broadcast_message(pc_message)
                             .await
                             .context(FailedToBroadcast {
                                 stage: Stage::PreCommit,
-                            })?;
+                            });
+                        if let Err(e) = network_result {
+                            warn!(?e, "Failed to broadcast precommit");
+                        }
                         debug!("Precommit message sent");
                         // Make a vote and send it to ourself
                         let signature = pl.inner.private_key.partial_sign(
@@ -510,13 +514,17 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             qc,
                             current_view,
                         });
-                        pl.inner
+                        let network_result = pl
+                            .inner
                             .networking
                             .broadcast_message(pc_message)
                             .await
                             .context(FailedToBroadcast {
                                 stage: Stage::Commit,
-                            })?;
+                            });
+                        if let Err(e) = network_result {
+                            warn!(?e, "Failed to broadcast commit message");
+                        }
                         debug!("Commit message sent");
                         // Make a pre commit vote and send it to ourselves
                         let signature = pl.inner.private_key.partial_sign(
@@ -613,13 +621,18 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             current_view,
                         });
 
-                        pl.inner
+                        let network_result = pl
+                            .inner
                             .networking
                             .broadcast_message(d_message)
                             .await
                             .context(FailedToBroadcast {
                                 stage: Stage::Decide,
-                            })?;
+                            });
+
+                        if let Err(e) = network_result {
+                            warn!(?e, "Error broadcasting decision");
+                        }
                         debug!("Decision broadcasted");
 
                         Ok(current_view)
@@ -771,14 +784,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             current_view,
                         };
                         let vote_message = Message::PrepareVote(vote);
-                        pl.inner
+                        let network_result = pl
+                            .inner
                             .networking
                             .message_node(vote_message, pl.inner.get_leader(current_view))
                             .await
                             .context(FailedToMessageLeader {
                                 stage: Stage::Prepare,
-                            })?;
-                        debug!("Prepare message successfully processed");
+                            });
+                        if let Err(e) = network_result {
+                            warn!(?e, "Error submitting prepare vote");
+                        } else {
+                            debug!("Prepare message successfully processed");
+                        }
                         ctx.send_propose(current_view, &leaf.item);
                         // Add resulting state to storage
                         let new_state = state.append(&leaf.item).map_err(|error| {
@@ -852,14 +870,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     *pqc = Some(prepare_qc);
                     trace!("Prepare qc stored");
                     // send the vote message
-                    pl.inner
+                    let network_result = pl
+                        .inner
                         .networking
                         .message_node(vote_message, pl.inner.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeader {
                             stage: Stage::PreCommit,
-                        })?;
-                    debug!("Precommit vote sent");
+                        });
+                    if let Err(e) = network_result {
+                        warn!(?e, "Error submitting the precommit vote");
+                    } else {
+                        debug!("Precommit vote sent");
+                    }
                     Ok(leaf)
                 }
                 .boxed();
@@ -911,14 +934,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         current_view,
                     });
                     trace!("Commit vote packed");
-                    pl.inner
+                    let network_result = pl
+                        .inner
                         .networking
                         .message_node(vote_message, pl.inner.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeader {
                             stage: Stage::Commit,
-                        })?;
-                    debug!("Commit vote sent to leader");
+                        });
+                    if let Err(e) = network_result {
+                        warn!(?e, "Error sending commit vote");
+                    } else {
+                        debug!("Commit vote sent to leader");
+                    }
                     Ok(leaf)
                 }
                 .boxed();
