@@ -405,11 +405,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
             });
             trace!("View message packed");
-            self.inner
+            let network_result = self
+                .inner
                 .networking
                 .message_node(view_message, new_leader)
                 .await
-                .context(NetworkFault)?;
+                .context(NetworkFault);
+            if let Err(e) = network_result {
+                warn!(?e, "Failed to send new view message to node");
+            };
             trace!("View change message sent");
         } else {
             info!("Leader for this round, sending self new_view");
@@ -585,11 +589,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         self.inner.transaction_queue.write().await.push(tx.clone());
         // Wrap up a message
         let message = Message::SubmitTransaction(tx);
-        self.inner
+        let network_result = self
+            .inner
             .networking
             .broadcast_message(message.clone())
             .await
-            .context(NetworkFault)?;
+            .context(NetworkFault);
+        if let Err(e) = network_result {
+            warn!(?e, "Failed to publish a transaction");
+        };
         debug!(?message, "Message broadcasted");
         Ok(())
     }

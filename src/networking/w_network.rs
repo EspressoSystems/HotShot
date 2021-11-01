@@ -748,6 +748,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
     fn broadcast_message(&self, message: T) -> BoxFuture<'_, Result<(), super::NetworkError>> {
         async move {
             debug!(?message, "Broadcasting message");
+            // As a stop gap solution to be able to simulate network faults, this method will
+            // collect all the erros encountered during execution, completing all the completeable
+            // requests, before returning an error
+            let mut errors = vec![];
             // Visit each handle in the map
             for x in self.inner.handles.iter() {
                 // "Destruct" the RefMulti
@@ -755,8 +759,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                 trace!(?key, "Attempting to message remote");
                 // Flag an error if this handle has shut down
                 if *handle.shutdown.read().await {
-                    error!(?key, "Handle to remote node shut down");
-                    return Err(NetworkError::CouldNotDeliver);
+                    warn!(?key, "Handle to remote node shut down");
+                    errors.push(NetworkError::CouldNotDeliver);
                 }
                 // Pack up the message into a command
                 let id = self.get_next_message_id();
@@ -767,15 +771,19 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                 };
                 trace!(?command, "Packed up command");
                 // send message down pipe
-                handle
-                    .outbound
-                    .send_async(command)
-                    .await
-                    .ok()
-                    .context(CouldNotDeliver)?;
-                trace!("Command sent to task");
+                let network_result = handle.outbound.send_async(command).await;
+                if let Err(e) = network_result {
+                    warn!(?e, "Failed to message remote node");
+                } else {
+                    trace!("Command sent to task");
+                }
             }
-            Ok(())
+            // Return the first error, if any
+            if errors.is_empty() {
+                Ok(())
+            } else {
+                Err(errors.remove(0))
+            }
         }
         .instrument(info_span!("WNetwork::broadcast_message",
                                self.id = ?self.inner.pub_key.nonce,))
