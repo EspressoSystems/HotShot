@@ -305,15 +305,16 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     for tx in transaction_queue.drain(..) {
                         // Make sure the transaction is valid given the current state, otherwise, discard it
                         let new_block = block.add_transaction_raw(&tx);
-                        if let Ok(new_block) = new_block {
-                            if state.validate_block(&new_block) {
-                                block = new_block;
-                                debug!(?tx, "Added transaction to block");
-                            } else {
-                                warn!(?tx, "Invalid transaction rejected");
+                        match new_block {
+                            Ok(new_block) => {
+                                if state.validate_block(&new_block) {
+                                    block = new_block;
+                                    debug!(?tx, "Added transaction to block");
+                                } else {
+                                    warn!(?tx, "Invalid transaction rejected");
+                                }
                             }
-                        } else {
-                            warn!(?tx, "Invalid transaction rejected");
+                            Err(e) => warn!(?e, ?tx, "Invalid transaction rejected"),
                         }
                     }
                     // Create new leaf and add it to the store
