@@ -30,9 +30,13 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
     },
     /// A new state was decided on
     Decide {
-        /// The block that was decided on
+        /// The list of blocks that were decided on in this action.
+        ///
+        /// This list may be incomplete if the node is currently performing catchup.
         block: Arc<Vec<B>>,
-        /// The new resulting state
+        /// The list of states that were decided on in this action.
+        ///
+        /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
     },
     /// A new view was started by this nodes

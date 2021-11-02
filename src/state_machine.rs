@@ -3,7 +3,8 @@
     clippy::mut_mut,
     clippy::match_same_arms,
     clippy::too_many_lines,
-    clippy::type_complexity
+    clippy::type_complexity,
+    clippy::shadow_unrelated
 )] // Clippy hates select and me
 use std::{
     pin::Pin,
@@ -595,8 +596,28 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let mut walk_leaf = new_leaf_hash;
                         while walk_leaf != *old_leaf {
                             debug!(?walk_leaf, "Looping");
-                            let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
-                            let state = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
+                            let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
+                                StorageResult::Some(x) => x,
+                                StorageResult::None => {
+                                    warn!(?walk_leaf, "Parent did not exist in store");
+                                    break;
+                                }
+                                StorageResult::Err(e) => {
+                                    warn!(?walk_leaf, ?e, "Error finding parent");
+                                    break;
+                                }
+                            };
+                            let state = match pl.inner.storage.get_state(&walk_leaf).await {
+                                StorageResult::Some(x) => x,
+                                StorageResult::None => {
+                                    warn!(?walk_leaf, "Parent did not exist in store");
+                                    break;
+                                }
+                                StorageResult::Err(e) => {
+                                    warn!(?walk_leaf, ?e, "Error finding parent");
+                                    break;
+                                }
+                            };
                             state.on_commit();
                             events.push((block.item, state));
                             walk_leaf = block.parent;
@@ -994,14 +1015,36 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
                     let mut events = vec![];
                     let mut walk_leaf = leaf_hash;
+
                     while walk_leaf != *old_leaf {
                         debug!(?walk_leaf, "Looping");
-                        let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
-                        let s = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
-                        s.on_commit();
-                        events.push((block.item, s));
+                        let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
+                            StorageResult::Some(x) => x,
+                            StorageResult::None => {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
+                            }
+                            StorageResult::Err(e) => {
+                                warn!(?walk_leaf, ?e, "Error finding parent");
+                                break;
+                            }
+                        };
+                        let state = match pl.inner.storage.get_state(&walk_leaf).await {
+                            StorageResult::Some(x) => x,
+                            StorageResult::None => {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
+                            }
+                            StorageResult::Err(e) => {
+                                warn!(?walk_leaf, ?e, "Error finding parent");
+                                break;
+                            }
+                        };
+                        state.on_commit();
+                        events.push((block.item, state));
                         walk_leaf = block.parent;
                     }
+
                     info!(?events, "Sending decide events");
                     // Send decide event
                     pl.inner.stateful_handler.lock().await.notify(
@@ -1055,12 +1098,33 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
                     let mut events = vec![];
                     let mut walk_leaf = leaf_hash;
+
                     while walk_leaf != *old_leaf {
                         debug!(?walk_leaf, "Looping");
-                        let block = pl.inner.storage.get_leaf(&walk_leaf).await.ok().unwrap();
-                        let s = pl.inner.storage.get_state(&walk_leaf).await.ok().unwrap();
-                        s.on_commit();
-                        events.push((block.item, s));
+                        let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
+                            StorageResult::Some(x) => x,
+                            StorageResult::None => {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
+                            }
+                            StorageResult::Err(e) => {
+                                warn!(?walk_leaf, ?e, "Error finding parent");
+                                break;
+                            }
+                        };
+                        let state = match pl.inner.storage.get_state(&walk_leaf).await {
+                            StorageResult::Some(x) => x,
+                            StorageResult::None => {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
+                            }
+                            StorageResult::Err(e) => {
+                                warn!(?walk_leaf, ?e, "Error finding parent");
+                                break;
+                            }
+                        };
+                        state.on_commit();
+                        events.push((block.item, state));
                         walk_leaf = block.parent;
                     }
                     info!(?events, "Sending decide events");
