@@ -293,7 +293,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     // Prepare our block
                     let mut block = state.next_block();
                     let mut found_txn = false;
-                    while ! found_txn {
+                    while !found_txn {
                         // spin while the transaction_queue is empty
                         trace!("Entering spin while we wait for transactions");
                         while pl.inner.transaction_queue.read().await.is_empty() {
