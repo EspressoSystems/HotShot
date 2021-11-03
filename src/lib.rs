@@ -163,7 +163,7 @@ impl PrivKey {
 
 /// Holds configuration for a `PhaseLock`
 #[derive(Debug, Clone)]
-pub struct PhaseLockConfig {
+pub struct PhaseLockConfig<E: Election<N>, const N: usize> {
     /// Total number of nodes in the network
     pub total_nodes: u32,
     /// Nodes required to reach a decision
@@ -173,7 +173,7 @@ pub struct PhaseLockConfig {
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<PubKey>,
     /// A table mapping public keys with their stake, used for committee election
-    pub stake_table: HashMap<PubKey, u64>,
+    pub stake_table: E::StakeTable,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -185,7 +185,7 @@ pub struct PhaseLockConfig {
 }
 
 /// Holds the state needed to participate in `PhaseLock` consensus
-pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
+pub struct PhaseLockInner<I: NodeImplementation<N>, E: Election<N>, const N: usize> {
     /// The public key of this node
     public_key: PubKey,
     /// The private key of this node
@@ -194,7 +194,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     #[allow(dead_code)]
     genesis: I::Block,
     /// Configuration items for this phaselock instance
-    config: PhaseLockConfig,
+    config: PhaseLockConfig<E, N>,
     /// Networking interface for this phaselock instance
     networking: I::Networking,
     /// Pending transactions
@@ -230,9 +230,11 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     stateful_handler: Mutex<I::StatefulHandler>,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
+impl<I: NodeImplementation<N>, E: Election<N>, const N: usize> PhaseLockInner<I, E, N> {
     /// Returns the public key for the leader of this round
     fn get_leader(&self, view: u64) -> PubKey {
+        let stake_table = self.config.stake_table;
+        // let election = Election::new
         let index = view % u64::from(self.config.total_nodes);
         self.config.known_nodes[index as usize].clone()
     }
@@ -240,12 +242,18 @@ impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
 
 /// Thread safe, shared view of a `PhaseLock`
 #[derive(Clone)]
-pub struct PhaseLock<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
+pub struct PhaseLock<
+    I: NodeImplementation<N> + Send + Sync + 'static,
+    E: Election<N>,
+    const N: usize,
+> {
     /// Handle to internal phaselock implementation
-    inner: Arc<PhaseLockInner<I, N>>,
+    inner: Arc<PhaseLockInner<I, E, N>>,
 }
 
-impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock<I, N> {
+impl<I: NodeImplementation<N> + Sync + Send + 'static, E: Election<N> + Debug, const N: usize>
+    PhaseLock<I, E, N>
+{
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
@@ -255,7 +263,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         public_keys: tc::PublicKeySet,
         secret_key_share: tc::SecretKeyShare,
         nonce: u64,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<E, N>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
@@ -269,7 +277,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
         };
-        let inner: PhaseLockInner<I, N> = PhaseLockInner {
+        let inner: PhaseLockInner<I, E, N> = PhaseLockInner {
             public_key: PubKey {
                 set: public_keys,
                 node: node_pub_key,
