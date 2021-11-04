@@ -315,7 +315,8 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                                         found_txn = true;
                                         debug!(?tx, "Added transaction to block");
                                     } else {
-                                        warn!(?tx, "Invalid transaction rejected");
+                                        let err = state.append(&new_block).unwrap_err();
+                                        warn!(?tx, ?err, "Invalid transaction rejected");
                                     }
                                 }
                                 Err(e) => warn!(?e, ?tx, "Invalid transaction rejected"),

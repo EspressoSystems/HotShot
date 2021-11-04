@@ -270,7 +270,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             debug!("Identifying");
             let ident_id = w.get_next_message_id();
             let (s, r) = oneshot::channel();
-            self.inner.waiters.acked.insert(ident_id, s);
+            if let Some(other_waiter) = self.inner.waiters.acked.insert(ident_id, s) {
+                warn!("Signaling other waiter for ack");
+                let _ = other_waiter.send(());
+            }
             let command = Command::<T>::Identify {
                 from: w.inner.pub_key.clone(),
                 id: ident_id,
@@ -724,7 +727,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let command = Command::Ping { id };
         trace!("Registering ack waiter");
         let (send, recv) = oneshot::channel();
-        self.inner.waiters.acked.insert(id, send);
+        if let Some(other_waiter) = self.inner.waiters.acked.insert(id, send) {
+            warn!("Signaling other waiter for ack");
+            let _ = other_waiter.send(());
+        }
         trace!("Waiter inserted");
         let res = handle.outbound.send_async(command).await;
         if res.is_ok() {
