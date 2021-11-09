@@ -17,12 +17,16 @@
 #![allow(clippy::cast_possible_truncation)]
 // Temporary, should be disabled after the completion of the NodeImplementation refactor
 #![allow(clippy::type_complexity)]
-//! Provides a generic rust implementation of the [`PhaseLock`](https://arxiv.org/abs/1803.05069) BFT
-//! protocol
+//! Provides a generic rust implementation of the `PhaseLock` BFT protocol
+//!
+//! See the [protocol documentation](documentation) for a protocol description.
+
+// Documentation module
+#[cfg(feature = "docs")]
+pub mod documentation;
 
 /// Contains structures and functions for committee election
 pub mod committee;
-/// Provides types useful for representing `PhaseLock ()`'s data structures
 pub mod data;
 /// Contains integration test versions of various demos
 #[cfg(any(feature = "demo"))]

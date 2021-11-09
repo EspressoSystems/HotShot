@@ -7,9 +7,13 @@ readme = "README.md"
 version = "0.0.5-dev"
 
 [features]
-default = ["demo"]
+default = ["demo", "docs"]
+# Enable demo/testing logic
 demo = ["blake3"]
+# Enable insecure testing only mock cryptography
 test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto"]
+# Build the extended documentation
+docs = []
 
 [[example]]
 name = "dentry-simulator"

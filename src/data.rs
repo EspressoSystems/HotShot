@@ -1,3 +1,9 @@
+//! Provides types useful for representing [`PhaseLock`](crate::PhaseLock)'s data structures
+//!
+//! This module provides types for representing consensus internal state, such as the [`Leaf`],
+//! [`PhaseLock`](crate::PhaseLock)'s version of a block, and the [`QuorumCertificate`], representing the
+//! threshold signatures fundamental to consensus.
+
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 
@@ -7,23 +13,37 @@ use threshold_crypto as tc;
 use crate::BlockContents;
 
 #[derive(Serialize, Deserialize, Clone)]
-/// A node in `PhaseLock`'s tree
+/**
+A node in [`PhaseLock`](crate::PhaseLock)'s consensus-internal merkle tree.
+
+This is the consensus-internal analogous concept to a block, and it contains the block proper, as
+well as the hash of its parent `Leaf`.
+*/
 pub struct Leaf<T, const N: usize> {
-    /// The hash of the parent
+    /// The hash of the parent `Leaf`
     pub parent: BlockHash<N>,
-    /// The item in the node
+    /// The block contained in this `Leaf`
     pub item: T,
 }
 
 impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
-    /// Creates a new leaf with the specified contents
+    /**
+    Creates a new leaf with the specified block and parent
+
+    # Arguments
+      * `item` - The block to include
+      * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
+    */
     pub fn new(item: T, parent: BlockHash<N>) -> Self {
         Leaf { parent, item }
     }
 
-    /// Hashes the leaf with Blake3
-    ///
-    /// TODO: Add hasher implementation to block contents trait
+    /**
+    Hashes the leaf with the hashing algorithm provided by the [`BlockContents`] implementation
+
+    This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the contained
+    block, and then return the hash of the resulting concatenated byte string.
+    */
     pub fn hash(&self) -> BlockHash<N> {
         let mut bytes = Vec::<u8>::new();
         bytes.extend_from_slice(self.parent.as_ref());
@@ -41,25 +61,69 @@ impl<T: Debug, const N: usize> Debug for Leaf<T, N> {
     }
 }
 
-/// The type used for quorum certs
+/**
+The type used for Quorum Certificates
+
+A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
+metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
+*/
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct QuorumCertificate<const N: usize> {
-    /// Block this QC refers to
+    /**
+    Hash of the block refereed to by this Quorum Certificate.
+
+    This is included for convenience, and is not fundamental to consensus or covered by the signature.
+    This _must_ be identical to the [`BlockContents`] provided hash of the `item` in the referenced leaf.
+    */
     pub(crate) block_hash: BlockHash<N>,
-    /// Leaf this QC refers to
+    /**
+    Hash of the [`Leaf`] refereed to by this Quorum Certificate
+
+    This value is covered by the threshold signature.
+    */
     pub(crate) leaf_hash: BlockHash<N>,
-    /// The view we were on when we made this certificate
+    /**
+    The view number this quorum certificate was generated during
+
+    This value is covered by the threshold signature.
+    */
     pub(crate) view_number: u64,
-    /// The stage of consensus we were on when we made this certificate
+    /**
+    The [`Stage`] of consensus that this Quorum Certificate was generated during
+
+    This value is covered by the threshold signature.
+    */
     pub(crate) stage: Stage,
-    /// The signature portion of this QC
+    /**
+    The threshold signature associated with this Quorum Certificate.
+
+    This is nullable as part of a temporary mechanism to support bootstrapping from a genesis block, as
+    the genesis block can not be produced through the normal means.
+    */
     pub(crate) signature: Option<tc::Signature>,
-    /// Temporary bypass for boostrapping
+    /**
+    Temporary bypass for boostrapping
+
+    This value indicates that this is a dummy certificate for the genesis block, and thus does not have
+    a signature. This value is not covered by the signature, and it is invalid for this to be set
+    outside of bootstrap
+    */
     pub(crate) genesis: bool,
 }
 
 impl<const N: usize> QuorumCertificate<N> {
-    /// Verifies a quorum certificate
+    /**
+    Verifies a quorum certificate
+
+    This concatenates the encoding of the [`Leaf`] hash, the `view_number`, and the `stage`, in that
+    order, and makes sure that the associated signature validates against the resulting byte string.
+
+    If the `genesis` value is set, this disables the normal checking, and instead performs bootstrap
+    checking.
+
+    TODO([#22](https://gitlab.com/translucence/systems/phaselock/-/issues/22)): This needs to include
+    the stage and view in the signature
+    */
     #[must_use]
     pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
         // Temporary, stage and view should be included in signature in future
@@ -72,7 +136,12 @@ impl<const N: usize> QuorumCertificate<N> {
         }
     }
 
-    /// Converts to a vector based cert
+    /**
+    Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic array.
+
+    This is useful for erasing the const-generic length for error types and logging, but is not directly
+    consensus relevant.
+    */
     pub fn to_vec_cert(&self) -> VecQuorumCertificate {
         VecQuorumCertificate {
             hash: self.block_hash.as_ref().to_vec(),
@@ -96,9 +165,12 @@ impl<const N: usize> Debug for QuorumCertificate<N> {
     }
 }
 
-/// Vectorized quorum cert, used for debugging
+/// [`QuorumCertificate`] variant using a `Vec` rather than a const-generic array
 ///
-/// Mainly exists to work around issuse with snafu
+/// This type mainly exists to work around an issue with  [`snafu`](https://github.com/shepmaster/snafu)
+/// when used with const-generics, by erasing the const-generic length.
+///
+/// This type is not used directly by consensus.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct VecQuorumCertificate {
     /// Block this QC refers to
@@ -140,9 +212,17 @@ pub enum Stage {
     Decide,
 }
 
-/// The type used for block hashes
-///
-/// Thin wrapper around a [u8; N] to provide serialize and deserialize functionality
+/**
+Type used for representing hashes
+
+This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that have
+not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`] and
+[`Deserialize`] implementation over the const-generic array, which `serde` normally does not have
+for the general case.
+
+TODO([#36](https://gitlab.com/translucence/systems/phaselock/-/issues/36)) Break this up into a core
+type and type-stating wrappers, and utilize `serde_bytes` instead of the visitor implementation
+*/
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub struct BlockHash<const N: usize> {
     /// The underlying array
@@ -150,12 +230,12 @@ pub struct BlockHash<const N: usize> {
 }
 
 impl<const N: usize> BlockHash<N> {
-    /// Converts an array of the correct size into a `BlockHash`
+    /// Converts an array of the correct size directly into a `BlockHash`
     pub const fn from_array(input: [u8; N]) -> Self {
         Self { inner: input }
     }
 
-    /// Converts this `BlockHash` to a vector
+    /// Clones the contents of this `BlockHash` into a `Vec<u8>`
     pub fn to_vec(&self) -> Vec<u8> {
         self.inner.to_vec()
     }

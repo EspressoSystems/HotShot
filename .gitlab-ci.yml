@@ -113,7 +113,7 @@ pages:
   tags:
     - docker
   script:
-    - cargo doc --no-deps --document-private-items -p phaselock -p threshold_crypto
+    - cargo doc --no-deps --document-private-items -p phaselock -p threshold_crypto --all-features
     - cp -R target/doc public
     - echo '<meta http-equiv="refresh" content="0; url=phaselock">' > public/index.html
   artifacts:
