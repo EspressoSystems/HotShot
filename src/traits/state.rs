@@ -30,6 +30,7 @@ pub trait State<const N: usize>:
 /// Dummy implementation of `State` for unit tests
 #[cfg(test)]
 pub mod dummy {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::traits::block_contents::dummy::{DummyBlock, DummyError};
     use rand::Rng;
@@ -43,7 +44,7 @@ pub mod dummy {
     }
 
     impl DummyState {
-        /// Generate a random DummyState
+        /// Generate a random `DummyState`
         pub fn random() -> Self {
             let x = rand::thread_rng().gen();
             Self { nonce: x }

@@ -375,7 +375,7 @@ mod tests {
         let pub_key_1 = get_pubkey();
         let _network_1 = MemoryNetwork::new(pub_key_1, group.clone());
         let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, group.clone());
+        let _network_2 = MemoryNetwork::new(pub_key_2, group);
     }
 
     // Check to make sure direct queue works

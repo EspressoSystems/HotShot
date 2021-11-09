@@ -241,6 +241,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 mod test {
     use super::*;
     use crate::data::Stage;
+    #[allow(clippy::wildcard_imports)]
     use crate::traits::block_contents::dummy::*;
     use crate::utility::test_util::setup_logging;
     use tracing::instrument;
@@ -290,9 +291,9 @@ mod test {
         let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
         // Create a few dummy qcs
         let qc_1_hash = BlockHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash.clone(), 1, true);
+        let qc_1 = dummy_qc(qc_1_hash, 1, true);
         let qc_2_hash = BlockHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash.clone(), 2, true);
+        let qc_2 = dummy_qc(qc_2_hash, 2, true);
         // Attempt to insert them
         storage.insert_qc(qc_1.clone()).await.unwrap();
         storage.insert_qc(qc_2.clone()).await.unwrap();

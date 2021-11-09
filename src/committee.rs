@@ -82,7 +82,7 @@ impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
     }
 }
 
-/// Stake table for [`DynamicCommitee`]
+/// Stake table for `DynamicCommitee`
 type StakeTable = HashMap<PubKey, u64>;
 
 /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
@@ -282,6 +282,7 @@ mod tests {
         let last_stake = TOTAL_STAKE - stake_per_record * (record_size as u64 - 1);
 
         let mut stake_table = HashMap::new();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..record_size - 1 {
             stake_table.insert(vrf_public_keys[i].clone(), stake_per_record);
         }
@@ -292,6 +293,7 @@ mod tests {
 
     // Test the verification of VRF proof
     #[test]
+    #[allow(clippy::shadow_unrelated)]
     fn test_vrf_verification() {
         // Generate keys
         let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
@@ -391,7 +393,7 @@ mod tests {
         let selected_stake = DynamicCommittee::<S, N>::select_stake(
             &stake_table,
             SELECTION_THRESHOLD,
-            &pub_key.clone(),
+            &pub_key,
             proof.clone(),
         );
         let selected_stake_again = DynamicCommittee::<S, N>::select_stake(
@@ -443,8 +445,7 @@ mod tests {
             PubKey::from_secret_key_set_escape_hatch(&secret_keys, STAKELESS_NODE_ID);
 
         // Build the committee
-        let mut stake_table =
-            dummy_stake_table(&[pub_key_honest.clone(), pub_key_byzantine.clone()]);
+        let mut stake_table = dummy_stake_table(&[pub_key_honest.clone(), pub_key_byzantine]);
         stake_table.insert(pub_key_stakeless, 0);
 
         // Vote token should be null if the public key is not selected as a member.
@@ -476,7 +477,7 @@ mod tests {
             next_state,
         );
         let validated_vote_token = votes.unwrap();
-        assert_eq!(validated_vote_token.0, pub_key_honest.clone());
+        assert_eq!(validated_vote_token.0, pub_key_honest);
         assert_eq!(validated_vote_token.1, vote_token);
         assert!(!validated_vote_token.2.is_empty());
 

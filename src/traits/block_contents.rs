@@ -46,6 +46,7 @@ pub trait BlockContents<const N: usize>:
 /// Dummy implementation of `BlockContents` for unit tests
 #[cfg(test)]
 pub mod dummy {
+    #[allow(clippy::wildcard_imports)]
     use super::*;
     use blake3::Hasher;
     use rand::Rng;
@@ -61,7 +62,7 @@ pub mod dummy {
     }
 
     impl DummyBlock {
-        /// Generate a random DummyBlock
+        /// Generate a random `DummyBlock`
         pub fn random() -> Self {
             let x = rand::thread_rng().gen();
             Self { nonce: x }

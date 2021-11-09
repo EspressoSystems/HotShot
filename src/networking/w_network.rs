@@ -927,6 +927,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 }
 
 #[cfg(test)]
+#[allow(clippy::panic)]
 mod tests {
     use super::*;
     use crate::utility::test_util::setup_logging;
@@ -996,9 +997,9 @@ mod tests {
         let x = network
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
     }
 
@@ -1012,9 +1013,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -1022,9 +1023,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -1047,9 +1048,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -1057,9 +1058,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -1122,9 +1123,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork().await;
@@ -1132,9 +1133,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -1195,9 +1196,9 @@ mod tests {
         let x = network1
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Spawn second wnetwork
         let (key2, network2, port2) = get_wnetwork_timeout(25).await;
@@ -1205,9 +1206,9 @@ mod tests {
         let x = network2
             .generate_task(sync)
             .expect("Failed to generate task");
-        x.into_iter().for_each(|x| {
+        for x in x {
             spawn(x);
-        });
+        }
         r.await.unwrap();
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
@@ -1217,6 +1218,6 @@ mod tests {
             .expect("Failed to connect nodes");
         // Wait 100ms to make sure that nothing crashes
         // Currently, the log output needs to be inspected to make sure that nothing bad happened
-        sleep(Duration::from_millis(100)).await
+        sleep(Duration::from_millis(100)).await;
     }
 }
