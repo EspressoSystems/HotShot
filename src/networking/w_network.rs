@@ -1,3 +1,10 @@
+//! Websockets based prototyping networking implementation
+//!
+//! This module provides a websockets based networking implementation, where each node in the
+//! network forms a websocket connection to every other node.
+//!
+//! This implementation is useful for testing, due to its simplicity, but is not production grade.
+
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -33,7 +40,7 @@ use crate::networking::{
 use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-/// Represents a network message
+/// Inter-node protocol level message types
 pub enum Command<T> {
     /// A message that was broadcast to all nodes
     Broadcast {
@@ -89,7 +96,7 @@ impl<T> Command<T> {
     }
 }
 
-/// The handle used for interacting with a `WNetwork` connection
+/// The handle used for interacting with a [`WNetwork`] connection
 #[derive(Clone)]
 struct Handle<T> {
     /// Messages to be sent by this node
@@ -102,7 +109,7 @@ struct Handle<T> {
     last_message: Arc<Mutex<Instant>>,
 }
 
-/// The inner shared state of a `WNetwork` instance
+/// The inner shared state of a [`WNetwork`] instance
 struct WNetworkInner<T> {
     /// The handles for each known `PubKey`
     handles: DashMap<PubKey, Handle<T>>,
@@ -110,7 +117,7 @@ struct WNetworkInner<T> {
     pub_key: PubKey,
     /// The global message counter
     counter: Arc<AtomicU64>,
-    /// The `SocketAddr` that this `WNetwork` listens on
+    /// The `SocketAddr` that this [`WNetwork`] listens on
     socket: SocketAddr,
     /// The currently pending `Waiters`
     waiters: Waiters,
@@ -126,7 +133,7 @@ struct WNetworkInner<T> {
     keep_alive_duration: Duration,
 }
 
-/// Shared waiting state for a `WNetwork` instance
+/// Shared waiting state for a [`WNetwork`] instance
 struct Waiters {
     /// Waiting on a message to be delivered
     delivered: DashMap<u64, oneshot::Sender<()>>,
@@ -134,7 +141,7 @@ struct Waiters {
     acked: DashMap<u64, oneshot::Sender<()>>,
 }
 
-/// Holds onto the input queues for a `WNetwork`
+/// Holds onto the input queues for a [`WNetwork`]
 #[derive(Clone)]
 struct Inputs<T> {
     /// Input to broadcast queue
@@ -143,7 +150,7 @@ struct Inputs<T> {
     direct: flume::Sender<T>,
 }
 
-/// Holds onto the output queues for a `WNetwork`
+/// Holds onto the output queues for a [`WNetwork`]
 #[derive(Clone)]
 struct Outputs<T> {
     /// Output from broadcast queue
@@ -165,7 +172,7 @@ enum Combo<T> {
 #[derive(Clone)]
 /// Handle to the underlying networking implementation
 pub struct WNetwork<T> {
-    /// Pointer to the internal state of this `WNetwork`
+    /// Pointer to the internal state of this [`WNetwork`]
     inner: Arc<WNetworkInner<T>>,
 }
 
@@ -327,8 +334,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                             Ok(Some(command)) => match command {
                                                 Command::Identify { from, id } => {
                                                     debug!("Identity received");
-                                                    // Identifying twice isn't an error, but repeated
-                                                    // identifies are ignored
+                                                    // Identifying twice isn't an error, but
+                                                    // repeated identifies are ignored
                                                     let pk_s = pk_s.take();
                                                     if let Some(pk_s) = pk_s {
                                                         if pk_s.send(from).is_err() {
@@ -343,7 +350,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
-                                                    // Unwrap is safe, as this serialization can't fail
+                                                    // Unwrap is safe, as this serialization can't
+                                                    // fail
                                                     let bytes = bincode_options
                                                         .serialize(&command)
                                                         .unwrap();
@@ -361,7 +369,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
-                                                    // Unwrap is safe, as this serialization can't fail
+                                                    // Unwrap is safe, as this serialization can't
+                                                    // fail
                                                     let bytes = bincode_options
                                                         .serialize(&command)
                                                         .unwrap();
@@ -456,8 +465,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
     /// Creates a connection to the given node.
     ///
-    /// If the connection does not succeed immediately, pause and retry. Use `connection_table_size()`
-    /// to get the number of connected nodes.
+    /// If the connection does not succeed immediately, pause and retry. Use
+    /// `connection_table_size()` to get the number of connected nodes.
     ///
     /// # Errors
     ///
@@ -468,9 +477,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         key: PubKey,
         addr: impl ToSocketAddrs + Debug,
     ) -> Result<(), NetworkError> {
-        /*
-        First check to see if we have the node in the map
-        */
+        // First check to see if we have the node in the map
         if self.inner.handles.contains_key(&key) {
             debug!(?key, "Already have a connection to node");
             Ok(())
@@ -514,7 +521,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    /// Creates a new `WNetwork` preloaded with connections to the nodes in `node_list`
+    /// Creates a new [`WNetwork`] preloaded with connections to the nodes in `node_list`
     ///
     /// # Errors
     ///
@@ -649,12 +656,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 todo!()
             };
             let w = self.clone();
-            /*
-            Create the patrol background task
-
-            This task is responsible for checking each task to make sure that the timeout is not exceeded,
-            sending a ping, and removing the task from the pool if no response is received.
-            */
+            // Create the patrol background task
+            //
+            // This task is responsible for checking each task to make sure that the timeout is not
+            // exceeded, sending a ping, and removing the task from the pool if no response is
+            // received.
             let patrol_future = async move {
                 let sleep_dur = w.inner.keep_alive_duration;
                 loop {

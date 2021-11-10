@@ -1,3 +1,5 @@
+//! Abstraction over on-disk storage of node state
+
 use futures::future::BoxFuture;
 
 use crate::{
@@ -7,7 +9,6 @@ use crate::{
 
 use super::state::State;
 
-/// `HashMap` and `Vec` based implementation of the storage trait
 pub mod memory_storage;
 
 /// Result for a storage type
@@ -52,7 +53,7 @@ impl<T> StorageResult<T> {
     }
 }
 
-/// Describes the behaviors a storage backend must have
+/// Abstraction over on disk persistence of node state;
 ///
 /// This should be a cloneable handle to an underlying storage, with each clone pointing to the same
 /// underlying storage.

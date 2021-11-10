@@ -1,3 +1,7 @@
+//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
+//!
+//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
+
 use async_std::sync::RwLock;
 use dashmap::DashMap;
 use futures::future::{BoxFuture, FutureExt};
@@ -15,36 +19,36 @@ use crate::{
     QuorumCertificate,
 };
 
-/// Internal state for a `MemoryStorage`
+/// Internal state for a [`MemoryStorage`]
 struct MemoryStorageInternal<Block, State, const N: usize> {
-    /// The Blocks stored by this `MemoryStorage`
+    /// The Blocks stored by this [`MemoryStorage`]
     blocks: DashMap<BlockHash<N>, Block>,
-    /// The `QuorumCertificate`s stored by this `MemoryStorage`
+    /// The [`QuorumCertificate`]s stored by this [`MemoryStorage`]
     ///
-    /// In order to maintain the struct constraints, this list must be append only. Once a QC is inserted,
-    /// it index _must not_ change
+    /// In order to maintain the struct constraints, this list must be append only. Once a QC is
+    /// inserted, it index _must not_ change
     qcs: RwLock<Vec<QuorumCertificate<N>>>,
-    /// Index of the `QuorumCertificate`s by hash
+    /// Index of the [`QuorumCertificate`]s by hash
     hash_to_qc: DashMap<BlockHash<N>, usize>,
-    /// Index of the `QuorumCertificate`s by view number
+    /// Index of the [`QuorumCertificate`]s by view number
     view_to_qc: DashMap<u64, usize>,
-    /// The `Leaf`s stored by this `MemoryStorage`
+    /// The [`Leaf`s stored by this [`MemoryStorage`]
     ///
-    /// In order to maintain the struct constraints, this list must be append only. Once a QC is inserted,
-    /// it index _must not_ change
+    /// In order to maintain the struct constraints, this list must be append only. Once a QC is
+    /// inserted, it index _must not_ change
     leaves: RwLock<Vec<Leaf<Block, N>>>,
-    /// Index of the `Leaf`s by their hashes
+    /// Index of the [`Leaf`]s by their hashes
     hash_to_leaf: DashMap<BlockHash<N>, usize>,
-    /// Index of the `Leaf`s by their block's hashes
+    /// Index of the [`Leaf`]s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
     /// The store of states
     states: DashMap<BlockHash<N>, State>,
 }
 
-/// In memory, ephemeral, storage for a `PhaseLock` instance
+/// In memory, ephemeral, storage for a [`PhaseLock`](crate::PhaseLock) instance
 #[derive(Clone)]
 pub struct MemoryStorage<Block, State, const N: usize> {
-    /// The inner state of this `MemoryStorage`
+    /// The inner state of this [`MemoryStorage`]
     inner: Arc<MemoryStorageInternal<Block, State, N>>,
 }
 
@@ -55,7 +59,7 @@ impl<Block, State, const N: usize> Default for MemoryStorage<Block, State, N> {
 }
 
 impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
-    /// Creates a new, empty `MemoryStorage`
+    /// Creates a new, empty [`MemoryStorage`]
     pub fn new() -> Self {
         let inner = MemoryStorageInternal {
             blocks: DashMap::new(),

@@ -1,14 +1,29 @@
+//! Abstraction over the global state that blocks modify
+//!
+//! This module provides the [`State`] trait, which serves as an abstraction over the current
+//! network state, which is modified by the transactions contained within blocks.
+
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{error::Error, fmt::Debug, hash::Hash};
 
 use crate::traits::block_contents::BlockContents;
 
-/// The state trait
+/// Abstraction over the state that blocks modify
+///
+/// This trait represents the behaviors that the 'global' ledger state must have:
+///   * A defined error type ([`Error`](State::Error))
+///   * The type of block that modifies this type of state ([`Block`](State::Block))
+///   * A method to get a template (empty) next block from the current state
+///     ([`next_block`](State::next_block))
+///   * The ability to validate that a block is actually a valid extension of this state
+///     ([`validate_block`](State::validate_block))
+///   * The ability to produce a new state, with the modifications from the block applied
+///     ([`append`](State::append))
 pub trait State<const N: usize>:
     Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
-    /// The error type for this state machine
+    /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
     type Block: BlockContents<N>;

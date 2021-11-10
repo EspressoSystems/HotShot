@@ -85,9 +85,9 @@ impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
 /// Stake table for `DynamicCommitee`
 type StakeTable = HashMap<PubKey, u64>;
 
-/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake
-/// being selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the
-/// selection threshold.
+/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake being
+/// selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the selection
+/// threshold.
 type SelectionThreshold = [u8; H_256];
 
 /// Vote token for [`DynamicCommittee`]
@@ -126,9 +126,9 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     ///
     /// # Arguments
     ///
-    /// * `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
-    /// `total_stake` is a predetermined value representing the weight of the associated VRF
-    /// public key.
+    /// - `stake` - The seed for hash calculation, in the range of `[0, total_stake]`, where
+    /// `total_stake` is a predetermined value representing the weight of the associated VRF public
+    /// key.
     #[allow(clippy::needless_pass_by_value)]
     fn select_stake(
         table: &StakeTable,
@@ -188,18 +188,19 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     // TODO !keyao Optimize VRF implementation with the sortition algorithm.
     // (Issue: https://gitlab.com/translucence/systems/phaselock/-/issues/35.)
+
     /// Validates a vote token.
     ///
     /// Returns:
-    /// * If the vote token isn't valid, the stake data isn't found, or the public key shouldn't be selected:
-    /// null.
+    /// * If the vote token isn't valid, the stake data isn't found, or the public key shouldn't be
+    /// selected: null.
     /// * Otherwise: the validated tokan and the set of the selected stake, the size of which
     /// represents the number of votes.
     ///
-    /// A stake is selected iff `H(vrf_output | stake) < selection_threshold`. Each stake is in the range of
-    /// `[0, total_stake]`, where `total_stake` is a predetermined value representing the weight of the
-    /// associated public key, i.e., the maximum votes it may have. The size of the set is the actual number
-    /// of votes granted in the current round.
+    /// A stake is selected iff `H(vrf_output | stake) < selection_threshold`. Each stake is in the
+    /// range of `[0, total_stake]`, where `total_stake` is a predetermined value representing the
+    /// weight of the associated public key, i.e., the maximum votes it may have. The size of the
+    /// set is the actual number of votes granted in the current round.
     pub fn get_votes(
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
@@ -303,15 +304,16 @@ mod tests {
         let public_key_share_honest =
             PubKey::from_secret_key_set_escape_hatch(&secret_keys, HONEST_NODE_ID).node;
 
-        // VRF verification should pass with the correct secret key share, total stake, committee seed,
-        // and selection threshold
+        // VRF verification should pass with the correct secret key share, total stake, committee
+        // seed, and selection threshold
         let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
         let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
         let proof = DynamicCommittee::<S, N>::prove(&secret_key_share_honest, &input);
         let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_share_honest, input);
         assert!(valid);
 
-        // VRF verification should fail if the secret key share does not correspond to the public key share
+        // VRF verification should fail if the secret key share does not correspond to the public
+        // key share
         let incorrect_proof = DynamicCommittee::<S, N>::prove(&secret_key_share_byzantine, &input);
         let valid =
             DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_share_honest, input);

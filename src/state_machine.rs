@@ -1,3 +1,8 @@
+//! State machine representation of round logic
+//!
+//! This module provides an implementation of the logic for completing an individual round of
+//! sequential [`PhaseLock`](crate::PhaseLock), expressed as a manually written out state machine
+
 #![allow(
     clippy::panic,
     clippy::mut_mut,
@@ -303,10 +308,11 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         }
                         debug!("Unloading transactions");
                         let mut transaction_queue = pl.inner.transaction_queue.write().await;
-                        // Iterate through all the transactions, keeping the valid ones and discarding the
-                        // invalid ones
+                        // Iterate through all the transactions, keeping the valid ones and
+                        // discarding the invalid ones
                         for tx in transaction_queue.drain(..) {
-                            // Make sure the transaction is valid given the current state, otherwise, discard it
+                            // Make sure the transaction is valid given the current state,
+                            // otherwise, discard it
                             let new_block = block.add_transaction_raw(&tx);
                             match new_block {
                                 Ok(new_block) => {

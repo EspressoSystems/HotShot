@@ -1,3 +1,8 @@
+//! Composite trait for node behavior
+//!
+//! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
+//! describing the overall behavior of a node, as a composition of implementations of the node trait.
+
 use std::fmt::Debug;
 
 use crate::{
@@ -7,6 +12,13 @@ use crate::{
 use super::StatefulHandler;
 
 /// Node implementation aggregate trait
+///
+/// This trait exists to collect multiple behavior implementations into one type, to allow
+/// [`PhaseLock`](crate::PhaseLock) to avoid annoying numbers of type arguments and type patching.
+///
+/// It is recommended you implement this trait on a zero sized type, as
+/// [`PhaseLock`](crate::PhaseLock) does not actually store or keep a reference to any value
+/// implementing this trait.
 pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'static {
     /// Block type for this consensus implementation
     type Block: BlockContents<N> + 'static;

@@ -1,8 +1,13 @@
+//! Events that a [`PhaseLock`](crate::PhaseLock) instance can emit
+
 use crate::{data::Stage, PhaseLockError};
 
 use std::sync::Arc;
 
-/// A status event emitted by a `PhaseLock` instance
+/// A status event emitted by a [`PhaseLock`](crate::PhaseLock) instance
+///
+/// This includes some metadata, such as the stage and view number that the event was generated in,
+/// as well as an inner [`EventType`] describing the event proper.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct Event<B: Send + Sync, S: Send + Sync> {
@@ -14,11 +19,14 @@ pub struct Event<B: Send + Sync, S: Send + Sync> {
     pub event: EventType<B, S>,
 }
 
-/// The types of event that can be emitted by a `PhaseLock` instance
+/// The type and contents of a status event emitted by a [`PhaseLock`](crate::PhaseLock) instance
+///
+/// This enum does not include metadata shared among all variants, such as the stage and view
+/// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum EventType<B: Send + Sync, S: Send + Sync> {
-    /// An error occurred and the round was not completed
+    /// A view encountered an error and was interrupted
     Error {
         /// The underlying error
         error: Arc<PhaseLockError>,
@@ -28,33 +36,39 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
         /// The block that was proposed
         block: Arc<B>,
     },
-    /// A new state was decided on
+    /// A new decision event was issued
     Decide {
-        /// The list of blocks that were decided on in this action.
+        /// The list of blocks that were committed by this decision
+        ///
+        /// This list is sorted in reverse view number order, with the newest (highest view number)
+        /// block first in the list.
         ///
         /// This list may be incomplete if the node is currently performing catchup.
         block: Arc<Vec<B>>,
-        /// The list of states that were decided on in this action.
+        /// The list of states that were committed by this decision
+        ///
+        /// This list is sorted in reverse view number order, with the newest (highest view number)
+        /// state first in the list.
         ///
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
     },
-    /// A new view was started by this nodes
+    /// A new view was started by this node
     NewView {
         /// The view being started
         view_number: u64,
     },
-    /// A view timed out and was interrupted
+    /// A view was canceled by a timeout interrupt
     ViewTimeout {
         /// The view that timed out
         view_number: u64,
     },
-    /// The current node is the leader for this view
+    /// This node is the leader for this view
     Leader {
         /// The current view number
         view_number: u64,
     },
-    /// The current node is a follower for this view
+    /// This node is a follower for this view
     Follower {
         /// The current view number
         view_number: u64,

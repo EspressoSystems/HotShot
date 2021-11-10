@@ -1,3 +1,11 @@
+//! Double entry accounting demo
+//!
+//! This module provides an implementation of the `PhaseLock` suite of traits that implements a
+//! basic demonstration of double entry accounting.
+//!
+//! These implementations are useful in examples and integration testing, but are not suitable for
+//! production use.
+
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -15,10 +23,14 @@ use crate::{
     BlockContents, BlockHash, H_256,
 };
 
-/// An account identifier
+/// The account identifier type used by the demo
+///
+/// This is a type alias to [`String`] for simplicity.
 pub type Account = String;
 
-/// An account balance
+/// The account balance type used by the demo
+///
+/// This is a type alias to [`i64`] for simplicity.
 pub type Balance = i64;
 
 /// Records a reduction in an account balance

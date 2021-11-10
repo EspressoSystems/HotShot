@@ -28,22 +28,15 @@ pub mod documentation;
 /// Contains structures and functions for committee election
 pub mod committee;
 pub mod data;
-/// Contains integration test versions of various demos
 #[cfg(any(feature = "demo"))]
 pub mod demos;
-/// Contains error types used by this library
 pub mod error;
-/// Contains representations of events
 pub mod event;
-/// Contains the handle type for interacting with a `PhaseLock` instance
 pub mod handle;
-/// Contains structures used for representing network messages
 pub mod message;
-/// Contains traits describing and implementations of networking layers
 pub mod networking;
-/// Representation of the round logic as state machine
 pub mod state_machine;
-/// Contains traits consumed by `HotStuff`
+/// Contains traits consumed by [`PhaseLock`]
 pub mod traits;
 /// Contains general utility structures and methods
 pub mod utility;
@@ -110,8 +103,8 @@ impl PubKey {
     }
     /// Temporary escape hatch to generate a `PubKey` from a `SecretKeySet` and a node id
     ///
-    /// This _will_ be removed when shared secret generation is implemented. For now, it exists to solve the
-    /// resulting chicken and egg problem.
+    /// This _will_ be removed when shared secret generation is implemented. For now, it exists to
+    /// solve the resulting chicken and egg problem.
     pub fn from_secret_key_set_escape_hatch(sks: &tc::SecretKeySet, node_id: u64) -> Self {
         let pks = sks.public_keys();
         let tc_pub_key = pks.public_key_share(node_id);
@@ -617,8 +610,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Underlying `PhaseLock` instance starts out paused, and must be unpaused
     ///
-    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel, the
-    /// `PhaseLock` instance will log the error and shut down.
+    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
+    /// the `PhaseLock` instance will log the error and shut down.
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
         genesis: I::Block,

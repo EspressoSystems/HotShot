@@ -1,3 +1,13 @@
+//! Network access abstraction
+//!
+//! This module contains a trait abstracting over network access, as well as implementations of that
+//! trait. Currently this includes [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory
+//! testing-only implementation, and [`WNetwork`](w_network::WNetwork), a prototype/testing
+//! websockets implementation.
+//!
+//! In future, this module will contain a production ready networking implementation, very probably
+//! one libp2p based.
+
 use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
@@ -5,9 +15,7 @@ use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
-/// In memory network simulator
 pub mod memory_network;
-/// Websockets based networking implementation
 pub mod w_network;
 
 /// A boxed future trait object with a static lifetime

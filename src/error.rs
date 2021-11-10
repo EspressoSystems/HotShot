@@ -1,6 +1,10 @@
+//! Error type for [`PhaseLock`](crate::PhaseLock)
+//!
+//! This module provides [`PhaseLockError`], which is an enum representing possible faults that can
+//! occur while interacting with this crate.
 use snafu::Snafu;
 
-/// Error type for `PhaseLock`
+/// Error type for [`PhaseLock`](crate::PhaseLock)
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 #[non_exhaustive]

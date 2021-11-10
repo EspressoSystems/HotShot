@@ -1,19 +1,20 @@
-/// `BlockContents` trait
 pub mod block_contents;
 /// Sortition trait
 pub mod election;
-/// `NodeImplementation` trait
 pub mod node_implementation;
-/// `State` trait
 pub mod state;
-/// Stateful handler callback trait
 pub mod stateful_handler;
-/// `Storage` trait
 pub mod storage;
 
+#[doc(inline)]
 pub use block_contents::BlockContents;
+#[doc(inline)]
 pub use election::Election;
+#[doc(inline)]
 pub use node_implementation::NodeImplementation;
+#[doc(inline)]
 pub use state::State;
+#[doc(inline)]
 pub use stateful_handler::StatefulHandler;
+#[doc(inline)]
 pub use storage::Storage;

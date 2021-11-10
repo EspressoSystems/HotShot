@@ -1,14 +1,28 @@
+//! Abstraction over the contents of a block
+//!
+//! This module provides the [`BlockContents`] trait, which describes the behaviors that a block is
+//! expected to have.
+
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{error::Error, fmt::Debug, hash::Hash};
 
 use crate::data::BlockHash;
 
-/// The block trait
+/// Abstraction over the contents of a block
+///
+/// This trait encapsulates the behaviors that a block must have in order to be used by consensus:
+///   * Must have a predefined error type ([`BlockContents::Error`])
+///   * Must have a transaction type that can be compared for equality, serialized and serialized,
+///     sent between threads, and can have a hash produced of it
+///     ([`hash_transaction`](BlockContents::hash_transaction))
+///   * Must be able to be produced incrementally by appending transactions
+///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
+///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait BlockContents<const N: usize>:
     Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
-    /// The error type for this state machine
+    /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
@@ -39,7 +53,7 @@ pub trait BlockContents<const N: usize>:
     fn hash_transaction(tx: &Self::Transaction) -> BlockHash<N>;
     /// Produces a hash for an arbitrary sequence of bytes
     ///
-    /// Used to produce hashes for internal `HotStuff` control structures
+    /// Used to produce hashes for internal [`PhaseLock`](crate::PhaseLock) control structures
     fn hash_bytes(bytes: &[u8]) -> BlockHash<N>;
 }
 

@@ -1,3 +1,8 @@
+//! In memory network simulator
+//!
+//! This module provides an in-memory only simulation of an actual network, useful for unit and
+//! integration tests.
+
 use async_std::task::spawn;
 use bincode::Options;
 use dashmap::DashMap;
@@ -14,7 +19,10 @@ use std::sync::Arc;
 use crate::networking::{FailedToSerialize, NetworkError, NetworkingImplementation};
 use crate::PubKey;
 
-/// Shared state for a group of `MemoryNetwork`s
+/// Shared state for in-memory mock networking.
+///
+/// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
+/// used to group the [`MemoryNetwork`] instances.
 pub struct MasterMap<T> {
     /// The list of `MemoryNetwork`s
     map: DashMap<PubKey, MemoryNetwork<T>>,
@@ -62,7 +70,13 @@ struct MemoryNetworkInner<T> {
     master_map: Arc<MasterMap<T>>,
 }
 
-/// Handle to a `MemoryNetwork` instance
+/// In memory only network simulator.
+///
+/// This provides an in memory simulation of a networking implementation, allowing nodes running on
+/// the same machine to mock networking while testing other functionality.
+///
+/// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
+/// same group.
 #[derive(Clone)]
 pub struct MemoryNetwork<T> {
     /// The actual internal state
