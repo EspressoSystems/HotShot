@@ -17,10 +17,12 @@ use std::{
 use tracing::error;
 
 use crate::{
-    message::Message,
-    networking::NetworkingImplementation,
-    traits::{node_implementation::NodeImplementation, storage::memory_storage::MemoryStorage},
-    BlockContents, BlockHash, H_256,
+    data::BlockHash,
+    traits::{
+        implementations::MemoryStorage, BlockContents, NetworkingImplementation, NodeImplementation,
+    },
+    types::Message,
+    H_256,
 };
 
 /// The account identifier type used by the demo
@@ -117,7 +119,7 @@ impl State {
     }
 }
 
-impl crate::traits::state::State<H_256> for State {
+impl crate::traits::State<H_256> for State {
     type Error = DEntryError;
 
     type Block = DEntryBlock;
@@ -358,5 +360,5 @@ where
 
     type Networking = NET;
 
-    type StatefulHandler = crate::traits::stateful_handler::Stateless<DEntryBlock, State, H_256>;
+    type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
 }

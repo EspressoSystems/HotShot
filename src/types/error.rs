@@ -15,7 +15,7 @@ pub enum PhaseLockError {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
         /// The underlying network fault
-        source: crate::networking::NetworkError,
+        source: crate::traits::NetworkError,
     },
     /// Failed to broadcast a message on the network
     #[snafu(display("Failed to broadcast a message in stage {:?}: {}", stage, source))]
@@ -23,7 +23,7 @@ pub enum PhaseLockError {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
         /// The underlying network fault
-        source: crate::networking::NetworkError,
+        source: crate::traits::NetworkError,
     },
     /// Bad or forged quorum certificate
     #[snafu(display("Bad or forged QC in stage {:?}", stage))]
@@ -62,7 +62,7 @@ pub enum PhaseLockError {
     #[snafu(display("Failure in networking layer: {}", source))]
     NetworkFault {
         /// Underlying network fault
-        source: crate::networking::NetworkError,
+        source: crate::traits::NetworkError,
     },
     /// Item was not present in storage
     ItemNotFound {

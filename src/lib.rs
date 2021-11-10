@@ -30,14 +30,11 @@ pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
-pub mod error;
-pub mod event;
-pub mod handle;
-pub mod message;
-pub mod networking;
 pub mod state_machine;
 /// Contains traits consumed by [`PhaseLock`]
 pub mod traits;
+/// Contains types used by the crate
+pub mod types;
 /// Contains general utility structures and methods
 pub mod utility;
 
@@ -52,23 +49,23 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
-use crate::data::Leaf;
-use crate::error::{NetworkFault, PhaseLockError};
-use crate::event::{Event, EventType};
-use crate::handle::PhaseLockHandle;
-use crate::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
-use crate::networking::NetworkingImplementation;
-use crate::utility::broadcast::BroadcastSender;
-use crate::utility::waitqueue::{WaitOnce, WaitQueue};
-
-pub use crate::{
-    data::{BlockHash, QuorumCertificate, Stage},
-    traits::block_contents::BlockContents,
-    traits::node_implementation::NodeImplementation,
-    traits::storage::{Storage, StorageResult},
+use crate::{
+    data::{BlockHash, Leaf, QuorumCertificate, Stage},
+    traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
+    types::{
+        error::{NetworkFault, PhaseLockError},
+        Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
+        Vote,
+    },
+    utility::{
+        broadcast::BroadcastSender,
+        waitqueue::{WaitOnce, WaitQueue},
+    },
 };
 
+/// Reexport rand crate
 pub use rand;
+/// Reexport threshold crypto crate
 pub use threshold_crypto as tc;
 
 /// Length, in bytes, of a 512 bit hash

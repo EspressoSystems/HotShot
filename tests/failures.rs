@@ -10,12 +10,9 @@ use std::collections::VecDeque;
 
 use phaselock::{
     demos::dentry::*,
-    event::{Event, EventType},
-    handle::PhaseLockHandle,
-    message::Message,
-    networking::memory_network::{MasterMap, MemoryNetwork},
     tc,
-    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
+    traits::implementations::{MasterMap, MemoryNetwork, MemoryStorage, Stateless},
+    types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 

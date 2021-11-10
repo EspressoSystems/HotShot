@@ -5,10 +5,10 @@ use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 
 use crate::{
-    error::PhaseLockError,
-    event::Event,
+    traits::{BlockContents, NodeImplementation},
+    types::{Event, PhaseLockError},
     utility::broadcast::{BroadcastReceiver, BroadcastSender},
-    BlockContents, NodeImplementation, PhaseLock,
+    PhaseLock,
 };
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background

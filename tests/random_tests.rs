@@ -4,12 +4,9 @@ mod common;
 
 use phaselock::{
     demos::dentry::*,
-    event::{Event, EventType},
-    handle::{HandleError, PhaseLockHandle},
-    message::Message,
-    networking::memory_network::{MasterMap, MemoryNetwork},
     tc,
-    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
+    traits::implementations::{MasterMap, MemoryNetwork, MemoryStorage, Stateless},
+    types::{Event, EventType, HandleError, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use proptest::prelude::*;

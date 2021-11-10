@@ -20,14 +20,15 @@ use futures::{future::BoxFuture, Future, FutureExt};
 use tracing::{info, instrument};
 
 use super::{
-    debug, error, generate_qc, trace, warn, yield_now, Arc, BlockContents, BlockHash, Commit,
-    Debug, Decide, Event, EventType, Leaf, Message, PhaseLock, PhaseLockError, PreCommit, Prepare,
-    PubKey, QuorumCertificate, Result, ResultExt, Stage, StorageResult, Vote,
+    debug, error, generate_qc, trace, warn, yield_now, Arc, BlockHash, Commit, Debug, Decide,
+    Event, EventType, Leaf, Message, PhaseLock, PhaseLockError, PreCommit, Prepare, PubKey,
+    QuorumCertificate, Result, ResultExt, Stage, Vote,
 };
 use crate::{
-    error::{FailedToBroadcast, FailedToMessageLeader},
-    networking::NetworkingImplementation,
-    traits::{State, StatefulHandler, Storage},
+    traits::{
+        BlockContents, NetworkingImplementation, State, StatefulHandler, Storage, StorageResult,
+    },
+    types::error::{FailedToBroadcast, FailedToMessageLeader},
     utility::broadcast::BroadcastSender,
     NodeImplementation,
 };

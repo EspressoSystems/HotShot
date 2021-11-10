@@ -10,12 +10,9 @@ use tracing::{debug, error, instrument};
 
 use phaselock::{
     demos::dentry::*,
-    event::{Event, EventType},
-    handle::PhaseLockHandle,
-    message::Message,
-    networking::w_network::WNetwork,
     tc,
-    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
+    traits::implementations::{MemoryStorage, Stateless, WNetwork},
+    types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 

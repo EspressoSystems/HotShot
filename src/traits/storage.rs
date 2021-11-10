@@ -4,7 +4,8 @@ use futures::future::BoxFuture;
 
 use crate::{
     data::{BlockHash, Leaf},
-    BlockContents, QuorumCertificate,
+    traits::BlockContents,
+    QuorumCertificate,
 };
 
 use super::state::State;

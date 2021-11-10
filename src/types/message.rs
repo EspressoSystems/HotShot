@@ -40,7 +40,7 @@ pub struct NewView<const N: usize> {
     /// The current view
     pub current_view: u64,
     /// The justification qc for this view
-    pub justify: super::QuorumCertificate<N>,
+    pub justify: QuorumCertificate<N>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

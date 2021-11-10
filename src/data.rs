@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto as tc;
 
-use crate::BlockContents;
+use crate::traits::BlockContents;
 
 #[derive(Serialize, Deserialize, Clone)]
 /// A node in [`PhaseLock`](crate::PhaseLock)'s consensus-internal merkle tree.

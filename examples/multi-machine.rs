@@ -1,11 +1,8 @@
 use phaselock::{
     demos::dentry::*,
-    event::{Event, EventType},
-    handle::PhaseLockHandle,
-    message::Message,
-    networking::w_network::WNetwork,
     tc,
-    traits::{stateful_handler::Stateless, storage::memory_storage::MemoryStorage},
+    traits::implementations::{MemoryStorage, Stateless, WNetwork},
+    types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};

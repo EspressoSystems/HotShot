@@ -32,10 +32,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::BoxedFuture;
-use crate::networking::{
-    CouldNotDeliver, ExecutorError, FailedToBindListener, NetworkError, NetworkingImplementation,
-    NoSocketsError, SocketDecodeError, WError,
+use super::{
+    BoxedFuture, CouldNotDeliver, ExecutorError, FailedToBindListener, NetworkError,
+    NetworkingImplementation, NoSocketsError, SocketDecodeError, WError,
 };
 use crate::PubKey;
 

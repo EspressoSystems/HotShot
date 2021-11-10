@@ -6,7 +6,8 @@
 use std::fmt::Debug;
 
 use crate::{
-    message::Message, networking::NetworkingImplementation, traits::state, BlockContents, Storage,
+    traits::{state, BlockContents, NetworkingImplementation, Storage},
+    types::Message,
 };
 
 use super::StatefulHandler;

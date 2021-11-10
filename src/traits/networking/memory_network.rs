@@ -16,7 +16,7 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::networking::{FailedToSerialize, NetworkError, NetworkingImplementation};
+use super::{FailedToSerialize, NetworkError, NetworkingImplementation};
 use crate::PubKey;
 
 /// Shared state for in-memory mock networking.

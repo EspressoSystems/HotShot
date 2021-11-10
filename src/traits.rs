@@ -1,20 +1,30 @@
-pub mod block_contents;
+mod block_contents;
 /// Sortition trait
 pub mod election;
-pub mod node_implementation;
-pub mod state;
-pub mod stateful_handler;
-pub mod storage;
+mod networking;
+mod node_implementation;
+mod state;
+mod stateful_handler;
+mod storage;
 
-#[doc(inline)]
 pub use block_contents::BlockContents;
-#[doc(inline)]
 pub use election::Election;
-#[doc(inline)]
+pub use networking::{BoxedFuture, NetworkError, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
-#[doc(inline)]
 pub use state::State;
-#[doc(inline)]
 pub use stateful_handler::StatefulHandler;
-#[doc(inline)]
-pub use storage::Storage;
+pub use storage::{Storage, StorageResult};
+
+/// Module for publicly usable implementations of the traits
+pub mod implementations {
+    pub use super::networking::memory_network::{MasterMap, MemoryNetwork};
+    pub use super::networking::w_network::WNetwork;
+    pub use super::stateful_handler::Stateless;
+    pub use super::storage::memory_storage::MemoryStorage;
+}
+
+/// Dummy testing implementations
+#[cfg(test)]
+pub mod dummy {
+    pub use super::state::dummy::DummyState;
+}

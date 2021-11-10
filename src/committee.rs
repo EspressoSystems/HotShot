@@ -7,7 +7,7 @@ use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
 
-use crate::{BlockHash, PrivKey, PubKey, H_256};
+use crate::{data::BlockHash, PrivKey, PubKey, H_256};
 
 pub use threshold_crypto as tc;
 
