@@ -1001,6 +1001,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let pl = phaselock.clone();
                 let ctx = context.clone();
                 let fut = async move {
+                    let _ = &leaf;
                     let decide_qc = message.qc;
                     if !(decide_qc.verify(&pl.inner.public_key.set, Stage::Commit, current_view)
                         && decide_qc.leaf_hash == leaf_hash)

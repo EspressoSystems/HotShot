@@ -1,7 +1,7 @@
 [package]
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
 description = "PhaseLock consesus module"
-edition = "2018"
+edition = "2021"
 name = "phaselock"
 readme = "README.md"
 version = "0.0.5-dev"

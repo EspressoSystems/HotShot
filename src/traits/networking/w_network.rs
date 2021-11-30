@@ -727,6 +727,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// Pings a remote, removing the remote from the handles table if the ping fails
     #[instrument(skip(self,handle), fields(id = ?self.inner.pub_key.nonce))]
     async fn ping_remote(&self, remote: PubKey, handle: Handle<T>) {
+        let _ = &handle;
         trace!("Packing up ping command");
         let id = self.get_next_message_id();
         let command = Command::Ping { id };
