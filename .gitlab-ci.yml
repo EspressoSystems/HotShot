@@ -14,6 +14,8 @@ variables:
 before_script:
   - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf git://gitlab.com
   - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf ssh://git@gitlab.com
+  - git config --global url."https://ancient123:${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf git://github.com
+  - git config --global url."https://ancient123:${GITHUB_ACCESS_TOKEN}@github.com/".insteadOf ssh://git@github.com
   - git config --global url."https://dl.cloudsmith.io/${CLOUDSMITH_ENTITLEMENT}/".insteadOf https://dl.cloudsmith.io/basic/
   - echo ""
 
@@ -54,7 +56,7 @@ lint:audit:
       - .cargo-home/
       - target/
   allow_failure: true
-  
+
 check:
   stage: check
   tags:
@@ -82,7 +84,7 @@ build:
     key: build-cache
     paths:
       - .cargo-home/
-      - target/    
+      - target/
 
 test:cargo:
   stage: test
@@ -107,7 +109,7 @@ test:dentry-simulator:
   dependencies:
     - build
   retry: 2
-    
+
 pages:
   stage: doc
   tags:
@@ -128,4 +130,4 @@ pages:
     paths:
       - .cargo-home/
       - target/
-  
+
