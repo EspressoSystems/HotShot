@@ -12,14 +12,13 @@ use crate::PubKey;
 
 use async_tungstenite::tungstenite::error as werror;
 use futures::future::BoxFuture;
+use rand::distributions::{Bernoulli, Distribution, Uniform};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
-use rand::distributions::Distribution;
 use std::time::Duration;
 
 pub mod memory_network;
 pub mod w_network;
-
 
 /// A boxed future trait object with a static lifetime
 pub type BoxedFuture<T> = BoxFuture<'static, T>;
@@ -121,15 +120,20 @@ where
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
 }
 
+/// struct describing reliability of network
+/// probability that packet is kept = `keep_numerator` / `keep_denominator`
+/// packet delay is obtained by sampling from a uniform distribution
+/// between `delay_low_ms` and `delay_high_ms`, inclusive
 #[derive(Debug, Copy, Clone)]
 pub struct ReliabilityConfig {
-    /// probability that packet is kept = keep_numerator / keep_denominator
+    /// numerator for probability of keeping packets
     keep_numerator: u32,
+    /// denominator for probability of keeping packets
     keep_denominator: u32,
-    /// packet delay is obtained by sampling from a uniform distribution
-    /// between delay_low_ms and delay_high_ms inclusive
+    /// lowest value in milliseconds that a packet may be delayed
     delay_low_ms: u64,
-    delay_high_ms: u64
+    /// highest value in milliseconds that a packet may be delayed
+    delay_high_ms: u64,
 }
 
 impl Default for ReliabilityConfig {
@@ -139,20 +143,27 @@ impl Default for ReliabilityConfig {
             keep_numerator: 1,
             keep_denominator: 1,
             delay_low_ms: 0,
-            delay_high_ms: 0
+            delay_high_ms: 0,
         }
     }
 }
 
 impl ReliabilityConfig {
+    /// sample from bernoulli distribution to decide whether
+    /// or not to keep a packet
     pub fn sample_keep(&self) -> bool {
         assert!(self.keep_numerator <= self.keep_denominator);
         // cannot fail to unwrap if assert passes
-        rand::distributions::Bernoulli::from_ratio(self.keep_numerator, self.keep_denominator)
-            .unwrap().sample(&mut rand::thread_rng())
+        Bernoulli::from_ratio(self.keep_numerator, self.keep_denominator)
+            .unwrap()
+            .sample(&mut rand::thread_rng())
     }
+    /// sample from uniform distribution to decide whether
+    /// or not to keep a packet
     pub fn sample_delay(&self) -> Duration {
-        Duration::from_millis(rand::distributions::Uniform::new_inclusive(self.delay_low_ms, self.delay_high_ms)
-                              .sample(&mut rand::thread_rng()))
+        Duration::from_millis(
+            Uniform::new_inclusive(self.delay_low_ms, self.delay_high_ms)
+                .sample(&mut rand::thread_rng()),
+        )
     }
 }

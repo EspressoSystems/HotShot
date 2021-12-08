@@ -68,8 +68,6 @@ struct MemoryNetworkInner<T> {
     direct_output: flume::Receiver<T>,
     /// The master map
     master_map: Arc<MasterMap<T>>,
-    /// Configuration describing how reliable the network is
-    reliability_config: ReliabilityConfig
 }
 
 /// In memory only network simulator.
@@ -99,7 +97,11 @@ where
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
-    pub fn new(pub_key: PubKey, master_map: Arc<MasterMap<T>>, reliability_config: Option<ReliabilityConfig>) -> MemoryNetwork<T> {
+    pub fn new(
+        pub_key: PubKey,
+        master_map: Arc<MasterMap<T>>,
+        reliability_config: Option<ReliabilityConfig>,
+    ) -> MemoryNetwork<T> {
         info!("Attaching new MemoryNetwork");
         let (broadcast_input, broadcast_task_recv) = flume::bounded(128);
         let (direct_input, direct_task_recv) = flume::bounded(128);
@@ -123,60 +125,58 @@ where
                 let mut combined = futures::stream::select(direct, broadcast);
                 trace!("Entering processing loop");
                 while let Some(message) = combined.next().await {
-                        match message {
-                            Combo::Direct(vec) => {
-                                trace!(?vec, "Incoming direct message");
-                                // Attempt to decode message
-                                let x = bincode_options.deserialize(&vec);
-                                match x {
-                                    Ok(x) => {
-                                        let dts = direct_task_send.clone();
-                                        spawn(
-                                            async move {
-                                                if reliability.sample_keep() {
-                                                    async_std::task::sleep(reliability.sample_delay()).await;
-                                                    let res = dts.send_async(x).await;
-                                                    if res.is_ok() {
-                                                        trace!("Passed message to output queue");
-                                                    } else {
-                                                        error!("Output queue receivers are shutdown");
-                                                    }
-                                                }
+                    match message {
+                        Combo::Direct(vec) => {
+                            trace!(?vec, "Incoming direct message");
+                            // Attempt to decode message
+                            let x = bincode_options.deserialize(&vec);
+                            match x {
+                                Ok(x) => {
+                                    let dts = direct_task_send.clone();
+                                    spawn(async move {
+                                        if reliability.sample_keep() {
+                                            async_std::task::sleep(reliability.sample_delay())
+                                                .await;
+                                            let res = dts.send_async(x).await;
+                                            if res.is_ok() {
+                                                trace!("Passed message to output queue");
+                                            } else {
+                                                error!("Output queue receivers are shutdown");
                                             }
-                                        );
-                                    }
-                                    Err(e) => {
-                                        warn!(?e, "Failed to decode incoming message, skipping");
-                                    }
+                                        }
+                                    });
                                 }
-                            }
-                            Combo::Broadcast(vec) => {
-                                trace!(?vec, "Incoming broadcast message");
-                                // Attempt to decode message
-                                let x = bincode_options.deserialize(&vec);
-                                match x {
-                                    Ok(x) => {
-                                        let bts = broadcast_task_send.clone();
-                                        spawn(
-                                            async move {
-                                                if reliability.sample_keep() {
-                                                    async_std::task::sleep(reliability.sample_delay()).await;
-                                                    let res = bts.send_async(x).await;
-                                                    if res.is_ok() {
-                                                        trace!("Passed message to output queue");
-                                                    } else {
-                                                        error!("Output queue receivers are shutdown");
-                                                    }
-                                                }
-                                            }
-                                        );
-                                    }
-                                    Err(e) => {
-                                        warn!(?e, "Failed to decode incoming message, skipping");
-                                    }
+                                Err(e) => {
+                                    warn!(?e, "Failed to decode incoming message, skipping");
                                 }
                             }
                         }
+                        Combo::Broadcast(vec) => {
+                            trace!(?vec, "Incoming broadcast message");
+                            // Attempt to decode message
+                            let x = bincode_options.deserialize(&vec);
+                            match x {
+                                Ok(x) => {
+                                    let bts = broadcast_task_send.clone();
+                                    spawn(async move {
+                                        if reliability.sample_keep() {
+                                            async_std::task::sleep(reliability.sample_delay())
+                                                .await;
+                                            let res = bts.send_async(x).await;
+                                            if res.is_ok() {
+                                                trace!("Passed message to output queue");
+                                            } else {
+                                                error!("Output queue receivers are shutdown");
+                                            }
+                                        }
+                                    });
+                                }
+                                Err(e) => {
+                                    warn!(?e, "Failed to decode incoming message, skipping");
+                                }
+                            }
+                        }
+                    }
                 }
                 error!("Stream shutdown");
             }
@@ -193,7 +193,6 @@ where
                 broadcast_output,
                 direct_output,
                 master_map: master_map.clone(),
-                reliability_config: reliability,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
