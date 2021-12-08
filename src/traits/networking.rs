@@ -14,9 +14,12 @@ use async_tungstenite::tungstenite::error as werror;
 use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
+use rand::distributions::Distribution;
+use std::time::Duration;
 
 pub mod memory_network;
 pub mod w_network;
+
 
 /// A boxed future trait object with a static lifetime
 pub type BoxedFuture<T> = BoxFuture<'static, T>;
@@ -116,4 +119,40 @@ where
     fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>>;
     /// Object safe clone
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ReliabilityConfig {
+    /// probability that packet is kept = keep_numerator / keep_denominator
+    keep_numerator: u32,
+    keep_denominator: u32,
+    /// packet delay is obtained by sampling from a uniform distribution
+    /// between delay_low_ms and delay_high_ms inclusive
+    delay_low_ms: u64,
+    delay_high_ms: u64
+}
+
+impl Default for ReliabilityConfig {
+    // disable all chance of failure
+    fn default() -> Self {
+        ReliabilityConfig {
+            keep_numerator: 1,
+            keep_denominator: 1,
+            delay_low_ms: 0,
+            delay_high_ms: 0
+        }
+    }
+}
+
+impl ReliabilityConfig {
+    pub fn sample_keep(&self) -> bool {
+        assert!(self.keep_numerator <= self.keep_denominator);
+        // cannot fail to unwrap if assert passes
+        rand::distributions::Bernoulli::from_ratio(self.keep_numerator, self.keep_denominator)
+            .unwrap().sample(&mut rand::thread_rng())
+    }
+    pub fn sample_delay(&self) -> Duration {
+        Duration::from_millis(rand::distributions::Uniform::new_inclusive(self.delay_low_ms, self.delay_high_ms)
+                              .sample(&mut rand::thread_rng()))
+    }
 }

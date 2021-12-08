@@ -41,7 +41,7 @@ async fn single_permanent_failure() {
     )> = Vec::new();
     for node_id in 0..nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-        let mn = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let mn = MemoryNetwork::new(pub_key.clone(), master.clone(), None);
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
@@ -185,7 +185,7 @@ async fn double_permanent_failure() {
     )> = Vec::new();
     for node_id in 0..nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-        let mn = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let mn = MemoryNetwork::new(pub_key.clone(), master.clone(), None);
         networkings.push((mn, pub_key));
     }
     info!("Created networking");

@@ -56,7 +56,7 @@ async fn get_networkings<
     let mut networkings: Vec<(MemoryNetwork<T>, PubKey)> = Vec::new();
     for node_id in 0..num_nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
-        let network = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let network = MemoryNetwork::new(pub_key.clone(), master.clone(), None);
         networkings.push((network, pub_key));
     }
     networkings
