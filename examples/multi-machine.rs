@@ -59,7 +59,7 @@ async fn get_networking<
     port: u16,
 ) -> (WNetwork<T>, PubKey) {
     debug!(?pub_key);
-    let network = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+    let network = WNetwork::new(pub_key.clone(), listen_addr, port, None, None).await;
     if let Ok(n) = network {
         let (c, sync) = futures::channel::oneshot::channel();
         match n.generate_task(c) {

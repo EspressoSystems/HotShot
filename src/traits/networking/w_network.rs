@@ -34,7 +34,7 @@ use std::{
 
 use super::{
     BoxedFuture, CouldNotDeliver, ExecutorError, FailedToBindListener, NetworkError,
-    NetworkingImplementation, NoSocketsError, SocketDecodeError, WError,
+    NetworkingImplementation, NoSocketsError, ReliabilityConfig, SocketDecodeError, WError,
 };
 use crate::PubKey;
 
@@ -130,12 +130,14 @@ struct WNetworkInner<T> {
     socket_holder: Mutex<Option<TcpListener>>,
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
+    /// Configuration describing packet loss/ordering
+    reliability_config: ReliabilityConfig,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
 struct Waiters {
     /// Waiting on a message to be delivered
-    delivered: DashMap<u64, oneshot::Sender<()>>,
+    delivered: Arc<DashMap<u64, oneshot::Sender<()>>>,
     /// Waiting on a message to be acked
     acked: DashMap<u64, oneshot::Sender<()>>,
 }
@@ -250,6 +252,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         mut stream: WebSocketStream<TcpStream>,
         remote_socket: SocketAddr,
     ) -> Result<(PubKey, Handle<T>), NetworkError> {
+        let reliability = self.inner.reliability_config;
         info!("Spawning task to handle connection");
         let (s_outbound, r_outbound) = flume::bounded(128);
         trace!("Opened channels");
@@ -299,7 +302,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         };
         spawn(async move {
             trace!("Entering setup");
-            let (mut ws_sink, ws_stream) = stream.split();
+            let (ws_sink, ws_stream) = stream.split();
+            let ws_sink = Arc::new(Mutex::new(ws_sink));
             let ws_stream = ws_stream.map(|x| match x {
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),
@@ -354,12 +358,19 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                     let bytes = bincode_options
                                                         .serialize(&command)
                                                         .unwrap();
-                                                    let res = ws_sink.send(Message::Binary(bytes)).await;
-                                                    if res.is_err() {
-                                                        error!("Failed to ack, closing stream");
-                                                        *shutdown.write().await = true;
-                                                        break;
-                                                    }
+                                                    let thread_ws_sink = Arc::clone(&ws_sink);
+                                                    let thread_shutdown = Arc::clone(&shutdown);
+                                                    spawn( async move {
+                                                        if reliability.sample_keep() {
+                                                            async_std::task::sleep(reliability.sample_delay()).await;
+
+                                                            let res = (thread_ws_sink.lock().await).send(Message::Binary(bytes)).await;
+                                                            if res.is_err() {
+                                                                error!("Failed to ack, closing stream");
+                                                                *(thread_shutdown.write().await) = true;
+                                                            }
+                                                        }
+                                                    });
                                                 },
                                                 Command::Ping { id } => {
                                                     debug!("Received ping, acking");
@@ -373,12 +384,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                     let bytes = bincode_options
                                                         .serialize(&command)
                                                         .unwrap();
-                                                    let res = ws_sink.send(Message::Binary(bytes)).await;
-                                                    if res.is_err() {
-                                                        error!("Failed to ack, closing stream");
-                                                        *shutdown.write().await = true;
-                                                        break;
-                                                    }
+                                                    let thread_ws_sink = Arc::clone(&ws_sink);
+                                                    let thread_shutdown = Arc::clone(&shutdown);
+                                                    spawn( async move {
+                                                        let res = (thread_ws_sink.lock().await).send(Message::Binary(bytes)).await;
+                                                        if res.is_err() {
+                                                            error!("Failed to ack, closing stream");
+                                                            *(thread_shutdown.write().await) = true;
+                                                        }
+                                                    });
                                                 },
                                                 _ => {
                                                     error!("Command was invalidly passed to us");
@@ -411,28 +425,38 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             .expect_or_log("Failed to serialize a command. Having types that can fail serialization is not supported.");
                         // Sending down the pipe
                         trace!("Sending serialized command");
-                        let res = ws_sink.send(Message::Binary(bytes)).await;
-                        match res {
-                            Ok(_) => {
-                                // Log and notify the water if there is any
-                                trace!("Message fed to stream");
-                                let waiter = &w.inner.waiters.delivered;
-                                if waiter.contains_key(&c.id()) {
-                                    // Unwrap is safe, as we just verified the key exists
-                                    let (_, oneshot) = waiter.remove(&c.id()).unwrap();
-                                    let res = oneshot.send(());
-                                    if res.is_err() {
-                                        warn!("Failed to message waiter for message {}", c.id());
+                        let thread_ws_sink = Arc::clone(&ws_sink);
+                        let waiter = Arc::clone(&w.inner.waiters.delivered);
+                        let thread_shutdown = Arc::clone(&shutdown);
+                        spawn(
+                            async move {
+                                if reliability.sample_keep() {
+                                    async_std::task::sleep(reliability.sample_delay()).await;
+                                    let mut stream = thread_ws_sink.lock().await;
+                                    let res = stream.send(Message::Binary(bytes)).await;
+                                    match res {
+                                        Ok(_) => {
+                                            // Log and notify the water if there is any
+                                            trace!("Message fed to stream");
+                                            if (*waiter).contains_key(&c.id()) {
+                                                // Unwrap is safe, as we just verified the key exists
+                                                let (_, oneshot) = waiter.remove(&c.id()).unwrap();
+                                                let res = oneshot.send(());
+                                                if res.is_err() {
+                                                    warn!("Failed to message waiter for message {}", c.id());
+                                                }
+                                            }
+                                        },
+                                        Err(e) => {
+                                            // log error and shutdown
+                                            error!(?e, "Error sending message to remote, closing stream.");
+                                            *(thread_shutdown.write().await) = true;
+                                        },
                                     }
                                 }
-                            },
-                            Err(e) => {
-                                // log error and shutdown
-                                error!(?e, "Error sending message to remote, closing stream.");
-                                *shutdown.write().await = true;
-                                break;
-                            },
-                        }
+                            });
+                        // FIXME no longer breaking out of loop on error. Potentially bad logic
+                        // can fix by adding another stream
                     },
                     Combo::Error(e) => {
                         // log the error and close the stream
@@ -531,6 +555,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         listen_addr: &str,
         port: u16,
         keep_alive_duration: Option<Duration>,
+        reliability_config: Option<ReliabilityConfig>,
     ) -> Result<Self, NetworkError> {
         let (s_direct, r_direct) = flume::bounded(128);
         let (s_broadcast, r_broadcast) = flume::bounded(128);
@@ -558,7 +583,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             counter: Arc::new(AtomicU64::new(0)),
             socket: s_addr,
             waiters: Waiters {
-                delivered: DashMap::new(),
+                delivered: Arc::new(DashMap::new()),
                 acked: DashMap::new(),
             },
             inputs: Inputs {
@@ -572,6 +597,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
             keep_alive_duration,
+            reliability_config: reliability_config.unwrap_or_default(),
         };
         let w = Self {
             inner: Arc::new(inner),
@@ -953,7 +979,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), "localhost", port, None).await;
+            let res = WNetwork::new(pub_key.clone(), "localhost", port, None, None).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }
@@ -972,7 +998,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), "localhost", port, Some(timeout)).await;
+            let res = WNetwork::new(pub_key.clone(), "localhost", port, Some(timeout), None).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }

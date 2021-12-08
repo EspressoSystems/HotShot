@@ -304,7 +304,7 @@ async fn get_networking<
             ?port,
             "Attempting to bind network listener to port"
         );
-        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
             match x.generate_task(c) {
