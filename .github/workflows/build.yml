@@ -2,8 +2,7 @@ name: Build
 
 on:
   push:
-    branches:
-      - '*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,6 +10,12 @@ jobs:
     container:
       image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.56
     steps:
+      - uses: styfle/cancel-workflow-action@0.9.1
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v2
         name: Checkout Repository
 
@@ -51,3 +56,11 @@ jobs:
           cargo doc --no-deps -p phaselock -p threshold_crypto --all-features
           cp -R target/doc public
           echo '<meta http-equiv="refresh" content="0; url=phaselock">' > public/index.html
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          cname: phaselock.docs.translucence.net
