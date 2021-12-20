@@ -45,6 +45,7 @@ use std::time::{Duration, Instant};
 
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{spawn, yield_now, JoinHandle};
+use data::create_hash;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -146,10 +147,11 @@ impl PrivKey {
     pub fn partial_sign<const N: usize>(
         &self,
         hash: &BlockHash<N>,
-        _stage: Stage,
-        _view: u64,
+        stage: Stage,
+        view: u64,
     ) -> tc::SignatureShare {
-        self.node.sign(hash)
+        let blockhash = create_hash(hash, view, stage);
+        self.node.sign(blockhash)
     }
 }
 

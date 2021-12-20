@@ -3,6 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! [`PhaseLock`](crate::PhaseLock) nodes can send among themselves.
 
+use crate::data::Stage;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use threshold_crypto::SignatureShare;
@@ -67,6 +68,8 @@ pub struct Vote<const N: usize> {
     pub leaf_hash: BlockHash<N>,
     /// The view this vote was cast for
     pub current_view: u64,
+    /// The current stage
+    pub stage: Stage,
 }
 
 impl<const N: usize> Debug for Vote<N> {

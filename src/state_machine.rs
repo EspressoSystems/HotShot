@@ -385,6 +385,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         leaf_hash: the_hash,
                         id: pl.inner.public_key.nonce,
                         current_view,
+                        stage: Stage::Prepare,
                     };
                     pl.inner.prepare_vote_queue.push(vote).await;
                     Ok((block, new_leaf, new_state))
@@ -416,7 +417,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .collect();
                         // Generate the QC
                         let signature = generate_qc(
-                            votes.iter().map(|(x, y)| (*x, y)),
+                            votes.iter().map(|(x, z)| (*x, z)),
                             &pl.inner.public_key.set,
                         )
                         .map_err(|e| {
@@ -467,6 +468,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
+                            stage: Stage::Prepare,
                         };
                         pl.inner.precommit_vote_queue.push(vote_message).await;
                         Ok((block, new_leaf, state))
@@ -546,6 +548,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
+                            stage: Stage::Commit,
                         };
                         pl.inner.commit_vote_queue.push(vote_message).await;
 
@@ -811,6 +814,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             id: pl.inner.public_key.nonce,
                             leaf_hash,
                             current_view,
+                            stage: Stage::Prepare,
                         };
                         let vote_message = Message::PrepareVote(vote);
                         let network_result = pl
@@ -873,7 +877,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let pl = phaselock.clone();
                 let fut = async move {
                     let prepare_qc = message.qc;
-                    if !(prepare_qc.verify(&pl.inner.public_key.set, Stage::Prepare, current_view)
+                    if !(prepare_qc.verify(&pl.inner.public_key.set, current_view, Stage::Prepare)
                         && prepare_qc.leaf_hash == leaf_hash)
                     {
                         error!(?prepare_qc, "Bad or forged prepare_qc");
@@ -893,6 +897,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
+                        stage: Stage::PreCommit,
                     });
                     // store the prepare qc
                     let mut pqc = pl.inner.prepare_qc.write().await;
@@ -939,7 +944,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let fut = async move {
                     // Verify QC
                     let pc_qc = message.qc.clone();
-                    if !(pc_qc.verify(&pl.inner.public_key.set, Stage::PreCommit, current_view)
+                    if !(pc_qc.verify(&pl.inner.public_key.set, current_view, Stage::PreCommit)
                         && pc_qc.leaf_hash == leaf_hash)
                     {
                         error!(?pc_qc, "Bad or forged precommit qc");
@@ -961,6 +966,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
+                        stage: Stage::Commit,
                     });
                     trace!("Commit vote packed");
                     let network_result = pl
@@ -1003,7 +1009,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let fut = async move {
                     let _ = &leaf;
                     let decide_qc = message.qc;
-                    if !(decide_qc.verify(&pl.inner.public_key.set, Stage::Commit, current_view)
+                    if !(decide_qc.verify(&pl.inner.public_key.set, current_view, Stage::Commit)
                         && decide_qc.leaf_hash == leaf_hash)
                     {
                         error!(?decide_qc, "Bad or forged commit qc");
@@ -1085,8 +1091,8 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     let decide_qc = message.qc;
                     if !(decide_qc.verify(
                         &pl.inner.public_key.set,
-                        Stage::Commit,
                         decide_qc.view_number,
+                        Stage::Commit,
                     )) {
                         error!(?decide_qc, "Bad or forged commit qc");
                         return Err(PhaseLockError::BadOrForgedQC {
