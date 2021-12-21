@@ -9,7 +9,7 @@
       flake = false;
     };
     crate2nix = {
-      url = "github:kolloch/crate2nix";
+      url = "github:balsoft/crate2nix/balsoft/fix-broken-ifd";
       flake = false;
     };
     fenix = {
