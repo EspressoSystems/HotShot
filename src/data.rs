@@ -4,6 +4,7 @@
 //! [`PhaseLock`](crate::PhaseLock)'s version of a block, and the [`QuorumCertificate`],
 //! representing the threshold signatures fundamental to consensus.
 
+use blake3::Hasher;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +68,7 @@ pub struct QuorumCertificate<const N: usize> {
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
     pub(crate) block_hash: BlockHash<N>,
-    /// Hash of the [`Leaf`] refereed to by this Quorum Certificate
+    /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     pub(crate) leaf_hash: BlockHash<N>,
@@ -101,16 +102,11 @@ impl<const N: usize> QuorumCertificate<N> {
     ///
     /// If the `genesis` value is set, this disables the normal checking, and instead performs
     /// bootstrap checking.
-    ///
-    /// TODO([#22](https://gitlab.com/translucence/systems/phaselock/-/issues/22)): This needs to
-    /// include the stage and view in the signature
     #[must_use]
-    pub fn verify(&self, key: &tc::PublicKeySet, stage: Stage, view: u64) -> bool {
-        // Temporary, stage and view should be included in signature in future
+    pub fn verify(&self, key: &tc::PublicKeySet, view: u64, stage: Stage) -> bool {
         if let Some(signature) = &self.signature {
-            key.public_key().verify(signature, &self.leaf_hash)
-                && self.stage == stage
-                && self.view_number == view
+            let concatenated_hash = create_hash(&self.leaf_hash, view, stage);
+            key.public_key().verify(signature, &concatenated_hash)
         } else {
             self.genesis
         }
@@ -190,6 +186,21 @@ pub enum Stage {
     Commit,
     /// Decide Phase
     Decide,
+}
+
+/// This concatenates the encoding of `blockhash`, `view`, and `stage`, in
+/// that order, and hashes the result.
+pub fn create_hash<const N: usize>(
+    blockhash: &BlockHash<N>,
+    view: u64,
+    stage: Stage,
+) -> BlockHash<32> {
+    let mut hasher = Hasher::new();
+    hasher.update(blockhash.as_ref());
+    hasher.update(&view.to_be_bytes());
+    hasher.update(&(stage as u64).to_be_bytes());
+    let hash = hasher.finalize();
+    BlockHash::from_array(*hash.as_bytes())
 }
 
 /// Type used for representing hashes
