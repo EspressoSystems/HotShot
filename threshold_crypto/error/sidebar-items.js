@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","A crypto error."],["FromBytesError","An error reading a structure from an array of bytes."]],"type":[["FromBytesResult","The result of attempting to read a structure from an array of bytes."],["Result","A crypto result."]]});

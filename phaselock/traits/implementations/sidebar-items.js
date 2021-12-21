@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["MasterMap","Shared state for in-memory mock networking."],["MemoryNetwork","In memory only network simulator."],["MemoryStorage","In memory, ephemeral, storage for a `PhaseLock` instance"],["Stateless","Dummy, do nothing implementation of [`StatefulHandler`]"],["WNetwork","Handle to the underlying networking implementation"]]});

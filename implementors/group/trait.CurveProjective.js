@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["threshold_crypto"] = [{"text":"impl CurveProjective for <a class=\"struct\" href=\"threshold_crypto/struct.G1.html\" title=\"struct threshold_crypto::G1\">Ms8Projective</a>","synthetic":false,"types":["threshold_crypto::mock::Ms8Projective"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

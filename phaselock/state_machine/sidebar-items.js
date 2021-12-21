@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["SequentialRound","Represents the round logic for sequential [`PhaseLock`]"]]});

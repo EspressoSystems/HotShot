@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BivarCommitment","A commitment to a symmetric bivariate polynomial."],["BivarPoly","A symmetric bivariate polynomial in the prime field."],["Commitment","A commitment to a univariate polynomial."],["Poly","A univariate polynomial in the prime field."]]});
