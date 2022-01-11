@@ -52,6 +52,9 @@
             inherit pkgs;
             defaultCrateOverrides = pkgs.defaultCrateOverrides // {
               # Crate dependency overrides go here
+              prost-build = attrs: {
+                buildInputs = [ pkgs.protobuf ];
+              };
             };
           };
 
@@ -67,7 +70,7 @@
         devShell = pkgs.mkShell {
           inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
-            with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage ];
+            with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf ];
         };
       });
 }
