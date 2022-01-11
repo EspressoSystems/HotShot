@@ -7,7 +7,7 @@ use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
 use std::collections::{HashMap, HashSet};
 
-use crate::{data::BlockHash, PrivKey, PubKey, H_256};
+use crate::{data::StateHash, PrivKey, PubKey, H_256};
 
 pub use threshold_crypto as tc;
 
@@ -114,7 +114,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     /// Hashes the view number and the next hash as the committee seed for vote token generation
     /// and verification.
-    fn hash_commitee_seed(view_number: u64, next_state: BlockHash<N>) -> [u8; H_256] {
+    fn hash_commitee_seed(view_number: u64, next_state: StateHash<N>) -> [u8; H_256] {
         let mut hasher = Hasher::new();
         hasher.update("Vote token".as_bytes());
         hasher.update(&view_number.to_be_bytes());
@@ -207,7 +207,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         view_number: u64,
         pub_key: PubKey,
         token: VoteToken,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<ValidatedVoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         if !<Self as Vrf<Hasher, Param381>>::verify(token.clone(), pub_key.node, hash) {
@@ -237,7 +237,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         selection_threshold: SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<VoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         let token = <Self as Vrf<Hasher, Param381>>::prove(&private_key.node, &hash);
@@ -306,7 +306,7 @@ mod tests {
 
         // VRF verification should pass with the correct secret key share, total stake, committee
         // seed, and selection threshold
-        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
         let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
         let proof = DynamicCommittee::<S, N>::prove(&secret_key_share_honest, &input);
         let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_share_honest, input);
@@ -330,7 +330,7 @@ mod tests {
         assert!(!valid);
 
         // VRF verification should fail if the next state used for proof generation is incorrect
-        let incorrect_next_state = BlockHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+        let incorrect_next_state = StateHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
         let incorrect_input =
             DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, incorrect_next_state);
         let valid =
@@ -386,7 +386,7 @@ mod tests {
         let pub_keys = vec![pub_key.clone()];
 
         // Get the VRF proof
-        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
         let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
         let proof = DynamicCommittee::<S, N>::prove(&secret_key_share, &input);
 
@@ -451,7 +451,7 @@ mod tests {
         stake_table.insert(pub_key_stakeless, 0);
 
         // Vote token should be null if the public key is not selected as a member.
-        let next_state = BlockHash::<H_256>::from_array(NEXT_STATE);
+        let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
         let vote_token = DynamicCommittee::<S, N>::make_vote_token(
             &stake_table,
             SELECTION_THRESHOLD,
@@ -522,7 +522,7 @@ mod tests {
         assert!(votes.is_none());
 
         // No vote should be granted if the next state used for token generation is incorrect
-        let incorrect_next_state = BlockHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+        let incorrect_next_state = StateHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
         let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
             &stake_table,
             SELECTION_THRESHOLD,

@@ -20,8 +20,8 @@ use futures::{future::BoxFuture, Future, FutureExt};
 use tracing::{info, instrument};
 
 use super::{
-    debug, error, generate_qc, trace, warn, yield_now, Arc, BlockHash, Commit, Debug, Decide,
-    Event, EventType, Leaf, Message, PhaseLock, PhaseLockError, PreCommit, Prepare, PubKey,
+    debug, error, generate_qc, trace, warn, yield_now, Arc, Commit, Debug, Decide, Event,
+    EventType, Leaf, LeafHash, Message, PhaseLock, PhaseLockError, PreCommit, Prepare, PubKey,
     QuorumCertificate, Result, ResultExt, Stage, Vote,
 };
 use crate::{
@@ -92,7 +92,7 @@ struct Ctx<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Current commited state
     committed_state: Arc<I::State>,
     /// Current commited leaf
-    committed_leaf: BlockHash<N>,
+    committed_leaf: LeafHash<N>,
     /// Handle event stream
     channel: Option<BroadcastSender<Event<I::Block, I::State>>>,
 }

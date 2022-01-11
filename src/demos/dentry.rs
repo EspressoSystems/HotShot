@@ -17,7 +17,7 @@ use std::{
 use tracing::error;
 
 use crate::{
-    data::BlockHash,
+    data::{BlockHash, LeafHash, StateHash, TransactionHash},
     traits::{
         implementations::MemoryStorage, BlockContents, NetworkingImplementation, NodeImplementation,
     },
@@ -101,7 +101,7 @@ pub struct State {
 
 impl State {
     /// Produces a hash of the current state
-    fn hash_state(&self) -> BlockHash<H_256> {
+    fn hash_state(&self) -> StateHash<H_256> {
         // BTreeMap sorts so this will be in a consistent order
         let mut hasher = Hasher::new();
         for (account, balance) in &self.balances {
@@ -256,7 +256,7 @@ impl crate::traits::State<H_256> for State {
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
     /// Block state commitment
-    pub previous_block: BlockHash<H_256>,
+    pub previous_block: StateHash<H_256>,
     /// Transaction vector
     pub transactions: Vec<Transaction>,
 }
@@ -297,7 +297,7 @@ impl BlockContents<H_256> for DEntryBlock {
     }
 
     // Note: This is used for indexing the transaction in storage
-    fn hash_transaction(tx: &Self::Transaction) -> BlockHash<H_256> {
+    fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<H_256> {
         assert!(tx.validate_independence());
         let mut hasher = Hasher::new();
         hasher.update(tx.add.account.as_bytes());
@@ -309,7 +309,7 @@ impl BlockContents<H_256> for DEntryBlock {
         x.into()
     }
 
-    fn hash_bytes(bytes: &[u8]) -> BlockHash<H_256> {
+    fn hash_leaf(bytes: &[u8]) -> LeafHash<H_256> {
         let x = *blake3::hash(bytes).as_bytes();
         x.into()
     }
