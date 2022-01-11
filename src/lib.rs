@@ -54,15 +54,16 @@ use crate::{
     data::{BlockHash, Leaf, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
     types::{
-        error::{NetworkFault, PhaseLockError},
-        Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
-        Vote,
+        error::NetworkFault, Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle,
+        PreCommit, Prepare, Vote,
     },
     utility::{
         broadcast::BroadcastSender,
         waitqueue::{WaitOnce, WaitQueue},
     },
 };
+
+pub use crate::types::error::PhaseLockError;
 
 /// Reexport rand crate
 pub use rand;

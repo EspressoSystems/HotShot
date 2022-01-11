@@ -6,8 +6,8 @@ use phaselock::{
     demos::dentry::*,
     tc,
     traits::implementations::{MasterMap, MemoryNetwork, MemoryStorage, Stateless},
-    types::{Event, EventType, HandleError, Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, PubKey, H_256,
+    types::{Event, EventType, Message, PhaseLockHandle},
+    PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
 };
 use proptest::prelude::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -31,7 +31,7 @@ pub enum ConsensusError {
 
     FailedToProposeTxn,
 
-    PhaselockClosed(HandleError),
+    PhaselockClosed(PhaseLockError),
 
     /// States after a round of consensus is inconsistent.
     InconsistentAfterTxn,
