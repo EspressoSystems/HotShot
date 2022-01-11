@@ -186,39 +186,14 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`PhaseLock`] running in the background</span>
 
 <span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">sync::RwLock</span>, <span class="ident">task::block_on</span>};
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NodeImplementation</span>},
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">PhaseLockError</span>},
+    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
+    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">PhaseLockError</span>, <span class="ident">PhaseLockError::NetworkFault</span>},
     <span class="ident">utility::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>},
     <span class="ident">PhaseLock</span>,
 };
@@ -268,12 +243,12 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] has been closed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">HandleError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] has been closed.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">result</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">result</span>),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">HandleError::ShutDown</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkFault</span> { <span class="ident">source</span>: <span class="ident">ShutDown</span> }),
         }
     }
     <span class="doccomment">/// Syncronous version of `next_event`</span>
@@ -283,15 +258,15 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// See documentation for `next_event`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">HandleError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
         <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">next_event</span>())
     }
     <span class="doccomment">/// Will attempt to immediatly pull an event out of the queue</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] instance has shut down</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">HandleError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has shut down</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">try_recv</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
     }
@@ -300,21 +275,17 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] instance has been shut</span>
+    <span class="doccomment">/// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has been shut</span>
     <span class="doccomment">/// down.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">availible_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">HandleError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">availible_events</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="comment">// Loop to pull out all the outputs</span>
         <span class="kw">loop</span> {
             <span class="kw">match</span> <span class="self">self</span>.<span class="ident">try_next_event</span>() {
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">x</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">output</span>.<span class="ident">push</span>(<span class="ident">x</span>),
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">HandleError::ShutDown</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">HandleError::ShutDown</span>),
-                <span class="comment">// As try_next event can only return HandleError::Skipped or HandleError::ShutDown,</span>
-                <span class="comment">// it would be nonsensical if we end up here</span>
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">unreachable!</span>(<span class="string">&quot;Impossible to reach branch in PhaseLockHandle::available_events&quot;</span>);
-                }
+                <span class="comment">// // try_next event can only return PhaseLockError { source: NetworkError::ShutDown }</span>
+                <span class="prelude-val">Err</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">x</span>),
             }
         }
         <span class="prelude-val">Ok</span>(<span class="ident">output</span>)
@@ -336,16 +307,13 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return a [`HandleError::Transaction`] if some error occurs in the underlying</span>
+    <span class="doccomment">/// Will return a [`PhaselockError`] if some error occurs in the underlying</span>
     <span class="doccomment">/// [`PhaseLock`] instance.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">submit_transaction</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HandleError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">phaselock</span>
-            .<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">Transaction</span>)
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>).<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Sycronously sumbits a transaction to the backing [`PhaseLock`] instance.</span>
@@ -356,7 +324,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">submit_transaction_sync</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">HandleError</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">PhaseLockError</span><span class="op">&gt;</span> {
         <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">submit_transaction</span>(<span class="ident">tx</span>))
     }
 
@@ -405,22 +373,6 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">storage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">I::Storage</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">storage</span>
     }
-}
-
-<span class="doccomment">/// Represents the types of errors that can be returned by a [`PhaseLockHandle`]</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO([#37](https://gitlab.com/translucence/systems/phaselock/-/issues/37)): Refactor out</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Snafu</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::large_enum_variant</span>)]</span> <span class="comment">// PhaseLock error isn&#39;t that big, and these are _errors_ after all</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">HandleError</span> {
-    <span class="doccomment">/// The [`PhaseLock`] instance this handle references has shut down</span>
-    <span class="ident">ShutDown</span>,
-    <span class="doccomment">/// An error occured in the underlying [`PhaseLock`] implementation while submitting a</span>
-    <span class="doccomment">/// transaction</span>
-    <span class="ident">Transaction</span> {
-        <span class="doccomment">/// The underlying `PhaseLock` error</span>
-        <span class="ident">source</span>: <span class="ident">PhaseLockError</span>,
-    },
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="phaselock" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
