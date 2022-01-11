@@ -1,11 +1,12 @@
 [package]
 name = "networking-demo"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+color-eyre = "0.5.11"
 libp2p = "0.41.1"
 snafu = "0.7.0"
 tracing = "0.1.29"

@@ -21,7 +21,7 @@
   outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        fenixPackage = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt"];
+        fenixPackage = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
         rustOverlay = final: prev:
           {
             inherit fenixPackage;
