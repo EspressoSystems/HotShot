@@ -50,6 +50,9 @@
           })
           {
             inherit pkgs;
+            # need to force threshold_crypto/use-insuecure-test-only-mock-crypto
+            # otherwise a subset of tests hang
+            rootFeatures = [ "demo" "docs" "blake3" "threshold_crypto/use-insecure-test-only-mock-crypto" ] ;
             defaultCrateOverrides = pkgs.defaultCrateOverrides // {
               # Crate dependency overrides go here
             };
@@ -58,7 +61,7 @@
       in
       {
         packages.${crateName} = project.rootCrate.build;
-        packages.tests.${crateName} = project.rootCrate.build.override {
+        checks.${crateName} = project.rootCrate.build.override {
           runTests = true;
         };
 
