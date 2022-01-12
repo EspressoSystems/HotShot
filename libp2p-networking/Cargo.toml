@@ -7,7 +7,9 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "0.5.11"
+crossterm = "0.22.1"
 libp2p = "0.41.1"
+parking_lot = "0.11.2"
 snafu = "0.7.0"
 tracing = "0.1.29"
-tui = "0.16.0"
+tui = { version = "0.16.0", features = ["crossterm"], default-features = false }
