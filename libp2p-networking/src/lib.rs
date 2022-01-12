@@ -14,6 +14,8 @@
     clippy::unused_self
 )]
 
+pub mod tracing_setup;
+
 use std::marker::PhantomData;
 
 use libp2p::{

@@ -60,7 +60,9 @@ impl TableApp {
 
 #[async_std::main]
 async fn main() -> Result<()> {
+    // -- Setup color_eyre and tracing
     color_eyre::install()?;
+    networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
 
     // -- Spin up the UI
