@@ -35,7 +35,7 @@ hex_fmt = "0.3.0"
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.130", features = ["derive", "rc"] }
-snafu = { version = "0.6.10", features = ["backtraces"] }
+snafu = { version = "0.7.0", features = ["backtraces"] }
 threshold_crypto = "0.4.0"
 tracing = "0.1.29"
 tracing-error = "0.2.0"

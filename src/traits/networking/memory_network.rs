@@ -16,7 +16,7 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use super::{FailedToSerialize, NetworkError, NetworkingImplementation};
+use super::{FailedToSerializeSnafu, NetworkError, NetworkingImplementation};
 use crate::PubKey;
 
 /// Shared state for in-memory mock networking.
@@ -199,7 +199,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let vec = bincode_options
                 .serialize(&message)
-                .context(FailedToSerialize)?;
+                .context(FailedToSerializeSnafu)?;
             trace!("Message bincoded, sending");
             for node in self.inner.master_map.map.iter() {
                 let (key, node) = node.pair();
@@ -232,7 +232,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let vec = bincode_options
                 .serialize(&message)
-                .context(FailedToSerialize)?;
+                .context(FailedToSerializeSnafu)?;
             trace!("Message bincoded, finding recipient");
             if let Some(node) = self.inner.master_map.map.get(&recipient) {
                 let node = node.value();

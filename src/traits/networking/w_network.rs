@@ -5,6 +5,11 @@
 //!
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
+use crate::traits::networking::{
+    CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
+    SocketDecodeSnafu, WebSocketSnafu,
+};
+use crate::traits::NetworkError;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -32,10 +37,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{
-    BoxedFuture, CouldNotDeliver, ExecutorError, FailedToBindListener, NetworkError,
-    NetworkingImplementation, NoSocketsError, SocketDecodeError, WError,
-};
+use super::{BoxedFuture, NetworkingImplementation};
 use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -481,14 +483,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             debug!(?key, "Already have a connection to node");
             Ok(())
         } else {
-            let socket = TcpStream::connect(addr).await.context(ExecutorError)?;
-            let addr = socket.peer_addr().context(SocketDecodeError {
+            let socket = TcpStream::connect(addr).await.context(ExecutorSnafu)?;
+            let addr = socket.peer_addr().context(SocketDecodeSnafu {
                 input: "connect_to",
             })?;
             info!(?addr, "Connecting to remote with decoded address");
             let url = format!("ws://{}", addr);
             trace!(?url);
-            let (web_socket, _) = client_async(url, socket).await.context(WError)?;
+            let (web_socket, _) = client_async(url, socket).await.context(WebSocketSnafu)?;
             trace!("Websocket connection created");
             let (pub_key, handle) = self.spawn_task(Some(key), web_socket, addr).await?;
             trace!("Task created");
@@ -538,7 +540,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         trace!("Created queues");
         let s_string = format!("{}:{}", listen_addr, port);
         let s_addr = match s_string.to_socket_addrs().await {
-            Ok(mut x) => x.next().context(NoSocketsError { input: s_string })?,
+            Ok(mut x) => x.next().context(NoSocketsSnafu { input: s_string })?,
             Err(e) => {
                 return Err(NetworkError::SocketDecodeError {
                     input: s_string,
@@ -549,7 +551,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         info!(?s_addr, "Binding socket");
         let listener = TcpListener::bind(&s_addr)
             .await
-            .context(FailedToBindListener)?;
+            .context(FailedToBindListenerSnafu)?;
         debug!("Successfully bound socket");
 
         let inner = WNetworkInner {
@@ -835,7 +837,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
                     .send_async(command)
                     .await
                     .ok()
-                    .context(CouldNotDeliver)?;
+                    .context(CouldNotDeliverSnafu)?;
                 trace!("Command sent to task");
                 Ok(())
             } else {

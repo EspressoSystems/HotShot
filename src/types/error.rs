@@ -6,11 +6,11 @@ use snafu::Snafu;
 
 /// Error type for [`PhaseLock`](crate::PhaseLock)
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum PhaseLockError {
     /// Failed to Message the leader in the given stage
-    #[snafu(display("Failed to message leader in stage {:?}: {}", stage, source))]
+    #[snafu(display("Failed to message leader in stage {stage:?}: {source}"))]
     FailedToMessageLeader {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
@@ -18,7 +18,7 @@ pub enum PhaseLockError {
         source: crate::traits::NetworkError,
     },
     /// Failed to broadcast a message on the network
-    #[snafu(display("Failed to broadcast a message in stage {:?}: {}", stage, source))]
+    #[snafu(display("Failed to broadcast a message in stage {stage:?}: {source}"))]
     FailedToBroadcast {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
@@ -59,7 +59,7 @@ pub enum PhaseLockError {
         stage: crate::data::Stage,
     },
     /// Failure in networking layer
-    #[snafu(display("Failure in networking layer: {}", source))]
+    #[snafu(display("Failure in networking layer: {source}"))]
     NetworkFault {
         /// Underlying network fault
         source: crate::traits::NetworkError,

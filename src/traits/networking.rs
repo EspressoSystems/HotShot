@@ -23,7 +23,7 @@ pub type BoxedFuture<T> = BoxFuture<'static, T>;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 pub enum NetworkError {
     /// A Listener failed to send a message
     ListenerSend,
@@ -42,7 +42,7 @@ pub enum NetworkError {
         source: bincode::Error,
     },
     /// WebSockets specific error
-    WError {
+    WebSocket {
         /// Originating websockets error
         source: werror::Error,
     },
