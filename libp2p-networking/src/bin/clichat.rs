@@ -38,17 +38,8 @@ impl TableApp {
     }
     pub fn next(&mut self) {
         let buffer_handle = self.message_buffer.lock();
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= buffer_handle.len() {
-                    0
-                } else {
-                    i + i
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
+        let i = self.state.selected().unwrap_or(0) + 1;
+        self.state.select(Some(i % buffer_handle.len()));
     }
 
     pub fn previous(&mut self) {
@@ -80,6 +71,14 @@ fn main() -> Result<()> {
     buffer_handle.push_back(Message {
         sender: "Justin".to_string(),
         content: "hi!".to_string(),
+    });
+    buffer_handle.push_back(Message {
+        sender: "Joe".to_string(),
+        content: "test".to_string(),
+    });
+    buffer_handle.push_back(Message {
+        sender: "John".to_string(),
+        content: "test 2".to_string(),
     });
     std::mem::drop(buffer_handle);
     // -- Setup the TUI
