@@ -68,7 +68,9 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let _networking: Network<Message> = Network::new(PhantomData);
+    let _networking: Network<Message> = Network::new(PhantomData)
+        .await
+        .context("Failed to launch network")?;
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo
