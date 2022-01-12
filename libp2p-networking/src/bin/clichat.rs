@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use color_eyre::eyre::{eyre, Result, WrapErr};
+use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -58,8 +58,12 @@ impl TableApp {
     }
 }
 
-fn main() -> Result<()> {
+#[async_std::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
+    // -- Spin up the network connection
+
+    // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo
     let message_buffer: Arc<Mutex<VecDeque<Message>>> = Arc::new(Mutex::new(VecDeque::new()));
     // Put a few dummy messages in there so we can display something
@@ -111,14 +115,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<
         terminal
             .draw(|f| ui(f, &mut app).expect("Failed to draw UI"))
             .context("Failed drawing application")?;
-        match event::read().context("Failed to read event")? {
-            Event::Key(key) => match key.code {
+        if let Event::Key(key) = event::read().context("Failed to read event")? {
+            match key.code {
                 KeyCode::Char('q') => return Ok(()),
                 KeyCode::Down => app.next(),
                 KeyCode::Up => app.previous(),
                 _ => {}
-            },
-            _ => (),
+            }
         }
     }
 }
