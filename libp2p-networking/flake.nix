@@ -54,6 +54,16 @@
               # Crate dependency overrides go here
               prost-build = attrs: {
                 buildInputs = [ pkgs.protobuf ];
+                PROTOC = "${pkgs.protobuf}/bin/protoc";
+                PROTOC_INCLUDE = "${pkgs.protobuf}/include";
+              };
+              libp2p-core = attrs: {
+                buildInputs = [ pkgs.protobuf ];
+                PROTOC = "${pkgs.protobuf}/bin/protoc";
+                PROTOC_INCLUDE = "${pkgs.protobuf}/include";
+              };
+              networking-demo = attrs: {
+                buildInputs = (attrs.buildInputs or [ ]) ++ (pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.darwin.apple_sdk.frameworks.Security ]);
               };
             };
           };
@@ -61,7 +71,7 @@
       in
       {
         packages.${crateName} = project.rootCrate.build;
-        packages.tests.${crateName} = project.rootCrate.build.override {
+        checks.${crateName} = project.rootCrate.build.override {
           runTests = true;
         };
 
@@ -70,7 +80,8 @@
         devShell = pkgs.mkShell {
           inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
-            with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf ];
+            with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf]
+              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security ];
         };
       });
 }
