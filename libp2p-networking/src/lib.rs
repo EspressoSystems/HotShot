@@ -16,18 +16,21 @@
 
 pub mod tracing_setup;
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, time::Duration};
 
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed},
-    gossipsub::{Gossipsub, GossipsubEvent},
+    gossipsub::{
+        Gossipsub, GossipsubConfig, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage,
+        IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
+    },
     identify::{Identify, IdentifyEvent},
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaEvent},
-    NetworkBehaviour, PeerId,
+    NetworkBehaviour, PeerId, Swarm,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use snafu::{ResultExt, Snafu};
+use snafu::{ResultExt, Snafu, Whatever};
 use tracing::{debug, instrument, trace};
 
 #[derive(NetworkBehaviour)]
@@ -68,6 +71,7 @@ pub struct Network<M> {
     pub identity: Keypair,
     pub peer_id: PeerId,
     pub transport: Boxed<(PeerId, StreamMuxerBox)>,
+    pub broadcast_topic: Topic,
     _phantom: PhantomData<M>,
 }
 
@@ -76,6 +80,9 @@ impl<M: DeserializeOwned + Serialize> Network<M> {
     ///
     /// Currently:
     ///   * Generates a random key pair and associated [`PeerId`]
+    ///   * Launches a development-only type of transport backend
+    ///   * Generates a connection to the "broadcast" topic
+    ///   * Creates a swarm to manage peers and events
     #[instrument]
     pub async fn new(_: PhantomData<M>) -> Result<Self, NetworkError> {
         // Generate a random PeerId
@@ -87,10 +94,54 @@ impl<M: DeserializeOwned + Serialize> Network<M> {
             .await
             .context(TransportLaunchSnafu)?;
         trace!("Launched network transport");
+        let broadcast_topic = Topic::new("broadcast");
+        // Generate the swarm
+        let mut swarm: Swarm<NetworkDef> = {
+            // Use the hash of the message's contents as the ID
+            // Use blake3 for much paranoia at very high speeds
+            let message_id_fn = |message: &GossipsubMessage| {
+                let hash = blake3::hash(&message.data);
+                MessageId::from(hash.as_bytes().to_vec())
+            };
+            // Create a custom gossipsub
+            // TODO: Extract these defaults into some sort of config
+            // Use a jank match because Gossipsubconfigbuilder::build returns a non-static str for
+            // some god forsaken reason
+            let gossipsub_config = match GossipsubConfigBuilder::default()
+                // Use a reasonable 10 second heartbeat interval by default
+                .heartbeat_interval(Duration::from_secs(10))
+                // Force all messages to have valid signatures
+                .validation_mode(ValidationMode::Strict)
+                // Use the (blake3) hash of a message as its ID
+                .message_id_fn(message_id_fn)
+                .build()
+            {
+                Ok(x) => x,
+                Err(string) => {
+                    return Err(GossipsubConfigSnafu {
+                        message: string.to_string(),
+                    }
+                    .build())
+                }
+            };
+            // - Build a gossipsub network behavior
+            let mut gossipsub: Gossipsub = Gossipsub::new(
+                MessageAuthenticity::Signed(identity.clone()),
+                gossipsub_config,
+            )
+            .map_err(|s| {
+                GossipsubBuildSnafu {
+                    message: s.to_string(),
+                }
+                .build()
+            })?;
+            todo!("I am supposed to panic here")
+        };
         Ok(Self {
             identity,
             peer_id,
             transport,
+            broadcast_topic,
             _phantom: PhantomData,
         })
     }
@@ -102,5 +153,17 @@ pub enum NetworkError {
     TransportLaunch {
         /// The underlying source of the error
         source: std::io::Error,
+    },
+    /// Error building the gossipsub configuration
+    #[snafu(display("Error building the gossipsub configuration: {}", message))]
+    GossipsubConfig {
+        /// The underlying source of the error
+        message: String,
+    },
+    /// Error building the gossipsub instance
+    #[snafu(display("Error building the gossipsub implementation {message}"))]
+    GossipsubBuild {
+        /// The underlying source of the error
+        message: String,
     },
 }

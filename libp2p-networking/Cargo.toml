@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-std = { version = "1.10.0", features = ["attributes"] }
 bincode = "1.3.3"
+blake3 = "1.3.0"
 color-eyre = "0.5.11"
 crossterm = "0.22.1"
 libp2p = "0.41.1"
