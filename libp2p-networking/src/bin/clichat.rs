@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use std::sync::Arc;
+use std::{collections::VecDeque, marker::PhantomData};
 
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
@@ -7,8 +7,9 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
+use tracing::instrument;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
@@ -17,7 +18,9 @@ use tui::{
     Frame, Terminal,
 };
 
-#[derive(Debug, Clone)]
+use networking_demo::Network;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     sender: String,
     content: String,
@@ -59,11 +62,13 @@ impl TableApp {
 }
 
 #[async_std::main]
+#[instrument]
 async fn main() -> Result<()> {
     // -- Setup color_eyre and tracing
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
+    let _networking: Network<Message> = Network::new(PhantomData);
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo

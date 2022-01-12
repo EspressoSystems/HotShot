@@ -21,9 +21,12 @@ use std::marker::PhantomData;
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent},
     identify::{Identify, IdentifyEvent},
+    identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaEvent},
-    NetworkBehaviour,
+    NetworkBehaviour, PeerId,
 };
+use serde::{de::DeserializeOwned, Serialize};
+use tracing::{debug, instrument};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "NetworkEvent")]
@@ -60,5 +63,26 @@ impl From<GossipsubEvent> for NetworkEvent {
 }
 
 pub struct Network<M> {
+    pub identity: Keypair,
+    pub peer_id: PeerId,
     _phantom: PhantomData<M>,
+}
+
+impl<M: DeserializeOwned + Serialize> Network<M> {
+    /// Creates a new `Network` with the given settings.
+    ///
+    /// Currently:
+    ///   * Generates a random key pair and associated [`PeerId`]
+    #[instrument]
+    pub fn new(_: PhantomData<M>) -> Self {
+        // Generate a random PeerId
+        let identity = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(identity.public());
+        debug!(?peer_id);
+        Self {
+            identity,
+            peer_id,
+            _phantom: PhantomData,
+        }
+    }
 }
