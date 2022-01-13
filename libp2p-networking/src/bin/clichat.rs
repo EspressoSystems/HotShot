@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::{collections::VecDeque, marker::PhantomData};
 
+use async_std::task::spawn;
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -9,7 +10,7 @@ use crossterm::{
 };
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
+use tracing::{instrument, trace};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
@@ -18,7 +19,7 @@ use tui::{
     Frame, Terminal,
 };
 
-use networking_demo::Network;
+use networking_demo::{gen_multiaddr, Network, NetworkDef};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -68,9 +69,16 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let _networking: Network<Message> = Network::new(PhantomData)
+    let mut networking: Network<Message, NetworkDef> = Network::new(PhantomData)
         .await
         .context("Failed to launch network")?;
+    // TODO feed port in from cli instead of using randomly assigned port
+    let listen_addr = gen_multiaddr(0);
+    networking.start(listen_addr)?;
+
+    spawn(async move {
+        trace!("handling events");
+    });
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo
@@ -129,6 +137,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<
                 KeyCode::Char('q') => return Ok(()),
                 KeyCode::Down => app.next(),
                 KeyCode::Up => app.previous(),
+                KeyCode::Char('k') => app.previous(),
+                KeyCode::Char('j') => app.next(),
                 _ => {}
             }
         }
