@@ -183,6 +183,10 @@ impl<N: DeserializeOwned + Serialize> Network<N, NetworkDef> {
             _phantom: PhantomData,
         })
     }
+
+    pub async fn spawn_listeners(&mut self){
+        todo!()
+    }
 }
 
 #[derive(Debug, Snafu)]

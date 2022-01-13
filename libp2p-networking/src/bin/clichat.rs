@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::{collections::VecDeque, marker::PhantomData};
+use structopt::StructOpt;
 
-use async_std::task::spawn;
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -62,6 +62,18 @@ impl TableApp {
     }
 }
 
+#[derive(StructOpt)]
+struct CliOpt {
+    /// Path to the node configuration file
+    #[structopt(
+        long = "port",
+        short = "p",
+    )]
+    port: Option<u16>,
+}
+
+
+
 #[async_std::main]
 #[instrument]
 async fn main() -> Result<()> {
@@ -72,13 +84,10 @@ async fn main() -> Result<()> {
     let mut networking: Network<Message, NetworkDef> = Network::new(PhantomData)
         .await
         .context("Failed to launch network")?;
-    // TODO feed port in from cli instead of using randomly assigned port
-    let listen_addr = gen_multiaddr(0);
+    let port = CliOpt::from_args().port.unwrap_or(0u16);
+    let listen_addr = gen_multiaddr(port);
     networking.start(listen_addr)?;
-
-    spawn(async move {
-        trace!("handling events");
-    });
+    networking.spawn_listeners().await;
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo
