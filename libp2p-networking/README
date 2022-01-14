@@ -1,0 +1,9 @@
+# USAGE
+
+To get very verbose logging:
+
+```bash
+RUST_LOG_OUTPUT=OUTFILE RUST_LOG="trace" cargo run --release
+```
+
+

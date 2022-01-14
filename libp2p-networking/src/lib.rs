@@ -16,24 +16,33 @@
 
 pub mod tracing_setup;
 
+use async_std::task::spawn;
 use std::{marker::PhantomData, time::Duration};
 
+use flume::{unbounded, Receiver, Sender};
+use futures::{select, StreamExt};
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
-        MessageAuthenticity, MessageId, ValidationMode,
+        Gossipsub,
+        GossipsubConfigBuilder,
+        GossipsubEvent,
+        GossipsubMessage,
+        IdentTopic as Topic,
+        MessageAuthenticity,
+        MessageId,
+        ValidationMode, //Topic,
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaEvent},
-    swarm::NetworkBehaviour,
+    swarm::{NetworkBehaviour, SwarmEvent},
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::{ResultExt, Snafu};
-use tracing::{debug, instrument, trace};
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "NetworkEvent")]
@@ -77,6 +86,28 @@ pub struct Network<N, M: NetworkBehaviour> {
     _phantom: PhantomData<N>,
 }
 
+/// holds requests to the swarm
+pub enum SwarmAction<N: Send> {
+    Shutdown,
+    GossipMsg(N), // topic, message
+    GetId(Sender<PeerId>),
+    Subscribe(String),
+    Unsubscribe(String),
+}
+
+/// holds events of the swarm to be relayed
+/// out
+pub enum SwarmResult<N: Send> {
+    GossipMsg(N),
+}
+
+/// trait to get out the topic and contents of a message
+/// such that it may be "gossipped" to other people
+pub trait GossipMsg: Send {
+    fn topic(&self) -> Topic;
+    fn data(&self) -> Vec<u8>;
+}
+
 impl<N, M: NetworkBehaviour> std::fmt::Debug for Network<N, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -89,11 +120,25 @@ impl<N, M: NetworkBehaviour> std::fmt::Debug for Network<N, M> {
     }
 }
 
-impl<N: DeserializeOwned + Serialize, M: NetworkBehaviour> Network<N, M> {
+impl<N: DeserializeOwned + Serialize + std::fmt::Debug, M: NetworkBehaviour> Network<N, M> {
     /// starts the swarm listening on `listen_addr`
+    /// and optionally dials into peer `known_peer`
     #[instrument]
-    pub fn start(&mut self, listen_addr: Multiaddr) -> Result<(), NetworkError> {
+    pub fn start(
+        &mut self,
+        listen_addr: Multiaddr,
+        known_peer: Option<Multiaddr>,
+    ) -> Result<(), NetworkError> {
         self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
+        if let Some(known_peer) = known_peer {
+            let dialing = known_peer.clone();
+            match self.swarm.dial(known_peer) {
+                Ok(_) => {
+                    info!("Dialed {:?}", dialing);
+                }
+                Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
+            };
+        }
         Ok(())
     }
 }
@@ -104,7 +149,16 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
 }
 
-impl<N: DeserializeOwned + Serialize> Network<N, NetworkDef> {
+impl<N> Network<N, NetworkDef>
+where
+    N: DeserializeOwned
+        + Serialize
+        + From<GossipsubMessage>
+        + GossipMsg
+        + std::fmt::Debug
+        + Send
+        + 'static,
+{
     /// Creates a new `Network` with the given settings.
     ///
     /// Currently:
@@ -184,8 +238,109 @@ impl<N: DeserializeOwned + Serialize> Network<N, NetworkDef> {
         })
     }
 
-    pub async fn spawn_listeners(&mut self){
-        todo!()
+    /// spawn a task to listen for requests on the returned channel
+    /// as well as any events produced by libp2p
+    /// `mut_mut` is disabled b/c must consume `self`
+    /// TODO why does clippy not like `panic` with select?
+    #[allow(clippy::mut_mut, clippy::panic)]
+    #[instrument]
+    pub async fn spawn_listeners(mut self) -> (Sender<SwarmAction<N>>, Receiver<SwarmResult<N>>) {
+        let (s_input, s_output) = unbounded::<SwarmAction<N>>();
+        let (r_input, r_output) = unbounded::<SwarmResult<N>>();
+        spawn(async move {
+            loop {
+                select! {
+                    event = self.swarm.select_next_some() => {
+                        info!("libp2p event {:?}", event);
+                        match event {
+                            SwarmEvent::Dialing(_)
+                            | SwarmEvent::NewListenAddr {..}
+                            | SwarmEvent::ExpiredListenAddr {..}
+                            | SwarmEvent::ListenerClosed {..}
+                            | SwarmEvent::ConnectionEstablished {..}
+                            | SwarmEvent::ConnectionClosed {..}
+                            | SwarmEvent::IncomingConnection {..}
+                            | SwarmEvent::IncomingConnectionError {..}
+                            | SwarmEvent::OutgoingConnectionError {..}
+                            | SwarmEvent::BannedPeer {..}
+                            | SwarmEvent::ListenerError {..} => {
+                            },
+                            SwarmEvent::Behaviour(b) => {
+                                match b {
+                                    NetworkEvent::Gossip(g) => {
+                                        match g {
+                                            GossipsubEvent::Message { message, .. } => {
+                                                r_input.send(SwarmResult::GossipMsg(message.into())).map_err(|_e| NetworkError::StreamClosed)?;
+                                            },
+                                            _ => {
+                                                info!(?g);
+                                            }
+                                        }
+                                    },
+                                    NetworkEvent::Kadem(_k) => {
+                                        // TODO
+                                    },
+                                    NetworkEvent::Ident(_i) => {
+                                        // TODO
+                                    },
+
+                                }
+                            },
+                        }
+                    },
+                    msg = s_output.recv_async() => {
+                        match msg {
+                            Ok(msg) => {
+                                match msg {
+                                    SwarmAction::Shutdown => {
+                                        warn!("Libp2p listener shutting down");
+                                        break
+                                    },
+                                    SwarmAction::GossipMsg(msg) => {
+                                        info!("broadcasting message {:?}", msg);
+                                        let topic = <N as GossipMsg>::topic(&msg);
+                                        let contents = <N as GossipMsg>::data(&msg);
+                                        match self.swarm
+                                            .behaviour_mut().gossipsub.publish(topic.clone(), contents.clone()) {
+                                                Ok(_) => (),
+                                                Err(_) => {
+                                                    error!("error publishing to topic {:?} with msg {:?}", topic,  contents);
+                                                }
+                                            }
+                                    },
+                                    SwarmAction::GetId(reply_chan) => {
+                                        // FIXME proper error handling
+                                        reply_chan.send(self.peer_id).map_err(|_e| NetworkError::StreamClosed)?;
+                                    },
+                                    SwarmAction::Subscribe(t) => {
+                                        match self.swarm.behaviour_mut().gossipsub.subscribe(&Topic::new(t.clone())) {
+                                            Ok(_) => (),
+                                            Err(_) => {
+                                                error!("error subscribing to topic {}", t);
+                                            }
+                                        }
+                                    }
+                                    SwarmAction::Unsubscribe(t) => {
+                                        match self.swarm.behaviour_mut().gossipsub.unsubscribe(&Topic::new(t.clone())) {
+                                            Ok(_) => (),
+                                            Err(_) => {
+                                                error!("error unsubscribing to topic {}", t);
+                                            }
+                                        }
+                                    }
+
+                                }
+                            },
+                            Err(e) => {
+                                error!("Error receiving msg: {:?}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        Ok::<(), NetworkError>(())
+        }.instrument(info_span!( "Libp2p Event Handler")));
+        (s_input, r_output)
     }
 }
 
@@ -213,4 +368,9 @@ pub enum NetworkError {
         /// The underlying source of the error
         message: String,
     },
+    // FIXME ideally include more information
+    // run into lifetime errors when making NetworkError generic over
+    // the type of message
+    // occurs if one of the channels to or from the swarm is closed
+    StreamClosed,
 }

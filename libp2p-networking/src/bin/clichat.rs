@@ -1,3 +1,5 @@
+use libp2p::{gossipsub::GossipsubMessage, Multiaddr};
+
 use std::sync::Arc;
 use std::{collections::VecDeque, marker::PhantomData};
 use structopt::StructOpt;
@@ -10,32 +12,75 @@ use crossterm::{
 };
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use tracing::{instrument, trace};
+use tracing::instrument;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
     Frame, Terminal,
 };
 
-use networking_demo::{gen_multiaddr, Network, NetworkDef};
+use flume::{Receiver, Sender};
+use networking_demo::{gen_multiaddr, GossipMsg, Network, NetworkDef, SwarmAction, SwarmResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     sender: String,
     content: String,
+    topic: String,
+}
+
+impl GossipMsg for Message {
+    fn topic(&self) -> libp2p::gossipsub::IdentTopic {
+        libp2p::gossipsub::IdentTopic::new(self.topic.clone())
+    }
+    fn data(&self) -> Vec<u8> {
+        self.content.as_bytes().into()
+    }
+}
+
+impl From<GossipsubMessage> for Message {
+    fn from(msg: GossipsubMessage) -> Self {
+        let content = String::from_utf8_lossy(&msg.data).to_string();
+        let sender = msg
+            .source
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "UNKNOWN".to_string());
+        Message {
+            sender,
+            content,
+            topic: msg.topic.into_string(),
+        }
+    }
+}
+
+enum InputMode {
+    Normal,
+    Editing,
 }
 
 /// Struct for the TUI app
 struct TableApp {
+    send_swarm: Sender<SwarmAction<Message>>,
+    recv_swarm: Receiver<SwarmResult<Message>>,
+    input_mode: InputMode,
+    input: String,
     state: TableState,
     message_buffer: Arc<Mutex<VecDeque<Message>>>,
 }
 
 impl TableApp {
-    pub fn new(message_buffer: Arc<Mutex<VecDeque<Message>>>) -> Self {
+    pub fn new(
+        message_buffer: Arc<Mutex<VecDeque<Message>>>,
+        send_swarm: Sender<SwarmAction<Message>>,
+        recv_swarm: Receiver<SwarmResult<Message>>,
+    ) -> Self {
         Self {
+            send_swarm,
+            recv_swarm,
+            input_mode: InputMode::Normal,
+            input: String::new(),
             state: TableState::default(),
             message_buffer,
         }
@@ -62,17 +107,16 @@ impl TableApp {
     }
 }
 
+/// command line arguments
 #[derive(StructOpt)]
 struct CliOpt {
     /// Path to the node configuration file
-    #[structopt(
-        long = "port",
-        short = "p",
-    )]
+    #[structopt(long = "port", short = "p")]
     port: Option<u16>,
+
+    #[structopt()]
+    first_dial: Option<Multiaddr>,
 }
-
-
 
 #[async_std::main]
 #[instrument]
@@ -85,9 +129,10 @@ async fn main() -> Result<()> {
         .await
         .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
+    let known_peer = CliOpt::from_args().first_dial;
     let listen_addr = gen_multiaddr(port);
-    networking.start(listen_addr)?;
-    networking.spawn_listeners().await;
+    networking.start(listen_addr, known_peer)?;
+    let (send_chan, recv_chan) = networking.spawn_listeners().await;
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo
@@ -97,18 +142,22 @@ async fn main() -> Result<()> {
     buffer_handle.push_back(Message {
         sender: "Nathan".to_string(),
         content: "Hello".to_string(),
+        topic: "global".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "Justin".to_string(),
         content: "hi!".to_string(),
+        topic: "global".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "Joe".to_string(),
         content: "test".to_string(),
+        topic: "global".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "John".to_string(),
         content: "test 2".to_string(),
+        topic: "global".to_string(),
     });
     std::mem::drop(buffer_handle);
     // -- Setup the TUI
@@ -120,7 +169,9 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     // -- Create the app and run it
-    let app = TableApp::new(message_buffer.clone());
+    let app = TableApp::new(message_buffer.clone(), send_chan, recv_chan);
+    app.send_swarm
+        .send(SwarmAction::Subscribe("global".to_string()))?;
     let res = run_app(&mut terminal, app);
     // -- Tear down the TUI, and restore the terminal
     disable_raw_mode()?;
@@ -138,17 +189,59 @@ async fn main() -> Result<()> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<()> {
     loop {
+        if let Ok(res) = app.recv_swarm.try_recv() {
+            match res {
+                SwarmResult::GossipMsg(s) => app.message_buffer.lock().push_back(s),
+            }
+        }
         terminal
             .draw(|f| ui(f, &mut app).expect("Failed to draw UI"))
             .context("Failed drawing application")?;
-        if let Event::Key(key) = event::read().context("Failed to read event")? {
-            match key.code {
-                KeyCode::Char('q') => return Ok(()),
-                KeyCode::Down => app.next(),
-                KeyCode::Up => app.previous(),
-                KeyCode::Char('k') => app.previous(),
-                KeyCode::Char('j') => app.next(),
-                _ => {}
+        match app.input_mode {
+            InputMode::Normal => {
+                if let Event::Key(key) = event::read().context("Failed to read event")? {
+                    match key.code {
+                        KeyCode::Char('q') => {
+                            app.send_swarm.send(SwarmAction::Shutdown)?;
+                            return Ok(());
+                        }
+                        KeyCode::Down => app.next(),
+                        KeyCode::Up => app.previous(),
+                        KeyCode::Char('k') => app.previous(),
+                        KeyCode::Char('j') => app.next(),
+                        KeyCode::Esc => app.input_mode = InputMode::Editing,
+                        _ => {}
+                    }
+                }
+            }
+            InputMode::Editing => {
+                if let Event::Key(key) = event::read().context("Failed to read event")? {
+                    match key.code {
+                        // broadcast message to the swarm with the global topic
+                        KeyCode::Enter => {
+                            let (s, r) = flume::unbounded();
+                            app.send_swarm.send(SwarmAction::GetId(s))?;
+                            let msg = SwarmAction::GossipMsg(Message {
+                                topic: "global".to_string(),
+                                content: app.input,
+                                // FIXME this should NOT be needed. Get it from the swarm.
+                                sender: r.recv()?.to_string(),
+                            });
+                            app.send_swarm.send(msg)?;
+                            app.input = String::new();
+                        }
+                        KeyCode::Char(c) => {
+                            app.input.push(c);
+                        }
+                        KeyCode::Backspace => {
+                            app.input.pop();
+                        }
+                        KeyCode::Esc => {
+                            app.input_mode = InputMode::Normal;
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
     }
@@ -156,7 +249,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut TableApp) -> Result<()> {
     let rects = Layout::default()
-        .constraints([Constraint::Percentage(100)].as_ref())
+        // two rectanges: one for messages, the other for input
+        .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
         .margin(5)
         .split(f.size());
 
@@ -188,6 +282,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut TableApp) -> Result<()> {
             Constraint::Min(10),
         ]);
     f.render_stateful_widget(table, rects[0], &mut app.state);
+
+    let input = Paragraph::new(app.input.as_ref())
+        .style(match app.input_mode {
+            InputMode::Normal => Style::default(),
+            InputMode::Editing => Style::default().fg(Color::Yellow),
+        })
+        .block(Block::default().borders(Borders::ALL).title("Input"));
+    f.render_widget(input, rects[1]);
 
     Ok(())
 }

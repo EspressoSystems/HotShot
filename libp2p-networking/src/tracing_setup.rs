@@ -41,13 +41,11 @@ fn parse_writer() -> BoxMakeWriter {
     match file.as_deref() {
         Ok("stderr") => BoxMakeWriter::new(std::io::stderr),
         Ok("stdout") => BoxMakeWriter::new(std::io::stdout),
-        Ok(filename) => {
-            match File::create(filename) {
-                Ok(handle) => BoxMakeWriter::new(handle),
-                _ => BoxMakeWriter::new(std::io::stdout)
-            }
+        Ok(filename) => match File::create(filename) {
+            Ok(handle) => BoxMakeWriter::new(handle),
+            _ => panic!("Could not open RUST_LOG_OUTPUT for writing."),
         },
-        Err(_) => panic!("Invalid RUST_LOG_OUTPUT value"),
+        Err(_) => BoxMakeWriter::new(std::io::stdout),
     }
 }
 
