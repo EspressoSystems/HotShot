@@ -44,6 +44,7 @@ use libp2p::{
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+pub mod ui;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "NetworkEvent")]
