@@ -25,6 +25,7 @@ use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
+        error::PublishError,
         Gossipsub,
         GossipsubConfigBuilder,
         GossipsubEvent,
@@ -32,7 +33,7 @@ use libp2p::{
         IdentTopic as Topic,
         MessageAuthenticity,
         MessageId,
-        ValidationMode, //Topic,
+        ValidationMode,
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
@@ -89,7 +90,7 @@ pub struct Network<N, M: NetworkBehaviour> {
 /// holds requests to the swarm
 pub enum SwarmAction<N: Send> {
     Shutdown,
-    GossipMsg(N), // topic, message
+    GossipMsg(N, Sender<Result<(), NetworkError>>), // topic, message
     GetId(Sender<PeerId>),
     Subscribe(String),
     Unsubscribe(String),
@@ -296,21 +297,17 @@ where
                                         warn!("Libp2p listener shutting down");
                                         break
                                     },
-                                    SwarmAction::GossipMsg(msg) => {
+                                    SwarmAction::GossipMsg(msg, chan) => {
                                         info!("broadcasting message {:?}", msg);
                                         let topic = <N as GossipMsg>::topic(&msg);
                                         let contents = <N as GossipMsg>::data(&msg);
-                                        match self.swarm
-                                            .behaviour_mut().gossipsub.publish(topic.clone(), contents.clone()) {
-                                                Ok(_) => (),
-                                                Err(_) => {
-                                                    error!("error publishing to topic {:?} with msg {:?}", topic,  contents);
-                                                }
-                                            }
+                                        let res = self.swarm
+                                            .behaviour_mut().gossipsub.publish(topic.clone(), contents.clone()).map(|_| ()).context(PublishSnafu);
+                                        chan.send_async(res).await.map_err(|_e| NetworkError::StreamClosed)?;
                                     },
                                     SwarmAction::GetId(reply_chan) => {
                                         // FIXME proper error handling
-                                        reply_chan.send(self.peer_id).map_err(|_e| NetworkError::StreamClosed)?;
+                                        reply_chan.send_async(self.peer_id).await.map_err(|_e| NetworkError::StreamClosed)?;
                                     },
                                     SwarmAction::Subscribe(t) => {
                                         match self.swarm.behaviour_mut().gossipsub.subscribe(&Topic::new(t.clone())) {
@@ -357,7 +354,7 @@ pub enum NetworkError {
         source: std::io::Error,
     },
     /// Error building the gossipsub configuration
-    #[snafu(display("Error building the gossipsub configuration: {}", message))]
+    #[snafu(display("Error building the gossipsub configuration: {message}"))]
     GossipsubConfig {
         /// The underlying source of the error
         message: String,
@@ -373,4 +370,7 @@ pub enum NetworkError {
     // the type of message
     // occurs if one of the channels to or from the swarm is closed
     StreamClosed,
+    PublishError {
+        source: PublishError
+    }
 }

@@ -4,12 +4,14 @@ use std::sync::Arc;
 use std::{collections::VecDeque, marker::PhantomData};
 use structopt::StructOpt;
 
+use futures::{select, StreamExt, FutureExt};
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use std::time::{Duration};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -172,7 +174,7 @@ async fn main() -> Result<()> {
     let app = TableApp::new(message_buffer.clone(), send_chan, recv_chan);
     app.send_swarm
         .send(SwarmAction::Subscribe("global".to_string()))?;
-    let res = run_app(&mut terminal, app);
+    let res = run_app(&mut terminal, app).await;
     // -- Tear down the TUI, and restore the terminal
     disable_raw_mode()?;
     execute!(
@@ -187,70 +189,92 @@ async fn main() -> Result<()> {
     res
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<()> {
+async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<()> {
+    let mut events = event::EventStream::new();
     loop {
-        if let Ok(res) = app.recv_swarm.try_recv() {
-            match res {
-                SwarmResult::GossipMsg(s) => app.message_buffer.lock().push_back(s),
-            }
-        }
         terminal
             .draw(|f| ui(f, &mut app).expect("Failed to draw UI"))
             .context("Failed drawing application")?;
-        match app.input_mode {
-            InputMode::Normal => {
-                if let Event::Key(key) = event::read().context("Failed to read event")? {
-                    match key.code {
-                        KeyCode::Char('q') => {
-                            app.send_swarm.send(SwarmAction::Shutdown)?;
-                            return Ok(());
+        select!(
+            _ = async_std::task::sleep(Duration::from_nanos(1)).fuse() => {}
+            swarm_msg = app.recv_swarm.recv_async() => {
+                if let Ok(res) = swarm_msg {
+                    match res {
+                        SwarmResult::GossipMsg(s) => app.message_buffer.lock().push_back(s),
+                    }
+                }
+            },
+            user_event = events.next().fuse() => {
+                match app.input_mode {
+                    InputMode::Normal => {
+                        if let Some(Ok(Event::Key(key))) = user_event {
+                            match key.code {
+                                KeyCode::Char('q') => {
+                                    app.send_swarm.send_async(SwarmAction::Shutdown).await?;
+                                    return Ok(());
+                                }
+                                KeyCode::Down => app.next(),
+                                KeyCode::Up => app.previous(),
+                                KeyCode::Char('k') => app.previous(),
+                                KeyCode::Char('j') => app.next(),
+                                KeyCode::Tab => app.input_mode = InputMode::Editing,
+                                _ => {}
+                            }
                         }
-                        KeyCode::Down => app.next(),
-                        KeyCode::Up => app.previous(),
-                        KeyCode::Char('k') => app.previous(),
-                        KeyCode::Char('j') => app.next(),
-                        KeyCode::Esc => app.input_mode = InputMode::Editing,
-                        _ => {}
+                    }
+                    InputMode::Editing => {
+                        if let Some(Ok(Event::Key(key))) = user_event {
+                            match key.code {
+                                // broadcast message to the swarm with the global topic
+                                KeyCode::Enter => {
+                                    let (s, r) = flume::unbounded();
+                                    app.send_swarm.send_async(SwarmAction::GetId(s)).await?;
+                                    let msg = Message {
+                                        topic: "global".to_string(),
+                                        content: app.input,
+                                        // FIXME this should NOT be needed. Get it from the swarm.
+                                        sender: r.recv_async().await?.to_string(),
+                                    };
+                                    let (s, r) = flume::unbounded();
+                                    app.send_swarm.send_async(SwarmAction::GossipMsg(msg.clone(), s)).await?;
+                                    let mb_handle = app.message_buffer.clone();
+                                    async_std::task::spawn(async move {
+                                        match r.recv_async().await? {
+                                            Ok(_) => mb_handle.lock().push_back(msg),
+                                            Err(_) => (),
+                                        }
+                                        Result::<(), flume::RecvError>::Ok(())
+                                    });
+                                    app.input = String::new()
+                                }
+                                KeyCode::Char(c) => {
+                                    app.input.push(c);
+                                }
+                                KeyCode::Backspace => {
+                                    app.input.pop();
+                                }
+                                KeyCode::Tab => {
+                                    app.input_mode = InputMode::Normal;
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
-            InputMode::Editing => {
-                if let Event::Key(key) = event::read().context("Failed to read event")? {
-                    match key.code {
-                        // broadcast message to the swarm with the global topic
-                        KeyCode::Enter => {
-                            let (s, r) = flume::unbounded();
-                            app.send_swarm.send(SwarmAction::GetId(s))?;
-                            let msg = SwarmAction::GossipMsg(Message {
-                                topic: "global".to_string(),
-                                content: app.input,
-                                // FIXME this should NOT be needed. Get it from the swarm.
-                                sender: r.recv()?.to_string(),
-                            });
-                            app.send_swarm.send(msg)?;
-                            app.input = String::new();
-                        }
-                        KeyCode::Char(c) => {
-                            app.input.push(c);
-                        }
-                        KeyCode::Backspace => {
-                            app.input.pop();
-                        }
-                        KeyCode::Esc => {
-                            app.input_mode = InputMode::Normal;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
+
+        );
     }
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut TableApp) -> Result<()> {
     let rects = Layout::default()
         // two rectanges: one for messages, the other for input
-        .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
+        .constraints(
+            [Constraint::Percentage(60),
+             Constraint::Percentage(30),
+             Constraint::Percentage(10)
+            ].as_ref())
         .margin(5)
         .split(f.size());
 
@@ -280,7 +304,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut TableApp) -> Result<()> {
             Constraint::Percentage(50),
             Constraint::Length(30),
             Constraint::Min(10),
-        ]);
+        ])
+        .style(match app.input_mode {
+            InputMode::Editing => Style::default(),
+            InputMode::Normal => Style::default().fg(Color::Yellow),
+        })
+        ;
     f.render_stateful_widget(table, rects[0], &mut app.state);
 
     let input = Paragraph::new(app.input.as_ref())
@@ -289,7 +318,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut TableApp) -> Result<()> {
             InputMode::Editing => Style::default().fg(Color::Yellow),
         })
         .block(Block::default().borders(Borders::ALL).title("Input"));
-    f.render_widget(input, rects[1]);
+    f.render_widget(input, rects[2]);
 
     Ok(())
 }
