@@ -17,7 +17,7 @@
 pub mod tracing_setup;
 
 use async_std::task::spawn;
-use std::{marker::PhantomData, time::Duration};
+use std::{collections::HashSet, marker::PhantomData, time::Duration};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, StreamExt};
@@ -25,15 +25,8 @@ use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        error::PublishError,
-        Gossipsub,
-        GossipsubConfigBuilder,
-        GossipsubEvent,
-        GossipsubMessage,
-        IdentTopic as Topic,
-        MessageAuthenticity,
-        MessageId,
-        ValidationMode,
+        error::PublishError, Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage,
+        IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
@@ -81,10 +74,12 @@ impl From<GossipsubEvent> for NetworkEvent {
 }
 
 pub struct Network<N, M: NetworkBehaviour> {
+    pub connected_peers: HashSet<PeerId>,
     pub identity: Keypair,
     pub peer_id: PeerId,
     pub broadcast_topic: Topic,
     pub swarm: Swarm<M>,
+    pub max_num_peers: usize,
     _phantom: PhantomData<N>,
 }
 
@@ -97,9 +92,10 @@ pub enum SwarmAction<N: Send> {
     Unsubscribe(String),
 }
 
-/// holds events of the swarm to be relayed
+/// holds events of the swarm to be relayed to the cli event loop
 /// out
 pub enum SwarmResult<N: Send> {
+    UpdateConnectedPeers(HashSet<PeerId>),
     GossipMsg(N),
 }
 
@@ -136,6 +132,9 @@ impl<N: DeserializeOwned + Serialize + std::fmt::Debug, M: NetworkBehaviour> Net
             let dialing = known_peer.clone();
             match self.swarm.dial(known_peer) {
                 Ok(_) => {
+                    // TODO may need to ad address here
+                    // Kademlia::add_address
+                    // self.swarm.kadem.add_add
                     info!("Dialed {:?}", dialing);
                 }
                 Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
@@ -234,7 +233,9 @@ where
         Ok(Self {
             identity,
             peer_id,
+            connected_peers: HashSet::new(),
             broadcast_topic,
+            max_num_peers: 5,
             swarm,
             _phantom: PhantomData,
         })
@@ -249,6 +250,13 @@ where
     pub async fn spawn_listeners(mut self) -> (Sender<SwarmAction<N>>, Receiver<SwarmResult<N>>) {
         let (s_input, s_output) = unbounded::<SwarmAction<N>>();
         let (r_input, r_output) = unbounded::<SwarmResult<N>>();
+        // TODO fix this error handling
+        let _ = r_input
+            .send_async(SwarmResult::UpdateConnectedPeers(
+                self.connected_peers.clone(),
+            ))
+            .await
+            .map_err(|_e| NetworkError::StreamClosed);
         spawn(async move {
             loop {
                 select! {
@@ -259,8 +267,6 @@ where
                             | SwarmEvent::NewListenAddr {..}
                             | SwarmEvent::ExpiredListenAddr {..}
                             | SwarmEvent::ListenerClosed {..}
-                            | SwarmEvent::ConnectionEstablished {..}
-                            | SwarmEvent::ConnectionClosed {..}
                             | SwarmEvent::IncomingConnection {..}
                             | SwarmEvent::IncomingConnectionError {..}
                             | SwarmEvent::OutgoingConnectionError {..}
@@ -272,14 +278,15 @@ where
                                     NetworkEvent::Gossip(g) => {
                                         match g {
                                             GossipsubEvent::Message { message, .. } => {
-                                                r_input.send(SwarmResult::GossipMsg(message.into())).map_err(|_e| NetworkError::StreamClosed)?;
+                                                // FIXME proper error handling
+                                                r_input.send_async(SwarmResult::GossipMsg(message.into())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                             },
                                             _ => {
                                                 info!(?g);
                                             }
                                         }
                                     },
-                                    NetworkEvent::Kadem(_k) => {
+                                    NetworkEvent::Kadem(_event) => {
                                         // TODO
                                     },
                                     NetworkEvent::Ident(_i) => {
@@ -288,6 +295,24 @@ where
 
                                 }
                             },
+                            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                                self.connected_peers.insert(peer_id);
+                                r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
+                            }
+                            SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                                self.connected_peers.remove(&peer_id);
+                                // search for more peers
+                                let peers = self.swarm.behaviour_mut().gossipsub.peer_protocol().map(|(&p, _)| p);
+                                for peer in peers {
+                                    if !self.connected_peers.contains(&peer) && self.connected_peers.len() <= self.max_num_peers
+                                    {
+                                        self.connected_peers.insert(peer);
+
+                                    }
+                                }
+
+                                r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
+                            }
                         }
                     },
                     msg = s_output.recv_async() => {
@@ -325,8 +350,7 @@ where
                                                 error!("error unsubscribing to topic {}", t);
                                             }
                                         }
-                                    }
-
+                                    },
                                 }
                             },
                             Err(e) => {
@@ -372,6 +396,6 @@ pub enum NetworkError {
     // occurs if one of the channels to or from the swarm is closed
     StreamClosed,
     PublishError {
-        source: PublishError
-    }
+        source: PublishError,
+    },
 }

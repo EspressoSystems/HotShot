@@ -1,6 +1,5 @@
-
-use libp2p::{Multiaddr};
-use networking_demo::ui::{Message, run_app, TableApp};
+use libp2p::Multiaddr;
+use networking_demo::ui::{run_app, Message, TableApp};
 
 use std::sync::Arc;
 use std::{collections::VecDeque, marker::PhantomData};
@@ -15,10 +14,7 @@ use crossterm::{
 use parking_lot::Mutex;
 
 use tracing::instrument;
-use tui::{
-    backend::CrosstermBackend, Terminal,
-};
-
+use tui::{backend::CrosstermBackend, Terminal};
 
 use networking_demo::{gen_multiaddr, Network, NetworkDef, SwarmAction};
 
@@ -101,4 +97,3 @@ async fn main() -> Result<()> {
     println!("{:?}", messages);
     res
 }
-
