@@ -16,8 +16,12 @@
 
 pub mod tracing_setup;
 
-use async_std::task::{spawn, sleep};
-use std::{collections::{HashSet, HashMap}, marker::PhantomData, time::Duration};
+use async_std::task::{sleep, spawn};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    time::Duration,
+};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
@@ -30,7 +34,7 @@ use libp2p::{
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
-    kad::{store::MemoryStore, Kademlia, KademliaEvent, self, GetClosestPeersOk, KademliaConfig},
+    kad::{self, store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaConfig, KademliaEvent},
     swarm::{NetworkBehaviour, SwarmEvent},
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
@@ -82,6 +86,7 @@ impl From<GossipsubEvent> for NetworkEvent {
 
 pub struct Network<N, M: NetworkBehaviour> {
     pub connected_peers: HashSet<PeerId>,
+    // TODO replace this with a set of queryids
     pub connecting_peers: HashSet<PeerId>,
     pub known_peers: HashSet<PeerId>,
     pub identity: Keypair,
@@ -208,7 +213,6 @@ where
                 .gossip_factor(1.0f64)
                 .mesh_outbound_min(0)
                 .opportunistic_graft_ticks(1)
-
                 // defaults to true but we want this
                 .do_px()
                 .build()
@@ -279,6 +283,8 @@ where
             loop {
                 select! {
                     _ = sleep(Duration::from_secs(10)).fuse() => {
+                        // if we're bootstrapped, do nothing
+                        // otherwise periodically get more peers
                         if !bootstrapped {
                             if self.connecting_peers.len() + self.connected_peers.len() <= self.max_num_peers {
                                 let potential_peers : HashSet<PeerId> = self.known_peers.difference(&self.connecting_peers.union(&self.connected_peers).cloned().collect()).cloned().collect();
@@ -291,9 +297,6 @@ where
                                         Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
                                     };
                                 }
-                            }
-                            for a_peer in self.connected_peers.clone() {
-                                let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(a_peer);
                             }
                         }
                     }
@@ -330,9 +333,7 @@ where
                                                     // FIXME rebootstrap or fail in the failed
                                                     // bootstrap case
                                                     kad::QueryResult::Bootstrap(Ok(_bootstrap)) => {
-                                                        // when bootstrap succeeds,
-                                                        // get more peers
-                                                        // let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(self.peer_id);
+                                                        // we're bootstrapped
                                                         bootstrapped = false;
                                                     },
                                                     kad::QueryResult::GetClosestPeers(result) => {
@@ -355,7 +356,16 @@ where
                                         }
                                     },
                                     NetworkEvent::Ident(i) => {
-                                        // TODO
+                                        match i {
+                                            IdentifyEvent::Received { peer_id, info, .. } => {
+                                                for addr in info.listen_addrs {
+                                                    self.swarm.behaviour_mut().kadem
+                                                        .add_address(&peer_id, addr.clone());
+                                                }
+                                            },
+                                            _ => {}
+
+                                        }
                                     },
 
                                 }
@@ -381,13 +391,6 @@ where
                             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                                 self.connected_peers.remove(&peer_id);
                                 self.known_peers.remove(&peer_id);
-                                let _ = self.swarm.disconnect_peer_id(peer_id);
-                                // self.swarm.behaviour_mut().kadem.disconnect_peer_id();
-                                // if self.connected_peers.len() <= self.max_num_peers {
-                                //     // search for more peers
-                                //     // TODO error handling
-                                //     let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(self.peer_id);
-                                // }
 
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
