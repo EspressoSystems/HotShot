@@ -16,21 +16,21 @@
 
 pub mod tracing_setup;
 
-use async_std::task::spawn;
-use std::{collections::HashSet, marker::PhantomData, time::Duration};
+use async_std::task::{spawn, sleep};
+use std::{collections::{HashSet, HashMap}, marker::PhantomData, time::Duration};
 
 use flume::{unbounded, Receiver, Sender};
-use futures::{select, StreamExt};
+use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed},
+    core::{muxing::StreamMuxerBox, transport::Boxed, ConnectedPoint},
     gossipsub::{
         error::PublishError, Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage,
         IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
-    kad::{store::MemoryStore, Kademlia, KademliaEvent},
+    kad::{store::MemoryStore, Kademlia, KademliaEvent, self, GetClosestPeersOk, KademliaConfig},
     swarm::{NetworkBehaviour, SwarmEvent},
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
@@ -39,11 +39,18 @@ use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 pub mod ui;
 
+/// event_process is false because
+/// injecting events does not play well
+/// with asyncrony
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "NetworkEvent")]
 #[behaviour(event_process = false)]
 pub struct NetworkDef {
+    /// NOTE gossipsub works ONLY for sharing messsages right now
+    /// in the future it may be able to do peer discovery and routing
+    /// at which point we can scrap kadem
     pub gossipsub: Gossipsub,
+    /// used for passive peer discovery and peer routing
     pub kadem: Kademlia<MemoryStore>,
     pub identify: Identify,
 }
@@ -75,6 +82,8 @@ impl From<GossipsubEvent> for NetworkEvent {
 
 pub struct Network<N, M: NetworkBehaviour> {
     pub connected_peers: HashSet<PeerId>,
+    pub connecting_peers: HashSet<PeerId>,
+    pub known_peers: HashSet<PeerId>,
     pub identity: Keypair,
     pub peer_id: PeerId,
     pub broadcast_topic: Topic,
@@ -132,9 +141,6 @@ impl<N: DeserializeOwned + Serialize + std::fmt::Debug, M: NetworkBehaviour> Net
             let dialing = known_peer.clone();
             match self.swarm.dial(known_peer) {
                 Ok(_) => {
-                    // TODO may need to ad address here
-                    // Kademlia::add_address
-                    // self.swarm.kadem.add_add
                     info!("Dialed {:?}", dialing);
                 }
                 Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
@@ -193,12 +199,18 @@ where
             // Use a jank match because Gossipsubconfigbuilder::build returns a non-static str for
             // some god forsaken reason
             let gossipsub_config = GossipsubConfigBuilder::default()
-                // Use a reasonable 10 second heartbeat interval by default
-                .heartbeat_interval(Duration::from_secs(10))
+                .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
+                .mesh_n_low(1)
+                .gossip_factor(1.0f64)
+                .mesh_outbound_min(0)
+                .opportunistic_graft_ticks(1)
+
+                // defaults to true but we want this
+                .do_px()
                 .build()
                 .map_err(|s| GossipsubConfigSnafu { message: s }.build())?;
             // - Build a gossipsub network behavior
@@ -219,7 +231,9 @@ where
 
             // - Build DHT needed for peer discovery
             //   TODO check into the MemoryStore defaults
-            let kadem = Kademlia::new(peer_id, MemoryStore::new(peer_id));
+            let mut kconfig = KademliaConfig::default();
+            kconfig.set_caching(kad::KademliaCaching::Disabled);
+            let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
             let network = NetworkDef {
                 gossipsub,
@@ -234,6 +248,8 @@ where
             identity,
             peer_id,
             connected_peers: HashSet::new(),
+            connecting_peers: HashSet::new(),
+            known_peers: HashSet::new(),
             broadcast_topic,
             max_num_peers: 5,
             swarm,
@@ -257,11 +273,32 @@ where
             ))
             .await
             .map_err(|_e| NetworkError::StreamClosed);
+
+        let mut bootstrapped = false;
         spawn(async move {
             loop {
                 select! {
+                    _ = sleep(Duration::from_secs(10)).fuse() => {
+                        if !bootstrapped {
+                            if self.connecting_peers.len() + self.connected_peers.len() <= self.max_num_peers {
+                                let potential_peers : HashSet<PeerId> = self.known_peers.difference(&self.connecting_peers.union(&self.connected_peers).cloned().collect()).cloned().collect();
+                                for a_peer in potential_peers {
+                                    match self.swarm.dial(a_peer) {
+                                        Ok(_) => {
+                                            self.connecting_peers.insert(a_peer);
+
+                                        }
+                                        Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
+                                    };
+                                }
+                            }
+                            for a_peer in self.connected_peers.clone() {
+                                let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(a_peer);
+                            }
+                        }
+                    }
                     event = self.swarm.select_next_some() => {
-                        info!("libp2p event {:?}", event);
+                        error!("libp2p event {:?}", event);
                         match event {
                             SwarmEvent::Dialing(_)
                             | SwarmEvent::NewListenAddr {..}
@@ -286,30 +323,71 @@ where
                                             }
                                         }
                                     },
-                                    NetworkEvent::Kadem(_event) => {
-                                        // TODO
+                                    NetworkEvent::Kadem(event) => {
+                                        match event {
+                                            KademliaEvent::OutboundQueryCompleted { result, ..} => {
+                                                match result {
+                                                    // FIXME rebootstrap or fail in the failed
+                                                    // bootstrap case
+                                                    kad::QueryResult::Bootstrap(Ok(_bootstrap)) => {
+                                                        // when bootstrap succeeds,
+                                                        // get more peers
+                                                        // let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(self.peer_id);
+                                                        bootstrapped = false;
+                                                    },
+                                                    kad::QueryResult::GetClosestPeers(result) => {
+                                                        match result {
+                                                            Ok(GetClosestPeersOk { key: _key, peers }) => {
+                                                                for peer in peers {
+                                                                    self.known_peers.insert(peer);
+                                                                }
+                                                            },
+                                                            _ => {}
+                                                        }
+                                                    },
+                                                    _ => {}
+                                                }
+                                            },
+                                            KademliaEvent::RoutingUpdated { peer, is_new_peer: _is_new_peer, addresses: _addresses, .. } => {
+                                                self.known_peers.insert(peer);
+                                            },
+                                            _ => {}
+                                        }
                                     },
-                                    NetworkEvent::Ident(_i) => {
+                                    NetworkEvent::Ident(i) => {
                                         // TODO
                                     },
 
                                 }
                             },
-                            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                                match endpoint {
+                                    ConnectedPoint::Dialer { address } => {
+                                        self.swarm.behaviour_mut().kadem.add_address(&peer_id, address);
+                                    },
+                                    ConnectedPoint::Listener { local_addr: _, send_back_addr } => {
+                                        self.swarm.behaviour_mut().kadem.add_address(&peer_id, send_back_addr);
+                                    },
+                                }
                                 self.connected_peers.insert(peer_id);
+                                self.connecting_peers.remove(&peer_id);
+                                // now we have at least one peer so we can bootstrap
+                                if !bootstrapped {
+                                    // TODO error handling
+                                    let _ = self.swarm.behaviour_mut().kadem.bootstrap();
+                                }
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
                             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                                 self.connected_peers.remove(&peer_id);
-                                // search for more peers
-                                let peers = self.swarm.behaviour_mut().gossipsub.peer_protocol().map(|(&p, _)| p);
-                                for peer in peers {
-                                    if !self.connected_peers.contains(&peer) && self.connected_peers.len() <= self.max_num_peers
-                                    {
-                                        self.connected_peers.insert(peer);
-
-                                    }
-                                }
+                                self.known_peers.remove(&peer_id);
+                                let _ = self.swarm.disconnect_peer_id(peer_id);
+                                // self.swarm.behaviour_mut().kadem.disconnect_peer_id();
+                                // if self.connected_peers.len() <= self.max_num_peers {
+                                //     // search for more peers
+                                //     // TODO error handling
+                                //     let _ = self.swarm.behaviour_mut().kadem.get_closest_peers(self.peer_id);
+                                // }
 
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
