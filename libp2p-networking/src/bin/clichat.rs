@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     let known_peer = CliOpt::from_args().first_dial;
     let listen_addr = gen_multiaddr(port);
     networking.start(listen_addr, known_peer)?;
-    let (send_chan, recv_chan) = networking.spawn_listeners().await;
+    let (send_chan, recv_chan) = networking.spawn_listeners().await?;
 
     // -- Spin up the UI
     // Setup a ring buffer to hold messages, 25 of them should do for the demo

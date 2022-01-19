@@ -17,11 +17,8 @@
 pub mod tracing_setup;
 
 use async_std::task::{sleep, spawn};
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-    time::Duration,
-};
+use rand::{seq::IteratorRandom, thread_rng};
+use std::{collections::HashSet, marker::PhantomData, time::Duration};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
@@ -34,7 +31,10 @@ use libp2p::{
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
-    kad::{self, store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaConfig, KademliaEvent},
+    kad::{
+        self, store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaConfig, KademliaEvent,
+        QueryResult,
+    },
     swarm::{NetworkBehaviour, SwarmEvent},
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
@@ -43,7 +43,7 @@ use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 pub mod ui;
 
-/// event_process is false because
+/// `event_process` is false because
 /// injecting events does not play well
 /// with asyncrony
 #[derive(NetworkBehaviour)]
@@ -94,6 +94,7 @@ pub struct Network<N, M: NetworkBehaviour> {
     pub broadcast_topic: Topic,
     pub swarm: Swarm<M>,
     pub max_num_peers: usize,
+    pub min_num_peers: usize,
     _phantom: PhantomData<N>,
 }
 
@@ -209,12 +210,6 @@ where
                 .validation_mode(ValidationMode::Strict)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
-                .mesh_n_low(1)
-                .gossip_factor(1.0f64)
-                .mesh_outbound_min(0)
-                .opportunistic_graft_ticks(1)
-                // defaults to true but we want this
-                .do_px()
                 .build()
                 .map_err(|s| GossipsubConfigSnafu { message: s }.build())?;
             // - Build a gossipsub network behavior
@@ -255,7 +250,8 @@ where
             connecting_peers: HashSet::new(),
             known_peers: HashSet::new(),
             broadcast_topic,
-            max_num_peers: 5,
+            max_num_peers: 6,
+            min_num_peers: 5,
             swarm,
             _phantom: PhantomData,
         })
@@ -265,29 +261,36 @@ where
     /// as well as any events produced by libp2p
     /// `mut_mut` is disabled b/c must consume `self`
     /// TODO why does clippy not like `panic` with select?
-    #[allow(clippy::mut_mut, clippy::panic)]
+    #[allow(
+        clippy::mut_mut,
+        clippy::panic,
+        clippy::single_match,
+        clippy::collapsible_match
+    )]
     #[instrument]
-    pub async fn spawn_listeners(mut self) -> (Sender<SwarmAction<N>>, Receiver<SwarmResult<N>>) {
+    pub async fn spawn_listeners(
+        mut self,
+    ) -> Result<(Sender<SwarmAction<N>>, Receiver<SwarmResult<N>>), NetworkError> {
         let (s_input, s_output) = unbounded::<SwarmAction<N>>();
         let (r_input, r_output) = unbounded::<SwarmResult<N>>();
-        // TODO fix this error handling
-        let _ = r_input
+        r_input
             .send_async(SwarmResult::UpdateConnectedPeers(
                 self.connected_peers.clone(),
             ))
             .await
-            .map_err(|_e| NetworkError::StreamClosed);
+            .map_err(|_e| NetworkError::StreamClosed)?;
 
         let mut bootstrapped = false;
         spawn(async move {
             loop {
                 select! {
-                    _ = sleep(Duration::from_secs(10)).fuse() => {
+                    _ = sleep(Duration::from_secs(1)).fuse() => {
                         // if we're bootstrapped, do nothing
                         // otherwise periodically get more peers
                         if !bootstrapped {
-                            if self.connecting_peers.len() + self.connected_peers.len() <= self.max_num_peers {
-                                let potential_peers : HashSet<PeerId> = self.known_peers.difference(&self.connecting_peers.union(&self.connected_peers).cloned().collect()).cloned().collect();
+                            if self.connecting_peers.len() + self.connected_peers.len() <= self.min_num_peers {
+                                // TODO there's *got* to be a better way to do this
+                                let potential_peers : HashSet<PeerId> = self.known_peers.difference(&self.connecting_peers.union(&self.connected_peers).copied().collect()).copied().collect();
                                 for a_peer in potential_peers {
                                     match self.swarm.dial(a_peer) {
                                         Ok(_) => {
@@ -297,11 +300,18 @@ where
                                         Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
                                     };
                                 }
+                            } else if self.connected_peers.len() > self.max_num_peers {
+                                let peers_to_rm = self.connected_peers.iter().copied().choose_multiple(&mut thread_rng(), self.connected_peers.len() - self.max_num_peers);
+                                for a_peer in peers_to_rm {
+                                    // FIXME the error is () ?
+                                    let _ = self.swarm.disconnect_peer_id(a_peer);
+                                }
+
                             }
                         }
                     }
                     event = self.swarm.select_next_some() => {
-                        error!("libp2p event {:?}", event);
+                        warn!("libp2p event {:?}", event);
                         match event {
                             SwarmEvent::Dialing(_)
                             | SwarmEvent::NewListenAddr {..}
@@ -332,11 +342,21 @@ where
                                                 match result {
                                                     // FIXME rebootstrap or fail in the failed
                                                     // bootstrap case
-                                                    kad::QueryResult::Bootstrap(Ok(_bootstrap)) => {
-                                                        // we're bootstrapped
-                                                        bootstrapped = false;
+                                                    QueryResult::Bootstrap(r) => {
+                                                        match r {
+                                                             Ok(_bootstrap) => {
+                                                                // we're bootstrapped
+                                                                // don't bootstrap again
+                                                                bootstrapped = false;
+                                                             },
+                                                             Err(_) => {
+                                                                 // try again
+                                                                bootstrapped = true;
+                                                             }
+
+                                                        }
                                                     },
-                                                    kad::QueryResult::GetClosestPeers(result) => {
+                                                    QueryResult::GetClosestPeers(result) => {
                                                         match result {
                                                             Ok(GetClosestPeersOk { key: _key, peers }) => {
                                                                 for peer in peers {
@@ -362,6 +382,7 @@ where
                                                     self.swarm.behaviour_mut().kadem
                                                         .add_address(&peer_id, addr.clone());
                                                 }
+                                                self.known_peers.insert(peer_id);
                                             },
                                             _ => {}
 
@@ -383,8 +404,8 @@ where
                                 self.connecting_peers.remove(&peer_id);
                                 // now we have at least one peer so we can bootstrap
                                 if !bootstrapped {
-                                    // TODO error handling
-                                    let _ = self.swarm.behaviour_mut().kadem.bootstrap();
+                                    // this in theory should never happen...
+                                    self.swarm.behaviour_mut().kadem.bootstrap().map_err(|_e| NetworkError::NoKnownPeers)?;
                                 }
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
@@ -443,7 +464,7 @@ where
             }
         Ok::<(), NetworkError>(())
         }.instrument(info_span!( "Libp2p Event Handler")));
-        (s_input, r_output)
+        Ok((s_input, r_output))
     }
 }
 
@@ -479,4 +500,5 @@ pub enum NetworkError {
     PublishError {
         source: PublishError,
     },
+    NoKnownPeers,
 }

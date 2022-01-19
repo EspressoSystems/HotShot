@@ -1999,6 +1999,7 @@ dependencies = [
  "futures",
  "libp2p",
  "parking_lot",
+ "rand 0.8.4",
  "serde",
  "snafu",
  "structopt",

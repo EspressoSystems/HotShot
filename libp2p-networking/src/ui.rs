@@ -14,7 +14,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tracing::{error, instrument};
+use tracing::instrument;
 use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
