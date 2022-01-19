@@ -17,7 +17,7 @@ use std::{
 use tracing::instrument;
 use tui::{
     backend::Backend,
-    layout::{Constraint, Layout},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
     Frame, Terminal,
@@ -70,7 +70,8 @@ pub struct TableApp {
     pub input: String,
     pub state: TableState,
     pub message_buffer: Arc<Mutex<VecDeque<Message>>>,
-    pub peer_list: Arc<Mutex<HashSet<String>>>,
+    pub connected_peer_list: Arc<Mutex<HashSet<String>>>,
+    pub known_peer_list: Arc<Mutex<HashSet<String>>>,
 }
 
 impl TableApp {
@@ -86,7 +87,8 @@ impl TableApp {
             input: String::new(),
             state: TableState::default(),
             message_buffer,
-            peer_list: Arc::new(Mutex::new(HashSet::new())),
+            connected_peer_list: Arc::new(Mutex::new(HashSet::new())),
+            known_peer_list: Arc::new(Mutex::new(HashSet::new())),
         }
     }
     pub fn next(&mut self) {
@@ -128,7 +130,10 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                     match res {
                         SwarmResult::GossipMsg(s) => app.message_buffer.lock().push_back(s),
                         SwarmResult::UpdateConnectedPeers(peer_set) => {
-                            *app.peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
+                            *app.connected_peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
+                        }
+                        SwarmResult::UpdateKnownPeers(peer_set) => {
+                            *app.known_peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
                         }
                     }
                 }
@@ -249,7 +254,13 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
         });
     f.render_stateful_widget(message_table, rects[0], &mut app.state);
 
-    let peerid_handle = app.peer_list.lock();
+    let peer_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(rects[1]);
+
+    // TODO this is repetitive. Separate out into function.
+    let peerid_handle = app.connected_peer_list.lock();
     let peerid_rows: Vec<Row<'_>> = peerid_handle
         .iter()
         .map(|peer_id| {
@@ -260,9 +271,38 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
         })
         .collect::<Result<Vec<Row<'_>>, Report>>()?;
     let peerid_table = Table::new(peerid_rows.into_iter())
-        .block(Block::default().borders(Borders::ALL).title("peer ids"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("connected peer ids"),
+        )
         .widths(&[Constraint::Percentage(100)]);
-    f.render_stateful_widget(peerid_table, rects[1], &mut app.state);
+    f.render_stateful_widget(peerid_table, peer_chunks[0], &mut app.state);
+
+    let mut known_peerid_handle = app
+        .known_peer_list
+        .lock()
+        .iter()
+        .cloned()
+        .collect::<Vec<String>>();
+    known_peerid_handle.sort();
+    let known_peerid_rows: Vec<Row<'_>> = known_peerid_handle
+        .iter()
+        .map(|peer_id| {
+            let height = peer_id.chars().filter(|c| *c == '\n').count() + 1;
+            let cells = vec![Cell::from(peer_id.clone())];
+            Ok(Row::new(cells)
+                .height(u16::try_from(height).context("integer overflow calculating row")?))
+        })
+        .collect::<Result<Vec<Row<'_>>, Report>>()?;
+    let known_peerid_table = Table::new(known_peerid_rows.into_iter())
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("known peer ids"),
+        )
+        .widths(&[Constraint::Percentage(100)]);
+    f.render_stateful_widget(known_peerid_table, peer_chunks[1], &mut app.state);
 
     let input = Paragraph::new(app.input.as_ref())
         .style(match app.input_mode {

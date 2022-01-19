@@ -111,6 +111,7 @@ pub enum SwarmAction<N: Send> {
 /// out
 pub enum SwarmResult<N: Send> {
     UpdateConnectedPeers(HashSet<PeerId>),
+    UpdateKnownPeers(HashSet<PeerId>),
     GossipMsg(N),
 }
 
@@ -273,12 +274,6 @@ where
     ) -> Result<(Sender<SwarmAction<N>>, Receiver<SwarmResult<N>>), NetworkError> {
         let (s_input, s_output) = unbounded::<SwarmAction<N>>();
         let (r_input, r_output) = unbounded::<SwarmResult<N>>();
-        r_input
-            .send_async(SwarmResult::UpdateConnectedPeers(
-                self.connected_peers.clone(),
-            ))
-            .await
-            .map_err(|_e| NetworkError::StreamClosed)?;
 
         let mut bootstrapped = false;
         spawn(async move {
@@ -362,6 +357,7 @@ where
                                                                 for peer in peers {
                                                                     self.known_peers.insert(peer);
                                                                 }
+                                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                                             },
                                                             _ => {}
                                                         }
@@ -371,6 +367,7 @@ where
                                             },
                                             KademliaEvent::RoutingUpdated { peer, is_new_peer: _is_new_peer, addresses: _addresses, .. } => {
                                                 self.known_peers.insert(peer);
+                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                             },
                                             _ => {}
                                         }
@@ -383,6 +380,7 @@ where
                                                         .add_address(&peer_id, addr.clone());
                                                 }
                                                 self.known_peers.insert(peer_id);
+                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                             },
                                             _ => {}
 
@@ -411,9 +409,10 @@ where
                             }
                             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                                 self.connected_peers.remove(&peer_id);
-                                self.known_peers.remove(&peer_id);
+                                // self.known_peers.remove(&peer_id);
 
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
+                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
                         }
                     },
