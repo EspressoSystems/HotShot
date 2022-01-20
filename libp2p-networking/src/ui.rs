@@ -1,4 +1,9 @@
-use async_std::task::{sleep, spawn};
+use async_std::{
+    task::{sleep, spawn},
+};
+
+
+
 use color_eyre::{
     eyre::{Result, WrapErr},
     Report,
@@ -6,9 +11,11 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::gossipsub::GossipsubMessage;
+use libp2p::{
+    PeerId,
+};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
+
 use std::{
     collections::{HashSet, VecDeque},
     sync::Arc,
@@ -23,7 +30,7 @@ use tui::{
     Frame, Terminal,
 };
 
-use crate::{GossipMsg, SwarmAction, SwarmResult};
+use crate::{SwarmAction, SwarmResult, message::Message};
 
 #[derive(Debug, Copy, Clone)]
 pub enum InputMode {
@@ -31,35 +38,7 @@ pub enum InputMode {
     Editing,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Message {
-    pub sender: String,
-    pub content: String,
-    pub topic: String,
-}
 
-impl GossipMsg for Message {
-    fn topic(&self) -> libp2p::gossipsub::IdentTopic {
-        libp2p::gossipsub::IdentTopic::new(self.topic.clone())
-    }
-    fn data(&self) -> Vec<u8> {
-        self.content.as_bytes().into()
-    }
-}
-
-impl From<GossipsubMessage> for Message {
-    fn from(msg: GossipsubMessage) -> Self {
-        let content = String::from_utf8_lossy(&msg.data).to_string();
-        let sender = msg
-            .source
-            .map_or_else(|| "UNKNOWN".to_string(), |p| p.to_string());
-        Message {
-            sender,
-            content,
-            topic: msg.topic.into_string(),
-        }
-    }
-}
 
 #[derive(Debug)]
 /// Struct for the TUI app
@@ -70,7 +49,7 @@ pub struct TableApp {
     pub input: String,
     pub state: TableState,
     pub message_buffer: Arc<Mutex<VecDeque<Message>>>,
-    pub connected_peer_list: Arc<Mutex<HashSet<String>>>,
+    pub connected_peer_list: Arc<Mutex<HashSet<PeerId>>>,
     pub known_peer_list: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -128,9 +107,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        SwarmResult::GossipMsg(s) => app.message_buffer.lock().push_back(s),
+                        SwarmResult::DirectMessage(m) | SwarmResult::GossipMsg(m) => app.message_buffer.lock().push_back(m),
                         SwarmResult::UpdateConnectedPeers(peer_set) => {
-                            *app.connected_peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
+                            *app.connected_peer_list.lock() = peer_set.clone();
                         }
                         SwarmResult::UpdateKnownPeers(peer_set) => {
                             *app.known_peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
@@ -158,6 +137,29 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                     InputMode::Editing => {
                         if let Some(Ok(Event::Key(key))) = user_event {
                             match key.code {
+                                // right arrow key sends a direct message
+                                // over a substream to an arbitrary connected peer
+                                // if there are no connected peers, noop.
+                                KeyCode::Right => {
+                                    let mb_handle = app.message_buffer.clone();
+                                    let send_swarm = app.send_swarm.clone();
+                                    if let Some(selected_peer) = app.connected_peer_list.lock().iter().copied().next() {
+                                        spawn(async move {
+                                            let (s, r) = flume::bounded(1);
+                                            send_swarm.send_async(SwarmAction::GetId(s)).await.context("")?;
+                                            let msg = Message {
+                                                topic: "DM".to_string(),
+                                                content: app.input,
+                                                sender: r.recv_async().await?.to_string(),
+                                            };
+                                            send_swarm.send_async(SwarmAction::DirectMessage(selected_peer, msg.clone())).await?;
+                                            mb_handle.lock().push_back(msg);
+                                            // if it's a duplicate message (error case), fail silently and do nothing
+                                            Result::<(), Report>::Ok(())
+                                        });
+                                    }
+                                    app.input = String::new();
+                                }
                                 // broadcast message to the swarm with the global topic
                                 KeyCode::Enter => {
                                     let mb_handle = app.message_buffer.clone();
@@ -169,7 +171,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                         let msg = Message {
                                             topic: "global".to_string(),
                                             content: app.input,
-                                            // FIXME this should NOT be needed. Get it from the swarm.
                                             sender: r.recv_async().await?.to_string(),
                                         };
                                         let (s, r) = flume::bounded(1);
@@ -264,8 +265,8 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
     let peerid_rows: Vec<Row<'_>> = peerid_handle
         .iter()
         .map(|peer_id| {
-            let height = peer_id.chars().filter(|c| *c == '\n').count() + 1;
-            let cells = vec![Cell::from(peer_id.clone())];
+            let height = peer_id.to_base58().chars().filter(|c| *c == '\n').count() + 1;
+            let cells = vec![Cell::from(peer_id.to_base58())];
             Ok(Row::new(cells)
                 .height(u16::try_from(height).context("integer overflow calculating row")?))
         })

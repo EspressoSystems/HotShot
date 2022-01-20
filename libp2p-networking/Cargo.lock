@@ -1991,6 +1991,7 @@ name = "networking-demo"
 version = "0.0.0"
 dependencies = [
  "async-std",
+ "async-trait",
  "bincode",
  "blake3",
  "color-eyre",

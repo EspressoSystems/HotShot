@@ -1,8 +1,9 @@
 use libp2p::Multiaddr;
-use networking_demo::ui::{run_app, Message, TableApp};
+use networking_demo::message::Message;
+use networking_demo::ui::{run_app, TableApp};
 
 use std::sync::Arc;
-use std::{collections::VecDeque, marker::PhantomData};
+use std::collections::VecDeque;
 use structopt::StructOpt;
 
 use color_eyre::eyre::{Result, WrapErr};
@@ -16,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::{gen_multiaddr, Network, NetworkDef, SwarmAction};
+use networking_demo::{gen_multiaddr, Network, SwarmAction};
 
 /// command line arguments
 #[derive(StructOpt)]
@@ -36,7 +37,7 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let mut networking: Network<Message, NetworkDef> = Network::new(PhantomData)
+    let mut networking: Network<Message> = Network::new()
         .await
         .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
@@ -53,22 +54,22 @@ async fn main() -> Result<()> {
     buffer_handle.push_back(Message {
         sender: "Nathan".to_string(),
         content: "Hello".to_string(),
-        topic: "global".to_string(),
+        topic: "Generated".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "Justin".to_string(),
         content: "hi!".to_string(),
-        topic: "global".to_string(),
+        topic: "Generated".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "Joe".to_string(),
         content: "test".to_string(),
-        topic: "global".to_string(),
+        topic: "Generated".to_string(),
     });
     buffer_handle.push_back(Message {
         sender: "John".to_string(),
         content: "test 2".to_string(),
-        topic: "global".to_string(),
+        topic: "Generated".to_string(),
     });
     std::mem::drop(buffer_handle);
     // -- Setup the TUI
