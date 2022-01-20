@@ -423,7 +423,6 @@ where
                                                 r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                             },
                                             _ => {}
-
                                         }
                                     },
 
@@ -449,7 +448,8 @@ where
                             }
                             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                                 self.connected_peers.remove(&peer_id);
-                                // self.known_peers.remove(&peer_id);
+                                // FIXME remove stale address, not *all* addresses
+                                self.swarm.behaviour_mut().kadem.remove_peer(&peer_id);
 
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                 r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;

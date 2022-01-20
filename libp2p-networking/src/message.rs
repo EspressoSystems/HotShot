@@ -75,6 +75,8 @@ impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestRes
         T: AsyncRead + Unpin + Send,
     {
         // FIXME magic numbers...
+        // it looks like the easiest thing to do
+        // is to set an upper limit threshold and use that
         let vec = read_length_prefixed(io, 1_000_000).await?;
 
         let bincode_options = DefaultOptions::new().with_limit(16_384);
