@@ -441,7 +441,6 @@ where
                                 self.connecting_peers.remove(&peer_id);
                                 // now we have at least one peer so we can bootstrap
                                 if !bootstrapped {
-                                    // this in theory should never happen...
                                     self.swarm.behaviour_mut().kadem.bootstrap().map_err(|_e| NetworkError::NoKnownPeers)?;
                                 }
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;

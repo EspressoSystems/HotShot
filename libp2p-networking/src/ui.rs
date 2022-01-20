@@ -1,6 +1,4 @@
-use async_std::{
-    task::{sleep, spawn},
-};
+use async_std::task::{sleep, spawn};
 
 
 
@@ -11,9 +9,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::{
-    PeerId,
-};
+use libp2p::PeerId;
 use parking_lot::Mutex;
 
 use std::{
@@ -38,8 +34,6 @@ pub enum InputMode {
     Editing,
 }
 
-
-
 #[derive(Debug)]
 /// Struct for the TUI app
 pub struct TableApp {
@@ -50,7 +44,7 @@ pub struct TableApp {
     pub state: TableState,
     pub message_buffer: Arc<Mutex<VecDeque<Message>>>,
     pub connected_peer_list: Arc<Mutex<HashSet<PeerId>>>,
-    pub known_peer_list: Arc<Mutex<HashSet<String>>>,
+    pub known_peer_list: Arc<Mutex<HashSet<PeerId>>>,
 }
 
 impl TableApp {
@@ -103,7 +97,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
         select!(
             // force a periodic refresh
             _ = sleep(Duration::from_nanos(1)).fuse() => {}
-            // swarm may have instructions
+            // swarm generated events
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
@@ -112,7 +106,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                             *app.connected_peer_list.lock() = peer_set.clone();
                         }
                         SwarmResult::UpdateKnownPeers(peer_set) => {
-                            *app.known_peer_list.lock() = peer_set.into_iter().map(|p| p.to_string()).collect::<HashSet<String>>();
+                            *app.known_peer_list.lock() = peer_set.clone();
                         }
                     }
                 }
@@ -284,14 +278,14 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
         .known_peer_list
         .lock()
         .iter()
-        .cloned()
-        .collect::<Vec<String>>();
+        .copied()
+        .collect::<Vec<PeerId>>();
     known_peerid_handle.sort();
     let known_peerid_rows: Vec<Row<'_>> = known_peerid_handle
         .iter()
         .map(|peer_id| {
-            let height = peer_id.chars().filter(|c| *c == '\n').count() + 1;
-            let cells = vec![Cell::from(peer_id.clone())];
+            let height = peer_id.to_base58().chars().filter(|c| *c == '\n').count() + 1;
+            let cells = vec![Cell::from(peer_id.to_base58())];
             Ok(Row::new(cells)
                 .height(u16::try_from(height).context("integer overflow calculating row")?))
         })
@@ -315,3 +309,5 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
 
     Ok(())
 }
+
+
