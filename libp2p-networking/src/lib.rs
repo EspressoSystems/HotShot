@@ -311,6 +311,12 @@ where
         spawn(async move {
             loop {
                 select! {
+                    _ = sleep(Duration::from_secs(30)).fuse() => {
+                        if !bootstrapped {
+                            let random_peer = PeerId::random();
+                            self.swarm.behaviour_mut().kadem.get_closest_peers(random_peer);
+                        }
+                    },
                     _ = sleep(Duration::from_secs(1)).fuse() => {
                         // if we're bootstrapped, do nothing
                         // otherwise periodically get more peers if needed
@@ -318,7 +324,9 @@ where
                             if self.connecting_peers.len() + self.connected_peers.len() <= self.min_num_peers {
                                 let used_peers = self.connecting_peers.union(&self.connected_peers).copied().collect();
                                 let potential_peers : HashSet<PeerId> = self.known_peers.difference(&used_peers).copied().collect();
-                                for a_peer in potential_peers {
+                                let num_to_connect = self.min_num_peers + 1 - (self.connected_peers.len() + self.connecting_peers.len());
+                                let chosen_peers = potential_peers.iter().copied().choose_multiple(&mut thread_rng(), num_to_connect);
+                                for a_peer in chosen_peers {
                                     match self.swarm.dial(a_peer) {
                                         Ok(_) => {
                                             self.connecting_peers.insert(a_peer);
@@ -366,9 +374,7 @@ where
                                             GossipsubEvent::Message { message, .. } => {
                                                 r_input.send_async(SwarmResult::GossipMsg(message.into())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                             },
-                                            _ => {
-                                                info!(?g);
-                                            }
+                                            _ => {}
                                         }
                                     },
                                     NetworkEvent::Kadem(event) => {

@@ -269,7 +269,7 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("connected peer ids"),
+                .title(format!("connected peer ids ({})", peerid_handle.len())),
         )
         .widths(&[Constraint::Percentage(100)]);
     f.render_stateful_widget(peerid_table, peer_chunks[0], &mut app.state);
@@ -294,7 +294,7 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("known peer ids"),
+                .title(format!("known peer ids ({:?})", known_peerid_handle.len())),
         )
         .widths(&[Constraint::Percentage(100)]);
     f.render_stateful_widget(known_peerid_table, peer_chunks[1], &mut app.state);
