@@ -19,7 +19,7 @@ pub mod tracing_setup;
 use async_std::task::{sleep, spawn};
 use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
-use std::{collections::HashSet, marker::PhantomData, time::Duration, iter};
+use std::{collections::HashSet, iter, marker::PhantomData, time::Duration};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
@@ -37,9 +37,10 @@ use libp2p::{
         QueryResult,
     },
     request_response::{
-        RequestResponse, RequestResponseConfig, RequestResponseEvent, RequestResponseMessage, ProtocolSupport,
+        ProtocolSupport, RequestResponse, RequestResponseConfig, RequestResponseEvent,
+        RequestResponseMessage,
     },
-    swarm::{SwarmEvent},
+    swarm::SwarmEvent,
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -48,8 +49,8 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 
 use crate::message::DirectMessageProtocol;
 
-pub mod ui;
 pub mod message;
+pub mod ui;
 
 /// `event_process` is false because
 /// injecting events does not play well
@@ -545,9 +546,7 @@ pub enum NetworkError {
     /// the type of message.
     StreamClosed,
     /// Error publishing a gossipsub message
-    PublishError {
-        source: PublishError,
-    },
+    PublishError { source: PublishError },
     /// Error when there are no known peers to bootstrap off
     NoKnownPeers,
 }

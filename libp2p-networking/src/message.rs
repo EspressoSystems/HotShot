@@ -1,11 +1,21 @@
-use std::{marker::PhantomData, io::{Error, ErrorKind}};
+use std::{
+    io::{Error, ErrorKind},
+    marker::PhantomData,
+};
 
 use async_std::io;
 use async_trait::async_trait;
 use bincode::{DefaultOptions, Options};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use libp2p::{gossipsub::GossipsubMessage, core::{ProtocolName, upgrade::{write_length_prefixed, read_length_prefixed}}, request_response::RequestResponseCodec};
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use libp2p::{
+    core::{
+        upgrade::{read_length_prefixed, write_length_prefixed},
+        ProtocolName,
+    },
+    gossipsub::GossipsubMessage,
+    request_response::RequestResponseCodec,
+};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::GossipMsg;
 
@@ -54,7 +64,6 @@ impl ProtocolName for DirectMessageProtocol {
     }
 }
 
-
 // TODO are generics useful here? Could also just pass in vec of already serialized bytes
 #[async_trait]
 impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestResponseCodec
@@ -88,7 +97,9 @@ impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestRes
         // NOTE error handling could be better...
         // but the trait locks into io::Result : (
         Ok(DirectMessageRequest(
-            bincode_options.deserialize(&vec).map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?,
+            bincode_options
+                .deserialize(&vec)
+                .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?,
         ))
     }
 
@@ -114,7 +125,13 @@ impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestRes
         T: AsyncWrite + Unpin + Send,
     {
         let bincode_options = DefaultOptions::new().with_limit(16_384);
-        write_length_prefixed(io, bincode_options.serialize(&msg).map_err(|e| Error::new(io::ErrorKind::Other, e.to_string()))?).await?;
+        write_length_prefixed(
+            io,
+            bincode_options
+                .serialize(&msg)
+                .map_err(|e| Error::new(io::ErrorKind::Other, e.to_string()))?,
+        )
+        .await?;
         io.close().await?;
 
         Ok(())
@@ -133,4 +150,3 @@ impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestRes
         Ok(())
     }
 }
-

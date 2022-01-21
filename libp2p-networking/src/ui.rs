@@ -1,7 +1,5 @@
 use async_std::task::{sleep, spawn};
 
-
-
 use color_eyre::{
     eyre::{Result, WrapErr},
     Report,
@@ -26,7 +24,7 @@ use tui::{
     Frame, Terminal,
 };
 
-use crate::{SwarmAction, SwarmResult, message::Message};
+use crate::{message::Message, SwarmAction, SwarmResult};
 
 #[derive(Debug, Copy, Clone)]
 pub enum InputMode {
@@ -309,5 +307,3 @@ fn ui<B: Backend>(f: &mut Frame<'_, B>, app: &mut TableApp) -> Result<()> {
 
     Ok(())
 }
-
-
