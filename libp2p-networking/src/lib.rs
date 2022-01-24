@@ -324,28 +324,58 @@ where
                         // if we're bootstrapped, do nothing
                         // otherwise periodically get more peers if needed
                         if !bootstrapped {
-                            if self.connecting_peers.len() + self.connected_peers.len() <= self.min_num_peers {
-                                let used_peers = self.connecting_peers.union(&self.connected_peers).copied().collect();
-                                let potential_peers : HashSet<PeerId> = self.known_peers.difference(&used_peers).copied().collect();
-                                let num_to_connect = self.min_num_peers + 1 - (self.connected_peers.len() + self.connecting_peers.len());
-                                let chosen_peers = potential_peers.iter().copied().choose_multiple(&mut thread_rng(), num_to_connect);
-                                for a_peer in chosen_peers {
-                                    match self.swarm.dial(a_peer) {
-                                        Ok(_) => {
-                                            self.connecting_peers.insert(a_peer);
+                            if self.connecting_peers.len()
+                                + self.connected_peers.len()
+                                <= self.min_num_peers {
+                                    // Calcuate the currently connected peers
+                                    let used_peers = self
+                                        .connecting_peers
+                                        .union(&self.connected_peers)
+                                        .copied()
+                                        .collect();
+                                    // Calcuate the list of "new" peers, once not currently used for
+                                    // a connection
+                                    let potential_peers: HashSet<PeerId> =
+                                        self
+                                        .known_peers
+                                        .difference(&used_peers)
+                                        .copied()
+                                        .collect();
+                                    // Number of peers we want to try connecting to
+                                    let num_to_connect =
+                                        self.min_num_peers + 1
+                                        - (self.connected_peers.len() + self.connecting_peers.len());
+                                    // Random(?) subset of the availible peers to try connecting to
+                                    let chosen_peers =
+                                        potential_peers
+                                        .iter()
+                                        .copied()
+                                        .choose_multiple(&mut thread_rng(), num_to_connect);
+                                    // Try dialing each random (?) peer
+                                    for a_peer in chosen_peers {
+                                        match self.swarm.dial(a_peer) {
+                                            Ok(_) => {
+                                                self.connecting_peers.insert(a_peer);
+                                            }
+                                            Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
+                                        };
+                                    }
+                                } else if self.connected_peers.len() > self.max_num_peers {
+                                    // If we are connected to too many peers, try disconnecting from
+                                    // a random (?) subset
+                                    let peers_to_rm = self
+                                        .connected_peers
+                                        .iter()
+                                        .copied()
+                                        .choose_multiple(&mut thread_rng(),
+                                                         self.connected_peers.len()
+                                                         - self.max_num_peers);
+                                    for a_peer in peers_to_rm {
+                                        // FIXME the error is () ?
+                                        let _ = self.swarm.disconnect_peer_id(a_peer);
+                                    }
 
-                                        }
-                                        Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
-                                    };
                                 }
-                            } else if self.connected_peers.len() > self.max_num_peers {
-                                let peers_to_rm = self.connected_peers.iter().copied().choose_multiple(&mut thread_rng(), self.connected_peers.len() - self.max_num_peers);
-                                for a_peer in peers_to_rm {
-                                    // FIXME the error is () ?
-                                    let _ = self.swarm.disconnect_peer_id(a_peer);
-                                }
-
-                            }
                         }
                     }
                     event = self.swarm.select_next_some() => {
@@ -467,8 +497,10 @@ where
                     msg = s_output.recv_async() => {
                         match msg {
                             Ok(msg) => {
+                                #[allow(clippy::enum_glob_use)]
+                                use SwarmAction::{Shutdown, GetId, Subscribe, Unsubscribe, DirectMessage};
                                 match msg {
-                                    SwarmAction::Shutdown => {
+                                    Shutdown => {
                                         warn!("Libp2p listener shutting down");
                                         break
                                     },
@@ -476,32 +508,49 @@ where
                                         info!("broadcasting message {:?}", msg);
                                         let topic = <M as GossipMsg>::topic(&msg);
                                         let contents = <M as GossipMsg>::data(&msg);
-                                        let res = self.swarm
-                                            .behaviour_mut().gossipsub.publish(topic.clone(), contents.clone()).map(|_| ()).context(PublishSnafu);
-                                        chan.send_async(res).await.map_err(|_e| NetworkError::StreamClosed)?;
+                                        let res = self
+                                            .swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .publish(topic.clone(), contents.clone())
+                                            .map(|_| ()).context(PublishSnafu);
+                                        chan
+                                            .send_async(res)
+                                            .await
+                                            .map_err(|_e| NetworkError::StreamClosed)?;
                                     },
-                                    SwarmAction::GetId(reply_chan) => {
+                                    GetId(reply_chan) => {
                                         // FIXME proper error handling
-                                        reply_chan.send_async(self.peer_id).await.map_err(|_e| NetworkError::StreamClosed)?;
+                                        reply_chan
+                                            .send_async(self.peer_id)
+                                            .await
+                                            .map_err(|_e| NetworkError::StreamClosed)?;
                                     },
-                                    SwarmAction::Subscribe(t) => {
-                                        match self.swarm.behaviour_mut().gossipsub.subscribe(&Topic::new(t.clone())) {
-                                            Ok(_) => (),
-                                            Err(_) => {
+                                    Subscribe(t) => {
+                                        if self
+                                            .swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .subscribe(&Topic::new(t.clone()))
+                                            .is_err() {
                                                 error!("error subscribing to topic {}", t);
                                             }
-                                        }
                                     }
-                                    SwarmAction::Unsubscribe(t) => {
-                                        match self.swarm.behaviour_mut().gossipsub.unsubscribe(&Topic::new(t.clone())) {
-                                            Ok(_) => (),
-                                            Err(_) => {
+                                    Unsubscribe(t) => {
+                                        if self
+                                            .swarm
+                                            .behaviour_mut()
+                                            .gossipsub.unsubscribe(&Topic::new(t.clone()))
+                                            .is_err() {
                                                 error!("error unsubscribing to topic {}", t);
                                             }
-                                        }
                                     },
-                                    SwarmAction::DirectMessage(pid, msg) => {
-                                        self.swarm.behaviour_mut().request_response.send_request(&pid, DirectMessageRequest(msg));
+                                    DirectMessage(pid, msg) => {
+                                        self
+                                            .swarm
+                                            .behaviour_mut()
+                                            .request_response
+                                            .send_request(&pid, DirectMessageRequest(msg));
                                     }
                                 }
                             },
