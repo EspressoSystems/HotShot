@@ -311,6 +311,8 @@ where
         let mut bootstrapped = false;
         spawn(async move {
             loop {
+                // NOTE(nm): rustformat doesn't really work inside of macros, I would like to
+                // refactor these all out to local methods for formatability
                 select! {
                     _ = sleep(Duration::from_secs(30)).fuse() => {
                         if !bootstrapped {
@@ -347,95 +349,95 @@ where
                         }
                     }
                     event = self.swarm.select_next_some() => {
+                        // Make the match cleaner
+                        #[allow(clippy::enum_glob_use)]
+                        use SwarmEvent::*;
+                        #[allow(clippy::enum_glob_use)]
+                        use NetworkEvent::*;
                         // TODO re enable this
                         warn!("libp2p event {:?}", event);
                         match event {
-                            SwarmEvent::Dialing(_)
-                            | SwarmEvent::NewListenAddr {..}
-                            | SwarmEvent::ExpiredListenAddr {..}
-                            | SwarmEvent::ListenerClosed {..}
-                            | SwarmEvent::IncomingConnection {..}
-                            | SwarmEvent::IncomingConnectionError {..}
-                            | SwarmEvent::OutgoingConnectionError {..}
-                            | SwarmEvent::BannedPeer {..}
-                            | SwarmEvent::ListenerError {..} => {
+                            Dialing(_)
+                                | NewListenAddr {..}
+                            | ExpiredListenAddr {..}
+                            | ListenerClosed {..}
+                            | IncomingConnection {..}
+                            | IncomingConnectionError {..}
+                            | OutgoingConnectionError {..}
+                            | BannedPeer {..}
+                            | ListenerError {..} => {
                             },
-                            SwarmEvent::Behaviour(b) => {
-                                match b {
-                                    NetworkEvent::RequestResponse(msg) => {
-                                        match msg {
-                                            RequestResponseEvent::Message { message: RequestResponseMessage::Request{ request: DirectMessageRequest(m), ..}, .. } => {
-                                                r_input.send_async(SwarmResult::DirectMessage(m)).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                            },
-                                            _ => {}
-                                        }
-                                    }
-                                    NetworkEvent::Gossip(g) => {
-                                        match g {
-                                            GossipsubEvent::Message { message, .. } => {
-                                                r_input.send_async(SwarmResult::GossipMsg(message.into())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                            },
-                                            _ => {}
-                                        }
+                            Behaviour(RequestResponse(msg)) => {
+                                match msg {
+                                    RequestResponseEvent::Message { message: RequestResponseMessage::Request{ request: DirectMessageRequest(m), ..}, .. } => {
+                                        r_input.send_async(SwarmResult::DirectMessage(m)).await.map_err(|_e| NetworkError::StreamClosed)?;
                                     },
-                                    NetworkEvent::Kadem(event) => {
-                                        match event {
-                                            KademliaEvent::OutboundQueryCompleted { result, ..} => {
-                                                match result {
-                                                    // FIXME rebootstrap or fail in the failed
-                                                    // bootstrap case
-                                                    QueryResult::Bootstrap(r) => {
-                                                        match r {
-                                                             Ok(_bootstrap) => {
-                                                                // we're bootstrapped
-                                                                // don't bootstrap again
-                                                                bootstrapped = false;
-                                                             },
-                                                             Err(_) => {
-                                                                 // try again
-                                                                bootstrapped = true;
-                                                             }
-
-                                                        }
+                                    _ => {}
+                                }
+                            },
+                            Behaviour(Gossip(g)) => {
+                                match g {
+                                    GossipsubEvent::Message { message, .. } => {
+                                        r_input.send_async(SwarmResult::GossipMsg(message.into())).await.map_err(|_e| NetworkError::StreamClosed)?;
+                                    },
+                                    _ => {}
+                                }
+                            },
+                            Behaviour(Kadem(event)) => {
+                                match event {
+                                    KademliaEvent::OutboundQueryCompleted { result, ..} => {
+                                        match result {
+                                            // FIXME rebootstrap or fail in the failed
+                                            // bootstrap case
+                                            QueryResult::Bootstrap(r) => {
+                                                match r {
+                                                    Ok(_bootstrap) => {
+                                                        // we're bootstrapped
+                                                        // don't bootstrap again
+                                                        bootstrapped = false;
                                                     },
-                                                    QueryResult::GetClosestPeers(result) => {
-                                                        match result {
-                                                            Ok(GetClosestPeersOk { key: _key, peers }) => {
-                                                                for peer in peers {
-                                                                    self.known_peers.insert(peer);
-                                                                }
-                                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                                            },
-                                                            _ => {}
+                                                    Err(_) => {
+                                                        // try again
+                                                        bootstrapped = true;
+                                                    }
+
+                                                }
+                                            },
+                                            QueryResult::GetClosestPeers(result) => {
+                                                match result {
+                                                    Ok(GetClosestPeersOk { key: _key, peers }) => {
+                                                        for peer in peers {
+                                                            self.known_peers.insert(peer);
                                                         }
+                                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                                     },
                                                     _ => {}
                                                 }
                                             },
-                                            KademliaEvent::RoutingUpdated { peer, is_new_peer: _is_new_peer, addresses: _addresses, .. } => {
-                                                self.known_peers.insert(peer);
-                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                            },
                                             _ => {}
                                         }
                                     },
-                                    NetworkEvent::Ident(i) => {
-                                        match i {
-                                            IdentifyEvent::Received { peer_id, info, .. } => {
-                                                for addr in info.listen_addrs {
-                                                    self.swarm.behaviour_mut().kadem
-                                                        .add_address(&peer_id, addr.clone());
-                                                }
-                                                self.known_peers.insert(peer_id);
-                                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                            },
-                                            _ => {}
-                                        }
+                                    KademliaEvent::RoutingUpdated { peer, is_new_peer: _is_new_peer, addresses: _addresses, .. } => {
+                                        self.known_peers.insert(peer);
+                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                                     },
-
+                                    _ => {}
                                 }
                             },
-                            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                            Behaviour(Ident(i)) => {
+                                match i {
+                                    IdentifyEvent::Received { peer_id, info, .. } => {
+                                        for addr in info.listen_addrs {
+                                            self.swarm.behaviour_mut().kadem
+                                                .add_address(&peer_id, addr.clone());
+                                        }
+                                        self.known_peers.insert(peer_id);
+                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
+                                    },
+                                    _ => {}
+                                }
+                            },
+                            ConnectionEstablished { peer_id, endpoint, .. } => {
                                 match endpoint {
                                     ConnectedPoint::Dialer { address } => {
                                         self.swarm.behaviour_mut().kadem.add_address(&peer_id, address);
@@ -452,7 +454,7 @@ where
                                 }
                                 r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
                             }
-                            SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                            ConnectionClosed { peer_id, .. } => {
                                 self.connected_peers.remove(&peer_id);
                                 // FIXME remove stale address, not *all* addresses
                                 self.swarm.behaviour_mut().kadem.remove_peer(&peer_id);
@@ -510,7 +512,7 @@ where
                     }
                 }
             }
-        Ok::<(), NetworkError>(())
+            Ok::<(), NetworkError>(())
         }.instrument(info_span!( "Libp2p Event Handler")));
         Ok((s_input, r_output))
     }
