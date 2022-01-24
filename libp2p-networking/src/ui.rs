@@ -111,9 +111,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             },
             // user driven events
             user_event = events.next().fuse() => {
+                if let Some(Ok(Event::Key(key))) = user_event {
                 match app.input_mode {
                     InputMode::Normal => {
-                        if let Some(Ok(Event::Key(key))) = user_event {
                             match key.code {
                                 KeyCode::Char('q') => {
                                     app.send_swarm.send_async(SwarmAction::Shutdown).await?;
@@ -124,10 +124,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                 KeyCode::Tab => app.input_mode = InputMode::Editing,
                                 _ => {}
                             }
-                        }
+
                     }
                     InputMode::Editing => {
-                        if let Some(Ok(Event::Key(key))) = user_event {
                             match key.code {
                                 // right arrow key sends a direct message
                                 // over a substream to an arbitrary connected peer
@@ -186,11 +185,10 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                 }
                                 _ => {}
                             }
-                        }
-                    }
-                }
-            }
 
+                    }
+                }}
+            }
         );
     }
 }
