@@ -1,0 +1,29 @@
+# USAGE
+
+To get very verbose logging:
+
+```bash
+RUST_LOG_OUTPUT=OUTFILE RUST_LOG="trace" cargo run --release
+```
+
+The idea here is to spin up several such nodes. Something akin to (in separate terminals)
+
+```
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- -p 1111"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/1111 -p 2222"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/2222 -p 3333"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/3333 -p 4444"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/4444 -p 5555"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/5555 -p 6666"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/6666 -p 7777"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/7777 -p 8888"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/8888 -p 9999"
+```
+
+At this point one may kill/start more nodes. The idea is that each node will continue to attempt to connect to nodes
+until it hits at least 5 peers.
+
+Node reconnection has a ui bug but seems to functionally work. I suspect this is a idiosynrasy with
+local ports.
+
+
