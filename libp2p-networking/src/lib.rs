@@ -19,16 +19,17 @@ pub mod tracing_setup;
 use async_std::task::{sleep, spawn};
 use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
-use std::{collections::HashSet, iter, marker::PhantomData, time::Duration};
+use std::{collections::HashSet, io::Error, iter, marker::PhantomData, time::Duration};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed, ConnectedPoint},
+    core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed, ConnectedPoint},
     gossipsub::{
-        error::PublishError, Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage,
-        IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
+        error::{GossipsubHandlerError, PublishError},
+        Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
+        MessageAuthenticity, MessageId, ValidationMode,
     },
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     identity::Keypair,
@@ -40,7 +41,7 @@ use libp2p::{
         ProtocolSupport, RequestResponse, RequestResponseConfig, RequestResponseEvent,
         RequestResponseMessage,
     },
-    swarm::SwarmEvent,
+    swarm::{ProtocolsHandlerUpgrErr, SwarmEvent},
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -291,6 +292,314 @@ where
         })
     }
 
+    #[inline]
+    fn handle_peer_discovery(mut self, bootstrapped: bool) -> Self {
+        if !bootstrapped {
+            let random_peer = PeerId::random();
+            self.swarm
+                .behaviour_mut()
+                .kadem
+                .get_closest_peers(random_peer);
+        }
+        self
+    }
+
+    #[inline]
+    fn handle_num_connections(mut self, bootstrapped: bool) -> Self {
+        // if we're bootstrapped, do nothing
+        // otherwise periodically get more peers if needed
+        if !bootstrapped {
+            if self.connecting_peers.len() + self.connected_peers.len() <= self.min_num_peers {
+                // Calcuate the currently connected peers
+                let used_peers = self
+                    .connecting_peers
+                    .union(&self.connected_peers)
+                    .copied()
+                    .collect();
+                // Calcuate the list of "new" peers, once not currently used for
+                // a connection
+                let potential_peers: HashSet<PeerId> =
+                    self.known_peers.difference(&used_peers).copied().collect();
+                // Number of peers we want to try connecting to
+                let num_to_connect = self.min_num_peers + 1
+                    - (self.connected_peers.len() + self.connecting_peers.len());
+                // Random(?) subset of the availible peers to try connecting to
+                let chosen_peers = potential_peers
+                    .iter()
+                    .copied()
+                    .choose_multiple(&mut thread_rng(), num_to_connect);
+                // Try dialing each random (?) peer
+                for a_peer in chosen_peers {
+                    match self.swarm.dial(a_peer) {
+                        Ok(_) => {
+                            self.connecting_peers.insert(a_peer);
+                        }
+                        Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
+                    };
+                }
+            } else if self.connected_peers.len() > self.max_num_peers {
+                // If we are connected to too many peers, try disconnecting from
+                // a random (?) subset
+                let peers_to_rm = self.connected_peers.iter().copied().choose_multiple(
+                    &mut thread_rng(),
+                    self.connected_peers.len() - self.max_num_peers,
+                );
+                for a_peer in peers_to_rm {
+                    // FIXME the error is () ?
+                    let _ = self.swarm.disconnect_peer_id(a_peer);
+                }
+            }
+        }
+        self
+    }
+
+    async fn handle_ui_events(
+        mut self,
+        msg: Result<SwarmAction<M>, flume::RecvError>,
+    ) -> Result<(Self, bool), NetworkError> {
+        match msg {
+            Ok(msg) => {
+                #[allow(clippy::enum_glob_use)]
+                use SwarmAction::{DirectMessage, GetId, Shutdown, Subscribe, Unsubscribe};
+                match msg {
+                    Shutdown => {
+                        warn!("Libp2p listener shutting down");
+                        return Ok((self, true));
+                    }
+                    SwarmAction::GossipMsg(msg, chan) => {
+                        info!("broadcasting message {:?}", msg);
+                        let topic = <M as GossipMsg>::topic(&msg);
+                        let contents = <M as GossipMsg>::data(&msg);
+                        let res = self
+                            .swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(topic.clone(), contents.clone())
+                            .map(|_| ())
+                            .context(PublishSnafu);
+                        chan.send_async(res)
+                            .await
+                            .map_err(|_e| NetworkError::StreamClosed)?;
+                    }
+                    GetId(reply_chan) => {
+                        // FIXME proper error handling
+                        reply_chan
+                            .send_async(self.peer_id)
+                            .await
+                            .map_err(|_e| NetworkError::StreamClosed)?;
+                    }
+                    Subscribe(t) => {
+                        if self
+                            .swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .subscribe(&Topic::new(t.clone()))
+                            .is_err()
+                        {
+                            error!("error subscribing to topic {}", t);
+                        }
+                    }
+                    Unsubscribe(t) => {
+                        if self
+                            .swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .unsubscribe(&Topic::new(t.clone()))
+                            .is_err()
+                        {
+                            error!("error unsubscribing to topic {}", t);
+                        }
+                    }
+                    DirectMessage(pid, msg) => {
+                        self.swarm
+                            .behaviour_mut()
+                            .request_response
+                            .send_request(&pid, DirectMessageRequest(msg));
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Error receiving msg: {:?}", e);
+            }
+        }
+        Ok((self, false))
+    }
+
+    async fn handle_swarm_events(
+        mut self,
+        bootstrapped: &mut bool,
+        event: SwarmEvent<
+            NetworkEvent<M>,
+            EitherError<
+                EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
+                ProtocolsHandlerUpgrErr<Error>,
+            >,
+        >,
+        r_input: &Sender<SwarmResult<M>>,
+    ) -> Result<Self, NetworkError> {
+        // Make the match cleaner
+        #[allow(clippy::enum_glob_use)]
+        use NetworkEvent::*;
+        #[allow(clippy::enum_glob_use)]
+        use SwarmEvent::*;
+        // TODO re enable this
+        warn!("libp2p event {:?}", event);
+        match event {
+            Behaviour(RequestResponse(msg)) => {
+                if let RequestResponseEvent::Message {
+                    message:
+                        RequestResponseMessage::Request {
+                            request: DirectMessageRequest(m),
+                            ..
+                        },
+                    ..
+                } = msg
+                {
+                    r_input
+                        .send_async(SwarmResult::DirectMessage(m))
+                        .await
+                        .map_err(|_e| NetworkError::StreamClosed)?;
+                }
+            }
+            Behaviour(Gossip(GossipsubEvent::Message { message, .. })) => {
+                    r_input
+                        .send_async(SwarmResult::GossipMsg(message.into()))
+                        .await
+                        .map_err(|_e| NetworkError::StreamClosed)?;
+            },
+            Behaviour(Kadem(event)) => {
+                match event {
+                    KademliaEvent::OutboundQueryCompleted { result, .. } => {
+                        match result {
+                            // FIXME rebootstrap or fail in the failed
+                            // bootstrap case
+                            QueryResult::Bootstrap(r) => {
+                                match r {
+                                    Ok(_bootstrap) => {
+                                        // we're bootstrapped
+                                        // don't bootstrap again
+                                        *bootstrapped = false;
+                                    }
+                                    Err(_) => {
+                                        // try again
+                                        *bootstrapped = true;
+                                    }
+                                }
+                            }
+                            QueryResult::GetClosestPeers(Ok(GetClosestPeersOk {
+                                peers, ..
+                            })) => {
+                                for peer in peers {
+                                    self.known_peers.insert(peer);
+                                }
+                                r_input
+                                    .send_async(SwarmResult::UpdateKnownPeers(
+                                        self.known_peers.clone(),
+                                    ))
+                                    .await
+                                    .map_err(|_e| NetworkError::StreamClosed)?;
+                            }
+                            _ => {}
+                        }
+                    }
+                    KademliaEvent::RoutingUpdated {
+                        peer,
+                        is_new_peer: _is_new_peer,
+                        addresses: _addresses,
+                        ..
+                    } => {
+                        self.known_peers.insert(peer);
+                        r_input
+                            .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
+                            .await
+                            .map_err(|_e| NetworkError::StreamClosed)?;
+                    }
+                    _ => {}
+                }
+            }
+            Behaviour(Ident(i)) => {
+                if let IdentifyEvent::Received { peer_id, info, .. } = i {
+                    for addr in info.listen_addrs {
+                        self.swarm
+                            .behaviour_mut()
+                            .kadem
+                            .add_address(&peer_id, addr.clone());
+                    }
+                    self.known_peers.insert(peer_id);
+                    r_input
+                        .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
+                        .await
+                        .map_err(|_e| NetworkError::StreamClosed)?;
+                }
+            },
+            ConnectionEstablished {
+                peer_id, endpoint, ..
+            } => {
+                match endpoint {
+                    ConnectedPoint::Dialer { address } => {
+                        self.swarm
+                            .behaviour_mut()
+                            .kadem
+                            .add_address(&peer_id, address);
+                    }
+                    ConnectedPoint::Listener {
+                        local_addr: _,
+                        send_back_addr,
+                    } => {
+                        self.swarm
+                            .behaviour_mut()
+                            .kadem
+                            .add_address(&peer_id, send_back_addr);
+                    }
+                }
+                self.connected_peers.insert(peer_id);
+                self.connecting_peers.remove(&peer_id);
+                // now we have at least one peer so we can bootstrap
+                if !*bootstrapped {
+                    self.swarm
+                        .behaviour_mut()
+                        .kadem
+                        .bootstrap()
+                        .map_err(|_e| NetworkError::NoKnownPeers)?;
+                }
+                r_input
+                    .send_async(SwarmResult::UpdateConnectedPeers(
+                        self.connected_peers.clone(),
+                    ))
+                    .await
+                    .map_err(|_e| NetworkError::StreamClosed)?;
+            }
+            ConnectionClosed { peer_id, .. } => {
+                self.connected_peers.remove(&peer_id);
+                // FIXME remove stale address, not *all* addresses
+                self.swarm.behaviour_mut().kadem.remove_peer(&peer_id);
+
+                r_input
+                    .send_async(SwarmResult::UpdateConnectedPeers(
+                        self.connected_peers.clone(),
+                    ))
+                    .await
+                    .map_err(|_e| NetworkError::StreamClosed)?;
+                r_input
+                    .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
+                    .await
+                    .map_err(|_e| NetworkError::StreamClosed)?;
+            },
+            Dialing(_)
+            | NewListenAddr { .. }
+            | ExpiredListenAddr { .. }
+            | ListenerClosed { .. }
+            | IncomingConnection { .. }
+            | IncomingConnectionError { .. }
+            | OutgoingConnectionError { .. }
+            | BannedPeer { .. }
+            | ListenerError { .. }
+            | Behaviour(_) => {}
+            ,
+        }
+        Ok(self)
+    }
+
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
     /// `mut_mut` is disabled b/c must consume `self`
@@ -307,256 +616,27 @@ where
     ) -> Result<(Sender<SwarmAction<M>>, Receiver<SwarmResult<M>>), NetworkError> {
         let (s_input, s_output) = unbounded::<SwarmAction<M>>();
         let (r_input, r_output) = unbounded::<SwarmResult<M>>();
-
         let mut bootstrapped = false;
+
         spawn(async move {
             loop {
                 // NOTE(nm): rustformat doesn't really work inside of macros, I would like to
                 // refactor these all out to local methods for formatability
                 select! {
                     _ = sleep(Duration::from_secs(30)).fuse() => {
-                        if !bootstrapped {
-                            let random_peer = PeerId::random();
-                            self.swarm.behaviour_mut().kadem.get_closest_peers(random_peer);
-                        }
+                        self = self.handle_peer_discovery(bootstrapped);
                     },
                     _ = sleep(Duration::from_secs(1)).fuse() => {
-                        // if we're bootstrapped, do nothing
-                        // otherwise periodically get more peers if needed
-                        if !bootstrapped {
-                            if self.connecting_peers.len()
-                                + self.connected_peers.len()
-                                <= self.min_num_peers {
-                                    // Calcuate the currently connected peers
-                                    let used_peers = self
-                                        .connecting_peers
-                                        .union(&self.connected_peers)
-                                        .copied()
-                                        .collect();
-                                    // Calcuate the list of "new" peers, once not currently used for
-                                    // a connection
-                                    let potential_peers: HashSet<PeerId> =
-                                        self
-                                        .known_peers
-                                        .difference(&used_peers)
-                                        .copied()
-                                        .collect();
-                                    // Number of peers we want to try connecting to
-                                    let num_to_connect =
-                                        self.min_num_peers + 1
-                                        - (self.connected_peers.len() + self.connecting_peers.len());
-                                    // Random(?) subset of the availible peers to try connecting to
-                                    let chosen_peers =
-                                        potential_peers
-                                        .iter()
-                                        .copied()
-                                        .choose_multiple(&mut thread_rng(), num_to_connect);
-                                    // Try dialing each random (?) peer
-                                    for a_peer in chosen_peers {
-                                        match self.swarm.dial(a_peer) {
-                                            Ok(_) => {
-                                                self.connecting_peers.insert(a_peer);
-                                            }
-                                            Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
-                                        };
-                                    }
-                                } else if self.connected_peers.len() > self.max_num_peers {
-                                    // If we are connected to too many peers, try disconnecting from
-                                    // a random (?) subset
-                                    let peers_to_rm = self
-                                        .connected_peers
-                                        .iter()
-                                        .copied()
-                                        .choose_multiple(&mut thread_rng(),
-                                                         self.connected_peers.len()
-                                                         - self.max_num_peers);
-                                    for a_peer in peers_to_rm {
-                                        // FIXME the error is () ?
-                                        let _ = self.swarm.disconnect_peer_id(a_peer);
-                                    }
-
-                                }
-                        }
+                        self = self.handle_num_connections(bootstrapped);
                     }
                     event = self.swarm.select_next_some() => {
-                        // Make the match cleaner
-                        #[allow(clippy::enum_glob_use)]
-                        use SwarmEvent::*;
-                        #[allow(clippy::enum_glob_use)]
-                        use NetworkEvent::*;
-                        // TODO re enable this
-                        warn!("libp2p event {:?}", event);
-                        match event {
-                            Dialing(_)
-                                | NewListenAddr {..}
-                            | ExpiredListenAddr {..}
-                            | ListenerClosed {..}
-                            | IncomingConnection {..}
-                            | IncomingConnectionError {..}
-                            | OutgoingConnectionError {..}
-                            | BannedPeer {..}
-                            | ListenerError {..} => {
-                            },
-                            Behaviour(RequestResponse(msg)) => {
-                                match msg {
-                                    RequestResponseEvent::Message { message: RequestResponseMessage::Request{ request: DirectMessageRequest(m), ..}, .. } => {
-                                        r_input.send_async(SwarmResult::DirectMessage(m)).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    _ => {}
-                                }
-                            },
-                            Behaviour(Gossip(g)) => {
-                                match g {
-                                    GossipsubEvent::Message { message, .. } => {
-                                        r_input.send_async(SwarmResult::GossipMsg(message.into())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    _ => {}
-                                }
-                            },
-                            Behaviour(Kadem(event)) => {
-                                match event {
-                                    KademliaEvent::OutboundQueryCompleted { result, ..} => {
-                                        match result {
-                                            // FIXME rebootstrap or fail in the failed
-                                            // bootstrap case
-                                            QueryResult::Bootstrap(r) => {
-                                                match r {
-                                                    Ok(_bootstrap) => {
-                                                        // we're bootstrapped
-                                                        // don't bootstrap again
-                                                        bootstrapped = false;
-                                                    },
-                                                    Err(_) => {
-                                                        // try again
-                                                        bootstrapped = true;
-                                                    }
-
-                                                }
-                                            },
-                                            QueryResult::GetClosestPeers(result) => {
-                                                match result {
-                                                    Ok(GetClosestPeersOk { key: _key, peers }) => {
-                                                        for peer in peers {
-                                                            self.known_peers.insert(peer);
-                                                        }
-                                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                                    },
-                                                    _ => {}
-                                                }
-                                            },
-                                            _ => {}
-                                        }
-                                    },
-                                    KademliaEvent::RoutingUpdated { peer, is_new_peer: _is_new_peer, addresses: _addresses, .. } => {
-                                        self.known_peers.insert(peer);
-                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    _ => {}
-                                }
-                            },
-                            Behaviour(Ident(i)) => {
-                                match i {
-                                    IdentifyEvent::Received { peer_id, info, .. } => {
-                                        for addr in info.listen_addrs {
-                                            self.swarm.behaviour_mut().kadem
-                                                .add_address(&peer_id, addr.clone());
-                                        }
-                                        self.known_peers.insert(peer_id);
-                                        r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    _ => {}
-                                }
-                            },
-                            ConnectionEstablished { peer_id, endpoint, .. } => {
-                                match endpoint {
-                                    ConnectedPoint::Dialer { address } => {
-                                        self.swarm.behaviour_mut().kadem.add_address(&peer_id, address);
-                                    },
-                                    ConnectedPoint::Listener { local_addr: _, send_back_addr } => {
-                                        self.swarm.behaviour_mut().kadem.add_address(&peer_id, send_back_addr);
-                                    },
-                                }
-                                self.connected_peers.insert(peer_id);
-                                self.connecting_peers.remove(&peer_id);
-                                // now we have at least one peer so we can bootstrap
-                                if !bootstrapped {
-                                    self.swarm.behaviour_mut().kadem.bootstrap().map_err(|_e| NetworkError::NoKnownPeers)?;
-                                }
-                                r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                            }
-                            ConnectionClosed { peer_id, .. } => {
-                                self.connected_peers.remove(&peer_id);
-                                // FIXME remove stale address, not *all* addresses
-                                self.swarm.behaviour_mut().kadem.remove_peer(&peer_id);
-
-                                r_input.send_async(SwarmResult::UpdateConnectedPeers(self.connected_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                                r_input.send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone())).await.map_err(|_e| NetworkError::StreamClosed)?;
-                            }
-                        }
+                        self = self.handle_swarm_events(&mut bootstrapped, event, &r_input).await?;
                     },
                     msg = s_output.recv_async() => {
-                        match msg {
-                            Ok(msg) => {
-                                #[allow(clippy::enum_glob_use)]
-                                use SwarmAction::{Shutdown, GetId, Subscribe, Unsubscribe, DirectMessage};
-                                match msg {
-                                    Shutdown => {
-                                        warn!("Libp2p listener shutting down");
-                                        break
-                                    },
-                                    SwarmAction::GossipMsg(msg, chan) => {
-                                        info!("broadcasting message {:?}", msg);
-                                        let topic = <M as GossipMsg>::topic(&msg);
-                                        let contents = <M as GossipMsg>::data(&msg);
-                                        let res = self
-                                            .swarm
-                                            .behaviour_mut()
-                                            .gossipsub
-                                            .publish(topic.clone(), contents.clone())
-                                            .map(|_| ()).context(PublishSnafu);
-                                        chan
-                                            .send_async(res)
-                                            .await
-                                            .map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    GetId(reply_chan) => {
-                                        // FIXME proper error handling
-                                        reply_chan
-                                            .send_async(self.peer_id)
-                                            .await
-                                            .map_err(|_e| NetworkError::StreamClosed)?;
-                                    },
-                                    Subscribe(t) => {
-                                        if self
-                                            .swarm
-                                            .behaviour_mut()
-                                            .gossipsub
-                                            .subscribe(&Topic::new(t.clone()))
-                                            .is_err() {
-                                                error!("error subscribing to topic {}", t);
-                                            }
-                                    }
-                                    Unsubscribe(t) => {
-                                        if self
-                                            .swarm
-                                            .behaviour_mut()
-                                            .gossipsub.unsubscribe(&Topic::new(t.clone()))
-                                            .is_err() {
-                                                error!("error unsubscribing to topic {}", t);
-                                            }
-                                    },
-                                    DirectMessage(pid, msg) => {
-                                        self
-                                            .swarm
-                                            .behaviour_mut()
-                                            .request_response
-                                            .send_request(&pid, DirectMessageRequest(msg));
-                                    }
-                                }
-                            },
-                            Err(e) => {
-                                error!("Error receiving msg: {:?}", e);
-                            }
+                        let (s, shutdown) = self.handle_ui_events(msg).await?;
+                        self = s;
+                        if shutdown {
+                            break
                         }
                     }
                 }
