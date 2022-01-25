@@ -19,7 +19,14 @@ pub mod tracing_setup;
 use async_std::task::{sleep, spawn};
 use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
-use std::{collections::HashSet, io::Error, iter, marker::PhantomData, time::Duration};
+use std::{
+    collections::HashSet,
+    io::Error,
+    iter,
+    marker::PhantomData,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
@@ -41,7 +48,10 @@ use libp2p::{
         ProtocolSupport, RequestResponse, RequestResponseConfig, RequestResponseEvent,
         RequestResponseMessage,
     },
-    swarm::{ProtocolsHandlerUpgrErr, SwarmEvent},
+    swarm::{
+        NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
+        ProtocolsHandlerUpgrErr, SwarmEvent,
+    },
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -57,10 +67,20 @@ pub mod ui;
 /// injecting events does not play well
 /// with asyncrony
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "NetworkEvent<T>")]
-#[behaviour(event_process = false)]
+#[behaviour(
+    out_event = "SwarmResult<T>",
+    poll_method = "poll",
+    event_process = true
+)]
 pub struct NetworkDef<
-    T: std::fmt::Debug + Send + Sync + Clone + Serialize + DeserializeOwned + 'static,
+    T: std::fmt::Debug
+        + Send
+        + Sync
+        + Clone
+        + Serialize
+        + DeserializeOwned
+        + 'static
+        + From<GossipsubMessage>,
 > {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
@@ -73,60 +93,190 @@ pub struct NetworkDef<
     pub identify: Identify,
     /// purpose: directly messaging peer
     pub request_response: RequestResponse<DirectMessageCodec<T>>,
+    #[behaviour(ignore)]
+    pub bootstrap: bool,
+    #[behaviour(ignore)]
+    pub connected_peers: HashSet<PeerId>,
+    // TODO replace this with a set of queryids
+    #[behaviour(ignore)]
+    pub connecting_peers: HashSet<PeerId>,
+    #[behaviour(ignore)]
+    pub known_peers: HashSet<PeerId>,
+    #[behaviour(ignore)]
+    pub ui_events: Vec<SwarmResult<T>>,
 }
 
-#[derive(Debug)]
-pub enum NetworkEvent<M: Send + Sync + std::fmt::Debug + Clone> {
-    Gossip(GossipsubEvent),
-    Kadem(KademliaEvent),
-    Ident(IdentifyEvent),
-    RequestResponse(RequestResponseEvent<DirectMessageRequest<M>, DirectMessageResponse>),
-}
-
-#[derive(Debug)]
-pub enum SendDirectMsgEvent<T> {
-    NotifyPeer(T),
-}
-
-impl<T: Send + Sync + Clone + 'static + std::fmt::Debug + Serialize + DeserializeOwned>
-    From<IdentifyEvent> for NetworkEvent<T>
+impl<
+        T: std::fmt::Debug
+            + Send
+            + Sync
+            + Clone
+            + Serialize
+            + DeserializeOwned
+            + 'static
+            + From<GossipsubMessage>,
+    > NetworkDef<T>
 {
-    fn from(source: IdentifyEvent) -> Self {
-        NetworkEvent::Ident(source)
+    fn poll(
+        &mut self,
+        _cx: &mut Context<'_>,
+        _: &mut impl PollParameters,
+    ) -> Poll<NetworkBehaviourAction<SwarmResult<T>, <Self as NetworkBehaviour>::ProtocolsHandler>>
+    {
+        if !self.ui_events.is_empty() {
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
+                self.ui_events.remove(0),
+            ));
+        }
+
+        Poll::Pending
     }
 }
 
-impl<T: Send + Sync + Clone + 'static + std::fmt::Debug + Serialize + DeserializeOwned>
-    From<KademliaEvent> for NetworkEvent<T>
+impl<
+        T: std::fmt::Debug
+            + Send
+            + Sync
+            + Clone
+            + Serialize
+            + DeserializeOwned
+            + 'static
+            + From<GossipsubMessage>,
+    > NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef<T>
 {
-    fn from(source: KademliaEvent) -> Self {
-        NetworkEvent::Kadem(source)
+    fn inject_event(&mut self, event: GossipsubEvent) {
+        error!(?event, "gossipsub msg recv-ed");
+        if let GossipsubEvent::Message { message, .. } = event {
+            error!("correct message form");
+            self.ui_events.push(SwarmResult::GossipMsg(message.into()));
+        }
     }
 }
 
-impl<T: Send + Sync + Clone + 'static + std::fmt::Debug + Serialize + DeserializeOwned>
-    From<GossipsubEvent> for NetworkEvent<T>
+impl<
+        T: std::fmt::Debug
+            + Send
+            + Sync
+            + Clone
+            + Serialize
+            + DeserializeOwned
+            + 'static
+            + From<GossipsubMessage>,
+    > NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef<T>
 {
-    fn from(source: GossipsubEvent) -> Self {
-        NetworkEvent::Gossip(source)
+    fn inject_event(&mut self, event: KademliaEvent) {
+        error!(?event, "kadem msg recv-ed");
+        match event {
+            KademliaEvent::OutboundQueryCompleted { result, .. } => {
+                match result {
+                    // FIXME rebootstrap or fail in the failed
+                    // bootstrap case
+                    QueryResult::Bootstrap(r) => {
+                        match r {
+                            Ok(_bootstrap) => {
+                                // we're bootstrapped
+                                // don't bootstrap again
+                                self.bootstrap = false;
+                            }
+                            Err(_) => {
+                                // try again
+                                self.bootstrap = true;
+                            }
+                        }
+                    }
+                    QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { peers, .. })) => {
+                        for peer in peers {
+                            self.known_peers.insert(peer);
+                        }
+                        self.ui_events
+                            .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+                    }
+                    _ => {}
+                }
+            }
+            KademliaEvent::RoutingUpdated {
+                peer,
+                is_new_peer: _is_new_peer,
+                addresses: _addresses,
+                ..
+            } => {
+                self.known_peers.insert(peer);
+                self.ui_events
+                    .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+            }
+            _ => {}
+        }
     }
 }
 
-impl<M: Send + Sync + Clone + 'static + std::fmt::Debug + Clone + Serialize + DeserializeOwned>
-    From<RequestResponseEvent<DirectMessageRequest<M>, DirectMessageResponse>> for NetworkEvent<M>
+// <NetworkDef<T> as NetworkBehaviourEventProcess<libp2p::libp2p_request_response::RequestResponse<DirectMessageCodec<T>>>>
+
+impl<
+        T: std::fmt::Debug
+            + Send
+            + Sync
+            + Clone
+            + Serialize
+            + DeserializeOwned
+            + 'static
+            + From<GossipsubMessage>,
+    > NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef<T>
 {
-    fn from(source: RequestResponseEvent<DirectMessageRequest<M>, DirectMessageResponse>) -> Self {
-        NetworkEvent::RequestResponse(source)
+    fn inject_event(&mut self, event: IdentifyEvent) {
+        if let IdentifyEvent::Received { peer_id, info, .. } = event {
+            for addr in info.listen_addrs {
+                self.kadem.add_address(&peer_id, addr.clone());
+            }
+            self.known_peers.insert(peer_id);
+            self.ui_events
+                .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+        }
+    }
+}
+
+// impl<T: std::fmt::Debug + Send + Sync + Clone + Serialize + DeserializeOwned + 'static> NetworkBehaviourEventProcess<RequestResponse<DirectMessageCodec<T>>> for NetworkDef<T> {
+impl<T>
+    NetworkBehaviourEventProcess<
+        RequestResponseEvent<DirectMessageRequest<T>, DirectMessageResponse>,
+    > for NetworkDef<T>
+where
+    T: std::fmt::Debug
+        + Send
+        + Sync
+        + Clone
+        + Serialize
+        + DeserializeOwned
+        + 'static
+        + From<GossipsubMessage>,
+{
+    fn inject_event(
+        &mut self,
+        event: RequestResponseEvent<DirectMessageRequest<T>, DirectMessageResponse>,
+    ) {
+        if let RequestResponseEvent::Message {
+            message:
+                RequestResponseMessage::Request {
+                    request: DirectMessageRequest(m),
+                    ..
+                },
+            ..
+        } = event
+        {
+            self.ui_events.push(SwarmResult::DirectMessage(m));
+        }
     }
 }
 
 pub struct Network<
-    T: Send + Sync + Clone + 'static + std::fmt::Debug + Serialize + DeserializeOwned,
+    T: Send
+        + Sync
+        + Clone
+        + 'static
+        + std::fmt::Debug
+        + Serialize
+        + DeserializeOwned
+        + From<GossipsubMessage>,
 > {
-    pub connected_peers: HashSet<PeerId>,
-    // TODO replace this with a set of queryids
-    pub connecting_peers: HashSet<PeerId>,
-    pub known_peers: HashSet<PeerId>,
     pub identity: Keypair,
     pub peer_id: PeerId,
     pub broadcast_topic: Topic,
@@ -147,7 +297,8 @@ pub enum SwarmAction<N: Send> {
 
 /// holds events of the swarm to be relayed to the cli event loop
 /// out
-pub enum SwarmResult<N: Send> {
+#[derive(Debug)]
+pub enum SwarmResult<N: Send + std::fmt::Debug> {
     UpdateConnectedPeers(HashSet<PeerId>),
     UpdateKnownPeers(HashSet<PeerId>),
     GossipMsg(N),
@@ -274,6 +425,12 @@ where
                 kadem,
                 identify,
                 request_response,
+                connected_peers: HashSet::new(),
+                connecting_peers: HashSet::new(),
+                known_peers: HashSet::new(),
+                ui_events: Vec::new(),
+                // TODO implement the rest of this
+                bootstrap: false,
             };
 
             Swarm::new(transport, network, peer_id)
@@ -282,9 +439,6 @@ where
         Ok(Self {
             identity,
             peer_id,
-            connected_peers: HashSet::new(),
-            connecting_peers: HashSet::new(),
-            known_peers: HashSet::new(),
             broadcast_topic,
             max_num_peers: 6,
             min_num_peers: 5,
@@ -293,7 +447,7 @@ where
     }
 
     #[inline]
-    fn handle_peer_discovery(mut self, bootstrapped: bool) -> Self {
+    fn handle_peer_discovery(&mut self, bootstrapped: bool) {
         if !bootstrapped {
             let random_peer = PeerId::random();
             self.swarm
@@ -301,28 +455,28 @@ where
                 .kadem
                 .get_closest_peers(random_peer);
         }
-        self
     }
 
     #[inline]
-    fn handle_num_connections(mut self, bootstrapped: bool) -> Self {
+    fn handle_num_connections(&mut self, bootstrapped: bool) {
+        let swarm = self.swarm.behaviour();
         // if we're bootstrapped, do nothing
         // otherwise periodically get more peers if needed
         if !bootstrapped {
-            if self.connecting_peers.len() + self.connected_peers.len() <= self.min_num_peers {
+            if swarm.connecting_peers.len() + swarm.connected_peers.len() <= self.min_num_peers {
                 // Calcuate the currently connected peers
-                let used_peers = self
+                let used_peers = swarm
                     .connecting_peers
-                    .union(&self.connected_peers)
+                    .union(&swarm.connected_peers)
                     .copied()
                     .collect();
                 // Calcuate the list of "new" peers, once not currently used for
                 // a connection
                 let potential_peers: HashSet<PeerId> =
-                    self.known_peers.difference(&used_peers).copied().collect();
+                    swarm.known_peers.difference(&used_peers).copied().collect();
                 // Number of peers we want to try connecting to
                 let num_to_connect = self.min_num_peers + 1
-                    - (self.connected_peers.len() + self.connecting_peers.len());
+                    - (swarm.connected_peers.len() + swarm.connecting_peers.len());
                 // Random(?) subset of the availible peers to try connecting to
                 let chosen_peers = potential_peers
                     .iter()
@@ -332,17 +486,17 @@ where
                 for a_peer in chosen_peers {
                     match self.swarm.dial(a_peer) {
                         Ok(_) => {
-                            self.connecting_peers.insert(a_peer);
+                            self.swarm.behaviour_mut().connecting_peers.insert(a_peer);
                         }
                         Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
                     };
                 }
-            } else if self.connected_peers.len() > self.max_num_peers {
+            } else if swarm.connected_peers.len() > self.max_num_peers {
                 // If we are connected to too many peers, try disconnecting from
                 // a random (?) subset
-                let peers_to_rm = self.connected_peers.iter().copied().choose_multiple(
+                let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
                     &mut thread_rng(),
-                    self.connected_peers.len() - self.max_num_peers,
+                    swarm.connected_peers.len() - self.max_num_peers,
                 );
                 for a_peer in peers_to_rm {
                     // FIXME the error is () ?
@@ -350,13 +504,12 @@ where
                 }
             }
         }
-        self
     }
 
     async fn handle_ui_events(
-        mut self,
+        &mut self,
         msg: Result<SwarmAction<M>, flume::RecvError>,
-    ) -> Result<(Self, bool), NetworkError> {
+    ) -> Result<bool, NetworkError> {
         match msg {
             Ok(msg) => {
                 #[allow(clippy::enum_glob_use)]
@@ -364,10 +517,10 @@ where
                 match msg {
                     Shutdown => {
                         warn!("Libp2p listener shutting down");
-                        return Ok((self, true));
+                        return Ok(true);
                     }
                     SwarmAction::GossipMsg(msg, chan) => {
-                        info!("broadcasting message {:?}", msg);
+                        error!("broadcasting message {:?}", msg);
                         let topic = <M as GossipMsg>::topic(&msg);
                         let contents = <M as GossipMsg>::data(&msg);
                         let res = self
@@ -377,6 +530,8 @@ where
                             .publish(topic.clone(), contents.clone())
                             .map(|_| ())
                             .context(PublishSnafu);
+                        error!("publishing reuslt! {:?}", res);
+
                         chan.send_async(res)
                             .await
                             .map_err(|_e| NetworkError::StreamClosed)?;
@@ -422,116 +577,29 @@ where
                 error!("Error receiving msg: {:?}", e);
             }
         }
-        Ok((self, false))
+        Ok(false)
     }
 
     async fn handle_swarm_events(
-        mut self,
+        &mut self,
         bootstrapped: &mut bool,
         event: SwarmEvent<
-            NetworkEvent<M>,
+            SwarmResult<M>,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
                 ProtocolsHandlerUpgrErr<Error>,
             >,
         >,
-        r_input: &Sender<SwarmResult<M>>,
-    ) -> Result<Self, NetworkError> {
+        send_to_ui: &Sender<SwarmResult<M>>,
+    ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
-        use NetworkEvent::*;
-        #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
+        
         // TODO re enable this
-        warn!("libp2p event {:?}", event);
+        // warn!("libp2p event {:?}", event);
         match event {
-            Behaviour(RequestResponse(msg)) => {
-                if let RequestResponseEvent::Message {
-                    message:
-                        RequestResponseMessage::Request {
-                            request: DirectMessageRequest(m),
-                            ..
-                        },
-                    ..
-                } = msg
-                {
-                    r_input
-                        .send_async(SwarmResult::DirectMessage(m))
-                        .await
-                        .map_err(|_e| NetworkError::StreamClosed)?;
-                }
-            }
-            Behaviour(Gossip(GossipsubEvent::Message { message, .. })) => {
-                    r_input
-                        .send_async(SwarmResult::GossipMsg(message.into()))
-                        .await
-                        .map_err(|_e| NetworkError::StreamClosed)?;
-            },
-            Behaviour(Kadem(event)) => {
-                match event {
-                    KademliaEvent::OutboundQueryCompleted { result, .. } => {
-                        match result {
-                            // FIXME rebootstrap or fail in the failed
-                            // bootstrap case
-                            QueryResult::Bootstrap(r) => {
-                                match r {
-                                    Ok(_bootstrap) => {
-                                        // we're bootstrapped
-                                        // don't bootstrap again
-                                        *bootstrapped = false;
-                                    }
-                                    Err(_) => {
-                                        // try again
-                                        *bootstrapped = true;
-                                    }
-                                }
-                            }
-                            QueryResult::GetClosestPeers(Ok(GetClosestPeersOk {
-                                peers, ..
-                            })) => {
-                                for peer in peers {
-                                    self.known_peers.insert(peer);
-                                }
-                                r_input
-                                    .send_async(SwarmResult::UpdateKnownPeers(
-                                        self.known_peers.clone(),
-                                    ))
-                                    .await
-                                    .map_err(|_e| NetworkError::StreamClosed)?;
-                            }
-                            _ => {}
-                        }
-                    }
-                    KademliaEvent::RoutingUpdated {
-                        peer,
-                        is_new_peer: _is_new_peer,
-                        addresses: _addresses,
-                        ..
-                    } => {
-                        self.known_peers.insert(peer);
-                        r_input
-                            .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
-                            .await
-                            .map_err(|_e| NetworkError::StreamClosed)?;
-                    }
-                    _ => {}
-                }
-            }
-            Behaviour(Ident(i)) => {
-                if let IdentifyEvent::Received { peer_id, info, .. } = i {
-                    for addr in info.listen_addrs {
-                        self.swarm
-                            .behaviour_mut()
-                            .kadem
-                            .add_address(&peer_id, addr.clone());
-                    }
-                    self.known_peers.insert(peer_id);
-                    r_input
-                        .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
-                        .await
-                        .map_err(|_e| NetworkError::StreamClosed)?;
-                }
-            },
+            // TODO handle swarm action by sending to swarm
             ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
@@ -552,8 +620,8 @@ where
                             .add_address(&peer_id, send_back_addr);
                     }
                 }
-                self.connected_peers.insert(peer_id);
-                self.connecting_peers.remove(&peer_id);
+                self.swarm.behaviour_mut().connected_peers.insert(peer_id);
+                self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
                 // now we have at least one peer so we can bootstrap
                 if !*bootstrapped {
                     self.swarm
@@ -562,29 +630,30 @@ where
                         .bootstrap()
                         .map_err(|_e| NetworkError::NoKnownPeers)?;
                 }
-                r_input
+                send_to_ui
                     .send_async(SwarmResult::UpdateConnectedPeers(
-                        self.connected_peers.clone(),
+                        self.swarm.behaviour_mut().connected_peers.clone(),
                     ))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             ConnectionClosed { peer_id, .. } => {
-                self.connected_peers.remove(&peer_id);
+                let swarm = self.swarm.behaviour_mut();
+                swarm.connected_peers.remove(&peer_id);
                 // FIXME remove stale address, not *all* addresses
-                self.swarm.behaviour_mut().kadem.remove_peer(&peer_id);
+                swarm.kadem.remove_peer(&peer_id);
 
-                r_input
+                send_to_ui
                     .send_async(SwarmResult::UpdateConnectedPeers(
-                        self.connected_peers.clone(),
+                        swarm.connected_peers.clone(),
                     ))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
-                r_input
-                    .send_async(SwarmResult::UpdateKnownPeers(self.known_peers.clone()))
+                send_to_ui
+                    .send_async(SwarmResult::UpdateKnownPeers(swarm.known_peers.clone()))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
-            },
+            }
             Dialing(_)
             | NewListenAddr { .. }
             | ExpiredListenAddr { .. }
@@ -593,11 +662,15 @@ where
             | IncomingConnectionError { .. }
             | OutgoingConnectionError { .. }
             | BannedPeer { .. }
-            | ListenerError { .. }
-            | Behaviour(_) => {}
-            ,
+            | ListenerError { .. } => {}
+            Behaviour(b) => {
+                send_to_ui
+                    .send_async(b)
+                    .await
+                    .map_err(|_e| NetworkError::StreamClosed)?;
+            }
         }
-        Ok(self)
+        Ok(())
     }
 
     /// Spawn a task to listen for requests on the returned channel
@@ -618,31 +691,36 @@ where
         let (r_input, r_output) = unbounded::<SwarmResult<M>>();
         let mut bootstrapped = false;
 
-        spawn(async move {
-            loop {
-                // NOTE(nm): rustformat doesn't really work inside of macros, I would like to
-                // refactor these all out to local methods for formatability
-                select! {
-                    _ = sleep(Duration::from_secs(30)).fuse() => {
-                        self = self.handle_peer_discovery(bootstrapped);
-                    },
-                    _ = sleep(Duration::from_secs(1)).fuse() => {
-                        self = self.handle_num_connections(bootstrapped);
-                    }
-                    event = self.swarm.select_next_some() => {
-                        self = self.handle_swarm_events(&mut bootstrapped, event, &r_input).await?;
-                    },
-                    msg = s_output.recv_async() => {
-                        let (s, shutdown) = self.handle_ui_events(msg).await?;
-                        self = s;
-                        if shutdown {
-                            break
+        spawn(
+            async move {
+                loop {
+                    // NOTE(nm): rustformat doesn't really work inside of macros, I would like to
+                    // refactor these all out to local methods for formatability
+                    select! {
+                        _ = sleep(Duration::from_secs(30)).fuse() => {
+                            self.handle_peer_discovery(bootstrapped);
+                        },
+                        _ = sleep(Duration::from_secs(1)).fuse() => {
+                            self.handle_num_connections(bootstrapped);
+                        }
+                        event = self.swarm.next() => {
+                            if let Some(event) = event {
+                                error!("handling event {:?}", event);
+                                self.handle_swarm_events(&mut bootstrapped, event, &r_input).await?;
+                            }
+                        },
+                        msg = s_output.recv_async() => {
+                            let shutdown = self.handle_ui_events(msg).await?;
+                            if shutdown {
+                                break
+                            }
                         }
                     }
                 }
+                Ok::<(), NetworkError>(())
             }
-            Ok::<(), NetworkError>(())
-        }.instrument(info_span!( "Libp2p Event Handler")));
+            .instrument(info_span!("Libp2p Event Handler")),
+        );
         Ok((s_input, r_output))
     }
 }

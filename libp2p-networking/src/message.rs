@@ -66,7 +66,7 @@ impl ProtocolName for DirectMessageProtocol {
 
 // TODO are generics useful here? Could also just pass in vec of already serialized bytes
 #[async_trait]
-impl<M: Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestResponseCodec
+impl<M: Clone + Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestResponseCodec
     for DirectMessageCodec<M>
 {
     type Protocol = DirectMessageProtocol;
