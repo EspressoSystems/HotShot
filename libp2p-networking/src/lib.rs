@@ -54,7 +54,6 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
 };
-use serde::{de::DeserializeOwned, Serialize};
 use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
@@ -63,25 +62,13 @@ use crate::message::DirectMessageProtocol;
 pub mod message;
 pub mod ui;
 
-/// `event_process` is false because
-/// injecting events does not play well
-/// with asyncrony
 #[derive(NetworkBehaviour)]
 #[behaviour(
-    out_event = "SwarmResult<T>",
+    out_event = "SwarmResult",
     poll_method = "poll",
     event_process = true
 )]
-pub struct NetworkDef<
-    T: std::fmt::Debug
-        + Send
-        + Sync
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + 'static
-        + From<GossipsubMessage>,
-> {
+pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
     /// in the future it may be able to do peer discovery and routing
@@ -103,25 +90,16 @@ pub struct NetworkDef<
     #[behaviour(ignore)]
     pub known_peers: HashSet<PeerId>,
     #[behaviour(ignore)]
-    pub ui_events: Vec<SwarmResult<T>>,
+    pub ui_events: Vec<SwarmResult>,
 }
 
-impl<
-        T: std::fmt::Debug
-            + Send
-            + Sync
-            + Clone
-            + Serialize
-            + DeserializeOwned
-            + 'static
-            + From<GossipsubMessage>,
-    > NetworkDef<T>
+impl NetworkDef
 {
     fn poll(
         &mut self,
         _cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<SwarmResult<T>, <Self as NetworkBehaviour>::ProtocolsHandler>>
+    ) -> Poll<NetworkBehaviourAction<SwarmResult, <Self as NetworkBehaviour>::ProtocolsHandler>>
     {
         if !self.ui_events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
@@ -133,36 +111,18 @@ impl<
     }
 }
 
-impl<
-        T: std::fmt::Debug
-            + Send
-            + Sync
-            + Clone
-            + Serialize
-            + DeserializeOwned
-            + 'static
-            + From<GossipsubMessage>,
-    > NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef<T>
+impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef
 {
     fn inject_event(&mut self, event: GossipsubEvent) {
         error!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
             error!("correct message form");
-            self.ui_events.push(SwarmResult::GossipMsg(message.into()));
+            self.ui_events.push(SwarmResult::GossipMsg(message.data));
         }
     }
 }
 
-impl<
-        T: std::fmt::Debug
-            + Send
-            + Sync
-            + Clone
-            + Serialize
-            + DeserializeOwned
-            + 'static
-            + From<GossipsubMessage>,
-    > NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef<T>
+impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef
 {
     fn inject_event(&mut self, event: KademliaEvent) {
         error!(?event, "kadem msg recv-ed");
@@ -209,18 +169,7 @@ impl<
     }
 }
 
-// <NetworkDef<T> as NetworkBehaviourEventProcess<libp2p::libp2p_request_response::RequestResponse<DirectMessageCodec<T>>>>
-
-impl<
-        T: std::fmt::Debug
-            + Send
-            + Sync
-            + Clone
-            + Serialize
-            + DeserializeOwned
-            + 'static
-            + From<GossipsubMessage>,
-    > NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef<T>
+impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef
 {
     fn inject_event(&mut self, event: IdentifyEvent) {
         if let IdentifyEvent::Received { peer_id, info, .. } = event {
@@ -234,19 +183,7 @@ impl<
     }
 }
 
-// impl<T: std::fmt::Debug + Send + Sync + Clone + Serialize + DeserializeOwned + 'static> NetworkBehaviourEventProcess<RequestResponse<DirectMessageCodec<T>>> for NetworkDef<T> {
-impl<T>
-    NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>>
-    for NetworkDef<T>
-where
-    T: std::fmt::Debug
-        + Send
-        + Sync
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + 'static
-        + From<GossipsubMessage>,
+impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>> for NetworkDef
 {
     fn inject_event(
         &mut self,
@@ -255,59 +192,45 @@ where
         if let RequestResponseEvent::Message {
             message:
                 RequestResponseMessage::Request {
-                    request: DirectMessageRequest(m),
+                    request: DirectMessageRequest(msg),
                     ..
                 },
             ..
         } = event
         {
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-            match bincode_options.deserialize(&m) {
-                Ok(msg) => {
-                    self.ui_events.push(SwarmResult::DirectMessage(msg));
-                }
-                Err(_) => todo!(),
-            }
+            self.ui_events.push(SwarmResult::DirectMessage(msg));
         }
     }
 }
 
-pub struct Network<
-    T: Send
-        + Sync
-        + Clone
-        + 'static
-        + std::fmt::Debug
-        + Serialize
-        + DeserializeOwned
-        + From<GossipsubMessage>,
-> {
+pub struct Network {
     pub identity: Keypair,
     pub peer_id: PeerId,
     pub broadcast_topic: Topic,
-    pub swarm: Swarm<NetworkDef<T>>,
+    pub swarm: Swarm<NetworkDef>,
     pub max_num_peers: usize,
     pub min_num_peers: usize,
 }
 
 /// holds requests to the swarm
-pub enum SwarmAction<N: Send> {
+// TODO refactor so order matches for DirectMessage and GossipMsg
+pub enum SwarmAction {
     Shutdown,
-    GossipMsg(N, Sender<Result<(), NetworkError>>), // topic, message
+    GossipMsg(Topic, Vec<u8>, Sender<Result<(), NetworkError>>), // topic, message
     GetId(Sender<PeerId>),
     Subscribe(String),
     Unsubscribe(String),
-    DirectMessage(PeerId, N),
+    DirectMessage(PeerId, Vec<u8>),
 }
 
 /// holds events of the swarm to be relayed to the cli event loop
 /// out
 #[derive(Debug)]
-pub enum SwarmResult<N: Send + std::fmt::Debug> {
+pub enum SwarmResult {
     UpdateConnectedPeers(HashSet<PeerId>),
     UpdateKnownPeers(HashSet<PeerId>),
-    GossipMsg(N),
-    DirectMessage(N),
+    GossipMsg(Vec<u8>),
+    DirectMessage(Vec<u8>),
 }
 
 /// trait to get out the topic and contents of a message
@@ -323,18 +246,7 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
 }
 
-impl<M> Network<M>
-where
-    M: std::fmt::Debug
-        + Send
-        + Sync
-        + Clone
-        + 'static
-        + Serialize
-        + DeserializeOwned
-        + GossipMsg
-        + From<GossipsubMessage>,
-{
+impl Network {
     /// starts the swarm listening on `listen_addr`
     /// and optionally dials into peer `known_peer`
     #[instrument(skip(self))]
@@ -377,7 +289,7 @@ where
         trace!("Launched network transport");
         let broadcast_topic = Topic::new("broadcast");
         // Generate the swarm
-        let swarm: Swarm<NetworkDef<M>> = {
+        let swarm: Swarm<NetworkDef> = {
             // Use the hash of the message's contents as the ID
             // Use blake3 for much paranoia at very high speeds
             let message_id_fn = |message: &GossipsubMessage| {
@@ -513,7 +425,7 @@ where
 
     async fn handle_ui_events(
         &mut self,
-        msg: Result<SwarmAction<M>, flume::RecvError>,
+        msg: Result<SwarmAction, flume::RecvError>,
     ) -> Result<bool, NetworkError> {
         match msg {
             Ok(msg) => {
@@ -524,15 +436,12 @@ where
                         warn!("Libp2p listener shutting down");
                         return Ok(true);
                     }
-                    SwarmAction::GossipMsg(msg, chan) => {
-                        error!("broadcasting message {:?}", msg);
-                        let topic = <M as GossipMsg>::topic(&msg);
-                        let contents = <M as GossipMsg>::data(&msg);
+                    SwarmAction::GossipMsg(topic, contents, chan) => {
                         let res = self
                             .swarm
                             .behaviour_mut()
                             .gossipsub
-                            .publish(topic.clone(), contents.clone())
+                            .publish(topic, contents.clone())
                             .map(|_| ())
                             .context(PublishSnafu);
                         error!("publishing reuslt! {:?}", res);
@@ -592,13 +501,13 @@ where
         &mut self,
         bootstrapped: &mut bool,
         event: SwarmEvent<
-            SwarmResult<M>,
+            SwarmResult,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
                 ProtocolsHandlerUpgrErr<Error>,
             >,
         >,
-        send_to_ui: &Sender<SwarmResult<M>>,
+        send_to_ui: &Sender<SwarmResult>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
@@ -694,9 +603,9 @@ where
     #[instrument(skip(self))]
     pub async fn spawn_listeners(
         mut self,
-    ) -> Result<(Sender<SwarmAction<M>>, Receiver<SwarmResult<M>>), NetworkError> {
-        let (s_input, s_output) = unbounded::<SwarmAction<M>>();
-        let (r_input, r_output) = unbounded::<SwarmResult<M>>();
+    ) -> Result<(Sender<SwarmAction>, Receiver<SwarmResult>), NetworkError> {
+        let (s_input, s_output) = unbounded::<SwarmAction>();
+        let (r_input, r_output) = unbounded::<SwarmResult>();
         let mut bootstrapped = false;
 
         spawn(

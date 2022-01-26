@@ -1,5 +1,6 @@
 use async_std::task::{sleep, spawn};
 
+use bincode::Options;
 use color_eyre::{
     eyre::{Result, WrapErr},
     Report,
@@ -7,7 +8,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::PeerId;
+use libp2p::{PeerId, gossipsub::Topic};
 use parking_lot::Mutex;
 
 use std::{
@@ -35,8 +36,8 @@ pub enum InputMode {
 #[derive(Debug)]
 /// Struct for the TUI app
 pub struct TableApp {
-    pub send_swarm: Sender<SwarmAction<Message>>,
-    pub recv_swarm: Receiver<SwarmResult<Message>>,
+    pub send_swarm: Sender<SwarmAction>,
+    pub recv_swarm: Receiver<SwarmResult>,
     pub input_mode: InputMode,
     pub input: String,
     pub state: TableState,
@@ -48,8 +49,8 @@ pub struct TableApp {
 impl TableApp {
     pub fn new(
         message_buffer: Arc<Mutex<VecDeque<Message>>>,
-        send_swarm: Sender<SwarmAction<Message>>,
-        recv_swarm: Receiver<SwarmResult<Message>>,
+        send_swarm: Sender<SwarmAction>,
+        recv_swarm: Receiver<SwarmResult>,
     ) -> Self {
         Self {
             send_swarm,
@@ -99,7 +100,11 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        SwarmResult::DirectMessage(m) | SwarmResult::GossipMsg(m) => app.message_buffer.lock().push_back(m),
+                        SwarmResult::DirectMessage(m) | SwarmResult::GossipMsg(m) => {
+                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                            let msg : Message = bincode_options.deserialize(&m)?;
+                            app.message_buffer.lock().push_back(msg);
+                        },
                         SwarmResult::UpdateConnectedPeers(peer_set) => {
                             *app.connected_peer_list.lock() = peer_set.clone();
                         }
@@ -143,7 +148,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                                 content: app.input,
                                                 sender: r.recv_async().await?.to_string(),
                                             };
-                                            send_swarm.send_async(SwarmAction::DirectMessage(selected_peer, msg.clone())).await?;
+                                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                                            let s_msg = bincode_options.serialize(&msg)?;
+                                            send_swarm.send_async(SwarmAction::DirectMessage(selected_peer, s_msg)).await?;
                                             mb_handle.lock().push_back(msg);
                                             // if it's a duplicate message (error case), fail silently and do nothing
                                             Result::<(), Report>::Ok(())
@@ -165,7 +172,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             sender: r.recv_async().await?.to_string(),
                                         };
                                         let (s, r) = flume::bounded(1);
-                                        send_swarm.send_async(SwarmAction::GossipMsg(msg.clone(), s)).await?;
+                                        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                                        let s_msg = bincode_options.serialize(&msg)?;
+                                        send_swarm.send_async(SwarmAction::GossipMsg(Topic::new(msg.topic.clone()), s_msg, s)).await?;
                                         // if it's a duplicate message (error case), fail silently and do nothing
                                         if r.recv_async().await?.is_ok() {
                                             mb_handle.lock().push_back(msg);

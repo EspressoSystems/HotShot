@@ -50,7 +50,7 @@ pub struct DirectMessageProtocol();
 pub struct DirectMessageCodec();
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DirectMessageRequest(pub Vec<u8>);
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DirectMessageResponse(pub Vec<u8>);
 
 impl ProtocolName for DirectMessageProtocol {
