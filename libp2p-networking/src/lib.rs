@@ -14,8 +14,8 @@
     clippy::unused_self
 )]
 
-pub mod tracing_setup;
 pub mod direct_message;
+pub mod tracing_setup;
 
 use async_std::task::{sleep, spawn};
 use direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
@@ -302,7 +302,6 @@ impl Network {
         let identity = Keypair::generate_ed25519();
         let peer_id = PeerId::from(identity.public());
         debug!(?peer_id);
-        // TODO: Maybe not use a development only networking backend
         let transport: Boxed<(PeerId, StreamMuxerBox)> =
             libp2p::development_transport(identity.clone())
                 .await

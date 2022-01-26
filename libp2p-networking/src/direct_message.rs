@@ -1,8 +1,14 @@
 use async_std::io;
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use libp2p::{request_response::RequestResponseCodec, core::{ProtocolName, upgrade::{read_length_prefixed, write_length_prefixed}}};
-use serde::{Serialize, Deserialize};
+use libp2p::{
+    core::{
+        upgrade::{read_length_prefixed, write_length_prefixed},
+        ProtocolName,
+    },
+    request_response::RequestResponseCodec,
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
@@ -18,6 +24,8 @@ impl ProtocolName for DirectMessageProtocol {
         "/spectrum_send_msg/1".as_bytes()
     }
 }
+
+const MAX_MSG_SIZE: usize = 1_000_000;
 
 #[async_trait]
 impl RequestResponseCodec for DirectMessageCodec {
@@ -35,13 +43,10 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        // FIXME magic numbers...
-        // it looks like the easiest thing to do
-        // is to set an upper limit threshold and use that
-        let msg = read_length_prefixed(io, 1_000_000).await?;
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
 
-        // NOTE we don't error here. We'll wrap this in a behaviour and get better error messages
-        // there
+        // NOTE we don't error here unless message is too big.
+        // We'll wrap this in a networkbehaviour and get parsing messages there
         Ok(DirectMessageRequest(msg))
     }
 
@@ -53,7 +58,7 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let msg = read_length_prefixed(io, 1_000_000).await?;
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
         Ok(DirectMessageResponse(msg))
     }
 
