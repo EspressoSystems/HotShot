@@ -8,7 +8,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::{PeerId, gossipsub::Topic};
+use libp2p::{gossipsub::Topic, PeerId};
 use parking_lot::Mutex;
 
 use std::{
@@ -88,6 +88,8 @@ impl TableApp {
 #[allow(clippy::mut_mut, clippy::panic)]
 #[instrument(skip(terminal, app))]
 pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<()> {
+    #[allow(clippy::enum_glob_use)]
+    use SwarmResult::*;
     let mut events = event::EventStream::new();
     loop {
         terminal
@@ -100,15 +102,15 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        SwarmResult::DirectMessage(m) | SwarmResult::GossipMsg(m) => {
+                        DirectMessage(m) | SwarmResult::GossipMsg(m) => {
                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                             let msg : Message = bincode_options.deserialize(&m)?;
                             app.message_buffer.lock().push_back(msg);
                         },
-                        SwarmResult::UpdateConnectedPeers(peer_set) => {
+                        UpdateConnectedPeers(peer_set) => {
                             *app.connected_peer_list.lock() = peer_set.clone();
                         }
-                        SwarmResult::UpdateKnownPeers(peer_set) => {
+                        UpdateKnownPeers(peer_set) => {
                             *app.known_peer_list.lock() = peer_set.clone();
                         }
                     }

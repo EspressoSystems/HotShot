@@ -31,7 +31,10 @@ use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     build_multiaddr,
-    core::{either::EitherError, muxing::StreamMuxerBox, transport::{Boxed}, ConnectedPoint, upgrade},
+    core::{
+        either::EitherError, muxing::StreamMuxerBox, transport::Boxed, upgrade, ConnectedPoint,
+    },
+    dns,
     gossipsub::{
         error::{GossipsubHandlerError, PublishError},
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
@@ -43,6 +46,7 @@ use libp2p::{
         self, store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaConfig, KademliaEvent,
         QueryResult,
     },
+    mplex, noise,
     request_response::{
         ProtocolSupport, RequestResponse, RequestResponseConfig, RequestResponseEvent,
         RequestResponseMessage,
@@ -51,7 +55,7 @@ use libp2p::{
         NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
         ProtocolsHandlerUpgrErr, SwarmEvent,
     },
-    Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError, tcp, dns, websocket, noise, Transport, yamux, mplex,
+    tcp, websocket, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport, TransportError,
 };
 use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -62,11 +66,7 @@ pub mod message;
 pub mod ui;
 
 #[derive(NetworkBehaviour)]
-#[behaviour(
-    out_event = "SwarmResult",
-    poll_method = "poll",
-    event_process = true
-)]
+#[behaviour(out_event = "SwarmResult", poll_method = "poll", event_process = true)]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
@@ -92,14 +92,15 @@ pub struct NetworkDef {
     pub ui_events: Vec<SwarmResult>,
 }
 
-impl NetworkDef
-{
+impl NetworkDef {
     fn poll(
         &mut self,
         _cx: &mut Context<'_>,
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<SwarmResult, <Self as NetworkBehaviour>::ProtocolsHandler>>
     {
+        // push events that must be relayed back to UI onto queue
+        // to be consumed by UI event handler
         if !self.ui_events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
                 self.ui_events.remove(0),
@@ -110,8 +111,7 @@ impl NetworkDef
     }
 }
 
-impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef
-{
+impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
     fn inject_event(&mut self, event: GossipsubEvent) {
         error!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
@@ -121,8 +121,7 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef
     }
 }
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef
-{
+impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
     fn inject_event(&mut self, event: KademliaEvent) {
         error!(?event, "kadem msg recv-ed");
         match event {
@@ -168,8 +167,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef
     }
 }
 
-impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef
-{
+impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
     fn inject_event(&mut self, event: IdentifyEvent) {
         if let IdentifyEvent::Received { peer_id, info, .. } = event {
             for addr in info.listen_addrs {
@@ -182,7 +180,8 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef
     }
 }
 
-impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>> for NetworkDef
+impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>>
+    for NetworkDef
 {
     fn inject_event(
         &mut self,
@@ -265,7 +264,6 @@ pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, 
         ))
         .timeout(std::time::Duration::from_secs(20))
         .boxed())
-
 }
 
 impl Network {
@@ -463,7 +461,7 @@ impl Network {
         match msg {
             Ok(msg) => {
                 #[allow(clippy::enum_glob_use)]
-                use SwarmAction::{DirectMessage, GetId, Shutdown, Subscribe, Unsubscribe};
+                use SwarmAction::*;
                 match msg {
                     Shutdown => {
                         warn!("Libp2p listener shutting down");
@@ -479,6 +477,7 @@ impl Network {
                             .context(PublishSnafu);
                         error!("publishing reuslt! {:?}", res);
 
+                        // send result back to ui to confirm this isn't a duplicate message
                         chan.send_async(res)
                             .await
                             .map_err(|_e| NetworkError::StreamClosed)?;
@@ -513,10 +512,10 @@ impl Network {
                         }
                     }
                     DirectMessage(pid, msg) => {
-                        self.swarm.behaviour_mut().request_response.send_request(
-                            &pid,
-                            DirectMessageRequest(msg),
-                        );
+                        self.swarm
+                            .behaviour_mut()
+                            .request_response
+                            .send_request(&pid, DirectMessageRequest(msg));
                     }
                 }
             }
@@ -543,7 +542,6 @@ impl Network {
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
 
-        // TODO re enable this
         info!("libp2p event {:?}", event);
         match event {
             ConnectionEstablished {
