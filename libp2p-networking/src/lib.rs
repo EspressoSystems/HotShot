@@ -15,9 +15,10 @@
 )]
 
 pub mod tracing_setup;
+pub mod direct_message;
 
 use async_std::task::{sleep, spawn};
-use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
+use direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
 use std::{
     collections::HashSet,
@@ -60,7 +61,7 @@ use libp2p::{
 use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
-use crate::message::DirectMessageProtocol;
+use crate::direct_message::DirectMessageProtocol;
 
 pub mod message;
 pub mod ui;
