@@ -1,11 +1,6 @@
-use std::{
-    io::{Error, ErrorKind},
-    marker::PhantomData,
-};
-
 use async_std::io;
 use async_trait::async_trait;
-use bincode::{DefaultOptions, Options};
+
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use libp2p::{
     core::{
@@ -15,7 +10,7 @@ use libp2p::{
     gossipsub::GossipsubMessage,
     request_response::RequestResponseCodec,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::GossipMsg;
 
@@ -52,11 +47,11 @@ impl From<GossipsubMessage> for Message {
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DirectMessageCodec<T: Send>(pub PhantomData<T>);
+pub struct DirectMessageCodec();
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DirectMessageRequest<T: Send>(pub T);
+pub struct DirectMessageRequest(pub Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DirectMessageResponse();
+pub struct DirectMessageResponse(pub Vec<u8>);
 
 impl ProtocolName for DirectMessageProtocol {
     fn protocol_name(&self) -> &[u8] {
@@ -64,14 +59,11 @@ impl ProtocolName for DirectMessageProtocol {
     }
 }
 
-// TODO are generics useful here? Could also just pass in vec of already serialized bytes
 #[async_trait]
-impl<M: Clone + Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> RequestResponseCodec
-    for DirectMessageCodec<M>
-{
+impl RequestResponseCodec for DirectMessageCodec {
     type Protocol = DirectMessageProtocol;
 
-    type Request = DirectMessageRequest<M>;
+    type Request = DirectMessageRequest;
 
     type Response = DirectMessageResponse;
 
@@ -86,52 +78,35 @@ impl<M: Clone + Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> Re
         // FIXME magic numbers...
         // it looks like the easiest thing to do
         // is to set an upper limit threshold and use that
-        let vec = read_length_prefixed(io, 1_000_000).await?;
+        let msg = read_length_prefixed(io, 1_000_000).await?;
 
-        let bincode_options = DefaultOptions::new().with_limit(16_384);
-
-        if vec.is_empty() {
-            return Err(io::ErrorKind::UnexpectedEof.into());
-        }
-
-        // NOTE error handling could be better...
-        // but the trait locks into io::Result : (
-        Ok(DirectMessageRequest(
-            bincode_options
-                .deserialize(&vec)
-                .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?,
-        ))
+        // NOTE we don't error here. We'll wrap this in a behaviour and get better error messages
+        // there
+        Ok(DirectMessageRequest(msg))
     }
 
     async fn read_response<T>(
         &mut self,
         _: &DirectMessageProtocol,
-        _: &mut T,
+        io: &mut T,
     ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
-        // NOTE no replies
-        Ok(DirectMessageResponse())
+        let msg = read_length_prefixed(io, 1_000_000).await?;
+        Ok(DirectMessageResponse(msg))
     }
 
     async fn write_request<T>(
         &mut self,
         _: &DirectMessageProtocol,
         io: &mut T,
-        DirectMessageRequest(msg): DirectMessageRequest<M>,
+        DirectMessageRequest(msg): DirectMessageRequest,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let bincode_options = DefaultOptions::new().with_limit(16_384);
-        write_length_prefixed(
-            io,
-            bincode_options
-                .serialize(&msg)
-                .map_err(|e| Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
+        write_length_prefixed(io, msg).await?;
         io.close().await?;
 
         Ok(())
@@ -141,11 +116,12 @@ impl<M: Clone + Send + Sync + std::fmt::Debug + Serialize + DeserializeOwned> Re
         &mut self,
         _: &DirectMessageProtocol,
         io: &mut T,
-        DirectMessageResponse(): DirectMessageResponse,
+        DirectMessageResponse(msg): DirectMessageResponse,
     ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
+        write_length_prefixed(io, msg).await?;
         io.close().await?;
         Ok(())
     }

@@ -17,13 +17,13 @@
 pub mod tracing_setup;
 
 use async_std::task::{sleep, spawn};
+use bincode::{ErrorKind, Options};
 use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
 use std::{
     collections::HashSet,
     io::Error,
     iter,
-    marker::PhantomData,
     task::{Context, Poll},
     time::Duration,
 };
@@ -92,7 +92,7 @@ pub struct NetworkDef<
     /// purpose: peer discovery
     pub identify: Identify,
     /// purpose: directly messaging peer
-    pub request_response: RequestResponse<DirectMessageCodec<T>>,
+    pub request_response: RequestResponse<DirectMessageCodec>,
     #[behaviour(ignore)]
     pub bootstrap: bool,
     #[behaviour(ignore)]
@@ -236,9 +236,8 @@ impl<
 
 // impl<T: std::fmt::Debug + Send + Sync + Clone + Serialize + DeserializeOwned + 'static> NetworkBehaviourEventProcess<RequestResponse<DirectMessageCodec<T>>> for NetworkDef<T> {
 impl<T>
-    NetworkBehaviourEventProcess<
-        RequestResponseEvent<DirectMessageRequest<T>, DirectMessageResponse>,
-    > for NetworkDef<T>
+    NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>>
+    for NetworkDef<T>
 where
     T: std::fmt::Debug
         + Send
@@ -251,7 +250,7 @@ where
 {
     fn inject_event(
         &mut self,
-        event: RequestResponseEvent<DirectMessageRequest<T>, DirectMessageResponse>,
+        event: RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>,
     ) {
         if let RequestResponseEvent::Message {
             message:
@@ -262,7 +261,13 @@ where
             ..
         } = event
         {
-            self.ui_events.push(SwarmResult::DirectMessage(m));
+            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+            match bincode_options.deserialize(&m) {
+                Ok(msg) => {
+                    self.ui_events.push(SwarmResult::DirectMessage(msg));
+                }
+                Err(_) => todo!(),
+            }
         }
     }
 }
@@ -415,7 +420,7 @@ where
 
             // request response for direct messages
             let request_response = RequestResponse::new(
-                DirectMessageCodec(PhantomData::<M>),
+                DirectMessageCodec(),
                 iter::once((DirectMessageProtocol(), ProtocolSupport::Full)),
                 RequestResponseConfig::default(),
             );
@@ -566,10 +571,13 @@ where
                         }
                     }
                     DirectMessage(pid, msg) => {
-                        self.swarm
-                            .behaviour_mut()
-                            .request_response
-                            .send_request(&pid, DirectMessageRequest(msg));
+                        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                        self.swarm.behaviour_mut().request_response.send_request(
+                            &pid,
+                            DirectMessageRequest(
+                                bincode_options.serialize(&msg).context(BincodeSnafu)?,
+                            ),
+                        );
                     }
                 }
             }
@@ -595,7 +603,7 @@ where
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
-        
+
         // TODO re enable this
         // warn!("libp2p event {:?}", event);
         match event {
@@ -758,4 +766,6 @@ pub enum NetworkError {
     PublishError { source: PublishError },
     /// Error when there are no known peers to bootstrap off
     NoKnownPeers,
+    /// Error encoding message
+    BincodeError { source: Box<ErrorKind> },
 }
