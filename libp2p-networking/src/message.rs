@@ -12,22 +12,11 @@ use libp2p::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::GossipMsg;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Message {
     pub sender: String,
     pub content: String,
     pub topic: String,
-}
-
-impl GossipMsg for Message {
-    fn topic(&self) -> libp2p::gossipsub::IdentTopic {
-        libp2p::gossipsub::IdentTopic::new(self.topic.clone())
-    }
-    fn data(&self) -> Vec<u8> {
-        self.content.as_bytes().into()
-    }
 }
 
 impl From<GossipsubMessage> for Message {

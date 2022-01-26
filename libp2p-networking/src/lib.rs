@@ -17,7 +17,6 @@
 pub mod tracing_setup;
 
 use async_std::task::{sleep, spawn};
-use bincode::{ErrorKind, Options};
 use message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
 use std::{
@@ -32,7 +31,7 @@ use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     build_multiaddr,
-    core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed, ConnectedPoint},
+    core::{either::EitherError, muxing::StreamMuxerBox, transport::{Boxed}, ConnectedPoint, upgrade},
     gossipsub::{
         error::{GossipsubHandlerError, PublishError},
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
@@ -52,7 +51,7 @@ use libp2p::{
         NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
         ProtocolsHandlerUpgrErr, SwarmEvent,
     },
-    Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError,
+    Multiaddr, NetworkBehaviour, PeerId, Swarm, TransportError, tcp, dns, websocket, noise, Transport, yamux, mplex,
 };
 use snafu::{ResultExt, Snafu};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -212,11 +211,9 @@ pub struct Network {
     pub min_num_peers: usize,
 }
 
-/// holds requests to the swarm
-// TODO refactor so order matches for DirectMessage and GossipMsg
 pub enum SwarmAction {
     Shutdown,
-    GossipMsg(Topic, Vec<u8>, Sender<Result<(), NetworkError>>), // topic, message
+    GossipMsg(Topic, Vec<u8>, Sender<Result<(), NetworkError>>),
     GetId(Sender<PeerId>),
     Subscribe(String),
     Unsubscribe(String),
@@ -224,7 +221,6 @@ pub enum SwarmAction {
 }
 
 /// holds events of the swarm to be relayed to the cli event loop
-/// out
 #[derive(Debug)]
 pub enum SwarmResult {
     UpdateConnectedPeers(HashSet<PeerId>),
@@ -233,17 +229,43 @@ pub enum SwarmResult {
     DirectMessage(Vec<u8>),
 }
 
-/// trait to get out the topic and contents of a message
-/// such that it may be "gossipped" to other people
-pub trait GossipMsg: Send {
-    fn topic(&self) -> Topic;
-    fn data(&self) -> Vec<u8>;
-}
-
 /// bind all interfaces on port `port`
 /// TODO something more general
 pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
+}
+
+/// generate authenticated transport, copied from `development_transport`
+/// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
+/// # Errors
+/// could not sign the noise key with `identity`
+pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, StreamMuxerBox)>> {
+    let transport = {
+        let tcp = tcp::TcpConfig::new().nodelay(true);
+        let dns_tcp = dns::DnsConfig::system(tcp).await?;
+        let ws_dns_tcp = websocket::WsConfig::new(dns_tcp.clone());
+        dns_tcp.or_transport(ws_dns_tcp)
+    };
+
+    // keys for signing messages
+    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&identity)
+        .expect("Signing libp2p-noise static DH keypair failed.");
+
+    Ok(transport
+        .upgrade(upgrade::Version::V1)
+        // authentication: messages are signed
+        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+        // muxxing streams
+        // useful because only one connection opened
+        // https://docs.libp2p.io/concepts/stream-multiplexing/
+        .multiplex(upgrade::SelectUpgrade::new(
+            yamux::YamuxConfig::default(),
+            mplex::MplexConfig::default(),
+        ))
+        .timeout(std::time::Duration::from_secs(20))
+        .boxed())
+
 }
 
 impl Network {
@@ -346,7 +368,6 @@ impl Network {
                 connecting_peers: HashSet::new(),
                 known_peers: HashSet::new(),
                 ui_events: Vec::new(),
-                // TODO implement the rest of this
                 bootstrap: false,
             };
 
@@ -363,9 +384,11 @@ impl Network {
         })
     }
 
+    /// peer discovery mechanism
+    /// looks up a random peer
     #[inline]
-    fn handle_peer_discovery(&mut self, bootstrapped: bool) {
-        if !bootstrapped {
+    fn handle_peer_discovery(&mut self) {
+        if !self.swarm.behaviour().bootstrap {
             let random_peer = PeerId::random();
             self.swarm
                 .behaviour_mut()
@@ -374,12 +397,14 @@ impl Network {
         }
     }
 
+    /// Keep the number of open connections between threshold specified by
+    /// the swarm
     #[inline]
-    fn handle_num_connections(&mut self, bootstrapped: bool) {
+    fn handle_num_connections(&mut self) {
         let swarm = self.swarm.behaviour();
         // if we're bootstrapped, do nothing
         // otherwise periodically get more peers if needed
-        if !bootstrapped {
+        if !swarm.bootstrap {
             if swarm.connecting_peers.len() + swarm.connected_peers.len() <= self.min_num_peers {
                 // Calcuate the currently connected peers
                 let used_peers = swarm
@@ -423,6 +448,14 @@ impl Network {
         }
     }
 
+    // event handler for UI.
+    // currectly supported actions include
+    // - shutting down the swarm
+    // - gossipping a message to known peers on the `global` topic
+    // - returning the id of the current peer
+    // - subscribing to a topic
+    // - unsubscribing from a toipc
+    // - direct messaging a peer
     async fn handle_ui_events(
         &mut self,
         msg: Result<SwarmAction, flume::RecvError>,
@@ -480,12 +513,9 @@ impl Network {
                         }
                     }
                     DirectMessage(pid, msg) => {
-                        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                         self.swarm.behaviour_mut().request_response.send_request(
                             &pid,
-                            DirectMessageRequest(
-                                bincode_options.serialize(&msg).context(BincodeSnafu)?,
-                            ),
+                            DirectMessageRequest(msg),
                         );
                     }
                 }
@@ -497,9 +527,9 @@ impl Network {
         Ok(false)
     }
 
+    /// event handler for events emited from the swarm
     async fn handle_swarm_events(
         &mut self,
-        bootstrapped: &mut bool,
         event: SwarmEvent<
             SwarmResult,
             EitherError<
@@ -514,9 +544,8 @@ impl Network {
         use SwarmEvent::*;
 
         // TODO re enable this
-        // warn!("libp2p event {:?}", event);
+        info!("libp2p event {:?}", event);
         match event {
-            // TODO handle swarm action by sending to swarm
             ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
@@ -540,7 +569,7 @@ impl Network {
                 self.swarm.behaviour_mut().connected_peers.insert(peer_id);
                 self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
                 // now we have at least one peer so we can bootstrap
-                if !*bootstrapped {
+                if !self.swarm.behaviour().bootstrap {
                     self.swarm
                         .behaviour_mut()
                         .kadem
@@ -593,7 +622,6 @@ impl Network {
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
     /// `mut_mut` is disabled b/c must consume `self`
-    /// TODO why does clippy not like `panic` with select?
     #[allow(
         clippy::mut_mut,
         clippy::panic,
@@ -606,24 +634,21 @@ impl Network {
     ) -> Result<(Sender<SwarmAction>, Receiver<SwarmResult>), NetworkError> {
         let (s_input, s_output) = unbounded::<SwarmAction>();
         let (r_input, r_output) = unbounded::<SwarmResult>();
-        let mut bootstrapped = false;
 
         spawn(
             async move {
                 loop {
-                    // NOTE(nm): rustformat doesn't really work inside of macros, I would like to
-                    // refactor these all out to local methods for formatability
                     select! {
                         _ = sleep(Duration::from_secs(30)).fuse() => {
-                            self.handle_peer_discovery(bootstrapped);
+                            self.handle_peer_discovery();
                         },
                         _ = sleep(Duration::from_secs(1)).fuse() => {
-                            self.handle_num_connections(bootstrapped);
+                            self.handle_num_connections();
                         }
                         event = self.swarm.next() => {
                             if let Some(event) = event {
                                 error!("handling event {:?}", event);
-                                self.handle_swarm_events(&mut bootstrapped, event, &r_input).await?;
+                                self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
                         msg = s_output.recv_async() => {
@@ -675,6 +700,4 @@ pub enum NetworkError {
     PublishError { source: PublishError },
     /// Error when there are no known peers to bootstrap off
     NoKnownPeers,
-    /// Error encoding message
-    BincodeError { source: Box<ErrorKind> },
 }
