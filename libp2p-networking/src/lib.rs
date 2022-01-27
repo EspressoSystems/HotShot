@@ -221,6 +221,7 @@ pub struct Network {
     pub min_num_peers: usize,
 }
 
+#[derive(Debug)]
 pub enum SwarmAction {
     Shutdown,
     GossipMsg(Topic, Vec<u8>, Sender<Result<(), NetworkError>>),
@@ -252,6 +253,7 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
 /// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
 /// # Errors
 /// could not sign the noise key with `identity`
+#[instrument(skip(identity))]
 pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, StreamMuxerBox)>> {
     let transport = {
         let tcp = tcp::TcpConfig::new().nodelay(true);
@@ -290,19 +292,19 @@ impl Network {
         listen_addr: Multiaddr,
         known_peer: Option<Multiaddr>,
     ) -> Result<Multiaddr, NetworkError> {
-        let listen_id = self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
+        self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
         let addr = loop {
             match self.swarm.next().await {
                 Some(SwarmEvent::NewListenAddr { address, .. }) => break address,
                 _ => continue,
             };
         };
-        error!("listen addr: {:?}", listen_id);
+        error!("listen addr: {:?}", addr.clone());
         if let Some(known_peer) = known_peer {
             let dialing = known_peer.clone();
             match self.swarm.dial(known_peer) {
                 Ok(_) => {
-                    info!("Dialed {:?}", dialing);
+                    warn!("Dialed {:?}", dialing);
                 }
                 Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
             };
@@ -408,7 +410,7 @@ impl Network {
 
     /// peer discovery mechanism
     /// looks up a random peer
-    #[inline]
+    #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
         if !self.swarm.behaviour().bootstrap {
             let random_peer = PeerId::random();
@@ -421,7 +423,7 @@ impl Network {
 
     /// Keep the number of open connections between threshold specified by
     /// the swarm
-    #[inline]
+    #[instrument(skip(self))]
     fn handle_num_connections(&mut self) {
         let swarm = self.swarm.behaviour();
         // if we're bootstrapped, do nothing
@@ -478,6 +480,7 @@ impl Network {
     /// - subscribing to a topic
     /// - unsubscribing from a toipc
     /// - direct messaging a peer
+    #[instrument(skip(self))]
     async fn handle_ui_events(
         &mut self,
         msg: Result<SwarmAction, flume::RecvError>,
@@ -561,6 +564,7 @@ impl Network {
     }
 
     /// event handler for events emited from the swarm
+    #[instrument(skip(self))]
     async fn handle_swarm_events(
         &mut self,
         event: SwarmEvent<
@@ -680,7 +684,7 @@ impl Network {
                         }
                         event = self.swarm.next() => {
                             if let Some(event) = event {
-                                error!("handling event {:?}", event);
+                                error!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },

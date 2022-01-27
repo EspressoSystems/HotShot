@@ -1,16 +1,17 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use async_std::{sync::Mutex, task::spawn};
+use async_std::{sync::Mutex, task::{spawn, sleep}};
 use bincode::Options;
 use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{Multiaddr, PeerId, gossipsub::Topic};
 use networking_demo::{gen_multiaddr, Network, NetworkError, SwarmAction, SwarmResult};
+use rand::{seq::IteratorRandom, thread_rng};
 
 use serde::{Deserialize, Serialize};
 
 use snafu::{ResultExt, Snafu};
-use tracing::instrument;
+use tracing::{instrument, info_span, Instrument};
 
 pub type Counter = u8;
 
@@ -46,6 +47,7 @@ pub struct SwarmHandle {
 }
 
 impl SwarmHandle {
+    #[instrument]
     pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, HandlerError> {
         let listen_addr = gen_multiaddr(0);
         let mut network = Network::new().await.context(NetworkSnafu)?;
@@ -67,6 +69,7 @@ impl SwarmHandle {
         })
     }
 
+    #[instrument]
     pub async fn kill(&self) -> Result<(), NetworkError> {
         self.send_chan
             .send_async(SwarmAction::Shutdown)
@@ -80,9 +83,11 @@ impl SwarmHandle {
     }
 }
 
+#[instrument]
 pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, HandlerError> {
     let bootstrap = SwarmHandle::new(None).await?;
     let bootstrap_addr = bootstrap.listen_addr.clone();
+    sleep(Duration::from_secs(30)).await;
     let mut handles = Vec::new();
     for _ in 0..(num_of_nodes - 1) {
         handles.push(Arc::new(
@@ -145,6 +150,7 @@ pub async fn handle_event(
 // TODO snafu error handler type that is either a serialization error
 // OR channel sending error
 // TODO instrumentation
+#[instrument(skip(event_handler))]
 pub async fn spawn_handler<Fut>(
     handle: Arc<SwarmHandle>,
     event_handler: impl (Fn(SwarmResult, Arc<SwarmHandle>) -> Fut)
@@ -169,25 +175,10 @@ pub async fn spawn_handler<Fut>(
             );
         }
         Ok::<(), HandlerError>(())
-    });
+    }.instrument(info_span!("Libp2p Event Handler")));
 }
 
-#[async_std::test]
-#[instrument]
-async fn test_spinup() {
-    // NOTE we want this to panic if we can't spin up the swarms.
-    // that amounts to a failed test.
-    let handles = spin_up_swarms(5).await.unwrap();
-    for handle in handles.iter() {
-        handle
-            .send_chan
-            .send_async(SwarmAction::Shutdown)
-            .await
-            .unwrap();
-        handle.kill_switch.send_async(()).await.unwrap();
-    }
-}
-
+/// check that we can direct message to increment counter
 #[async_std::test]
 #[instrument]
 async fn test_request_response() {
@@ -201,9 +192,12 @@ async fn test_request_response() {
     }
 }
 
+/// check that we can broadcast a message out and get counter increments
 #[async_std::test]
 #[instrument]
 async fn test_gossip() {
+    color_eyre::install().unwrap();
+    networking_demo::tracing_setup::setup_tracing();
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
     let handles = spin_up_swarms(5).await.unwrap();
@@ -211,7 +205,18 @@ async fn test_gossip() {
         spawn_handler(handle.clone(), handle_event).await;
     }
 
-    //
+    let msg_handle = handles.iter().choose(&mut thread_rng()).unwrap();
+    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let msg_inner = bincode_options.serialize(&CounterMessage::IncrementCounter { from: CounterState(0), to: CounterState(5)}).unwrap();
+    let (send, recv) = flume::bounded(1);
+    let msg = SwarmAction::GossipMsg(Topic::new("global"), msg_inner, send);
+    msg_handle.send_chan.send_async(msg).await.unwrap();
+    recv.recv_async().await.unwrap().unwrap();
+    sleep(Duration::from_secs(30)).await;
+
+    for handle in handles.iter() {
+        assert_eq!(*handle.state.lock().await, CounterState(5));
+    }
 
     // cleanup
     for handle in handles.into_iter() {
