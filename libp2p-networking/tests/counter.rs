@@ -2,19 +2,17 @@ use std::sync::Arc;
 
 use async_std::{sync::Mutex, task::spawn};
 use bincode::Options;
-use flume::{select, Receiver, RecvError, SendError, Sender};
-use futures::{select, Future, FutureExt, SinkExt};
+use flume::{Receiver, RecvError, Sender};
+use futures::{select, Future, FutureExt};
 use libp2p::{
-    request_response::{RequestResponse, RequestResponseCodec},
     Multiaddr, PeerId,
 };
 use networking_demo::{
-    direct_message::{DirectMessageCodec, DirectMessageResponse},
     gen_multiaddr, Network, NetworkError, SwarmAction, SwarmResult,
 };
 
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+
 use tracing::instrument;
 
 pub type Counter = u8;
@@ -54,7 +52,7 @@ impl SwarmHandle {
     pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, NetworkError> {
         let listen_addr = gen_multiaddr(0);
         let mut network = Network::new().await?;
-        let mut peer_id = network.peer_id.clone();
+        let peer_id = network.peer_id.clone();
         let listen_addr = network.start(listen_addr, known_addr).await?;
         let (send_chan, recv_chan) = network.spawn_listeners().await?;
         let (kill_switch, recv_kill) = flume::bounded(1);
@@ -144,7 +142,6 @@ pub async fn handle_event(event: SwarmResult, handle: Arc<SwarmHandle>) {
     }
 }
 
-// TODO move this into the handle code
 // TODO snafu error handler type that is either a serialization error
 // OR channel sending error
 // TODO instrumentation
