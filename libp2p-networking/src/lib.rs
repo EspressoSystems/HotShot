@@ -270,13 +270,21 @@ pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, 
 impl Network {
     /// starts the swarm listening on `listen_addr`
     /// and optionally dials into peer `known_peer`
+    /// returns the address the swarm is listening upon
     #[instrument(skip(self))]
-    pub fn start(
+    pub async fn start(
         &mut self,
         listen_addr: Multiaddr,
         known_peer: Option<Multiaddr>,
-    ) -> Result<(), NetworkError> {
-        self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
+    ) -> Result<Multiaddr, NetworkError> {
+        let listen_id = self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
+        let addr = loop {
+            match self.swarm.next().await {
+                Some(SwarmEvent::NewListenAddr { address, .. }) => break address,
+                _ => continue,
+            };
+        };
+        error!("listen addr: {:?}", listen_id);
         if let Some(known_peer) = known_peer {
             let dialing = known_peer.clone();
             match self.swarm.dial(known_peer) {
@@ -286,7 +294,7 @@ impl Network {
                 Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
             };
         }
-        Ok(())
+        Ok(addr)
     }
 
     /// Creates a new `Network` with the given settings.
@@ -330,6 +338,9 @@ impl Network {
                 .map_err(|s| GossipsubConfigSnafu { message: s }.build())?;
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
+                // TODO do we even need this?
+                // if messages are signed at the the consensus level AND the network
+                // level (noise), this feels redundant.
                 MessageAuthenticity::Signed(identity.clone()),
                 gossipsub_config,
             )
@@ -446,14 +457,14 @@ impl Network {
         }
     }
 
-    // event handler for UI.
-    // currectly supported actions include
-    // - shutting down the swarm
-    // - gossipping a message to known peers on the `global` topic
-    // - returning the id of the current peer
-    // - subscribing to a topic
-    // - unsubscribing from a toipc
-    // - direct messaging a peer
+    /// event handler for UI.
+    /// currectly supported actions include
+    /// - shutting down the swarm
+    /// - gossipping a message to known peers on the `global` topic
+    /// - returning the id of the current peer
+    /// - subscribing to a topic
+    /// - unsubscribing from a toipc
+    /// - direct messaging a peer
     async fn handle_ui_events(
         &mut self,
         msg: Result<SwarmAction, flume::RecvError>,

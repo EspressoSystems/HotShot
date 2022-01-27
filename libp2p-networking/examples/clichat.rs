@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
     let port = CliOpt::from_args().port.unwrap_or(0u16);
     let known_peer = CliOpt::from_args().first_dial;
     let listen_addr = gen_multiaddr(port);
-    networking.start(listen_addr, known_peer)?;
+    networking.start(listen_addr, known_peer).await?;
     let (send_chan, recv_chan) = networking.spawn_listeners().await?;
 
     // -- Spin up the UI
