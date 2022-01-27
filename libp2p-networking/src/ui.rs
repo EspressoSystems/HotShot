@@ -102,7 +102,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        DirectMessage(m) | SwarmResult::GossipMsg(m) => {
+                        DirectRequest(m, _) | SwarmResult::GossipMsg(m) => {
                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                             let msg : Message = bincode_options.deserialize(&m)?;
                             app.message_buffer.lock().push_back(msg);
@@ -113,6 +113,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                         UpdateKnownPeers(peer_set) => {
                             *app.known_peer_list.lock() = peer_set.clone();
                         }
+                        DirectResponse(_) => { /* NOTE unimplemented in this example */ }
                     }
                 }
             },
@@ -152,7 +153,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             };
                                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                             let s_msg = bincode_options.serialize(&msg)?;
-                                            send_swarm.send_async(SwarmAction::DirectMessage(selected_peer, s_msg)).await?;
+                                            send_swarm.send_async(SwarmAction::DirectRequest(selected_peer, s_msg)).await?;
                                             mb_handle.lock().push_back(msg);
                                             // if it's a duplicate message (error case), fail silently and do nothing
                                             Result::<(), Report>::Ok(())
