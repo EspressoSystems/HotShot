@@ -2,17 +2,14 @@ use std::sync::Arc;
 
 use async_std::{sync::Mutex, task::spawn};
 use bincode::Options;
-use flume::{Receiver, RecvError, Sender};
+use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
-use libp2p::{
-    Multiaddr, PeerId,
-};
-use networking_demo::{
-    gen_multiaddr, Network, NetworkError, SwarmAction, SwarmResult,
-};
+use libp2p::{Multiaddr, PeerId};
+use networking_demo::{gen_multiaddr, Network, NetworkError, SwarmAction, SwarmResult};
 
 use serde::{Deserialize, Serialize};
 
+use snafu::{ResultExt, Snafu};
 use tracing::instrument;
 
 pub type Counter = u8;
@@ -27,7 +24,7 @@ pub enum CounterMessage {
     MyCounterIs(CounterState),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub struct CounterState(Counter);
 
 #[derive(Debug)]
@@ -49,12 +46,15 @@ pub struct SwarmHandle {
 }
 
 impl SwarmHandle {
-    pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, NetworkError> {
+    pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, HandlerError> {
         let listen_addr = gen_multiaddr(0);
-        let mut network = Network::new().await?;
-        let peer_id = network.peer_id.clone();
-        let listen_addr = network.start(listen_addr, known_addr).await?;
-        let (send_chan, recv_chan) = network.spawn_listeners().await?;
+        let mut network = Network::new().await.context(NetworkSnafu)?;
+        let peer_id = network.peer_id;
+        let listen_addr = network
+            .start(listen_addr, known_addr)
+            .await
+            .context(NetworkSnafu)?;
+        let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = flume::bounded(1);
         Ok(SwarmHandle {
             state: Arc::new(Mutex::new(CounterState::default())),
@@ -80,13 +80,7 @@ impl SwarmHandle {
     }
 }
 
-impl Default for CounterState {
-    fn default() -> Self {
-        Self(0)
-    }
-}
-
-pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, NetworkError> {
+pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, HandlerError> {
     let bootstrap = SwarmHandle::new(None).await?;
     let bootstrap_addr = bootstrap.listen_addr.clone();
     let mut handles = Vec::new();
@@ -98,7 +92,10 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
     Ok(handles)
 }
 
-pub async fn handle_event(event: SwarmResult, handle: Arc<SwarmHandle>) {
+pub async fn handle_event(
+    event: SwarmResult,
+    handle: Arc<SwarmHandle>,
+) -> Result<(), HandlerError> {
     use CounterMessage::*;
     #[allow(clippy::enum_glob_use)]
     use SwarmResult::*;
@@ -124,13 +121,15 @@ pub async fn handle_event(event: SwarmResult, handle: Arc<SwarmHandle>) {
                     AskForCounter => {
                         let response = MyCounterIs(handle.state.lock().await.clone());
                         // FIXME error handling
-                        let serialized_response = bincode_options.serialize(&response).unwrap();
+                        let serialized_response = bincode_options
+                            .serialize(&response)
+                            .context(SerializationSnafu)?;
                         // FIXME error handling
                         handle
                             .send_chan
                             .send_async(SwarmAction::DirectResponse(chan, serialized_response))
                             .await
-                            .unwrap();
+                            .context(SendSnafu)?
                     }
                     // NOTE doesn't make sense as request type
                     // TODO maybe should check this at the type level
@@ -139,7 +138,8 @@ pub async fn handle_event(event: SwarmResult, handle: Arc<SwarmHandle>) {
             }
         }
         _ => {}
-    }
+    };
+    Ok(())
 }
 
 // TODO snafu error handler type that is either a serialization error
@@ -152,11 +152,11 @@ pub async fn spawn_handler<Fut>(
         + std::marker::Send
         + 'static,
 ) where
-    Fut: Future<Output = ()> + std::marker::Send + 'static + std::marker::Sync,
+    Fut:
+        Future<Output = Result<(), HandlerError>> + std::marker::Send + 'static + std::marker::Sync,
 {
     let recv_kill = handle.recv_kill.clone();
     let recv_event = handle.recv_chan.clone();
-    let new_handle = handle.clone();
     spawn(async move {
         loop {
             select!(
@@ -164,11 +164,11 @@ pub async fn spawn_handler<Fut>(
                     break;
                 },
                 event = recv_event.recv_async().fuse() => {
-                    event_handler(event?, new_handle.clone()).await;
+                    event_handler(event.context(RecvSnafu)?, handle.clone()).await?;
                 },
             );
         }
-        Ok::<(), RecvError>(())
+        Ok::<(), HandlerError>(())
     });
 }
 
@@ -217,4 +217,13 @@ async fn test_gossip() {
     for handle in handles.into_iter() {
         handle.kill().await.unwrap();
     }
+}
+
+#[derive(Debug, Snafu)]
+pub enum HandlerError {
+    NetworkError { source: NetworkError },
+    SerializationError { source: Box<bincode::ErrorKind> },
+    DeserializationError {},
+    SendError { source: SendError<SwarmAction> },
+    RecvError { source: RecvError },
 }
