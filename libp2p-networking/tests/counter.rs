@@ -122,6 +122,35 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
     Ok(handles)
 }
 
+/// general function to spin up testing infra
+/// perform tests
+/// then return
+// pub async fn test_bed<Fut>(run_test: impl FnOnce(&[Arc<SwarmHandle>]) -> Fut) where
+//     Fut: Future<Output = ()>,
+pub async fn test_bed<F, Fut>(run_test: F) where
+    Fut: Future<Output = ()>,
+    F: FnOnce(Vec<Arc<SwarmHandle>>) -> Fut
+{
+    color_eyre::install().unwrap();
+    networking_demo::tracing_setup::setup_tracing();
+    // NOTE we want this to panic if we can't spin up the swarms.
+    // that amounts to a failed test.
+    let handles : Vec<Arc<SwarmHandle>> = spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap().try_into().unwrap();
+    for handle in handles.iter() {
+        spawn_handler(handle.clone(), handle_event).await;
+    }
+    print_connections(&handles).await;
+
+
+    run_test(handles.clone()).await;
+
+    // cleanup
+    for handle in handles.into_iter() {
+        handle.kill().await.unwrap();
+    }
+
+}
+
 #[instrument]
 pub async fn handle_event(
     event: SwarmResult,
@@ -229,51 +258,46 @@ async fn test_request_response() {
 #[async_std::test]
 #[instrument]
 async fn test_gossip() {
-    color_eyre::install().unwrap();
-    networking_demo::tracing_setup::setup_tracing();
-    // NOTE we want this to panic if we can't spin up the swarms.
-    // that amounts to a failed test.
-    let handles = spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap();
-    for handle in handles.iter() {
-        spawn_handler(handle.clone(), handle_event).await;
-    }
-    print_connections(&handles).await;
-
-    let msg_handle = handles.iter().choose(&mut thread_rng()).unwrap();
-    *msg_handle.state.lock().await = CounterState(5);
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-    let msg_inner = bincode_options
-        .serialize(&CounterMessage::IncrementCounter {
-            from: CounterState(0),
-            to: CounterState(5),
-        })
+    async fn run_test(handles: Vec<Arc<SwarmHandle>>) {
+        let msg_handle = handles.iter().choose(&mut thread_rng()).unwrap();
+        *msg_handle.state.lock().await = CounterState(5);
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let msg_inner = bincode_options
+            .serialize(&CounterMessage::IncrementCounter {
+                from: CounterState(0),
+                to: CounterState(5),
+            })
         .unwrap();
-    let (send, recv) = flume::bounded(1);
-    let msg = SwarmAction::GossipMsg(Topic::new("global"), msg_inner, send);
-    msg_handle.send_chan.send_async(msg).await.unwrap();
-    recv.recv_async().await.unwrap().unwrap();
+        let (send, recv) = flume::bounded(1);
+        let msg = SwarmAction::GossipMsg(Topic::new("global"), msg_inner, send);
+        msg_handle.send_chan.send_async(msg).await.unwrap();
+        recv.recv_async().await.unwrap().unwrap();
 
-    // block to let the gossipping happen
-    sleep(Duration::from_millis(10)).await;
+        // block to let the gossipping happen
+        // TODO make this event driven 
+        // e.g. everyone receives the gossipmsg event
+        // or timeout
+        sleep(Duration::from_millis(10)).await;
 
-    print_connections(&handles).await;
+        print_connections(&handles).await;
 
-    let mut failing_idxs = Vec::new();
-    for (i, handle) in handles.iter().enumerate() {
-        if *handle.state.lock().await != CounterState(5) {
-            failing_idxs.push(i);
+        let mut failing_idxs = Vec::new();
+        for (i, handle) in handles.iter().enumerate() {
+            if *handle.state.lock().await != CounterState(5) {
+                failing_idxs.push(i);
+            }
         }
+        if !failing_idxs.is_empty() {
+            error!(?failing_idxs, "failing idxs!!");
+            panic!("some nodes did not receive the message {:?}", failing_idxs);
+        }
+
     }
 
-    // cleanup
-    for handle in handles.into_iter() {
-        handle.kill().await.unwrap();
-    }
 
-    if !failing_idxs.is_empty() {
-        error!(?failing_idxs, "failing idxs!!");
-        panic!("some nodes did not receive the message {:?}", failing_idxs);
-    }
+
+    test_bed::<_, _>(run_test).await;
+
 }
 
 async fn print_connections(handles: &[Arc<SwarmHandle>]) {
