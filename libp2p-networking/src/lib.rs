@@ -85,6 +85,7 @@ pub struct NetworkDef {
     pub request_response: RequestResponse<DirectMessageCodec>,
     #[behaviour(ignore)]
     pub bootstrap: bool,
+    // TODO separate out into ConnectionData struct
     #[behaviour(ignore)]
     pub connected_peers: HashSet<PeerId>,
     // TODO replace this with a set of queryids
@@ -94,6 +95,13 @@ pub struct NetworkDef {
     pub known_peers: HashSet<PeerId>,
     #[behaviour(ignore)]
     pub ui_events: Vec<SwarmResult>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ConnectionData {
+    pub connected_peers: HashSet<PeerId>,
+    pub connecting_peers: HashSet<PeerId>,
+    pub known_peers: HashSet<PeerId>,
 }
 
 impl NetworkDef {
@@ -299,14 +307,17 @@ impl Network {
                 _ => continue,
             };
         };
-        error!("listen addr: {:?}", addr.clone());
+        info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
         if let Some(known_peer) = known_peer {
             let dialing = known_peer.clone();
             match self.swarm.dial(known_peer) {
                 Ok(_) => {
-                    warn!("Dialed {:?}", dialing);
+                    warn!("peerid {:?} dialed {:?}", self.peer_id, dialing);
                 }
-                Err(e) => error!("Dial {:?} failed: {:?}", dialing, e),
+                Err(e) => error!(
+                    "peerid {:?} dialed {:?} and failed with error: {:?}",
+                    self.peer_id, dialing, e
+                ),
             };
         }
         Ok(addr)
@@ -402,8 +413,8 @@ impl Network {
             identity,
             peer_id,
             broadcast_topic,
-            max_num_peers: 6,
-            min_num_peers: 5,
+            max_num_peers: 600,
+            min_num_peers: 50,
             swarm,
         })
     }
@@ -454,10 +465,15 @@ impl Network {
                         Ok(_) => {
                             self.swarm.behaviour_mut().connecting_peers.insert(a_peer);
                         }
-                        Err(e) => error!("Dial {:?} failed: {:?}", a_peer, e),
+                        Err(e) => {
+                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                        }
                     };
                 }
-            } else if swarm.connected_peers.len() > self.max_num_peers {
+            }
+            // TODO fix this so it does *not* happen on bootstrap nodes
+            // will need to introduce node types
+            else if swarm.connected_peers.len() > self.max_num_peers {
                 // If we are connected to too many peers, try disconnecting from
                 // a random (?) subset
                 let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
