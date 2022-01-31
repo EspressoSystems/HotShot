@@ -9,7 +9,8 @@ use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
 use libp2p::{gossipsub::Topic, Multiaddr, PeerId};
 use networking_demo::{
-    gen_multiaddr, ConnectionData, Network, NetworkError, SwarmAction, SwarmResult,
+    gen_multiaddr, ConnectionData, NetworkError, NetworkNode, NetworkNodeType, SwarmAction,
+    SwarmResult,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 
@@ -68,10 +69,13 @@ pub struct SwarmHandle {
 impl SwarmHandle {
     /// constructs a new node listening on `known_addr`
     #[instrument]
-    pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, HandlerError> {
+    pub async fn new(
+        known_addr: Option<Multiaddr>,
+        node_type: NetworkNodeType,
+    ) -> Result<Self, HandlerError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
-        let mut network = Network::new().await.context(NetworkSnafu)?;
+        let mut network = NetworkNode::new(node_type).await.context(NetworkSnafu)?;
         let peer_id = network.peer_id;
         let listen_addr = network
             .start(listen_addr, known_addr)
@@ -119,7 +123,7 @@ impl SwarmHandle {
 #[instrument]
 pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, HandlerError> {
     // FIXME change API to accomodate multiple bootstrap nodes
-    let bootstrap = SwarmHandle::new(None).await?;
+    let bootstrap = SwarmHandle::new(None, NetworkNodeType::Bootstrap).await?;
     let bootstrap_addr = bootstrap.listen_addr.clone();
     info!(
         "boostrap node {} on addr {}",
@@ -132,7 +136,7 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
     let mut handles = Vec::new();
     for _ in 0..(num_of_nodes - 1) {
         handles.push(Arc::new(
-            SwarmHandle::new(Some(bootstrap_addr.clone())).await?,
+            SwarmHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular).await?,
         ));
         sleep(Duration::from_secs(1)).await;
     }

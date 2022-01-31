@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::{gen_multiaddr, Network, SwarmAction};
+use networking_demo::{gen_multiaddr, NetworkNode, NetworkNodeType, SwarmAction};
 
 /// command line arguments
 #[derive(StructOpt)]
@@ -37,7 +37,9 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let mut networking: Network = Network::new().await.context("Failed to launch network")?;
+    let mut networking: NetworkNode = NetworkNode::new(NetworkNodeType::Regular)
+        .await
+        .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
     let known_peer = CliOpt::from_args().first_dial;
     let listen_addr = gen_multiaddr(port);

@@ -239,8 +239,19 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
     }
 }
 
+/// this is mostly to estimate how many network connections
+/// a node should allow
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum NetworkNodeType {
+    /// bootstrap node accepts all connections
+    Bootstrap,
+    /// regular node has a limit to the
+    /// number of connections to accept
+    Regular,
+}
+
 /// Network definition
-pub struct Network {
+pub struct NetworkNode {
     /// pub/private key from with peer_id is derived
     pub identity: Keypair,
     /// peer id of network node
@@ -253,6 +264,8 @@ pub struct Network {
     pub max_num_peers: usize,
     /// minimum numer of connections to maintain
     pub min_num_peers: usize,
+    /// the type of node the network is
+    pub node_type: NetworkNodeType,
 }
 
 /// Actions to send from the client to the swarm
@@ -329,7 +342,7 @@ pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, 
         .boxed())
 }
 
-impl Network {
+impl NetworkNode {
     /// starts the swarm listening on `listen_addr`
     /// and optionally dials into peer `known_peer`
     /// returns the address the swarm is listening upon
@@ -370,7 +383,7 @@ impl Network {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new() -> Result<Self, NetworkError> {
+    pub async fn new(node_type: NetworkNodeType) -> Result<Self, NetworkError> {
         // Generate a random PeerId
         let identity = Keypair::generate_ed25519();
         let peer_id = PeerId::from(identity.public());
@@ -455,6 +468,7 @@ impl Network {
             max_num_peers: 600,
             min_num_peers: 50,
             swarm,
+            node_type,
         })
     }
 
@@ -510,9 +524,10 @@ impl Network {
                     };
                 }
             }
-            // TODO fix this so it does *not* happen on bootstrap nodes
-            // will need to introduce node types
-            else if swarm.connected_peers.len() > self.max_num_peers {
+            // NOTE only prune node connections if we aren't a bootstrap node
+            else if swarm.connected_peers.len() > self.max_num_peers
+                && self.node_type == NetworkNodeType::Regular
+            {
                 // If we are connected to too many peers, try disconnecting from
                 // a random (?) subset
                 let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
