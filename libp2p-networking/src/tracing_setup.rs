@@ -100,12 +100,8 @@ fn internal_setup_tracing(writer: BoxMakeWriter) {
     };
 }
 
+/// set up the tracer
 pub fn setup_tracing() {
     let writer = parse_writer();
-    internal_setup_tracing(writer);
-}
-
-pub fn setup_tracing_test() {
-    let writer = BoxMakeWriter::new(fmt::writer::TestWriter::new());
     internal_setup_tracing(writer);
 }

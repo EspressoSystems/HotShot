@@ -1,5 +1,9 @@
 # USAGE
 
+Networking library inteded for use with Phaselock. Builds upon abstractions on libp2p-rs.
+
+## CLI Demo
+
 To get very verbose logging:
 
 ```bash
@@ -20,10 +24,21 @@ nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- 
 nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release -- /ip4/127.0.0.1/tcp/8888 -p 9999"
 ```
 
-At this point one may kill/start more nodes. The idea is that each node will continue to attempt to connect to nodes
+At this point the idea is that each node will continue to attempt to connect to nodes
 until it hits at least 5 peers.
 
-Node reconnection has a ui bug but seems to functionally work. I suspect this is a idiosynrasy with
-local ports.
+Use `Tab` to switch between messages and prompt. Press `Enter` to broadcast a message to all connected nodes.
+Press `Right Arrow` to direct-send a message to a randomly selected peer.
+Press `q` to quit the program from the messages view.
 
+## Counter Tests
 
+`cargo test --release`
+
+spawns off two tests. One that uses gossipsub to broadcast a counter increment, and another that increments a counter directly.
+
+This often times fails on MacOS due to "too many open files." The fix here is:
+
+```bash
+ulimit -n 10240
+```

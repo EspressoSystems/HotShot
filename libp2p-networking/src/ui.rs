@@ -1,5 +1,7 @@
+#![allow(missing_docs)]
 use async_std::task::{sleep, spawn};
 
+use bincode::Options;
 use color_eyre::{
     eyre::{Result, WrapErr},
     Report,
@@ -7,7 +9,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::PeerId;
+use libp2p::{gossipsub::Topic, PeerId};
 use parking_lot::Mutex;
 
 use std::{
@@ -15,7 +17,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tracing::instrument;
+use tracing::{info_span, instrument, Instrument};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
@@ -35,8 +37,8 @@ pub enum InputMode {
 #[derive(Debug)]
 /// Struct for the TUI app
 pub struct TableApp {
-    pub send_swarm: Sender<SwarmAction<Message>>,
-    pub recv_swarm: Receiver<SwarmResult<Message>>,
+    pub send_swarm: Sender<SwarmAction>,
+    pub recv_swarm: Receiver<SwarmResult>,
     pub input_mode: InputMode,
     pub input: String,
     pub state: TableState,
@@ -46,10 +48,11 @@ pub struct TableApp {
 }
 
 impl TableApp {
+    #[instrument]
     pub fn new(
         message_buffer: Arc<Mutex<VecDeque<Message>>>,
-        send_swarm: Sender<SwarmAction<Message>>,
-        recv_swarm: Receiver<SwarmResult<Message>>,
+        send_swarm: Sender<SwarmAction>,
+        recv_swarm: Receiver<SwarmResult>,
     ) -> Self {
         Self {
             send_swarm,
@@ -62,12 +65,15 @@ impl TableApp {
             known_peer_list: Arc::new(Mutex::new(HashSet::new())),
         }
     }
+
+    #[instrument]
     pub fn next(&mut self) {
         let buffer_handle = self.message_buffer.lock();
         let i = self.state.selected().unwrap_or(0) + 1;
         self.state.select(Some(i % buffer_handle.len()));
     }
 
+    #[instrument]
     pub fn previous(&mut self) {
         let buffer_handle = self.message_buffer.lock();
         let i = match self.state.selected() {
@@ -87,6 +93,8 @@ impl TableApp {
 #[allow(clippy::mut_mut, clippy::panic)]
 #[instrument(skip(terminal, app))]
 pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) -> Result<()> {
+    #[allow(clippy::enum_glob_use)]
+    use SwarmResult::*;
     let mut events = event::EventStream::new();
     loop {
         terminal
@@ -99,21 +107,26 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        SwarmResult::DirectMessage(m) | SwarmResult::GossipMsg(m) => app.message_buffer.lock().push_back(m),
-                        SwarmResult::UpdateConnectedPeers(peer_set) => {
+                        DirectRequest(m, _) | SwarmResult::GossipMsg(m) => {
+                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                            let msg : Message = bincode_options.deserialize(&m)?;
+                            app.message_buffer.lock().push_back(msg);
+                        },
+                        UpdateConnectedPeers(peer_set) => {
                             *app.connected_peer_list.lock() = peer_set.clone();
                         }
-                        SwarmResult::UpdateKnownPeers(peer_set) => {
+                        UpdateKnownPeers(peer_set) => {
                             *app.known_peer_list.lock() = peer_set.clone();
                         }
+                        DirectResponse(_) => { /* NOTE unimplemented in this example */ }
                     }
                 }
             },
             // user driven events
             user_event = events.next().fuse() => {
+                if let Some(Ok(Event::Key(key))) = user_event {
                 match app.input_mode {
                     InputMode::Normal => {
-                        if let Some(Ok(Event::Key(key))) = user_event {
                             match key.code {
                                 KeyCode::Char('q') => {
                                     app.send_swarm.send_async(SwarmAction::Shutdown).await?;
@@ -124,10 +137,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                 KeyCode::Tab => app.input_mode = InputMode::Editing,
                                 _ => {}
                             }
-                        }
+
                     }
                     InputMode::Editing => {
-                        if let Some(Ok(Event::Key(key))) = user_event {
                             match key.code {
                                 // right arrow key sends a direct message
                                 // over a substream to an arbitrary connected peer
@@ -144,11 +156,14 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                                 content: app.input,
                                                 sender: r.recv_async().await?.to_string(),
                                             };
-                                            send_swarm.send_async(SwarmAction::DirectMessage(selected_peer, msg.clone())).await?;
+                                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                                            let s_msg = bincode_options.serialize(&msg)?;
+                                            send_swarm.send_async(SwarmAction::DirectRequest(selected_peer, s_msg)).await?;
                                             mb_handle.lock().push_back(msg);
                                             // if it's a duplicate message (error case), fail silently and do nothing
                                             Result::<(), Report>::Ok(())
-                                        });
+                                        }.instrument(info_span!("Direct Message Handler")),
+                                        );
                                     }
                                     app.input = String::new();
                                 }
@@ -166,13 +181,15 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             sender: r.recv_async().await?.to_string(),
                                         };
                                         let (s, r) = flume::bounded(1);
-                                        send_swarm.send_async(SwarmAction::GossipMsg(msg.clone(), s)).await?;
+                                        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                                        let s_msg = bincode_options.serialize(&msg)?;
+                                        send_swarm.send_async(SwarmAction::GossipMsg(Topic::new(msg.topic.clone()), s_msg, s)).await?;
                                         // if it's a duplicate message (error case), fail silently and do nothing
                                         if r.recv_async().await?.is_ok() {
                                             mb_handle.lock().push_back(msg);
                                         }
                                         Result::<(), Report>::Ok(())
-                                    });
+                                    }.instrument(info_span!("Broadcast Handler")));
                                     app.input = String::new();
                                 }
                                 KeyCode::Char(c) => {
@@ -186,11 +203,10 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                 }
                                 _ => {}
                             }
-                        }
-                    }
-                }
-            }
 
+                    }
+                }}
+            }
         );
     }
 }
