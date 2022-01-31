@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use async_std::task::{sleep, spawn};
 
 use bincode::Options;

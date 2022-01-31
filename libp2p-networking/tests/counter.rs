@@ -148,7 +148,7 @@ where
     F: FnOnce(Vec<Arc<SwarmHandle>>) -> Fut,
 {
     // only call once otherwise panics
-    // https://github.com/yaahc/color-eyre/issues/78
+    // <https://github.com/yaahc/color-eyre/issues/78>
     INIT.call_once(|| {
         color_eyre::install().unwrap();
         networking_demo::tracing_setup::setup_tracing();
@@ -215,7 +215,7 @@ pub async fn handle_event(
                     }
                     // NOTE doesn't make sense as request type
                     // TODO maybe should check this at the type level
-                    CounterMessage::MyCounterIs(_) => {}
+                    MyCounterIs(_) => {}
                 }
             }
         }

@@ -2,7 +2,7 @@
     clippy::all,
     clippy::pedantic,
     rust_2018_idioms,
-    // missing_docs,
+    missing_docs,
     // clippy::missing_docs_in_private_items,
     clippy::panic
 )]
@@ -13,10 +13,13 @@
     clippy::similar_names,
     clippy::unused_self
 )]
+//! Library for p2p communication
 
 // FIXME debug impl for Network, NetworkDef
 
+/// Direct Messages between two nodes
 pub mod direct_message;
+/// wrapper for tracing niceties
 pub mod tracing_setup;
 
 use async_std::task::{sleep, spawn};
@@ -65,11 +68,18 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 
 use crate::direct_message::DirectMessageProtocol;
 
+/// example message used by the UI library
 pub mod message;
+/// UI library for clichat example
 pub mod ui;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "SwarmResult", poll_method = "poll", event_process = true)]
+/// Overarching network behaviour performing:
+/// - network topology discovoery
+/// - direct messaging
+/// - p2p broadcast
+/// - connection management
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
@@ -82,24 +92,33 @@ pub struct NetworkDef {
     pub identify: Identify,
     /// purpose: directly messaging peer
     pub request_response: RequestResponse<DirectMessageCodec>,
+    /// if the node has been bootstrapped into the kademlia network
     #[behaviour(ignore)]
     pub bootstrap: bool,
     // TODO separate out into ConnectionData struct
+    /// set of connected peers
     #[behaviour(ignore)]
     pub connected_peers: HashSet<PeerId>,
     // TODO replace this with a set of queryids
+    /// set of currently connecting peers
     #[behaviour(ignore)]
     pub connecting_peers: HashSet<PeerId>,
+    /// set of peers that were at one point connected
     #[behaviour(ignore)]
     pub known_peers: HashSet<PeerId>,
+    /// set of events to send to UI
     #[behaviour(ignore)]
-    pub ui_events: Vec<SwarmResult>,
+    pub client_event_queue: Vec<SwarmResult>,
 }
 
+/// metadata about connections
 #[derive(Default, Debug, Clone)]
 pub struct ConnectionData {
+    /// set of currently connecting peers
     pub connected_peers: HashSet<PeerId>,
+    /// set of peers that were at one point connected
     pub connecting_peers: HashSet<PeerId>,
+    /// set of events to send to UI
     pub known_peers: HashSet<PeerId>,
 }
 
@@ -112,9 +131,9 @@ impl NetworkDef {
     {
         // push events that must be relayed back to UI onto queue
         // to be consumed by UI event handler
-        if !self.ui_events.is_empty() {
+        if !self.client_event_queue.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                self.ui_events.remove(0),
+                self.client_event_queue.remove(0),
             ));
         }
 
@@ -126,7 +145,7 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
     fn inject_event(&mut self, event: GossipsubEvent) {
         info!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
-            self.ui_events.push(SwarmResult::GossipMsg(message.data));
+            self.client_event_queue.push(SwarmResult::GossipMsg(message.data));
         }
     }
 }
@@ -156,7 +175,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                         for peer in peers {
                             self.known_peers.insert(peer);
                         }
-                        self.ui_events
+                        self.client_event_queue
                             .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
                     }
                     _ => {}
@@ -169,7 +188,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 ..
             } => {
                 self.known_peers.insert(peer);
-                self.ui_events
+                self.client_event_queue
                     .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
             }
             _ => {}
@@ -184,7 +203,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
                 self.kadem.add_address(&peer_id, addr.clone());
             }
             self.known_peers.insert(peer_id);
-            self.ui_events
+            self.client_event_queue
                 .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
         }
     }
@@ -204,48 +223,68 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                     channel,
                     ..
                 } => {
-                    self.ui_events
+                    self.client_event_queue
                         .push(SwarmResult::DirectRequest(msg, channel));
                 }
                 RequestResponseMessage::Response {
                     response: DirectMessageResponse(msg),
                     ..
                 } => {
-                    self.ui_events.push(SwarmResult::DirectResponse(msg));
+                    self.client_event_queue.push(SwarmResult::DirectResponse(msg));
                 }
             }
         }
     }
 }
 
+/// Network definition
 pub struct Network {
+    /// pub/private key from with peer_id is derived
     pub identity: Keypair,
+    /// peer id of network node
     pub peer_id: PeerId,
+    /// TODO do we need this
     pub broadcast_topic: Topic,
+    /// the swarm of networkbehaviours
     pub swarm: Swarm<NetworkDef>,
+    /// maximum number of connections to maintain
     pub max_num_peers: usize,
+    /// minimum numer of connections to maintain
     pub min_num_peers: usize,
 }
 
+/// Actions to send from the client to the swarm
 #[derive(Debug)]
 pub enum SwarmAction {
+    /// kill the swarm
     Shutdown,
+    /// broadcast a serialized message
     GossipMsg(Topic, Vec<u8>, Sender<Result<(), NetworkError>>),
+    /// send the peer id
     GetId(Sender<PeerId>),
+    /// subscribe to a topic
     Subscribe(String),
+    /// unsubscribe from a topic
     Unsubscribe(String),
+    /// direct message a serialized message
     DirectRequest(PeerId, Vec<u8>),
+    /// direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
 }
 
 /// events generated by the swarm that we wish
-/// to relay to UI
+/// to relay to the client
 #[derive(Debug)]
 pub enum SwarmResult {
+    /// connected to a new peer
     UpdateConnectedPeers(HashSet<PeerId>),
+    /// discovered a new peer
     UpdateKnownPeers(HashSet<PeerId>),
+    /// recv-ed a broadcast
     GossipMsg(Vec<u8>),
+    /// recv-ed a direct message from a node
     DirectRequest(Vec<u8>, ResponseChannel<DirectMessageResponse>),
+    /// recv-ed a direct response from a node
     DirectResponse(Vec<u8>),
 }
 
@@ -400,7 +439,7 @@ impl Network {
                 connected_peers: HashSet::new(),
                 connecting_peers: HashSet::new(),
                 known_peers: HashSet::new(),
-                ui_events: Vec::new(),
+                client_event_queue: Vec::new(),
                 bootstrap: false,
             };
 
@@ -718,6 +757,7 @@ impl Network {
     }
 }
 
+/// wrapper type for errors generated by the `Network`
 #[derive(Debug, Snafu)]
 pub enum NetworkError {
     /// Error during dialing or listening
@@ -748,7 +788,10 @@ pub enum NetworkError {
     /// the type of message.
     StreamClosed,
     /// Error publishing a gossipsub message
-    PublishError { source: PublishError },
+    PublishError { 
+        /// The underlying source of the error
+        source: PublishError 
+    },
     /// Error when there are no known peers to bootstrap off
     NoKnownPeers,
 }

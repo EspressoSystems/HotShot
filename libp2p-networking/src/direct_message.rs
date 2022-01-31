@@ -10,13 +10,17 @@ use libp2p::{
 };
 use serde::{Deserialize, Serialize};
 
+/// the protocol for direct messages
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
+/// the codec for direct messages
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectMessageCodec();
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// wrapper type describing a serialized direct message
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectMessageRequest(pub Vec<u8>);
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// wrapper type describing the response to direct message
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectMessageResponse(pub Vec<u8>);
 
 impl ProtocolName for DirectMessageProtocol {
