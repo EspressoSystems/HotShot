@@ -300,7 +300,7 @@ async fn test_request_response() {
         // TODO make this event driven
         // e.g. everyone receives the gossipmsg event
         // or timeout
-        sleep(Duration::from_millis(10)).await;
+        sleep(Duration::from_secs(1)).await;
 
         for handle in handles.iter() {
             let expected_state =

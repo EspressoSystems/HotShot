@@ -15,8 +15,6 @@
 )]
 //! Library for p2p communication
 
-// FIXME debug impl for Network, NetworkDef
-
 /// Direct Messages between two nodes
 pub mod direct_message;
 /// wrapper for tracing niceties
@@ -25,6 +23,7 @@ pub mod tracing_setup;
 use async_std::task::{sleep, spawn};
 use direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use rand::{seq::IteratorRandom, thread_rng};
+use std::fmt::Debug;
 use std::{
     collections::HashSet,
     io::Error,
@@ -109,6 +108,17 @@ pub struct NetworkDef {
     /// set of events to send to UI
     #[behaviour(ignore)]
     pub client_event_queue: Vec<SwarmResult>,
+}
+
+impl Debug for NetworkDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetworkDef")
+            .field("bootstrap", &self.bootstrap)
+            .field("connected_peers", &self.connected_peers)
+            .field("connecting_peers", &self.connecting_peers)
+            .field("known_peers", &self.known_peers)
+            .finish()
+    }
 }
 
 /// metadata about connections
@@ -266,6 +276,19 @@ pub struct NetworkNode {
     pub min_num_peers: usize,
     /// the type of node the network is
     pub node_type: NetworkNodeType,
+}
+
+impl Debug for NetworkNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Network")
+            .field("peer_id", &self.peer_id)
+            .field("broadcast_topic", &self.broadcast_topic)
+            .field("swarm", self.swarm.behaviour())
+            .field("max_num_peers", &self.max_num_peers)
+            .field("min_num_peers", &self.min_num_peers)
+            .field("node_type", &self.node_type)
+            .finish()
+    }
 }
 
 /// Actions to send from the client to the swarm
