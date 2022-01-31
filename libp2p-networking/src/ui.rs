@@ -16,7 +16,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tracing::instrument;
+use tracing::{info_span, instrument, Instrument};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
@@ -47,6 +47,7 @@ pub struct TableApp {
 }
 
 impl TableApp {
+    #[instrument]
     pub fn new(
         message_buffer: Arc<Mutex<VecDeque<Message>>>,
         send_swarm: Sender<SwarmAction>,
@@ -63,12 +64,15 @@ impl TableApp {
             known_peer_list: Arc::new(Mutex::new(HashSet::new())),
         }
     }
+
+    #[instrument]
     pub fn next(&mut self) {
         let buffer_handle = self.message_buffer.lock();
         let i = self.state.selected().unwrap_or(0) + 1;
         self.state.select(Some(i % buffer_handle.len()));
     }
 
+    #[instrument]
     pub fn previous(&mut self) {
         let buffer_handle = self.message_buffer.lock();
         let i = match self.state.selected() {
@@ -157,7 +161,8 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             mb_handle.lock().push_back(msg);
                                             // if it's a duplicate message (error case), fail silently and do nothing
                                             Result::<(), Report>::Ok(())
-                                        });
+                                        }.instrument(info_span!("Direct Message Handler")),
+                                        );
                                     }
                                     app.input = String::new();
                                 }
@@ -183,7 +188,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             mb_handle.lock().push_back(msg);
                                         }
                                         Result::<(), Report>::Ok(())
-                                    });
+                                    }.instrument(info_span!("Broadcast Handler")));
                                     app.input = String::new();
                                 }
                                 KeyCode::Char(c) => {

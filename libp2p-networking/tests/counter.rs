@@ -16,10 +16,13 @@ use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 
 use snafu::{ResultExt, Snafu};
-use tracing::{error, info_span, instrument, warn, Instrument};
+use std::sync::Once;
+use tracing::{error, info, info_span, instrument, warn, Instrument};
 
 pub type Counter = u8;
 const TOTAL_NUM_PEERS: usize = 20;
+
+static INIT: Once = Once::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum CounterMessage {
@@ -104,7 +107,7 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
     // FIXME change API to accomodate multiple bootstrap nodes
     let bootstrap = SwarmHandle::new(None).await?;
     let bootstrap_addr = bootstrap.listen_addr.clone();
-    warn!(
+    info!(
         "boostrap node {} on addr {}",
         bootstrap.peer_id, bootstrap_addr
     );
@@ -123,24 +126,27 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
 }
 
 /// general function to spin up testing infra
-/// perform tests
-/// then return
-// pub async fn test_bed<Fut>(run_test: impl FnOnce(&[Arc<SwarmHandle>]) -> Fut) where
-//     Fut: Future<Output = ()>,
-pub async fn test_bed<F, Fut>(run_test: F) where
+/// perform tests by calling `run_test`
+/// then cleanup
+pub async fn test_bed<F, Fut>(run_test: F)
+where
     Fut: Future<Output = ()>,
-    F: FnOnce(Vec<Arc<SwarmHandle>>) -> Fut
+    F: FnOnce(Vec<Arc<SwarmHandle>>) -> Fut,
 {
-    color_eyre::install().unwrap();
-    networking_demo::tracing_setup::setup_tracing();
+    // only call once otherwise panics
+    // https://github.com/yaahc/color-eyre/issues/78
+    INIT.call_once(|| {
+        color_eyre::install().unwrap();
+        networking_demo::tracing_setup::setup_tracing();
+    });
+
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
-    let handles : Vec<Arc<SwarmHandle>> = spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap().try_into().unwrap();
+    let handles: Vec<Arc<SwarmHandle>> = spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap();
     for handle in handles.iter() {
         spawn_handler(handle.clone(), handle_event).await;
     }
     print_connections(&handles).await;
-
 
     run_test(handles.clone()).await;
 
@@ -148,7 +154,6 @@ pub async fn test_bed<F, Fut>(run_test: F) where
     for handle in handles.into_iter() {
         handle.kill().await.unwrap();
     }
-
 }
 
 #[instrument]
@@ -240,25 +245,59 @@ pub async fn spawn_handler<Fut>(
     );
 }
 
+// given a slice of handles assumed to be larger than 0
+// chooses one
+// # Panics
+// panics if handles is of length 0
+pub fn get_random_handle(handles: &[Arc<SwarmHandle>]) -> Arc<SwarmHandle> {
+    handles.iter().choose(&mut thread_rng()).unwrap().clone()
+}
+
 /// check that we can direct message to increment counter
 #[async_std::test]
 #[instrument]
 async fn test_request_response() {
-    // NOTE we want this to panic if we can't spin up the swarms.
-    // that amounts to a failed test.
-    let handles = spin_up_swarms(3).await.unwrap();
+    async fn run_request_response(handles: Vec<Arc<SwarmHandle>>) {
+        let send_handle = get_random_handle(handles.as_slice());
+        let recv_handle = get_random_handle(handles.as_slice());
 
-    // cleanup
-    for handle in handles.into_iter() {
-        handle.kill().await.unwrap();
+        *send_handle.state.lock().await = CounterState(5);
+
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let msg_inner = bincode_options
+            .serialize(&CounterMessage::IncrementCounter {
+                from: CounterState(0),
+                to: CounterState(5),
+            })
+            .unwrap();
+        let msg = SwarmAction::DirectRequest(recv_handle.peer_id, msg_inner);
+        send_handle.send_chan.send_async(msg).await.unwrap();
+
+        // block to let the direction message
+        // TODO make this event driven
+        // e.g. everyone receives the gossipmsg event
+        // or timeout
+        sleep(Duration::from_millis(10)).await;
+
+        for handle in handles.iter() {
+            let expected_state =
+                if handle.peer_id == send_handle.peer_id || handle.peer_id == recv_handle.peer_id {
+                    CounterState(5)
+                } else {
+                    CounterState::default()
+                };
+            assert_eq!(*handle.state.lock().await, expected_state);
+        }
     }
+
+    test_bed(run_request_response).await
 }
 
 /// check that we can broadcast a message out and get counter increments
 #[async_std::test]
 #[instrument]
 async fn test_gossip() {
-    async fn run_test(handles: Vec<Arc<SwarmHandle>>) {
+    async fn run_gossip(handles: Vec<Arc<SwarmHandle>>) {
         let msg_handle = handles.iter().choose(&mut thread_rng()).unwrap();
         *msg_handle.state.lock().await = CounterState(5);
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
@@ -267,19 +306,17 @@ async fn test_gossip() {
                 from: CounterState(0),
                 to: CounterState(5),
             })
-        .unwrap();
+            .unwrap();
         let (send, recv) = flume::bounded(1);
         let msg = SwarmAction::GossipMsg(Topic::new("global"), msg_inner, send);
         msg_handle.send_chan.send_async(msg).await.unwrap();
         recv.recv_async().await.unwrap().unwrap();
 
         // block to let the gossipping happen
-        // TODO make this event driven 
+        // TODO make this event driven
         // e.g. everyone receives the gossipmsg event
         // or timeout
         sleep(Duration::from_millis(10)).await;
-
-        print_connections(&handles).await;
 
         let mut failing_idxs = Vec::new();
         for (i, handle) in handles.iter().enumerate() {
@@ -291,24 +328,20 @@ async fn test_gossip() {
             error!(?failing_idxs, "failing idxs!!");
             panic!("some nodes did not receive the message {:?}", failing_idxs);
         }
-
     }
 
-
-
-    test_bed::<_, _>(run_test).await;
-
+    test_bed(run_gossip).await;
 }
 
 async fn print_connections(handles: &[Arc<SwarmHandle>]) {
-    error!("PRINTING CONNECTION STATES");
+    warn!("PRINTING CONNECTION STATES");
     for (i, handle) in handles.iter().enumerate() {
-        error!(
+        warn!(
             "peer {}, connected to {:?}",
             i,
             handle.connection_state.lock().await.connected_peers
         );
-        error!(
+        warn!(
             "peer {}, knowns about {:?}",
             i,
             handle.connection_state.lock().await.known_peers

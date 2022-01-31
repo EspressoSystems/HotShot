@@ -14,7 +14,6 @@
     clippy::unused_self
 )]
 
-// FIXME instrument all functions
 // FIXME debug impl for Network, NetworkDef
 
 pub mod direct_message;
@@ -125,9 +124,8 @@ impl NetworkDef {
 
 impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
     fn inject_event(&mut self, event: GossipsubEvent) {
-        error!(?event, "gossipsub msg recv-ed");
+        info!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
-            error!("correct message form");
             self.ui_events.push(SwarmResult::GossipMsg(message.data));
         }
     }
@@ -135,7 +133,7 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
     fn inject_event(&mut self, event: KademliaEvent) {
-        error!(?event, "kadem msg recv-ed");
+        info!(?event, "kadem msg recv-ed");
         match event {
             KademliaEvent::OutboundQueryCompleted { result, .. } => {
                 match result {
@@ -518,7 +516,7 @@ impl Network {
                             .publish(topic, contents.clone())
                             .map(|_| ())
                             .context(PublishSnafu);
-                        error!("publishing reuslt! {:?}", res);
+                        info!("publishing reuslt! {:?}", res);
 
                         // send result back to ui to confirm this isn't a duplicate message
                         chan.send_async(res)
@@ -567,7 +565,7 @@ impl Network {
                             .request_response
                             .send_response(chan, DirectMessageResponse(msg));
                         if let Err(e) = res {
-                            error!(?e, "problem with replying");
+                            error!("Error replying to direct message. {:?}", e);
                         }
                     }
                 }
@@ -700,7 +698,7 @@ impl Network {
                         }
                         event = self.swarm.next() => {
                             if let Some(event) = event {
-                                error!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
@@ -714,7 +712,7 @@ impl Network {
                 }
                 Ok::<(), NetworkError>(())
             }
-            .instrument(info_span!("Libp2p Event Handler")),
+            .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
         );
         Ok((s_input, r_output))
     }
