@@ -24,6 +24,10 @@ const TOTAL_NUM_PEERS: usize = 20;
 
 static INIT: Once = Once::new();
 
+/// Message types. We can either
+/// - increment the Counter
+/// - request a counter value
+/// - reply with a counter value
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum CounterMessage {
     IncrementCounter {
@@ -37,27 +41,32 @@ pub enum CounterMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub struct CounterState(Counter);
 
+/// A handle containing:
+/// - A reference to the state
+/// - Controls for the swarm
+///
 #[derive(Debug)]
 pub struct SwarmHandle {
-    /// the only piece of contested data.
+    /// the state. TODO make this generic
     state: Arc<Mutex<CounterState>>,
     /// send an action to the networkbehaviour
     send_chan: Sender<SwarmAction>,
     /// receive an action from the networkbehaviour
     recv_chan: Receiver<SwarmResult>,
-    /// kill the networkbheaviour
+    /// kill the event handler for events from the swarm
     kill_switch: Sender<()>,
-    /// receiving end of killing the network behaviour
+    /// receiving end of `kill_switch`
     recv_kill: Receiver<()>,
     /// the local address we're listening on
     listen_addr: Multiaddr,
-    /// the peer id
+    /// the peer id of the networkbehaviour
     peer_id: PeerId,
-    /// the connection metadata
+    /// the connection metadata associated with the networkbehaviour
     connection_state: Arc<Mutex<ConnectionData>>,
 }
 
 impl SwarmHandle {
+    /// constructs a new node listening on `known_addr`
     #[instrument]
     pub async fn new(known_addr: Option<Multiaddr>) -> Result<Self, HandlerError> {
         //`randomly assigned port
@@ -88,6 +97,10 @@ impl SwarmHandle {
         })
     }
 
+    /// Cleanly shuts down a swarm node
+    /// This is done by sending a message to
+    /// the swarm event handler to stop handling events
+    /// and a message to the swarm itself to spin down
     #[instrument]
     pub async fn kill(&self) -> Result<(), NetworkError> {
         self.send_chan
@@ -102,6 +115,7 @@ impl SwarmHandle {
     }
 }
 
+/// spins up `num_of_nodes` nodes and connects them to each other
 #[instrument]
 pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, HandlerError> {
     // FIXME change API to accomodate multiple bootstrap nodes
@@ -127,7 +141,7 @@ pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>
 
 /// general function to spin up testing infra
 /// perform tests by calling `run_test`
-/// then cleanup
+/// then cleans up tests
 pub async fn test_bed<F, Fut>(run_test: F)
 where
     Fut: Future<Output = ()>,
@@ -156,6 +170,9 @@ where
     }
 }
 
+/// event handler for events from the swarm
+/// - updates state based on events received
+/// - replies to direct messages
 #[instrument]
 pub async fn handle_event(
     event: SwarmResult,
@@ -212,8 +229,10 @@ pub async fn handle_event(
     Ok(())
 }
 
-// TODO snafu error handler type that is either a serialization error
-// OR channel sending error
+/// Glue function that listens for events from the Swarm corresponding to `handle`
+/// and calls `event_handler` when an event is observed.
+/// The idea is that this function can be used independent of the actual behaviour
+/// we want
 #[instrument(skip(event_handler))]
 pub async fn spawn_handler<Fut>(
     handle: Arc<SwarmHandle>,
@@ -241,14 +260,14 @@ pub async fn spawn_handler<Fut>(
             }
             Ok::<(), HandlerError>(())
         }
-        .instrument(info_span!("Libp2p Event Handler")),
+        .instrument(info_span!("Libp2p Counter Handler")),
     );
 }
 
-// given a slice of handles assumed to be larger than 0
-// chooses one
-// # Panics
-// panics if handles is of length 0
+/// given a slice of handles assumed to be larger than 0
+/// chooses one
+/// # Panics
+/// panics if handles is of length 0
 pub fn get_random_handle(handles: &[Arc<SwarmHandle>]) -> Arc<SwarmHandle> {
     handles.iter().choose(&mut thread_rng()).unwrap().clone()
 }
@@ -333,6 +352,8 @@ async fn test_gossip() {
     test_bed(run_gossip).await;
 }
 
+/// print the connections for each handle in `handles`
+/// useful for debugging
 async fn print_connections(handles: &[Arc<SwarmHandle>]) {
     warn!("PRINTING CONNECTION STATES");
     for (i, handle) in handles.iter().enumerate() {
