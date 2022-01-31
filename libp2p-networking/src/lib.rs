@@ -145,7 +145,8 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
     fn inject_event(&mut self, event: GossipsubEvent) {
         info!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
-            self.client_event_queue.push(SwarmResult::GossipMsg(message.data));
+            self.client_event_queue
+                .push(SwarmResult::GossipMsg(message.data));
         }
     }
 }
@@ -230,7 +231,8 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                     response: DirectMessageResponse(msg),
                     ..
                 } => {
-                    self.client_event_queue.push(SwarmResult::DirectResponse(msg));
+                    self.client_event_queue
+                        .push(SwarmResult::DirectResponse(msg));
                 }
             }
         }
@@ -617,6 +619,7 @@ impl Network {
     }
 
     /// event handler for events emited from the swarm
+    #[allow(clippy::type_complexity)]
     #[instrument(skip(self))]
     async fn handle_swarm_events(
         &mut self,
@@ -712,12 +715,7 @@ impl Network {
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
     /// `mut_mut` is disabled b/c must consume `self`
-    #[allow(
-        clippy::mut_mut,
-        clippy::panic,
-        clippy::single_match,
-        clippy::collapsible_match
-    )]
+    #[allow(clippy::panic)]
     #[instrument(skip(self))]
     pub async fn spawn_listeners(
         mut self,
@@ -788,9 +786,9 @@ pub enum NetworkError {
     /// the type of message.
     StreamClosed,
     /// Error publishing a gossipsub message
-    PublishError { 
+    PublishError {
         /// The underlying source of the error
-        source: PublishError 
+        source: PublishError,
     },
     /// Error when there are no known peers to bootstrap off
     NoKnownPeers,
