@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::{gen_multiaddr, NetworkNode, NetworkNodeType, SwarmAction};
+use networking_demo::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeType};
 
 /// command line arguments
 #[derive(StructOpt)]
@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
     // -- Create the app and run it
     let app = TableApp::new(message_buffer.clone(), send_chan, recv_chan);
     app.send_swarm
-        .send(SwarmAction::Subscribe("global".to_string()))?;
+        .send(ClientRequest::Subscribe("global".to_string()))?;
     let res = run_app(&mut terminal, app).await;
     // -- Tear down the TUI, and restore the terminal
     disable_raw_mode()?;

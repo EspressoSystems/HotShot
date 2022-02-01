@@ -72,18 +72,18 @@ pub mod message;
 /// UI library for clichat example
 pub mod ui;
 
-#[derive(NetworkBehaviour)]
-#[behaviour(out_event = "SwarmResult", poll_method = "poll", event_process = true)]
 /// Overarching network behaviour performing:
 /// - network topology discovoery
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "NetworkEvent", poll_method = "poll", event_process = true)]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
     /// in the future it may be able to do peer discovery and routing
-    /// https://github.com/libp2p/rust-libp2p/issues/2398
+    /// <`https://github.com/libp2p/rust-libp2p/issues/2398>
     pub gossipsub: Gossipsub,
     /// purpose: peer routing
     pub kadem: Kademlia<MemoryStore>,
@@ -107,7 +107,7 @@ pub struct NetworkDef {
     pub known_peers: HashSet<PeerId>,
     /// set of events to send to UI
     #[behaviour(ignore)]
-    pub client_event_queue: Vec<SwarmResult>,
+    pub client_event_queue: Vec<NetworkEvent>,
 }
 
 impl Debug for NetworkDef {
@@ -137,7 +137,7 @@ impl NetworkDef {
         &mut self,
         _cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<SwarmResult, <Self as NetworkBehaviour>::ProtocolsHandler>>
+    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ProtocolsHandler>>
     {
         // push events that must be relayed back to UI onto queue
         // to be consumed by UI event handler
@@ -156,7 +156,7 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
         info!(?event, "gossipsub msg recv-ed");
         if let GossipsubEvent::Message { message, .. } = event {
             self.client_event_queue
-                .push(SwarmResult::GossipMsg(message.data));
+                .push(NetworkEvent::GossipMsg(message.data));
         }
     }
 }
@@ -187,7 +187,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                             self.known_peers.insert(peer);
                         }
                         self.client_event_queue
-                            .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+                            .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
                     }
                     _ => {}
                 }
@@ -200,7 +200,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
             } => {
                 self.known_peers.insert(peer);
                 self.client_event_queue
-                    .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+                    .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
             }
             _ => {}
         }
@@ -215,7 +215,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
             }
             self.known_peers.insert(peer_id);
             self.client_event_queue
-                .push(SwarmResult::UpdateKnownPeers(self.known_peers.clone()));
+                .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
         }
     }
 }
@@ -235,14 +235,14 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                     ..
                 } => {
                     self.client_event_queue
-                        .push(SwarmResult::DirectRequest(msg, channel));
+                        .push(NetworkEvent::DirectRequest(msg, channel));
                 }
                 RequestResponseMessage::Response {
                     response: DirectMessageResponse(msg),
                     ..
                 } => {
                     self.client_event_queue
-                        .push(SwarmResult::DirectResponse(msg));
+                        .push(NetworkEvent::DirectResponse(msg));
                 }
             }
         }
@@ -260,14 +260,14 @@ pub enum NetworkNodeType {
     Regular,
 }
 
+// FIXME split this out into network config + swarm
+
 /// Network definition
 pub struct NetworkNode {
     /// pub/private key from with peer_id is derived
     pub identity: Keypair,
     /// peer id of network node
     pub peer_id: PeerId,
-    /// TODO do we need this
-    pub broadcast_topic: Topic,
     /// the swarm of networkbehaviours
     pub swarm: Swarm<NetworkDef>,
     /// maximum number of connections to maintain
@@ -282,7 +282,6 @@ impl Debug for NetworkNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Network")
             .field("peer_id", &self.peer_id)
-            .field("broadcast_topic", &self.broadcast_topic)
             .field("swarm", self.swarm.behaviour())
             .field("max_num_peers", &self.max_num_peers)
             .field("min_num_peers", &self.min_num_peers)
@@ -293,7 +292,7 @@ impl Debug for NetworkNode {
 
 /// Actions to send from the client to the swarm
 #[derive(Debug)]
-pub enum SwarmAction {
+pub enum ClientRequest {
     /// kill the swarm
     Shutdown,
     /// broadcast a serialized message
@@ -313,7 +312,7 @@ pub enum SwarmAction {
 /// events generated by the swarm that we wish
 /// to relay to the client
 #[derive(Debug)]
-pub enum SwarmResult {
+pub enum NetworkEvent {
     /// connected to a new peer
     UpdateConnectedPeers(HashSet<PeerId>),
     /// discovered a new peer
@@ -337,10 +336,14 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
 /// # Errors
 /// could not sign the noise key with `identity`
 #[instrument(skip(identity))]
-pub async fn gen_transport(identity: Keypair) -> std::io::Result<Boxed<(PeerId, StreamMuxerBox)>> {
+pub async fn gen_transport(
+    identity: Keypair,
+) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
     let transport = {
         let tcp = tcp::TcpConfig::new().nodelay(true);
-        let dns_tcp = dns::DnsConfig::system(tcp).await?;
+        let dns_tcp = dns::DnsConfig::system(tcp)
+            .await
+            .context(TransportLaunchSnafu)?;
         let ws_dns_tcp = websocket::WsConfig::new(dns_tcp.clone());
         dns_tcp.or_transport(ws_dns_tcp)
     };
@@ -402,7 +405,8 @@ impl NetworkNode {
     ///
     /// Currently:
     ///   * Generates a random key pair and associated [`PeerId`]
-    ///   * Launches a development-only type of transport backend
+    ///   * Launches a hopefully production ready transport:
+    ///       TCP + DNS + Websocket + XX auth
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
@@ -411,12 +415,8 @@ impl NetworkNode {
         let identity = Keypair::generate_ed25519();
         let peer_id = PeerId::from(identity.public());
         debug!(?peer_id);
-        let transport: Boxed<(PeerId, StreamMuxerBox)> =
-            libp2p::development_transport(identity.clone())
-                .await
-                .context(TransportLaunchSnafu)?;
+        let transport: Boxed<(PeerId, StreamMuxerBox)> = gen_transport(identity.clone()).await?;
         trace!("Launched network transport");
-        let broadcast_topic = Topic::new("broadcast");
         // Generate the swarm
         let swarm: Swarm<NetworkDef> = {
             // Use the hash of the message's contents as the ID
@@ -487,7 +487,6 @@ impl NetworkNode {
         Ok(Self {
             identity,
             peer_id,
-            broadcast_topic,
             max_num_peers: 600,
             min_num_peers: 50,
             swarm,
@@ -574,20 +573,20 @@ impl NetworkNode {
     /// - unsubscribing from a toipc
     /// - direct messaging a peer
     #[instrument(skip(self))]
-    async fn handle_ui_events(
+    async fn handle_client_requests(
         &mut self,
-        msg: Result<SwarmAction, flume::RecvError>,
+        msg: Result<ClientRequest, flume::RecvError>,
     ) -> Result<bool, NetworkError> {
         match msg {
             Ok(msg) => {
                 #[allow(clippy::enum_glob_use)]
-                use SwarmAction::*;
+                use ClientRequest::*;
                 match msg {
                     Shutdown => {
                         warn!("Libp2p listener shutting down");
                         return Ok(true);
                     }
-                    SwarmAction::GossipMsg(topic, contents, chan) => {
+                    ClientRequest::GossipMsg(topic, contents, chan) => {
                         let res = self
                             .swarm
                             .behaviour_mut()
@@ -662,13 +661,13 @@ impl NetworkNode {
     async fn handle_swarm_events(
         &mut self,
         event: SwarmEvent<
-            SwarmResult,
+            NetworkEvent,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
                 ProtocolsHandlerUpgrErr<Error>,
             >,
         >,
-        send_to_ui: &Sender<SwarmResult>,
+        send_to_ui: &Sender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
@@ -707,7 +706,7 @@ impl NetworkNode {
                         .map_err(|_e| NetworkError::NoKnownPeers)?;
                 }
                 send_to_ui
-                    .send_async(SwarmResult::UpdateConnectedPeers(
+                    .send_async(NetworkEvent::UpdateConnectedPeers(
                         self.swarm.behaviour_mut().connected_peers.clone(),
                     ))
                     .await
@@ -720,13 +719,13 @@ impl NetworkNode {
                 swarm.kadem.remove_peer(&peer_id);
 
                 send_to_ui
-                    .send_async(SwarmResult::UpdateConnectedPeers(
+                    .send_async(NetworkEvent::UpdateConnectedPeers(
                         swarm.connected_peers.clone(),
                     ))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
                 send_to_ui
-                    .send_async(SwarmResult::UpdateKnownPeers(swarm.known_peers.clone()))
+                    .send_async(NetworkEvent::UpdateKnownPeers(swarm.known_peers.clone()))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
@@ -757,9 +756,9 @@ impl NetworkNode {
     #[instrument(skip(self))]
     pub async fn spawn_listeners(
         mut self,
-    ) -> Result<(Sender<SwarmAction>, Receiver<SwarmResult>), NetworkError> {
-        let (s_input, s_output) = unbounded::<SwarmAction>();
-        let (r_input, r_output) = unbounded::<SwarmResult>();
+    ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
+        let (s_input, s_output) = unbounded::<ClientRequest>();
+        let (r_input, r_output) = unbounded::<NetworkEvent>();
 
         spawn(
             async move {
@@ -778,7 +777,7 @@ impl NetworkNode {
                             }
                         },
                         msg = s_output.recv_async() => {
-                            let shutdown = self.handle_ui_events(msg).await?;
+                            let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 break
                             }

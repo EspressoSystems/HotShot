@@ -9,10 +9,11 @@ use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
 use libp2p::{gossipsub::Topic, Multiaddr, PeerId};
 use networking_demo::{
-    gen_multiaddr, ConnectionData, NetworkError, NetworkNode, NetworkNodeType, SwarmAction,
-    SwarmResult,
+    gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
+    NetworkNodeType,
 };
 use rand::{seq::IteratorRandom, thread_rng};
+use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
@@ -47,13 +48,13 @@ pub struct CounterState(Counter);
 /// - Controls for the swarm
 ///
 #[derive(Debug)]
-pub struct SwarmHandle {
+pub struct SwarmHandle<S> {
     /// the state. TODO make this generic
-    state: Arc<Mutex<CounterState>>,
+    state: Arc<Mutex<S>>,
     /// send an action to the networkbehaviour
-    send_chan: Sender<SwarmAction>,
+    send_chan: Sender<ClientRequest>,
     /// receive an action from the networkbehaviour
-    recv_chan: Receiver<SwarmResult>,
+    recv_chan: Receiver<NetworkEvent>,
     /// kill the event handler for events from the swarm
     kill_switch: Sender<()>,
     /// receiving end of `kill_switch`
@@ -66,7 +67,7 @@ pub struct SwarmHandle {
     connection_state: Arc<Mutex<ConnectionData>>,
 }
 
-impl SwarmHandle {
+impl<S: Default + Debug> SwarmHandle<S> {
     /// constructs a new node listening on `known_addr`
     #[instrument]
     pub async fn new(
@@ -85,12 +86,12 @@ impl SwarmHandle {
         let (kill_switch, recv_kill) = flume::bounded(1);
 
         send_chan
-            .send_async(SwarmAction::Subscribe("global".to_string()))
+            .send_async(ClientRequest::Subscribe("global".to_string()))
             .await
             .context(SendSnafu)?;
 
         Ok(SwarmHandle {
-            state: Arc::new(Mutex::new(CounterState::default())),
+            state: Arc::new(Mutex::new(S::default())),
             send_chan,
             recv_chan,
             kill_switch,
@@ -108,7 +109,7 @@ impl SwarmHandle {
     #[instrument]
     pub async fn kill(&self) -> Result<(), NetworkError> {
         self.send_chan
-            .send_async(SwarmAction::Shutdown)
+            .send_async(ClientRequest::Shutdown)
             .await
             .map_err(|_e| NetworkError::StreamClosed)?;
         self.kill_switch
@@ -117,39 +118,43 @@ impl SwarmHandle {
             .map_err(|_e| NetworkError::StreamClosed)?;
         Ok(())
     }
-}
 
-/// spins up `num_of_nodes` nodes and connects them to each other
-#[instrument]
-pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<SwarmHandle>>, HandlerError> {
-    // FIXME change API to accomodate multiple bootstrap nodes
-    let bootstrap = SwarmHandle::new(None, NetworkNodeType::Bootstrap).await?;
-    let bootstrap_addr = bootstrap.listen_addr.clone();
-    info!(
-        "boostrap node {} on addr {}",
-        bootstrap.peer_id, bootstrap_addr
-    );
-    // give a split second to initialize
-    // TODO the proper way to do this is to make it event driven. Once it bootstraps *successfully*
-    // THEN add next peer
-    sleep(Duration::from_secs(1)).await;
-    let mut handles = Vec::new();
-    for _ in 0..(num_of_nodes - 1) {
-        handles.push(Arc::new(
-            SwarmHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular).await?,
-        ));
+    /// spins up `num_of_nodes` nodes and connects them to each other
+    #[instrument]
+    pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
+        // FIXME change API to accomodate multiple bootstrap nodes
+        let bootstrap: SwarmHandle<S> = SwarmHandle::new(None, NetworkNodeType::Bootstrap).await?;
+        let bootstrap_addr = bootstrap.listen_addr.clone();
+        info!(
+            "boostrap node {} on addr {}",
+            bootstrap.peer_id, bootstrap_addr
+        );
+        // give a split second to initialize
+        // TODO the proper way to do this is to make it event driven. Once it bootstraps *successfully*
+        // THEN add next peer
         sleep(Duration::from_secs(1)).await;
+        let mut handles = Vec::new();
+        for _ in 0..(num_of_nodes - 1) {
+            handles.push(Arc::new(
+                SwarmHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular).await?,
+            ));
+            sleep(Duration::from_secs(1)).await;
+        }
+        Ok(handles)
     }
-    Ok(handles)
 }
 
 /// general function to spin up testing infra
 /// perform tests by calling `run_test`
 /// then cleans up tests
-pub async fn test_bed<F, Fut>(run_test: F)
-where
-    Fut: Future<Output = ()>,
-    F: FnOnce(Vec<Arc<SwarmHandle>>) -> Fut,
+pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, FutG>(
+    run_test: F,
+    client_handler: G,
+) where
+    FutF: Future<Output = ()>,
+    FutG: Future<Output = Result<(), HandlerError>> + 'static + Send + Sync,
+    F: FnOnce(Vec<Arc<SwarmHandle<S>>>) -> FutF,
+    G: Fn(NetworkEvent, Arc<SwarmHandle<S>>) -> FutG + 'static + Send + Sync,
 {
     // only call once otherwise panics
     // <https://github.com/yaahc/color-eyre/issues/78>
@@ -160,9 +165,10 @@ where
 
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
-    let handles: Vec<Arc<SwarmHandle>> = spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap();
+    let handles: Vec<Arc<SwarmHandle<S>>> =
+        SwarmHandle::spin_up_swarms(TOTAL_NUM_PEERS).await.unwrap();
     for handle in handles.iter() {
-        spawn_handler(handle.clone(), handle_event).await;
+        spawn_handler(handle.clone(), client_handler.clone()).await;
     }
     print_connections(&handles).await;
 
@@ -178,13 +184,13 @@ where
 /// - updates state based on events received
 /// - replies to direct messages
 #[instrument]
-pub async fn handle_event(
-    event: SwarmResult,
-    handle: Arc<SwarmHandle>,
+pub async fn handle_counter_event(
+    event: NetworkEvent,
+    handle: Arc<SwarmHandle<CounterState>>,
 ) -> Result<(), HandlerError> {
     use CounterMessage::*;
     #[allow(clippy::enum_glob_use)]
-    use SwarmResult::*;
+    use NetworkEvent::*;
     let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     match event {
         GossipMsg(m) | DirectResponse(m) => {
@@ -213,7 +219,7 @@ pub async fn handle_event(
                         // FIXME error handling
                         handle
                             .send_chan
-                            .send_async(SwarmAction::DirectResponse(chan, serialized_response))
+                            .send_async(ClientRequest::DirectResponse(chan, serialized_response))
                             .await
                             .context(SendSnafu)?
                     }
@@ -238,9 +244,9 @@ pub async fn handle_event(
 /// The idea is that this function can be used independent of the actual behaviour
 /// we want
 #[instrument(skip(event_handler))]
-pub async fn spawn_handler<Fut>(
-    handle: Arc<SwarmHandle>,
-    event_handler: impl (Fn(SwarmResult, Arc<SwarmHandle>) -> Fut)
+pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
+    handle: Arc<SwarmHandle<S>>,
+    event_handler: impl (Fn(NetworkEvent, Arc<SwarmHandle<S>>) -> Fut)
         + std::marker::Sync
         + std::marker::Send
         + 'static,
@@ -272,7 +278,7 @@ pub async fn spawn_handler<Fut>(
 /// chooses one
 /// # Panics
 /// panics if handles is of length 0
-pub fn get_random_handle(handles: &[Arc<SwarmHandle>]) -> Arc<SwarmHandle> {
+pub fn get_random_handle<S>(handles: &[Arc<SwarmHandle<S>>]) -> Arc<SwarmHandle<S>> {
     handles.iter().choose(&mut thread_rng()).unwrap().clone()
 }
 
@@ -280,7 +286,7 @@ pub fn get_random_handle(handles: &[Arc<SwarmHandle>]) -> Arc<SwarmHandle> {
 #[async_std::test]
 #[instrument]
 async fn test_request_response() {
-    async fn run_request_response(handles: Vec<Arc<SwarmHandle>>) {
+    async fn run_request_response(handles: Vec<Arc<SwarmHandle<CounterState>>>) {
         let send_handle = get_random_handle(handles.as_slice());
         let recv_handle = get_random_handle(handles.as_slice());
 
@@ -293,7 +299,7 @@ async fn test_request_response() {
                 to: CounterState(5),
             })
             .unwrap();
-        let msg = SwarmAction::DirectRequest(recv_handle.peer_id, msg_inner);
+        let msg = ClientRequest::DirectRequest(recv_handle.peer_id, msg_inner);
         send_handle.send_chan.send_async(msg).await.unwrap();
 
         // block to let the direction message
@@ -313,14 +319,14 @@ async fn test_request_response() {
         }
     }
 
-    test_bed(run_request_response).await
+    test_bed(run_request_response, handle_counter_event).await
 }
 
 /// check that we can broadcast a message out and get counter increments
 #[async_std::test]
 #[instrument]
 async fn test_gossip() {
-    async fn run_gossip(handles: Vec<Arc<SwarmHandle>>) {
+    async fn run_gossip(handles: Vec<Arc<SwarmHandle<CounterState>>>) {
         let msg_handle = handles.iter().choose(&mut thread_rng()).unwrap();
         *msg_handle.state.lock().await = CounterState(5);
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
@@ -331,7 +337,7 @@ async fn test_gossip() {
             })
             .unwrap();
         let (send, recv) = flume::bounded(1);
-        let msg = SwarmAction::GossipMsg(Topic::new("global"), msg_inner, send);
+        let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner, send);
         msg_handle.send_chan.send_async(msg).await.unwrap();
         recv.recv_async().await.unwrap().unwrap();
 
@@ -353,12 +359,12 @@ async fn test_gossip() {
         }
     }
 
-    test_bed(run_gossip).await;
+    test_bed(run_gossip, handle_counter_event).await;
 }
 
 /// print the connections for each handle in `handles`
 /// useful for debugging
-async fn print_connections(handles: &[Arc<SwarmHandle>]) {
+async fn print_connections<S>(handles: &[Arc<SwarmHandle<S>>]) {
     warn!("PRINTING CONNECTION STATES");
     for (i, handle) in handles.iter().enumerate() {
         warn!(
@@ -379,6 +385,6 @@ pub enum HandlerError {
     NetworkError { source: NetworkError },
     SerializationError { source: Box<bincode::ErrorKind> },
     DeserializationError {},
-    SendError { source: SendError<SwarmAction> },
+    SendError { source: SendError<ClientRequest> },
     RecvError { source: RecvError },
 }
