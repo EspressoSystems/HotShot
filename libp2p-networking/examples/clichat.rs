@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeType};
+use networking_demo::network_node::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeType};
 
 /// command line arguments
 #[derive(StructOpt)]

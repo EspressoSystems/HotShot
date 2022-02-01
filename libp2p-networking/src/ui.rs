@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use async_std::task::{sleep, spawn};
 
-use crate::NetworkEvent;
+use crate::network_node::NetworkEvent;
 use bincode::Options;
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -27,7 +27,7 @@ use tui::{
     Frame, Terminal,
 };
 
-use crate::{message::Message, ClientRequest};
+use crate::{message::Message, network_node::ClientRequest};
 
 #[derive(Debug, Copy, Clone)]
 pub enum InputMode {
