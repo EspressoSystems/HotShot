@@ -68,6 +68,7 @@
             };
           };
 
+        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 10240 '');
       in
       {
         packages.${crateName} = project.rootCrate.build;
@@ -78,6 +79,7 @@
         defaultPackage = self.packages.${system}.${crateName};
 
         devShell = pkgs.mkShell {
+          inherit shellHook;
           inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
             with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf]

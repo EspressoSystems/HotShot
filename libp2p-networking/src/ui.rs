@@ -119,7 +119,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                         UpdateKnownPeers(peer_set) => {
                             *app.known_peer_list.lock() = peer_set.clone();
                         }
-                        DirectResponse(_) | SuccessfulBootstrap(_) => { /* NOTE unimplemented in this example */ }
+                        DirectResponse(_) => { /* NOTE unimplemented in this example */ }
                     }
                 }
             },

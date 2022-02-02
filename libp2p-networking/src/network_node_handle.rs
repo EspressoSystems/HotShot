@@ -1,6 +1,6 @@
 use async_std::{
-    sync::Mutex,
-    task::{sleep, spawn},
+    sync::{Condvar, Mutex},
+    task::spawn,
 };
 
 use crate::network_node::{
@@ -8,14 +8,13 @@ use crate::network_node::{
     NetworkNodeType,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
-use futures::{select, Future, FutureExt, future::join};
+use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
 use std::{
     fmt::Debug,
     sync::{Arc, Once},
-    time::Duration,
 };
 use tracing::{info, info_span, instrument, warn, Instrument};
 
@@ -26,6 +25,8 @@ static INIT: Once = Once::new();
 /// - Controls for the swarm
 #[derive(Debug)]
 pub struct NetworkNodeHandle<S> {
+    /// notifies that a state change has occurred
+    pub state_changed: Condvar,
     /// the state of the replica
     pub state: Arc<Mutex<S>>,
     /// send an action to the networkbehaviour
@@ -68,6 +69,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .context(SendSnafu)?;
 
         Ok(NetworkNodeHandle {
+            state_changed: Condvar::new(),
             state: Arc::new(Mutex::new(S::default())),
             send_network: send_chan,
             recv_network: recv_chan,
@@ -99,7 +101,24 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// spins up `num_of_nodes` nodes and connects them to each other
     #[instrument]
     pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
-        use NetworkEvent::*;
+        async fn wait_to_connect(
+            _num_of_nodes: usize,
+            chan: Receiver<NetworkEvent>,
+            node_idx: usize,
+        ) {
+            loop {
+                if let NetworkEvent::UpdateConnectedPeers(pids) =
+                    chan.recv_async().await.context(RecvSnafu).unwrap()
+                {
+                    // FIXME don't hardcode this
+                    if pids.len() >= 15 {
+                        println!("node {} done", node_idx);
+                        break;
+                    }
+                }
+            }
+        }
+
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
             NetworkNodeHandle::new(None, NetworkNodeType::Bootstrap).await?;
@@ -111,25 +130,21 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut handles = Vec::new();
         println!("bootstrap addr is: {:?}", bootstrap_addr);
 
-        async fn wait_to_connect(num_of_nodes: usize, chan: Receiver<NetworkEvent>, node_idx: usize){
-            'a: loop {
-                if let NetworkEvent::UpdateConnectedPeers(pids) = chan.recv_async().await.context(RecvSnafu).unwrap(){
-                    if pids.len() >= 15 {
-                        println!("node {} done", node_idx);
-                        break 'a;
-                    }
-                    else {
-                        println!("node {} connected to {:?} nodes", node_idx, pids.len());
-                    }
-                } 
-            }
-        }
-
-
-        let mut connecting_futs = vec![wait_to_connect(num_of_nodes, bootstrap.recv_network.clone(), 0)];
+        let mut connecting_futs = vec![wait_to_connect(
+            num_of_nodes,
+            bootstrap.recv_network.clone(),
+            0,
+        )];
         for i in 0..(num_of_nodes - 1) {
-            let node = Arc::new(NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular).await?);
-            connecting_futs.push(wait_to_connect(num_of_nodes, node.recv_network.clone(), i+1));
+            let node = Arc::new(
+                NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular)
+                    .await?,
+            );
+            connecting_futs.push(wait_to_connect(
+                num_of_nodes,
+                node.recv_network.clone(),
+                i + 1,
+            ));
 
             handles.push(node);
         }

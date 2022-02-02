@@ -57,17 +57,22 @@ pub async fn counter_handle_network_event(
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     MyCounterIs(c) | CounterMessage::IncrementCounter { to: c, .. } => {
+                        println!("recv-ed");
                         *handle.state.lock().await = c;
+                        handle.state_changed.notify_all();
                     }
                     AskForCounter => {}
                 }
             }
-        },
+        }
         DirectRequest(m, chan) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     IncrementCounter { to, .. } => {
+                        // TODO move the state changes out into a function call that triggers the
+                        // condvar
                         *handle.state.lock().await = to;
+                        handle.state_changed.notify_all();
                     }
                     AskForCounter => {
                         let response = MyCounterIs(handle.state.lock().await.clone());
@@ -83,14 +88,13 @@ pub async fn counter_handle_network_event(
                     MyCounterIs(_) => {}
                 }
             }
-        },
+        }
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;
-        },
+        }
         UpdateKnownPeers(p) => {
             handle.connection_state.lock().await.known_peers = p;
-        },
-        SuccessfulBootstrap(_) => {}
+        }
     };
     Ok(())
 }
@@ -156,14 +160,23 @@ async fn test_gossip() {
             .unwrap();
         let (send, recv) = flume::bounded(1);
         let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner, send);
+
+        let mut futs = Vec::new();
+        println!("starting the wait!");
+        // FIXME create method out of this
+        for (_i, a_handle) in handles.iter().enumerate() {
+            let a_fut = a_handle
+                .state_changed
+                .wait_until(a_handle.state.lock().await, |state| {
+                    *state == CounterState(5)
+                });
+            futs.push(a_fut);
+        }
+
         msg_handle.send_network.send_async(msg).await.unwrap();
         recv.recv_async().await.unwrap().unwrap();
 
-        // block to let the gossipping happen
-        // TODO make this event driven
-        // e.g. everyone receives the gossipmsg event
-        // or timeout
-        sleep(Duration::from_secs(10)).await;
+        futures::future::join_all(futs).await;
 
         let mut failing_idxs = Vec::new();
         for (i, handle) in handles.iter().enumerate() {

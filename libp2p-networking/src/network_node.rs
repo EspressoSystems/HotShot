@@ -145,7 +145,6 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     QueryResult::Bootstrap(r) => {
                         match r {
                             Ok(_bootstrap) => {
-
                                 // we're bootstrapped
                                 // don't bootstrap again
                                 self.bootstrap_in_progress = false;
@@ -166,20 +165,11 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     _ => {}
                 }
             }
-            KademliaEvent::RoutingUpdated {
-                peer,
-                is_new_peer,
-                addresses,
-                ..
-            } => {
+            KademliaEvent::RoutingUpdated { peer, .. } => {
                 self.known_peers.insert(peer);
                 self.client_event_queue
                     .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
-                // TODO maybe this helps?
-                // if !is_new_peer && addresses.len() >= 2 {
-                //     self.client_event_queue.push(NetworkEvent::SuccessfulBootstrap(peer))
-                // }
-            },
+            }
             _ => {}
         }
     }
@@ -291,8 +281,6 @@ pub enum ClientRequest {
 /// to relay to the client
 #[derive(Debug)]
 pub enum NetworkEvent {
-    /// successfully bootstrapped the node
-    SuccessfulBootstrap(PeerId),
     /// connected to a new peer
     UpdateConnectedPeers(HashSet<PeerId>),
     /// discovered a new peer
@@ -368,7 +356,7 @@ impl NetworkNode {
                 // tmp.push_str(&new_addr[new_addr.len()-5..new_addr.len()]);
                 // // new_addr[
                 // break tmp.parse().unwrap();
-            } 
+            }
         };
         info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
         if let Some(known_peer) = known_peer {
