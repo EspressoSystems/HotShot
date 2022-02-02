@@ -12,12 +12,8 @@ use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
-use std::{
-    fmt::Debug,
-    sync::{Arc},
-};
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info, info_span, instrument, Instrument};
-
 
 /// A handle containing:
 /// - A reference to the state
@@ -154,8 +150,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         }
     }
 }
-
-
 
 /// Glue function that listens for events from the Swarm corresponding to `handle`
 /// and calls `event_handler` when an event is observed.

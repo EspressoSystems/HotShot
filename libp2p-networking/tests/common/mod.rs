@@ -1,10 +1,13 @@
 use std::sync::{Arc, Once};
 
 use futures::Future;
-use networking_demo::{network_node::NetworkEvent, network_node_handle::{NetworkNodeHandle, HandlerError, spawn_handler}, tracing_setup};
-use tracing::warn;
+use networking_demo::{
+    network_node::NetworkEvent,
+    network_node_handle::{spawn_handler, HandlerError, NetworkNodeHandle},
+    tracing_setup,
+};
 use std::fmt::Debug;
-
+use tracing::warn;
 
 static INIT: Once = Once::new();
 

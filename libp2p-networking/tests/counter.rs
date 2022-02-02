@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 mod common;
+use async_std::{future::timeout};
 use common::test_bed;
 
 use bincode::Options;
+
 
 use libp2p::gossipsub::Topic;
 use networking_demo::{
@@ -23,6 +25,7 @@ use tracing::{error, instrument, warn};
 pub type Counter = u8;
 
 const TOTAL_NUM_PEERS: usize = 20;
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Message types. We can either
 /// - increment the Counter
@@ -127,7 +130,7 @@ async fn test_request_response() {
             });
         send_handle.send_network.send_async(msg).await.unwrap();
 
-        recv_fut.await;
+        timeout(TIMEOUT, recv_fut).await.unwrap();
 
         for handle in handles.iter() {
             let expected_state =
@@ -176,7 +179,9 @@ async fn test_gossip() {
         msg_handle.send_network.send_async(msg).await.unwrap();
         recv.recv_async().await.unwrap().unwrap();
 
-        futures::future::join_all(futs).await;
+        timeout(TIMEOUT, futures::future::join_all(futs))
+            .await
+            .unwrap();
 
         let mut failing_idxs = Vec::new();
         for (i, handle) in handles.iter().enumerate() {
