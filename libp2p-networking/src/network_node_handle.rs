@@ -8,7 +8,7 @@ use crate::network_node::{
     NetworkNodeType,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
-use futures::{select, Future, FutureExt};
+use futures::{select, Future, FutureExt, future::join};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
@@ -99,6 +99,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// spins up `num_of_nodes` nodes and connects them to each other
     #[instrument]
     pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
+        use NetworkEvent::*;
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
             NetworkNodeHandle::new(None, NetworkNodeType::Bootstrap).await?;
@@ -107,18 +108,32 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             "boostrap node {} on addr {}",
             bootstrap.peer_id, bootstrap_addr
         );
-        // give a split second to initialize
-        // TODO the proper way to do this is to make it event driven. Once it bootstraps *successfully*
-        // THEN add next peer
-        sleep(Duration::from_secs(1)).await;
         let mut handles = Vec::new();
-        for _ in 0..(num_of_nodes - 1) {
-            handles.push(Arc::new(
-                NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular)
-                    .await?,
-            ));
-            sleep(Duration::from_secs(1)).await;
+        println!("bootstrap addr is: {:?}", bootstrap_addr);
+
+        async fn wait_to_connect(num_of_nodes: usize, chan: Receiver<NetworkEvent>, node_idx: usize){
+            'a: loop {
+                if let NetworkEvent::UpdateConnectedPeers(pids) = chan.recv_async().await.context(RecvSnafu).unwrap(){
+                    if pids.len() >= 15 {
+                        println!("node {} done", node_idx);
+                        break 'a;
+                    }
+                    else {
+                        println!("node {} connected to {:?} nodes", node_idx, pids.len());
+                    }
+                } 
+            }
         }
+
+
+        let mut connecting_futs = vec![wait_to_connect(num_of_nodes, bootstrap.recv_network.clone(), 0)];
+        for i in 0..(num_of_nodes - 1) {
+            let node = Arc::new(NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular).await?);
+            connecting_futs.push(wait_to_connect(num_of_nodes, node.recv_network.clone(), i+1));
+
+            handles.push(node);
+        }
+        futures::future::join_all(connecting_futs.into_iter()).await;
         Ok(handles)
     }
 }

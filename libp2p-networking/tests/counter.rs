@@ -62,7 +62,7 @@ pub async fn counter_handle_network_event(
                     AskForCounter => {}
                 }
             }
-        }
+        },
         DirectRequest(m, chan) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
@@ -83,13 +83,14 @@ pub async fn counter_handle_network_event(
                     MyCounterIs(_) => {}
                 }
             }
-        }
+        },
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;
-        }
+        },
         UpdateKnownPeers(p) => {
             handle.connection_state.lock().await.known_peers = p;
-        }
+        },
+        SuccessfulBootstrap(_) => {}
     };
     Ok(())
 }
@@ -162,7 +163,7 @@ async fn test_gossip() {
         // TODO make this event driven
         // e.g. everyone receives the gossipmsg event
         // or timeout
-        sleep(Duration::from_millis(10)).await;
+        sleep(Duration::from_secs(10)).await;
 
         let mut failing_idxs = Vec::new();
         for (i, handle) in handles.iter().enumerate() {
