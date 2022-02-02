@@ -1,4 +1,5 @@
 use async_std::{
+    future::{timeout, TimeoutError},
     sync::{Condvar, Mutex},
     task::spawn,
 };
@@ -12,7 +13,7 @@ use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 use tracing::{info, info_span, instrument, Instrument};
 
 /// A handle containing:
@@ -96,7 +97,10 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// Spins up `num_of_nodes` nodes, connects them to each other
     /// and waits for connections to propagate to all nodes.
     #[instrument]
-    pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
+    pub async fn spin_up_swarms(
+        num_of_nodes: usize,
+        timeout_len: Duration,
+    ) -> Result<Vec<Arc<Self>>, HandlerError> {
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
             NetworkNodeHandle::new(None, NetworkNodeType::Bootstrap).await?;
@@ -126,7 +130,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 
             handles.push(node);
         }
-        futures::future::join_all(connecting_futs.into_iter()).await;
+        timeout(
+            timeout_len,
+            futures::future::join_all(connecting_futs.into_iter()),
+        )
+        .await
+        .context(TimeoutSnafu)?;
         Ok(handles)
     }
 
@@ -220,5 +229,10 @@ pub enum HandlerError {
     RecvError {
         /// source of error
         source: RecvError,
+    },
+    /// Timeout spinning up handle
+    TimeoutError {
+        /// source of error
+        source: TimeoutError,
     },
 }

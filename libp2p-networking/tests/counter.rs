@@ -1,10 +1,9 @@
 use std::{sync::Arc, time::Duration};
 mod common;
-use async_std::{future::timeout};
+use async_std::future::timeout;
 use common::test_bed;
 
 use bincode::Options;
-
 
 use libp2p::gossipsub::Topic;
 use networking_demo::{
@@ -147,6 +146,7 @@ async fn test_request_response() {
         run_request_response,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        TIMEOUT,
     )
     .await
 }
@@ -195,5 +195,11 @@ async fn test_gossip() {
         }
     }
 
-    test_bed(run_gossip, counter_handle_network_event, TOTAL_NUM_PEERS).await;
+    test_bed(
+        run_gossip,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS,
+        TIMEOUT,
+    )
+    .await;
 }

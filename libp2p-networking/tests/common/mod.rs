@@ -1,4 +1,7 @@
-use std::sync::{Arc, Once};
+use std::{
+    sync::{Arc, Once},
+    time::Duration,
+};
 
 use futures::Future;
 use networking_demo::{
@@ -24,6 +27,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     run_test: F,
     client_handler: G,
     num_nodes: usize,
+    timeout: Duration,
 ) where
     FutF: Future<Output = ()>,
     FutG: Future<Output = Result<(), HandlerError>> + 'static + Send + Sync,
@@ -40,7 +44,9 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
     let handles: Vec<Arc<NetworkNodeHandle<S>>> =
-        NetworkNodeHandle::spin_up_swarms(num_nodes).await.unwrap();
+        NetworkNodeHandle::spin_up_swarms(num_nodes, timeout)
+            .await
+            .unwrap();
     for handle in &handles {
         spawn_handler(handle.clone(), client_handler.clone()).await;
     }
