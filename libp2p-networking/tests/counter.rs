@@ -1,4 +1,6 @@
 use std::sync::Arc;
+mod common;
+use common::test_bed;
 
 use bincode::Options;
 
@@ -6,7 +8,7 @@ use libp2p::gossipsub::Topic;
 use networking_demo::{
     network_node::{ClientRequest, NetworkEvent},
     network_node_handle::{
-        get_random_handle, test_bed, HandlerError, NetworkNodeHandle, SendSnafu, SerializationSnafu,
+        get_random_handle, HandlerError, NetworkNodeHandle, SendSnafu, SerializationSnafu,
     },
 };
 use rand::{seq::IteratorRandom, thread_rng};
