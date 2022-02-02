@@ -1,6 +1,5 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
-use async_std::task::sleep;
 use bincode::Options;
 
 use libp2p::gossipsub::Topic;
@@ -116,14 +115,17 @@ async fn test_request_response() {
                 to: CounterState(5),
             })
             .unwrap();
+
         let msg = ClientRequest::DirectRequest(recv_handle.peer_id, msg_inner);
+
+        let recv_fut = recv_handle
+            .state_changed
+            .wait_until(recv_handle.state.lock().await, |state| {
+                *state == CounterState(5)
+            });
         send_handle.send_network.send_async(msg).await.unwrap();
 
-        // block to let the direction message
-        // TODO make this event driven
-        // e.g. everyone receives the gossipmsg event
-        // or timeout
-        sleep(Duration::from_secs(1)).await;
+        recv_fut.await;
 
         for handle in handles.iter() {
             let expected_state =
@@ -162,14 +164,10 @@ async fn test_gossip() {
         let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner, send);
 
         let mut futs = Vec::new();
-        println!("starting the wait!");
-        // FIXME create method out of this
-        for (_i, a_handle) in handles.iter().enumerate() {
-            let a_fut = a_handle
+        for handle in &handles {
+            let a_fut = handle
                 .state_changed
-                .wait_until(a_handle.state.lock().await, |state| {
-                    *state == CounterState(5)
-                });
+                .wait_until(handle.state.lock().await, |state| *state == CounterState(5));
             futs.push(a_fut);
         }
 

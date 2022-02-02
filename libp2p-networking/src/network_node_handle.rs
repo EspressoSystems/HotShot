@@ -102,7 +102,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     #[instrument]
     pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
         async fn wait_to_connect(
-            _num_of_nodes: usize,
+            num_of_nodes: usize,
             chan: Receiver<NetworkEvent>,
             node_idx: usize,
         ) {
@@ -111,7 +111,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                     chan.recv_async().await.context(RecvSnafu).unwrap()
                 {
                     // FIXME don't hardcode this
-                    if pids.len() >= 15 {
+                    if pids.len() >= 3 * num_of_nodes / 4 {
                         println!("node {} done", node_idx);
                         break;
                     }
