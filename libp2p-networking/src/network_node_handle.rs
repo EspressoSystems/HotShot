@@ -6,7 +6,7 @@ use async_std::{
 
 use crate::network_node::{
     gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeType,
+    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeType,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
@@ -46,11 +46,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     #[instrument]
     pub async fn new(
         known_addr: Option<Multiaddr>,
-        node_type: NetworkNodeType,
+        config: NetworkNodeConfig,
     ) -> Result<Self, HandlerError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
-        let mut network = NetworkNode::new(node_type).await.context(NetworkSnafu)?;
+        let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
         let peer_id = network.peer_id;
         let listen_addr = network
             .start(listen_addr, known_addr)
@@ -103,7 +103,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     ) -> Result<Vec<Arc<Self>>, HandlerError> {
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
-            NetworkNodeHandle::new(None, NetworkNodeType::Bootstrap).await?;
+            NetworkNodeHandle::new(None, NetworkNodeConfig::default()).await?;
         let bootstrap_addr = bootstrap.listen_addr.clone();
         info!(
             "boostrap node {} on addr {}",
@@ -117,11 +117,15 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             bootstrap.recv_network.clone(),
             0,
         )];
+        let regular_node = NetworkNodeConfigBuilder::default()
+            .node_type(NetworkNodeType::Regular)
+            .min_num_peers(10usize)
+            .max_num_peers(15usize)
+            .build()
+            .context(NodeConfigSnafu)?;
         for i in 0..(num_of_nodes - 1) {
-            let node = Arc::new(
-                NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular)
-                    .await?,
-            );
+            let node =
+                Arc::new(NetworkNodeHandle::new(Some(bootstrap_addr.clone()), regular_node).await?);
             connecting_futs.push(Self::wait_to_connect(
                 num_of_nodes,
                 node.recv_network.clone(),
@@ -234,5 +238,10 @@ pub enum HandlerError {
     TimeoutError {
         /// source of error
         source: TimeoutError,
+    },
+    /// Error building Node config
+    NodeConfigError {
+        /// source of error
+        source: NetworkNodeConfigBuilderError,
     },
 }

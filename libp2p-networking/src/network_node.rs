@@ -228,6 +228,12 @@ pub enum NetworkNodeType {
     Regular,
 }
 
+impl Default for NetworkNodeType {
+    fn default() -> Self {
+        Self::Bootstrap
+    }
+}
+
 // FIXME split this out into network config + swarm
 
 /// Network definition
@@ -238,22 +244,31 @@ pub struct NetworkNode {
     pub peer_id: PeerId,
     /// the swarm of networkbehaviours
     pub swarm: Swarm<NetworkDef>,
-    /// maximum number of connections to maintain
+    /// the configuration parameters of the netework
+    pub config: NetworkNodeConfig,
+}
+
+/// describe the configuration of the network
+#[derive(Debug, Clone, Copy, Default, derive_builder::Builder)]
+pub struct NetworkNodeConfig {
+    /// max number of connections a node may have before it begins
+    /// to disconnect. Only applies if `node_type` is `Regular`
     pub max_num_peers: usize,
-    /// minimum numer of connections to maintain
+    /// Min number of connections a node may have before it begins
+    /// to connect to more. Only applies if `node_type` is `Regular`
     pub min_num_peers: usize,
-    /// the type of node the network is
+    /// The type of node:
+    /// Either bootstrap (greedily connect to all peers)
+    /// or regular (respect `min_num_peers`/`max num peers`)
     pub node_type: NetworkNodeType,
 }
 
 impl Debug for NetworkNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Network")
-            .field("peer_id", &self.peer_id)
-            .field("swarm", self.swarm.behaviour())
-            .field("max_num_peers", &self.max_num_peers)
-            .field("min_num_peers", &self.min_num_peers)
-            .field("node_type", &self.node_type)
+            .field("Peer id", &self.peer_id)
+            .field("Wwarm", self.swarm.behaviour())
+            .field("Network Config", &self.config)
             .finish()
     }
 }
@@ -299,7 +314,7 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
 }
 
-/// generate authenticated transport, copied from `development_transport`
+/// Generate authenticated transport, copied from `development_transport`
 /// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
 /// # Errors
 /// could not sign the noise key with `identity`
@@ -350,12 +365,6 @@ impl NetworkNode {
         let addr = loop {
             if let Some(SwarmEvent::NewListenAddr { address, .. }) = self.swarm.next().await {
                 break address;
-                // let new_addr = address.to_string();
-                // let mut tmp = String::new();
-                // tmp.push_str("/ip4/192.168.1.96/tcp/");
-                // tmp.push_str(&new_addr[new_addr.len()-5..new_addr.len()]);
-                // // new_addr[
-                // break tmp.parse().unwrap();
             }
         };
         info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
@@ -383,7 +392,7 @@ impl NetworkNode {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(node_type: NetworkNodeType) -> Result<Self, NetworkError> {
+    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
         // Generate a random PeerId
         let identity = Keypair::generate_ed25519();
         let peer_id = PeerId::from(identity.public());
@@ -460,10 +469,8 @@ impl NetworkNode {
         Ok(Self {
             identity,
             peer_id,
-            max_num_peers: 15,
-            min_num_peers: 10,
             swarm,
-            node_type,
+            config,
         })
     }
 
@@ -488,7 +495,9 @@ impl NetworkNode {
         // if we're bootstrapped, do nothing
         // otherwise periodically get more peers if needed
         if !swarm.bootstrap_in_progress {
-            if swarm.connecting_peers.len() + swarm.connected_peers.len() <= self.min_num_peers {
+            if swarm.connecting_peers.len() + swarm.connected_peers.len()
+                <= self.config.min_num_peers
+            {
                 // Calcuate the currently connected peers
                 let used_peers = swarm
                     .connecting_peers
@@ -500,7 +509,7 @@ impl NetworkNode {
                 let potential_peers: HashSet<PeerId> =
                     swarm.known_peers.difference(&used_peers).copied().collect();
                 // Number of peers we want to try connecting to
-                let num_to_connect = self.min_num_peers + 1
+                let num_to_connect = self.config.min_num_peers + 1
                     - (swarm.connected_peers.len() + swarm.connecting_peers.len());
                 // Random(?) subset of the availible peers to try connecting to
                 let chosen_peers = potential_peers
@@ -520,14 +529,14 @@ impl NetworkNode {
                 }
             }
             // NOTE only prune node connections if we aren't a bootstrap node
-            else if swarm.connected_peers.len() > self.max_num_peers
-                && self.node_type == NetworkNodeType::Regular
+            else if swarm.connected_peers.len() > self.config.max_num_peers
+                && self.config.node_type == NetworkNodeType::Regular
             {
                 // If we are connected to too many peers, try disconnecting from
                 // a random (?) subset
                 let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
                     &mut thread_rng(),
-                    swarm.connected_peers.len() - self.max_num_peers,
+                    swarm.connected_peers.len() - self.config.max_num_peers,
                 );
                 for a_peer in peers_to_rm {
                     // FIXME the error is () ?
@@ -537,7 +546,7 @@ impl NetworkNode {
         }
     }
 
-    /// event handler for UI.
+    /// event handler for client events
     /// currectly supported actions include
     /// - shutting down the swarm
     /// - gossipping a message to known peers on the `global` topic

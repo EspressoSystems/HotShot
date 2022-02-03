@@ -17,7 +17,9 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::network_node::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeType};
+use networking_demo::network_node::{
+    gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeConfigBuilder,
+};
 
 /// command line arguments
 #[derive(StructOpt)]
@@ -37,7 +39,11 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let mut networking: NetworkNode = NetworkNode::new(NetworkNodeType::Regular)
+    let networking_config = NetworkNodeConfigBuilder::default()
+        .min_num_peers(10usize)
+        .max_num_peers(15usize)
+        .build()?;
+    let mut networking: NetworkNode = NetworkNode::new(networking_config)
         .await
         .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
