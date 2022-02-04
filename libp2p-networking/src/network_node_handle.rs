@@ -102,13 +102,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         timeout_len: Duration,
         num_bootstrap: usize
     ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
-        // FIXME change API to accomodate multiple bootstrap nodes
         let mut handles = Vec::new();
         let mut bootstrap_addrs = Vec::<Multiaddr>::new();
         let mut connecting_futs = Vec::new();
 
         for i in 0..num_bootstrap {
-            let node = Arc::new(NetworkNodeHandle::new(&[], NetworkNodeConfig::default()).await?);
+            let node = Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, NetworkNodeConfig::default()).await?);
             let addr  = node.listen_addr.clone();
             connecting_futs.push(Self::wait_to_connect(num_of_nodes, node.recv_network.clone(), i));
             handles.push(node);
