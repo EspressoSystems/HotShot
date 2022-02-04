@@ -47,7 +47,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn new(
         known_addr: Option<Multiaddr>,
         config: NetworkNodeConfig,
-    ) -> Result<Self, HandlerError> {
+    ) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
         let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
@@ -100,7 +100,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn spin_up_swarms(
         num_of_nodes: usize,
         timeout_len: Duration,
-    ) -> Result<Vec<Arc<Self>>, HandlerError> {
+    ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
             NetworkNodeHandle::new(None, NetworkNodeConfig::default()).await?;
@@ -110,7 +110,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             bootstrap.peer_id, bootstrap_addr
         );
         let mut handles = Vec::new();
-        println!("bootstrap addr is: {:?}", bootstrap_addr);
+        info!("bootstrap addr is: {:?}", bootstrap_addr);
 
         let mut connecting_futs = vec![Self::wait_to_connect(
             num_of_nodes,
@@ -149,14 +149,14 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         num_of_nodes: usize,
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
-    ) -> Result<(), HandlerError> {
+    ) -> Result<(), NetworkNodeHandleError> {
         loop {
             if let NetworkEvent::UpdateConnectedPeers(pids) =
                 chan.recv_async().await.context(RecvSnafu)?
             {
                 // TODO when replaced with config, this should be > min num nodes in config
                 if pids.len() >= 3 * num_of_nodes / 4 {
-                    info!("node {} done", node_idx);
+                    println!("node {} connected!", node_idx);
                     break Ok(());
                 }
             }
@@ -177,8 +177,10 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
         + std::marker::Send
         + 'static,
 ) where
-    Fut:
-        Future<Output = Result<(), HandlerError>> + std::marker::Send + 'static + std::marker::Sync,
+    Fut: Future<Output = Result<(), NetworkNodeHandleError>>
+        + std::marker::Send
+        + 'static
+        + std::marker::Sync,
 {
     let recv_kill = handle.recv_kill.clone();
     let recv_event = handle.recv_network.clone();
@@ -194,7 +196,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
                     },
                 );
             }
-            Ok::<(), HandlerError>(())
+            Ok::<(), NetworkNodeHandleError>(())
         }
         .instrument(info_span!("Libp2p Counter Handler")),
     );
@@ -211,7 +213,7 @@ pub fn get_random_handle<S>(handles: &[Arc<NetworkNodeHandle<S>>]) -> Arc<Networ
 /// error wrapper type for interacting with swarm handle
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum HandlerError {
+pub enum NetworkNodeHandleError {
     /// error generating network
     NetworkError {
         /// source of error
@@ -235,6 +237,7 @@ pub enum HandlerError {
         source: RecvError,
     },
     /// Timeout spinning up handle
+    #[snafu(display("Failed to spin up nodes. Hit timeout instead. {source:?}"))]
     TimeoutError {
         /// source of error
         source: TimeoutError,

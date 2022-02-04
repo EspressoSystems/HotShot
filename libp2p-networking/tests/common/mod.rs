@@ -6,7 +6,7 @@ use std::{
 use futures::Future;
 use networking_demo::{
     network_node::NetworkEvent,
-    network_node_handle::{spawn_handler, HandlerError, NetworkNodeHandle},
+    network_node_handle::{spawn_handler, NetworkNodeHandle, NetworkNodeHandleError},
     tracing_setup,
 };
 use std::fmt::Debug;
@@ -30,7 +30,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     timeout: Duration,
 ) where
     FutF: Future<Output = ()>,
-    FutG: Future<Output = Result<(), HandlerError>> + 'static + Send + Sync,
+    FutG: Future<Output = Result<(), NetworkNodeHandleError>> + 'static + Send + Sync,
     F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>) -> FutF,
     G: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> FutG + 'static + Send + Sync,
 {
