@@ -129,6 +129,7 @@ async fn run_request_response_increment(
     requester_handle.send_network.send_async(msg).await.unwrap();
 
     timeout(TIMEOUT, recv_fut).await.unwrap();
+    // println!("done request_response increment for {}", requester_handle.peer_id);
 
     assert_eq!(
         *requester_handle.state.lock().await,
@@ -204,10 +205,11 @@ async fn run_gossip_rounds(
 async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<CounterState>>]) {
     let requestee_handle = get_random_handle(handles);
     *requestee_handle.state.lock().await += 1;
-    info!(
-        "running request_response increment to {}",
-        requestee_handle.state.lock().await
-    );
+    requestee_handle.send_network.send_async(ClientRequest::Pruning(false)).await.unwrap();
+    // println!(
+    //     "running request_response increment to {}",
+    //     requestee_handle.state.lock().await
+    // );
     let mut futs = Vec::new();
     for h in handles {
         // skip `requestee_handle`
@@ -220,6 +222,7 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         }
     }
     join_all(futs).await;
+    requestee_handle.send_network.send_async(ClientRequest::Pruning(true)).await.unwrap();
 }
 
 /// simple case of direct message
@@ -253,7 +256,7 @@ async fn test_request_response_many_rounds() {
         let num_rounds = 4092;
         for i in 0..num_rounds {
             run_request_response_increment_all(&handles).await;
-            println!("finished {}", i);
+            // println!("finished {}", i);
         }
         for h in handles.into_iter() {
             assert_eq!(*h.state.lock().await, num_rounds);
@@ -280,7 +283,7 @@ async fn test_intersperse_many_rounds() {
             } else {
                 run_gossip_rounds(&handles, 1, i).await
             }
-            println!("finished {}", i);
+            // println!("finished {}", i);
         }
         for h in handles.into_iter() {
             assert_eq!(*h.state.lock().await, num_rounds);

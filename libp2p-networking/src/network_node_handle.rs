@@ -9,7 +9,7 @@ use crate::network_node::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeType,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
-use futures::{select, Future, FutureExt};
+use futures::{select, Future, FutureExt, future::join_all};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
@@ -110,7 +110,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             bootstrap.peer_id, bootstrap_addr
         );
         let mut handles = Vec::new();
-        info!("bootstrap addr is: {:?}", bootstrap_addr);
 
         let mut connecting_futs = vec![Self::wait_to_connect(
             num_of_nodes,
@@ -136,10 +135,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         }
         timeout(
             timeout_len,
-            futures::future::join_all(connecting_futs.into_iter()),
+            join_all(connecting_futs.into_iter()),
         )
         .await
         .context(TimeoutSnafu)?;
+        println!("Connected!");
         Ok(handles)
     }
 
@@ -156,7 +156,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             {
                 // TODO when replaced with config, this should be > min num nodes in config
                 if pids.len() >= 3 * num_of_nodes / 4 {
-                    println!("node {} connected!", node_idx);
+                    // println!("node {} connected!", node_idx);
                     break Ok(());
                 }
             }
@@ -166,8 +166,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 
 /// Glue function that listens for events from the Swarm corresponding to `handle`
 /// and calls `event_handler` when an event is observed.
-/// The idea is that this function can be used independent of the actual behaviour
-/// we want
+/// The idea is that this function can be used independent of the actual state
+/// we use
 #[allow(clippy::panic)]
 #[instrument(skip(event_handler))]
 pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(

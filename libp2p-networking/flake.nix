@@ -68,7 +68,7 @@
             };
           };
 
-        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 10240 '');
+        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 9999999999'');
       in
       {
         packages.${crateName} = project.rootCrate.build;
