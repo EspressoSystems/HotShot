@@ -10,7 +10,7 @@ use libp2p::gossipsub::Topic;
 use networking_demo::{
     network_node::{ClientRequest, NetworkEvent},
     network_node_handle::{
-        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu,
+        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu, TimeoutSnafu,
     },
 };
 use std::fmt::Debug;
@@ -24,6 +24,7 @@ use tracing::{error, info, instrument, warn};
 pub type CounterState = u32;
 
 const TOTAL_NUM_PEERS: usize = 20;
+const NUM_OF_BOOTSTRAP: usize = 5;
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Message types. We can either
@@ -128,7 +129,7 @@ async fn run_request_response_increment(
 
     requester_handle.send_network.send_async(msg).await.unwrap();
 
-    timeout(TIMEOUT, recv_fut).await.unwrap();
+    timeout(TIMEOUT, recv_fut).await.context(TimeoutSnafu).unwrap();
     // println!("done request_response increment for {}", requester_handle.peer_id);
 
     assert_eq!(
@@ -241,6 +242,7 @@ async fn test_request_response_one_round() {
         run_request_response_one_round,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        NUM_OF_BOOTSTRAP,
         TIMEOUT,
     )
     .await
@@ -266,6 +268,7 @@ async fn test_request_response_many_rounds() {
         run_request_response_many_rounds,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        NUM_OF_BOOTSTRAP,
         TIMEOUT,
     )
     .await
@@ -293,6 +296,7 @@ async fn test_intersperse_many_rounds() {
         run_intersperse_many_rounds,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        NUM_OF_BOOTSTRAP,
         TIMEOUT,
     )
     .await
@@ -309,6 +313,7 @@ async fn test_gossip_many_rounds() {
         run_gossip_many_rounds,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        NUM_OF_BOOTSTRAP,
         TIMEOUT,
     )
     .await;
@@ -325,6 +330,7 @@ async fn test_gossip_one_round() {
         run_gossip_one_round,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        NUM_OF_BOOTSTRAP,
         TIMEOUT,
     )
     .await;

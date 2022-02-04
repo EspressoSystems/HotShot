@@ -48,8 +48,9 @@ async fn main() -> Result<()> {
         .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
     let known_peer = CliOpt::from_args().first_dial;
+    let peer_list = if let Some(p) = known_peer { vec![p] } else { Vec::new() };
     let listen_addr = gen_multiaddr(port);
-    networking.start(listen_addr, known_peer).await?;
+    networking.start(listen_addr, peer_list.as_slice()).await?;
     let (send_chan, recv_chan) = networking.spawn_listeners().await?;
 
     // -- Spin up the UI

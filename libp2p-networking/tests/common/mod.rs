@@ -27,6 +27,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     run_test: F,
     client_handler: G,
     num_nodes: usize,
+    num_of_bootstrap: usize,
     timeout: Duration,
 ) where
     FutF: Future<Output = ()>,
@@ -44,7 +45,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
     let handles: Vec<Arc<NetworkNodeHandle<S>>> =
-        NetworkNodeHandle::spin_up_swarms(num_nodes, timeout)
+        NetworkNodeHandle::spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
             .await
             .unwrap();
     for handle in &handles {

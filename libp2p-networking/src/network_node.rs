@@ -364,7 +364,7 @@ impl NetworkNode {
     pub async fn start(
         &mut self,
         listen_addr: Multiaddr,
-        known_peer: Option<Multiaddr>,
+        known_peers: &[Multiaddr],
     ) -> Result<Multiaddr, NetworkError> {
         self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
         let addr = loop {
@@ -373,15 +373,14 @@ impl NetworkNode {
             }
         };
         info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
-        if let Some(known_peer) = known_peer {
-            let dialing = known_peer.clone();
-            match self.swarm.dial(known_peer) {
+        for known_peer in known_peers {
+            match self.swarm.dial(known_peer.clone()) {
                 Ok(_) => {
-                    warn!("peerid {:?} dialed {:?}", self.peer_id, dialing);
+                    warn!("peerid {:?} dialed {:?}", self.peer_id, known_peer);
                 }
                 Err(e) => error!(
                     "peerid {:?} dialed {:?} and failed with error: {:?}",
-                    self.peer_id, dialing, e
+                    self.peer_id, known_peer, e
                 ),
             };
         }

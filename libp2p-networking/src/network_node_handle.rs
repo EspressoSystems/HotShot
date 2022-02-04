@@ -45,7 +45,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// constructs a new node listening on `known_addr`
     #[instrument]
     pub async fn new(
-        known_addr: Option<Multiaddr>,
+        known_addrs: &[Multiaddr],
         config: NetworkNodeConfig,
     ) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
@@ -53,7 +53,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
         let peer_id = network.peer_id;
         let listen_addr = network
-            .start(listen_addr, known_addr)
+            .start(listen_addr, known_addrs)
             .await
             .context(NetworkSnafu)?;
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
@@ -100,39 +100,40 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn spin_up_swarms(
         num_of_nodes: usize,
         timeout_len: Duration,
+        num_bootstrap: usize
     ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
         // FIXME change API to accomodate multiple bootstrap nodes
-        let bootstrap: NetworkNodeHandle<S> =
-            NetworkNodeHandle::new(None, NetworkNodeConfig::default()).await?;
-        let bootstrap_addr = bootstrap.listen_addr.clone();
-        info!(
-            "boostrap node {} on addr {}",
-            bootstrap.peer_id, bootstrap_addr
-        );
         let mut handles = Vec::new();
+        let mut bootstrap_addrs = Vec::<Multiaddr>::new();
+        let mut connecting_futs = Vec::new();
 
-        let mut connecting_futs = vec![Self::wait_to_connect(
-            num_of_nodes,
-            bootstrap.recv_network.clone(),
-            0,
-        )];
-        let regular_node = NetworkNodeConfigBuilder::default()
+        for i in 0..num_bootstrap {
+            let node = Arc::new(NetworkNodeHandle::new(&[], NetworkNodeConfig::default()).await?);
+            let addr  = node.listen_addr.clone();
+            connecting_futs.push(Self::wait_to_connect(num_of_nodes, node.recv_network.clone(), i));
+            handles.push(node);
+            bootstrap_addrs.push(addr);
+        }
+
+        let regular_node_config = NetworkNodeConfigBuilder::default()
             .node_type(NetworkNodeType::Regular)
             .min_num_peers(10usize)
             .max_num_peers(15usize)
             .build()
             .context(NodeConfigSnafu)?;
-        for i in 0..(num_of_nodes - 1) {
+
+        for j in 0..(num_of_nodes - num_bootstrap) {
             let node =
-                Arc::new(NetworkNodeHandle::new(Some(bootstrap_addr.clone()), regular_node).await?);
+                Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, regular_node_config).await?);
             connecting_futs.push(Self::wait_to_connect(
                 num_of_nodes,
                 node.recv_network.clone(),
-                i + 1,
+                num_bootstrap + j,
             ));
 
             handles.push(node);
         }
+
         timeout(
             timeout_len,
             join_all(connecting_futs.into_iter()),
