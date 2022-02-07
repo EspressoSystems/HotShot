@@ -718,7 +718,7 @@ impl NetworkNode {
                 peer_id, endpoint, ..
             } => {
                 match endpoint {
-                    ConnectedPoint::Dialer { address } => {
+                    ConnectedPoint::Dialer { address, .. } => {
                         self.swarm
                             .behaviour_mut()
                             .kadem
