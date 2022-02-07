@@ -367,7 +367,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             let view_number = qc.view_number > locked_qc.view_number;
             let result = extends_from || view_number;
             if !result {
-                error!("Safe node check failed");
+                error!(?locked_qc, ?leaf, ?qc, "Safe node check failed");
             }
             result
         } else {
@@ -479,7 +479,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 while let Ok(queue) = networking.broadcast_queue().await {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
-                        trace!("No message, yeilding");
+                        trace!("No message, yielding");
                         yield_now().await;
                     } else {
                         for item in queue {

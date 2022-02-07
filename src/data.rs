@@ -13,7 +13,7 @@ use threshold_crypto as tc;
 
 use crate::traits::BlockContents;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 /// A node in [`PhaseLock`](crate::PhaseLock)'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,

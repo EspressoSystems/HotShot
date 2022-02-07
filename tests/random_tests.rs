@@ -5,7 +5,9 @@ mod common;
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::implementations::{MasterMap, MemoryNetwork, MemoryStorage, Stateless},
+    traits::implementations::{
+        DummyReliability, MasterMap, MemoryNetwork, MemoryStorage, Stateless,
+    },
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
 };
@@ -56,7 +58,11 @@ async fn get_networkings<
     let mut networkings: Vec<(MemoryNetwork<T>, PubKey)> = Vec::new();
     for node_id in 0..num_nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
-        let network = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let network = MemoryNetwork::new(
+            pub_key.clone(),
+            master.clone(),
+            Option::<DummyReliability>::None,
+        );
         networkings.push((network, pub_key));
     }
     networkings

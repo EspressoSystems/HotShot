@@ -30,6 +30,34 @@ pub fn get_starting_state() -> State {
     }
 }
 
+/// generates random transactions with no regard for going negative
+/// # Panics when accounts is empty
+pub fn random_transactions<R: rand::Rng>(
+    mut rng: &mut R,
+    num_txns: usize,
+    accounts: Vec<String>,
+) -> Vec<Transaction> {
+    use rand::seq::IteratorRandom;
+    let mut txns = Vec::new();
+    for _ in 0..num_txns {
+        let input_account = accounts.iter().choose(&mut rng).unwrap();
+        let output_account = accounts.iter().choose(&mut rng).unwrap();
+        let amount = rng.gen_range(0, 100);
+        txns.push(Transaction {
+            add: Addition {
+                account: input_account.to_string(),
+                amount,
+            },
+            sub: Subtraction {
+                account: output_account.to_string(),
+                amount,
+            },
+            nonce: rng.gen(),
+        })
+    }
+    txns
+}
+
 /// Provides a common list of transactions
 pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
     vec![

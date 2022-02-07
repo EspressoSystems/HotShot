@@ -16,8 +16,20 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use super::{FailedToSerializeSnafu, NetworkError, NetworkingImplementation};
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
 use crate::PubKey;
+
+#[derive(Debug, Clone, Copy)]
+/// dummy implementation of network reliability
+pub struct DummyReliability {}
+impl NetworkReliability for DummyReliability {
+    fn sample_keep(&self) -> bool {
+        true
+    }
+    fn sample_delay(&self) -> std::time::Duration {
+        std::time::Duration::ZERO
+    }
+}
 
 /// Shared state for in-memory mock networking.
 ///
@@ -97,13 +109,18 @@ where
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
-    pub fn new(pub_key: PubKey, master_map: Arc<MasterMap<T>>) -> MemoryNetwork<T> {
+    pub fn new(
+        pub_key: PubKey,
+        master_map: Arc<MasterMap<T>>,
+        reliability_config: Option<impl 'static + NetworkReliability>,
+    ) -> MemoryNetwork<T> {
         info!("Attaching new MemoryNetwork");
         let (broadcast_input, broadcast_task_recv) = flume::bounded(128);
         let (direct_input, direct_task_recv) = flume::bounded(128);
         let (broadcast_task_send, broadcast_output) = flume::bounded(128);
         let (direct_task_send, direct_output) = flume::bounded(128);
         trace!("Channels open, spawning background task");
+
         spawn(
             async move {
                 debug!("Starting background task");
@@ -126,13 +143,31 @@ where
                             let x = bincode_options.deserialize(&vec);
                             match x {
                                 Ok(x) => {
-                                    debug!(?x, "Decoded incoming message");
-                                    let res = direct_task_send.send_async(x).await;
-                                    if res.is_ok() {
-                                        trace!("Passed message to output queue");
+                                    let dts = direct_task_send.clone();
+                                    if let Some(r) = reliability_config {
+                                        spawn(async move {
+                                            if r.sample_keep() {
+                                                let delay = r.sample_delay();
+                                                if delay > std::time::Duration::ZERO {
+                                                    async_std::task::sleep(delay).await;
+                                                }
+                                                let res = dts.send_async(x).await;
+                                                if res.is_ok() {
+                                                    trace!("Passed message to output queue");
+                                                } else {
+                                                    error!("Output queue receivers are shutdown");
+                                                }
+                                            } else {
+                                                warn!("dropping packet!");
+                                            }
+                                        });
                                     } else {
-                                        error!("Output queue receivers are shutdown");
-                                        break;
+                                        let res = dts.send_async(x).await;
+                                        if res.is_ok() {
+                                            trace!("Passed message to output queue");
+                                        } else {
+                                            error!("Output queue receivers are shutdown");
+                                        }
                                     }
                                 }
                                 Err(e) => {
@@ -146,13 +181,29 @@ where
                             let x = bincode_options.deserialize(&vec);
                             match x {
                                 Ok(x) => {
-                                    debug!(?x, "Decoded incoming message");
-                                    let res = broadcast_task_send.send_async(x).await;
-                                    if res.is_ok() {
-                                        trace!("Passed message to output queue");
+                                    let bts = broadcast_task_send.clone();
+                                    if let Some(r) = reliability_config {
+                                        spawn(async move {
+                                            if r.sample_keep() {
+                                                let delay = r.sample_delay();
+                                                if delay > std::time::Duration::ZERO {
+                                                    async_std::task::sleep(delay).await;
+                                                }
+                                                let res = bts.send_async(x).await;
+                                                if res.is_ok() {
+                                                    trace!("Passed message to output queue");
+                                                } else {
+                                                    warn!("dropping packet!");
+                                                }
+                                            }
+                                        });
                                     } else {
-                                        error!("Output queue receivers are shutdown");
-                                        break;
+                                        let res = bts.send_async(x).await;
+                                        if res.is_ok() {
+                                            trace!("Passed message to output queue");
+                                        } else {
+                                            warn!("dropping packet!");
+                                        }
                                     }
                                 }
                                 Err(e) => {
@@ -162,7 +213,7 @@ where
                         }
                     }
                 }
-                error!("Stream sutdown");
+                error!("Stream shutdown");
             }
             .instrument(
                 info_span!("MemoryNetwork Background task", id = ?pub_key.nonce, map = ?master_map),
@@ -376,7 +427,7 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
-        let _network = MemoryNetwork::new(pub_key, group);
+        let _network = MemoryNetwork::new(pub_key, group, Option::<DummyReliability>::None);
     }
 
     // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -387,9 +438,10 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let _network_1 = MemoryNetwork::new(pub_key_1, group.clone());
+        let _network_1 =
+            MemoryNetwork::new(pub_key_1, group.clone(), Option::<DummyReliability>::None);
         let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, group);
+        let _network_2 = MemoryNetwork::new(pub_key_2, group, Option::<DummyReliability>::None);
     }
 
     // Check to make sure direct queue works
@@ -403,9 +455,14 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone());
+        let network1 = MemoryNetwork::new(
+            pub_key_1.clone(),
+            group.clone(),
+            Option::<DummyReliability>::None,
+        );
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2.clone(), group);
+        let network2 =
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
 
         // Test 1 -> 2
         // Send messages
@@ -459,9 +516,14 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone());
+        let network1 = MemoryNetwork::new(
+            pub_key_1.clone(),
+            group.clone(),
+            Option::<DummyReliability>::None,
+        );
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2.clone(), group);
+        let network2 =
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
 
         // Test 1 -> 2
         // Send messages
