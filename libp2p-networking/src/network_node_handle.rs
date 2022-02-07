@@ -9,12 +9,12 @@ use crate::network_node::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeType,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
-use futures::{select, Future, FutureExt, future::join_all};
+use futures::{future::join_all, select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info_span, instrument, Instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -44,16 +44,14 @@ pub struct NetworkNodeHandle<S> {
 impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// constructs a new node listening on `known_addr`
     #[instrument]
-    pub async fn new(
-        known_addrs: &[(PeerId, Multiaddr)],
-        config: NetworkNodeConfig,
-    ) -> Result<Self, NetworkNodeHandleError> {
+    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
         let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
         let peer_id = network.peer_id;
+        // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
-            .start(listen_addr, known_addrs)
+            .start_listen(listen_addr)
             .await
             .context(NetworkSnafu)?;
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
@@ -100,17 +98,23 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn spin_up_swarms(
         num_of_nodes: usize,
         timeout_len: Duration,
-        num_bootstrap: usize
+        num_bootstrap: usize,
     ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
         let mut handles = Vec::new();
         let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
+        let mut regular_addrs = Vec::<(PeerId, Multiaddr)>::new();
         let mut connecting_futs = Vec::new();
 
         for i in 0..num_bootstrap {
-            let node = Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, NetworkNodeConfig::default()).await?);
-            let addr  = node.listen_addr.clone();
+            let node = Arc::new(NetworkNodeHandle::new(NetworkNodeConfig::default()).await?);
+            let addr = node.listen_addr.clone();
             bootstrap_addrs.push((node.peer_id, addr));
-            connecting_futs.push(Self::wait_to_connect(node.clone(), num_of_nodes, node.recv_network.clone(), i));
+            connecting_futs.push(Self::wait_to_connect(
+                node.clone(),
+                num_of_nodes,
+                node.recv_network.clone(),
+                i,
+            ));
             handles.push(node);
         }
 
@@ -122,8 +126,9 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .context(NodeConfigSnafu)?;
 
         for j in 0..(num_of_nodes - num_bootstrap) {
-            let node =
-                Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, regular_node_config).await?);
+            let node = Arc::new(NetworkNodeHandle::new(regular_node_config).await?);
+            let addr = node.listen_addr.clone();
+            bootstrap_addrs.push((node.peer_id, addr));
             connecting_futs.push(Self::wait_to_connect(
                 node.clone(),
                 num_of_nodes,
@@ -134,12 +139,20 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             handles.push(node);
         }
 
-        timeout(
-            timeout_len,
-            join_all(connecting_futs.into_iter()),
-        )
-        .await
-        .context(TimeoutSnafu)?;
+        let mut all_addrs = bootstrap_addrs;
+        all_addrs.append(&mut regular_addrs);
+
+        for handle in &handles {
+            handle
+                .send_network
+                .send_async(ClientRequest::AddKnownPeers(all_addrs.clone()))
+                .await
+                .context(SendSnafu)?;
+        }
+
+        timeout(timeout_len, join_all(connecting_futs.into_iter()))
+            .await
+            .context(TimeoutSnafu)?;
         println!("Connected!");
         Ok(handles)
     }
@@ -156,8 +169,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut known_ok = false;
         while !(known_ok && connected_ok) {
             match chan.recv_async().await.context(RecvSnafu)? {
-                NetworkEvent::UpdateConnectedPeers(pids) =>
-                {
+                NetworkEvent::UpdateConnectedPeers(pids) => {
                     node.connection_state.lock().await.connected_peers = pids.clone();
                     // TODO when replaced with config, this should be > min num nodes in config
                     if pids.len() >= 3 * num_of_nodes / 4 {

@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 mod common;
 use async_std::future::timeout;
-use common::{test_bed, check_connection_state};
+use common::{check_connection_state, test_bed};
 
 use bincode::Options;
 
@@ -10,7 +10,8 @@ use libp2p::gossipsub::Topic;
 use networking_demo::{
     network_node::{ClientRequest, NetworkEvent},
     network_node_handle::{
-        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu, TimeoutSnafu,
+        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu,
+        SerializationSnafu, TimeoutSnafu,
     },
 };
 use std::fmt::Debug;
@@ -129,7 +130,10 @@ async fn run_request_response_increment(
 
     requester_handle.send_network.send_async(msg).await.unwrap();
 
-    timeout(TIMEOUT, recv_fut).await.context(TimeoutSnafu).unwrap();
+    timeout(TIMEOUT, recv_fut)
+        .await
+        .context(TimeoutSnafu)
+        .unwrap();
     // println!("done request_response increment for {}", requester_handle.peer_id);
 
     assert_eq!(
@@ -207,7 +211,11 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
     check_connection_state(handles).await;
     let requestee_handle = get_random_handle(handles);
     *requestee_handle.state.lock().await += 1;
-    requestee_handle.send_network.send_async(ClientRequest::Pruning(false)).await.unwrap();
+    requestee_handle
+        .send_network
+        .send_async(ClientRequest::Pruning(false))
+        .await
+        .unwrap();
     // println!(
     //     "running request_response increment to {}",
     //     requestee_handle.state.lock().await
@@ -225,7 +233,11 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
     }
     join_all(futs).await;
     check_connection_state(handles).await;
-    requestee_handle.send_network.send_async(ClientRequest::Pruning(false)).await.unwrap();
+    requestee_handle
+        .send_network
+        .send_async(ClientRequest::Pruning(false))
+        .await
+        .unwrap();
 }
 
 /// simple case of direct message
@@ -258,7 +270,7 @@ async fn test_request_response_many_rounds() {
         handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
     ) {
         let num_rounds = 4092;
-        for i in 0..num_rounds {
+        for _i in 0..num_rounds {
             run_request_response_increment_all(&handles).await;
             // println!("finished {}", i);
         }

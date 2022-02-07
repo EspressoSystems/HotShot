@@ -80,20 +80,27 @@ async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     }
 }
 
-pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]){
+pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     let mut err_msg = "".to_string();
-    for (i, handle) in handles.iter().enumerate(){
+    for (i, handle) in handles.iter().enumerate() {
         let state = handle.connection_state.lock().await.clone();
         // TODO these should depend on config
         if state.known_peers.len() < handles.len() / 3 {
-            err_msg.push_str(&format!("\nhad {} known peers for {}-th handle", state.known_peers.len(), i));
+            err_msg.push_str(&format!(
+                "\nhad {} known peers for {}-th handle",
+                state.known_peers.len(),
+                i
+            ));
         }
         if state.connected_peers.len() < 10 {
-            err_msg.push_str(&format!("\nhad {} connected peers for {}-th handle", state.connected_peers.len(), i));
+            err_msg.push_str(&format!(
+                "\nhad {} connected peers for {}-th handle",
+                state.connected_peers.len(),
+                i
+            ));
         }
     }
-    if err_msg.len() != 0 {
+    if !err_msg.is_empty() {
         panic!("{}", err_msg);
     }
-
 }
