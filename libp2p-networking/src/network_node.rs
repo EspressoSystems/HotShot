@@ -1,5 +1,6 @@
 use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use async_std::task::{sleep, spawn};
+use libp2p::ping::{Ping, PingEvent, PingConfig, Failure};
 use rand::{seq::IteratorRandom, thread_rng};
 use std::fmt::Debug;
 use std::{
@@ -84,6 +85,8 @@ pub struct NetworkDef {
     /// whether or not to prune nodes
     #[behaviour(ignore)]
     pub pruning_enabled: bool,
+    /// ping event. Keep the connection alive!
+    pub ping: Ping,
 }
 
 impl Debug for NetworkDef {
@@ -124,6 +127,12 @@ impl NetworkDef {
         }
 
         Poll::Pending
+    }
+}
+
+impl NetworkBehaviourEventProcess<PingEvent> for NetworkDef {
+    fn inject_event(&mut self, event: PingEvent) {
+        info!(?event, "ping event recv-ed");
     }
 }
 
@@ -168,7 +177,14 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     _ => {}
                 }
             }
-            KademliaEvent::RoutingUpdated { peer, .. } => {
+            KademliaEvent::RoutingUpdated { peer, addresses, .. } => {
+                for address in addresses.iter() {
+                    self.request_response.add_address(&peer, address.clone());
+                }
+                // TODO try add_address to request_response. It looks like stale addresses are
+                // happening...
+                // NOTE the other reason this is failing might be because the requester is
+                // terminating requests
                 self.known_peers.insert(peer);
                 self.client_event_queue
                     .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
@@ -183,6 +199,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
         if let IdentifyEvent::Received { peer_id, info, .. } = event {
             for addr in info.listen_addrs {
                 self.kadem.add_address(&peer_id, addr.clone());
+                self.request_response.add_address(&peer_id, addr.clone());
             }
             self.known_peers.insert(peer_id);
             self.client_event_queue
@@ -348,7 +365,8 @@ pub async fn gen_transport(
         // muxxing streams
         // useful because only one connection opened
         // https://docs.libp2p.io/concepts/stream-multiplexing/
-        .multiplex(upgrade::SelectUpgrade::new(
+        .multiplex(
+            upgrade::SelectUpgrade::new(
             yamux::YamuxConfig::default(),
             mplex::MplexConfig::default(),
         ))
@@ -364,7 +382,7 @@ impl NetworkNode {
     pub async fn start(
         &mut self,
         listen_addr: Multiaddr,
-        known_peers: &[Multiaddr],
+        known_peers: &[(PeerId, Multiaddr)],
     ) -> Result<Multiaddr, NetworkError> {
         self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
         let addr = loop {
@@ -373,16 +391,24 @@ impl NetworkNode {
             }
         };
         info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
-        for known_peer in known_peers {
-            match self.swarm.dial(known_peer.clone()) {
-                Ok(_) => {
-                    warn!("peerid {:?} dialed {:?}", self.peer_id, known_peer);
-                }
-                Err(e) => error!(
-                    "peerid {:?} dialed {:?} and failed with error: {:?}",
-                    self.peer_id, known_peer, e
-                ),
-            };
+        for (peer_id, addr) in known_peers {
+            self.swarm
+                .behaviour_mut()
+                .kadem
+                .add_address(&peer_id, addr.clone());
+            self.swarm
+                .behaviour_mut()
+                .request_response
+                .add_address(&peer_id, addr.clone());
+            // match self.swarm.dial(addr.clone()) {
+            //     Ok(_) => {
+            //         warn!("peerid {:?} dialed {:?}", self.peer_id, peer_id);
+            //     }
+            //     Err(e) => error!(
+            //         "peerid {:?} dialed {:?} and failed with error: {:?}",
+            //         self.peer_id, peer_id, e
+            //     ),
+            // };
         }
         Ok(addr)
     }
@@ -455,6 +481,10 @@ impl NetworkNode {
                 RequestResponseConfig::default(),
             );
 
+            let ping_config = PingConfig::new().with_keep_alive(true);
+
+            let ping = Ping::new(ping_config);
+
             let pruning_enabled = config.node_type == NetworkNodeType::Regular;
 
             let network = NetworkDef {
@@ -462,6 +492,7 @@ impl NetworkNode {
                 kadem,
                 identify,
                 request_response,
+                ping,
                 connected_peers: HashSet::new(),
                 connecting_peers: HashSet::new(),
                 known_peers: HashSet::new(),
@@ -539,8 +570,7 @@ impl NetworkNode {
             {
                 // If we are connected to too many peers, try disconnecting from
                 // a random (?) subset
-                let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
-                    &mut thread_rng(),
+                let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple( &mut thread_rng(),
                     swarm.connected_peers.len() - self.config.max_num_peers,
                 );
                 for a_peer in peers_to_rm {
@@ -652,10 +682,11 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEvent,
-            EitherError<
-                EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
+            EitherError<EitherError<
+                EitherError<EitherError<GossipsubHandlerError, Error>, Error>, 
                 ProtocolsHandlerUpgrErr<Error>,
             >,
+                Failure>,
         >,
         send_to_client: &Sender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
@@ -663,7 +694,7 @@ impl NetworkNode {
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
 
-        info!("libp2p event {:?}", event);
+        warn!("libp2p event {:?}", event);
         match event {
             ConnectionEstablished {
                 peer_id, endpoint, ..
@@ -673,6 +704,10 @@ impl NetworkNode {
                         self.swarm
                             .behaviour_mut()
                             .kadem
+                            .add_address(&peer_id, address.clone());
+                        self.swarm
+                            .behaviour_mut()
+                            .request_response
                             .add_address(&peer_id, address);
                     }
                     ConnectedPoint::Listener {
@@ -682,6 +717,10 @@ impl NetworkNode {
                         self.swarm
                             .behaviour_mut()
                             .kadem
+                            .add_address(&peer_id, send_back_addr.clone());
+                        self.swarm
+                            .behaviour_mut()
+                            .request_response
                             .add_address(&peer_id, send_back_addr);
                     }
                 }
@@ -702,11 +741,13 @@ impl NetworkNode {
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
-            ConnectionClosed { peer_id, .. } => {
+            ConnectionClosed { peer_id, endpoint, .. } => {
                 let swarm = self.swarm.behaviour_mut();
                 swarm.connected_peers.remove(&peer_id);
                 // FIXME remove stale address, not *all* addresses
                 swarm.kadem.remove_peer(&peer_id);
+                // swarm.kadem.remove_address();
+                // swarm.request_response.remove_address(peer, address)
 
                 send_to_client
                     .send_async(NetworkEvent::UpdateConnectedPeers(

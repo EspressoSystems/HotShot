@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 mod common;
 use async_std::future::timeout;
-use common::test_bed;
+use common::{test_bed, check_connection_state};
 
 use bincode::Options;
 
@@ -204,6 +204,7 @@ async fn run_gossip_rounds(
 /// then has all other peers request its state
 /// and update their state to the recv'ed state
 async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<CounterState>>]) {
+    check_connection_state(handles).await;
     let requestee_handle = get_random_handle(handles);
     *requestee_handle.state.lock().await += 1;
     requestee_handle.send_network.send_async(ClientRequest::Pruning(false)).await.unwrap();
@@ -223,7 +224,8 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         }
     }
     join_all(futs).await;
-    requestee_handle.send_network.send_async(ClientRequest::Pruning(true)).await.unwrap();
+    check_connection_state(handles).await;
+    requestee_handle.send_network.send_async(ClientRequest::Pruning(false)).await.unwrap();
 }
 
 /// simple case of direct message

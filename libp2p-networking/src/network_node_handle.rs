@@ -45,7 +45,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// constructs a new node listening on `known_addr`
     #[instrument]
     pub async fn new(
-        known_addrs: &[Multiaddr],
+        known_addrs: &[(PeerId, Multiaddr)],
         config: NetworkNodeConfig,
     ) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
@@ -103,15 +103,15 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         num_bootstrap: usize
     ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
         let mut handles = Vec::new();
-        let mut bootstrap_addrs = Vec::<Multiaddr>::new();
+        let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
         let mut connecting_futs = Vec::new();
 
         for i in 0..num_bootstrap {
             let node = Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, NetworkNodeConfig::default()).await?);
             let addr  = node.listen_addr.clone();
-            connecting_futs.push(Self::wait_to_connect(num_of_nodes, node.recv_network.clone(), i));
+            bootstrap_addrs.push((node.peer_id, addr));
+            connecting_futs.push(Self::wait_to_connect(node.clone(), num_of_nodes, node.recv_network.clone(), i));
             handles.push(node);
-            bootstrap_addrs.push(addr);
         }
 
         let regular_node_config = NetworkNodeConfigBuilder::default()
@@ -125,6 +125,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             let node =
                 Arc::new(NetworkNodeHandle::new(&bootstrap_addrs, regular_node_config).await?);
             connecting_futs.push(Self::wait_to_connect(
+                node.clone(),
                 num_of_nodes,
                 node.recv_network.clone(),
                 num_bootstrap + j,
@@ -146,21 +147,33 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// Wait for a node to connect to other nodes
     #[instrument]
     async fn wait_to_connect(
+        node: Arc<NetworkNodeHandle<S>>,
         num_of_nodes: usize,
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
-        loop {
-            if let NetworkEvent::UpdateConnectedPeers(pids) =
-                chan.recv_async().await.context(RecvSnafu)?
-            {
-                // TODO when replaced with config, this should be > min num nodes in config
-                if pids.len() >= 3 * num_of_nodes / 4 {
-                    // println!("node {} connected!", node_idx);
-                    break Ok(());
+        let mut connected_ok = false;
+        let mut known_ok = false;
+        while !(known_ok && connected_ok) {
+            match chan.recv_async().await.context(RecvSnafu)? {
+                NetworkEvent::UpdateConnectedPeers(pids) =>
+                {
+                    node.connection_state.lock().await.connected_peers = pids.clone();
+                    // TODO when replaced with config, this should be > min num nodes in config
+                    if pids.len() >= 3 * num_of_nodes / 4 {
+                        connected_ok = true;
+                    }
                 }
+                NetworkEvent::UpdateKnownPeers(pids) => {
+                    node.connection_state.lock().await.known_peers = pids.clone();
+                    if pids.len() >= 3 * num_of_nodes / 4 {
+                        known_ok = true;
+                    }
+                }
+                _ => {}
             }
         }
+        Ok(())
     }
 }
 
