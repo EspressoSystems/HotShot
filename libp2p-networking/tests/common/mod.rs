@@ -92,7 +92,7 @@ pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
                 i
             ));
         }
-        if state.connected_peers.len() < 10 {
+        if state.connected_peers.len() < handles.len() / 3 {
             err_msg.push_str(&format!(
                 "\nhad {} connected peers for {}-th handle",
                 state.connected_peers.len(),

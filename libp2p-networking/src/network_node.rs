@@ -397,9 +397,9 @@ impl NetworkNode {
     }
 
     /// initialize the DHT with known peers
-    // add the peers to kademlia and then
-    // the `spawn_listeners` function
-    // will start connecting to peers
+    /// add the peers to kademlia and then
+    /// the `spawn_listeners` function
+    /// will start connecting to peers
     #[instrument(skip(self))]
     pub async fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
         for (peer_id, addr) in known_peers {
@@ -572,22 +572,27 @@ impl NetworkNode {
                         }
                     };
                 }
-            } else if (swarm.pruning_enabled || self.config.node_type == NetworkNodeType::Bootstrap)
-                && swarm.connected_peers.len() > self.config.max_num_peers
-            {
-                // If we are connected to too many peers, try disconnecting from
-                // a random (?) subset
-                let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
-                    &mut thread_rng(),
-                    swarm.connected_peers.len() - self.config.max_num_peers,
-                );
-                for a_peer in peers_to_rm {
-                    // FIXME the error is () ?
-                    let _ = self.swarm.disconnect_peer_id(a_peer);
-                }
             }
         }
     }
+
+    #[instrument(skip(self))]
+    fn prune_num_connections(&mut self) {
+        // let swarm = self.swarm.behaviour_mut();
+        // // If we are connected to too many peers, try disconnecting from
+        // // a random (?) subset
+        // if !swarm.bootstrap_in_progress && swarm.pruning_enabled && self.config.node_type != NetworkNodeType::Bootstrap && swarm.connected_peers.len() > self.config.max_num_peers {
+        //     let peers_to_rm = swarm.connected_peers.iter().copied().choose(
+        //         &mut thread_rng(),
+        //     );
+        //     for a_peer in peers_to_rm {
+        //         // FIXME the error is () ?
+        //         let _ = self.swarm.disconnect_peer_id(a_peer);
+        //     }
+        //
+        // }
+    }
+
 
     /// event handler for client events
     /// currectly supported actions include
@@ -813,6 +818,9 @@ impl NetworkNode {
                         },
                         _ = sleep(Duration::from_secs(1)).fuse() => {
                             self.handle_num_connections();
+                        }
+                        _ = sleep(Duration::from_secs(5)).fuse() => {
+                            self.prune_num_connections();
                         }
                         event = self.swarm.next() => {
                             if let Some(event) = event {

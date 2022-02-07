@@ -24,8 +24,8 @@ use tracing::{error, info, instrument, warn};
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 20;
-const NUM_OF_BOOTSTRAP: usize = 5;
+const TOTAL_NUM_PEERS: usize = 5;
+const NUM_OF_BOOTSTRAP: usize = 1;
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Message types. We can either
