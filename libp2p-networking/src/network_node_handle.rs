@@ -1,6 +1,7 @@
 use async_std::{
-    sync::Mutex,
-    task::{sleep, spawn},
+    future::{timeout, TimeoutError},
+    sync::{Condvar, Mutex},
+    task::spawn,
 };
 
 use crate::network_node::{
@@ -12,20 +13,16 @@ use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
-use std::{
-    fmt::Debug,
-    sync::{Arc, Once},
-    time::Duration,
-};
-use tracing::{info, info_span, instrument, warn, Instrument};
-
-static INIT: Once = Once::new();
+use std::{fmt::Debug, sync::Arc, time::Duration};
+use tracing::{info, info_span, instrument, Instrument};
 
 /// A handle containing:
 /// - A reference to the state
 /// - Controls for the swarm
 #[derive(Debug)]
 pub struct NetworkNodeHandle<S> {
+    /// notifies that a state change has occurred
+    pub state_changed: Condvar,
     /// the state of the replica
     pub state: Arc<Mutex<S>>,
     /// send an action to the networkbehaviour
@@ -68,6 +65,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .context(SendSnafu)?;
 
         Ok(NetworkNodeHandle {
+            state_changed: Condvar::new(),
             state: Arc::new(Mutex::new(S::default())),
             send_network: send_chan,
             recv_network: recv_chan,
@@ -96,9 +94,13 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
-    /// spins up `num_of_nodes` nodes and connects them to each other
+    /// Spins up `num_of_nodes` nodes, connects them to each other
+    /// and waits for connections to propagate to all nodes.
     #[instrument]
-    pub async fn spin_up_swarms(num_of_nodes: usize) -> Result<Vec<Arc<Self>>, HandlerError> {
+    pub async fn spin_up_swarms(
+        num_of_nodes: usize,
+        timeout_len: Duration,
+    ) -> Result<Vec<Arc<Self>>, HandlerError> {
         // FIXME change API to accomodate multiple bootstrap nodes
         let bootstrap: NetworkNodeHandle<S> =
             NetworkNodeHandle::new(None, NetworkNodeType::Bootstrap).await?;
@@ -107,62 +109,54 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             "boostrap node {} on addr {}",
             bootstrap.peer_id, bootstrap_addr
         );
-        // give a split second to initialize
-        // TODO the proper way to do this is to make it event driven. Once it bootstraps *successfully*
-        // THEN add next peer
-        sleep(Duration::from_secs(1)).await;
         let mut handles = Vec::new();
-        for _ in 0..(num_of_nodes - 1) {
-            handles.push(Arc::new(
+        println!("bootstrap addr is: {:?}", bootstrap_addr);
+
+        let mut connecting_futs = vec![Self::wait_to_connect(
+            num_of_nodes,
+            bootstrap.recv_network.clone(),
+            0,
+        )];
+        for i in 0..(num_of_nodes - 1) {
+            let node = Arc::new(
                 NetworkNodeHandle::new(Some(bootstrap_addr.clone()), NetworkNodeType::Regular)
                     .await?,
+            );
+            connecting_futs.push(Self::wait_to_connect(
+                num_of_nodes,
+                node.recv_network.clone(),
+                i + 1,
             ));
-            sleep(Duration::from_secs(1)).await;
+
+            handles.push(node);
         }
+        timeout(
+            timeout_len,
+            futures::future::join_all(connecting_futs.into_iter()),
+        )
+        .await
+        .context(TimeoutSnafu)?;
         Ok(handles)
     }
-}
 
-/// General function to spin up testing infra
-/// perform tests by calling `run_test`
-/// then cleans up tests
-/// # Panics
-/// Panics if unable to:
-/// - Initialize logging
-/// - Initialize network nodes
-/// - Kill network nodes
-/// - a test assertion fails
-pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, FutG>(
-    run_test: F,
-    client_handler: G,
-    num_nodes: usize,
-) where
-    FutF: Future<Output = ()>,
-    FutG: Future<Output = Result<(), HandlerError>> + 'static + Send + Sync,
-    F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>) -> FutF,
-    G: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> FutG + 'static + Send + Sync,
-{
-    // only call once otherwise panics
-    // <https://github.com/yaahc/color-eyre/issues/78>
-    INIT.call_once(|| {
-        color_eyre::install().unwrap();
-        crate::tracing_setup::setup_tracing();
-    });
-
-    // NOTE we want this to panic if we can't spin up the swarms.
-    // that amounts to a failed test.
-    let handles: Vec<Arc<NetworkNodeHandle<S>>> =
-        NetworkNodeHandle::spin_up_swarms(num_nodes).await.unwrap();
-    for handle in &handles {
-        spawn_handler(handle.clone(), client_handler.clone()).await;
-    }
-    print_connections(&handles).await;
-
-    run_test(handles.clone()).await;
-
-    // cleanup
-    for handle in handles {
-        handle.kill().await.unwrap();
+    /// Wait for a node to connect to other nodes
+    #[instrument]
+    async fn wait_to_connect(
+        num_of_nodes: usize,
+        chan: Receiver<NetworkEvent>,
+        node_idx: usize,
+    ) -> Result<(), HandlerError> {
+        loop {
+            if let NetworkEvent::UpdateConnectedPeers(pids) =
+                chan.recv_async().await.context(RecvSnafu)?
+            {
+                // TODO when replaced with config, this should be > min num nodes in config
+                if pids.len() >= 3 * num_of_nodes / 4 {
+                    info!("node {} done", node_idx);
+                    break Ok(());
+                }
+            }
+        }
     }
 }
 
@@ -202,30 +196,12 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
     );
 }
 
-/// given a slice of handles assumed to be larger than 0
+/// Given a slice of handles assumed to be larger than 0,
 /// chooses one
 /// # Panics
 /// panics if handles is of length 0
 pub fn get_random_handle<S>(handles: &[Arc<NetworkNodeHandle<S>>]) -> Arc<NetworkNodeHandle<S>> {
     handles.iter().choose(&mut thread_rng()).unwrap().clone()
-}
-
-/// print the connections for each handle in `handles`
-/// useful for debugging
-async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
-    warn!("PRINTING CONNECTION STATES");
-    for (i, handle) in handles.iter().enumerate() {
-        warn!(
-            "peer {}, connected to {:?}",
-            i,
-            handle.connection_state.lock().await.connected_peers
-        );
-        warn!(
-            "peer {}, knowns about {:?}",
-            i,
-            handle.connection_state.lock().await.known_peers
-        );
-    }
 }
 
 /// error wrapper type for interacting with swarm handle
@@ -253,5 +229,10 @@ pub enum HandlerError {
     RecvError {
         /// source of error
         source: RecvError,
+    },
+    /// Timeout spinning up handle
+    TimeoutError {
+        /// source of error
+        source: TimeoutError,
     },
 }

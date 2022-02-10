@@ -1,13 +1,15 @@
 use std::{sync::Arc, time::Duration};
+mod common;
+use async_std::future::timeout;
+use common::test_bed;
 
-use async_std::task::sleep;
 use bincode::Options;
 
 use libp2p::gossipsub::Topic;
 use networking_demo::{
     network_node::{ClientRequest, NetworkEvent},
     network_node_handle::{
-        get_random_handle, test_bed, HandlerError, NetworkNodeHandle, SendSnafu, SerializationSnafu,
+        get_random_handle, HandlerError, NetworkNodeHandle, SendSnafu, SerializationSnafu,
     },
 };
 use rand::{seq::IteratorRandom, thread_rng};
@@ -22,6 +24,7 @@ use tracing::{error, instrument, warn};
 pub type Counter = u8;
 
 const TOTAL_NUM_PEERS: usize = 20;
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Message types. We can either
 /// - increment the Counter
@@ -57,7 +60,9 @@ pub async fn counter_handle_network_event(
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     MyCounterIs(c) | CounterMessage::IncrementCounter { to: c, .. } => {
+                        println!("recv-ed");
                         *handle.state.lock().await = c;
+                        handle.state_changed.notify_all();
                     }
                     AskForCounter => {}
                 }
@@ -67,7 +72,10 @@ pub async fn counter_handle_network_event(
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     IncrementCounter { to, .. } => {
+                        // TODO move the state changes out into a function call that triggers the
+                        // condvar
                         *handle.state.lock().await = to;
+                        handle.state_changed.notify_all();
                     }
                     AskForCounter => {
                         let response = MyCounterIs(handle.state.lock().await.clone());
@@ -111,14 +119,17 @@ async fn test_request_response() {
                 to: CounterState(5),
             })
             .unwrap();
+
         let msg = ClientRequest::DirectRequest(recv_handle.peer_id, msg_inner);
+
+        let recv_fut = recv_handle
+            .state_changed
+            .wait_until(recv_handle.state.lock().await, |state| {
+                *state == CounterState(5)
+            });
         send_handle.send_network.send_async(msg).await.unwrap();
 
-        // block to let the direction message
-        // TODO make this event driven
-        // e.g. everyone receives the gossipmsg event
-        // or timeout
-        sleep(Duration::from_secs(1)).await;
+        timeout(TIMEOUT, recv_fut).await.unwrap();
 
         for handle in handles.iter() {
             let expected_state =
@@ -135,6 +146,7 @@ async fn test_request_response() {
         run_request_response,
         counter_handle_network_event,
         TOTAL_NUM_PEERS,
+        TIMEOUT,
     )
     .await
 }
@@ -155,14 +167,21 @@ async fn test_gossip() {
             .unwrap();
         let (send, recv) = flume::bounded(1);
         let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner, send);
+
+        let mut futs = Vec::new();
+        for handle in &handles {
+            let a_fut = handle
+                .state_changed
+                .wait_until(handle.state.lock().await, |state| *state == CounterState(5));
+            futs.push(a_fut);
+        }
+
         msg_handle.send_network.send_async(msg).await.unwrap();
         recv.recv_async().await.unwrap().unwrap();
 
-        // block to let the gossipping happen
-        // TODO make this event driven
-        // e.g. everyone receives the gossipmsg event
-        // or timeout
-        sleep(Duration::from_millis(10)).await;
+        timeout(TIMEOUT, futures::future::join_all(futs))
+            .await
+            .unwrap();
 
         let mut failing_idxs = Vec::new();
         for (i, handle) in handles.iter().enumerate() {
@@ -176,5 +195,11 @@ async fn test_gossip() {
         }
     }
 
-    test_bed(run_gossip, counter_handle_network_event, TOTAL_NUM_PEERS).await;
+    test_bed(
+        run_gossip,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS,
+        TIMEOUT,
+    )
+    .await;
 }

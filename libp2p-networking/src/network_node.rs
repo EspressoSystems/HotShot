@@ -66,7 +66,7 @@ pub struct NetworkDef {
     pub request_response: RequestResponse<DirectMessageCodec>,
     /// if the node has been bootstrapped into the kademlia network
     #[behaviour(ignore)]
-    pub bootstrap: bool,
+    pub bootstrap_in_progress: bool,
     // TODO separate out into ConnectionData struct
     /// set of connected peers
     #[behaviour(ignore)]
@@ -86,7 +86,7 @@ pub struct NetworkDef {
 impl Debug for NetworkDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NetworkDef")
-            .field("bootstrap", &self.bootstrap)
+            .field("bootstrap", &self.bootstrap_in_progress)
             .field("connected_peers", &self.connected_peers)
             .field("connecting_peers", &self.connecting_peers)
             .field("known_peers", &self.known_peers)
@@ -101,7 +101,7 @@ pub struct ConnectionData {
     pub connected_peers: HashSet<PeerId>,
     /// set of peers that were at one point connected
     pub connecting_peers: HashSet<PeerId>,
-    /// set of events to send to UI
+    /// set of events to send to client
     pub known_peers: HashSet<PeerId>,
 }
 
@@ -112,8 +112,8 @@ impl NetworkDef {
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ProtocolsHandler>>
     {
-        // push events that must be relayed back to UI onto queue
-        // to be consumed by UI event handler
+        // push events that must be relayed back to client onto queue
+        // to be consumed by client event handler
         if !self.client_event_queue.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
                 self.client_event_queue.remove(0),
@@ -147,11 +147,11 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                             Ok(_bootstrap) => {
                                 // we're bootstrapped
                                 // don't bootstrap again
-                                self.bootstrap = false;
+                                self.bootstrap_in_progress = false;
                             }
                             Err(_) => {
                                 // try again
-                                self.bootstrap = true;
+                                self.bootstrap_in_progress = true;
                             }
                         }
                     }
@@ -165,12 +165,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     _ => {}
                 }
             }
-            KademliaEvent::RoutingUpdated {
-                peer,
-                is_new_peer: _is_new_peer,
-                addresses: _addresses,
-                ..
-            } => {
+            KademliaEvent::RoutingUpdated { peer, .. } => {
                 self.known_peers.insert(peer);
                 self.client_event_queue
                     .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
@@ -353,10 +348,15 @@ impl NetworkNode {
     ) -> Result<Multiaddr, NetworkError> {
         self.swarm.listen_on(listen_addr).context(TransportSnafu)?;
         let addr = loop {
-            match self.swarm.next().await {
-                Some(SwarmEvent::NewListenAddr { address, .. }) => break address,
-                _ => continue,
-            };
+            if let Some(SwarmEvent::NewListenAddr { address, .. }) = self.swarm.next().await {
+                break address;
+                // let new_addr = address.to_string();
+                // let mut tmp = String::new();
+                // tmp.push_str("/ip4/192.168.1.96/tcp/");
+                // tmp.push_str(&new_addr[new_addr.len()-5..new_addr.len()]);
+                // // new_addr[
+                // break tmp.parse().unwrap();
+            }
         };
         info!("peerid {:?} listen addr: {:?}", self.peer_id, addr);
         if let Some(known_peer) = known_peer {
@@ -451,7 +451,7 @@ impl NetworkNode {
                 connecting_peers: HashSet::new(),
                 known_peers: HashSet::new(),
                 client_event_queue: Vec::new(),
-                bootstrap: false,
+                bootstrap_in_progress: false,
             };
 
             Swarm::new(transport, network, peer_id)
@@ -460,8 +460,8 @@ impl NetworkNode {
         Ok(Self {
             identity,
             peer_id,
-            max_num_peers: 600,
-            min_num_peers: 50,
+            max_num_peers: 15,
+            min_num_peers: 10,
             swarm,
             node_type,
         })
@@ -471,7 +471,7 @@ impl NetworkNode {
     /// looks up a random peer
     #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
-        if !self.swarm.behaviour().bootstrap {
+        if !self.swarm.behaviour().bootstrap_in_progress {
             let random_peer = PeerId::random();
             self.swarm
                 .behaviour_mut()
@@ -487,7 +487,7 @@ impl NetworkNode {
         let swarm = self.swarm.behaviour();
         // if we're bootstrapped, do nothing
         // otherwise periodically get more peers if needed
-        if !swarm.bootstrap {
+        if !swarm.bootstrap_in_progress {
             if swarm.connecting_peers.len() + swarm.connected_peers.len() <= self.min_num_peers {
                 // Calcuate the currently connected peers
                 let used_peers = swarm
@@ -640,7 +640,7 @@ impl NetworkNode {
                 ProtocolsHandlerUpgrErr<Error>,
             >,
         >,
-        send_to_ui: &Sender<NetworkEvent>,
+        send_to_client: &Sender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
@@ -671,14 +671,14 @@ impl NetworkNode {
                 self.swarm.behaviour_mut().connected_peers.insert(peer_id);
                 self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
                 // now we have at least one peer so we can bootstrap
-                if !self.swarm.behaviour().bootstrap {
+                if !self.swarm.behaviour().bootstrap_in_progress {
                     self.swarm
                         .behaviour_mut()
                         .kadem
                         .bootstrap()
                         .map_err(|_e| NetworkError::NoKnownPeers)?;
                 }
-                send_to_ui
+                send_to_client
                     .send_async(NetworkEvent::UpdateConnectedPeers(
                         self.swarm.behaviour_mut().connected_peers.clone(),
                     ))
@@ -691,13 +691,13 @@ impl NetworkNode {
                 // FIXME remove stale address, not *all* addresses
                 swarm.kadem.remove_peer(&peer_id);
 
-                send_to_ui
+                send_to_client
                     .send_async(NetworkEvent::UpdateConnectedPeers(
                         swarm.connected_peers.clone(),
                     ))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
-                send_to_ui
+                send_to_client
                     .send_async(NetworkEvent::UpdateKnownPeers(swarm.known_peers.clone()))
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
@@ -712,8 +712,8 @@ impl NetworkNode {
             | BannedPeer { .. }
             | ListenerError { .. } => {}
             Behaviour(b) => {
-                // forward messages directly to UI
-                send_to_ui
+                // forward messages directly to Client
+                send_to_client
                     .send_async(b)
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
@@ -724,7 +724,6 @@ impl NetworkNode {
 
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
-    /// `mut_mut` is disabled b/c must consume `self`
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
     pub async fn spawn_listeners(
@@ -736,8 +735,9 @@ impl NetworkNode {
         spawn(
             async move {
                 loop {
+                    // TODO variable on futures times
                     select! {
-                        _ = sleep(Duration::from_secs(30)).fuse() => {
+                        _ = sleep(Duration::from_secs(1)).fuse() => {
                             self.handle_peer_discovery();
                         },
                         _ = sleep(Duration::from_secs(1)).fuse() => {
