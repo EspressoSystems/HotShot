@@ -68,7 +68,7 @@
             };
           };
 
-        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 10240 '');
+        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 9999999999'');
       in
       {
         packages.${crateName} = project.rootCrate.build;
@@ -83,7 +83,7 @@
           inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
             with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf]
-              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security ];
+              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
         };
       });
 }

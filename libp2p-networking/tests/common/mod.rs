@@ -6,7 +6,7 @@ use std::{
 use futures::Future;
 use networking_demo::{
     network_node::NetworkEvent,
-    network_node_handle::{spawn_handler, HandlerError, NetworkNodeHandle},
+    network_node_handle::{spawn_handler, NetworkNodeHandle, NetworkNodeHandleError},
     tracing_setup,
 };
 use std::fmt::Debug;
@@ -27,10 +27,11 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     run_test: F,
     client_handler: G,
     num_nodes: usize,
+    num_of_bootstrap: usize,
     timeout: Duration,
 ) where
     FutF: Future<Output = ()>,
-    FutG: Future<Output = Result<(), HandlerError>> + 'static + Send + Sync,
+    FutG: Future<Output = Result<(), NetworkNodeHandleError>> + 'static + Send + Sync,
     F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>) -> FutF,
     G: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> FutG + 'static + Send + Sync,
 {
@@ -44,9 +45,10 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
     let handles: Vec<Arc<NetworkNodeHandle<S>>> =
-        NetworkNodeHandle::spin_up_swarms(num_nodes, timeout)
+        NetworkNodeHandle::spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
             .await
             .unwrap();
+    print_connections(&handles).await;
     for handle in &handles {
         spawn_handler(handle.clone(), client_handler.clone()).await;
     }
@@ -75,5 +77,30 @@ async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
             i,
             handle.connection_state.lock().await.known_peers
         );
+    }
+}
+
+pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
+    let mut err_msg = "".to_string();
+    for (i, handle) in handles.iter().enumerate() {
+        let state = handle.connection_state.lock().await.clone();
+        // TODO these should depend on config
+        if state.known_peers.len() < handles.len() / 3 {
+            err_msg.push_str(&format!(
+                "\nhad {} known peers for {}-th handle",
+                state.known_peers.len(),
+                i
+            ));
+        }
+        if state.connected_peers.len() < handles.len() / 3 {
+            err_msg.push_str(&format!(
+                "\nhad {} connected peers for {}-th handle",
+                state.connected_peers.len(),
+                i
+            ));
+        }
+    }
+    if !err_msg.is_empty() {
+        panic!("{}", err_msg);
     }
 }

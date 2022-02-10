@@ -1,4 +1,4 @@
-use libp2p::Multiaddr;
+use libp2p::{Multiaddr, PeerId};
 use networking_demo::message::Message;
 use networking_demo::ui::{run_app, TableApp};
 
@@ -17,7 +17,9 @@ use parking_lot::Mutex;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
-use networking_demo::network_node::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeType};
+use networking_demo::network_node::{
+    gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeConfigBuilder,
+};
 
 /// command line arguments
 #[derive(StructOpt)]
@@ -27,7 +29,10 @@ struct CliOpt {
     port: Option<u16>,
 
     #[structopt()]
-    first_dial: Option<Multiaddr>,
+    first_dial_peer_id: Option<PeerId>,
+
+    #[structopt()]
+    first_dial_addr: Option<Multiaddr>,
 }
 
 #[async_std::main]
@@ -37,13 +42,27 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     networking_demo::tracing_setup::setup_tracing();
     // -- Spin up the network connection
-    let mut networking: NetworkNode = NetworkNode::new(NetworkNodeType::Regular)
+    let networking_config = NetworkNodeConfigBuilder::default()
+        .min_num_peers(10usize)
+        .max_num_peers(15usize)
+        .build()?;
+    let mut networking: NetworkNode = NetworkNode::new(networking_config)
         .await
         .context("Failed to launch network")?;
     let port = CliOpt::from_args().port.unwrap_or(0u16);
-    let known_peer = CliOpt::from_args().first_dial;
+    let known_peer = CliOpt::from_args().first_dial_addr;
+    let peer_list = if let Some(p) = known_peer {
+        if let Some(pid) = CliOpt::from_args().first_dial_peer_id {
+            vec![(pid, p)]
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
     let listen_addr = gen_multiaddr(port);
-    networking.start(listen_addr, known_peer).await?;
+    networking.start_listen(listen_addr).await?;
+    networking.add_known_peers(peer_list.as_slice()).await;
     let (send_chan, recv_chan) = networking.spawn_listeners().await?;
 
     // -- Spin up the UI
