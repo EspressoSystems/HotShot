@@ -27,7 +27,7 @@ pub type CounterState = u32;
 
 const TOTAL_NUM_PEERS: usize = 30;
 const NUM_OF_BOOTSTRAP: usize = 5;
-const TIMEOUT: Duration = Duration::from_secs(20);
+const TIMEOUT: Duration = Duration::from_secs(200);
 const NUM_ROUNDS: usize = 100;
 
 /// Message types. We can either
