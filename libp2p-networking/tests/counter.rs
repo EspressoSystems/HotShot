@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 mod common;
 use async_std::future::timeout;
-use common::{check_connection_state, test_bed};
+use common::{check_connection_state, test_bed, HandleSnafu, TestError};
 
 use bincode::Options;
 
@@ -10,8 +10,7 @@ use libp2p::gossipsub::Topic;
 use networking_demo::{
     network_node::{ClientRequest, NetworkEvent},
     network_node_handle::{
-        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu,
-        SerializationSnafu, TimeoutSnafu,
+        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu,
     },
 };
 use std::fmt::Debug;
@@ -20,13 +19,16 @@ use serde::{Deserialize, Serialize};
 
 use snafu::ResultExt;
 
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument, warn};
+
+use crate::common::print_connections;
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 5;
-const NUM_OF_BOOTSTRAP: usize = 1;
-const TIMEOUT: Duration = Duration::from_secs(30);
+const TOTAL_NUM_PEERS: usize = 30;
+const NUM_OF_BOOTSTRAP: usize = 5;
+const TIMEOUT: Duration = Duration::from_secs(20);
+const NUM_ROUNDS: usize = 100;
 
 /// Message types. We can either
 /// - increment the Counter
@@ -111,7 +113,7 @@ pub async fn counter_handle_network_event(
 async fn run_request_response_increment(
     requester_handle: Arc<NetworkNodeHandle<CounterState>>,
     requestee_handle: Arc<NetworkNodeHandle<CounterState>>,
-) {
+) -> Result<(), TestError<CounterState>> {
     let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     let msg_inner = bincode_options
         .serialize(&CounterMessage::AskForCounter)
@@ -122,24 +124,39 @@ async fn run_request_response_increment(
     let new_state = *requestee_handle.state.lock().await;
 
     // set up state change listener
-    let recv_fut = requester_handle
-        .state_changed
-        .wait_until(requester_handle.state.lock().await, |state| {
-            *state == new_state
-        });
-
-    requester_handle.send_network.send_async(msg).await.unwrap();
-
-    timeout(TIMEOUT, recv_fut)
-        .await
-        .context(TimeoutSnafu)
-        .unwrap();
-    // println!("done request_response increment for {}", requester_handle.peer_id);
-
-    assert_eq!(
-        *requester_handle.state.lock().await,
-        *requestee_handle.state.lock().await
+    let recv_fut = requester_handle.state_changed.wait_timeout_until(
+        requester_handle.state.lock().await,
+        TIMEOUT,
+        |state| *state == new_state,
     );
+
+    requester_handle
+        .send_network
+        .send_async(msg)
+        .await
+        .context(SendSnafu)
+        .context(HandleSnafu)?;
+
+    let (_, res) = recv_fut.await;
+
+    if res.timed_out() {
+        Err(TestError::DirectTimeout {
+            requester: requester_handle.id,
+            requestee: requestee_handle.id,
+        })
+    } else {
+        let s1 = *requester_handle.state.lock().await;
+        // sanity check
+        if s1 != new_state {
+            Err(TestError::State {
+                id: requester_handle.id,
+                expected: new_state,
+                actual: s1,
+            })
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// broadcasts `msg` from a randomly chosen handle
@@ -148,11 +165,9 @@ async fn run_gossip_round(
     handles: &[Arc<NetworkNodeHandle<CounterState>>],
     msg_inner: Vec<u8>,
     new_state: CounterState,
-) {
+) -> Result<(), TestError<CounterState>> {
     let msg_handle = get_random_handle(handles);
     *msg_handle.state.lock().await = new_state;
-    let (send, recv) = flume::bounded(1);
-    let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner, send);
 
     let mut futs = Vec::new();
     for handle in handles {
@@ -162,23 +177,31 @@ async fn run_gossip_round(
         futs.push(a_fut);
     }
 
-    msg_handle.send_network.send_async(msg).await.unwrap();
-    recv.recv_async().await.unwrap().unwrap();
-
-    timeout(TIMEOUT, futures::future::join_all(futs))
+    let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
+    msg_handle
+        .send_network
+        .send_async(msg)
         .await
-        .unwrap();
+        .context(SendSnafu)
+        .context(HandleSnafu)?;
 
-    let mut failing_idxs = Vec::new();
-    for (i, handle) in handles.iter().enumerate() {
-        if *handle.state.lock().await != new_state {
-            failing_idxs.push(i);
+    if timeout(TIMEOUT, futures::future::join_all(futs))
+        .await
+        .is_err()
+    {
+        let mut failing = Vec::new();
+        for handle in handles.iter() {
+            let handle_state = *handle.state.lock().await;
+            if handle_state != new_state {
+                failing.push(handle.id);
+            }
+        }
+        if !failing.is_empty() {
+            print_connections(handles).await;
+            return Err(TestError::GossipTimeout { failing });
         }
     }
-    if !failing_idxs.is_empty() {
-        error!(?failing_idxs, "failing idxs!!");
-        panic!("some nodes did not receive the message {:?}", failing_idxs);
-    }
+    Ok(())
 }
 
 /// runs `num_rounds` of message broadcast, incrementing the state of all nodes each broadcast
@@ -198,7 +221,9 @@ async fn run_gossip_rounds(
                 to: new_state,
             })
             .unwrap();
-        run_gossip_round(handles, msg_inner, new_state).await;
+        run_gossip_round(handles, msg_inner, new_state)
+            .await
+            .unwrap();
         old_state = new_state;
     }
 }
@@ -216,12 +241,8 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         .send_async(ClientRequest::Pruning(false))
         .await
         .unwrap();
-    // println!(
-    //     "running request_response increment to {}",
-    //     requestee_handle.state.lock().await
-    // );
     let mut futs = Vec::new();
-    for h in handles {
+    for (_i, h) in handles.iter().enumerate() {
         // skip `requestee_handle`
         if h.peer_id != requestee_handle.peer_id {
             let requester_handle = h.clone();
@@ -231,11 +252,24 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
             ));
         }
     }
-    join_all(futs).await;
+    let results = join_all(futs).await;
+    for result in &results {
+        if result.is_err() {
+            print_connections(handles).await;
+            panic!(
+                "{:?}",
+                results
+                    .into_iter()
+                    .filter(|r| r.is_err())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
     check_connection_state(handles).await;
     requestee_handle
         .send_network
-        .send_async(ClientRequest::Pruning(false))
+        .send_async(ClientRequest::Pruning(true))
         .await
         .unwrap();
 }
@@ -272,7 +306,6 @@ async fn test_request_response_many_rounds() {
         let num_rounds = 4092;
         for _i in 0..num_rounds {
             run_request_response_increment_all(&handles).await;
-            // println!("finished {}", i);
         }
         for h in handles.into_iter() {
             assert_eq!(*h.state.lock().await, num_rounds);
@@ -293,8 +326,7 @@ async fn test_request_response_many_rounds() {
 #[instrument]
 async fn test_intersperse_many_rounds() {
     pub async fn run_intersperse_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>) {
-        let num_rounds = 4092;
-        for i in 0..num_rounds {
+        for i in 0..NUM_ROUNDS as u32 {
             if i % 2 == 0 {
                 run_request_response_increment_all(&handles).await;
             } else {
@@ -303,7 +335,7 @@ async fn test_intersperse_many_rounds() {
             // println!("finished {}", i);
         }
         for h in handles.into_iter() {
-            assert_eq!(*h.state.lock().await, num_rounds);
+            assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
         }
     }
     test_bed(
@@ -321,7 +353,7 @@ async fn test_intersperse_many_rounds() {
 #[instrument]
 async fn test_gossip_many_rounds() {
     pub async fn run_gossip_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>) {
-        run_gossip_rounds(&handles, 4092, 0).await
+        run_gossip_rounds(&handles, NUM_ROUNDS, 0).await
     }
     test_bed(
         run_gossip_many_rounds,

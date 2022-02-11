@@ -1,19 +1,18 @@
 use async_std::{
-    future::{timeout, TimeoutError},
     sync::{Condvar, Mutex},
     task::spawn,
 };
 
 use crate::network_node::{
     gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeType,
+    NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
-use futures::{future::join_all, select, Future, FutureExt};
+use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info_span, instrument, Instrument};
 
 /// A handle containing:
@@ -21,6 +20,8 @@ use tracing::{info_span, instrument, Instrument};
 /// - Controls for the swarm
 #[derive(Debug)]
 pub struct NetworkNodeHandle<S> {
+    /// network configuration
+    pub network_config: NetworkNodeConfig,
     /// notifies that a state change has occurred
     pub state_changed: Condvar,
     /// the state of the replica
@@ -39,12 +40,14 @@ pub struct NetworkNodeHandle<S> {
     pub peer_id: PeerId,
     /// the connection metadata associated with the networkbehaviour
     pub connection_state: Arc<Mutex<ConnectionData>>,
+    /// human readable id
+    pub id: usize,
 }
 
 impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// constructs a new node listening on `known_addr`
     #[instrument]
-    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkNodeHandleError> {
+    pub async fn new(config: NetworkNodeConfig, id: usize) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
         let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
@@ -57,12 +60,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = flume::bounded(1);
 
-        send_chan
-            .send_async(ClientRequest::Subscribe("global".to_string()))
-            .await
-            .context(SendSnafu)?;
-
         Ok(NetworkNodeHandle {
+            network_config: config,
             state_changed: Condvar::new(),
             state: Arc::new(Mutex::new(S::default())),
             send_network: send_chan,
@@ -72,6 +71,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             listen_addr,
             peer_id,
             connection_state: Arc::default(),
+            id,
         })
     }
 
@@ -92,76 +92,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
-    /// Spins up `num_of_nodes` nodes, connects them to each other
-    /// and waits for connections to propagate to all nodes.
-    #[instrument]
-    pub async fn spin_up_swarms(
-        num_of_nodes: usize,
-        timeout_len: Duration,
-        num_bootstrap: usize,
-    ) -> Result<Vec<Arc<Self>>, NetworkNodeHandleError> {
-        let mut handles = Vec::new();
-        let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
-        let mut regular_addrs = Vec::<(PeerId, Multiaddr)>::new();
-        let mut connecting_futs = Vec::new();
-
-        for i in 0..num_bootstrap {
-            let node = Arc::new(NetworkNodeHandle::new(NetworkNodeConfig::default()).await?);
-            let addr = node.listen_addr.clone();
-            bootstrap_addrs.push((node.peer_id, addr));
-            connecting_futs.push(Self::wait_to_connect(
-                node.clone(),
-                num_of_nodes,
-                node.recv_network.clone(),
-                i,
-            ));
-            handles.push(node);
-        }
-
-        let regular_node_config = NetworkNodeConfigBuilder::default()
-            .node_type(NetworkNodeType::Regular)
-            .min_num_peers(10usize)
-            .max_num_peers(15usize)
-            .build()
-            .context(NodeConfigSnafu)?;
-
-        for j in 0..(num_of_nodes - num_bootstrap) {
-            let node = Arc::new(NetworkNodeHandle::new(regular_node_config).await?);
-            let addr = node.listen_addr.clone();
-            bootstrap_addrs.push((node.peer_id, addr));
-            connecting_futs.push(Self::wait_to_connect(
-                node.clone(),
-                num_of_nodes,
-                node.recv_network.clone(),
-                num_bootstrap + j,
-            ));
-
-            handles.push(node);
-        }
-
-        let mut all_addrs = bootstrap_addrs;
-        all_addrs.append(&mut regular_addrs);
-
-        for handle in &handles {
-            handle
-                .send_network
-                .send_async(ClientRequest::AddKnownPeers(all_addrs.clone()))
-                .await
-                .context(SendSnafu)?;
-        }
-
-        timeout(timeout_len, join_all(connecting_futs.into_iter()))
-            .await
-            .context(TimeoutSnafu)?;
-        println!("Connected!");
-        Ok(handles)
-    }
-
     /// Wait for a node to connect to other nodes
     #[instrument]
-    async fn wait_to_connect(
+    pub async fn wait_to_connect(
         node: Arc<NetworkNodeHandle<S>>,
-        num_of_nodes: usize,
+        num_peers: usize,
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
@@ -171,16 +106,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             match chan.recv_async().await.context(RecvSnafu)? {
                 NetworkEvent::UpdateConnectedPeers(pids) => {
                     node.connection_state.lock().await.connected_peers = pids.clone();
-                    // TODO when replaced with config, this should be > min num nodes in config
-                    if pids.len() >= 3 * num_of_nodes / 4 {
-                        connected_ok = true;
-                    }
+                    connected_ok = pids.len() >= num_peers;
                 }
                 NetworkEvent::UpdateKnownPeers(pids) => {
                     node.connection_state.lock().await.known_peers = pids.clone();
-                    if pids.len() >= 3 * num_of_nodes / 4 {
-                        known_ok = true;
-                    }
+                    known_ok = pids.len() >= num_peers;
                 }
                 _ => {}
             }
@@ -260,12 +190,6 @@ pub enum NetworkNodeHandleError {
     RecvError {
         /// source of error
         source: RecvError,
-    },
-    /// Timeout spinning up handle
-    #[snafu(display("Failed to spin up nodes. Hit timeout instead. {source:?}"))]
-    TimeoutError {
-        /// source of error
-        source: TimeoutError,
     },
     /// Error building Node config
     NodeConfigError {

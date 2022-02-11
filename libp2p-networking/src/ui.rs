@@ -170,7 +170,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                 }
                                 // broadcast message to the swarm with the global topic
                                 KeyCode::Enter => {
-                                    let mb_handle = app.message_buffer.clone();
                                     let send_swarm = app.send_swarm.clone();
                                     // we don't want this to block the event loop
                                     spawn(async move {
@@ -181,14 +180,9 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             content: app.input,
                                             sender: r.recv_async().await?.to_string(),
                                         };
-                                        let (s, r) = flume::bounded(1);
                                         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                         let s_msg = bincode_options.serialize(&msg)?;
-                                        send_swarm.send_async(ClientRequest::GossipMsg(Topic::new(msg.topic.clone()), s_msg, s)).await?;
-                                        // if it's a duplicate message (error case), fail silently and do nothing
-                                        if r.recv_async().await?.is_ok() {
-                                            mb_handle.lock().push_back(msg);
-                                        }
+                                        send_swarm.send_async(ClientRequest::GossipMsg(Topic::new(msg.topic.clone()), s_msg)).await?;
                                         Result::<(), Report>::Ok(())
                                     }.instrument(info_span!("Broadcast Handler")));
                                     app.input = String::new();
