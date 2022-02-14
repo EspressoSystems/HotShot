@@ -1310,7 +1310,7 @@
     <span class="ident">traits</span>::{
         <span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>,
     },
-    <span class="ident">types::error</span>::{<span class="ident">FailedToBroadcast</span>, <span class="ident">FailedToMessageLeader</span>},
+    <span class="ident">types::error</span>::{<span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>},
     <span class="ident">utility::broadcast::BroadcastSender</span>,
     <span class="ident">NodeImplementation</span>,
 };
@@ -1649,7 +1649,7 @@
                             <span class="ident">state</span>: <span class="ident">new_state</span>.<span class="ident">clone</span>(),
                         }))
                         .<span class="kw">await</span>
-                        .<span class="ident">context</span>(<span class="ident">FailedToBroadcast</span> {
+                        .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
                             <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
                         });
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -1732,7 +1732,7 @@
                             .<span class="ident">networking</span>
                             .<span class="ident">broadcast_message</span>(<span class="ident">pc_message</span>)
                             .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcast</span> {
+                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::PreCommit</span>,
                             });
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -1812,7 +1812,7 @@
                             .<span class="ident">networking</span>
                             .<span class="ident">broadcast_message</span>(<span class="ident">pc_message</span>)
                             .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcast</span> {
+                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,
                             });
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -1940,7 +1940,7 @@
                             .<span class="ident">networking</span>
                             .<span class="ident">broadcast_message</span>(<span class="ident">d_message</span>)
                             .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcast</span> {
+                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Decide</span>,
                             });
 
@@ -2104,7 +2104,7 @@
                             .<span class="ident">networking</span>
                             .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                             .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToMessageLeader</span> {
+                            .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
                             });
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -2191,7 +2191,7 @@
                         .<span class="ident">networking</span>
                         .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                         .<span class="kw">await</span>
-                        .<span class="ident">context</span>(<span class="ident">FailedToMessageLeader</span> {
+                        .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                             <span class="ident">stage</span>: <span class="ident">Stage::PreCommit</span>,
                         });
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -2256,7 +2256,7 @@
                         .<span class="ident">networking</span>
                         .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                         .<span class="kw">await</span>
-                        .<span class="ident">context</span>(<span class="ident">FailedToMessageLeader</span> {
+                        .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                             <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,
                         });
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {

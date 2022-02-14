@@ -568,7 +568,7 @@
             <span class="comment">//</span>
             <span class="comment">// We first check that the transaction is internally consistent, then apply the change</span>
             <span class="comment">// to our trial map</span>
-            <span class="macro">ensure!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>(), <span class="ident">InconsistentTransaction</span>);
+            <span class="macro">ensure!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>(), <span class="ident">InconsistentTransactionSnafu</span>);
             <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it</span>
             <span class="comment">// doesn&#39;t exist</span>
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>) {

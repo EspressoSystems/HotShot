@@ -142,7 +142,7 @@
 
 <span class="doccomment">/// Error type for networking</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub(crate)&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span>(<span class="kw">pub</span>(<span class="kw">crate</span>)))]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkError</span> {
     <span class="doccomment">/// A Listener failed to send a message</span>
     <span class="ident">ListenerSend</span>,
@@ -161,7 +161,7 @@
         <span class="ident">source</span>: <span class="ident">bincode::Error</span>,
     },
     <span class="doccomment">/// WebSockets specific error</span>
-    <span class="ident">WError</span> {
+    <span class="ident">WebSocket</span> {
         <span class="doccomment">/// Originating websockets error</span>
         <span class="ident">source</span>: <span class="ident">werror::Error</span>,
     },

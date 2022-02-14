@@ -106,11 +106,11 @@
 
 <span class="doccomment">/// Error type for [`PhaseLock`](crate::PhaseLock)</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span> <span class="op">=</span> <span class="string">&quot;pub(crate)&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span>(<span class="kw">pub</span>(<span class="kw">crate</span>)))]</span>
 <span class="attribute">#[<span class="ident">non_exhaustive</span>]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">PhaseLockError</span> {
     <span class="doccomment">/// Failed to Message the leader in the given stage</span>
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to message leader in stage {:?}: {}&quot;</span>, <span class="ident">stage</span>, <span class="ident">source</span>))]</span>
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to message leader in stage {stage:?}: {source}&quot;</span>))]</span>
     <span class="ident">FailedToMessageLeader</span> {
         <span class="doccomment">/// The stage the failure occurred in</span>
         <span class="ident">stage</span>: <span class="ident"><span class="kw">crate</span>::data::Stage</span>,
@@ -118,7 +118,7 @@
         <span class="ident">source</span>: <span class="ident"><span class="kw">crate</span>::traits::NetworkError</span>,
     },
     <span class="doccomment">/// Failed to broadcast a message on the network</span>
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to broadcast a message in stage {:?}: {}&quot;</span>, <span class="ident">stage</span>, <span class="ident">source</span>))]</span>
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failed to broadcast a message in stage {stage:?}: {source}&quot;</span>))]</span>
     <span class="ident">FailedToBroadcast</span> {
         <span class="doccomment">/// The stage the failure occurred in</span>
         <span class="ident">stage</span>: <span class="ident"><span class="kw">crate</span>::data::Stage</span>,
@@ -159,7 +159,7 @@
         <span class="ident">stage</span>: <span class="ident"><span class="kw">crate</span>::data::Stage</span>,
     },
     <span class="doccomment">/// Failure in networking layer</span>
-    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failure in networking layer: {}&quot;</span>, <span class="ident">source</span>))]</span>
+    <span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">display</span>(<span class="string">&quot;Failure in networking layer: {source}&quot;</span>))]</span>
     <span class="ident">NetworkFault</span> {
         <span class="doccomment">/// Underlying network fault</span>
         <span class="ident">source</span>: <span class="ident"><span class="kw">crate</span>::traits::NetworkError</span>,
