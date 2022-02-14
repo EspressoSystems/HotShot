@@ -25,9 +25,9 @@ use crate::common::print_connections;
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 5;
-const NUM_OF_BOOTSTRAP: usize = 1;
-const TIMEOUT: Duration = Duration::from_secs(200);
+const TOTAL_NUM_PEERS: usize = 10;
+const NUM_OF_BOOTSTRAP: usize = 3;
+const TIMEOUT: Duration = Duration::from_secs(60);
 const NUM_ROUNDS: usize = 100;
 
 /// Message types. We can either

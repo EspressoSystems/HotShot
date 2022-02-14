@@ -2,3 +2,4 @@ output-type: lcov
 ignore:
   - "/*"
   - "../*"
+  - "target/*"

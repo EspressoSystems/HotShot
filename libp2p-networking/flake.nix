@@ -21,13 +21,16 @@
   outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        fenixPackage = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
+        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
+        fenixNightly = fenix.packages.${system}.latest.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
         rustOverlay = final: prev:
           {
-            inherit fenixPackage;
-            rustc = fenixPackage;
-            cargo = fenixPackage;
-            rust-src = fenixPackage;
+            rustcNightly = fenixNightly;
+            cargoNightly = fenixNightly;
+            rust-srcNightly = fenixNightly;
+            rustc = fenixStable;
+            cargo = fenixStable;
+            rust-src = fenixStable;
           };
 
         pkgs = import nixpkgs {
@@ -82,14 +85,33 @@
               outputHash = "sha256-i9/Fe+JaCcdHw2CR0n4hULokDN2RvDAzgXNG2zAUFDg=";
           });
         });
+        # https://github.com/NixOS/nixpkgs/issues/149209
+        grcov = pkgs.rustPlatform.buildRustPackage rec {
+          pname = "grcov";
+          version = "v0.8.7";
 
-        shellHook = 
-        # ''
-        #   export ASYNC_STD_THREAD_COUNT=1
-        # '' + 
-        (pkgs.lib.optionals pkgs.stdenv.isDarwin '' 
-          ulimit -n 9999999999
-        '');
+          doCheck = false;
+
+          src = pkgs.fetchFromGitHub {
+            owner = "mozilla";
+            repo = pname;
+            rev = version;
+            sha256 = "sha256-4McF9tLIjDCftyGI29pm/LnTUBVWG+pY5z+mGFKySQM=";
+          };
+
+          cargoSha256 = "sha256-CdsTAMiEK8udRoD9PQSC0jQbPkdynFL0Tdw5aAZUmsM=";
+
+          meta = with pkgs.lib; {
+            description = "grcov collects and aggregates code coverage information for multiple source files.";
+            homepage = "https://github.com/mozilla/grcov";
+            license = licenses.mpl20;
+          };
+        };
+
+        buildDeps = with pkgs; [
+          cargo-audit nixpkgs-fmt git-chglog protobuf
+        ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration];
+
       in
       {
         packages.${crateName} = project.rootCrate.build;
@@ -100,11 +122,17 @@
         defaultPackage = self.packages.${system}.${crateName};
 
         devShell = pkgs.mkShell {
-          inherit shellHook;
-          # inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
-            with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf]
-              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration recent_flamegraph fd ];
+            with pkgs; [ fenix.packages.${system}.rust-analyzer fenixStable ] ++ buildDeps;
+        };
+
+        devShells.perfShell = pkgs.mkShell {
+          buildInputs = with pkgs; [ grcov recent_flamegraph fd fenixNightly fenix.packages.${system}.rust-analyzer ] ++ buildDeps;
+          shellHook = ''
+            export RUSTFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+            export RUSTDOCFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+            export CARGO_INCREMENTAL=0
+          '';
         };
 
       });
