@@ -551,7 +551,7 @@
 <span class="kw">use</span> <span class="ident">rand_chacha</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">ChaChaRng</span>};
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">data::BlockHash</span>, <span class="ident">PrivKey</span>, <span class="ident">PubKey</span>, <span class="ident">H_256</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">data::StateHash</span>, <span class="ident">PrivKey</span>, <span class="ident">PubKey</span>, <span class="ident">H_256</span>};
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">threshold_crypto</span> <span class="kw">as</span> <span class="ident">tc</span>;
 
@@ -658,7 +658,7 @@
 
     <span class="doccomment">/// Hashes the view number and the next hash as the committee seed for vote token generation</span>
     <span class="doccomment">/// and verification.</span>
-    <span class="kw">fn</span> <span class="ident">hash_commitee_seed</span>(<span class="ident">view_number</span>: <span class="ident">u64</span>, <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">H_256</span>] {
+    <span class="kw">fn</span> <span class="ident">hash_commitee_seed</span>(<span class="ident">view_number</span>: <span class="ident">u64</span>, <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">H_256</span>] {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="string">&quot;Vote token&quot;</span>.<span class="ident">as_bytes</span>());
         <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>.<span class="ident">to_be_bytes</span>());
@@ -751,7 +751,7 @@
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">pub_key</span>: <span class="ident">PubKey</span>,
         <span class="ident">token</span>: <span class="ident">VoteToken</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ValidatedVoteToken</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::hash_commitee_seed</span>(<span class="ident">view_number</span>, <span class="ident">next_state</span>);
         <span class="kw">if</span> <span class="op">!</span><span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::verify</span>(<span class="ident">token</span>.<span class="ident">clone</span>(), <span class="ident">pub_key</span>.<span class="ident">node</span>, <span class="ident">hash</span>) {
@@ -781,7 +781,7 @@
         <span class="ident">selection_threshold</span>: <span class="ident">SelectionThreshold</span>,
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">private_key</span>: <span class="kw-2">&amp;</span><span class="ident">PrivKey</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VoteToken</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::hash_commitee_seed</span>(<span class="ident">view_number</span>, <span class="ident">next_state</span>);
         <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::prove</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>.<span class="ident">node</span>, <span class="kw-2">&amp;</span><span class="ident">hash</span>);
@@ -850,7 +850,7 @@
 
         <span class="comment">// VRF verification should pass with the correct secret key share, total stake, committee</span>
         <span class="comment">// seed, and selection threshold</span>
-        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
+        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">StateHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::hash_commitee_seed</span>(<span class="ident">VIEW_NUMBER</span>, <span class="ident">next_state</span>);
         <span class="kw">let</span> <span class="ident">proof</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::prove</span>(<span class="kw-2">&amp;</span><span class="ident">secret_key_share_honest</span>, <span class="kw-2">&amp;</span><span class="ident">input</span>);
         <span class="kw">let</span> <span class="ident">valid</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::verify</span>(<span class="ident">proof</span>.<span class="ident">clone</span>(), <span class="ident">public_key_share_honest</span>, <span class="ident">input</span>);
@@ -874,7 +874,7 @@
         <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">valid</span>);
 
         <span class="comment">// VRF verification should fail if the next state used for proof generation is incorrect</span>
-        <span class="kw">let</span> <span class="ident">incorrect_next_state</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">INCORRECT_NEXT_STATE</span>);
+        <span class="kw">let</span> <span class="ident">incorrect_next_state</span> <span class="op">=</span> <span class="ident">StateHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">INCORRECT_NEXT_STATE</span>);
         <span class="kw">let</span> <span class="ident">incorrect_input</span> <span class="op">=</span>
             <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::hash_commitee_seed</span>(<span class="ident">VIEW_NUMBER</span>, <span class="ident">incorrect_next_state</span>);
         <span class="kw">let</span> <span class="ident">valid</span> <span class="op">=</span>
@@ -930,7 +930,7 @@
         <span class="kw">let</span> <span class="ident">pub_keys</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">pub_key</span>.<span class="ident">clone</span>()];
 
         <span class="comment">// Get the VRF proof</span>
-        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
+        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">StateHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::hash_commitee_seed</span>(<span class="ident">VIEW_NUMBER</span>, <span class="ident">next_state</span>);
         <span class="kw">let</span> <span class="ident">proof</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::prove</span>(<span class="kw-2">&amp;</span><span class="ident">secret_key_share</span>, <span class="kw-2">&amp;</span><span class="ident">input</span>);
 
@@ -995,7 +995,7 @@
         <span class="ident">stake_table</span>.<span class="ident">insert</span>(<span class="ident">pub_key_stakeless</span>, <span class="number">0</span>);
 
         <span class="comment">// Vote token should be null if the public key is not selected as a member.</span>
-        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
+        <span class="kw">let</span> <span class="ident">next_state</span> <span class="op">=</span> <span class="ident">StateHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">NEXT_STATE</span>);
         <span class="kw">let</span> <span class="ident">vote_token</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::make_vote_token</span>(
             <span class="kw-2">&amp;</span><span class="ident">stake_table</span>,
             <span class="ident">SELECTION_THRESHOLD</span>,
@@ -1066,7 +1066,7 @@
         <span class="macro">assert!</span>(<span class="ident">votes</span>.<span class="ident">is_none</span>());
 
         <span class="comment">// No vote should be granted if the next state used for token generation is incorrect</span>
-        <span class="kw">let</span> <span class="ident">incorrect_next_state</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">INCORRECT_NEXT_STATE</span>);
+        <span class="kw">let</span> <span class="ident">incorrect_next_state</span> <span class="op">=</span> <span class="ident">StateHash</span>::<span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="ident">::from_array</span>(<span class="ident">INCORRECT_NEXT_STATE</span>);
         <span class="kw">let</span> <span class="ident">incorrect_vote_token</span> <span class="op">=</span> <span class="ident">DynamicCommittee</span>::<span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="ident">::make_vote_token</span>(
             <span class="kw-2">&amp;</span><span class="ident">stake_table</span>,
             <span class="ident">SELECTION_THRESHOLD</span>,

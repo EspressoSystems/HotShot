@@ -303,6 +303,61 @@
 <span id="303">303</span>
 <span id="304">304</span>
 <span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing [`PhaseLock`](crate::PhaseLock)&#39;s data structures</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides types for representing consensus internal state, such as the [`Leaf`],</span>
@@ -325,7 +380,7 @@
 <span class="doccomment">/// as well as the hash of its parent `Leaf`.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The hash of the parent `Leaf`</span>
-    <span class="kw">pub</span> <span class="ident">parent</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">parent</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The block contained in this `Leaf`</span>
     <span class="kw">pub</span> <span class="ident">item</span>: <span class="ident">T</span>,
 }
@@ -336,7 +391,7 @@
     <span class="doccomment">/// # Arguments</span>
     <span class="doccomment">///   * `item` - The block to include</span>
     <span class="doccomment">///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">item</span>: <span class="ident">T</span>, <span class="ident">parent</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">item</span>: <span class="ident">T</span>, <span class="ident">parent</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">Leaf</span> { <span class="ident">parent</span>, <span class="ident">item</span> }
     }
 
@@ -344,11 +399,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the</span>
     <span class="doccomment">/// contained block, and then return the hash of the resulting concatenated byte string.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>();
         <span class="ident">bytes</span>.<span class="ident">extend_from_slice</span>(<span class="self">self</span>.<span class="ident">parent</span>.<span class="ident">as_ref</span>());
         <span class="ident">bytes</span>.<span class="ident">extend_from_slice</span>(<span class="ident">BlockContents::hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">item</span>).<span class="ident">as_ref</span>());
-        <span class="ident">T::hash_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>)
+        <span class="ident">T::hash_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>)
     }
 }
 
@@ -376,7 +431,7 @@
     <span class="doccomment">/// Hash of the [`Leaf`] referred to by this Quorum Certificate</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This value is covered by the threshold signature.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">leaf_hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">leaf_hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The view number this quorum certificate was generated during</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This value is covered by the threshold signature.</span>
@@ -410,7 +465,7 @@
     <span class="attribute">#[<span class="ident">must_use</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">tc::PublicKeySet</span>, <span class="ident">view</span>: <span class="ident">u64</span>, <span class="ident">stage</span>: <span class="ident">Stage</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">signature</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">signature</span> {
-            <span class="kw">let</span> <span class="ident">concatenated_hash</span> <span class="op">=</span> <span class="ident">create_hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">leaf_hash</span>, <span class="ident">view</span>, <span class="ident">stage</span>);
+            <span class="kw">let</span> <span class="ident">concatenated_hash</span> <span class="op">=</span> <span class="ident">create_verify_hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">leaf_hash</span>, <span class="ident">view</span>, <span class="ident">stage</span>);
             <span class="ident">key</span>.<span class="ident">public_key</span>().<span class="ident">verify</span>(<span class="ident">signature</span>, <span class="kw-2">&amp;</span><span class="ident">concatenated_hash</span>)
         } <span class="kw">else</span> {
             <span class="self">self</span>.<span class="ident">genesis</span>
@@ -493,49 +548,118 @@
     <span class="ident">Decide</span>,
 }
 
-<span class="doccomment">/// This concatenates the encoding of `blockhash`, `view`, and `stage`, in</span>
+<span class="doccomment">/// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in</span>
 <span class="doccomment">/// that order, and hashes the result.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_hash</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(
-    <span class="ident">blockhash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_verify_hash</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(
+    <span class="ident">leaf_hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="ident">view</span>: <span class="ident">u64</span>,
     <span class="ident">stage</span>: <span class="ident">Stage</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VerifyHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
-    <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">blockhash</span>.<span class="ident">as_ref</span>());
+    <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">leaf_hash</span>.<span class="ident">as_ref</span>());
     <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>.<span class="ident">to_be_bytes</span>());
     <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span>(<span class="ident">stage</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_be_bytes</span>());
     <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">hasher</span>.<span class="ident">finalize</span>();
-    <span class="ident">BlockHash::from_array</span>(<span class="kw-2">*</span><span class="ident">hash</span>.<span class="ident">as_bytes</span>())
+    <span class="ident">VerifyHash::from_array</span>(<span class="kw-2">*</span><span class="ident">hash</span>.<span class="ident">as_bytes</span>())
 }
 
-<span class="doccomment">/// Type used for representing hashes</span>
+<span class="doccomment">/// generates boilerplate code for any wrapper types</span>
+<span class="doccomment">/// around `InternalHash`</span>
+<span class="macro">macro_rules!</span> <span class="ident">gen_hash_wrapper_type</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+        <span class="doccomment">///  External wrapper type</span>
+        <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
+            <span class="ident">inner</span>: <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        }
+
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+            <span class="doccomment">/// Converts an array of the correct size directly into an `Self`</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_array</span>(<span class="ident">input</span>: [<span class="ident">u8</span>; <span class="ident">N</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
+                    <span class="ident">inner</span>: <span class="ident">InternalHash::from_array</span>(<span class="ident">input</span>),
+                }
+            }
+            <span class="doccomment">/// Clones the contents of this Hash into a `Vec&lt;u8&gt;`</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_vec</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">to_vec</span>()
+            }
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
+                    <span class="ident">inner</span>: <span class="ident">InternalHash::random</span>(),
+                }
+            }
+        }
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">as_ref</span>()
+            }
+        }
+
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">N</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">input</span>: [<span class="ident">u8</span>; <span class="ident">N</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                <span class="ident"><span class="self">Self</span>::from_array</span>(<span class="ident">input</span>)
+            }
+        }
+
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
+                    <span class="ident">inner</span>: <span class="ident">InternalHash::default</span>(),
+                }
+            }
+        }
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+                <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>()))
+                    .<span class="ident">field</span>(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">HexFmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>)))
+                    .<span class="ident">finish</span>()
+            }
+        }
+    };
+}
+
+<span class="macro">gen_hash_wrapper_type!</span>(<span class="ident">BlockHash</span>);
+<span class="macro">gen_hash_wrapper_type!</span>(<span class="ident">LeafHash</span>);
+<span class="macro">gen_hash_wrapper_type!</span>(<span class="ident">TransactionHash</span>);
+<span class="macro">gen_hash_wrapper_type!</span>(<span class="ident">VerifyHash</span>);
+<span class="macro">gen_hash_wrapper_type!</span>(<span class="ident">StateHash</span>);
+
+<span class="doccomment">/// Internal type used for representing hashes</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that</span>
 <span class="doccomment">/// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]</span>
 <span class="doccomment">/// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not</span>
 <span class="doccomment">/// have for the general case.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO([#36](https://gitlab.com/translucence/systems/phaselock/-/issues/36)) Break this up into a</span>
-<span class="doccomment">/// core type and type-stating wrappers, and utilize `serde_bytes` instead of the visitor</span>
-<span class="doccomment">/// implementation</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="kw">struct</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The underlying array</span>
+    <span class="doccomment">/// No support for const generics</span>
+    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">with</span> <span class="op">=</span> <span class="string">&quot;serde_bytes_array&quot;</span>)]</span>
     <span class="ident">inner</span>: [<span class="ident">u8</span>; <span class="ident">N</span>],
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Converts an array of the correct size directly into a `BlockHash`</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;InternalHash&quot;</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">HexFmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>)))
+            .<span class="ident">finish</span>()
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Converts an array of the correct size directly into an `InternalHash`</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">from_array</span>(<span class="ident">input</span>: [<span class="ident">u8</span>; <span class="ident">N</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">input</span> }
     }
 
-    <span class="doccomment">/// Clones the contents of this `BlockHash` into a `Vec&lt;u8&gt;`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_vec</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Clones the contents of this `InternalHash` into a `Vec&lt;u8&gt;`</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_vec</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">to_vec</span>()
     }
 
-    <span class="doccomment">/// Testing only random generation of a `BlockHash`</span>
+    <span class="doccomment">/// Testing only random generation of a `InternalHash`</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">use</span> <span class="ident">rand::Rng</span>;
@@ -546,66 +670,52 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">N</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">N</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">input</span>: [<span class="ident">u8</span>; <span class="ident">N</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::from_array</span>(<span class="ident">input</span>)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">InternalHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">BlockHash</span> {
+        <span class="ident">InternalHash</span> {
             <span class="ident">inner</span>: [<span class="number">0_u8</span>; { <span class="ident">N</span> }],
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Serialize</span> <span class="kw">for</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S::Ok</span>, <span class="ident">S::Error</span><span class="op">&gt;</span>
+<span class="doccomment">/// [Needed](https://github.com/serde-rs/bytes/issues/26#issuecomment-902550669) to (de)serialize const generic arrays</span>
+<span class="kw">mod</span> <span class="ident">serde_bytes_array</span> {
+    <span class="kw">use</span> <span class="ident">core::convert::TryInto</span>;
+
+    <span class="kw">use</span> <span class="ident">serde::de::Error</span>;
+    <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserializer</span>, <span class="ident">Serializer</span>};
+
+    <span class="doccomment">/// This just specializes [`serde_bytes::serialize`] to `&lt;T = [u8]&gt;`.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">serialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">serializer</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">S::Ok</span>, <span class="ident">S::Error</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">S</span>: <span class="ident">serde::Serializer</span>,
+        <span class="ident">S</span>: <span class="ident">Serializer</span>,
     {
-        <span class="ident">serializer</span>.<span class="ident">serialize_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>)
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="ident">D</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="ident">D</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">D::Error</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">D</span>: <span class="ident">serde::Deserializer</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span>,
-    {
-        <span class="ident">deserializer</span>.<span class="ident">deserialize_bytes</span>(<span class="ident">BlockHashVisitor</span>::<span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>)
-    }
-}
-
-<span class="doccomment">/// `Visitor` implementation for deserializing `BlockHash`</span>
-<span class="kw">struct</span> <span class="ident">BlockHashVisitor</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>;
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">serde::de::Visitor</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BlockHashVisitor</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Value</span> <span class="op">=</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>;
-
-    <span class="kw">fn</span> <span class="ident">expecting</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">formatter</span>, <span class="string">&quot;a byte array of length {}&quot;</span>, { <span class="ident">N</span> })
+        <span class="ident">serde_bytes::serialize</span>(<span class="ident">bytes</span>, <span class="ident">serializer</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">visit_bytes</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Value</span>, <span class="ident">E</span><span class="op">&gt;</span>
+    <span class="doccomment">/// This takes the result of [`serde_bytes::deserialize`] from `[u8]` to `[u8; N]`.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span>, <span class="ident">D</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="ident">deserializer</span>: <span class="ident">D</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">N</span>], <span class="ident">D::Error</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">E</span>: <span class="ident">serde::de::Error</span>,
+        <span class="ident">D</span>: <span class="ident">Deserializer</span><span class="op">&lt;</span><span class="lifetime">&#39;de</span><span class="op">&gt;</span>,
     {
-        <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> { <span class="ident">N</span> } {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> [<span class="number">0_u8</span>; { <span class="ident">N</span> }];
-            <span class="ident">result</span>.<span class="ident">copy_from_slice</span>(<span class="ident">v</span>);
-            <span class="prelude-val">Ok</span>(<span class="ident">BlockHash</span> { <span class="ident">inner</span>: <span class="ident">result</span> })
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, { <span class="ident">N</span> });
-            <span class="prelude-val">Err</span>(<span class="ident">E::invalid_length</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">as_str</span>()))
-        }
+        <span class="kw">let</span> <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">serde_bytes::deserialize</span>(<span class="ident">deserializer</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">array</span>: [<span class="ident">u8</span>; <span class="ident">N</span>] <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;[u8; {}]&quot;</span>, <span class="ident">N</span>);
+            <span class="ident">D::Error::invalid_length</span>(<span class="ident">slice</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">expected</span>.<span class="ident">as_str</span>())
+        })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">array</span>)
     }
 }
 </code></pre></div>

@@ -381,7 +381,7 @@
 <span class="kw">use</span> <span class="ident">tracing::error</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">data::BlockHash</span>,
+    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">LeafHash</span>, <span class="ident">StateHash</span>, <span class="ident">TransactionHash</span>},
     <span class="ident">traits</span>::{
         <span class="ident">implementations::MemoryStorage</span>, <span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>,
     },
@@ -465,7 +465,7 @@
 
 <span class="kw">impl</span> <span class="ident">State</span> {
     <span class="doccomment">/// Produces a hash of the current state</span>
-    <span class="kw">fn</span> <span class="ident">hash_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="comment">// BTreeMap sorts so this will be in a consistent order</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">balances</span> {
@@ -620,7 +620,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryBlock</span> {
     <span class="doccomment">/// Block state commitment</span>
-    <span class="kw">pub</span> <span class="ident">previous_block</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">previous_block</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Transaction vector</span>
     <span class="kw">pub</span> <span class="ident">transactions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span>,
 }
@@ -661,7 +661,7 @@
     }
 
     <span class="comment">// Note: This is used for indexing the transaction in storage</span>
-    <span class="kw">fn</span> <span class="ident">hash_transaction</span>(<span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_transaction</span>(<span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
@@ -673,7 +673,7 @@
         <span class="ident">x</span>.<span class="ident">into</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">hash_bytes</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_leaf</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">blake3::hash</span>(<span class="ident">bytes</span>).<span class="ident">as_bytes</span>();
         <span class="ident">x</span>.<span class="ident">into</span>()
     }

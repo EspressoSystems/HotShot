@@ -145,6 +145,9 @@
 <span id="145">145</span>
 <span id="146">146</span>
 <span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network message types</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module contains types used to represent the various types of messages that</span>
@@ -157,7 +160,10 @@
 
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">data::Leaf</span>, <span class="ident">BlockHash</span>, <span class="ident">QuorumCertificate</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">LeafHash</span>},
+    <span class="ident">QuorumCertificate</span>,
+};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="doccomment">/// Enum representation of any message type</span>
@@ -212,7 +218,7 @@
     <span class="doccomment">/// Id of the voting nodes</span>
     <span class="kw">pub</span> <span class="ident">id</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// Hash of the item being voted on</span>
-    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The view this vote was cast for</span>
     <span class="kw">pub</span> <span class="ident">current_view</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// The current stage</span>
@@ -234,7 +240,7 @@
 <span class="doccomment">/// Pre-commit qc from the leader</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PreCommit</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Hash of the item being worked on</span>
-    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The pre commit qc</span>
     <span class="kw">pub</span> <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The current view</span>
@@ -255,7 +261,7 @@
 <span class="doccomment">/// `Commit` qc from the leader</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Commit</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Hash of the thing being worked on</span>
-    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The `Commit` qc</span>
     <span class="kw">pub</span> <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The current view</span>
@@ -276,7 +282,7 @@
 <span class="doccomment">/// Final decision</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Decide</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Hash of the thing we just decided on</span>
-    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">leaf_hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// final qc for the round</span>
     <span class="kw">pub</span> <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// the current view</span>

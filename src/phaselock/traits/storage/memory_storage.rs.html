@@ -376,6 +376,13 @@
 <span id="376">376</span>
 <span id="377">377</span>
 <span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
@@ -388,7 +395,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>},
+    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>},
     <span class="ident">traits</span>::{
         <span class="ident">block_contents::BlockContents</span>,
         <span class="ident">state::State</span>,
@@ -416,11 +423,11 @@
     <span class="doccomment">/// inserted, it index _must not_ change</span>
     <span class="ident">leaves</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Index of the [`Leaf`]s by their hashes</span>
-    <span class="ident">hash_to_leaf</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
+    <span class="ident">hash_to_leaf</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Index of the [`Leaf`]s by their block&#39;s hashes</span>
     <span class="ident">block_to_leaf</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The store of states</span>
-    <span class="ident">states</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">State</span><span class="op">&gt;</span>,
+    <span class="ident">states</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">State</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// In memory, ephemeral, storage for a [`PhaseLock`](crate::PhaseLock) instance</span>
@@ -541,7 +548,7 @@
 
     <span class="kw">fn</span> <span class="ident">get_leaf</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
-        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_leaf</span>, <span class="question-mark">?</span><span class="ident">hash</span>);
@@ -597,7 +604,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">state</span>);
@@ -607,7 +614,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">maybe_state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
         <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">maybe_state</span> {
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">value</span>().<span class="ident">clone</span>();
@@ -628,10 +635,15 @@
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utility::test_util::setup_logging</span>;
     <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 
-    <span class="kw">fn</span> <span class="ident">dummy_qc</span>(<span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>, <span class="ident">view</span>: <span class="ident">u64</span>, <span class="ident">valid</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">dummy_qc</span>(
+        <span class="ident">hash_block</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>,
+        <span class="ident">hash_leaf</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>,
+        <span class="ident">view</span>: <span class="ident">u64</span>,
+        <span class="ident">valid</span>: <span class="ident">bool</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span> {
         <span class="ident">QuorumCertificate</span> {
-            <span class="ident">block_hash</span>: <span class="ident">hash</span>,
-            <span class="ident">leaf_hash</span>: <span class="ident">hash</span>,
+            <span class="ident">block_hash</span>: <span class="ident">hash_block</span>,
+            <span class="ident">leaf_hash</span>: <span class="ident">hash_leaf</span>,
             <span class="ident">view_number</span>: <span class="ident">view</span>,
             <span class="ident">stage</span>: <span class="kw">if</span> <span class="ident">valid</span> { <span class="ident">Stage::Decide</span> } <span class="kw">else</span> { <span class="ident">Stage::None</span> },
             <span class="ident">signature</span>: <span class="prelude-val">None</span>,
@@ -672,16 +684,18 @@
         <span class="ident">setup_logging</span>();
         <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span> <span class="ident">MemoryStorage</span>::<span class="op">&lt;</span><span class="ident">DummyBlock</span>, <span class="ident">DummyState</span>, <span class="number">32</span><span class="op">&gt;</span><span class="ident">::default</span>();
         <span class="comment">// Create a few dummy qcs</span>
-        <span class="kw">let</span> <span class="ident">qc_1_hash</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">qc_1</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_1_hash</span>, <span class="number">1</span>, <span class="bool-val">true</span>);
-        <span class="kw">let</span> <span class="ident">qc_2_hash</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_2_hash</span>, <span class="number">2</span>, <span class="bool-val">true</span>);
+        <span class="kw">let</span> <span class="ident">qc_1_hash_block</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">qc_1_hash_leaf</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">qc_1</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_1_hash_block</span>, <span class="ident">qc_1_hash_leaf</span>, <span class="number">1</span>, <span class="bool-val">true</span>);
+        <span class="kw">let</span> <span class="ident">qc_2_hash_block</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">qc_2_hash_leaf</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_2_hash_block</span>, <span class="ident">qc_2_hash_leaf</span>, <span class="number">2</span>, <span class="bool-val">true</span>);
         <span class="comment">// Attempt to insert them</span>
         <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="comment">// Attempt to get them back by hash</span>
-        <span class="kw">let</span> <span class="ident">h_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_1_hash</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">h_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_2_hash</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_1_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_2_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="comment">// Check to make sure we got the right QCs back</span>
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_1</span>, <span class="ident">qc_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_2</span>, <span class="ident">qc_2</span>);
@@ -708,8 +722,8 @@
         <span class="comment">// Create a few dummy leaves</span>
         <span class="kw">let</span> <span class="ident">block_1</span> <span class="op">=</span> <span class="ident">DummyBlock::random</span>();
         <span class="kw">let</span> <span class="ident">block_2</span> <span class="op">=</span> <span class="ident">DummyBlock::random</span>();
-        <span class="kw">let</span> <span class="ident">parent_1</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">parent_2</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">parent_1</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
+        <span class="kw">let</span> <span class="ident">parent_2</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
         <span class="kw">let</span> <span class="ident">leaf_1</span> <span class="op">=</span> <span class="ident">Leaf</span> {
             <span class="ident">parent</span>: <span class="ident">parent_1</span>,
             <span class="ident">item</span>: <span class="ident">block_1</span>.<span class="ident">clone</span>(),
@@ -746,7 +760,7 @@
         <span class="macro">assert_eq!</span>(<span class="ident">b_leaf_2</span>.<span class="ident">parent</span>, <span class="ident">leaf_2</span>.<span class="ident">parent</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">b_leaf_2</span>.<span class="ident">item</span>, <span class="ident">leaf_2</span>.<span class="ident">item</span>);
         <span class="comment">// Getting a bunk leaf by hash fails</span>
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>()).<span class="kw">await</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>()).<span class="kw">await</span>.<span class="ident">is_none</span>());
         <span class="comment">// Getting a bunk leaf by block hash fails</span>
         <span class="macro">assert!</span>(<span class="ident">storage</span>
             .<span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>())

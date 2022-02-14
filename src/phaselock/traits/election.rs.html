@@ -124,9 +124,11 @@
 <span id="124">124</span>
 <span id="125">125</span>
 <span id="126">126</span>
+<span id="127">127</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">BlockHash</span>, <span class="ident">PrivKey</span>, <span class="ident">PubKey</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::data::StateHash</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">PrivKey</span>, <span class="ident">PubKey</span>};
 
 <span class="doccomment">/// Describes how `PhaseLock` chooses committees and leaders</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
@@ -155,7 +157,7 @@
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">pub_key</span>: <span class="ident">PubKey</span>,
         <span class="ident">token</span>: <span class="ident"><span class="self">Self</span>::VoteToken</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ValidatedVoteToken</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Returns the number of votes the validated vote token has</span>
     <span class="kw">fn</span> <span class="ident">get_vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">token</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::ValidatedVoteToken</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span>;
@@ -168,7 +170,7 @@
         <span class="ident">selection_threshold</span>: <span class="ident"><span class="self">Self</span>::SelectionThreshold</span>,
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">private_key</span>: <span class="kw-2">&amp;</span><span class="ident">PrivKey</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteToken</span><span class="op">&gt;</span>;
 }
 
@@ -219,7 +221,7 @@
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">pub_key</span>: <span class="ident">PubKey</span>,
         <span class="ident">token</span>: <span class="ident"><span class="self">Self</span>::VoteToken</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ValidatedVoteToken</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="ident">message</span>.<span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>.<span class="ident">to_le_bytes</span>());
@@ -237,7 +239,7 @@
         <span class="ident">_selection_threshold</span>: <span class="ident"><span class="self">Self</span>::SelectionThreshold</span>,
         <span class="ident">view_number</span>: <span class="ident">u64</span>,
         <span class="ident">private_key</span>: <span class="kw-2">&amp;</span><span class="ident">PrivKey</span>,
-        <span class="ident">next_state</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteToken</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="ident">message</span>.<span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>.<span class="ident">to_le_bytes</span>());

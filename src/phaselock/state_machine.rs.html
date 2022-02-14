@@ -1302,8 +1302,8 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
 
 <span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">generate_qc</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">yield_now</span>, <span class="ident">Arc</span>, <span class="ident">BlockHash</span>, <span class="ident">Commit</span>, <span class="ident">Debug</span>, <span class="ident">Decide</span>,
-    <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">Leaf</span>, <span class="ident">Message</span>, <span class="ident">PhaseLock</span>, <span class="ident">PhaseLockError</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">PubKey</span>,
+    <span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">generate_qc</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">yield_now</span>, <span class="ident">Arc</span>, <span class="ident">Commit</span>, <span class="ident">Debug</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>,
+    <span class="ident">EventType</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">Message</span>, <span class="ident">PhaseLock</span>, <span class="ident">PhaseLockError</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">PubKey</span>,
     <span class="ident">QuorumCertificate</span>, <span class="prelude-ty">Result</span>, <span class="ident">ResultExt</span>, <span class="ident">Stage</span>, <span class="ident">Vote</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -1374,7 +1374,7 @@
     <span class="doccomment">/// Current commited state</span>
     <span class="ident">committed_state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Current commited leaf</span>
-    <span class="ident">committed_leaf</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="ident">committed_leaf</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Handle event stream</span>
     <span class="ident">channel</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
