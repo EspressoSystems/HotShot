@@ -68,7 +68,28 @@
             };
           };
 
-        shellHook = '''' + (pkgs.lib.optionals pkgs.stdenv.isDarwin '' ulimit -n 9999999999'');
+        recent_flamegraph = pkgs.cargo-flamegraph.overrideAttrs (oldAttrs: rec {
+          src = pkgs.fetchFromGitHub {
+            owner = "flamegraph-rs";
+            repo = "flamegraph";
+            rev = "a9837efd8744dac853acbe3d476924083f26743d";
+            sha256 = "sha256-Fek2AJ8mYYf92NBT0pmVBqK1BXmr6GdEqt2Rp8To8tI=";
+          };
+          version = "master";
+          cargoDeps = oldAttrs.cargoDeps.overrideAttrs (pkgs.lib.const {
+              name = "${oldAttrs.pname}-vendor.tar.gz";
+              inherit src;
+              outputHash = "sha256-i9/Fe+JaCcdHw2CR0n4hULokDN2RvDAzgXNG2zAUFDg=";
+          });
+        });
+
+        shellHook = 
+        # ''
+        #   export ASYNC_STD_THREAD_COUNT=1
+        # '' + 
+        (pkgs.lib.optionals pkgs.stdenv.isDarwin '' 
+          ulimit -n 9999999999
+        '');
       in
       {
         packages.${crateName} = project.rootCrate.build;
@@ -83,7 +104,8 @@
           # inputsFrom = builtins.attrValues self.packages.${system};
           buildInputs =
             with pkgs; [ cargo-audit nixpkgs-fmt git-chglog fenix.packages.${system}.rust-analyzer fenixPackage protobuf]
-              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
+              ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration recent_flamegraph fd ];
         };
+
       });
 }

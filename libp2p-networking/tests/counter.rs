@@ -25,8 +25,8 @@ use crate::common::print_connections;
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 30;
-const NUM_OF_BOOTSTRAP: usize = 5;
+const TOTAL_NUM_PEERS: usize = 5;
+const NUM_OF_BOOTSTRAP: usize = 1;
 const TIMEOUT: Duration = Duration::from_secs(200);
 const NUM_ROUNDS: usize = 100;
 

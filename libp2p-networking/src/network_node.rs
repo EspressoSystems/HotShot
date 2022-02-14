@@ -134,17 +134,6 @@ impl NetworkDef {
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ProtocolsHandler>>
     {
-        // TODO this should be separated out into a separate event
-        let mut num_sent = 0;
-        for (topic, contents) in self.in_progress_gossip.as_slice() {
-            let res = self.gossipsub.publish(topic.clone(), contents.clone());
-            if res.is_err() {
-                break;
-            }
-            num_sent += 1;
-        }
-        self.in_progress_gossip = self.in_progress_gossip[num_sent..].into();
-
         // push events that must be relayed back to client onto queue
         // to be consumed by client event handler
         if !self.client_event_queue.is_empty() {
@@ -822,6 +811,22 @@ impl NetworkNode {
         Ok(())
     }
 
+    /// periodically resend gossip messages if they have failed
+    #[allow(clippy::panic)]
+    #[instrument(skip(self))]
+    pub fn handle_sending(&mut self) {
+        let swarm = self.swarm.behaviour_mut();
+        let mut num_sent = 0;
+        for (topic, contents) in swarm.in_progress_gossip.as_slice() {
+            let res = swarm.gossipsub.publish(topic.clone(), contents.clone());
+            if res.is_err() {
+                break;
+            }
+            num_sent += 1;
+        }
+        swarm.in_progress_gossip = swarm.in_progress_gossip[num_sent..].into();
+    }
+
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
     #[allow(clippy::panic)]
@@ -837,6 +842,9 @@ impl NetworkNode {
                 loop {
                     // TODO variable on futures times
                     select! {
+                        _ = sleep(Duration::from_secs(1)).fuse() => {
+                            self.handle_sending();
+                        },
                         _ = sleep(Duration::from_secs(1)).fuse() => {
                             self.handle_peer_discovery();
                         },
