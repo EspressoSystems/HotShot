@@ -54,8 +54,8 @@ use crate::{
     data::{BlockHash, Leaf, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
     types::{
-        error::NetworkFault, Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle,
-        PreCommit, Prepare, Vote,
+        error::NetworkFaultSnafu, Commit, Decide, Event, EventType, Message, NewView,
+        PhaseLockHandle, PreCommit, Prepare, Vote,
     },
     utility::{
         broadcast::BroadcastSender,
@@ -407,7 +407,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 .networking
                 .message_node(view_message, new_leader)
                 .await
-                .context(NetworkFault);
+                .context(NetworkFaultSnafu);
             if let Err(e) = network_result {
                 warn!(?e, "Failed to send new view message to node");
             };
@@ -591,7 +591,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .networking
             .broadcast_message(message.clone())
             .await
-            .context(NetworkFault);
+            .context(NetworkFaultSnafu);
         if let Err(e) = network_result {
             warn!(?e, "Failed to publish a transaction");
         };

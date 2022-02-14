@@ -204,7 +204,7 @@ impl crate::traits::State<H_256> for State {
             //
             // We first check that the transaction is internally consistent, then apply the change
             // to our trial map
-            ensure!(tx.validate_independence(), InconsistentTransaction);
+            ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
             // Find the input account, and subtract the transfer balance from it, failing if it
             // doesn't exist
             if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
