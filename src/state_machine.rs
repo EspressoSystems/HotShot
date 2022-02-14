@@ -88,6 +88,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
 
 /// Context holder
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Clippy gets a lil wonk here
 struct Ctx<I: NodeImplementation<N> + 'static, const N: usize> {
     /// Current commited state
     committed_state: Arc<I::State>,
