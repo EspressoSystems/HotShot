@@ -8,6 +8,6 @@ pub use error::PhaseLockError;
 pub use event::Event;
 pub use event::EventType;
 
-pub use handle::{HandleError, PhaseLockHandle};
+pub use handle::PhaseLockHandle;
 
 pub use message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};

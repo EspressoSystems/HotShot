@@ -1,12 +1,11 @@
 //! Provides an event-streaming handle for a [`PhaseLock`] running in the background
 
 use async_std::{sync::RwLock, task::block_on};
-use snafu::{ResultExt, Snafu};
 use std::sync::Arc;
 
 use crate::{
-    traits::{BlockContents, NodeImplementation},
-    types::{Event, PhaseLockError},
+    traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
+    types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
     utility::broadcast::{BroadcastReceiver, BroadcastSender},
     PhaseLock,
 };
@@ -56,12 +55,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>, HandleError> {
+    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] has been closed.
+    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>, PhaseLockError> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
-            Err(_) => Err(HandleError::ShutDown),
+            Err(_) => Err(NetworkFault { source: ShutDown }),
         }
     }
     /// Syncronous version of `next_event`
@@ -71,15 +70,15 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>, HandleError> {
+    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>, PhaseLockError> {
         block_on(self.next_event())
     }
     /// Will attempt to immediatly pull an event out of the queue
     ///
     /// # Errors
     ///
-    /// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>, HandleError> {
+    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has shut down
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>, PhaseLockError> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -88,21 +87,17 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`HandleError::ShutDown`] if the underlying [`PhaseLock`] instance has been shut
+    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has been shut
     /// down.
-    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>, HandleError> {
+    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>, PhaseLockError> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
             match self.try_next_event() {
                 Ok(Some(x)) => output.push(x),
                 Ok(None) => break,
-                Err(HandleError::ShutDown) => return Err(HandleError::ShutDown),
-                // As try_next event can only return HandleError::Skipped or HandleError::ShutDown,
-                // it would be nonsensical if we end up here
-                _ => {
-                    unreachable!("Impossible to reach branch in PhaseLockHandle::available_events");
-                }
+                // // try_next event can only return PhaseLockError { source: NetworkError::ShutDown }
+                Err(x) => return Err(x),
             }
         }
         Ok(output)
@@ -124,16 +119,13 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return a [`HandleError::Transaction`] if some error occurs in the underlying
+    /// Will return a [`PhaselockError`] if some error occurs in the underlying
     /// [`PhaseLock`] instance.
     pub async fn submit_transaction(
         &self,
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<(), HandleError> {
-        self.phaselock
-            .publish_transaction_async(tx)
-            .await
-            .context(Transaction)
+    ) -> Result<(), PhaseLockError> {
+        self.phaselock.publish_transaction_async(tx).await
     }
 
     /// Sycronously sumbits a transaction to the backing [`PhaseLock`] instance.
@@ -144,7 +136,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub fn submit_transaction_sync(
         &self,
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<(), HandleError> {
+    ) -> Result<(), PhaseLockError> {
         block_on(self.submit_transaction(tx))
     }
 
@@ -193,20 +185,4 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub fn storage(&self) -> &I::Storage {
         &self.storage
     }
-}
-
-/// Represents the types of errors that can be returned by a [`PhaseLockHandle`]
-///
-/// TODO([#37](https://gitlab.com/translucence/systems/phaselock/-/issues/37)): Refactor out
-#[derive(Snafu, Debug)]
-#[allow(clippy::large_enum_variant)] // PhaseLock error isn't that big, and these are _errors_ after all
-pub enum HandleError {
-    /// The [`PhaseLock`] instance this handle references has shut down
-    ShutDown,
-    /// An error occured in the underlying [`PhaseLock`] implementation while submitting a
-    /// transaction
-    Transaction {
-        /// The underlying `PhaseLock` error
-        source: PhaseLockError,
-    },
 }

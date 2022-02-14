@@ -28,7 +28,7 @@ use crate::{
     traits::{
         BlockContents, NetworkingImplementation, State, StatefulHandler, Storage, StorageResult,
     },
-    types::error::{FailedToBroadcast, FailedToMessageLeader},
+    types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu},
     utility::broadcast::BroadcastSender,
     NodeImplementation,
 };
@@ -367,7 +367,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             state: new_state.clone(),
                         }))
                         .await
-                        .context(FailedToBroadcast {
+                        .context(FailedToBroadcastSnafu {
                             stage: Stage::Prepare,
                         });
                     if let Err(e) = network_result {
@@ -450,7 +450,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .networking
                             .broadcast_message(pc_message)
                             .await
-                            .context(FailedToBroadcast {
+                            .context(FailedToBroadcastSnafu {
                                 stage: Stage::PreCommit,
                             });
                         if let Err(e) = network_result {
@@ -530,7 +530,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .networking
                             .broadcast_message(pc_message)
                             .await
-                            .context(FailedToBroadcast {
+                            .context(FailedToBroadcastSnafu {
                                 stage: Stage::Commit,
                             });
                         if let Err(e) = network_result {
@@ -658,7 +658,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .networking
                             .broadcast_message(d_message)
                             .await
-                            .context(FailedToBroadcast {
+                            .context(FailedToBroadcastSnafu {
                                 stage: Stage::Decide,
                             });
 
@@ -822,7 +822,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             .networking
                             .message_node(vote_message, pl.inner.get_leader(current_view))
                             .await
-                            .context(FailedToMessageLeader {
+                            .context(FailedToMessageLeaderSnafu {
                                 stage: Stage::Prepare,
                             });
                         if let Err(e) = network_result {
@@ -909,7 +909,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         .networking
                         .message_node(vote_message, pl.inner.get_leader(current_view))
                         .await
-                        .context(FailedToMessageLeader {
+                        .context(FailedToMessageLeaderSnafu {
                             stage: Stage::PreCommit,
                         });
                     if let Err(e) = network_result {
@@ -974,7 +974,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         .networking
                         .message_node(vote_message, pl.inner.get_leader(current_view))
                         .await
-                        .context(FailedToMessageLeader {
+                        .context(FailedToMessageLeaderSnafu {
                             stage: Stage::Commit,
                         });
                     if let Err(e) = network_result {
