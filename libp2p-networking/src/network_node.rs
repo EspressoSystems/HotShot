@@ -842,7 +842,7 @@ impl NetworkNode {
                 loop {
                     // TODO variable on futures times
                     select! {
-                        _ = sleep(Duration::from_secs(1)).fuse() => {
+                        _ = sleep(Duration::from_millis(25)).fuse() => {
                             self.handle_sending();
                         },
                         _ = sleep(Duration::from_secs(1)).fuse() => {

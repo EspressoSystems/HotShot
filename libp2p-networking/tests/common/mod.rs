@@ -148,8 +148,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut handles = Vec::new();
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
-    let min_num_peers = 5;
-    let max_num_peers = 10;
+    let min_num_peers = num_of_nodes / 4;
+    let max_num_peers = num_of_nodes / 2;
 
     for i in 0..num_bootstrap {
         let node = Arc::new(
