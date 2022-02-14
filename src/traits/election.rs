@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::{BlockHash, PrivKey, PubKey};
+use crate::data::StateHash;
+use crate::{PrivKey, PubKey};
 
 /// Describes how `PhaseLock` chooses committees and leaders
 pub trait Election<const N: usize> {
@@ -29,7 +30,7 @@ pub trait Election<const N: usize> {
         view_number: u64,
         pub_key: PubKey,
         token: Self::VoteToken,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<Self::ValidatedVoteToken>;
     /// Returns the number of votes the validated vote token has
     fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64;
@@ -42,7 +43,7 @@ pub trait Election<const N: usize> {
         selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<Self::VoteToken>;
 }
 
@@ -93,7 +94,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         view_number: u64,
         pub_key: PubKey,
         token: Self::VoteToken,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -111,7 +112,7 @@ impl<S, const N: usize> Election<N> for StaticCommittee<S, N> {
         _selection_threshold: Self::SelectionThreshold,
         view_number: u64,
         private_key: &PrivKey,
-        next_state: BlockHash<N>,
+        next_state: StateHash<N>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());

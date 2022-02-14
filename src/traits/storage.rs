@@ -3,7 +3,7 @@
 use futures::future::BoxFuture;
 
 use crate::{
-    data::{BlockHash, Leaf},
+    data::{BlockHash, Leaf, LeafHash},
     traits::BlockContents,
     QuorumCertificate,
 };
@@ -80,7 +80,7 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     /// Retrieves a leaf by its hash
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
-        hash: &'b BlockHash<N>,
+        hash: &'b LeafHash<N>,
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>>;
     /// Retrieves a leaf by the hash of its block
     fn get_leaf_by_block<'b, 'a: 'b>(
@@ -90,7 +90,7 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     /// Inserts a leaf
     fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>>;
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it
-    fn insert_state(&self, state: S, hash: BlockHash<N>) -> BoxFuture<'_, StorageResult<()>>;
+    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>>;
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
-    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'_, StorageResult<S>>;
+    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'_, StorageResult<S>>;
 }

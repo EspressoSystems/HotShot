@@ -10,7 +10,7 @@ use tracing::{info_span, trace, Instrument};
 use std::sync::Arc;
 
 use crate::{
-    data::{BlockHash, Leaf},
+    data::{BlockHash, Leaf, LeafHash},
     traits::{
         block_contents::BlockContents,
         state::State,
@@ -38,11 +38,11 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     /// inserted, it index _must not_ change
     leaves: RwLock<Vec<Leaf<Block, N>>>,
     /// Index of the [`Leaf`]s by their hashes
-    hash_to_leaf: DashMap<BlockHash<N>, usize>,
+    hash_to_leaf: DashMap<LeafHash<N>, usize>,
     /// Index of the [`Leaf`]s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
     /// The store of states
-    states: DashMap<BlockHash<N>, State>,
+    states: DashMap<LeafHash<N>, State>,
 }
 
 /// In memory, ephemeral, storage for a [`PhaseLock`](crate::PhaseLock) instance
@@ -163,7 +163,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
-        hash: &'b BlockHash<N>,
+        hash: &'b LeafHash<N>,
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
         async move {
             trace!(?self.inner.hash_to_leaf, ?hash);
@@ -219,7 +219,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
-    fn insert_state(&self, state: S, hash: BlockHash<N>) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>> {
         async move {
             trace!(?hash, "Inserting state");
             self.inner.states.insert(hash, state);
@@ -229,7 +229,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
-    fn get_state<'b, 'a: 'b>(&self, hash: &BlockHash<N>) -> BoxFuture<'_, StorageResult<S>> {
+    fn get_state<'b, 'a: 'b>(&self, hash: &LeafHash<N>) -> BoxFuture<'_, StorageResult<S>> {
         let maybe_state = self.inner.states.get(hash);
         let x: StorageResult<S> = if let Some(state) = maybe_state {
             let state = state.value().clone();
@@ -250,10 +250,15 @@ mod test {
     use crate::utility::test_util::setup_logging;
     use tracing::instrument;
 
-    fn dummy_qc(hash: BlockHash<32>, view: u64, valid: bool) -> QuorumCertificate<32> {
+    fn dummy_qc(
+        hash_block: BlockHash<32>,
+        hash_leaf: LeafHash<32>,
+        view: u64,
+        valid: bool,
+    ) -> QuorumCertificate<32> {
         QuorumCertificate {
-            block_hash: hash,
-            leaf_hash: hash,
+            block_hash: hash_block,
+            leaf_hash: hash_leaf,
             view_number: view,
             stage: if valid { Stage::Decide } else { Stage::None },
             signature: None,
@@ -294,16 +299,18 @@ mod test {
         setup_logging();
         let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
         // Create a few dummy qcs
-        let qc_1_hash = BlockHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash, 1, true);
-        let qc_2_hash = BlockHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash, 2, true);
+        let qc_1_hash_block = BlockHash::<32>::random();
+        let qc_1_hash_leaf = LeafHash::<32>::random();
+        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, 1, true);
+        let qc_2_hash_block = BlockHash::<32>::random();
+        let qc_2_hash_leaf = LeafHash::<32>::random();
+        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, 2, true);
         // Attempt to insert them
         storage.insert_qc(qc_1.clone()).await.unwrap();
         storage.insert_qc(qc_2.clone()).await.unwrap();
         // Attempt to get them back by hash
-        let h_qc_1 = storage.get_qc(&qc_1_hash).await.unwrap();
-        let h_qc_2 = storage.get_qc(&qc_2_hash).await.unwrap();
+        let h_qc_1 = storage.get_qc(&qc_1_hash_block).await.unwrap();
+        let h_qc_2 = storage.get_qc(&qc_2_hash_block).await.unwrap();
         // Check to make sure we got the right QCs back
         assert_eq!(h_qc_1, qc_1);
         assert_eq!(h_qc_2, qc_2);
@@ -330,8 +337,8 @@ mod test {
         // Create a few dummy leaves
         let block_1 = DummyBlock::random();
         let block_2 = DummyBlock::random();
-        let parent_1 = BlockHash::<32>::random();
-        let parent_2 = BlockHash::<32>::random();
+        let parent_1 = LeafHash::<32>::random();
+        let parent_2 = LeafHash::<32>::random();
         let leaf_1 = Leaf {
             parent: parent_1,
             item: block_1.clone(),
@@ -368,7 +375,7 @@ mod test {
         assert_eq!(b_leaf_2.parent, leaf_2.parent);
         assert_eq!(b_leaf_2.item, leaf_2.item);
         // Getting a bunk leaf by hash fails
-        assert!(storage.get_leaf(&BlockHash::<32>::random()).await.is_none());
+        assert!(storage.get_leaf(&LeafHash::<32>::random()).await.is_none());
         // Getting a bunk leaf by block hash fails
         assert!(storage
             .get_leaf_by_block(&BlockHash::<32>::random())

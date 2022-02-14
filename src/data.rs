@@ -20,7 +20,7 @@ use crate::traits::BlockContents;
 /// as well as the hash of its parent `Leaf`.
 pub struct Leaf<T, const N: usize> {
     /// The hash of the parent `Leaf`
-    pub parent: BlockHash<N>,
+    pub parent: LeafHash<N>,
     /// The block contained in this `Leaf`
     pub item: T,
 }
@@ -31,7 +31,7 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
-    pub fn new(item: T, parent: BlockHash<N>) -> Self {
+    pub fn new(item: T, parent: LeafHash<N>) -> Self {
         Leaf { parent, item }
     }
 
@@ -39,11 +39,11 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     ///
     /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
     /// contained block, and then return the hash of the resulting concatenated byte string.
-    pub fn hash(&self) -> BlockHash<N> {
+    pub fn hash(&self) -> LeafHash<N> {
         let mut bytes = Vec::<u8>::new();
         bytes.extend_from_slice(self.parent.as_ref());
         bytes.extend_from_slice(BlockContents::hash(&self.item).as_ref());
-        T::hash_bytes(&bytes)
+        T::hash_leaf(&bytes)
     }
 }
 
@@ -71,7 +71,7 @@ pub struct QuorumCertificate<const N: usize> {
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
-    pub(crate) leaf_hash: BlockHash<N>,
+    pub(crate) leaf_hash: LeafHash<N>,
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
@@ -105,7 +105,7 @@ impl<const N: usize> QuorumCertificate<N> {
     #[must_use]
     pub fn verify(&self, key: &tc::PublicKeySet, view: u64, stage: Stage) -> bool {
         if let Some(signature) = &self.signature {
-            let concatenated_hash = create_hash(&self.leaf_hash, view, stage);
+            let concatenated_hash = create_verify_hash(&self.leaf_hash, view, stage);
             key.public_key().verify(signature, &concatenated_hash)
         } else {
             self.genesis
@@ -188,49 +188,118 @@ pub enum Stage {
     Decide,
 }
 
-/// This concatenates the encoding of `blockhash`, `view`, and `stage`, in
+/// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in
 /// that order, and hashes the result.
-pub fn create_hash<const N: usize>(
-    blockhash: &BlockHash<N>,
+pub fn create_verify_hash<const N: usize>(
+    leaf_hash: &LeafHash<N>,
     view: u64,
     stage: Stage,
-) -> BlockHash<32> {
+) -> VerifyHash<32> {
     let mut hasher = Hasher::new();
-    hasher.update(blockhash.as_ref());
+    hasher.update(leaf_hash.as_ref());
     hasher.update(&view.to_be_bytes());
     hasher.update(&(stage as u64).to_be_bytes());
     let hash = hasher.finalize();
-    BlockHash::from_array(*hash.as_bytes())
+    VerifyHash::from_array(*hash.as_bytes())
 }
 
-/// Type used for representing hashes
+/// generates boilerplate code for any wrapper types
+/// around `InternalHash`
+macro_rules! gen_hash_wrapper_type {
+    ($t:ident) => {
+        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+        ///  External wrapper type
+        pub struct $t<const N: usize> {
+            inner: InternalHash<N>,
+        }
+
+        impl<const N: usize> $t<N> {
+            /// Converts an array of the correct size directly into an `Self`
+            pub fn from_array(input: [u8; N]) -> Self {
+                $t {
+                    inner: InternalHash::from_array(input),
+                }
+            }
+            /// Clones the contents of this Hash into a `Vec<u8>`
+            pub fn to_vec(self) -> Vec<u8> {
+                self.inner.to_vec()
+            }
+            #[cfg(test)]
+            pub fn random() -> Self {
+                $t {
+                    inner: InternalHash::random(),
+                }
+            }
+        }
+        impl<const N: usize> AsRef<[u8]> for $t<N> {
+            fn as_ref(&self) -> &[u8] {
+                self.inner.as_ref()
+            }
+        }
+
+        impl<const N: usize> From<[u8; N]> for $t<N> {
+            fn from(input: [u8; N]) -> Self {
+                Self::from_array(input)
+            }
+        }
+
+        impl<const N: usize> Default for $t<N> {
+            fn default() -> Self {
+                $t {
+                    inner: InternalHash::default(),
+                }
+            }
+        }
+        impl<const N: usize> Debug for $t<N> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(&format!("{}", std::any::type_name::<$t<N>>()))
+                    .field("inner", &format!("{}", HexFmt(&self.inner)))
+                    .finish()
+            }
+        }
+    };
+}
+
+gen_hash_wrapper_type!(BlockHash);
+gen_hash_wrapper_type!(LeafHash);
+gen_hash_wrapper_type!(TransactionHash);
+gen_hash_wrapper_type!(VerifyHash);
+gen_hash_wrapper_type!(StateHash);
+
+/// Internal type used for representing hashes
 ///
 /// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that
 /// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
 /// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
 /// have for the general case.
-///
-/// TODO([#36](https://gitlab.com/translucence/systems/phaselock/-/issues/36)) Break this up into a
-/// core type and type-stating wrappers, and utilize `serde_bytes` instead of the visitor
-/// implementation
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
-pub struct BlockHash<const N: usize> {
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+struct InternalHash<const N: usize> {
     /// The underlying array
+    /// No support for const generics
+    #[serde(with = "serde_bytes_array")]
     inner: [u8; N],
 }
 
-impl<const N: usize> BlockHash<N> {
-    /// Converts an array of the correct size directly into a `BlockHash`
+impl<const N: usize> Debug for InternalHash<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InternalHash")
+            .field("inner", &format!("{}", HexFmt(&self.inner)))
+            .finish()
+    }
+}
+
+impl<const N: usize> InternalHash<N> {
+    /// Converts an array of the correct size directly into an `InternalHash`
     pub const fn from_array(input: [u8; N]) -> Self {
         Self { inner: input }
     }
 
-    /// Clones the contents of this `BlockHash` into a `Vec<u8>`
-    pub fn to_vec(&self) -> Vec<u8> {
+    /// Clones the contents of this `InternalHash` into a `Vec<u8>`
+    pub fn to_vec(self) -> Vec<u8> {
         self.inner.to_vec()
     }
 
-    /// Testing only random generation of a `BlockHash`
+    /// Testing only random generation of a `InternalHash`
     #[cfg(test)]
     pub fn random() -> Self {
         use rand::Rng;
@@ -241,65 +310,51 @@ impl<const N: usize> BlockHash<N> {
     }
 }
 
-impl<const N: usize> AsRef<[u8]> for BlockHash<N> {
+impl<const N: usize> AsRef<[u8]> for InternalHash<N> {
     fn as_ref(&self) -> &[u8] {
         &self.inner
     }
 }
 
-impl<const N: usize> From<[u8; N]> for BlockHash<N> {
+impl<const N: usize> From<[u8; N]> for InternalHash<N> {
     fn from(input: [u8; N]) -> Self {
         Self::from_array(input)
     }
 }
 
-impl<const N: usize> Default for BlockHash<N> {
+impl<const N: usize> Default for InternalHash<N> {
     fn default() -> Self {
-        BlockHash {
+        InternalHash {
             inner: [0_u8; { N }],
         }
     }
 }
 
-impl<const N: usize> Serialize for BlockHash<N> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+/// [Needed](https://github.com/serde-rs/bytes/issues/26#issuecomment-902550669) to (de)serialize const generic arrays
+mod serde_bytes_array {
+    use core::convert::TryInto;
+
+    use serde::de::Error;
+    use serde::{Deserializer, Serializer};
+
+    /// This just specializes [`serde_bytes::serialize`] to `<T = [u8]>`.
+    pub(crate) fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
-        serializer.serialize_bytes(&self.inner)
-    }
-}
-
-impl<'de, const N: usize> Deserialize<'de> for BlockHash<N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(BlockHashVisitor::<N>)
-    }
-}
-
-/// `Visitor` implementation for deserializing `BlockHash`
-struct BlockHashVisitor<const N: usize>;
-
-impl<'de, const N: usize> serde::de::Visitor<'de> for BlockHashVisitor<N> {
-    type Value = BlockHash<N>;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "a byte array of length {}", { N })
+        serde_bytes::serialize(bytes, serializer)
     }
 
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    /// This takes the result of [`serde_bytes::deserialize`] from `[u8]` to `[u8; N]`.
+    pub(crate) fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
     where
-        E: serde::de::Error,
+        D: Deserializer<'de>,
     {
-        if v.len() == { N } {
-            let mut result = [0_u8; { N }];
-            result.copy_from_slice(v);
-            Ok(BlockHash { inner: result })
-        } else {
-            let x = format!("{}", { N });
-            Err(E::invalid_length(v.len(), &x.as_str()))
-        }
+        let slice: &[u8] = serde_bytes::deserialize(deserializer)?;
+        let array: [u8; N] = slice.try_into().map_err(|_| {
+            let expected = format!("[u8; {}]", N);
+            D::Error::invalid_length(slice.len(), &expected.as_str())
+        })?;
+        Ok(array)
     }
 }

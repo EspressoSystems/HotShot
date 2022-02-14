@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use std::{error::Error, fmt::Debug, hash::Hash};
 
-use crate::data::BlockHash;
+use crate::data::{BlockHash, LeafHash, TransactionHash};
 
 /// Abstraction over the contents of a block
 ///
@@ -50,11 +50,11 @@ pub trait BlockContents<const N: usize>:
     /// Produces a hash for a transaction
     ///
     /// TODO: Abstract out into transaction trait
-    fn hash_transaction(tx: &Self::Transaction) -> BlockHash<N>;
+    fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<N>;
     /// Produces a hash for an arbitrary sequence of bytes
     ///
     /// Used to produce hashes for internal [`PhaseLock`](crate::PhaseLock) control structures
-    fn hash_bytes(bytes: &[u8]) -> BlockHash<N>;
+    fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
 }
 
 /// Dummy implementation of `BlockContents` for unit tests
@@ -113,14 +113,14 @@ pub mod dummy {
             x.into()
         }
 
-        fn hash_transaction(_tx: &Self::Transaction) -> BlockHash<32> {
+        fn hash_transaction(_tx: &Self::Transaction) -> TransactionHash<32> {
             let mut hasher = Hasher::new();
             hasher.update(&[1_u8]);
             let x = *hasher.finalize().as_bytes();
             x.into()
         }
 
-        fn hash_bytes(bytes: &[u8]) -> BlockHash<32> {
+        fn hash_leaf(bytes: &[u8]) -> LeafHash<32> {
             let mut hasher = Hasher::new();
             hasher.update(bytes);
             let x = *hasher.finalize().as_bytes();

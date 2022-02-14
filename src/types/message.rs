@@ -10,7 +10,10 @@ use threshold_crypto::SignatureShare;
 
 use std::fmt::Debug;
 
-use crate::{data::Leaf, BlockHash, QuorumCertificate};
+use crate::{
+    data::{Leaf, LeafHash},
+    QuorumCertificate,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Enum representation of any message type
@@ -65,7 +68,7 @@ pub struct Vote<const N: usize> {
     /// Id of the voting nodes
     pub id: u64,
     /// Hash of the item being voted on
-    pub leaf_hash: BlockHash<N>,
+    pub leaf_hash: LeafHash<N>,
     /// The view this vote was cast for
     pub current_view: u64,
     /// The current stage
@@ -87,7 +90,7 @@ impl<const N: usize> Debug for Vote<N> {
 /// Pre-commit qc from the leader
 pub struct PreCommit<const N: usize> {
     /// Hash of the item being worked on
-    pub leaf_hash: BlockHash<N>,
+    pub leaf_hash: LeafHash<N>,
     /// The pre commit qc
     pub qc: QuorumCertificate<N>,
     /// The current view
@@ -108,7 +111,7 @@ impl<const N: usize> Debug for PreCommit<N> {
 /// `Commit` qc from the leader
 pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
-    pub leaf_hash: BlockHash<N>,
+    pub leaf_hash: LeafHash<N>,
     /// The `Commit` qc
     pub qc: QuorumCertificate<N>,
     /// The current view
@@ -129,7 +132,7 @@ impl<const N: usize> Debug for Commit<N> {
 /// Final decision
 pub struct Decide<const N: usize> {
     /// Hash of the thing we just decided on
-    pub leaf_hash: BlockHash<N>,
+    pub leaf_hash: LeafHash<N>,
     /// final qc for the round
     pub qc: QuorumCertificate<N>,
     /// the current view

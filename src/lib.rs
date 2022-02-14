@@ -45,13 +45,13 @@ use std::time::{Duration, Instant};
 
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{spawn, yield_now, JoinHandle};
-use data::create_hash;
+use data::create_verify_hash;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 use crate::{
-    data::{BlockHash, Leaf, QuorumCertificate, Stage},
+    data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
     types::{
         error::NetworkFaultSnafu, Commit, Decide, Event, EventType, Message, NewView,
@@ -147,11 +147,11 @@ impl PrivKey {
     #[must_use]
     pub fn partial_sign<const N: usize>(
         &self,
-        hash: &BlockHash<N>,
+        hash: &LeafHash<N>,
         stage: Stage,
         view: u64,
     ) -> tc::SignatureShare {
-        let blockhash = create_hash(hash, view, stage);
+        let blockhash = create_verify_hash(hash, view, stage);
         self.node.sign(blockhash)
     }
 }
@@ -196,7 +196,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// Current state
     committed_state: RwLock<Arc<I::State>>,
     /// Current committed leaf
-    committed_leaf: RwLock<BlockHash<N>>,
+    committed_leaf: RwLock<LeafHash<N>>,
     /// Current locked quorum certificate
     locked_qc: RwLock<Option<QuorumCertificate<N>>>,
     /// Current prepare quorum certificate
@@ -331,14 +331,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
 
     /// Returns true if the proposed leaf extends from the given block
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &BlockHash<N>) -> bool {
+    pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &LeafHash<N>) -> bool {
         let mut parent = leaf.parent;
         // Short circuit to enable blocks that don't have parents
         if &parent == node {
             trace!("leaf extends from node through short-circuit");
             return true;
         }
-        while parent != BlockHash::from_array([0_u8; { N }]) {
+        while parent != LeafHash::from_array([0_u8; { N }]) {
             if &parent == node {
                 trace!(?parent, "Leaf extends from");
                 return true;
@@ -363,7 +363,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             return true;
         }
         if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
-            let extends_from = self.extends_from(leaf, &locked_qc.block_hash).await;
+            let extends_from = self.extends_from(leaf, &locked_qc.leaf_hash).await;
             let view_number = qc.view_number > locked_qc.view_number;
             let result = extends_from || view_number;
             if !result {
