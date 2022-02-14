@@ -47,7 +47,7 @@ jobs:
           token: ${{ github.token }}
 
       - name: Cargo Build
-        run: cargo build
+        run: cargo build --release
 
       - name: Cargo Test
-        run: cargo test --verbose -- -Zunstable-options --report-time
+        run: cargo test --verbose -- -Zunstable-options --report-time --test-threads=1
