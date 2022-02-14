@@ -1,0 +1,11 @@
+[package]
+authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+description = "Types and traits for the PhaseLock consesus module"
+edition = "2021"
+name = "phaselock-types"
+readme = "README.md"
+version = "0.0.6-dev"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

@@ -1132,6 +1132,7 @@ dependencies = [
  "flume",
  "futures",
  "hex_fmt",
+ "phaselock-types",
  "proptest",
  "rand 0.7.3",
  "rand_chacha 0.2.2",
@@ -1148,6 +1149,10 @@ dependencies = [
  "tracing-subscriber",
  "tracing-unwrap",
 ]
+
+[[package]]
+name = "phaselock-types"
+version = "0.0.6-dev"
 
 [[package]]
 name = "pin-project"
