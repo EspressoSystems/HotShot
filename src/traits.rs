@@ -9,7 +9,7 @@ mod storage;
 
 pub use block_contents::BlockContents;
 pub use election::Election;
-pub use networking::{BoxedFuture, NetworkError, NetworkingImplementation};
+pub use networking::{BoxedFuture, NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
 pub use state::State;
 pub use stateful_handler::StatefulHandler;
@@ -17,7 +17,7 @@ pub use storage::{Storage, StorageResult};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
-    pub use super::networking::memory_network::{MasterMap, MemoryNetwork};
+    pub use super::networking::memory_network::{DummyReliability, MasterMap, MemoryNetwork};
     pub use super::networking::w_network::WNetwork;
     pub use super::stateful_handler::Stateless;
     pub use super::storage::memory_storage::MemoryStorage;

@@ -139,25 +139,6 @@ async fn init_state_and_phaselock(
     (state, phaselock)
 }
 
-/// Provides a random valid transaction from the current state.
-fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
-    use rand::seq::IteratorRandom;
-    let input_account = state.balances.keys().choose(&mut rng).unwrap();
-    let output_account = state.balances.keys().choose(&mut rng).unwrap();
-    let amount = rng.gen_range(0, state.balances[input_account]);
-    Transaction {
-        add: Addition {
-            account: output_account.to_string(),
-            amount,
-        },
-        sub: Subtraction {
-            account: input_account.to_string(),
-            amount,
-        },
-        nonce: rng.gen(),
-    }
-}
-
 #[async_std::main]
 async fn main() {
     // Setup tracing listener

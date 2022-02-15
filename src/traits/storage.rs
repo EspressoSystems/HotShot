@@ -13,6 +13,7 @@ use super::state::State;
 pub mod memory_storage;
 
 /// Result for a storage type
+#[derive(Debug)]
 pub enum StorageResult<T> {
     /// The item was located in storage
     Some(T),

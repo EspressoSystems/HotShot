@@ -9,7 +9,9 @@ use tracing::{debug, error, info, instrument, trace};
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::implementations::{MasterMap, MemoryNetwork, MemoryStorage, Stateless},
+    traits::implementations::{
+        DummyReliability, MasterMap, MemoryNetwork, MemoryStorage, Stateless,
+    },
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
@@ -38,7 +40,11 @@ async fn ten_tx_seven_nodes() {
     )> = Vec::new();
     for node_id in 0..nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-        let mn = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let mn = MemoryNetwork::new(
+            pub_key.clone(),
+            master.clone(),
+            Option::<DummyReliability>::None,
+        );
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
@@ -154,7 +160,11 @@ async fn ten_tx_five_nodes() {
     )> = Vec::new();
     for node_id in 0..nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-        let mn = MemoryNetwork::new(pub_key.clone(), master.clone());
+        let mn = MemoryNetwork::new(
+            pub_key.clone(),
+            master.clone(),
+            Option::<DummyReliability>::None,
+        );
         networkings.push((mn, pub_key));
     }
     info!("Created networking");

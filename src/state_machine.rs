@@ -1207,7 +1207,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             debug!("Waiting for prepare");
                             futures::select_biased! {
                                 x = decide_fut =>
-                                    Ok(WaitResult::ShortCircutDecide(x)),
+                                    Ok(WaitResult::ShortCircuitDecide(x)),
                                 x = prepare_fut => Ok(WaitResult::Prepare(x)),
                             }
                         }
@@ -1216,7 +1216,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             let leaf = leaf.expect("No leaf in precommit");
                             futures::select_biased! {
                                 x = decide_fut =>
-                                    Ok(WaitResult::ShortCircutDecide(x)),
+                                    Ok(WaitResult::ShortCircuitDecide(x)),
                                 x = precommit_fut => Ok(WaitResult::PreCommit(leaf, x)),
                             }
                         }
@@ -1225,7 +1225,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             let leaf = leaf.expect("No leaf in commit");
                             futures::select_biased! {
                                 x = decide_fut =>
-                                    Ok(WaitResult::ShortCircutDecide(x)),
+                                    Ok(WaitResult::ShortCircuitDecide(x)),
                                 x = commit_fut => Ok(WaitResult::Commit(leaf, x)),
                             }
                         }
@@ -1234,7 +1234,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             let leaf = leaf.expect("No leaf in decide");
                             let x = decide_fut.await;
                             if x.current_view > current_view {
-                                Ok(WaitResult::ShortCircutDecide(x))
+                                Ok(WaitResult::ShortCircuitDecide(x))
                             } else {
                                 Ok(WaitResult::Decide(leaf, x))
                             }
@@ -1255,7 +1255,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         }
                         WaitResult::Commit(leaf, message) => *self = BeforeCommit { leaf, message },
                         WaitResult::Decide(leaf, message) => *self = BeforeDecide { leaf, message },
-                        WaitResult::ShortCircutDecide(message) => {
+                        WaitResult::ShortCircuitDecide(message) => {
                             *self = BeforeDecideShort { message }
                         }
                     }
@@ -1278,5 +1278,5 @@ enum WaitResult<B, S, const N: usize> {
     /// Goto Decide stage
     Decide(Leaf<B, N>, Decide<N>),
     /// Goto Decide stage
-    ShortCircutDecide(Decide<N>),
+    ShortCircuitDecide(Decide<N>),
 }
