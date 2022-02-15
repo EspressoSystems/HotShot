@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: self-hosted
     container:
-      image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.56
+      image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.58
     steps:
       - uses: styfle/cancel-workflow-action@0.9.1
         name: Cancel Outdated Builds
