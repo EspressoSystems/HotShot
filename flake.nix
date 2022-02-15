@@ -60,8 +60,8 @@
 
       in
       {
-        packages.${crateName} = project.rootCrate.build;
-        checks.${crateName} = project.rootCrate.build.override {
+        packages.${crateName} = project.workspaceMembers.phaselock.build;
+        checks.${crateName} = project.workspaceMembers.phaselock.build.override {
           runTests = true;
         };
 
