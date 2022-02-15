@@ -1411,7 +1411,7 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
- "rand 0.8.4",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1438,7 +1438,7 @@ dependencies = [
  "pin-project 1.0.10",
  "prost",
  "prost-build",
- "rand 0.8.4",
+ "rand 0.8.5",
  "ring",
  "rw-stream-sink",
  "sha2 0.10.1",
@@ -1581,7 +1581,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "smallvec",
  "socket2 0.4.2",
  "void",
@@ -1635,7 +1635,7 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2 0.10.1",
  "snow",
  "static_assertions",
@@ -1708,7 +1708,7 @@ dependencies = [
  "pin-project 1.0.10",
  "prost",
  "prost-build",
- "rand 0.8.4",
+ "rand 0.8.5",
  "smallvec",
  "static_assertions",
  "thiserror",
@@ -1732,7 +1732,7 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2 0.10.1",
  "thiserror",
  "unsigned-varint",
@@ -1871,7 +1871,7 @@ dependencies = [
  "libsecp256k1-core",
  "libsecp256k1-gen-ecmult",
  "libsecp256k1-gen-genmult",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "sha2 0.9.9",
  "typenum",
@@ -2182,7 +2182,7 @@ dependencies = [
  "futures",
  "libp2p",
  "parking_lot 0.12.0",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "snafu",
  "structopt",
@@ -2618,19 +2618,18 @@ dependencies = [
  "libc",
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
- "rand_hc 0.2.0",
+ "rand_hc",
 ]
 
 [[package]]
 name = "rand"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7573632e6454cf6b99d7aac4ccca54be06da05aca2ef7423d22d27d4d4bcd8"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.3",
- "rand_hc 0.3.1",
 ]
 
 [[package]]
@@ -2678,15 +2677,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
-dependencies = [
- "rand_core 0.6.3",
 ]
 
 [[package]]
@@ -3028,7 +3018,7 @@ dependencies = [
  "aes-gcm",
  "blake2",
  "chacha20poly1305",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_core 0.6.3",
  "ring",
  "rustc_version",
@@ -3070,7 +3060,7 @@ dependencies = [
  "futures",
  "httparse",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha-1",
 ]
 
@@ -3376,7 +3366,7 @@ dependencies = [
  "ipnet",
  "lazy_static",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "smallvec",
  "thiserror",
  "tinyvec",
@@ -3829,7 +3819,7 @@ dependencies = [
  "log",
  "nohash-hasher",
  "parking_lot 0.11.2",
- "rand 0.8.4",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
