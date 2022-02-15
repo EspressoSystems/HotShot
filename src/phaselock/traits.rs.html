@@ -39,7 +39,7 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">block_contents::BlockContents</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">election::Election</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">networking</span>::{<span class="ident">BoxedFuture</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkingImplementation</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">networking</span>::{<span class="ident">BoxedFuture</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">node_implementation::NodeImplementation</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">state::State</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">stateful_handler::StatefulHandler</span>;
@@ -47,7 +47,7 @@
 
 <span class="doccomment">/// Module for publicly usable implementations of the traits</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">implementations</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::memory_network</span>::{<span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::w_network::WNetwork</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::stateful_handler::Stateless</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::storage::memory_storage::MemoryStorage</span>;

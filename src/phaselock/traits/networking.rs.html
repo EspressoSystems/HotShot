@@ -117,6 +117,21 @@
 <span id="117">117</span>
 <span id="118">118</span>
 <span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access abstraction</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module contains a trait abstracting over network access, as well as implementations of that</span>
@@ -133,6 +148,7 @@
 <span class="kw">use</span> <span class="ident">futures::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu::Snafu</span>;
+<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">w_network</span>;
@@ -235,6 +251,20 @@
     <span class="kw">fn</span> <span class="ident">known_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Object safe clone</span>
     <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>;
+}
+
+<span class="doccomment">/// interface describing how reliable the network is</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NetworkReliability</span>: <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::marker::Send</span> <span class="op">+</span> <span class="ident">Copy</span> {
+    <span class="doccomment">/// Sample from bernoulli distribution to decide whether</span>
+    <span class="doccomment">/// or not to keep a packet</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Panics if `self.keep_numerator &gt; self.keep_denominator`</span>
+    <span class="doccomment">///</span>
+    <span class="kw">fn</span> <span class="ident">sample_keep</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+    <span class="doccomment">/// sample from uniform distribution to decide whether</span>
+    <span class="doccomment">/// or not to keep a packet</span>
+    <span class="kw">fn</span> <span class="ident">sample_delay</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Duration</span>;
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="phaselock" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>

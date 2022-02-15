@@ -2489,7 +2489,7 @@
                             <span class="macro">debug!</span>(<span class="string">&quot;Waiting for prepare&quot;</span>);
                             <span class="macro">futures::select_biased!</span> {
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">decide_fut</span> <span class="op">=</span><span class="op">&gt;</span>
-                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircutDecide</span>(<span class="ident">x</span>)),
+                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircuitDecide</span>(<span class="ident">x</span>)),
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">prepare_fut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::Prepare</span>(<span class="ident">x</span>)),
                             }
                         }
@@ -2498,7 +2498,7 @@
                             <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">expect</span>(<span class="string">&quot;No leaf in precommit&quot;</span>);
                             <span class="macro">futures::select_biased!</span> {
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">decide_fut</span> <span class="op">=</span><span class="op">&gt;</span>
-                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircutDecide</span>(<span class="ident">x</span>)),
+                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircuitDecide</span>(<span class="ident">x</span>)),
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">precommit_fut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::PreCommit</span>(<span class="ident">leaf</span>, <span class="ident">x</span>)),
                             }
                         }
@@ -2507,7 +2507,7 @@
                             <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">expect</span>(<span class="string">&quot;No leaf in commit&quot;</span>);
                             <span class="macro">futures::select_biased!</span> {
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">decide_fut</span> <span class="op">=</span><span class="op">&gt;</span>
-                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircutDecide</span>(<span class="ident">x</span>)),
+                                    <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircuitDecide</span>(<span class="ident">x</span>)),
                                 <span class="ident">x</span> <span class="op">=</span> <span class="ident">commit_fut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::Commit</span>(<span class="ident">leaf</span>, <span class="ident">x</span>)),
                             }
                         }
@@ -2516,7 +2516,7 @@
                             <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">expect</span>(<span class="string">&quot;No leaf in decide&quot;</span>);
                             <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">decide_fut</span>.<span class="kw">await</span>;
                             <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">current_view</span> <span class="op">&gt;</span> <span class="ident">current_view</span> {
-                                <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircutDecide</span>(<span class="ident">x</span>))
+                                <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::ShortCircuitDecide</span>(<span class="ident">x</span>))
                             } <span class="kw">else</span> {
                                 <span class="prelude-val">Ok</span>(<span class="ident">WaitResult::Decide</span>(<span class="ident">leaf</span>, <span class="ident">x</span>))
                             }
@@ -2537,7 +2537,7 @@
                         }
                         <span class="ident">WaitResult::Commit</span>(<span class="ident">leaf</span>, <span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="self">self</span> <span class="op">=</span> <span class="ident">BeforeCommit</span> { <span class="ident">leaf</span>, <span class="ident">message</span> },
                         <span class="ident">WaitResult::Decide</span>(<span class="ident">leaf</span>, <span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="self">self</span> <span class="op">=</span> <span class="ident">BeforeDecide</span> { <span class="ident">leaf</span>, <span class="ident">message</span> },
-                        <span class="ident">WaitResult::ShortCircutDecide</span>(<span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">WaitResult::ShortCircuitDecide</span>(<span class="ident">message</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw-2">*</span><span class="self">self</span> <span class="op">=</span> <span class="ident">BeforeDecideShort</span> { <span class="ident">message</span> }
                         }
                     }
@@ -2560,7 +2560,7 @@
     <span class="doccomment">/// Goto Decide stage</span>
     <span class="ident">Decide</span>(<span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">Decide</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>),
     <span class="doccomment">/// Goto Decide stage</span>
-    <span class="ident">ShortCircutDecide</span>(<span class="ident">Decide</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>),
+    <span class="ident">ShortCircuitDecide</span>(<span class="ident">Decide</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>),
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="phaselock" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>

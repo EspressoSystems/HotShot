@@ -373,7 +373,7 @@
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::BlockContents</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
 <span class="doccomment">/// A node in [`PhaseLock`](crate::PhaseLock)&#39;s consensus-internal merkle tree.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,</span>
