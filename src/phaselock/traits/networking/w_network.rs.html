@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;traits&#x2F;networking&#x2F;w_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>w_network.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../phaselock/index.html'><div class='logo-container rust-logo'><img src='../../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;traits&#x2F;networking&#x2F;w_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>w_network.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><script defer src="../../../../main.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../phaselock/index.html'><div class='logo-container rust-logo'><img src='../../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1317,13 +1318,13 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Returns the id of this `Command`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Command::Broadcast</span> { <span class="ident">id</span>, .. }
             <span class="op">|</span> <span class="ident">Command::Direct</span> { <span class="ident">id</span>, .. }
             <span class="op">|</span> <span class="ident">Command::Identify</span> { <span class="ident">id</span>, .. }
             <span class="op">|</span> <span class="ident">Command::Ping</span> { <span class="ident">id</span>, .. }
-            <span class="op">|</span> <span class="ident">Command::Ack</span> { <span class="ident">id</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">id</span>,
+            <span class="op">|</span> <span class="ident">Command::Ack</span> { <span class="ident">id</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">id</span>,
         }
     }
 }
@@ -1409,7 +1410,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;WNetwork&quot;</span>).<span class="ident">field</span>(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;inner&quot;</span>).<span class="ident">finish</span>()
     }
 }
@@ -1427,46 +1428,46 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">command</span>: <span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
         <span class="ident">inputs</span>: <span class="kw-2">&amp;</span><span class="ident">Inputs</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">trace!</span>(<span class="string">&quot;Processing command&quot;</span>);
         <span class="kw">match</span> <span class="ident">command</span> {
-            <span class="ident">Command::Broadcast</span> { <span class="ident">inner</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Command::Broadcast</span> { <span class="ident">inner</span>, .. } =&gt; {
                 <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">inner</span>, <span class="string">&quot;Broadcast&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">inputs</span>.<span class="ident">broadcast</span>.<span class="ident">send_async</span>(<span class="ident">inner</span>).<span class="kw">await</span>;
                 <span class="kw">match</span> <span class="ident">res</span> {
-                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ChannelSend</span>),
+                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ChannelSend</span>),
                 }
             }
-            <span class="ident">Command::Direct</span> { <span class="ident">inner</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Command::Direct</span> { <span class="ident">inner</span>, .. } =&gt; {
                 <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">inner</span>, <span class="string">&quot;Broadcast&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">inputs</span>.<span class="ident">direct</span>.<span class="ident">send_async</span>(<span class="ident">inner</span>).<span class="kw">await</span>;
                 <span class="kw">match</span> <span class="ident">res</span> {
-                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ChannelSend</span>),
+                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ChannelSend</span>),
                 }
             }
-            <span class="ident">Command::Ack</span> { <span class="ident">ack_id</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Command::Ack</span> { <span class="ident">ack_id</span>, .. } =&gt; {
                 <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">ack_id</span>, <span class="string">&quot;Got an ack&quot;</span>);
                 <span class="kw">let</span> <span class="ident">waiter</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">waiters</span>.<span class="ident">acked</span>;
                 <span class="kw">let</span> <span class="ident">waiter</span> <span class="op">=</span> <span class="ident">waiter</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">ack_id</span>);
                 <span class="kw">match</span> <span class="ident">waiter</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">c</span>) =&gt; {
                         <span class="macro">trace!</span>(<span class="string">&quot;Signaling waiter for ack&quot;</span>);
                         <span class="kw">let</span> <span class="ident">_res</span> <span class="op">=</span> <span class="ident">c</span>.<span class="number">1</span>.<span class="ident">send</span>(());
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
                     }
-                    <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+                    <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
                 }
             }
             <span class="comment">// Identify and Ping commands require special handling inside the task, since they</span>
             <span class="comment">// require an ack, and an identify command requires piping the information back out</span>
-            <span class="ident">m</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">m</span>)),
+            <span class="ident">m</span> =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">m</span>)),
         }
     }
 
     <span class="doccomment">/// Atomically increments the message counter and returns the previous value</span>
-    <span class="kw">fn</span> <span class="ident">get_next_message_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">get_next_message_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">counter</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>)
     }
 
@@ -1482,7 +1483,7 @@
         <span class="ident">key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span>,
         <span class="kw-2">mut</span> <span class="ident">stream</span>: <span class="ident">WebSocketStream</span><span class="op">&lt;</span><span class="ident">TcpStream</span><span class="op">&gt;</span>,
         <span class="ident">remote_socket</span>: <span class="ident">SocketAddr</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">PubKey</span>, <span class="ident">Handle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">PubKey</span>, <span class="ident">Handle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">info!</span>(<span class="string">&quot;Spawning task to handle connection&quot;</span>);
         <span class="kw">let</span> (<span class="ident">s_outbound</span>, <span class="ident">r_outbound</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="macro">trace!</span>(<span class="string">&quot;Opened channels&quot;</span>);
@@ -1534,8 +1535,8 @@
             <span class="macro">trace!</span>(<span class="string">&quot;Entering setup&quot;</span>);
             <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">ws_sink</span>, <span class="ident">ws_stream</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">split</span>();
             <span class="kw">let</span> <span class="ident">ws_stream</span> <span class="op">=</span> <span class="ident">ws_stream</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">x</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Combo::Message</span>(<span class="ident">x</span>),
-                <span class="prelude-val">Err</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Combo::Error</span>(<span class="ident">x</span>),
+                <span class="prelude-val">Ok</span>(<span class="ident">x</span>) =&gt; <span class="ident">Combo::Message</span>(<span class="ident">x</span>),
+                <span class="prelude-val">Err</span>(<span class="ident">x</span>) =&gt; <span class="ident">Combo::Error</span>(<span class="ident">x</span>),
             });
             <span class="kw">let</span> <span class="ident">ob_stream</span> <span class="op">=</span>  <span class="ident">r_outbound</span>.<span class="ident">stream</span>().<span class="ident">map</span>(<span class="ident">Combo::Command</span>);
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">combined_stream</span> <span class="op">=</span> <span class="ident">futures::stream::select</span>(<span class="ident">ws_stream</span>,<span class="ident">ob_stream</span>);
@@ -1547,7 +1548,7 @@
                     <span class="kw">break</span>;
                 }
                 <span class="kw">match</span> <span class="ident">m</span> {
-                    <span class="ident">Combo::Message</span>(<span class="ident">m</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">Combo::Message</span>(<span class="ident">m</span>) =&gt; {
                         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">m</span>, <span class="string">&quot;Incoming websockets message&quot;</span>);
                         <span class="comment">// Update the message timer</span>
                         <span class="comment">// Do this inside a block to make sure the lock doesn&#39;t leak</span>
@@ -1557,14 +1558,14 @@
                         }
                         <span class="comment">// Attempt to decode the message</span>
                         <span class="kw">match</span> <span class="ident">m</span> {
-                            <span class="ident">Message::Binary</span>(<span class="ident">vec</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">Message::Binary</span>(<span class="ident">vec</span>) =&gt; {
                                 <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">vec</span>, <span class="string">&quot;Attempting to decode binary message&quot;</span>);
                                 <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
                                 <span class="kw">match</span> <span class="ident">res</span> {
-                                    <span class="prelude-val">Ok</span>(<span class="ident">command</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                    <span class="prelude-val">Ok</span>(<span class="ident">command</span>) =&gt; {
                                         <span class="kw">match</span> <span class="ident">w</span>.<span class="ident">process_command</span>(<span class="ident">command</span>, <span class="kw-2">&amp;</span><span class="ident">inputs</span>).<span class="kw">await</span> {
-                                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">command</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">command</span> {
-                                                <span class="ident">Command::Identify</span> { <span class="ident">from</span>, <span class="ident">id</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">command</span>)) =&gt; <span class="kw">match</span> <span class="ident">command</span> {
+                                                <span class="ident">Command::Identify</span> { <span class="ident">from</span>, <span class="ident">id</span> } =&gt; {
                                                     <span class="macro">debug!</span>(<span class="string">&quot;Identity received&quot;</span>);
                                                     <span class="comment">// Identifying twice isn&#39;t an error, but</span>
                                                     <span class="comment">// repeated identifies are ignored</span>
@@ -1594,7 +1595,7 @@
                                                         <span class="kw">break</span>;
                                                     }
                                                 },
-                                                <span class="ident">Command::Ping</span> { <span class="ident">id</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                                                <span class="ident">Command::Ping</span> { <span class="ident">id</span> } =&gt; {
                                                     <span class="macro">debug!</span>(<span class="string">&quot;Received ping, acking&quot;</span>);
                                                     <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span>
                                                         <span class="ident">Command</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="ident">::Ack</span>{
@@ -1613,30 +1614,30 @@
                                                         <span class="kw">break</span>;
                                                     }
                                                 },
-                                                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                                                <span class="kw">_</span> =&gt; {
                                                     <span class="macro">error!</span>(<span class="string">&quot;Command was invalidly passed to us&quot;</span>);
                                                     <span class="macro">error!</span>(<span class="string">&quot;In an invalid state, closing stream.&quot;</span>);
                                                     <span class="kw-2">*</span><span class="ident">shutdown</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="bool-val">true</span>;
                                                     <span class="kw">break</span>;
                                                 }
                                             },
-                                            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">trace!</span>(<span class="string">&quot;Processed command&quot;</span>),
-                                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error processing command, skipping&quot;</span>),
+                                            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="macro">trace!</span>(<span class="string">&quot;Processed command&quot;</span>),
+                                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error processing command, skipping&quot;</span>),
                                         }
                                     },
-                                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">vec</span>,<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error deserializing message, skipping&quot;</span>),
+                                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">vec</span>,<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error deserializing message, skipping&quot;</span>),
                                 }
                             },
-                            <span class="ident">Message::Close</span>(<span class="ident">c</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">Message::Close</span>(<span class="ident">c</span>) =&gt; {
                                 <span class="comment">// Log and close</span>
                                 <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">c</span>, <span class="string">&quot;Received close message, closing stream.&quot;</span>);
                                 <span class="kw-2">*</span><span class="ident">shutdown</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="bool-val">true</span>;
                                 <span class="kw">break</span>;
                             },
-                            <span class="ident">m</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">m</span>, <span class="string">&quot;Received unsupported message type, ignoring&quot;</span>)
+                            <span class="ident">m</span> =&gt; <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">m</span>, <span class="string">&quot;Received unsupported message type, ignoring&quot;</span>)
                         }
                     },
-                    <span class="ident">Combo::Command</span>(<span class="ident">c</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">Combo::Command</span>(<span class="ident">c</span>) =&gt; {
                         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">c</span>, <span class="string">&quot;Sending command&quot;</span>);
                         <span class="comment">// serializing</span>
                         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_options</span>
@@ -1646,7 +1647,7 @@
                         <span class="macro">trace!</span>(<span class="string">&quot;Sending serialized command&quot;</span>);
                         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">ws_sink</span>.<span class="ident">send</span>(<span class="ident">Message::Binary</span>(<span class="ident">bytes</span>)).<span class="kw">await</span>;
                         <span class="kw">match</span> <span class="ident">res</span> {
-                            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
                                 <span class="comment">// Log and notify the water if there is any</span>
                                 <span class="macro">trace!</span>(<span class="string">&quot;Message fed to stream&quot;</span>);
                                 <span class="kw">let</span> <span class="ident">waiter</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">w</span>.<span class="ident">inner</span>.<span class="ident">waiters</span>.<span class="ident">delivered</span>;
@@ -1659,7 +1660,7 @@
                                     }
                                 }
                             },
-                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                                 <span class="comment">// log error and shutdown</span>
                                 <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error sending message to remote, closing stream.&quot;</span>);
                                 <span class="kw-2">*</span><span class="ident">shutdown</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="bool-val">true</span>;
@@ -1667,7 +1668,7 @@
                             },
                         }
                     },
-                    <span class="ident">Combo::Error</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">Combo::Error</span>(<span class="ident">e</span>) =&gt; {
                         <span class="comment">// log the error and close the stream</span>
                         <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;A websockets error occurred! Closing stream.&quot;</span>);
                         <span class="comment">// Note the shutdown status and break</span>
@@ -1708,7 +1709,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">key</span>: <span class="ident">PubKey</span>,
         <span class="ident">addr</span>: <span class="kw">impl</span> <span class="ident">ToSocketAddrs</span> <span class="op">+</span> <span class="ident">Debug</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="comment">// First check to see if we have the node in the map</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>) {
             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">key</span>, <span class="string">&quot;Already have a connection to node&quot;</span>);
@@ -1740,13 +1741,13 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">node</span>: <span class="kw-2">&amp;</span><span class="ident">PubKey</span>,
         <span class="ident">message</span>: <span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">get</span>(<span class="ident">node</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">outbound</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>;
             <span class="kw">match</span> <span class="ident">res</span> {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(()),
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::CouldNotDeliver</span>),
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkError::CouldNotDeliver</span>),
             }
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">NetworkError::NoSuchNode</span>)
@@ -1764,15 +1765,15 @@
         <span class="ident">listen_addr</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">port</span>: <span class="ident">u16</span>,
         <span class="ident">keep_alive_duration</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">s_direct</span>, <span class="ident">r_direct</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="kw">let</span> (<span class="ident">s_broadcast</span>, <span class="ident">r_broadcast</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="kw">let</span> <span class="ident">keep_alive_duration</span> <span class="op">=</span> <span class="ident">keep_alive_duration</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Duration::from_millis</span>(<span class="number">500</span>));
         <span class="macro">trace!</span>(<span class="string">&quot;Created queues&quot;</span>);
         <span class="kw">let</span> <span class="ident">s_string</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}:{}&quot;</span>, <span class="ident">listen_addr</span>, <span class="ident">port</span>);
         <span class="kw">let</span> <span class="ident">s_addr</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">s_string</span>.<span class="ident">to_socket_addrs</span>().<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span>.<span class="ident">next</span>().<span class="ident">context</span>(<span class="ident">NoSocketsSnafu</span> { <span class="ident">input</span>: <span class="ident">s_string</span> })<span class="question-mark">?</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">x</span>) =&gt; <span class="ident">x</span>.<span class="ident">next</span>().<span class="ident">context</span>(<span class="ident">NoSocketsSnafu</span> { <span class="ident">input</span>: <span class="ident">s_string</span> })<span class="question-mark">?</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::SocketDecodeError</span> {
                     <span class="ident">input</span>: <span class="ident">s_string</span>,
                     <span class="ident">source</span>: <span class="ident">e</span>,
@@ -1824,7 +1825,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_task</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">sync</span>: <span class="ident">oneshot::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">BoxedFuture</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">BoxedFuture</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">generated</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">inner</span>
             .<span class="ident">tasks_started</span>
@@ -1854,35 +1855,35 @@
                 <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stream</span>) <span class="op">=</span> <span class="ident">incoming</span>.<span class="ident">next</span>().<span class="kw">await</span> {
                     <span class="macro">debug!</span>(<span class="string">&quot;Processing incoming connection&quot;</span>);
                     <span class="kw">match</span> <span class="ident">stream</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">stream</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="prelude-val">Ok</span>(<span class="ident">stream</span>) =&gt; {
                             <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">peer_addr</span>().<span class="ident">unwrap</span>();
                             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">addr</span>, <span class="string">&quot;Connected incoming stream&quot;</span>);
                             <span class="kw">let</span> <span class="ident">ws_stream</span> <span class="op">=</span> <span class="ident">accept_async</span>(<span class="ident">stream</span>).<span class="kw">await</span>;
                             <span class="kw">match</span> <span class="ident">ws_stream</span> {
-                                <span class="prelude-val">Ok</span>(<span class="ident">ws_stream</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                                <span class="prelude-val">Ok</span>(<span class="ident">ws_stream</span>) =&gt; {
                                     <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">addr</span>, <span class="string">&quot;stream accepted&quot;</span>);
                                     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">w</span>.<span class="ident">spawn_task</span>(<span class="prelude-val">None</span>, <span class="ident">ws_stream</span>, <span class="ident">addr</span>).<span class="kw">await</span>;
                                     <span class="kw">match</span> <span class="ident">res</span> {
-                                        <span class="prelude-val">Ok</span>((<span class="ident">pub_key</span>, <span class="ident">handle</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                                        <span class="prelude-val">Ok</span>((<span class="ident">pub_key</span>, <span class="ident">handle</span>)) =&gt; {
                                             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">addr</span>, <span class="string">&quot;Spawned task for stream&quot;</span>);
                                             <span class="ident">w</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">insert</span>(<span class="ident">pub_key</span>, <span class="ident">handle</span>);
                                             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">addr</span>, <span class="string">&quot;Stored handle for stream&quot;</span>);
                                         }
-                                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">error!</span>(
+                                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">error!</span>(
                                             <span class="question-mark">?</span><span class="ident">e</span>,
                                             <span class="question-mark">?</span><span class="ident">addr</span>,
                                             <span class="string">&quot;Error spawning task for incoming stream&quot;</span>
                                         ),
                                     }
                                 }
-                                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">warn!</span>(
+                                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">warn!</span>(
                                     <span class="question-mark">?</span><span class="ident">e</span>,
                                     <span class="question-mark">?</span><span class="ident">addr</span>,
                                     <span class="string">&quot;Error accepting incoming connection, ignoring.&quot;</span>
                                 ),
                             }
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Failed to connect incoming stream, ignoring&quot;</span>),
+                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Failed to connect incoming stream, ignoring&quot;</span>),
                     }
                 }
                 <span class="macro">todo!</span>()
@@ -1954,7 +1955,7 @@
         }
     }
     <span class="doccomment">/// Returns the size of the internal connection table</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connection_table_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connection_table_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">len</span>()
     }
     <span class="doccomment">/// Pings a remote, removing the remote from the handles table if the ping fails</span>
@@ -1991,7 +1992,7 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
     <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
 {
-    <span class="kw">fn</span> <span class="ident">broadcast_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">broadcast_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">T</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="string">&quot;Broadcasting message&quot;</span>);
             <span class="comment">// As a stop gap solution to be able to simulate network faults, this method will</span>
@@ -2040,7 +2041,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">message</span>: <span class="ident">T</span>,
         <span class="ident">recipient</span>: <span class="ident">PubKey</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">r_id</span> <span class="op">=</span> <span class="ident">recipient</span>.<span class="ident">nonce</span>;
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="string">&quot;Messaging node&quot;</span>);
@@ -2082,7 +2083,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">broadcast_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">broadcast_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="comment">// Wait for the first message to come up</span>
@@ -2103,7 +2104,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">next_broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">next_broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">debug!</span>(<span class="string">&quot;Awaiting next broadcast&quot;</span>);
             <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">broadcast</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
@@ -2119,7 +2120,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">direct_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">direct_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="comment">// Wait for the first message to come up</span>
@@ -2140,7 +2141,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">next_direct</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">next_direct</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">debug!</span>(<span class="string">&quot;Awaiting next direct message&quot;</span>);
             <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">direct</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
@@ -2156,11 +2157,11 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">known_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">known_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">key</span>().<span class="ident">clone</span>()).<span class="ident">collect</span>() }.<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
         <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
     }
 }
@@ -2178,7 +2179,7 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_wnetwork</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">PubKey</span>, <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span>, <span class="ident">u16</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_wnetwork</span>() -&gt; (<span class="ident">PubKey</span>, <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span>, <span class="ident">u16</span>) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
         <span class="kw">let</span> <span class="ident">nonce</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen</span>();
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">nonce</span>, <span class="string">&quot;Generating PubKey with id&quot;</span>);
@@ -2196,7 +2197,7 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_wnetwork_timeout</span>(<span class="ident">timeout</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">PubKey</span>, <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span>, <span class="ident">u16</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_wnetwork_timeout</span>(<span class="ident">timeout</span>: <span class="ident">u64</span>) -&gt; (<span class="ident">PubKey</span>, <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span>, <span class="ident">u16</span>) {
         <span class="kw">let</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="ident">timeout</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
         <span class="kw">let</span> <span class="ident">nonce</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen</span>();
@@ -2462,5 +2463,4 @@
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="phaselock" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
-    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script>
 </body></html>

@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["phaselock"] = [];
+implementors["phaselock"] = [{"text":"impl <a class=\"trait\" href=\"phaselock/traits/trait.NetworkReliability.html\" title=\"trait phaselock::traits::NetworkReliability\">NetworkReliability</a> for <a class=\"struct\" href=\"phaselock/traits/implementations/struct.DummyReliability.html\" title=\"struct phaselock::traits::implementations::DummyReliability\">DummyReliability</a>","synthetic":false,"types":["phaselock::traits::networking::memory_network::DummyReliability"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

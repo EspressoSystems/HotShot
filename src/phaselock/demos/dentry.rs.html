@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;demos&#x2F;dentry.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dentry.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../phaselock/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;demos&#x2F;dentry.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dentry.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../phaselock/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -468,7 +469,7 @@
 
 <span class="kw">impl</span> <span class="ident">Transaction</span> {
     <span class="doccomment">/// Ensures that this transaction is at least consistent with itself</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_independence</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_independence</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="comment">// Ensure that we are adding to one account exactly as much as we are subtracting from</span>
         <span class="comment">// another</span>
         <span class="self">self</span>.<span class="ident">add</span>.<span class="ident">amount</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">sub</span>.<span class="ident">amount</span> <span class="comment">// TODO why not strict equality?</span>
@@ -486,7 +487,7 @@
 
 <span class="kw">impl</span> <span class="ident">State</span> {
     <span class="doccomment">/// Produces a hash of the current state</span>
-    <span class="kw">fn</span> <span class="ident">hash_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="comment">// BTreeMap sorts so this will be in a consistent order</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">balances</span> {
@@ -509,7 +510,7 @@
 
     <span class="kw">type</span> <span class="ident">Block</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
 
-    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Block</span> {
+    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Block</span> {
         <span class="ident">DEntryBlock</span> {
             <span class="ident">previous_block</span>: <span class="self">self</span>.<span class="ident">hash_state</span>(),
             <span class="ident">transactions</span>: <span class="ident">Vec::new</span>(),
@@ -518,7 +519,7 @@
 
     <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check</span>
     <span class="comment">// for clarity, the logic is duplicated with append_to</span>
-    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
         <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
         <span class="comment">// nobody having a negative balance</span>
@@ -565,7 +566,7 @@
         }
         <span class="comment">// This block has now passed all our tests, and thus has not done anything bad, so the block</span>
         <span class="comment">// is valid if its previous state hash matches that of the previous state</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">=</span><span class="op">=</span> <span class="ident">state</span>.<span class="ident">hash_state</span>();
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">hash_state</span>();
         <span class="kw">if</span> <span class="op">!</span><span class="ident">result</span> {
             <span class="macro">error!</span>(
                 <span class="string">&quot;hash failure. previous_block: {:?} hash_state: {:?}&quot;</span>,
@@ -576,7 +577,7 @@
         <span class="ident">result</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
         <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
         <span class="comment">// nobody having a negative balance</span>
@@ -616,7 +617,7 @@
             }
         }
         <span class="comment">// Make sure our previous state commitment matches the provided state</span>
-        <span class="kw">if</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">=</span><span class="op">=</span> <span class="ident">state</span>.<span class="ident">hash_state</span>() {
+        <span class="kw">if</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">hash_state</span>() {
             <span class="comment">// This block has now passed all our tests, and thus has not done anything bad</span>
             <span class="comment">// Add the nonces from this block</span>
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">nonces</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">clone</span>();
@@ -654,11 +655,11 @@
     <span class="kw">fn</span> <span class="ident">add_transaction_raw</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="comment">// first, make sure that the transaction is internally valid</span>
         <span class="kw">if</span> <span class="ident">tx</span>.<span class="ident">validate_independence</span>() {
             <span class="comment">// Then check the previous transactions in the block</span>
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">nonce</span> <span class="op">=</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">nonce</span>) {
+            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">nonce</span> <span class="op">==</span> <span class="ident">tx</span>.<span class="ident">nonce</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::ReusedNonce</span>);
             }
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_block</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
@@ -671,7 +672,7 @@
     }
 
     <span class="comment">// Note: this is really used for indexing the block in storage</span>
-    <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="self">self</span>.<span class="ident">previous_block</span>.<span class="ident">as_ref</span>());
         <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">tx</span><span class="op">|</span> {
@@ -682,7 +683,7 @@
     }
 
     <span class="comment">// Note: This is used for indexing the transaction in storage</span>
-    <span class="kw">fn</span> <span class="ident">hash_transaction</span>(<span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_transaction</span>(<span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>) -&gt; <span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
         <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
@@ -694,7 +695,7 @@
         <span class="ident">x</span>.<span class="ident">into</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">hash_leaf</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">hash_leaf</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">blake3::hash</span>(<span class="ident">bytes</span>).<span class="ident">as_bytes</span>();
         <span class="ident">x</span>.<span class="ident">into</span>()
     }
@@ -709,7 +710,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new `DEntryNode`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
         <span class="ident">DEntryNode</span> {
             <span class="ident">_phantom</span>: <span class="ident">PhantomData</span>,
         }
@@ -717,7 +718,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;DEntryNode&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;_phantom&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;phantom&quot;</span>)
             .<span class="ident">finish</span>()
@@ -725,7 +726,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::new</span>()
     }
 }
@@ -751,10 +752,10 @@
 <span class="doccomment">/// Provides a random valid transaction from the current state</span>
 <span class="doccomment">/// # Panics</span>
 <span class="doccomment">/// panics if state has no balances</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_transaction</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">rand::Rng</span><span class="op">&gt;</span>(<span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="ident">State</span>, <span class="kw-2">mut</span> <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Transaction</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_transaction</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">rand::Rng</span><span class="op">&gt;</span>(<span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="ident">State</span>, <span class="kw-2">mut</span> <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">Transaction</span> {
     <span class="kw">use</span> <span class="ident">rand::seq::IteratorRandom</span>;
-    <span class="kw">let</span> <span class="ident">input_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">output_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">input_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">output_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">amount</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">0</span>, <span class="ident">state</span>.<span class="ident">balances</span>[<span class="ident">input_account</span>]);
     <span class="ident">Transaction</span> {
         <span class="ident">add</span>: <span class="ident">Addition</span> {
@@ -770,5 +771,4 @@
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="phaselock" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
 </body></html>

@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `&#x2F;opt&#x2F;.cargo&#x2F;registry&#x2F;src&#x2F;github.com-1ecc6299db9ec823&#x2F;threshold_crypto-0.4.0&#x2F;src&#x2F;lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../threshold_crypto/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `&#x2F;opt&#x2F;.cargo&#x2F;registry&#x2F;src&#x2F;github.com-1ecc6299db9ec823&#x2F;threshold_crypto-0.4.0&#x2F;src&#x2F;lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../threshold_crypto/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1161,40 +1162,40 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PublicKey</span>(<span class="attribute">#[<span class="ident">serde</span>(<span class="ident">with</span> <span class="op">=</span> <span class="string">&quot;serde_impl::projective&quot;</span>)]</span> <span class="ident">G1</span>);
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">PublicKey</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>().<span class="ident">hash</span>(<span class="ident">state</span>);
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">PublicKey</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">uncomp</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_uncompressed</span>();
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;PublicKey({:0.10})&quot;</span>, <span class="ident">HexFmt</span>(<span class="ident">uncomp</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">PartialOrd</span> <span class="kw">for</span> <span class="ident">PublicKey</span> {
-    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Ord</span> <span class="kw">for</span> <span class="ident">PublicKey</span> {
-    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ordering</span> {
+    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">Ordering</span> {
         <span class="ident">cmp_projective</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="number">0</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">PublicKey</span> {
     <span class="doccomment">/// Returns `true` if the signature matches the element of `G2`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">Signature</span>, <span class="ident">hash</span>: <span class="ident">H</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="ident">PEngine::pairing</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">hash</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">PEngine::pairing</span>(<span class="ident">G1Affine::one</span>(), <span class="ident">sig</span>.<span class="number">0</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">Signature</span>, <span class="ident">hash</span>: <span class="ident">H</span>) -&gt; <span class="ident">bool</span> {
+        <span class="ident">PEngine::pairing</span>(<span class="self">self</span>.<span class="number">0</span>, <span class="ident">hash</span>) <span class="op">==</span> <span class="ident">PEngine::pairing</span>(<span class="ident">G1Affine::one</span>(), <span class="ident">sig</span>.<span class="number">0</span>)
     }
 
     <span class="doccomment">/// Returns `true` if the signature matches the message.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is equivalent to `verify_g2(sig, hash_g2(msg))`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">Signature</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">Signature</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">verify_g2</span>(<span class="ident">sig</span>, <span class="ident">hash_g2</span>(<span class="ident">msg</span>))
     }
 
@@ -1202,12 +1203,12 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Uses the `OsRng` by default. To pass in a custom random number generator, use</span>
     <span class="doccomment">/// `encrypt_with_rng()`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encrypt</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ciphertext</span> {
-        <span class="self">self</span>.<span class="ident">encrypt_with_rng</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">OsRng</span>, <span class="ident">msg</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encrypt</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">Ciphertext</span> {
+        <span class="self">self</span>.<span class="ident">encrypt_with_rng</span>(<span class="kw-2">&amp;mut</span> <span class="ident">OsRng</span>, <span class="ident">msg</span>)
     }
 
     <span class="doccomment">/// Encrypts the message.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encrypt_with_rng</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">RngCore</span>, <span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ciphertext</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encrypt_with_rng</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">RngCore</span>, <span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">Ciphertext</span> {
         <span class="kw">let</span> <span class="ident">r</span>: <span class="ident">Fr</span> <span class="op">=</span> <span class="ident">Fr::random</span>(<span class="ident">rng</span>);
         <span class="kw">let</span> <span class="ident">u</span> <span class="op">=</span> <span class="ident">G1Affine::one</span>().<span class="ident">mul</span>(<span class="ident">r</span>);
         <span class="kw">let</span> <span class="ident">v</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> {
@@ -1219,7 +1220,7 @@
     }
 
     <span class="doccomment">/// Returns the key with the given representation, if valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) -&gt; <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compressed</span>: <span class="op">&lt;</span><span class="ident">G1Affine</span> <span class="kw">as</span> <span class="ident">CurveAffine</span><span class="op">&gt;</span><span class="ident">::Compressed</span> <span class="op">=</span> <span class="ident">EncodedPoint::empty</span>();
         <span class="ident">compressed</span>.<span class="ident">as_mut</span>().<span class="ident">copy_from_slice</span>(<span class="ident">bytes</span>.<span class="ident">borrow</span>());
         <span class="kw">let</span> <span class="ident">opt_affine</span> <span class="op">=</span> <span class="ident">compressed</span>.<span class="ident">into_affine</span>().<span class="ident">ok</span>();
@@ -1228,7 +1229,7 @@
     }
 
     <span class="doccomment">/// Returns a byte string representation of the public key.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>] {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="ident">PK_SIZE</span>];
         <span class="ident">bytes</span>.<span class="ident">copy_from_slice</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>());
         <span class="ident">bytes</span>
@@ -1241,7 +1242,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PublicKeyShare</span>(<span class="ident">PublicKey</span>);
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">PublicKeyShare</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">uncomp</span> <span class="op">=</span> (<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_uncompressed</span>();
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;PublicKeyShare({:0.10})&quot;</span>, <span class="ident">HexFmt</span>(<span class="ident">uncomp</span>))
     }
@@ -1249,31 +1250,31 @@
 
 <span class="kw">impl</span> <span class="ident">PublicKeyShare</span> {
     <span class="doccomment">/// Returns `true` if the signature matches the element of `G2`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">SignatureShare</span>, <span class="ident">hash</span>: <span class="ident">H</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">SignatureShare</span>, <span class="ident">hash</span>: <span class="ident">H</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">verify_g2</span>(<span class="kw-2">&amp;</span><span class="ident">sig</span>.<span class="number">0</span>, <span class="ident">hash</span>)
     }
 
     <span class="doccomment">/// Returns `true` if the signature matches the message.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is equivalent to `verify_g2(sig, hash_g2(msg))`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">SignatureShare</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">SignatureShare</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">verify_g2</span>(<span class="ident">sig</span>, <span class="ident">hash_g2</span>(<span class="ident">msg</span>))
     }
 
     <span class="doccomment">/// Returns `true` if the decryption share matches the ciphertext.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_decryption_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">share</span>: <span class="kw-2">&amp;</span><span class="ident">DecryptionShare</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify_decryption_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">share</span>: <span class="kw-2">&amp;</span><span class="ident">DecryptionShare</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">Ciphertext</span>(<span class="kw-2">ref</span> <span class="ident">u</span>, <span class="kw-2">ref</span> <span class="ident">v</span>, <span class="kw-2">ref</span> <span class="ident">w</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">ct</span>;
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">hash_g1_g2</span>(<span class="kw-2">*</span><span class="ident">u</span>, <span class="ident">v</span>);
-        <span class="ident">PEngine::pairing</span>(<span class="ident">share</span>.<span class="number">0</span>, <span class="ident">hash</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">PEngine::pairing</span>((<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>, <span class="kw-2">*</span><span class="ident">w</span>)
+        <span class="ident">PEngine::pairing</span>(<span class="ident">share</span>.<span class="number">0</span>, <span class="ident">hash</span>) <span class="op">==</span> <span class="ident">PEngine::pairing</span>((<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>, <span class="kw-2">*</span><span class="ident">w</span>)
     }
 
     <span class="doccomment">/// Returns the key share with the given representation, if valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) -&gt; <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">PublicKeyShare</span>(<span class="ident">PublicKey::from_bytes</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Returns a byte string representation of the public key share.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="ident">PK_SIZE</span>] {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">to_bytes</span>()
     }
 }
@@ -1284,39 +1285,39 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Signature</span>(<span class="attribute">#[<span class="ident">serde</span>(<span class="ident">with</span> <span class="op">=</span> <span class="string">&quot;serde_impl::projective&quot;</span>)]</span> <span class="ident">G2</span>);
 
 <span class="kw">impl</span> <span class="ident">PartialOrd</span> <span class="kw">for</span> <span class="ident">Signature</span> {
-    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Ord</span> <span class="kw">for</span> <span class="ident">Signature</span> {
-    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ordering</span> {
+    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">Ordering</span> {
         <span class="ident">cmp_projective</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="number">0</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Distribution</span><span class="op">&lt;</span><span class="ident">Signature</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Standard</span> {
-    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Signature</span> {
+    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">Signature</span> {
         <span class="ident">Signature</span>(<span class="ident">G2::random</span>(<span class="ident">rng</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Signature</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">uncomp</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_uncompressed</span>();
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Signature({:0.10})&quot;</span>, <span class="ident">HexFmt</span>(<span class="ident">uncomp</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Signature</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>().<span class="ident">hash</span>(<span class="ident">state</span>);
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Signature</span> {
     <span class="doccomment">/// Returns `true` if the signature contains an odd number of ones.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">uncomp</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_uncompressed</span>();
         <span class="kw">let</span> <span class="ident">xor_bytes</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="ident">uncomp</span>.<span class="ident">as_ref</span>().<span class="ident">iter</span>().<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">result</span>, <span class="ident">byte</span><span class="op">|</span> <span class="ident">result</span> <span class="op">^</span> <span class="ident">byte</span>);
         <span class="kw">let</span> <span class="ident">parity</span> <span class="op">=</span> <span class="number">0</span> <span class="op">!</span><span class="op">=</span> <span class="ident">xor_bytes</span>.<span class="ident">count_ones</span>() <span class="op">%</span> <span class="number">2</span>;
@@ -1325,7 +1326,7 @@
     }
 
     <span class="doccomment">/// Returns the signature with the given representation, if valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) -&gt; <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compressed</span>: <span class="op">&lt;</span><span class="ident">G2Affine</span> <span class="kw">as</span> <span class="ident">CurveAffine</span><span class="op">&gt;</span><span class="ident">::Compressed</span> <span class="op">=</span> <span class="ident">EncodedPoint::empty</span>();
         <span class="ident">compressed</span>.<span class="ident">as_mut</span>().<span class="ident">copy_from_slice</span>(<span class="ident">bytes</span>.<span class="ident">borrow</span>());
         <span class="kw">let</span> <span class="ident">opt_affine</span> <span class="op">=</span> <span class="ident">compressed</span>.<span class="ident">into_affine</span>().<span class="ident">ok</span>();
@@ -1334,7 +1335,7 @@
     }
 
     <span class="doccomment">/// Returns a byte string representation of the signature.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>] {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="ident">SIG_SIZE</span>];
         <span class="ident">bytes</span>.<span class="ident">copy_from_slice</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>());
         <span class="ident">bytes</span>
@@ -1348,13 +1349,13 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SignatureShare</span>(<span class="kw">pub</span> <span class="ident">Signature</span>);
 
 <span class="kw">impl</span> <span class="ident">Distribution</span><span class="op">&lt;</span><span class="ident">SignatureShare</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Standard</span> {
-    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SignatureShare</span> {
+    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">SignatureShare</span> {
         <span class="ident">SignatureShare</span>(<span class="ident">rng</span>.<span class="ident">gen</span>())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">SignatureShare</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">uncomp</span> <span class="op">=</span> (<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_uncompressed</span>();
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;SignatureShare({:0.10})&quot;</span>, <span class="ident">HexFmt</span>(<span class="ident">uncomp</span>))
     }
@@ -1362,12 +1363,12 @@
 
 <span class="kw">impl</span> <span class="ident">SignatureShare</span> {
     <span class="doccomment">/// Returns the signature share with the given representation, if valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">Borrow</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">bytes</span>: <span class="ident">B</span>) -&gt; <span class="ident">FromBytesResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">SignatureShare</span>(<span class="ident">Signature::from_bytes</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Returns a byte string representation of the signature share.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> [<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="ident">SIG_SIZE</span>] {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">to_bytes</span>()
     }
 }
@@ -1384,22 +1385,22 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SecretKey</span>(<span class="ident">Fr</span>);
 
 <span class="kw">impl</span> <span class="ident">Zeroize</span> <span class="kw">for</span> <span class="ident">SecretKey</span> {
-    <span class="kw">fn</span> <span class="ident">zeroize</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="ident">clear_fr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="number">0</span>)
+    <span class="kw">fn</span> <span class="ident">zeroize</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="ident">clear_fr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">SecretKey</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="self">self</span>.<span class="ident">zeroize</span>();
     }
 }
 
 <span class="doccomment">/// Creates a `SecretKey` containing the zero prime field element.</span>
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">SecretKey</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fr</span> <span class="op">=</span> <span class="ident">Fr::zero</span>();
-        <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fr</span>)
+        <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">fr</span>)
     }
 }
 
@@ -1408,14 +1409,14 @@
     <span class="doccomment">/// you should use the [`SecretKey::random()`](struct.SecretKey.html#method.random) constructor,</span>
     <span class="doccomment">/// which uses [`rand::thread_rng()`](https://docs.rs/rand/0.7.2/rand/fn.thread_rng.html)</span>
     <span class="doccomment">/// internally as its RNG.</span>
-    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecretKey</span> {
+    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">SecretKey</span> {
         <span class="ident">SecretKey</span>(<span class="ident">Fr::random</span>(<span class="ident">rng</span>))
     }
 }
 
 <span class="doccomment">/// A debug statement where the secret prime field element is redacted.</span>
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">SecretKey</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;SecretKey&quot;</span>).<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="ident">DebugDots</span>).<span class="ident">finish</span>()
     }
 }
@@ -1428,7 +1429,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// *WARNING* this constructor will overwrite the referenced `Fr` element with zeros after it</span>
     <span class="doccomment">/// has been copied onto the heap.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mut</span>(<span class="ident">fr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Fr</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mut</span>(<span class="ident">fr</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Fr</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">sk</span> <span class="op">=</span> <span class="ident">SecretKey</span>(<span class="kw-2">*</span><span class="ident">fr</span>);
         <span class="ident">clear_fr</span>(<span class="ident">fr</span>);
         <span class="ident">sk</span>
@@ -1441,29 +1442,29 @@
     <span class="doccomment">/// [`SecretKey::random()`](struct.SecretKey.html#method.random) constructor, which uses</span>
     <span class="doccomment">/// [`rand::thread_rng()`](https://docs.rs/rand/0.7.2/rand/fn.thread_rng.html) internally as its</span>
     <span class="doccomment">/// RNG.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span>() -&gt; <span class="self">Self</span> {
         <span class="ident">rand::random</span>()
     }
 
     <span class="doccomment">/// Returns the matching public key.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKey</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PublicKey</span> {
         <span class="ident">PublicKey</span>(<span class="ident">G1Affine::one</span>().<span class="ident">mul</span>(<span class="self">self</span>.<span class="number">0</span>))
     }
 
     <span class="doccomment">/// Signs the given element of `G2`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">H</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Signature</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">H</span>) -&gt; <span class="ident">Signature</span> {
         <span class="ident">Signature</span>(<span class="ident">hash</span>.<span class="ident">into</span>().<span class="ident">mul</span>(<span class="self">self</span>.<span class="number">0</span>))
     }
 
     <span class="doccomment">/// Signs the given message.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is equivalent to `sign_g2(hash_g2(msg))`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Signature</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">Signature</span> {
         <span class="self">self</span>.<span class="ident">sign_g2</span>(<span class="ident">hash_g2</span>(<span class="ident">msg</span>))
     }
 
     <span class="doccomment">/// Returns the decrypted text, or `None`, if the ciphertext isn&#39;t valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="ident">ct</span>.<span class="ident">verify</span>() {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
@@ -1475,7 +1476,7 @@
     <span class="doccomment">/// Generates a non-redacted debug string. This method differs from</span>
     <span class="doccomment">/// the `Debug` implementation in that it *does* leak the secret prime</span>
     <span class="doccomment">/// field element.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reveal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reveal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
         <span class="macro">format!</span>(<span class="string">&quot;SecretKey({:?})&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
@@ -1492,13 +1493,13 @@
 <span class="doccomment">/// Can be used to create a new random instance of `SecretKeyShare`. This is only useful for testing</span>
 <span class="doccomment">/// purposes as such a key has not been derived from a `SecretKeySet`.</span>
 <span class="kw">impl</span> <span class="ident">Distribution</span><span class="op">&lt;</span><span class="ident">SecretKeyShare</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Standard</span> {
-    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecretKeyShare</span> {
+    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">SecretKeyShare</span> {
         <span class="ident">SecretKeyShare</span>(<span class="ident">rng</span>.<span class="ident">gen</span>())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">SecretKeyShare</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;SecretKeyShare&quot;</span>).<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="ident">DebugDots</span>).<span class="ident">finish</span>()
     }
 }
@@ -1511,27 +1512,27 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// *WARNING* this constructor will overwrite the pointed to `Fr` element with zeros once it</span>
     <span class="doccomment">/// has been copied into a new `SecretKeyShare`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mut</span>(<span class="ident">fr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Fr</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_mut</span>(<span class="ident">fr</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Fr</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">SecretKeyShare</span>(<span class="ident">SecretKey::from_mut</span>(<span class="ident">fr</span>))
     }
 
     <span class="doccomment">/// Returns the matching public key share.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKeyShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PublicKeyShare</span> {
         <span class="ident">PublicKeyShare</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">public_key</span>())
     }
 
     <span class="doccomment">/// Signs the given element of `G2`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">H</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SignatureShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_g2</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">G2Affine</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">H</span>) -&gt; <span class="ident">SignatureShare</span> {
         <span class="ident">SignatureShare</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">sign_g2</span>(<span class="ident">hash</span>))
     }
 
     <span class="doccomment">/// Signs the given message.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SignatureShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">SignatureShare</span> {
         <span class="ident">SignatureShare</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">sign</span>(<span class="ident">msg</span>))
     }
 
     <span class="doccomment">/// Returns a decryption share, or `None`, if the ciphertext isn&#39;t valid.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">DecryptionShare</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt_share</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">DecryptionShare</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="ident">ct</span>.<span class="ident">verify</span>() {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
@@ -1539,14 +1540,14 @@
     }
 
     <span class="doccomment">/// Returns a decryption share, without validating the ciphertext.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt_share_no_verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">DecryptionShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt_share_no_verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) -&gt; <span class="ident">DecryptionShare</span> {
         <span class="ident">DecryptionShare</span>(<span class="ident">ct</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">mul</span>((<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>))
     }
 
     <span class="doccomment">/// Generates a non-redacted debug string. This method differs from</span>
     <span class="doccomment">/// the `Debug` implementation in that it *does* leak the secret prime</span>
     <span class="doccomment">/// field element.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reveal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reveal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
         <span class="macro">format!</span>(<span class="string">&quot;SecretKeyShare({:?})&quot;</span>, (<span class="self">self</span>.<span class="number">0</span>).<span class="number">0</span>)
     }
 }
@@ -1560,7 +1561,7 @@
 );
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Ciphertext</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="kw">let</span> <span class="ident">Ciphertext</span>(<span class="kw-2">ref</span> <span class="ident">u</span>, <span class="kw-2">ref</span> <span class="ident">v</span>, <span class="kw-2">ref</span> <span class="ident">w</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>;
         <span class="ident">u</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>().<span class="ident">hash</span>(<span class="ident">state</span>);
         <span class="ident">v</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
@@ -1569,13 +1570,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PartialOrd</span> <span class="kw">for</span> <span class="ident">Ciphertext</span> {
-    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Ord</span> <span class="kw">for</span> <span class="ident">Ciphertext</span> {
-    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ordering</span> {
+    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">Ordering</span> {
         <span class="kw">let</span> <span class="ident">Ciphertext</span>(<span class="kw-2">ref</span> <span class="ident">u0</span>, <span class="kw-2">ref</span> <span class="ident">v0</span>, <span class="kw-2">ref</span> <span class="ident">w0</span>) <span class="op">=</span> <span class="self">self</span>;
         <span class="kw">let</span> <span class="ident">Ciphertext</span>(<span class="kw-2">ref</span> <span class="ident">u1</span>, <span class="kw-2">ref</span> <span class="ident">v1</span>, <span class="kw-2">ref</span> <span class="ident">w1</span>) <span class="op">=</span> <span class="ident">other</span>;
         <span class="ident">cmp_projective</span>(<span class="ident">u0</span>, <span class="ident">u1</span>)
@@ -1587,10 +1588,10 @@
 <span class="kw">impl</span> <span class="ident">Ciphertext</span> {
     <span class="doccomment">/// Returns `true` if this is a valid ciphertext. This check is necessary to prevent</span>
     <span class="doccomment">/// chosen-ciphertext attacks.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">Ciphertext</span>(<span class="kw-2">ref</span> <span class="ident">u</span>, <span class="kw-2">ref</span> <span class="ident">v</span>, <span class="kw-2">ref</span> <span class="ident">w</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>;
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">hash_g1_g2</span>(<span class="kw-2">*</span><span class="ident">u</span>, <span class="ident">v</span>);
-        <span class="ident">PEngine::pairing</span>(<span class="ident">G1Affine::one</span>(), <span class="kw-2">*</span><span class="ident">w</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">PEngine::pairing</span>(<span class="kw-2">*</span><span class="ident">u</span>, <span class="ident">hash</span>)
+        <span class="ident">PEngine::pairing</span>(<span class="ident">G1Affine::one</span>(), <span class="kw-2">*</span><span class="ident">w</span>) <span class="op">==</span> <span class="ident">PEngine::pairing</span>(<span class="kw-2">*</span><span class="ident">u</span>, <span class="ident">hash</span>)
     }
 }
 
@@ -1599,19 +1600,19 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DecryptionShare</span>(<span class="attribute">#[<span class="ident">serde</span>(<span class="ident">with</span> <span class="op">=</span> <span class="string">&quot;serde_impl::projective&quot;</span>)]</span> <span class="ident">G1</span>);
 
 <span class="kw">impl</span> <span class="ident">Distribution</span><span class="op">&lt;</span><span class="ident">DecryptionShare</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Standard</span> {
-    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">DecryptionShare</span> {
+    <span class="kw">fn</span> <span class="ident">sample</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">DecryptionShare</span> {
         <span class="ident">DecryptionShare</span>(<span class="ident">G1::random</span>(<span class="ident">rng</span>))
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">DecryptionShare</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>().<span class="ident">hash</span>(<span class="ident">state</span>);
     }
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">DecryptionShare</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;DecryptionShare&quot;</span>).<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="ident">DebugDots</span>).<span class="ident">finish</span>()
     }
 }
@@ -1625,13 +1626,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">PublicKeySet</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>) {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
         <span class="self">self</span>.<span class="ident">commit</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
     }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Commitment</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PublicKeySet</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">commit</span>: <span class="ident">Commitment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKeySet</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">commit</span>: <span class="ident">Commitment</span>) -&gt; <span class="ident">PublicKeySet</span> {
         <span class="ident">PublicKeySet</span> { <span class="ident">commit</span> }
     }
 }
@@ -1639,17 +1640,17 @@
 <span class="kw">impl</span> <span class="ident">PublicKeySet</span> {
     <span class="doccomment">/// Returns the threshold `t`: any set of `t + 1` signature shares can be combined into a full</span>
     <span class="doccomment">/// signature.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">commit</span>.<span class="ident">degree</span>()
     }
 
     <span class="doccomment">/// Returns the public key.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKey</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PublicKey</span> {
         <span class="ident">PublicKey</span>(<span class="self">self</span>.<span class="ident">commit</span>.<span class="ident">coeff</span>[<span class="number">0</span>])
     }
 
     <span class="doccomment">/// Returns the `i`-th public key share.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key_share</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">i</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKeyShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_key_share</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">i</span>: <span class="ident">T</span>) -&gt; <span class="ident">PublicKeyShare</span> {
         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">commit</span>.<span class="ident">evaluate</span>(<span class="ident">into_fr_plus_1</span>(<span class="ident">i</span>));
         <span class="ident">PublicKeyShare</span>(<span class="ident">PublicKey</span>(<span class="ident">value</span>))
     }
@@ -1687,7 +1688,7 @@
     <span class="doccomment">/// // Validate the main signature. If the shares were valid, this can&#39;t fail.</span>
     <span class="doccomment">/// assert!(pk_set.public_key().verify(&amp;sig, msg));</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine_signatures</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">shares</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Signature</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine_signatures</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">shares</span>: <span class="ident">I</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Signature</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">T</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">SignatureShare</span>)<span class="op">&gt;</span>,
         <span class="ident">T</span>: <span class="ident">IntoFr</span>,
@@ -1697,7 +1698,7 @@
     }
 
     <span class="doccomment">/// Combines the shares to decrypt the ciphertext.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">shares</span>: <span class="ident">I</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decrypt</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">shares</span>: <span class="ident">I</span>, <span class="ident">ct</span>: <span class="kw-2">&amp;</span><span class="ident">Ciphertext</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">T</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">DecryptionShare</span>)<span class="op">&gt;</span>,
         <span class="ident">T</span>: <span class="ident">IntoFr</span>,
@@ -1717,7 +1718,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Poly</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">SecretKeySet</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">poly</span>: <span class="ident">Poly</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecretKeySet</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">poly</span>: <span class="ident">Poly</span>) -&gt; <span class="ident">SecretKeySet</span> {
         <span class="ident">SecretKeySet</span> { <span class="ident">poly</span> }
     }
 }
@@ -1730,7 +1731,7 @@
     <span class="doccomment">/// # Panic</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Panics if the `threshold` is too large for the coefficients to fit into a `Vec`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span><span class="op">&gt;</span>(<span class="ident">threshold</span>: <span class="ident">usize</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span><span class="op">&gt;</span>(<span class="ident">threshold</span>: <span class="ident">usize</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">SecretKeySet::try_random</span>(<span class="ident">threshold</span>, <span class="ident">rng</span>)
             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;Failed to create random `SecretKeySet`: {}&quot;</span>, <span class="ident">e</span>))
     }
@@ -1738,24 +1739,24 @@
     <span class="doccomment">/// Creates a set of secret key shares, where any `threshold + 1` of them can collaboratively</span>
     <span class="doccomment">/// sign and decrypt. This constructor is identical to the `SecretKeySet::random()` in every</span>
     <span class="doccomment">/// way except that this constructor returns an `Err` where the `random` would panic.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_random</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span><span class="op">&gt;</span>(<span class="ident">threshold</span>: <span class="ident">usize</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_random</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Rng</span><span class="op">&gt;</span>(<span class="ident">threshold</span>: <span class="ident">usize</span>, <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="ident">Poly::try_random</span>(<span class="ident">threshold</span>, <span class="ident">rng</span>).<span class="ident">map</span>(<span class="ident">SecretKeySet::from</span>)
     }
 
     <span class="doccomment">/// Returns the threshold `t`: any set of `t + 1` signature shares can be combined into a full</span>
     <span class="doccomment">/// signature.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">poly</span>.<span class="ident">degree</span>()
     }
 
     <span class="doccomment">/// Returns the `i`-th secret key share.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">secret_key_share</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">i</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecretKeyShare</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">secret_key_share</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">i</span>: <span class="ident">T</span>) -&gt; <span class="ident">SecretKeyShare</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">poly</span>.<span class="ident">evaluate</span>(<span class="ident">into_fr_plus_1</span>(<span class="ident">i</span>));
-        <span class="ident">SecretKeyShare::from_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fr</span>)
+        <span class="ident">SecretKeyShare::from_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">fr</span>)
     }
 
     <span class="doccomment">/// Returns the corresponding public key set. That information can be shared publicly.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_keys</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PublicKeySet</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">public_keys</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PublicKeySet</span> {
         <span class="ident">PublicKeySet</span> {
             <span class="ident">commit</span>: <span class="self">self</span>.<span class="ident">poly</span>.<span class="ident">commitment</span>(),
         }
@@ -1763,20 +1764,20 @@
 
     <span class="doccomment">/// Returns the secret master key.</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">secret_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecretKey</span> {
+    <span class="kw">fn</span> <span class="ident">secret_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">SecretKey</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">poly</span>.<span class="ident">evaluate</span>(<span class="number">0</span>);
-        <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fr</span>)
+        <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">fr</span>)
     }
 }
 
 <span class="doccomment">/// Returns a hash of the given message in `G2`.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash_g2</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">G2</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash_g2</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">G2</span> {
     <span class="kw">let</span> <span class="ident">digest</span> <span class="op">=</span> <span class="ident">sha3_256</span>(<span class="ident">msg</span>.<span class="ident">as_ref</span>());
-    <span class="ident">G2::random</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ChaChaRng::from_seed</span>(<span class="ident">digest</span>))
+    <span class="ident">G2::random</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ChaChaRng::from_seed</span>(<span class="ident">digest</span>))
 }
 
 <span class="doccomment">/// Returns a hash of the group element and message, in the second group.</span>
-<span class="kw">fn</span> <span class="ident">hash_g1_g2</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">g1</span>: <span class="ident">G1</span>, <span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">G2</span> {
+<span class="kw">fn</span> <span class="ident">hash_g1_g2</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">g1</span>: <span class="ident">G1</span>, <span class="ident">msg</span>: <span class="ident">M</span>) -&gt; <span class="ident">G2</span> {
     <span class="comment">// If the message is large, hash it, otherwise copy it.</span>
     <span class="comment">// TODO: Benchmark and optimize the threshold.</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">msg</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">as_ref</span>().<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">64</span> {
@@ -1789,7 +1790,7 @@
 }
 
 <span class="doccomment">/// Returns the bitwise xor of `bytes` with a sequence of pseudorandom bytes determined by `g1`.</span>
-<span class="kw">fn</span> <span class="ident">xor_with_hash</span>(<span class="ident">g1</span>: <span class="ident">G1</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">xor_with_hash</span>(<span class="ident">g1</span>: <span class="ident">G1</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">digest</span> <span class="op">=</span> <span class="ident">sha3_256</span>(<span class="ident">g1</span>.<span class="ident">into_affine</span>().<span class="ident">into_compressed</span>().<span class="ident">as_ref</span>());
     <span class="kw">let</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">ChaChaRng::from_seed</span>(<span class="ident">digest</span>);
     <span class="kw">let</span> <span class="ident">xor</span> <span class="op">=</span> <span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>): (<span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">u8</span>)<span class="op">|</span> <span class="ident">a</span> <span class="op">^</span> <span class="ident">b</span>;
@@ -1798,7 +1799,7 @@
 
 <span class="doccomment">/// Given a list of `t + 1` samples `(i - 1, f(i) * g)` for a polynomial `f` of degree `t`, and a</span>
 <span class="doccomment">/// group generator `g`, returns `f(0) * g`.</span>
-<span class="kw">fn</span> <span class="ident">interpolate</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">B</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="ident">t</span>: <span class="ident">usize</span>, <span class="ident">items</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>
+<span class="kw">fn</span> <span class="ident">interpolate</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">B</span>, <span class="ident">T</span>, <span class="ident">I</span><span class="op">&gt;</span>(<span class="ident">t</span>: <span class="ident">usize</span>, <span class="ident">items</span>: <span class="ident">I</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">C</span>: <span class="ident">CurveProjective</span><span class="op">&lt;</span><span class="ident">Scalar</span> <span class="op">=</span> <span class="ident">Fr</span><span class="op">&gt;</span>,
     <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">T</span>, <span class="ident">B</span>)<span class="op">&gt;</span>,
@@ -1814,7 +1815,7 @@
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Error::NotEnoughShares</span>);
     }
 
-    <span class="kw">if</span> <span class="ident">t</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
+    <span class="kw">if</span> <span class="ident">t</span> <span class="op">==</span> <span class="number">0</span> {
         <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">samples</span>[<span class="number">0</span>].<span class="number">1</span>.<span class="ident">borrow</span>());
     }
 
@@ -1848,7 +1849,7 @@
     <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
 }
 
-<span class="kw">fn</span> <span class="ident">into_fr_plus_1</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="ident">x</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Fr</span> {
+<span class="kw">fn</span> <span class="ident">into_fr_plus_1</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoFr</span><span class="op">&gt;</span>(<span class="ident">x</span>: <span class="ident">I</span>) -&gt; <span class="ident">Fr</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">Fr::one</span>();
     <span class="ident">result</span>.<span class="ident">add_assign</span>(<span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">into_fr</span>());
     <span class="ident">result</span>
@@ -1859,7 +1860,7 @@
 <span class="kw">struct</span> <span class="ident">DebugDots</span>;
 
 <span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">DebugDots</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;...&quot;</span>)
     }
 }
@@ -1877,7 +1878,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
         <span class="kw">for</span> <span class="ident">deg</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">5</span> {
             <span class="macro">println!</span>(<span class="string">&quot;deg = {}&quot;</span>, <span class="ident">deg</span>);
-            <span class="kw">let</span> <span class="ident">comm</span> <span class="op">=</span> <span class="ident">Poly::random</span>(<span class="ident">deg</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>).<span class="ident">commitment</span>();
+            <span class="kw">let</span> <span class="ident">comm</span> <span class="op">=</span> <span class="ident">Poly::random</span>(<span class="ident">deg</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">commitment</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">x</span> <span class="op">=</span> <span class="number">0</span>;
             <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="op">=</span><span class="ident">deg</span> {
@@ -1904,7 +1905,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_threshold_sig</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
-        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
         <span class="kw">let</span> <span class="ident">pk_set</span> <span class="op">=</span> <span class="ident">sk_set</span>.<span class="ident">public_keys</span>();
         <span class="kw">let</span> <span class="ident">pk_master</span> <span class="op">=</span> <span class="ident">pk_set</span>.<span class="ident">public_key</span>();
 
@@ -1981,15 +1982,15 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_random_extreme_thresholds</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
-        <span class="kw">let</span> <span class="ident">sks</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">sks</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">0</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
         <span class="macro">assert_eq!</span>(<span class="number">0</span>, <span class="ident">sks</span>.<span class="ident">threshold</span>());
-        <span class="macro">assert!</span>(<span class="ident">SecretKeySet::try_random</span>(<span class="ident">usize::max_value</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>).<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(<span class="ident">SecretKeySet::try_random</span>(<span class="ident">usize::max_value</span>(), <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">is_err</span>());
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_threshold_enc</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
-        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
         <span class="kw">let</span> <span class="ident">pk_set</span> <span class="op">=</span> <span class="ident">sk_set</span>.<span class="ident">public_keys</span>();
         <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="string">b&quot;Totally real news&quot;</span>;
         <span class="kw">let</span> <span class="ident">ciphertext</span> <span class="op">=</span> <span class="ident">pk_set</span>.<span class="ident">public_key</span>().<span class="ident">encrypt</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>[..]);
@@ -2040,8 +2041,8 @@
         <span class="kw">let</span> <span class="ident">msg</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">sample_iter</span>(<span class="kw-2">&amp;</span><span class="ident">Standard</span>).<span class="ident">take</span>(<span class="number">1000</span>).<span class="ident">collect</span>();
         <span class="kw">let</span> <span class="ident">msg_end0</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">iter</span>().<span class="ident">chain</span>(<span class="string">b&quot;end0&quot;</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>();
         <span class="kw">let</span> <span class="ident">msg_end1</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">iter</span>().<span class="ident">chain</span>(<span class="string">b&quot;end1&quot;</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">g0</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
-        <span class="kw">let</span> <span class="ident">g1</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">g0</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">g1</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
 
         <span class="macro">assert_eq!</span>(<span class="ident">hash_g1_g2</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span><span class="ident">msg</span>), <span class="ident">hash_g1_g2</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span><span class="ident">msg</span>));
         <span class="macro">assert_ne!</span>(<span class="ident">hash_g1_g2</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span><span class="ident">msg</span>), <span class="ident">hash_g1_g2</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span><span class="ident">msg_end0</span>));
@@ -2053,8 +2054,8 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_xor_with_hash</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">rand::thread_rng</span>();
-        <span class="kw">let</span> <span class="ident">g0</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
-        <span class="kw">let</span> <span class="ident">g1</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">g0</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
+        <span class="kw">let</span> <span class="ident">g1</span> <span class="op">=</span> <span class="ident">G1::random</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
         <span class="kw">let</span> <span class="ident">xwh</span> <span class="op">=</span> <span class="ident">xor_with_hash</span>;
         <span class="macro">assert_eq!</span>(<span class="ident">xwh</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">5</span>]), <span class="ident">xwh</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">5</span>]));
         <span class="macro">assert_ne!</span>(<span class="ident">xwh</span>(<span class="ident">g0</span>, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">5</span>]), <span class="ident">xwh</span>(<span class="ident">g1</span>, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">5</span>]));
@@ -2097,9 +2098,9 @@
         <span class="kw">use</span> <span class="ident">rand::thread_rng</span>;
 
         <span class="macro">macro_rules!</span> <span class="ident">assert_codec</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">obj</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">obj</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">encoded</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">obj</span>.<span class="ident">encode</span>();
-                <span class="kw">let</span> <span class="ident">decoded</span>: <span class="macro-nonterminal">$</span><span class="kw">type</span> <span class="op">=</span> <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="kw">type</span><span class="op">&gt;</span><span class="macro-nonterminal">::decode</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">&amp;</span><span class="ident">encoded</span>[..]).<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">decoded</span>: <span class="macro-nonterminal">$</span><span class="kw">type</span> <span class="op">=</span> <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="kw">type</span><span class="op">&gt;</span><span class="macro-nonterminal">::decode</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">&amp;</span><span class="ident">encoded</span>[..]).<span class="ident">unwrap</span>();
                 <span class="macro">assert_eq!</span>(<span class="ident">decoded</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">obj</span>.<span class="ident">clone</span>());
             };
         }
@@ -2120,10 +2121,10 @@
         <span class="kw">let</span> <span class="ident">cipher_text</span> <span class="op">=</span> <span class="ident">pk</span>.<span class="ident">encrypt</span>(<span class="string">b&quot;cipher text&quot;</span>);
         <span class="macro">assert_codec!</span>(<span class="ident">cipher_text</span>, <span class="ident">Ciphertext</span>);
 
-        <span class="kw">let</span> <span class="ident">dec_share</span>: <span class="ident">DecryptionShare</span> <span class="op">=</span> <span class="ident">Standard</span>.<span class="ident">sample</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_rng</span>());
+        <span class="kw">let</span> <span class="ident">dec_share</span>: <span class="ident">DecryptionShare</span> <span class="op">=</span> <span class="ident">Standard</span>.<span class="ident">sample</span>(<span class="kw-2">&amp;mut</span> <span class="ident">thread_rng</span>());
         <span class="macro">assert_codec!</span>(<span class="ident">dec_share</span>, <span class="ident">DecryptionShare</span>);
 
-        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_rng</span>());
+        <span class="kw">let</span> <span class="ident">sk_set</span> <span class="op">=</span> <span class="ident">SecretKeySet::random</span>(<span class="number">3</span>, <span class="kw-2">&amp;mut</span> <span class="ident">thread_rng</span>());
         <span class="kw">let</span> <span class="ident">pk_set</span> <span class="op">=</span> <span class="ident">sk_set</span>.<span class="ident">public_keys</span>();
         <span class="macro">assert_codec!</span>(<span class="ident">pk_set</span>, <span class="ident">PublicKeySet</span>);
     }
@@ -2136,7 +2137,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_zeroize</span>() {
-        <span class="kw">let</span> <span class="ident">zero_sk</span> <span class="op">=</span> <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Fr::zero</span>());
+        <span class="kw">let</span> <span class="ident">zero_sk</span> <span class="op">=</span> <span class="ident">SecretKey::from_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Fr::zero</span>());
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sk</span> <span class="op">=</span> <span class="ident">SecretKey::random</span>();
         <span class="macro">assert_ne!</span>(<span class="ident">zero_sk</span>, <span class="ident">sk</span>);
@@ -2152,7 +2153,7 @@
 
         <span class="macro">assert_ne!</span>(<span class="ident">sk1</span>, <span class="ident">sk2</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">seed</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">32</span>];
-        <span class="ident">rand::thread_rng</span>().<span class="ident">fill_bytes</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">seed</span>);
+        <span class="ident">rand::thread_rng</span>().<span class="ident">fill_bytes</span>(<span class="kw-2">&amp;mut</span> <span class="ident">seed</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">ChaChaRng::from_seed</span>(<span class="ident">seed</span>);
         <span class="kw">let</span> <span class="ident">sk3</span>: <span class="ident">SecretKey</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">sample</span>(<span class="ident">Standard</span>);
@@ -2164,5 +2165,4 @@
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="threshold_crypto" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
 </body></html>
