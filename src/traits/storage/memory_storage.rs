@@ -12,9 +12,8 @@ use std::sync::Arc;
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
     traits::{
-        block_contents::BlockContents,
-        state::State,
         storage::{Storage, StorageResult},
+        BlockContents, State,
     },
     QuorumCertificate,
 };
@@ -245,9 +244,9 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 mod test {
     use super::*;
     use crate::data::Stage;
-    #[allow(clippy::wildcard_imports)]
-    use crate::traits::block_contents::dummy::*;
     use crate::utility::test_util::setup_logging;
+    #[allow(clippy::wildcard_imports)]
+    use phaselock_types::traits::block_contents::dummy::*;
     use tracing::instrument;
 
     fn dummy_qc(

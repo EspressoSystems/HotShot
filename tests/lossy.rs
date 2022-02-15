@@ -115,6 +115,7 @@ impl NetworkReliability for PartiallySynchronousNetwork {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for SynchronousNetwork {
     // disable all chance of failure
     fn default() -> Self {

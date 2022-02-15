@@ -1,12 +1,12 @@
-//! Error type for [`PhaseLock`](crate::PhaseLock)
+//! Error type for `PhaseLock`
 //!
 //! This module provides [`PhaseLockError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 use snafu::Snafu;
 
-/// Error type for [`PhaseLock`](crate::PhaseLock)
+/// Error type for `PhaseLock`
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum PhaseLockError {
     /// Failed to Message the leader in the given stage
@@ -15,7 +15,7 @@ pub enum PhaseLockError {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
         /// The underlying network fault
-        source: crate::traits::NetworkError,
+        source: crate::traits::network::NetworkError,
     },
     /// Failed to broadcast a message on the network
     #[snafu(display("Failed to broadcast a message in stage {stage:?}: {source}"))]
@@ -23,7 +23,7 @@ pub enum PhaseLockError {
         /// The stage the failure occurred in
         stage: crate::data::Stage,
         /// The underlying network fault
-        source: crate::traits::NetworkError,
+        source: crate::traits::network::NetworkError,
     },
     /// Bad or forged quorum certificate
     #[snafu(display("Bad or forged QC in stage {:?}", stage))]
@@ -62,7 +62,7 @@ pub enum PhaseLockError {
     #[snafu(display("Failure in networking layer: {source}"))]
     NetworkFault {
         /// Underlying network fault
-        source: crate::traits::NetworkError,
+        source: crate::traits::network::NetworkError,
     },
     /// Item was not present in storage
     ItemNotFound {

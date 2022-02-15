@@ -53,12 +53,11 @@ pub trait BlockContents<const N: usize>:
     fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<N>;
     /// Produces a hash for an arbitrary sequence of bytes
     ///
-    /// Used to produce hashes for internal [`PhaseLock`](crate::PhaseLock) control structures
+    /// Used to produce hashes for internal `PhaseLock` control structures
     fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
 }
 
 /// Dummy implementation of `BlockContents` for unit tests
-#[cfg(test)]
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;

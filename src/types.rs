@@ -1,13 +1,10 @@
-pub(crate) mod error;
 mod event;
 mod handle;
-mod message;
-
-pub use error::PhaseLockError;
 
 pub use event::Event;
 pub use event::EventType;
 
 pub use handle::PhaseLockHandle;
 
-pub use message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
+pub(crate) use phaselock_types::error::PhaseLockError;
+pub use phaselock_types::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
