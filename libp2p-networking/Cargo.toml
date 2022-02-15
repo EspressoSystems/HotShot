@@ -11,7 +11,7 @@ bincode = "1.3.3"
 blake3 = "1.3.1"
 color-eyre = "0.6.0"
 crossterm = { version = "0.23.0", features = ["event-stream"] }
-flume = "0.10.10"
+flume = "0.10.11"
 futures = "0.3.21"
 libp2p = "0.42.2"
 parking_lot = "0.12.0"
