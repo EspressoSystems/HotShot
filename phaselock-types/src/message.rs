@@ -1,7 +1,7 @@
 //! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
-//! [`PhaseLock`](crate::PhaseLock) nodes can send among themselves.
+//! `PhaseLock` nodes can send among themselves.
 
 use crate::data::Stage;
 use hex_fmt::HexFmt;
@@ -10,10 +10,7 @@ use threshold_crypto::SignatureShare;
 
 use std::fmt::Debug;
 
-use crate::{
-    data::{Leaf, LeafHash},
-    QuorumCertificate,
-};
+use crate::data::{Leaf, LeafHash, QuorumCertificate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Enum representation of any message type

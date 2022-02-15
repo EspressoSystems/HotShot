@@ -1153,6 +1153,20 @@ dependencies = [
 [[package]]
 name = "phaselock-types"
 version = "0.0.6-dev"
+dependencies = [
+ "async-std",
+ "async-tungstenite",
+ "bincode",
+ "blake3",
+ "futures",
+ "hex_fmt",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "serde",
+ "serde_bytes",
+ "snafu",
+ "threshold_crypto",
+]
 
 [[package]]
 name = "pin-project"

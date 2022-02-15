@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use std::{error::Error, fmt::Debug, hash::Hash};
 
-use crate::traits::block_contents::BlockContents;
+use crate::traits::BlockContents;
 
 /// Abstraction over the state that blocks modify
 ///
@@ -43,7 +43,6 @@ pub trait State<const N: usize>:
 }
 
 /// Dummy implementation of `State` for unit tests
-#[cfg(test)]
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;

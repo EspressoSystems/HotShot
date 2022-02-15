@@ -19,16 +19,17 @@ use std::{
 use futures::{future::BoxFuture, Future, FutureExt};
 use tracing::{info, instrument};
 
+use phaselock_types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError};
+
 use super::{
     debug, error, generate_qc, trace, warn, yield_now, Arc, Commit, Debug, Decide, Event,
-    EventType, Leaf, LeafHash, Message, PhaseLock, PhaseLockError, PreCommit, Prepare, PubKey,
-    QuorumCertificate, Result, ResultExt, Stage, Vote,
+    EventType, Leaf, LeafHash, Message, PhaseLock, PreCommit, Prepare, PubKey, QuorumCertificate,
+    Result, ResultExt, Stage, Vote,
 };
 use crate::{
     traits::{
         BlockContents, NetworkingImplementation, State, StatefulHandler, Storage, StorageResult,
     },
-    types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu},
     utility::broadcast::BroadcastSender,
     NodeImplementation,
 };

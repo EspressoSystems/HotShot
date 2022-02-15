@@ -2,12 +2,12 @@
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use super::{BlockContents, State};
+use crate::traits::{BlockContents, State};
 
 /// Trait for a stateful event handler
 ///
-/// The [`PhaseLock`](crate::PhaseLock) instance will keep around the provided value of this type,
-/// and call the `notify` method every time a series of blocks are committed.
+/// The `PhaseLock` instance will keep around the provided value of this type, and call the `notify`
+/// method every time a series of blocks are committed.
 ///
 /// A do-nothing implementation ([`Stateless`]) is provided, as a convince for implementations that
 /// do not need this functionality.
@@ -17,8 +17,8 @@ pub trait StatefulHandler<const N: usize>: Send + Sync + Debug + 'static {
     /// State type for this consensus implementation
     type State: State<N, Block = Self::Block>;
 
-    /// The [`PhaseLock`](crate::PhaseLock) implementation will call this method, with the series of
-    /// blocks and states that are being committed, whenever a commit action takes place.
+    /// The `PhaseLock` implementation will call this method, with the series of blocks and states
+    /// that are being committed, whenever a commit action takes place.
     ///
     /// The provided states and blocks are guaranteed to be in ascending order of age (newest to
     /// oldest).

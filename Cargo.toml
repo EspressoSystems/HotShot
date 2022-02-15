@@ -31,18 +31,18 @@ dashmap = "5.1.0"
 flume = "0.10.10"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
+phaselock-types = { path = "./phaselock-types", version = "0.0.6-dev" }
 # jf-primitives = { features=["std"], git = "ssh://git@gitlab.com/translucence/crypto/jellyfish.git", rev = "3faf4400a7ae67de18400051f57afe8e4fb6d4de"}
 rand = "0.7.3"
 rand_chacha = "0.2.2"
-serde_bytes = "0.11"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
+serde_bytes = "0.11"
 snafu = { version = "0.7.0", features = ["backtraces"] }
 threshold_crypto = "0.4.0"
 tracing = "0.1.30"
 tracing-error = "0.2.0"
 tracing-futures = "0.2.5"
 tracing-unwrap = "0.9.2"
-phaselock-types = { path = "./phaselock-types", version = "0.0.6-dev" }
 
 [dev-dependencies]
 async-std = { version = "1.10.0", features = ["attributes"] }
