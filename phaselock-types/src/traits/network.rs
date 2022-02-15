@@ -6,6 +6,7 @@ use async_tungstenite::tungstenite::error as werror;
 use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
+use std::time::Duration;
 
 use crate::PubKey;
 
@@ -107,4 +108,18 @@ where
     fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>>;
     /// Object safe clone
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
+}
+
+/// interface describing how reliable the network is
+pub trait NetworkReliability: std::fmt::Debug + Sync + std::marker::Send + Copy {
+    /// Sample from bernoulli distribution to decide whether
+    /// or not to keep a packet
+    /// # Panics
+    ///
+    /// Panics if `self.keep_numerator > self.keep_denominator`
+    ///
+    fn sample_keep(&self) -> bool;
+    /// sample from uniform distribution to decide whether
+    /// or not to keep a packet
+    fn sample_delay(&self) -> Duration;
 }

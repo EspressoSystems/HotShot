@@ -8,20 +8,12 @@
 //! In future, this module will contain a production ready networking implementation, very probably
 //! one libp2p based.
 
-use crate::PubKey;
-
-use async_tungstenite::tungstenite::error as werror;
-use futures::future::BoxFuture;
-use serde::{de::DeserializeOwned, Serialize};
-use snafu::Snafu;
-use std::time::Duration;
-
 pub mod memory_network;
 pub mod w_network;
 
 pub use phaselock_types::traits::network::{
     BoxedFuture, ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
     FailedToDeserializeSnafu, FailedToSerializeSnafu, IdentityHandshakeSnafu, ListenerSendSnafu,
-    NetworkError, NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu, OtherSnafu,
-    ShutDownSnafu, SocketDecodeSnafu, WebSocketSnafu,
+    NetworkError, NetworkReliability, NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu,
+    OtherSnafu, ShutDownSnafu, SocketDecodeSnafu, WebSocketSnafu,
 };
