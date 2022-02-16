@@ -172,6 +172,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     let regular_node_config = NetworkNodeConfigBuilder::default()
+        .port(0)
         .node_type(NetworkNodeType::Regular)
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
@@ -203,7 +204,12 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     for handle in &handles {
         handle
             .send_network
-            .send_async(ClientRequest::AddKnownPeers(bootstrap_addrs.clone()))
+            .send_async(ClientRequest::AddKnownPeers(
+                bootstrap_addrs
+                    .iter()
+                    .map(|(a, b)| (Some(a.clone()), b.clone()))
+                    .collect::<Vec<_>>(),
+            ))
             .await
             .context(SendSnafu)
             .context(HandleSnafu)?;

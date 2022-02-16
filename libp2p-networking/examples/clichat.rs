@@ -1,4 +1,4 @@
-use libp2p::{Multiaddr, PeerId};
+use libp2p::Multiaddr;
 use networking_demo::message::Message;
 use networking_demo::ui::{run_app, TableApp};
 
@@ -29,9 +29,6 @@ struct CliOpt {
     port: Option<u16>,
 
     #[structopt()]
-    first_dial_peer_id: Option<PeerId>,
-
-    #[structopt()]
     first_dial_addr: Option<Multiaddr>,
 }
 
@@ -52,11 +49,7 @@ async fn main() -> Result<()> {
     let port = CliOpt::from_args().port.unwrap_or(0u16);
     let known_peer = CliOpt::from_args().first_dial_addr;
     let peer_list = if let Some(p) = known_peer {
-        if let Some(pid) = CliOpt::from_args().first_dial_peer_id {
-            vec![(pid, p)]
-        } else {
-            Vec::new()
-        }
+        vec![(None, p)]
     } else {
         Vec::new()
     };
