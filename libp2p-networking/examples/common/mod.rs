@@ -1,30 +1,38 @@
+use networking_demo::parse_config::NodeDescription;
 use std::{
     collections::HashMap,
     sync::{Arc, Once},
     time::Duration,
 };
 
-use bincode::Options;
-use libp2p::{
-    build_multiaddr, gossipsub::Topic, request_response::ResponseChannel, Multiaddr, PeerId,
-};
+use async_std::fs::File;
+use futures::AsyncReadExt;
+use libp2p::{gossipsub::Topic, request_response::ResponseChannel, PeerId};
 use networking_demo::{
     direct_message::DirectMessageResponse,
-    network_node::{ClientRequest, NetworkEvent, NetworkNodeConfigBuilder, NetworkNodeType},
+    network_node::{
+        deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeConfigBuilder,
+        NetworkNodeType,
+    },
     network_node_handle::{
         spawn_handler, spin_up_swarm, NetworkNodeHandle, NetworkNodeHandleError, NetworkSnafu,
         NodeConfigSnafu, SendSnafu, SerializationSnafu,
     },
     tracing_setup,
 };
+use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::fmt::Debug;
 use structopt::StructOpt;
 use tracing::instrument;
 
+const TIMEOUT: Duration = Duration::from_secs(1000);
+static INIT: Once = Once::new();
+const PORT_NO: u16 = 1234;
+
 pub type CounterState = u32;
-pub type ControllerState = HashMap<PeerId, CounterState>;
+pub type ConductorState = HashMap<PeerId, CounterState>;
 
 /// Normal message types. We can either
 /// - increment the Counter
@@ -78,10 +86,7 @@ pub async fn handle_normal_msg(
         CounterRequest::AskForCounter => {
             if let Some(chan) = chan {
                 let response = CounterRequest::MyCounterIs(*handle.state.lock().await);
-                let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-                let serialized_response = bincode_options
-                    .serialize(&response)
-                    .context(SerializationSnafu)?;
+                let serialized_response = serialize_msg(&response).context(SerializationSnafu)?;
                 handle
                     .send_network
                     .send_async(ClientRequest::DirectResponse(chan, serialized_response))
@@ -107,10 +112,9 @@ pub async fn regular_handle_network_event(
 ) -> Result<(), NetworkNodeHandleError> {
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     match event {
         GossipMsg(m) | DirectResponse(m, _) => {
-            if let Ok(msg) = bincode_options.deserialize::<Message>(&m) {
+            if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
                     Message::NormalMessage(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
@@ -123,14 +127,13 @@ pub async fn regular_handle_network_event(
             }
         }
         DirectRequest(msg, chan) => {
-            if let Ok(msg) = bincode_options.deserialize::<Message>(&msg) {
+            if let Ok(msg) = deserialize_msg::<Message>(&msg) {
                 match msg {
                     Message::NormalMessage(msg) => {
                         handle_normal_msg(handle.clone(), msg, Some(chan)).await?;
                     }
                     Message::ConductorMessage(msg, method) => {
-                        let serialized_msg = bincode_options
-                            .serialize(&Message::NormalMessage(msg))
+                        let serialized_msg = serialize_msg(&Message::NormalMessage(msg))
                             .context(SerializationSnafu)?;
                         match method {
                             ConductorMessageMethod::Broadcast => {
@@ -149,9 +152,9 @@ pub async fn regular_handle_network_event(
                                     .send_async(ClientRequest::DirectRequest(pid, serialized_msg))
                                     .await
                                     .context(SendSnafu)?;
-                                let response = bincode_options
-                                    .serialize(&Message::NormalMessage(CounterRequest::Recvd))
-                                    .context(SerializationSnafu)?;
+                                let response =
+                                    serialize_msg(&Message::NormalMessage(CounterRequest::Recvd))
+                                        .context(SerializationSnafu)?;
                                 handle
                                     .send_network
                                     .send_async(ClientRequest::DirectResponse(chan, response))
@@ -180,82 +183,152 @@ pub struct CliOpt {
     pub idx: Option<usize>,
 }
 
-const NUM_NODES: usize = 2;
-const PORT_NO: u16 = 1234;
-const KNOWN_MULTIADDRS: [([u8; 4], u16); NUM_NODES] = [([0, 0, 0, 0], 1234), ([0, 0, 0, 0], 2345)];
-const TIMEOUT: Duration = Duration::from_secs(1000);
-static INIT: Once = Once::new();
+pub async fn parse_config() -> Vec<NodeDescription> {
+    let mut f = File::open(&"./identity_mapping.json").await.unwrap();
+    let mut s = String::new();
+    f.read_to_string(&mut s).await.unwrap();
+    let res: Vec<NodeDescription> = serde_json::from_str(&s).unwrap();
+    res
+}
 
-pub async fn start_main_regular(
-    idx: usize,
-    node_type: NetworkNodeType,
-) -> Result<(), NetworkNodeHandleError> {
+pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
     INIT.call_once(|| {
         color_eyre::install().unwrap();
         tracing_setup::setup_tracing();
     });
-    let mut multiaddrs = Vec::<(Option<PeerId>, Multiaddr)>::new();
-    for (ip, port) in KNOWN_MULTIADDRS {
-        multiaddrs.push((None, build_multiaddr!(Ip4(ip), Tcp(port))));
-    }
-    let config = NetworkNodeConfigBuilder::default()
-        .port(PORT_NO)
-        .min_num_peers(KNOWN_MULTIADDRS.len() / 4)
-        .max_num_peers(KNOWN_MULTIADDRS.len() / 2)
-        .node_type(node_type)
-        .build()
-        .context(NodeConfigSnafu)?;
-    let handle = spin_up_swarm::<CounterState>(TIMEOUT, multiaddrs, config, idx).await?;
+    let swarm_config = parse_config().await;
 
-    spawn_handler(handle, regular_handle_network_event).await;
+    let node_description = &swarm_config[idx];
+
+    match node_description.node_type {
+        NetworkNodeType::Conductor => {
+            let config = NetworkNodeConfigBuilder::default()
+                .port(PORT_NO)
+                .min_num_peers(swarm_config.len() - 1)
+                .max_num_peers(swarm_config.len() - 1)
+                .node_type(NetworkNodeType::Conductor)
+                .identity(Some(swarm_config[idx].identity.clone()))
+                .build()
+                .context(NodeConfigSnafu)?;
+            let handle = spin_up_swarm::<ConductorState>(
+                TIMEOUT,
+                swarm_config
+                    .iter()
+                    .map(|c| (Some(c.identity.public().to_peer_id()), c.multiaddr.clone()))
+                    .collect::<Vec<_>>(),
+                config,
+                idx,
+            )
+            .await?;
+            spawn_handler(handle.clone(), conductor_handle_network_event).await;
+            let mut state = handle.state.lock().await;
+            for (i, connection) in swarm_config.iter().enumerate() {
+                if i != idx {
+                    state.insert(connection.identity.public().to_peer_id(), 0);
+                }
+            }
+            drop(state);
+
+            // FIXME we are in desperate need of a error type like TestError
+            conductor_broadcast(TIMEOUT, 0, handle).await.unwrap();
+
+            // FIXME we need to fix clippy warnings
+
+            // FIXME we need to fix the serialization to do error handling properly
+
+            // FIXME we need to convince the inner networking implementation to ignore the conductor nodes
+
+            // FIXME
+            // we need one other primitive here:
+            // - tell a node to tell all other nodes to increment state with direct message
+
+            // FIXME we have a bunch of nodes all on the same port. Don't use global variable for
+            // this.
+        }
+        _ => {
+            let known_peers = swarm_config
+                .iter()
+                .filter_map(|x| {
+                    // TODO this is gross. Make this a data structure
+                    if x.node_type == NetworkNodeType::Bootstrap {
+                        Some((Some(x.identity.public().to_peer_id()), x.multiaddr.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            let config = NetworkNodeConfigBuilder::default()
+                .port(PORT_NO)
+                .min_num_peers(swarm_config.len() / 4)
+                .max_num_peers(swarm_config.len() / 2)
+                .node_type(node_description.node_type)
+                .build()
+                .context(NodeConfigSnafu)?;
+            let handle = spin_up_swarm::<CounterState>(TIMEOUT, known_peers, config, idx).await?;
+            spawn_handler(handle, regular_handle_network_event).await;
+        }
+    }
 
     Ok(())
 }
 
-pub async fn start_main_controller(idx: usize) -> Result<(), NetworkNodeHandleError> {
-    INIT.call_once(|| {
-        color_eyre::install().unwrap();
-        tracing_setup::setup_tracing();
-    });
-    let mut multiaddrs = Vec::<(Option<PeerId>, Multiaddr)>::new();
-    for (ip, port) in KNOWN_MULTIADDRS {
-        multiaddrs.push((None, build_multiaddr!(Ip4(ip), Tcp(port))));
+pub async fn conductor_broadcast(
+    timeout: Duration,
+    state: CounterState,
+    handle: Arc<NetworkNodeHandle<ConductorState>>,
+) -> Result<(), NetworkNodeHandleError> {
+    // start listener future with timeout
+    //
+    let new_state = state + 1;
+    //
+    let mut known_peers = handle.connection_state.lock().await.known_peers.clone();
+    known_peers.remove(&handle.peer_id);
+
+    // FIXME wrapper error
+    let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
+
+    // increment the state
+    let request = CounterRequest::IncrementCounter {
+        from: state,
+        to: new_state,
+    };
+    // broadcast message
+    let msg = Message::ConductorMessage(request, ConductorMessageMethod::Broadcast);
+    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
+    handle
+        .send_network
+        .send_async(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
+        .await
+        .context(SendSnafu)?;
+
+    let (_, res) = handle
+        .state_changed
+        .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+            state.iter().all(|(_, &s)| s == new_state)
+        })
+        .await;
+
+    if res.timed_out() {
+        panic!("timeout!");
+    } else {
+        Ok(())
     }
-    let config = NetworkNodeConfigBuilder::default()
-        .port(PORT_NO)
-        .min_num_peers(KNOWN_MULTIADDRS.len() / 4)
-        .max_num_peers(KNOWN_MULTIADDRS.len() / 2)
-        .node_type(NetworkNodeType::Controller)
-        .build()
-        .context(NodeConfigSnafu)?;
-    let handle = spin_up_swarm::<ControllerState>(TIMEOUT, multiaddrs, config, idx).await?;
-
-    spawn_handler(handle, controller_handle_network_event).await;
-
-    // FIXME
-    // we need two primitives here:
-    // - tell a node to tell all other nodes to increment state
-    // - tell a node to broadcast increment state
-    // then we need to update the state everywhere
-
-    Ok(())
 }
 
 #[instrument]
-pub async fn controller_handle_network_event(
+pub async fn conductor_handle_network_event(
     event: NetworkEvent,
-    handle: Arc<NetworkNodeHandle<ControllerState>>,
+    handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     match event {
         GossipMsg(..) | DirectRequest(..) => {
             // this node isn't going to participate.
             // it's only purpose is to recv state
         }
         DirectResponse(m, peer_id) => {
-            if let Ok(msg) = bincode_options.deserialize::<Message>(&m) {
+            if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
                     Message::NormalMessage(msg) => match msg {
                         CounterRequest::MyCounterIs(state) => {

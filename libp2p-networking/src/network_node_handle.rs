@@ -51,7 +51,9 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn new(config: NetworkNodeConfig, id: usize) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
         let listen_addr = gen_multiaddr(0);
-        let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
+        let mut network = NetworkNode::new(config.clone())
+            .await
+            .context(NetworkSnafu)?;
         let peer_id = network.peer_id;
         // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
@@ -99,7 +101,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node: Arc<NetworkNodeHandle<S>>,
         num_peers: usize,
         chan: Receiver<NetworkEvent>,
-        _node_idx: usize,
+        node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
         let mut known_ok = false;
@@ -167,7 +169,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     config: NetworkNodeConfig,
     idx: usize,
 ) -> Result<Arc<NetworkNodeHandle<S>>, NetworkNodeHandleError> {
-    let handle = Arc::new(NetworkNodeHandle::new(config, idx).await?);
+    let handle = Arc::new(NetworkNodeHandle::new(config.clone(), idx).await?);
 
     handle
         .send_network
@@ -175,7 +177,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
         .await
         .context(SendSnafu)?;
 
-    let _result = timeout(
+    timeout(
         timeout_len,
         NetworkNodeHandle::wait_to_connect(
             handle.clone(),

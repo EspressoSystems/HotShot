@@ -1,8 +1,10 @@
 use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use async_std::task::{sleep, spawn};
+use bincode::Options;
 use libp2p::request_response::RequestId;
 use libp2p::swarm::DialError;
 use rand::{seq::IteratorRandom, thread_rng};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{
@@ -263,15 +265,33 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum NetworkNodeType {
     /// bootstrap node accepts all connections
     Bootstrap,
     /// regular node has a limit to the
     /// number of connections to accept
     Regular,
-    /// controller node is never pruned
-    Controller,
+    /// conductor node is never pruned
+    Conductor,
+}
+
+/// serialize an arbitrary message
+/// # Errors
+/// when unable to serialize a message
+pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    bincode_options.serialize(&msg)
+}
+
+/// deserialize an arbitrary message
+/// # Errors
+/// when unable to deserialize a message
+pub fn deserialize_msg<'a, T: Deserialize<'a>>(
+    msg: &'a [u8],
+) -> Result<T, Box<bincode::ErrorKind>> {
+    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    bincode_options.deserialize(msg)
 }
 
 impl Default for NetworkNodeType {
@@ -293,7 +313,7 @@ pub struct NetworkNode {
 }
 
 /// describe the configuration of the network
-#[derive(Debug, Clone, Copy, Default, derive_builder::Builder)]
+#[derive(Clone, Default, derive_builder::Builder)]
 pub struct NetworkNodeConfig {
     /// max number of connections a node may have before it begins
     /// to disconnect. Only applies if `node_type` is `Regular`
@@ -307,6 +327,19 @@ pub struct NetworkNodeConfig {
     pub node_type: NetworkNodeType,
     /// The port to bind to
     pub port: u16,
+    /// optional identity
+    pub identity: Option<Keypair>,
+}
+
+impl Debug for NetworkNodeConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetworkNodeConfig")
+            .field("max num peers", &self.max_num_peers)
+            .field("min num peers", &self.min_num_peers)
+            .field("node type", &self.node_type)
+            .field("port", &self.port)
+            .finish()
+    }
 }
 
 impl Debug for NetworkNode {
@@ -466,7 +499,11 @@ impl NetworkNode {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
         // Generate a random PeerId
-        let identity = Keypair::generate_ed25519();
+        let identity = if let Some(ref kp) = config.identity {
+            kp.clone()
+        } else {
+            Keypair::generate_ed25519()
+        };
         let peer_id = PeerId::from(identity.public());
         debug!(?peer_id);
         let transport: Boxed<(PeerId, StreamMuxerBox)> = gen_transport(identity.clone()).await?;
@@ -592,7 +629,7 @@ impl NetworkNode {
                 .copied()
                 .choose_multiple(&mut thread_rng(), num_to_connect);
             // Try dialing each random peer
-            for a_peer in &chosen_peers.clone() {
+            for a_peer in &chosen_peers {
                 if *a_peer != self.peer_id {
                     match self.swarm.dial(*a_peer) {
                         Ok(_) => {

@@ -182,7 +182,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for j in 0..(num_of_nodes - num_bootstrap) {
         let node = Arc::new(
-            NetworkNodeHandle::new(regular_node_config, j + num_bootstrap)
+            // FIXME this should really be a reference
+            NetworkNodeHandle::new(regular_node_config.clone(), j + num_bootstrap)
                 .await
                 .context(HandleSnafu)?,
         );
