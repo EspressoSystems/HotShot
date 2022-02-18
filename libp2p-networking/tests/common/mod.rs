@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Once},
     time::Duration,
 };
@@ -18,7 +18,7 @@ use networking_demo::{
 };
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use tracing::{instrument, warn};
+use tracing::{error, instrument, warn};
 
 static INIT: Once = Once::new();
 
@@ -172,7 +172,9 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     let regular_node_config = NetworkNodeConfigBuilder::default()
-        .port(0)
+        .identity(None)
+        .ignored_peers(HashSet::new())
+        .bound_addr(None)
         .node_type(NetworkNodeType::Regular)
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
@@ -202,13 +204,21 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         handles.push(node);
     }
 
+    error!(
+        "known nodes: {:?}",
+        bootstrap_addrs
+            .iter()
+            .map(|(a, b)| (Some(*a), b.clone()))
+            .collect::<Vec<_>>()
+    );
+
     for handle in &handles {
         handle
             .send_network
             .send_async(ClientRequest::AddKnownPeers(
                 bootstrap_addrs
                     .iter()
-                    .map(|(a, b)| (Some(a.clone()), b.clone()))
+                    .map(|(a, b)| (Some(*a), b.clone()))
                     .collect::<Vec<_>>(),
             ))
             .await

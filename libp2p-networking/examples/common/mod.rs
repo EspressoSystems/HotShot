@@ -1,11 +1,14 @@
 use networking_demo::parse_config::NodeDescription;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Once},
     time::Duration,
 };
 
-use async_std::fs::File;
+use async_std::{
+    fs::File,
+    task::{sleep, spawn},
+};
 use futures::AsyncReadExt;
 use libp2p::{gossipsub::Topic, request_response::ResponseChannel, PeerId};
 use networking_demo::{
@@ -29,7 +32,6 @@ use tracing::instrument;
 
 const TIMEOUT: Duration = Duration::from_secs(1000);
 static INIT: Once = Once::new();
-const PORT_NO: u16 = 1234;
 
 pub type CounterState = u32;
 pub type ConductorState = HashMap<PeerId, CounterState>;
@@ -95,6 +97,7 @@ pub async fn handle_normal_msg(
             }
         }
         CounterRequest::Kill => {
+            println!("killing!");
             handle.kill().await.context(NetworkSnafu)?;
         }
         CounterRequest::Recvd => {}
@@ -117,6 +120,7 @@ pub async fn regular_handle_network_event(
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
                     Message::NormalMessage(msg) => {
+                        println!("recv-ed gossip message");
                         handle_normal_msg(handle.clone(), msg, None).await?;
                     }
                     Message::ConductorMessage(..) => {
@@ -126,13 +130,15 @@ pub async fn regular_handle_network_event(
                 }
             }
         }
-        DirectRequest(msg, chan) => {
+        DirectRequest(msg, _peer_id, chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&msg) {
                 match msg {
                     Message::NormalMessage(msg) => {
+                        println!("recv-ed normal direct message");
                         handle_normal_msg(handle.clone(), msg, Some(chan)).await?;
                     }
                     Message::ConductorMessage(msg, method) => {
+                        println!("recv-ed conductor message!");
                         let serialized_msg = serialize_msg(&Message::NormalMessage(msg))
                             .context(SerializationSnafu)?;
                         match method {
@@ -198,16 +204,28 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
     });
     let swarm_config = parse_config().await;
 
+    let ignored_peers = swarm_config
+        .iter()
+        .filter_map(|n| {
+            if n.node_type == NetworkNodeType::Conductor {
+                Some(n.identity.public().to_peer_id())
+            } else {
+                None
+            }
+        })
+        .collect::<HashSet<_>>();
+
     let node_description = &swarm_config[idx];
 
     match node_description.node_type {
         NetworkNodeType::Conductor => {
             let config = NetworkNodeConfigBuilder::default()
-                .port(PORT_NO)
+                .bound_addr(Some(swarm_config[idx].bound_addr.clone()))
                 .min_num_peers(swarm_config.len() - 1)
                 .max_num_peers(swarm_config.len() - 1)
                 .node_type(NetworkNodeType::Conductor)
                 .identity(Some(swarm_config[idx].identity.clone()))
+                .ignored_peers(ignored_peers)
                 .build()
                 .context(NodeConfigSnafu)?;
             let handle = spin_up_swarm::<ConductorState>(
@@ -221,6 +239,8 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
             )
             .await?;
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
+
+            // initialize the state of each node
             let mut state = handle.state.lock().await;
             for (i, connection) in swarm_config.iter().enumerate() {
                 if i != idx {
@@ -229,8 +249,34 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
             }
             drop(state);
 
+            // do 10 rounds of broadcasting
             // FIXME we are in desperate need of a error type like TestError
-            conductor_broadcast(TIMEOUT, 0, handle).await.unwrap();
+            for i in 0..10 {
+                conductor_broadcast(TIMEOUT, i, handle.clone())
+                    .await
+                    .unwrap();
+            }
+
+            let kill_msg = Message::NormalMessage(CounterRequest::Kill);
+            let serialized_kill_msg = serialize_msg(&kill_msg).unwrap();
+            for peer_id in &handle.connection_state.lock().await.connected_peers {
+                handle
+                    .send_network
+                    .send_async(ClientRequest::DirectRequest(
+                        *peer_id,
+                        serialized_kill_msg.clone(),
+                    ))
+                    .await
+                    .context(SendSnafu)
+                    .unwrap();
+            }
+            while !handle
+                .connection_state
+                .lock()
+                .await
+                .connected_peers
+                .is_empty()
+            {}
 
             // FIXME we need to fix clippy warnings
 
@@ -241,31 +287,53 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
             // FIXME
             // we need one other primitive here:
             // - tell a node to tell all other nodes to increment state with direct message
-
-            // FIXME we have a bunch of nodes all on the same port. Don't use global variable for
-            // this.
         }
-        _ => {
+        NetworkNodeType::Bootstrap | NetworkNodeType::Regular => {
             let known_peers = swarm_config
                 .iter()
                 .filter_map(|x| {
                     // TODO this is gross. Make this a data structure
                     if x.node_type == NetworkNodeType::Bootstrap {
-                        Some((Some(x.identity.public().to_peer_id()), x.multiaddr.clone()))
+                        Some((Some(x.identity.public().to_peer_id()), x.bound_addr.clone()))
                     } else {
                         None
                     }
                 })
                 .collect::<Vec<_>>();
             let config = NetworkNodeConfigBuilder::default()
-                .port(PORT_NO)
+                .bound_addr(Some(swarm_config[idx].multiaddr.clone()))
+                .identity(Some(swarm_config[idx].identity.clone()))
+                .ignored_peers(ignored_peers)
                 .min_num_peers(swarm_config.len() / 4)
                 .max_num_peers(swarm_config.len() / 2)
                 .node_type(node_description.node_type)
                 .build()
                 .context(NodeConfigSnafu)?;
             let handle = spin_up_swarm::<CounterState>(TIMEOUT, known_peers, config, idx).await?;
-            spawn_handler(handle, regular_handle_network_event).await;
+            let handle_dup = handle.clone();
+            // periodically broadcast state back to conductor node
+            spawn(async move {
+                let conductor_id = swarm_config
+                    .iter()
+                    .find(|c| c.node_type == NetworkNodeType::Conductor)
+                    .unwrap()
+                    .identity
+                    .public()
+                    .to_peer_id();
+                while !*handle_dup.killed.lock().await {
+                    sleep(Duration::from_secs(1)).await;
+                    let counter = *handle_dup.state.lock().await;
+                    let msg = Message::NormalMessage(CounterRequest::MyCounterIs(counter));
+                    let serialized_msg = serialize_msg(&msg).unwrap();
+                    handle_dup
+                        .send_network
+                        .send_async(ClientRequest::DirectRequest(conductor_id, serialized_msg))
+                        .await
+                        .unwrap();
+                }
+            });
+            spawn_handler(handle.clone(), regular_handle_network_event).await;
+            while !*handle.killed.lock().await {}
         }
     }
 
@@ -286,18 +354,31 @@ pub async fn conductor_broadcast(
 
     // FIXME wrapper error
     let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
+    println!("chosen peer is {:?}", chosen_peer);
 
     // increment the state
     let request = CounterRequest::IncrementCounter {
         from: state,
         to: new_state,
     };
+    println!("broadcasting message!");
     // broadcast message
-    let msg = Message::ConductorMessage(request, ConductorMessageMethod::Broadcast);
+    let msg = Message::ConductorMessage(request.clone(), ConductorMessageMethod::Broadcast);
     let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
     handle
         .send_network
         .send_async(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
+        .await
+        .context(SendSnafu)?;
+
+    let msg_direct = Message::NormalMessage(request);
+    let serialized_msg_direct = serialize_msg(&msg_direct).context(SerializationSnafu)?;
+    handle
+        .send_network
+        .send_async(ClientRequest::DirectRequest(
+            *chosen_peer,
+            serialized_msg_direct,
+        ))
         .await
         .context(SendSnafu)?;
 
@@ -323,23 +404,22 @@ pub async fn conductor_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
-        GossipMsg(..) | DirectRequest(..) => {
-            // this node isn't going to participate.
+        GossipMsg(..) => {
+            // this node isn't going to participate in gossip/dms to update state
             // it's only purpose is to recv state
         }
-        DirectResponse(m, peer_id) => {
+        DirectRequest(m, peer_id, _chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
-                    Message::NormalMessage(msg) => match msg {
-                        CounterRequest::MyCounterIs(state) => {
-                            let old_state = (*handle.state.lock().await)
+                    Message::NormalMessage(msg) => {
+                        if let CounterRequest::MyCounterIs(state) = msg {
+                            let _old_state = (*handle.state.lock().await)
                                 .insert(peer_id, state)
                                 .unwrap_or(0);
+                            println!("new state: {:?}", *handle.state.lock().await);
                             handle.state_changed.notify_all();
-                            debug_assert!(old_state < state);
                         }
-                        _ => {}
-                    },
+                    }
                     Message::ConductorMessage(..) => {
                         /* This should also never happen ... */
                         unreachable!()
@@ -347,6 +427,7 @@ pub async fn conductor_handle_network_event(
                 }
             }
         }
+        DirectResponse(_m, _peer_id) => { /* nothing to do here */ }
         // we care about these for the sake of maintaining conenctions, but not much else
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;

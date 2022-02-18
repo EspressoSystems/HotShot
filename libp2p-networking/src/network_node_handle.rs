@@ -31,6 +31,8 @@ pub struct NetworkNodeHandle<S> {
     pub send_network: Sender<ClientRequest>,
     /// receive an action from the networkbehaviour
     pub recv_network: Receiver<NetworkEvent>,
+    /// whether or not the handle has been killed
+    pub killed: Arc<Mutex<bool>>,
     /// kill the event handler for events from the swarm
     pub kill_switch: Sender<()>,
     /// receiving end of `kill_switch`
@@ -50,7 +52,10 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig, id: usize) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
-        let listen_addr = gen_multiaddr(0);
+        let listen_addr = config
+            .bound_addr
+            .clone()
+            .unwrap_or_else(|| gen_multiaddr(0));
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
@@ -69,6 +74,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             state: Arc::new(Mutex::new(S::default())),
             send_network: send_chan,
             recv_network: recv_chan,
+            killed: Arc::new(Mutex::new(false)),
             kill_switch,
             recv_kill,
             listen_addr,
@@ -103,11 +109,17 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
+        println!("waiting to connect!");
         let mut connected_ok = false;
         let mut known_ok = false;
         while !(known_ok && connected_ok) {
             match chan.recv_async().await.context(RecvSnafu)? {
                 NetworkEvent::UpdateConnectedPeers(pids) => {
+                    println!(
+                        "updating connected peers to: {}, waiting on {}",
+                        pids.len(),
+                        num_peers
+                    );
                     node.connection_state.lock().await.connected_peers = pids.clone();
                     connected_ok = pids.len() >= num_peers;
                 }
@@ -147,6 +159,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
             loop {
                 select!(
                     _ = recv_kill.recv_async().fuse() => {
+                        *handle.killed.lock().await = true;
                         break;
                     },
                     event = recv_event.recv_async().fuse() => {
@@ -171,6 +184,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<Arc<NetworkNodeHandle<S>>, NetworkNodeHandleError> {
     let handle = Arc::new(NetworkNodeHandle::new(config.clone(), idx).await?);
 
+    println!("known_nodes{:?}", known_nodes);
     handle
         .send_network
         .send_async(ClientRequest::AddKnownPeers(known_nodes))

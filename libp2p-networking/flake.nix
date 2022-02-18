@@ -122,6 +122,7 @@
         defaultPackage = self.packages.${system}.${crateName};
 
         devShell = pkgs.mkShell {
+          shellHook = "ulimit -n 1024";
           buildInputs =
             with pkgs; [ fenix.packages.${system}.rust-analyzer fenixStable ] ++ buildDeps;
         };
@@ -129,6 +130,7 @@
         devShells.perfShell = pkgs.mkShell {
           buildInputs = with pkgs; [ grcov recent_flamegraph fd fenixNightly fenix.packages.${system}.rust-analyzer ] ++ buildDeps;
           shellHook = ''
+            ulimit -n 1024
             export RUSTFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
             export RUSTDOCFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
             export CARGO_INCREMENTAL=0

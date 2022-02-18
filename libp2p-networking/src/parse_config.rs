@@ -10,8 +10,10 @@ pub struct NodeDescription {
     #[serde(deserialize_with = "deserialize_keypair")]
     #[serde(serialize_with = "serialize_keypair")]
     pub identity: Keypair,
-    /// multiaddr the thing is running on
+    /// external multiaddr the node is running on
     pub multiaddr: Multiaddr,
+    /// internal address to bind to
+    pub bound_addr: Multiaddr,
     /// the type of node
     pub node_type: NetworkNodeType,
 }

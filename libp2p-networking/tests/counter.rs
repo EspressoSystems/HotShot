@@ -77,7 +77,7 @@ pub async fn counter_handle_network_event(
                 }
             }
         }
-        DirectRequest(m, chan) => {
+        DirectRequest(m, _, chan) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message request
