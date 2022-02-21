@@ -1150,7 +1150,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-types"
-version = "0.0.6-dev"
+version = "0.0.6"
 dependencies = [
  "async-std",
  "async-tungstenite",
