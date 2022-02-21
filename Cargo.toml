@@ -31,7 +31,7 @@ dashmap = "5.1.0"
 flume = "0.10.10"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
-phaselock-types = { path = "./phaselock-types", version = "0.0.6-dev" }
+phaselock-types = { path = "./phaselock-types", version = "0.0.6", registry = "translucence"  }
 # jf-primitives = { features=["std"], git = "ssh://git@gitlab.com/translucence/crypto/jellyfish.git", rev = "3faf4400a7ae67de18400051f57afe8e4fb6d4de"}
 rand = "0.7.3"
 rand_chacha = "0.2.2"
