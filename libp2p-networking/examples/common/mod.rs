@@ -87,8 +87,10 @@ pub async fn handle_normal_msg(
         // only as a response
         CounterRequest::AskForCounter => {
             if let Some(chan) = chan {
-                let response = CounterRequest::MyCounterIs(*handle.state.lock().await);
+                let response =
+                    Message::NormalMessage(CounterRequest::MyCounterIs(*handle.state.lock().await));
                 let serialized_response = serialize_msg(&response).context(SerializationSnafu)?;
+                println!("sending back reponse: {:?})", response);
                 handle
                     .send_network
                     .send_async(ClientRequest::DirectResponse(chan, serialized_response))
@@ -120,7 +122,6 @@ pub async fn regular_handle_network_event(
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
                     Message::NormalMessage(msg) => {
-                        println!("recv-ed gossip message");
                         handle_normal_msg(handle.clone(), msg, None).await?;
                     }
                     Message::ConductorMessage(..) => {
@@ -134,7 +135,7 @@ pub async fn regular_handle_network_event(
             if let Ok(msg) = deserialize_msg::<Message>(&msg) {
                 match msg {
                     Message::NormalMessage(msg) => {
-                        println!("recv-ed normal direct message");
+                        println!("recv-ed normal direct message {:?}", msg);
                         handle_normal_msg(handle.clone(), msg, Some(chan)).await?;
                     }
                     Message::ConductorMessage(msg, method) => {
@@ -253,8 +254,14 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
             }
             drop(state);
 
-            for i in 0..10 {
+            for i in 0..5 {
                 conductor_broadcast(TIMEOUT, i, handle.clone())
+                    .await
+                    .context(HandleSnafu)?
+            }
+
+            for j in 5..10 {
+                conductor_direct_message(TIMEOUT, j, handle.clone())
                     .await
                     .context(HandleSnafu)?
             }
@@ -281,12 +288,6 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
                 .connected_peers
                 .is_empty()
             {}
-
-            // FIXME we need to fix clippy warnings
-
-            // FIXME we need to fix the serialization to do error handling properly
-
-            // FIXME we need to convince the inner networking implementation to ignore the conductor nodes
 
             // FIXME
             // we need one other primitive here:
@@ -352,15 +353,91 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
     Ok(())
 }
 
+pub async fn conductor_direct_message(
+    timeout: Duration,
+    state: CounterState,
+    handle: Arc<NetworkNodeHandle<ConductorState>>,
+) -> Result<(), NetworkNodeHandleError> {
+    // new state
+    let new_state = state + 1;
+
+    // pick a peer to do the be the recipient of the direct messages
+    let mut known_peers = handle.connection_state.lock().await.known_peers.clone();
+    known_peers.remove(&handle.peer_id);
+
+    // FIXME wrapper error
+    let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
+    println!("chosen peer is {:?}", chosen_peer);
+
+    // step 1: increment counter on the chosen node
+
+    // set up listener before any state has the chance to change
+    let res_fut =
+        handle
+            .state_changed
+            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+                *state.get(chosen_peer).unwrap() == new_state
+            });
+
+    // dispatch message
+    let msg = Message::NormalMessage(CounterRequest::IncrementCounter {
+        from: state,
+        to: new_state,
+    });
+    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
+    handle
+        .send_network
+        .send_async(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
+        .await
+        .context(SendSnafu)?;
+
+    if res_fut.await.1.timed_out() {
+        panic!("timeout!");
+    }
+
+    println!("step 1 is complete!");
+
+    // step 2: iterate through remaining nodes, message them "request state from chosen node"
+
+    // set up listener first
+    let res_fut =
+        handle
+            .state_changed
+            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+                state.iter().all(|(_, &s)| s == new_state)
+            });
+
+    // send out the requests to ask the chosen peer for its state (and replace ours)
+
+    let mut remaining_nodes = known_peers.clone();
+    remaining_nodes.remove(&chosen_peer);
+
+    for peer in &remaining_nodes {
+        let msg = Message::ConductorMessage(
+            CounterRequest::AskForCounter,
+            ConductorMessageMethod::DirectMessage(*chosen_peer),
+        );
+        let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
+        handle
+            .send_network
+            .send_async(ClientRequest::DirectRequest(*peer, serialized_msg))
+            .await
+            .context(SendSnafu)?;
+    }
+
+    if res_fut.await.1.timed_out() {
+        panic!("timeout!");
+    } else {
+        Ok(())
+    }
+}
+
 pub async fn conductor_broadcast(
     timeout: Duration,
     state: CounterState,
     handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
-    // start listener future with timeout
-    //
     let new_state = state + 1;
-    //
     let mut known_peers = handle.connection_state.lock().await.known_peers.clone();
     known_peers.remove(&handle.peer_id);
 
@@ -383,6 +460,14 @@ pub async fn conductor_broadcast(
         .await
         .context(SendSnafu)?;
 
+    // set up listener before any state has the chance to change
+    let res_fut =
+        handle
+            .state_changed
+            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+                state.iter().all(|(_, &s)| s == new_state)
+            });
+
     let msg_direct = Message::NormalMessage(request);
     let serialized_msg_direct = serialize_msg(&msg_direct).context(SerializationSnafu)?;
     handle
@@ -394,14 +479,7 @@ pub async fn conductor_broadcast(
         .await
         .context(SendSnafu)?;
 
-    let (_, res) = handle
-        .state_changed
-        .wait_timeout_until(handle.state.lock().await, timeout, |state| {
-            state.iter().all(|(_, &s)| s == new_state)
-        })
-        .await;
-
-    if res.timed_out() {
+    if res_fut.await.1.timed_out() {
         panic!("timeout!");
     } else {
         Ok(())
