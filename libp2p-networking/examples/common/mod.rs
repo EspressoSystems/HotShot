@@ -25,7 +25,7 @@ use networking_demo::{
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
 use structopt::StructOpt;
 use tracing::instrument;
@@ -189,20 +189,20 @@ pub struct CliOpt {
     pub idx: Option<usize>,
 }
 
-pub async fn parse_config() -> Vec<NodeDescription> {
-    let mut f = File::open(&"./identity_mapping.json").await.unwrap();
+pub async fn parse_config() -> Result<Vec<NodeDescription>, CounterError> {
+    let mut f = File::open(&"./identity_mapping.json").await.context(FileReadSnafu)?;
     let mut s = String::new();
-    f.read_to_string(&mut s).await.unwrap();
-    let res: Vec<NodeDescription> = serde_json::from_str(&s).unwrap();
-    res
+    f.read_to_string(&mut s).await.context(FileReadSnafu)?;
+    serde_json::from_str(&s).context(JsonParseSnafu)
 }
 
-pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
+pub async fn start_main(idx: usize) -> Result<(), CounterError> {
+    // FIXME can we pass in a function that returns an error type
     INIT.call_once(|| {
         color_eyre::install().unwrap();
         tracing_setup::setup_tracing();
     });
-    let swarm_config = parse_config().await;
+    let swarm_config = parse_config().await?;
 
     let ignored_peers = swarm_config
         .iter()
@@ -227,7 +227,8 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
                 .identity(Some(swarm_config[idx].identity.clone()))
                 .ignored_peers(ignored_peers)
                 .build()
-                .context(NodeConfigSnafu)?;
+                .context(NodeConfigSnafu)
+                .context(HandleSnafu)?;
             let handle = spin_up_swarm::<ConductorState>(
                 TIMEOUT,
                 swarm_config
@@ -237,7 +238,8 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
                 config,
                 idx,
             )
-            .await?;
+            .await
+            .context(HandleSnafu)?;
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
 
             // initialize the state of each node
@@ -249,16 +251,16 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
             }
             drop(state);
 
-            // do 10 rounds of broadcasting
-            // FIXME we are in desperate need of a error type like TestError
             for i in 0..10 {
                 conductor_broadcast(TIMEOUT, i, handle.clone())
                     .await
-                    .unwrap();
+                    .context(HandleSnafu)?
             }
 
             let kill_msg = Message::NormalMessage(CounterRequest::Kill);
-            let serialized_kill_msg = serialize_msg(&kill_msg).unwrap();
+            let serialized_kill_msg = serialize_msg(&kill_msg)
+                .context(SerializationSnafu)
+                .context(HandleSnafu)?;
             for peer_id in &handle.connection_state.lock().await.connected_peers {
                 handle
                     .send_network
@@ -268,7 +270,7 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
                     ))
                     .await
                     .context(SendSnafu)
-                    .unwrap();
+                    .context(HandleSnafu)?
             }
             while !handle
                 .connection_state
@@ -308,11 +310,15 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
                 .max_num_peers(swarm_config.len() / 2)
                 .node_type(node_description.node_type)
                 .build()
-                .context(NodeConfigSnafu)?;
-            let handle = spin_up_swarm::<CounterState>(TIMEOUT, known_peers, config, idx).await?;
+                .context(NodeConfigSnafu)
+                .context(HandleSnafu)?;
+            let handle = spin_up_swarm::<CounterState>(TIMEOUT, known_peers, config, idx)
+                .await
+                .context(HandleSnafu)?;
             let handle_dup = handle.clone();
             // periodically broadcast state back to conductor node
             spawn(async move {
+                // FIXME map option to error
                 let conductor_id = swarm_config
                     .iter()
                     .find(|c| c.node_type == NetworkNodeType::Conductor)
@@ -324,13 +330,13 @@ pub async fn start_main(idx: usize) -> Result<(), NetworkNodeHandleError> {
                     sleep(Duration::from_secs(1)).await;
                     let counter = *handle_dup.state.lock().await;
                     let msg = Message::NormalMessage(CounterRequest::MyCounterIs(counter));
-                    let serialized_msg = serialize_msg(&msg).unwrap();
+                    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu).context(HandleSnafu)?;
                     handle_dup
                         .send_network
                         .send_async(ClientRequest::DirectRequest(conductor_id, serialized_msg))
-                        .await
-                        .unwrap();
+                        .await.context(SendSnafu).context(HandleSnafu)?;
                 }
+                Ok::<(), CounterError>(())
             });
             spawn_handler(handle.clone(), regular_handle_network_event).await;
             while !*handle.killed.lock().await {}
@@ -437,4 +443,19 @@ pub async fn conductor_handle_network_event(
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum CounterError {
+    Handle {
+        source: NetworkNodeHandleError,
+    },
+    FileRead {
+        source: std::io::Error,
+    },
+    JsonParse {
+        source: serde_json::Error,
+    },
+    MissingBootstrap
 }
