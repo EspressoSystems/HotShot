@@ -190,7 +190,9 @@ pub struct CliOpt {
 }
 
 pub async fn parse_config() -> Result<Vec<NodeDescription>, CounterError> {
-    let mut f = File::open(&"./identity_mapping.json").await.context(FileReadSnafu)?;
+    let mut f = File::open(&"./identity_mapping.json")
+        .await
+        .context(FileReadSnafu)?;
     let mut s = String::new();
     f.read_to_string(&mut s).await.context(FileReadSnafu)?;
     serde_json::from_str(&s).context(JsonParseSnafu)
@@ -330,11 +332,15 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
                     sleep(Duration::from_secs(1)).await;
                     let counter = *handle_dup.state.lock().await;
                     let msg = Message::NormalMessage(CounterRequest::MyCounterIs(counter));
-                    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu).context(HandleSnafu)?;
+                    let serialized_msg = serialize_msg(&msg)
+                        .context(SerializationSnafu)
+                        .context(HandleSnafu)?;
                     handle_dup
                         .send_network
                         .send_async(ClientRequest::DirectRequest(conductor_id, serialized_msg))
-                        .await.context(SendSnafu).context(HandleSnafu)?;
+                        .await
+                        .context(SendSnafu)
+                        .context(HandleSnafu)?;
                 }
                 Ok::<(), CounterError>(())
             });
@@ -448,14 +454,8 @@ pub async fn conductor_handle_network_event(
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum CounterError {
-    Handle {
-        source: NetworkNodeHandleError,
-    },
-    FileRead {
-        source: std::io::Error,
-    },
-    JsonParse {
-        source: serde_json::Error,
-    },
-    MissingBootstrap
+    Handle { source: NetworkNodeHandleError },
+    FileRead { source: std::io::Error },
+    JsonParse { source: serde_json::Error },
+    MissingBootstrap,
 }

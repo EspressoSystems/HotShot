@@ -258,17 +258,15 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         }
     }
     let results = join_all(futs).await;
-    for result in &results {
-        if result.is_err() {
-            print_connections(handles).await;
-            panic!(
-                "{:?}",
-                results
-                    .into_iter()
-                    .filter(|r| r.is_err())
-                    .collect::<Vec<_>>()
-            );
-        }
+    if results.iter().find(|x| x.is_err()).is_some() {
+        print_connections(handles).await;
+        panic!(
+            "{:?}",
+            results
+                .into_iter()
+                .filter(|r| r.is_err())
+                .collect::<Vec<_>>()
+        );
     }
 
     check_connection_state(handles).await;

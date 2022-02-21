@@ -1,6 +1,10 @@
 use crate::network_node::NetworkNodeType;
 use libp2p::{identity::Keypair, Multiaddr};
-use serde::{de::Visitor, ser::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{Unexpected, Visitor},
+    ser::Error,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use std::fmt;
 
 /// starting network topology
@@ -44,8 +48,10 @@ impl<'de> Visitor<'de> for KeypairVisitor {
         while let Ok(Some(a)) = seq.next_element() {
             parsed.push(a);
         }
-        // FIXME figure out how to use the error type
-        Ok(Keypair::from_protobuf_encoding(&parsed).unwrap())
+        // we couldn't deserialize the keypair, so the value
+        // is unexpected
+        Keypair::from_protobuf_encoding(&parsed)
+            .map_err(|_e| serde::de::Error::invalid_value(Unexpected::Seq, &self))
     }
 }
 
