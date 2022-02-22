@@ -52,37 +52,42 @@ pub async fn counter_handle_network_event(
     event: NetworkEvent,
     handle: Arc<NetworkNodeHandle<CounterState>>,
 ) -> Result<(), NetworkNodeHandleError> {
-    use CounterMessage::*;
     #[allow(clippy::enum_glob_use)]
+    use CounterMessage::*;
     use NetworkEvent::*;
     let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     match event {
-        GossipMsg(m) | DirectResponse(m) => {
+        GossipMsg(m) | DirectResponse(m, _) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
+                    // direct message only
                     MyCounterIs(c) => {
                         *handle.state.lock().await = c;
                         handle.state_changed.notify_all();
                     }
+                    // gossip message only
                     IncrementCounter { from, to, .. } => {
                         if *handle.state.lock().await == from {
                             *handle.state.lock().await = to;
                             handle.state_changed.notify_all();
                         }
                     }
+                    // only as a response
                     AskForCounter => {}
                 }
             }
         }
-        DirectRequest(m, chan) => {
+        DirectRequest(m, _, chan) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
+                    // direct message request
                     IncrementCounter { from, to, .. } => {
                         if *handle.state.lock().await == from {
                             *handle.state.lock().await = to;
                             handle.state_changed.notify_all();
                         }
                     }
+                    // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(*handle.state.lock().await);
                         let serialized_response = bincode_options
@@ -253,17 +258,15 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         }
     }
     let results = join_all(futs).await;
-    for result in &results {
-        if result.is_err() {
-            print_connections(handles).await;
-            panic!(
-                "{:?}",
-                results
-                    .into_iter()
-                    .filter(|r| r.is_err())
-                    .collect::<Vec<_>>()
-            );
-        }
+    if results.iter().find(|x| x.is_err()).is_some() {
+        print_connections(handles).await;
+        panic!(
+            "{:?}",
+            results
+                .into_iter()
+                .filter(|r| r.is_err())
+                .collect::<Vec<_>>()
+        );
     }
 
     check_connection_state(handles).await;

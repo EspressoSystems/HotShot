@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Once},
     time::Duration,
 };
@@ -18,7 +18,7 @@ use networking_demo::{
 };
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use tracing::{instrument, warn};
+use tracing::{error, instrument, warn};
 
 static INIT: Once = Once::new();
 
@@ -172,6 +172,9 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     let regular_node_config = NetworkNodeConfigBuilder::default()
+        .identity(None)
+        .ignored_peers(HashSet::new())
+        .bound_addr(None)
         .node_type(NetworkNodeType::Regular)
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
@@ -181,7 +184,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for j in 0..(num_of_nodes - num_bootstrap) {
         let node = Arc::new(
-            NetworkNodeHandle::new(regular_node_config, j + num_bootstrap)
+            // FIXME this should really be a reference
+            NetworkNodeHandle::new(regular_node_config.clone(), j + num_bootstrap)
                 .await
                 .context(HandleSnafu)?,
         );
@@ -200,10 +204,23 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         handles.push(node);
     }
 
+    error!(
+        "known nodes: {:?}",
+        bootstrap_addrs
+            .iter()
+            .map(|(a, b)| (Some(*a), b.clone()))
+            .collect::<Vec<_>>()
+    );
+
     for handle in &handles {
         handle
             .send_network
-            .send_async(ClientRequest::AddKnownPeers(bootstrap_addrs.clone()))
+            .send_async(ClientRequest::AddKnownPeers(
+                bootstrap_addrs
+                    .iter()
+                    .map(|(a, b)| (Some(*a), b.clone()))
+                    .collect::<Vec<_>>(),
+            ))
             .await
             .context(SendSnafu)
             .context(HandleSnafu)?;

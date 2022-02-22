@@ -1,4 +1,5 @@
 use async_std::{
+    future::{timeout, TimeoutError},
     sync::{Condvar, Mutex},
     task::spawn,
 };
@@ -12,7 +13,7 @@ use futures::{select, Future, FutureExt};
 use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 use tracing::{info_span, instrument, Instrument};
 
 /// A handle containing:
@@ -30,6 +31,8 @@ pub struct NetworkNodeHandle<S> {
     pub send_network: Sender<ClientRequest>,
     /// receive an action from the networkbehaviour
     pub recv_network: Receiver<NetworkEvent>,
+    /// whether or not the handle has been killed
+    pub killed: Arc<Mutex<bool>>,
     /// kill the event handler for events from the swarm
     pub kill_switch: Sender<()>,
     /// receiving end of `kill_switch`
@@ -49,8 +52,13 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig, id: usize) -> Result<Self, NetworkNodeHandleError> {
         //`randomly assigned port
-        let listen_addr = gen_multiaddr(0);
-        let mut network = NetworkNode::new(config).await.context(NetworkSnafu)?;
+        let listen_addr = config
+            .bound_addr
+            .clone()
+            .unwrap_or_else(|| gen_multiaddr(0));
+        let mut network = NetworkNode::new(config.clone())
+            .await
+            .context(NetworkSnafu)?;
         let peer_id = network.peer_id;
         // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
@@ -66,6 +74,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             state: Arc::new(Mutex::new(S::default())),
             send_network: send_chan,
             recv_network: recv_chan,
+            killed: Arc::new(Mutex::new(false)),
             kill_switch,
             recv_kill,
             listen_addr,
@@ -100,11 +109,17 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
+        println!("waiting to connect!");
         let mut connected_ok = false;
         let mut known_ok = false;
         while !(known_ok && connected_ok) {
             match chan.recv_async().await.context(RecvSnafu)? {
                 NetworkEvent::UpdateConnectedPeers(pids) => {
+                    println!(
+                        "updating connected peers to: {}, waiting on {}",
+                        pids.len(),
+                        num_peers
+                    );
                     node.connection_state.lock().await.connected_peers = pids.clone();
                     connected_ok = pids.len() >= num_peers;
                 }
@@ -144,6 +159,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
             loop {
                 select!(
                     _ = recv_kill.recv_async().fuse() => {
+                        *handle.killed.lock().await = true;
                         break;
                     },
                     event = recv_event.recv_async().fuse() => {
@@ -157,6 +173,44 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
     );
 }
 
+/// a single node, connects them to each other
+/// and waits for connections to propagate to all nodes.
+#[instrument]
+pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
+    timeout_len: Duration,
+    known_nodes: Vec<(Option<PeerId>, Multiaddr)>,
+    config: NetworkNodeConfig,
+    idx: usize,
+) -> Result<Arc<NetworkNodeHandle<S>>, NetworkNodeHandleError> {
+    let handle = Arc::new(NetworkNodeHandle::new(config.clone(), idx).await?);
+
+    println!("known_nodes{:?}", known_nodes);
+    handle
+        .send_network
+        .send_async(ClientRequest::AddKnownPeers(known_nodes))
+        .await
+        .context(SendSnafu)?;
+
+    timeout(
+        timeout_len,
+        NetworkNodeHandle::wait_to_connect(
+            handle.clone(),
+            config.max_num_peers,
+            handle.recv_network.clone(),
+            idx,
+        ),
+    )
+    .await
+    .context(TimeoutSnafu)??;
+    handle
+        .send_network
+        .send_async(ClientRequest::Subscribe("global".to_string()))
+        .await
+        .context(SendSnafu)?;
+
+    Ok(handle)
+}
+
 /// Given a slice of handles assumed to be larger than 0,
 /// chooses one
 /// # Panics
@@ -165,28 +219,28 @@ pub fn get_random_handle<S>(handles: &[Arc<NetworkNodeHandle<S>>]) -> Arc<Networ
     handles.iter().choose(&mut thread_rng()).unwrap().clone()
 }
 
-/// error wrapper type for interacting with swarm handle
+/// Error wrapper type for interacting with swarm handle
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum NetworkNodeHandleError {
-    /// error generating network
+    /// Error generating network
     NetworkError {
         /// source of error
         source: NetworkError,
     },
-    /// failure to serialize a message
+    /// Failure to serialize a message
     SerializationError {
         /// source of error
         source: Box<bincode::ErrorKind>,
     },
-    /// failure to deserialize a message
+    /// Failure to deserialize a message
     DeserializationError {},
-    /// error sending request to network
+    /// Error sending request to network
     SendError {
         /// source of error
         source: SendError<ClientRequest>,
     },
-    /// error receiving message from network
+    /// Error receiving message from network
     RecvError {
         /// source of error
         source: RecvError,
@@ -195,5 +249,10 @@ pub enum NetworkNodeHandleError {
     NodeConfigError {
         /// source of error
         source: NetworkNodeConfigBuilderError,
+    },
+    /// Error waiting for connections
+    TimeoutError {
+        /// source of error
+        source: TimeoutError,
     },
 }

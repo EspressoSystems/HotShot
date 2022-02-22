@@ -450,6 +450,9 @@ name = "bytes"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4872d67bab6358e59559027aa3b9157c53d9358c51423c17554809a8858e0f8"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "cache-padded"
@@ -1077,6 +1080,7 @@ version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd48d33ec7f05fbfa152300fdad764757cbded343c1aa1cff2fbaf4134851803"
 dependencies = [
+ "serde",
  "typenum",
  "version_check",
 ]
@@ -1441,6 +1445,7 @@ dependencies = [
  "rand 0.8.5",
  "ring",
  "rw-stream-sink",
+ "serde",
  "sha2 0.10.1",
  "smallvec",
  "thiserror",
@@ -1516,6 +1521,7 @@ dependencies = [
  "prost-build",
  "rand 0.7.3",
  "regex",
+ "serde",
  "sha2 0.10.1",
  "smallvec",
  "unsigned-varint",
@@ -1558,6 +1564,7 @@ dependencies = [
  "prost",
  "prost-build",
  "rand 0.7.3",
+ "serde",
  "sha2 0.10.1",
  "smallvec",
  "thiserror",
@@ -2055,6 +2062,7 @@ dependencies = [
  "digest 0.9.0",
  "generic-array",
  "multihash-derive",
+ "serde",
  "sha2 0.9.9",
  "unsigned-varint",
 ]
@@ -2184,6 +2192,7 @@ dependencies = [
  "parking_lot 0.12.0",
  "rand 0.8.5",
  "serde",
+ "serde_json",
  "snafu",
  "structopt",
  "tracing",
@@ -2872,9 +2881,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.74"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee2bb9cd061c5865d345bb02ca49fcef1391741b672b54a0bf7b679badec3142"
+checksum = "8e8d9fa5c3b304765ce1fd9c4c8a3de2c8db365a5b91be52f186efc675681d95"
 dependencies = [
  "itoa",
  "ryu",

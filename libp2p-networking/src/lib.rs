@@ -31,3 +31,6 @@ pub mod network_node;
 
 /// handle for network behaviour
 pub mod network_node_handle;
+
+/// used for parsing config file
+pub mod parse_config;

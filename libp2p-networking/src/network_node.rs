@@ -1,7 +1,10 @@
 use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
 use async_std::task::{sleep, spawn};
+use bincode::Options;
 use libp2p::request_response::RequestId;
+use libp2p::swarm::DialError;
 use rand::{seq::IteratorRandom, thread_rng};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{
@@ -96,15 +99,26 @@ pub struct NetworkDef {
     /// track gossip messages that failed to send and we should send later on
     #[behaviour(ignore)]
     in_progress_gossip: Vec<(Topic, Vec<u8>)>,
+    // track unknown addrs
+    #[behaviour(ignore)]
+    unknown_addrs: HashSet<Multiaddr>,
+    /// peers we ignore (mainly here for conductor usecase)
+    #[behaviour(ignore)]
+    ignored_peers: HashSet<PeerId>,
 }
 
 impl Debug for NetworkDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NetworkDef")
-            .field("bootstrap", &self.bootstrap_state)
+            .field("bootstrap state", &self.bootstrap_state)
             .field("connected_peers", &self.connected_peers)
             .field("connecting_peers", &self.connecting_peers)
             .field("known_peers", &self.known_peers)
+            .field("ignored_peers", &self.ignored_peers)
+            .field("unknown addrs", &self.unknown_addrs)
+            .field("in progress rr", &self.in_progress_rr)
+            .field("in progress gossip", &self.in_progress_gossip)
+            .field("pruning enabled", &self.pruning_enabled)
             .finish()
     }
 }
@@ -229,22 +243,27 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                     self.in_progress_rr.insert(new_request, (request, peer));
                 }
             }
-            RequestResponseEvent::Message { message, .. } => match message {
+            RequestResponseEvent::Message { message, peer, .. } => match message {
                 RequestResponseMessage::Request {
                     request: DirectMessageRequest(msg),
                     channel,
                     ..
                 } => {
+                    // receiver, not initiator.
+                    // don't track. If we are disconnected, sender will reinitiate
                     self.client_event_queue
-                        .push(NetworkEvent::DirectRequest(msg, channel));
+                        .push(NetworkEvent::DirectRequest(msg, peer, channel));
                 }
                 RequestResponseMessage::Response {
                     request_id,
                     response: DirectMessageResponse(msg),
                 } => {
-                    self.in_progress_rr.remove(&request_id);
-                    self.client_event_queue
-                        .push(NetworkEvent::DirectResponse(msg));
+                    if let Some((_, peer_id)) = self.in_progress_rr.remove(&request_id) {
+                        self.client_event_queue
+                            .push(NetworkEvent::DirectResponse(msg, peer_id));
+                    } else {
+                        error!("recv-ed a direct response, but is no longer tracking message!");
+                    }
                 }
             },
             e @ RequestResponseEvent::ResponseSent { .. } => {
@@ -256,13 +275,33 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum NetworkNodeType {
     /// bootstrap node accepts all connections
     Bootstrap,
     /// regular node has a limit to the
     /// number of connections to accept
     Regular,
+    /// conductor node is never pruned
+    Conductor,
+}
+
+/// serialize an arbitrary message
+/// # Errors
+/// when unable to serialize a message
+pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    bincode_options.serialize(&msg)
+}
+
+/// deserialize an arbitrary message
+/// # Errors
+/// when unable to deserialize a message
+pub fn deserialize_msg<'a, T: Deserialize<'a>>(
+    msg: &'a [u8],
+) -> Result<T, Box<bincode::ErrorKind>> {
+    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    bincode_options.deserialize(msg)
 }
 
 impl Default for NetworkNodeType {
@@ -284,7 +323,7 @@ pub struct NetworkNode {
 }
 
 /// describe the configuration of the network
-#[derive(Debug, Clone, Copy, Default, derive_builder::Builder)]
+#[derive(Clone, Default, derive_builder::Builder)]
 pub struct NetworkNodeConfig {
     /// max number of connections a node may have before it begins
     /// to disconnect. Only applies if `node_type` is `Regular`
@@ -296,6 +335,23 @@ pub struct NetworkNodeConfig {
     /// Either bootstrap (greedily connect to all peers)
     /// or regular (respect `min_num_peers`/`max num peers`)
     pub node_type: NetworkNodeType,
+    /// optional identity
+    pub identity: Option<Keypair>,
+    /// nodes to ignore
+    pub ignored_peers: HashSet<PeerId>,
+    /// address to bind to
+    pub bound_addr: Option<Multiaddr>,
+}
+
+impl Debug for NetworkNodeConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetworkNodeConfig")
+            .field("max num peers", &self.max_num_peers)
+            .field("min num peers", &self.min_num_peers)
+            .field("node type", &self.node_type)
+            .field("bound_addr", &self.bound_addr)
+            .finish()
+    }
 }
 
 impl Debug for NetworkNode {
@@ -321,14 +377,14 @@ pub enum ClientRequest {
     Subscribe(String),
     /// unsubscribe from a topic
     Unsubscribe(String),
-    /// direct message a serialized message
+    /// client request to send a direct message a serialized message
     DirectRequest(PeerId, Vec<u8>),
-    /// direct reply to a message
+    /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
     /// disable or enable pruning of connections
     Pruning(bool),
-    /// add vec of known peers
-    AddKnownPeers(Vec<(PeerId, Multiaddr)>),
+    /// add vec of known peers or addresses
+    AddKnownPeers(Vec<(Option<PeerId>, Multiaddr)>),
 }
 
 /// events generated by the swarm that we wish
@@ -342,9 +398,9 @@ pub enum NetworkEvent {
     /// recv-ed a broadcast
     GossipMsg(Vec<u8>),
     /// recv-ed a direct message from a node
-    DirectRequest(Vec<u8>, ResponseChannel<DirectMessageResponse>),
-    /// recv-ed a direct response from a node
-    DirectResponse(Vec<u8>),
+    DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
+    /// recv-ed a direct response from a node (that hopefully was initiated by this node)
+    DirectResponse(Vec<u8>, PeerId),
 }
 
 /// bind all interfaces on port `port`
@@ -414,16 +470,28 @@ impl NetworkNode {
     /// the `spawn_listeners` function
     /// will start connecting to peers
     #[instrument(skip(self))]
-    pub async fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
+    pub async fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
         for (peer_id, addr) in known_peers {
-            if *peer_id != self.peer_id {
-                // FIXME why can't I pattern match this?
-                self.swarm
-                    .behaviour_mut()
-                    .kadem
-                    .add_address(peer_id, addr.clone());
+            match peer_id {
+                Some(peer_id) => {
+                    // if we know the peerid, add address.
+                    // if we don't know the peerid, dial to find out what the peerid is
+                    if *peer_id != self.peer_id {
+                        // FIXME why can't I pattern match this?
+                        self.swarm
+                            .behaviour_mut()
+                            .kadem
+                            .add_address(peer_id, addr.clone());
+                    }
+                    self.swarm.behaviour_mut().known_peers.insert(*peer_id);
+                }
+                None => {
+                    self.swarm
+                        .behaviour_mut()
+                        .unknown_addrs
+                        .insert(addr.clone());
+                }
             }
-            self.swarm.behaviour_mut().known_peers.insert(*peer_id);
         }
         let new_peers = self.swarm.behaviour().known_peers.clone();
         self.swarm
@@ -443,7 +511,11 @@ impl NetworkNode {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
         // Generate a random PeerId
-        let identity = Keypair::generate_ed25519();
+        let identity = if let Some(ref kp) = config.identity {
+            kp.clone()
+        } else {
+            Keypair::generate_ed25519()
+        };
         let peer_id = PeerId::from(identity.public());
         debug!(?peer_id);
         let transport: Boxed<(PeerId, StreamMuxerBox)> = gen_transport(identity.clone()).await?;
@@ -458,8 +530,6 @@ impl NetworkNode {
             };
             // Create a custom gossipsub
             // TODO: Extract these defaults into some sort of config
-            // Use a jank match because Gossipsubconfigbuilder::build returns a non-static str for
-            // some god forsaken reason
             let gossipsub_config = GossipsubConfigBuilder::default()
                 .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
@@ -488,7 +558,6 @@ impl NetworkNode {
             ));
 
             // - Build DHT needed for peer discovery
-            //   TODO check into the MemoryStore defaults
             let mut kconfig = KademliaConfig::default();
             kconfig.set_caching(kad::KademliaCaching::Disabled);
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
@@ -515,6 +584,9 @@ impl NetworkNode {
                 pruning_enabled,
                 in_progress_rr: HashMap::new(),
                 in_progress_gossip: Vec::new(),
+                unknown_addrs: HashSet::new(),
+                // currently only functionality is to "not prune" these nodes
+                ignored_peers: config.ignored_peers.clone(),
             };
 
             Swarm::new(transport, network, peer_id)
@@ -563,22 +635,46 @@ impl NetworkNode {
             let num_to_connect = self.config.min_num_peers + 1
                 - (swarm.connected_peers.len() + swarm.connecting_peers.len());
             // Random(?) subset of the availible peers to try connecting to
-            let chosen_peers = potential_peers
+            let mut chosen_peers = potential_peers
                 .iter()
                 .copied()
-                .choose_multiple(&mut thread_rng(), num_to_connect);
+                .choose_multiple(&mut thread_rng(), num_to_connect)
+                .into_iter()
+                .collect::<HashSet<_>>();
+            chosen_peers.remove(&self.peer_id);
             // Try dialing each random peer
-            for a_peer in chosen_peers {
-                if a_peer != self.peer_id {
-                    match self.swarm.dial(a_peer) {
+            for a_peer in &chosen_peers {
+                if *a_peer != self.peer_id {
+                    match self.swarm.dial(*a_peer) {
                         Ok(_) => {
-                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
-                            self.swarm.behaviour_mut().connecting_peers.insert(a_peer);
+                            println!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+                            self.swarm.behaviour_mut().connecting_peers.insert(*a_peer);
                         }
                         Err(e) => {
-                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                            println!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
+                }
+            }
+
+            // if we don't know any peers, start dialing random peers if we have any.
+            if chosen_peers.is_empty() {
+                let chosen_addrs = self
+                    .swarm
+                    .behaviour_mut()
+                    .unknown_addrs
+                    .iter()
+                    .cloned()
+                    .choose_multiple(&mut thread_rng(), num_to_connect);
+                for a_addr in chosen_addrs {
+                    match self.swarm.dial(a_addr.clone()) {
+                        Ok(_) => {
+                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_addr);
+                        }
+                        Err(e) => {
+                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_addr, e);
+                        }
+                    }
                 }
             }
         }
@@ -588,22 +684,25 @@ impl NetworkNode {
     fn prune_num_connections(&mut self) {
         let swarm = self.swarm.behaviour_mut();
         // If we are connected to too many peers, try disconnecting from
-        // a random (?) subset
+        // a random subset. Bootstrap nodes accept all connections and
+        // attempt to connect to all
         if swarm.bootstrap_state == BootstrapState::Finished
             && swarm.pruning_enabled
-            && self.config.node_type != NetworkNodeType::Bootstrap
+            && self.config.node_type == NetworkNodeType::Regular
             && swarm.connected_peers.len() > self.config.max_num_peers
         {
             let peers_to_rm = swarm.connected_peers.iter().copied().choose_multiple(
                 &mut thread_rng(),
                 swarm.connected_peers.len() - self.config.max_num_peers,
             );
-            let safe_peers = swarm
+            let rr_peers = swarm
                 .in_progress_rr
                 .iter()
                 .map(|(_, (_, pid))| pid)
                 .copied()
                 .collect::<HashSet<_>>();
+            let ignored_peers = self.swarm.behaviour_mut().ignored_peers.clone();
+            let safe_peers = rr_peers.union(&ignored_peers).collect::<HashSet<_>>();
             for a_peer in peers_to_rm {
                 if !safe_peers.contains(&a_peer) {
                     let _ = self.swarm.disconnect_peer_id(a_peer);
@@ -634,7 +733,7 @@ impl NetworkNode {
                         warn!("Libp2p listener shutting down");
                         return Ok(true);
                     }
-                    ClientRequest::GossipMsg(topic, contents) => {
+                    GossipMsg(topic, contents) => {
                         // TODO might be better just to push this into the queue and not try to
                         // send here
                         let res = self
@@ -742,7 +841,8 @@ impl NetworkNode {
                         self.swarm
                             .behaviour_mut()
                             .kadem
-                            .add_address(&peer_id, address);
+                            .add_address(&peer_id, address.clone());
+                        self.swarm.behaviour_mut().unknown_addrs.remove(&address);
                     }
                     ConnectedPoint::Listener {
                         local_addr: _,
@@ -751,7 +851,11 @@ impl NetworkNode {
                         self.swarm
                             .behaviour_mut()
                             .kadem
-                            .add_address(&peer_id, send_back_addr);
+                            .add_address(&peer_id, send_back_addr.clone());
+                        self.swarm
+                            .behaviour_mut()
+                            .unknown_addrs
+                            .remove(&send_back_addr);
                     }
                 }
                 self.swarm.behaviour_mut().connected_peers.insert(peer_id);
@@ -776,11 +880,11 @@ impl NetworkNode {
                 endpoint: _,
                 ..
             } => {
-                warn!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
+                println!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
                 let swarm = self.swarm.behaviour_mut();
                 swarm.connected_peers.remove(&peer_id);
                 // FIXME remove stale address, not *all* addresses
-                swarm.kadem.remove_peer(&peer_id);
+                // swarm.kadem.remove_peer(&peer_id);
                 // swarm.kadem.remove_address();
                 // swarm.request_response.remove_address(peer, address)
 
@@ -796,9 +900,8 @@ impl NetworkNode {
             | ExpiredListenAddr { .. }
             | ListenerClosed { .. }
             | IncomingConnection { .. }
-            | IncomingConnectionError { .. }
-            | OutgoingConnectionError { .. }
             | BannedPeer { .. }
+            | IncomingConnectionError { .. }
             | ListenerError { .. } => {}
             Behaviour(b) => {
                 // forward messages directly to Client
@@ -806,6 +909,13 @@ impl NetworkNode {
                     .send_async(b)
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
+            }
+            OutgoingConnectionError { peer_id, error } => {
+                println!("connecting error {:?}", error);
+                if let Some(peer_id) = peer_id {
+                    self.swarm.behaviour_mut().connected_peers.remove(&peer_id);
+                    self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
+                }
             }
         }
         Ok(())
@@ -879,6 +989,11 @@ impl NetworkNode {
 /// wrapper type for errors generated by the `Network`
 #[derive(Debug, Snafu)]
 pub enum NetworkError {
+    /// Error initiating dial of peer
+    DialError {
+        /// The underlying source of the error
+        source: DialError,
+    },
     /// Error during dialing or listening
     Transport {
         /// The underlying source of the error
