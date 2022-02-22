@@ -306,7 +306,7 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
                 })
                 .collect::<Vec<_>>();
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(Some(swarm_config[idx].multiaddr.clone()))
+                .bound_addr(Some(swarm_config[idx].bound_addr.clone()))
                 .identity(Some(swarm_config[idx].identity.clone()))
                 .ignored_peers(ignored_peers)
                 .min_num_peers(swarm_config.len() / 4)
