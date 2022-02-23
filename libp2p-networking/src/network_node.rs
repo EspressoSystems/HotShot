@@ -647,11 +647,11 @@ impl NetworkNode {
                 if *a_peer != self.peer_id {
                     match self.swarm.dial(*a_peer) {
                         Ok(_) => {
-                            println!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
                             self.swarm.behaviour_mut().connecting_peers.insert(*a_peer);
                         }
                         Err(e) => {
-                            println!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                            warn!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
                 }
@@ -880,7 +880,7 @@ impl NetworkNode {
                 endpoint: _,
                 ..
             } => {
-                println!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
+                info!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
                 let swarm = self.swarm.behaviour_mut();
                 swarm.connected_peers.remove(&peer_id);
                 // FIXME remove stale address, not *all* addresses
@@ -911,7 +911,7 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id, error } => {
-                println!("connecting error {:?}", error);
+                error!("connecting error {:?}", error);
                 if let Some(peer_id) = peer_id {
                     self.swarm.behaviour_mut().connected_peers.remove(&peer_id);
                     self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
