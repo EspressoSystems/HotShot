@@ -2,7 +2,7 @@ use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMess
 use async_std::task::{sleep, spawn};
 use bincode::Options;
 use libp2p::request_response::RequestId;
-use libp2p::swarm::DialError;
+use libp2p::swarm::{ConnectionHandlerUpgrErr, DialError};
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -41,7 +41,7 @@ use libp2p::{
     },
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
-        ProtocolsHandlerUpgrErr, SwarmEvent,
+        SwarmEvent,
     },
     tcp, websocket, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport, TransportError,
 };
@@ -146,7 +146,7 @@ impl NetworkDef {
         &mut self,
         _cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ProtocolsHandler>>
+    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ConnectionHandler>>
     {
         // push events that must be relayed back to client onto queue
         // to be consumed by client event handler
@@ -822,7 +822,7 @@ impl NetworkNode {
             NetworkEvent,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
-                ProtocolsHandlerUpgrErr<Error>,
+                ConnectionHandlerUpgrErr<Error>,
             >,
         >,
         send_to_client: &Sender<NetworkEvent>,
