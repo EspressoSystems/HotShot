@@ -25,10 +25,15 @@ use crate::common::print_connections;
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 9;
-const NUM_OF_BOOTSTRAP: usize = 3;
-const TIMEOUT: Duration = Duration::from_secs(120);
 const NUM_ROUNDS: usize = 100;
+
+const TOTAL_NUM_PEERS_COVERAGE: usize = 8;
+const NUM_OF_BOOTSTRAP_COVERAGE: usize = 3;
+const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
+
+const TOTAL_NUM_PEERS_STRESS: usize = 15;
+const NUM_OF_BOOTSTRAP_STRESS: usize = 3;
+const TIMEOUT_STRESS: Duration = Duration::from_secs(60);
 
 /// Message types. We can either
 /// - increment the Counter
@@ -118,6 +123,7 @@ pub async fn counter_handle_network_event(
 async fn run_request_response_increment(
     requester_handle: Arc<NetworkNodeHandle<CounterState>>,
     requestee_handle: Arc<NetworkNodeHandle<CounterState>>,
+    timeout: Duration
 ) -> Result<(), TestError<CounterState>> {
     let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     let msg_inner = bincode_options
@@ -131,7 +137,7 @@ async fn run_request_response_increment(
     // set up state change listener
     let recv_fut = requester_handle.state_changed.wait_timeout_until(
         requester_handle.state.lock().await,
-        TIMEOUT,
+        timeout,
         |state| *state == new_state,
     );
 
@@ -170,6 +176,7 @@ async fn run_gossip_round(
     handles: &[Arc<NetworkNodeHandle<CounterState>>],
     msg_inner: Vec<u8>,
     new_state: CounterState,
+    timeout_duration: Duration
 ) -> Result<(), TestError<CounterState>> {
     let msg_handle = get_random_handle(handles);
     *msg_handle.state.lock().await = new_state;
@@ -190,7 +197,7 @@ async fn run_gossip_round(
         .context(SendSnafu)
         .context(HandleSnafu)?;
 
-    if timeout(TIMEOUT, futures::future::join_all(futs))
+    if timeout(timeout_duration, futures::future::join_all(futs))
         .await
         .is_err()
     {
@@ -209,12 +216,57 @@ async fn run_gossip_round(
     Ok(())
 }
 
+async fn run_intersperse_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>, timeout: Duration) {
+    for i in 0..NUM_ROUNDS as u32 {
+        if i % 2 == 0 {
+            run_request_response_increment_all(&handles, timeout).await;
+        } else {
+            run_gossip_rounds(&handles, 1, i, timeout).await
+        }
+        // println!("finished {}", i);
+    }
+    for h in handles.into_iter() {
+        assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
+    }
+}
+
+async fn run_request_response_many_rounds(
+    handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
+    timeout: Duration
+    ) {
+    for _i in 0..NUM_ROUNDS {
+        run_request_response_increment_all(&handles, timeout).await;
+    }
+    for h in handles.into_iter() {
+        assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
+    }
+}
+
+pub async fn run_request_response_one_round(
+    handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
+    timeout: Duration
+    ) {
+    run_request_response_increment_all(&handles, timeout).await;
+    for h in handles.into_iter() {
+        assert_eq!(*h.state.lock().await, 1);
+    }
+}
+
+pub async fn run_gossip_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>, timeout: Duration) {
+    run_gossip_rounds(&handles, NUM_ROUNDS, 0, timeout).await
+}
+
+async fn run_gossip_one_round(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>, timeout: Duration) {
+    run_gossip_rounds(&handles, 1, 0, timeout).await
+}
+
 /// runs `num_rounds` of message broadcast, incrementing the state of all nodes each broadcast
 async fn run_gossip_rounds(
     handles: &[Arc<NetworkNodeHandle<CounterState>>],
     num_rounds: usize,
     starting_state: CounterState,
-) {
+    timeout: Duration
+    ) {
     let mut old_state = starting_state;
     let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
     for i in 0..num_rounds {
@@ -225,8 +277,8 @@ async fn run_gossip_rounds(
                 from: old_state,
                 to: new_state,
             })
-            .unwrap();
-        run_gossip_round(handles, msg_inner, new_state)
+        .unwrap();
+        run_gossip_round(handles, msg_inner, new_state, timeout)
             .await
             .unwrap();
         old_state = new_state;
@@ -237,7 +289,7 @@ async fn run_gossip_rounds(
 /// increments its state by 1,
 /// then has all other peers request its state
 /// and update their state to the recv'ed state
-async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<CounterState>>]) {
+async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<CounterState>>], timeout: Duration) {
     let requestee_handle = get_random_handle(handles);
     *requestee_handle.state.lock().await += 1;
     requestee_handle
@@ -251,9 +303,10 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         if h.peer_id != requestee_handle.peer_id {
             let requester_handle = h.clone();
             futs.push(run_request_response_increment(
-                requester_handle,
-                requestee_handle.clone(),
-            ));
+                    requester_handle,
+                    requestee_handle.clone(),
+                    timeout
+                    ));
         }
     }
     let results = join_all(futs).await;
@@ -262,10 +315,10 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         panic!(
             "{:?}",
             results
-                .into_iter()
-                .filter(|r| r.is_err())
-                .collect::<Vec<_>>()
-        );
+            .into_iter()
+            .filter(|r| r.is_err())
+            .collect::<Vec<_>>()
+            );
     }
 
     requestee_handle
@@ -278,107 +331,139 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
 /// simple case of direct message
 #[async_std::test]
 #[instrument]
-async fn test_request_response_one_round() {
-    pub async fn run_request_response_one_round(
-        handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
-    ) {
-        run_request_response_increment_all(&handles).await;
-        for h in handles.into_iter() {
-            assert_eq!(*h.state.lock().await, 1);
-        }
-    }
+async fn test_coverage_request_response_one_round() {
     test_bed(
         run_request_response_one_round,
         counter_handle_network_event,
-        TOTAL_NUM_PEERS,
-        NUM_OF_BOOTSTRAP,
-        TIMEOUT,
-    )
-    .await
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+        )
+        .await
 }
 
 /// stress test of direct messsage
 #[async_std::test]
 #[instrument]
-async fn test_request_response_many_rounds() {
-    pub async fn run_request_response_many_rounds(
-        handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
-    ) {
-        let num_rounds = 4092;
-        for _i in 0..num_rounds {
-            run_request_response_increment_all(&handles).await;
-        }
-        for h in handles.into_iter() {
-            assert_eq!(*h.state.lock().await, num_rounds);
-        }
-    }
+async fn test_coverage_request_response_many_rounds() {
     test_bed(
         run_request_response_many_rounds,
         counter_handle_network_event,
-        TOTAL_NUM_PEERS,
-        NUM_OF_BOOTSTRAP,
-        TIMEOUT,
-    )
-    .await
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+        )
+        .await
 }
 
 /// stress test of broadcast + direct message
 #[async_std::test]
 #[instrument]
-async fn test_intersperse_many_rounds() {
-    pub async fn run_intersperse_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>) {
-        for i in 0..NUM_ROUNDS as u32 {
-            if i % 2 == 0 {
-                run_request_response_increment_all(&handles).await;
-            } else {
-                run_gossip_rounds(&handles, 1, i).await
-            }
-            // println!("finished {}", i);
-        }
-        for h in handles.into_iter() {
-            assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
-        }
-    }
+async fn test_coverage_intersperse_many_rounds() {
     test_bed(
         run_intersperse_many_rounds,
         counter_handle_network_event,
-        TOTAL_NUM_PEERS,
-        NUM_OF_BOOTSTRAP,
-        TIMEOUT,
-    )
-    .await
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+        )
+        .await
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
 #[async_std::test]
 #[instrument]
-async fn test_gossip_many_rounds() {
-    pub async fn run_gossip_many_rounds(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>) {
-        run_gossip_rounds(&handles, NUM_ROUNDS, 0).await
-    }
+async fn test_coverage_gossip_many_rounds() {
     test_bed(
         run_gossip_many_rounds,
         counter_handle_network_event,
-        TOTAL_NUM_PEERS,
-        NUM_OF_BOOTSTRAP,
-        TIMEOUT,
-    )
-    .await;
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+        )
+        .await;
 }
 
 /// simple case of broadcast message
 #[async_std::test]
 #[instrument]
-async fn test_gossip_one_round() {
-    pub async fn run_gossip_one_round(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>) {
-        run_gossip_rounds(&handles, 1, 0).await
-    }
+async fn test_coverage_gossip_one_round() {
     test_bed(
         run_gossip_one_round,
         counter_handle_network_event,
-        TOTAL_NUM_PEERS,
-        NUM_OF_BOOTSTRAP,
-        TIMEOUT,
-    )
-    .await;
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+        )
+        .await;
+}
+
+/// simple case of direct message
+#[async_std::test]
+#[instrument]
+async fn test_stress_request_response_one_round() {
+    test_bed(
+        run_request_response_one_round,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+        )
+        .await
+}
+
+/// stress test of direct messsage
+#[async_std::test]
+#[instrument]
+async fn test_stress_request_response_many_rounds() {
+    test_bed(
+        run_request_response_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+        )
+        .await
+}
+
+/// stress test of broadcast + direct message
+#[async_std::test]
+#[instrument]
+async fn test_stress_intersperse_many_rounds() {
+    test_bed(
+        run_intersperse_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+        )
+        .await
+}
+
+/// stress teset that we can broadcast a message out and get counter increments
+#[async_std::test]
+#[instrument]
+async fn test_stress_gossip_many_rounds() {
+    test_bed(
+        run_gossip_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+        )
+        .await;
+}
+
+/// simple case of broadcast message
+#[async_std::test]
+#[instrument]
+async fn test_stress_gossip_one_round() {
+    test_bed(
+        run_gossip_one_round,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+        )
+        .await;
 }
