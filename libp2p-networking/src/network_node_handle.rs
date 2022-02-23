@@ -14,7 +14,7 @@ use libp2p::{Multiaddr, PeerId};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::{ResultExt, Snafu};
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{info_span, instrument, Instrument};
+use tracing::{info, info_span, instrument, Instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -109,13 +109,13 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
-        println!("waiting to connect!");
+        info!("waiting to connect!");
         let mut connected_ok = false;
         let mut known_ok = false;
         while !(known_ok && connected_ok) {
             match chan.recv_async().await.context(RecvSnafu)? {
                 NetworkEvent::UpdateConnectedPeers(pids) => {
-                    println!(
+                    info!(
                         "updating connected peers to: {}, waiting on {}",
                         pids.len(),
                         num_peers
@@ -184,7 +184,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<Arc<NetworkNodeHandle<S>>, NetworkNodeHandleError> {
     let handle = Arc::new(NetworkNodeHandle::new(config.clone(), idx).await?);
 
-    println!("known_nodes{:?}", known_nodes);
+    info!("known_nodes{:?}", known_nodes);
     handle
         .send_network
         .send_async(ClientRequest::AddKnownPeers(known_nodes))

@@ -25,9 +25,9 @@ use crate::common::print_connections;
 
 pub type CounterState = u32;
 
-const TOTAL_NUM_PEERS: usize = 10;
+const TOTAL_NUM_PEERS: usize = 9;
 const NUM_OF_BOOTSTRAP: usize = 3;
-const TIMEOUT: Duration = Duration::from_secs(60);
+const TIMEOUT: Duration = Duration::from_secs(120);
 const NUM_ROUNDS: usize = 100;
 
 /// Message types. We can either
@@ -238,7 +238,6 @@ async fn run_gossip_rounds(
 /// then has all other peers request its state
 /// and update their state to the recv'ed state
 async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<CounterState>>]) {
-    check_connection_state(handles).await;
     let requestee_handle = get_random_handle(handles);
     *requestee_handle.state.lock().await += 1;
     requestee_handle
@@ -269,7 +268,6 @@ async fn run_request_response_increment_all(handles: &[Arc<NetworkNodeHandle<Cou
         );
     }
 
-    check_connection_state(handles).await;
     requestee_handle
         .send_network
         .send_async(ClientRequest::Pruning(true))

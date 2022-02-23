@@ -2,7 +2,7 @@ use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMess
 use async_std::task::{sleep, spawn};
 use bincode::Options;
 use libp2p::request_response::RequestId;
-use libp2p::swarm::DialError;
+use libp2p::swarm::{ConnectionHandlerUpgrErr, DialError};
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -41,7 +41,7 @@ use libp2p::{
     },
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
-        ProtocolsHandlerUpgrErr, SwarmEvent,
+        SwarmEvent,
     },
     tcp, websocket, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport, TransportError,
 };
@@ -146,7 +146,7 @@ impl NetworkDef {
         &mut self,
         _cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ProtocolsHandler>>
+    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ConnectionHandler>>
     {
         // push events that must be relayed back to client onto queue
         // to be consumed by client event handler
@@ -647,11 +647,11 @@ impl NetworkNode {
                 if *a_peer != self.peer_id {
                     match self.swarm.dial(*a_peer) {
                         Ok(_) => {
-                            println!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
                             self.swarm.behaviour_mut().connecting_peers.insert(*a_peer);
                         }
                         Err(e) => {
-                            println!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                            warn!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
                 }
@@ -822,7 +822,7 @@ impl NetworkNode {
             NetworkEvent,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
-                ProtocolsHandlerUpgrErr<Error>,
+                ConnectionHandlerUpgrErr<Error>,
             >,
         >,
         send_to_client: &Sender<NetworkEvent>,
@@ -880,7 +880,7 @@ impl NetworkNode {
                 endpoint: _,
                 ..
             } => {
-                println!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
+                info!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
                 let swarm = self.swarm.behaviour_mut();
                 swarm.connected_peers.remove(&peer_id);
                 // FIXME remove stale address, not *all* addresses
@@ -911,7 +911,7 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id, error } => {
-                println!("connecting error {:?}", error);
+                error!("connecting error {:?}", error);
                 if let Some(peer_id) = peer_id {
                     self.swarm.behaviour_mut().connected_peers.remove(&peer_id);
                     self.swarm.behaviour_mut().connecting_peers.remove(&peer_id);
