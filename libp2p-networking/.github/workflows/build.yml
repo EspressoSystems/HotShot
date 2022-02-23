@@ -50,4 +50,4 @@ jobs:
         run: cargo build --release
 
       - name: Cargo Test
-        run: cargo test --verbose -- -Zunstable-options --report-time --test-threads=1
+        run: cargo test --verbose --release test_stress -- -Zunstable-options --report-time --test-threads=1

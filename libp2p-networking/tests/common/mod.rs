@@ -40,7 +40,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
 ) where
     FutF: Future<Output = ()>,
     FutG: Future<Output = Result<(), NetworkNodeHandleError>> + 'static + Send + Sync,
-    F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>) -> FutF,
+    F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>, Duration) -> FutF,
     G: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> FutG + 'static + Send + Sync,
 {
     // only call once otherwise panics
@@ -62,7 +62,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     }
     print_connections(&handles).await;
 
-    run_test(handles.clone()).await;
+    run_test(handles.clone(), timeout).await;
 
     // cleanup
     for handle in handles {
