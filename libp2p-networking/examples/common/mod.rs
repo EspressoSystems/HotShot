@@ -186,12 +186,14 @@ pub async fn regular_handle_network_event(
 #[derive(StructOpt)]
 pub struct CliOpt {
     /// Path to the node configuration file
-    #[structopt(long = "index", short = "i")]
-    pub idx: Option<usize>,
+    #[structopt(long = "ip_addr", short = "ip")]
+    pub ip: Option<String>,
+    #[structopt(long = "toplogy_path", short = "path")]
+    pub path: Option<String>,
 }
 
-pub async fn parse_config() -> Result<Vec<NodeDescription>, CounterError> {
-    let mut f = File::open(&"./identity_mapping.json")
+pub async fn parse_config(path: Option<String>) -> Result<Vec<NodeDescription>, CounterError> {
+    let mut f = File::open(&path.unwrap_or_else(|| "./identity_mapping.json".to_string()))
         .await
         .context(FileReadSnafu)?;
     let mut s = String::new();
@@ -199,13 +201,13 @@ pub async fn parse_config() -> Result<Vec<NodeDescription>, CounterError> {
     serde_json::from_str(&s).context(JsonParseSnafu)
 }
 
-pub async fn start_main(idx: usize) -> Result<(), CounterError> {
+pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), CounterError> {
     // FIXME can we pass in a function that returns an error type
     INIT.call_once(|| {
         color_eyre::install().unwrap();
         tracing_setup::setup_tracing();
     });
-    let swarm_config = parse_config().await?;
+    let swarm_config = parse_config(path).await?;
 
     let ignored_peers = swarm_config
         .iter()
@@ -218,16 +220,19 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
         })
         .collect::<HashSet<_>>();
 
-    let node_description = &swarm_config[idx];
+    let (idx, node_description) = swarm_config.iter().enumerate().find(|(_, node)| {
+        node.multiaddr.clone().to_string().contains(&ip_addr)
+    }).unwrap();
+    println!("found entry!: {idx}");
 
     match node_description.node_type {
         NetworkNodeType::Conductor => {
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(Some(swarm_config[idx].bound_addr.clone()))
+                .bound_addr(Some(node_description.bound_addr.clone()))
                 .min_num_peers(swarm_config.len() - 1)
                 .max_num_peers(swarm_config.len() - 1)
                 .node_type(NetworkNodeType::Conductor)
-                .identity(Some(swarm_config[idx].identity.clone()))
+                .identity(Some(node_description.identity.clone()))
                 .ignored_peers(ignored_peers)
                 .build()
                 .context(NodeConfigSnafu)
@@ -306,8 +311,8 @@ pub async fn start_main(idx: usize) -> Result<(), CounterError> {
                 })
                 .collect::<Vec<_>>();
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(Some(swarm_config[idx].bound_addr.clone()))
-                .identity(Some(swarm_config[idx].identity.clone()))
+                .bound_addr(Some(node_description.bound_addr.clone()))
+                .identity(Some(node_description.identity.clone()))
                 .ignored_peers(ignored_peers)
                 .min_num_peers(swarm_config.len() / 4)
                 .max_num_peers(swarm_config.len() / 2)
