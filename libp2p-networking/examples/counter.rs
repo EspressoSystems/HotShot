@@ -6,11 +6,13 @@ use tracing::instrument;
 
 mod common;
 
+use common::{start_main, CliOpt};
+
 #[async_std::main]
 #[instrument]
 async fn main() -> Result<()> {
-    println!("hello world we are starting");
-    common::start_main(common::CliOpt::from_args().idx.unwrap()).await?;
+    let args = CliOpt::from_args();
+    start_main(args.ip.unwrap(), args.path).await?;
 
     // optional UI perhaps? for monitoring purposes
     Ok(())

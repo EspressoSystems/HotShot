@@ -21,7 +21,7 @@
   outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
+        fenixStable = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std];
         fenixNightly = fenix.packages.${system}.latest.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
         rustOverlay = final: prev:
           {
@@ -122,7 +122,10 @@
         defaultPackage = self.packages.${system}.${crateName};
 
         devShell = pkgs.mkShell {
-          shellHook = "ulimit -n 1024";
+          shellHook = ''
+            ulimit -n 1024
+            export RUSTFLAGS='-C target-feature=+crt-static'
+          '';
           buildInputs =
             with pkgs; [ fenix.packages.${system}.rust-analyzer fenixStable ] ++ buildDeps;
         };
