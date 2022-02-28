@@ -6,7 +6,6 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Read;
@@ -52,7 +51,7 @@ fn get_host(node_config: Value, node_id: u64) -> (String, u16) {
 ///
 /// Also starts the background task.
 async fn get_networking<
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static,
 >(
     pub_key: PubKey,
     listen_addr: &str,

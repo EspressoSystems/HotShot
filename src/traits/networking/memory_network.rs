@@ -3,21 +3,17 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
+use crate::PubKey;
 use async_std::task::spawn;
-use bincode::Options;
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use futures::{FutureExt, StreamExt};
 use rand::Rng;
-use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
 use std::fmt::Debug;
 use std::sync::Arc;
-
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
-use crate::PubKey;
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]
 /// dummy implementation of network reliability
@@ -105,7 +101,7 @@ impl<T> Debug for MemoryNetwork<T> {
 
 impl<T> MemoryNetwork<T>
 where
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static,
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
@@ -125,7 +121,7 @@ where
             async move {
                 debug!("Starting background task");
                 // Use the same wire format as WNetwork to make sure round tripping is simulated
-                let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+                let bincode_config = bincode::config::standard().with_limit::<16_384>();
                 // direct input is right stream
                 let direct = direct_task_recv.into_stream().map(Combo::<Vec<u8>>::Direct);
                 // broadcast input is left stream
@@ -140,9 +136,9 @@ where
                         Combo::Direct(vec) => {
                             trace!(?vec, "Incoming direct message");
                             // Attempt to decode message
-                            let x = bincode_options.deserialize(&vec);
+                            let x = bincode::decode_from_slice(&vec, bincode_config);
                             match x {
-                                Ok(x) => {
+                                Ok((x, _)) => {
                                     let dts = direct_task_send.clone();
                                     if let Some(r) = reliability_config {
                                         spawn(async move {
@@ -178,9 +174,9 @@ where
                         Combo::Broadcast(vec) => {
                             trace!(?vec, "Incoming broadcast message");
                             // Attempt to decode message
-                            let x = bincode_options.deserialize(&vec);
+                            let x = bincode::decode_from_slice(&vec, bincode_config);
                             match x {
-                                Ok(x) => {
+                                Ok((x, _)) => {
                                     let bts = broadcast_task_send.clone();
                                     if let Some(r) = reliability_config {
                                         spawn(async move {
@@ -237,7 +233,7 @@ where
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+impl<T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static>
     NetworkingImplementation<T> for MemoryNetwork<T>
 {
     fn broadcast_message(
@@ -247,10 +243,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         async move {
             debug!(?message, "Broadcasting message");
             // Bincode the message
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-            let vec = bincode_options
-                .serialize(&message)
-                .context(FailedToSerializeSnafu)?;
+            let bincode_config = bincode::config::standard().with_limit::<16_384>();
+            let vec =
+                bincode::encode_to_vec(&message, bincode_config).context(FailedToSerializeSnafu)?;
             trace!("Message bincoded, sending");
             for node in self.inner.master_map.map.iter() {
                 let (key, node) = node.pair();
@@ -280,9 +275,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         async move {
             debug!(?message, ?recipient, "Sending direct message");
             // Bincode the message
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-            let vec = bincode_options
-                .serialize(&message)
+            let bincode_options = bincode::config::standard().with_limit::<16_384>();
+            let vec = bincode::encode_to_vec(&message, bincode_options)
                 .context(FailedToSerializeSnafu)?;
             trace!("Message bincoded, finding recipient");
             if let Some(node) = self.inner.master_map.map.get(&recipient) {
@@ -408,9 +402,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 mod tests {
     use super::*;
     use crate::utility::test_util::setup_logging;
-    use serde::Deserialize;
 
-    #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, bincode::Encode, bincode::Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct Test {
         message: u64,
     }

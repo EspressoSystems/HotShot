@@ -16,11 +16,8 @@ pub mod event;
 pub mod message;
 pub mod traits;
 
-use serde::{Deserialize, Serialize};
-
-use std::fmt::Debug;
-
 use data::{create_verify_hash, LeafHash, Stage};
+use std::fmt::Debug;
 
 /// Public key type
 ///
@@ -28,11 +25,13 @@ use data::{create_verify_hash, LeafHash, Stage};
 ///
 /// TODO: These items don't really need to be pub, but are due to the pain in the ass factor of the
 /// migration to a split crate
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(bincode::Encode, bincode::Decode, Clone, PartialEq, Eq, Hash)]
 pub struct PubKey {
     /// Overall public key set for the network
+    #[bincode(with_serde)]
     pub set: tc::PublicKeySet,
     /// The public key share that this node holds
+    #[bincode(with_serde)]
     pub node: tc::PublicKeyShare,
     /// The portion of the KeyShare this node holds
     pub nonce: u64,

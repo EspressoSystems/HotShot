@@ -4,7 +4,6 @@
 
 use async_tungstenite::tungstenite::error as werror;
 use futures::future::BoxFuture;
-use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
 
@@ -26,12 +25,12 @@ pub enum NetworkError {
     /// Failed to serialize a message
     FailedToSerialize {
         /// Originating bincode error
-        source: bincode::Error,
+        source: bincode::error::EncodeError,
     },
     /// Failed to deserealize a message
     FailedToDeserialize {
         /// originating bincode error
-        source: bincode::Error,
+        source: bincode::error::DecodeError,
     },
     /// WebSockets specific error
     WebSocket {
@@ -76,7 +75,7 @@ pub enum NetworkError {
 /// Describes, generically, the behaviors a networking implementation must have
 pub trait NetworkingImplementation<M>: Send + Sync
 where
-    M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    M: bincode::Encode + bincode::Decode + Send + Clone + 'static,
 {
     /// Broadcasts a message to the network
     ///

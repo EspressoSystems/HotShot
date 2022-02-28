@@ -3,11 +3,8 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use serde::{de::DeserializeOwned, Serialize};
-
-use std::{error::Error, fmt::Debug, hash::Hash};
-
 use crate::traits::BlockContents;
+use std::{error::Error, fmt::Debug, hash::Hash};
 
 /// Abstraction over the state that blocks modify
 ///
@@ -21,7 +18,7 @@ use crate::traits::BlockContents;
 ///   * The ability to produce a new state, with the modifications from the block applied
 ///     ([`append`](State::append))
 pub trait State<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
+    bincode::Encode + bincode::Decode + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
@@ -48,10 +45,9 @@ pub mod dummy {
     use super::*;
     use crate::traits::block_contents::dummy::{DummyBlock, DummyError};
     use rand::Rng;
-    use serde::Deserialize;
 
     /// The dummy state
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Hash, PartialEq, Eq, bincode::Encode, bincode::Decode)]
     pub struct DummyState {
         /// Some dummy data
         nonce: u64,

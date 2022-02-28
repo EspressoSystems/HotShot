@@ -13,7 +13,6 @@ use phaselock::{
 };
 use proptest::prelude::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::iter::FromIterator;
 use tracing::{debug, error, instrument, warn};
@@ -49,7 +48,7 @@ fn get_tolerance(num_nodes: u64) -> u64 {
 
 /// Gets networking backends of all nodes.
 async fn get_networkings<
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static,
 >(
     num_nodes: u64,
     sks: &tc::SecretKeySet,

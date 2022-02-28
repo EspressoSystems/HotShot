@@ -20,10 +20,8 @@ use async_tungstenite::{
     tungstenite::{error::Error as WsError, Message},
     WebSocketStream,
 };
-use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
@@ -40,7 +38,7 @@ use std::{
 use super::{BoxedFuture, NetworkingImplementation};
 use crate::PubKey;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(bincode::Encode, bincode::Decode, Clone, PartialEq, Debug)]
 /// Inter-node protocol level message types
 pub enum Command<T> {
     /// A message that was broadcast to all nodes
@@ -183,7 +181,7 @@ impl<T> Debug for WNetwork<T> {
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+impl<T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static>
     WNetwork<T>
 {
     /// Processes an individual `Command`
@@ -268,7 +266,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         //   - Litte endian encoding
         //   - Varint encoding
         //   - Reject trailing bytes
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_config = bincode::config::standard().with_limit::<16_384>();
         let w = self.clone();
         let inputs = w.inner.inputs.clone();
         let (pk_s, pk_r) = oneshot::channel();
@@ -287,7 +285,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 id: ident_id,
             };
             // Unwrap is safe, as this serialization can't fail
-            let bytes = bincode_options.serialize(&command).unwrap();
+            let bytes = bincode::encode_to_vec(&command, bincode_config).unwrap();
             let res = stream.send(Message::Binary(bytes)).await;
             if res.is_err() {
                 error!("Failed to ident, closing stream");
@@ -328,9 +326,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         match m {
                             Message::Binary(vec) => {
                                 trace!(?vec, "Attempting to decode binary message");
-                                let res: Result<Command<T>, _> = bincode_options.deserialize(&vec);
+                                let res: Result<(Command<T>, _), _> = bincode::decode_from_slice(&vec, bincode_config);
                                 match res {
-                                    Ok(command) => {
+                                    Ok((command, _)) => {
                                         match w.process_command(command, &inputs).await {
                                             Ok(Some(command)) => match command {
                                                 Command::Identify { from, id } => {
@@ -353,9 +351,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                         };
                                                     // Unwrap is safe, as this serialization can't
                                                     // fail
-                                                    let bytes = bincode_options
-                                                        .serialize(&command)
-                                                        .unwrap();
+                                                    let bytes = bincode::encode_to_vec(&command, bincode_config).unwrap();
                                                     let res = ws_sink.send(Message::Binary(bytes)).await;
                                                     if res.is_err() {
                                                         error!("Failed to ack, closing stream");
@@ -372,9 +368,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                         };
                                                     // Unwrap is safe, as this serialization can't
                                                     // fail
-                                                    let bytes = bincode_options
-                                                        .serialize(&command)
-                                                        .unwrap();
+                                                    let bytes = bincode::encode_to_vec(&command, bincode_config).unwrap();
                                                     let res = ws_sink.send(Message::Binary(bytes)).await;
                                                     if res.is_err() {
                                                         error!("Failed to ack, closing stream");
@@ -408,8 +402,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     Combo::Command(c) => {
                         trace!(?c, "Sending command");
                         // serializing
-                        let bytes = bincode_options
-                            .serialize(&c)
+                        let bytes = bincode::encode_to_vec(&c, bincode_config)
                             .expect_or_log("Failed to serialize a command. Having types that can fail serialization is not supported.");
                         // Sending down the pipe
                         trace!("Sending serialized command");
@@ -757,7 +750,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
+impl<T: Clone + bincode::Encode + bincode::Decode + Send + std::fmt::Debug + Sync + 'static>
     NetworkingImplementation<T> for WNetwork<T>
 {
     fn broadcast_message(&self, message: T) -> BoxFuture<'_, Result<(), super::NetworkError>> {
@@ -941,7 +934,7 @@ mod tests {
     use crate::utility::test_util::setup_logging;
     use rand::Rng;
 
-    #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, bincode::Encode, bincode::Decode, Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct Test {
         message: u64,
     }

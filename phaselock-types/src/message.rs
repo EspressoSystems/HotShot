@@ -4,15 +4,12 @@
 //! `PhaseLock` nodes can send among themselves.
 
 use crate::data::Stage;
+use crate::data::{Leaf, LeafHash, QuorumCertificate};
 use hex_fmt::HexFmt;
-use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use threshold_crypto::SignatureShare;
 
-use std::fmt::Debug;
-
-use crate::data::{Leaf, LeafHash, QuorumCertificate};
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(bincode::Encode, bincode::Decode, Clone, Debug)]
 /// Enum representation of any message type
 pub enum Message<B, T, S, const N: usize> {
     /// Signals start of a new view
@@ -35,7 +32,7 @@ pub enum Message<B, T, S, const N: usize> {
     SubmitTransaction(T),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, bincode::Encode, bincode::Decode, Clone)]
 /// Signals the start of a new view
 pub struct NewView<const N: usize> {
     /// The current view
@@ -44,7 +41,7 @@ pub struct NewView<const N: usize> {
     pub justify: QuorumCertificate<N>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, bincode::Encode, bincode::Decode, Clone)]
 /// Prepare qc from the leader
 pub struct Prepare<T, S, const N: usize> {
     /// The current view
@@ -57,10 +54,11 @@ pub struct Prepare<T, S, const N: usize> {
     pub high_qc: QuorumCertificate<N>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(bincode::Encode, bincode::Decode, Clone)]
 /// A nodes vote on the prepare field
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
+    #[bincode(with_serde)]
     pub signature: SignatureShare,
     /// Id of the voting nodes
     pub id: u64,
@@ -83,7 +81,7 @@ impl<const N: usize> Debug for Vote<N> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(bincode::Encode, bincode::Decode, Clone)]
 /// Pre-commit qc from the leader
 pub struct PreCommit<const N: usize> {
     /// Hash of the item being worked on
@@ -104,7 +102,7 @@ impl<const N: usize> Debug for PreCommit<N> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(bincode::Encode, bincode::Decode, Clone)]
 /// `Commit` qc from the leader
 pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
@@ -125,7 +123,7 @@ impl<const N: usize> Debug for Commit<N> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(bincode::Encode, bincode::Decode, Clone)]
 /// Final decision
 pub struct Decide<const N: usize> {
     /// Hash of the thing we just decided on

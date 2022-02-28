@@ -7,7 +7,6 @@
 //! production use.
 
 use blake3::Hasher;
-use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -36,7 +35,7 @@ pub type Account = String;
 pub type Balance = i64;
 
 /// Records a reduction in an account balance
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, Clone, Debug)]
 pub struct Subtraction {
     /// An account identifier
     pub account: Account,
@@ -45,7 +44,7 @@ pub struct Subtraction {
 }
 
 /// Records an increase in an account balance
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, Clone, Debug)]
 pub struct Addition {
     /// An account identifier
     pub account: Account,
@@ -71,7 +70,7 @@ pub enum DEntryError {
 }
 
 /// The transaction for the dentry demo
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, Clone, Debug)]
 pub struct Transaction {
     /// An increment to an account balance
     pub add: Addition,
@@ -91,7 +90,7 @@ impl Transaction {
 }
 
 /// The state for the dentry demo
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, bincode::Encode, bincode::Decode, Hash)]
 pub struct State {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
@@ -253,7 +252,7 @@ impl crate::traits::State<H_256> for State {
 }
 
 /// The block for the dentry demo
-#[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
+#[derive(PartialEq, Eq, Default, Hash, bincode::Encode, bincode::Decode, Clone, Debug)]
 pub struct DEntryBlock {
     /// Block state commitment
     pub previous_block: StateHash<H_256>,

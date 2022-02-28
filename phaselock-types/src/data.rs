@@ -5,7 +5,6 @@
 //! signatures fundamental to consensus.
 use blake3::Hasher;
 use hex_fmt::HexFmt;
-use serde::{Deserialize, Serialize};
 use threshold_crypto as tc;
 
 use std::fmt::Debug;
@@ -16,7 +15,7 @@ use crate::traits::BlockContents;
 /// around `InternalHash`
 macro_rules! gen_hash_wrapper_type {
     ($t:ident) => {
-        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+        #[derive(PartialEq, Eq, Clone, Copy, Hash, bincode::Encode, bincode::Decode)]
         ///  External wrapper type
         pub struct $t<const N: usize> {
             inner: InternalHash<N>,
@@ -78,14 +77,10 @@ gen_hash_wrapper_type!(StateHash);
 /// Internal type used for representing hashes
 ///
 /// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that
-/// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
-/// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
-/// have for the general case.
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+/// have not updated to be const-generic aware.
+#[derive(PartialEq, Eq, Clone, Copy, Hash, bincode::Encode, bincode::Decode)]
 pub struct InternalHash<const N: usize> {
     /// The underlying array
-    /// No support for const generics
-    #[serde(with = "serde_bytes_array")]
     inner: [u8; N],
 }
 
@@ -138,36 +133,7 @@ impl<const N: usize> Default for InternalHash<N> {
     }
 }
 
-/// [Needed](https://github.com/serde-rs/bytes/issues/26#issuecomment-902550669) to (de)serialize const generic arrays
-mod serde_bytes_array {
-    use core::convert::TryInto;
-
-    use serde::de::Error;
-    use serde::{Deserializer, Serializer};
-
-    /// This just specializes [`serde_bytes::serialize`] to `<T = [u8]>`.
-    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::serialize(bytes, serializer)
-    }
-
-    /// This takes the result of [`serde_bytes::deserialize`] from `[u8]` to `[u8; N]`.
-    pub fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let slice: &[u8] = serde_bytes::deserialize(deserializer)?;
-        let array: [u8; N] = slice.try_into().map_err(|_| {
-            let expected = format!("[u8; {}]", N);
-            D::Error::invalid_length(slice.len(), &expected.as_str())
-        })?;
-        Ok(array)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bincode::Encode, bincode::Decode, Clone, Copy, Debug, PartialEq, Eq)]
 /// Represents the stages of consensus
 pub enum Stage {
     /// Between rounds
@@ -186,7 +152,7 @@ pub enum Stage {
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(bincode::Encode, bincode::Decode, Clone, PartialEq, Eq)]
 pub struct QuorumCertificate<const N: usize> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
@@ -210,6 +176,7 @@ pub struct QuorumCertificate<const N: usize> {
     ///
     /// This is nullable as part of a temporary mechanism to support bootstrapping from a genesis
     /// block, as the genesis block can not be produced through the normal means.
+    #[bincode(with_serde)]
     pub signature: Option<tc::Signature>,
     /// Temporary bypass for boostrapping
     ///
@@ -273,7 +240,7 @@ impl<const N: usize> Debug for QuorumCertificate<N> {
 /// const-generic length.
 ///
 /// This type is not used directly by consensus.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(bincode::Encode, bincode::Decode, Clone, PartialEq, Eq)]
 pub struct VecQuorumCertificate {
     /// Block this QC refers to
     pub hash: Vec<u8>,
@@ -282,6 +249,7 @@ pub struct VecQuorumCertificate {
     /// The stage of consensus we were on when we made this certificate
     pub stage: Stage,
     /// The signature portion of this QC
+    #[bincode(with_serde)]
     pub signature: Option<tc::Signature>,
     /// Temporary bypass for boostrapping
     pub genesis: bool,
@@ -314,7 +282,7 @@ pub fn create_verify_hash<const N: usize>(
     VerifyHash::from_array(*hash.as_bytes())
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(bincode::Encode, bincode::Decode, Clone)]
 /// A node in `PhaseLock`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,

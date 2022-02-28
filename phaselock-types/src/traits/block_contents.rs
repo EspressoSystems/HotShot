@@ -3,11 +3,8 @@
 //! This module provides the [`BlockContents`] trait, which describes the behaviors that a block is
 //! expected to have.
 
-use serde::{de::DeserializeOwned, Serialize};
-
-use std::{error::Error, fmt::Debug, hash::Hash};
-
 use crate::data::{BlockHash, LeafHash, TransactionHash};
+use std::{error::Error, fmt::Debug, hash::Hash};
 
 /// Abstraction over the contents of a block
 ///
@@ -20,15 +17,15 @@ use crate::data::{BlockHash, LeafHash, TransactionHash};
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait BlockContents<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
+    bincode::Encode + bincode::Decode + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
     type Transaction: Clone
-        + Serialize
-        + DeserializeOwned
+        + bincode::Encode
+        + bincode::Decode
         + Debug
         + Hash
         + PartialEq
@@ -63,12 +60,11 @@ pub mod dummy {
     use super::*;
     use blake3::Hasher;
     use rand::Rng;
-    use serde::Deserialize;
 
     pub use crate::traits::state::dummy::DummyState;
 
     /// The dummy block
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Hash, PartialEq, Eq, bincode::Encode, bincode::Decode)]
     pub struct DummyBlock {
         /// Some dummy data
         nonce: u64,

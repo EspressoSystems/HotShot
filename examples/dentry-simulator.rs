@@ -1,6 +1,5 @@
 use futures::future::join_all;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-use serde::{de::DeserializeOwned, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     time::Instant,
@@ -287,7 +286,7 @@ fn inital_state() -> State {
 /// also starts the background task
 #[instrument(skip(rng, sks))]
 async fn get_networking<
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    T: Clone + bincode::Encode + bincode::Decode + Send + Sync + std::fmt::Debug + 'static,
     R: phaselock::rand::Rng,
 >(
     sks: &tc::SecretKeySet,
