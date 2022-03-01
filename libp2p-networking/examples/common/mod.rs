@@ -220,19 +220,21 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
         })
         .collect::<HashSet<_>>();
 
-    let (idx, node_description) = swarm_config.iter().enumerate().find(|(_, node)| {
-        node.multiaddr.clone().to_string().contains(&ip_addr)
-    }).unwrap();
+    let (idx, node_description) = swarm_config
+        .iter()
+        .enumerate()
+        .find(|(_, node)| node.multiaddr.clone().to_string().contains(&ip_addr))
+        .unwrap();
     println!("found entry!: {idx}");
 
     match node_description.node_type {
         NetworkNodeType::Conductor => {
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(Some(node_description.bound_addr.clone()))
+                .bound_addr(node_description.bound_addr.clone())
                 .min_num_peers(swarm_config.len() - 1)
                 .max_num_peers(swarm_config.len() - 1)
                 .node_type(NetworkNodeType::Conductor)
-                .identity(Some(node_description.identity.clone()))
+                .identity(node_description.identity.clone())
                 .ignored_peers(ignored_peers)
                 .build()
                 .context(NodeConfigSnafu)
@@ -311,8 +313,8 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
                 })
                 .collect::<Vec<_>>();
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(Some(node_description.bound_addr.clone()))
-                .identity(Some(node_description.identity.clone()))
+                .bound_addr(node_description.bound_addr.clone())
+                .identity(node_description.identity.clone())
                 .ignored_peers(ignored_peers)
                 .min_num_peers(swarm_config.len() / 4)
                 .max_num_peers(swarm_config.len() / 2)

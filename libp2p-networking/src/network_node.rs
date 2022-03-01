@@ -334,12 +334,16 @@ pub struct NetworkNodeConfig {
     /// The type of node:
     /// Either bootstrap (greedily connect to all peers)
     /// or regular (respect `min_num_peers`/`max num peers`)
+    #[builder(default)]
     pub node_type: NetworkNodeType,
     /// optional identity
+    #[builder(setter(into, strip_option), default)]
     pub identity: Option<Keypair>,
     /// nodes to ignore
+    #[builder(default)]
     pub ignored_peers: HashSet<PeerId>,
     /// address to bind to
+    #[builder(setter(into, strip_option), default)]
     pub bound_addr: Option<Multiaddr>,
 }
 
