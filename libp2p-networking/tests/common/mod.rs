@@ -172,9 +172,6 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     let regular_node_config = NetworkNodeConfigBuilder::default()
-        .identity(None)
-        .ignored_peers(HashSet::new())
-        .bound_addr(None)
         .node_type(NetworkNodeType::Regular)
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
