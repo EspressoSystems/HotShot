@@ -53,6 +53,7 @@ fn internal_setup_tracing(writer: BoxMakeWriter) {
     let internal_event_filter = parse_span_events();
     let fmt_env = var("RUST_LOG_FORMAT").map(|x| x.to_lowercase());
     match fmt_env.as_deref().map(|x| x.trim()) {
+        Ok("none") => {}
         Ok("full") => {
             let fmt_layer = fmt::Layer::default()
                 .with_span_events(internal_event_filter)

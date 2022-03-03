@@ -18,7 +18,7 @@ use networking_demo::{
 };
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use tracing::{error, instrument, warn};
+use tracing::{info, instrument, warn};
 
 static INIT: Once = Once::new();
 
@@ -201,7 +201,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         handles.push(node);
     }
 
-    error!(
+    info!(
         "known nodes: {:?}",
         bootstrap_addrs
             .iter()
