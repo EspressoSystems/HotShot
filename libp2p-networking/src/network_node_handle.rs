@@ -45,6 +45,12 @@ pub struct NetworkNodeHandle<S> {
     pub connection_state: Arc<Mutex<ConnectionData>>,
     /// human readable id
     pub id: usize,
+
+    /// A list of webui listeners that are listening for changes on this node
+    // TODO: Replace the following fields with `SubscribableMutex` (see https://github.com/EspressoSystems/phaselock/pull/33)
+    // - `state: Arc<Mutex<S>>`
+    // - `connection_state: Arc<Mutex<ConnectionData>>`
+    pub webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
 }
 
 impl<S: Default + Debug> NetworkNodeHandle<S> {
@@ -81,6 +87,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             peer_id,
             connection_state: Arc::default(),
             id,
+            webui_listeners: Arc::default(),
         })
     }
 
@@ -122,15 +129,35 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                     );
                     node.connection_state.lock().await.connected_peers = pids.clone();
                     connected_ok = pids.len() >= num_peers;
+                    node.notify_webui().await;
                 }
                 NetworkEvent::UpdateKnownPeers(pids) => {
                     node.connection_state.lock().await.known_peers = pids.clone();
                     known_ok = pids.len() >= num_peers;
+                    node.notify_webui().await;
                 }
                 _ => {}
             }
         }
         Ok(())
+    }
+
+    /// Notify the webui that either the `state` or `connection_state` has changed.
+    ///
+    /// If the webui is not started, this will do nothing.
+    pub async fn notify_webui(&self) {
+        let mut lock = self.webui_listeners.lock().await;
+        // Keep a list of indexes that are unable to send the update
+        let mut indexes_to_remove = Vec::new();
+        for (idx, sender) in lock.iter().enumerate() {
+            if sender.send_async(()).await.is_err() {
+                indexes_to_remove.push(idx);
+            }
+        }
+        // Make sure to remove the indexes in reverse other, else removing an index will invalidate the following indexes.
+        for idx in indexes_to_remove.into_iter().rev() {
+            lock.remove(idx);
+        }
     }
 }
 
@@ -181,9 +208,8 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     known_nodes: Vec<(Option<PeerId>, Multiaddr)>,
     config: NetworkNodeConfig,
     idx: usize,
-) -> Result<Arc<NetworkNodeHandle<S>>, NetworkNodeHandleError> {
-    let handle = Arc::new(NetworkNodeHandle::new(config.clone(), idx).await?);
-
+    handle: &Arc<NetworkNodeHandle<S>>,
+) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle
         .send_network
@@ -208,7 +234,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
         .await
         .context(SendSnafu)?;
 
-    Ok(handle)
+    Ok(())
 }
 
 /// Given a slice of handles assumed to be larger than 0,

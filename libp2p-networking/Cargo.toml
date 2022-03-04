@@ -26,3 +26,11 @@ tui = { version = "0.17.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.52"
 derive_builder = "0.10.2"
+
+# Feature dependencies
+
+## webui
+tide = { version = "0.16", optional = true }
+
+[features]
+webui = ["tide"]

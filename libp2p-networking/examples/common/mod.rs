@@ -1,9 +1,5 @@
-use networking_demo::parse_config::NodeDescription;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Once},
-    time::Duration,
-};
+#[cfg(feature = "webui")]
+pub mod web;
 
 use async_std::{
     fs::File,
@@ -11,6 +7,7 @@ use async_std::{
 };
 use futures::AsyncReadExt;
 use libp2p::{gossipsub::Topic, request_response::ResponseChannel, PeerId};
+use networking_demo::parse_config::NodeDescription;
 use networking_demo::{
     direct_message::DirectMessageResponse,
     network_node::{
@@ -27,14 +24,43 @@ use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Once},
+    time::Duration,
+};
 use structopt::StructOpt;
 use tracing::instrument;
+
+#[cfg(feature = "webui")]
+use std::net::SocketAddr;
 
 const TIMEOUT: Duration = Duration::from_secs(1000);
 static INIT: Once = Once::new();
 
 pub type CounterState = u32;
 pub type ConductorState = HashMap<PeerId, CounterState>;
+
+#[cfg(feature = "webui")]
+impl web::WebInfo for ConductorState {
+    type Serialized = serde_json::Value;
+
+    fn get_serializable(&self) -> Self::Serialized {
+        let mut map = serde_json::map::Map::new();
+        for (peer, state) in self.iter() {
+            map.insert(peer.to_base58(), (*state).into());
+        }
+        serde_json::Value::Object(map)
+    }
+}
+
+#[cfg(feature = "webui")]
+impl web::WebInfo for CounterState {
+    type Serialized = u32;
+    fn get_serializable(&self) -> Self::Serialized {
+        *self
+    }
+}
 
 /// Normal message types. We can either
 /// - increment the Counter
@@ -77,11 +103,13 @@ pub async fn handle_normal_msg(
         // direct message only
         CounterRequest::MyCounterIs(c) => {
             *handle.state.lock().await = c;
+            handle.notify_webui().await;
         }
         // gossip message only
         CounterRequest::IncrementCounter { from, to, .. } => {
             if *handle.state.lock().await == from {
                 *handle.state.lock().await = to;
+                handle.notify_webui().await;
             }
         }
         // only as a response
@@ -175,9 +203,11 @@ pub async fn regular_handle_network_event(
         }
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;
+            handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
             handle.connection_state.lock().await.known_peers = p;
+            handle.notify_webui().await;
         }
     }
     Ok(())
@@ -185,11 +215,17 @@ pub async fn regular_handle_network_event(
 
 #[derive(StructOpt)]
 pub struct CliOpt {
-    /// Path to the node configuration file
+    /// Which node to start. Will strong compare with the `multiaddr` value
     #[structopt(long = "ip_addr", short = "ip")]
     pub ip: Option<String>,
+    /// Path to the node configuration file. Defaults to `./identity_mapping.json`
     #[structopt(long = "toplogy_path", short = "path")]
     pub path: Option<String>,
+
+    #[cfg(feature = "webui")]
+    /// If this value is set, a webserver will be spawned on this address with debug info
+    #[structopt(long = "webui")]
+    pub webui: Option<SocketAddr>,
 }
 
 pub async fn parse_config(path: Option<String>) -> Result<Vec<NodeDescription>, CounterError> {
@@ -201,7 +237,11 @@ pub async fn parse_config(path: Option<String>) -> Result<Vec<NodeDescription>, 
     serde_json::from_str(&s).context(JsonParseSnafu)
 }
 
-pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), CounterError> {
+pub async fn start_main(
+    ip_addr: String,
+    path: Option<String>,
+    #[cfg(feature = "webui")] webui_addr: Option<SocketAddr>,
+) -> Result<(), CounterError> {
     // FIXME can we pass in a function that returns an error type
     INIT.call_once(|| {
         color_eyre::install().unwrap();
@@ -239,7 +279,17 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
-            let handle = spin_up_swarm::<ConductorState>(
+            let handle = Arc::new(
+                NetworkNodeHandle::<ConductorState>::new(config.clone(), idx)
+                    .await
+                    .context(HandleSnafu)?,
+            );
+            #[cfg(feature = "webui")]
+            if let Some(addr) = webui_addr {
+                web::spawn_server(Arc::clone(&handle), addr);
+            }
+
+            spin_up_swarm(
                 TIMEOUT,
                 swarm_config
                     .iter()
@@ -247,9 +297,11 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
                     .collect::<Vec<_>>(),
                 config,
                 idx,
+                &handle,
             )
             .await
             .context(HandleSnafu)?;
+
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
 
             // initialize the state of each node
@@ -260,6 +312,7 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
                 }
             }
             drop(state);
+            handle.notify_webui().await;
 
             for i in 0..5 {
                 conductor_broadcast(TIMEOUT, i, handle.clone())
@@ -322,7 +375,17 @@ pub async fn start_main(ip_addr: String, path: Option<String>) -> Result<(), Cou
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
-            let handle = spin_up_swarm::<CounterState>(TIMEOUT, known_peers, config, idx)
+            let handle = Arc::new(
+                NetworkNodeHandle::<CounterState>::new(config.clone(), idx)
+                    .await
+                    .context(HandleSnafu)?,
+            );
+            #[cfg(feature = "webui")]
+            if let Some(addr) = webui_addr {
+                web::spawn_server(Arc::clone(&handle), addr);
+            }
+
+            spin_up_swarm(TIMEOUT, known_peers, config, idx, &handle)
                 .await
                 .context(HandleSnafu)?;
             let handle_dup = handle.clone();
@@ -417,7 +480,7 @@ pub async fn conductor_direct_message(
     // send out the requests to ask the chosen peer for its state (and replace ours)
 
     let mut remaining_nodes = known_peers.clone();
-    remaining_nodes.remove(&chosen_peer);
+    remaining_nodes.remove(chosen_peer);
 
     for peer in &remaining_nodes {
         let msg = Message::ConductorMessage(
@@ -515,6 +578,7 @@ pub async fn conductor_handle_network_event(
                                 .unwrap_or(0);
                             println!("new state: {:?}", *handle.state.lock().await);
                             handle.state_changed.notify_all();
+                            handle.notify_webui().await;
                         }
                     }
                     Message::ConductorMessage(..) => {
@@ -528,9 +592,11 @@ pub async fn conductor_handle_network_event(
         // we care about these for the sake of maintaining conenctions, but not much else
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;
+            handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
             handle.connection_state.lock().await.known_peers = p;
+            handle.notify_webui().await;
         }
     }
     Ok(())

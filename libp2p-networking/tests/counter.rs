@@ -69,12 +69,14 @@ pub async fn counter_handle_network_event(
                     MyCounterIs(c) => {
                         *handle.state.lock().await = c;
                         handle.state_changed.notify_all();
+                        handle.notify_webui().await;
                     }
                     // gossip message only
                     IncrementCounter { from, to, .. } => {
                         if *handle.state.lock().await == from {
                             *handle.state.lock().await = to;
                             handle.state_changed.notify_all();
+                            handle.notify_webui().await;
                         }
                     }
                     // only as a response
@@ -90,6 +92,7 @@ pub async fn counter_handle_network_event(
                         if *handle.state.lock().await == from {
                             *handle.state.lock().await = to;
                             handle.state_changed.notify_all();
+                            handle.notify_webui().await;
                         }
                     }
                     // direct message response
@@ -110,9 +113,11 @@ pub async fn counter_handle_network_event(
         }
         UpdateConnectedPeers(p) => {
             handle.connection_state.lock().await.connected_peers = p;
+            handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
             handle.connection_state.lock().await.known_peers = p;
+            handle.notify_webui().await;
         }
     };
     Ok(())
@@ -180,6 +185,7 @@ async fn run_gossip_round(
 ) -> Result<(), TestError<CounterState>> {
     let msg_handle = get_random_handle(handles);
     *msg_handle.state.lock().await = new_state;
+    msg_handle.notify_webui().await;
 
     let mut futs = Vec::new();
     for handle in handles {
