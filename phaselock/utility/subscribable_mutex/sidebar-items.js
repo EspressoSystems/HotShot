@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["SubscribableMutex","A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:"]]});

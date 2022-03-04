@@ -102,8 +102,12 @@
 <span id="101">101</span>
 <span id="102">102</span>
 <span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Provides an unbounded size broadcast async-aware queue</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">broadcast</span>;
+<span class="doccomment">/// A mutex that can be subscribed to, and will notify the subscribers whenever the internal data is changed.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">subscribable_mutex</span>;
 <span class="doccomment">/// Provides types useful for waiting on certain values to arrive</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">waitqueue</span>;
 

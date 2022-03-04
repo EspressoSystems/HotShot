@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["broadcast","Provides an unbounded size broadcast async-aware queue"],["waitqueue","Provides types useful for waiting on certain values to arrive"]]});
+initSidebarItems({"mod":[["broadcast","Provides an unbounded size broadcast async-aware queue"],["subscribable_mutex","A mutex that can be subscribed to, and will notify the subscribers whenever the internal data is changed."],["waitqueue","Provides types useful for waiting on certain values to arrive"]]});
