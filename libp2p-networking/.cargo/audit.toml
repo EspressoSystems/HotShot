@@ -1,0 +1,5 @@
+[advisories]
+ignore =  [
+    "RUSTSEC-2020-0159", # https://github.com/chronotope/chrono/issues/499
+    "RUSTSEC-2020-0071"  # time, dependent on chrono
+]
