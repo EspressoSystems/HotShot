@@ -1,5 +1,7 @@
 /// Provides an unbounded size broadcast async-aware queue
 pub mod broadcast;
+/// A mutex that can be subscribed to, and will notify the subscribers whenever the internal data is changed.
+pub mod subscribable_mutex;
 /// Provides types useful for waiting on certain values to arrive
 pub mod waitqueue;
 
