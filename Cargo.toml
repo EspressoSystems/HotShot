@@ -78,5 +78,6 @@ lto = "thin"
 [workspace]
 
 members = [
-        "phaselock-types"
+        "phaselock-types",
+        "libp2p-networking"
 ]
