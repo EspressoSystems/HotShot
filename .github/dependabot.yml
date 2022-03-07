@@ -9,3 +9,8 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+
+  - package-ecosystem: "cargo"
+    directory: "/libp2p-networking"
+    schedule:
+      interval: "daily"

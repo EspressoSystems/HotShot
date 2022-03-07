@@ -1,4 +1,4 @@
-name: Code Coverage
+name: Code Coverage (libp2p-newtorking)
 
 on:
   push:
