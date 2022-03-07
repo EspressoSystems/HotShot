@@ -1,4 +1,4 @@
-name: Code Coverage
+name: Code Coverage (libp2p-newtorking)
 
 on:
   push:
@@ -34,19 +34,20 @@ jobs:
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
           RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
 
-      - name: Install grcov
-        run: |
-          wget -O grcov.tar.gz https://github.com/mozilla/grcov/releases/download/v0.8.2/grcov-linux-x86_64.tar.bz2
-          tar -xvf grcov.tar.gz
-          sudo mv -v grcov /home/runner/.cargo/bin/
-          rm -rv grcov.tar.gz
+      # TODO: Seems like we can't override the path where grcov runs, so we're currently code coveraging the main repo
+      # - name: Install grcov
+      #   run: |
+      #     wget -O grcov.tar.gz https://github.com/mozilla/grcov/releases/download/v0.8.2/grcov-linux-x86_64.tar.bz2
+      #     tar -xvf grcov.tar.gz
+      #     sudo mv -v grcov /home/runner/.cargo/bin/
+      #     rm -rv grcov.tar.gz
 
-      - name: Run Coverage Tool (grcov)
-        uses: actions-rs/grcov@v0.1
-        id: coverage
+      # - name: Run Coverage Tool (grcov)
+      #   uses: actions-rs/grcov@v0.1
+      #   id: coverage
 
-      - name: Coveralls upload
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+      # - name: Coveralls upload
+      #   uses: coverallsapp/github-action@master
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     path-to-lcov: ${{ steps.coverage.outputs.report }}

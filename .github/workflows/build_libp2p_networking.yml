@@ -1,4 +1,4 @@
-name: Build
+name: Build (libp2p-networking)
 
 on:
   push:
@@ -40,14 +40,16 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ github.token }}
+          args: --manifest-path libp2p-networking/Cargo.toml
 
-      - name: Audit
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ github.token }}
+      # Does not work with a nested dir
+      # - name: Audit
+      #   uses: actions-rs/audit-check@v1
+      #   with:
+      #     token: ${{ github.token }}
 
       - name: Cargo Build
-        run: cargo build --release
+        run: cargo build --release --manifest-path libp2p-networking/Cargo.toml
 
       - name: Cargo Test
-        run: cargo test --verbose --release test_stress -- -Zunstable-options --report-time --test-threads=1
+        run: cargo test --verbose --release test_stress --manifest-path libp2p-networking/Cargo.toml -- -Zunstable-options --report-time --test-threads=1
