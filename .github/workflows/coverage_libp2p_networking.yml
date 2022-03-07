@@ -1,0 +1,53 @@
+name: Code Coverage (libp2p-newtorking)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  code-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust Nightly Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Run Cargo Test With Coverage Options
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fail-fast test_coverage -- --test-threads=1
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+
+      # TODO: Seems like we can't override the path where grcov runs, so we're currently code coveraging the main repo
+      # - name: Install grcov
+      #   run: |
+      #     wget -O grcov.tar.gz https://github.com/mozilla/grcov/releases/download/v0.8.2/grcov-linux-x86_64.tar.bz2
+      #     tar -xvf grcov.tar.gz
+      #     sudo mv -v grcov /home/runner/.cargo/bin/
+      #     rm -rv grcov.tar.gz
+
+      # - name: Run Coverage Tool (grcov)
+      #   uses: actions-rs/grcov@v0.1
+      #   id: coverage
+
+      # - name: Coveralls upload
+      #   uses: coverallsapp/github-action@master
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     path-to-lcov: ${{ steps.coverage.outputs.report }}

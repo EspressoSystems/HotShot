@@ -1,0 +1,55 @@
+name: Build (libp2p-networking)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Outdated Builds
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: stable
+          override: true
+          default: true
+          components: rustfmt, clippy
+
+      - name: Enable Rust Caching
+        uses: Swatinem/rust-cache@v1
+
+      - name: Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ github.token }}
+          args: --manifest-path libp2p-networking/Cargo.toml
+
+      # Does not work with a nested dir
+      # - name: Audit
+      #   uses: actions-rs/audit-check@v1
+      #   with:
+      #     token: ${{ github.token }}
+
+      - name: Cargo Build
+        run: cargo build --release --manifest-path libp2p-networking/Cargo.toml
+
+      - name: Cargo Test
+        run: cargo test --verbose --release test_stress --manifest-path libp2p-networking/Cargo.toml -- -Zunstable-options --report-time --test-threads=1
