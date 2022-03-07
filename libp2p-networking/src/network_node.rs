@@ -363,7 +363,7 @@ impl NetworkNode {
     /// looks up a random peer
     #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
-        if self.swarm.behaviour().is_finished() {
+        if self.swarm.behaviour().is_bootstrapped() {
             let random_peer = PeerId::random();
             self.swarm.behaviour_mut().query_closest_peers(random_peer);
         }
@@ -536,7 +536,7 @@ impl NetworkNode {
                 behaviour.add_connected_peer(peer_id);
 
                 // now we have at least one peer so we can bootstrap
-                if behaviour.is_not_started() {
+                if behaviour.should_bootstrap() {
                     behaviour
                         .bootstrap()
                         .map_err(|_e| NetworkError::NoKnownPeers)?;

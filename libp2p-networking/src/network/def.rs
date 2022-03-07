@@ -132,15 +132,27 @@ impl NetworkDef {
     }
 }
 
-/// State functions
+/// Bootstrap functions
 impl NetworkDef {
+    /// Bootstrap the network. Make sure at least 1 peer is known, by registering it with `.add_address`
+    ///
+    /// # Errors
+    ///
+    /// Will return a `NoKnownPeers` error when no known peers are defined
+    pub fn bootstrap(&mut self) -> Result<(), NetworkError> {
+        match self.kadem.bootstrap() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(NetworkError::NoKnownPeers),
+        }
+    }
+
     /// Returns true if the bootstrap state is finished
-    pub fn is_finished(&self) -> bool {
+    pub fn is_bootstrapped(&self) -> bool {
         self.bootstrap_state == BootstrapState::Finished
     }
 
     /// Returns true if the bootstrap state is not started
-    pub fn is_not_started(&self) -> bool {
+    pub fn should_bootstrap(&self) -> bool {
         self.bootstrap_state == BootstrapState::NotStarted
     }
 }
@@ -220,7 +232,7 @@ impl NetworkDef {
 
     /// Return a list of peers to prune, based on given `max_num_peers`
     pub fn get_peers_to_prune(&self, max_num_peers: usize) -> Vec<PeerId> {
-        if !self.is_finished()
+        if !self.is_bootstrapped()
             || !self.pruning_enabled
             || self.connected_peers.len() <= max_num_peers
         {
@@ -321,18 +333,6 @@ impl NetworkDef {
             .send_response(chan, DirectMessageResponse(msg));
         if let Err(e) = res {
             error!("Error replying to direct message. {:?}", e);
-        }
-    }
-
-    /// Bootstrap the network. Make sure at least 1 peer is known, by registering it with `.add_address`
-    ///
-    /// # Errors
-    ///
-    /// Will return a `NoKnownPeers` error when no known peers are defined
-    pub fn bootstrap(&mut self) -> Result<(), NetworkError> {
-        match self.kadem.bootstrap() {
-            Ok(_) => Ok(()),
-            Err(_) => Err(NetworkError::NoKnownPeers),
         }
     }
 }
