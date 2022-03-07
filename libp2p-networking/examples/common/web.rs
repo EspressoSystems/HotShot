@@ -17,9 +17,12 @@ where
     let mut tide = tide::with_state(state);
     // Unwrap this in the calling thread so that if it fails we fail completely
     // instead of not knowing why the web UI does not work
-    tide.at("/")
-        .serve_file("web/index.html")
-        .expect("Could not register web/index.html");
+    tide.at("/").get(|_| async move {
+        Ok(tide::Response::builder(200)
+            .content_type(tide::http::mime::HTML)
+            .body(include_str!("../../web/index.html"))
+            .build())
+    });
     tide.at("/sse").get(tide::sse::endpoint(
         |req: tide::Request<Arc<NetworkNodeHandle<S>>>, sender| async move {
             let peer_addr = req.peer_addr();

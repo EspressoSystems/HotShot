@@ -9,13 +9,7 @@ pub mod common;
 #[instrument]
 async fn main() -> Result<()> {
     let args = CliOpt::from_args();
-    start_main(
-        args.ip.unwrap(),
-        args.path,
-        #[cfg(feature = "webui")]
-        args.webui,
-    )
-    .await?;
+    start_main(args).await?;
 
     // optional UI perhaps? for monitoring purposes
     Ok(())

@@ -1,13 +1,16 @@
 #[cfg(feature = "webui")]
 pub mod web;
 
-use async_std::{
-    fs::File,
-    task::{sleep, spawn},
+use async_std::task::{sleep, spawn};
+
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::{Arc, Once},
+    time::Duration,
 };
-use futures::AsyncReadExt;
-use libp2p::{gossipsub::Topic, request_response::ResponseChannel, PeerId};
-use networking_demo::parse_config::NodeDescription;
+
+use libp2p::{gossipsub::Topic, multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use networking_demo::{
     direct_message::DirectMessageResponse,
     network_node::{
@@ -24,11 +27,6 @@ use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Once},
-    time::Duration,
-};
 use structopt::StructOpt;
 use tracing::instrument;
 
@@ -82,10 +80,12 @@ pub enum CounterRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Message {
     /// message to send from a peer to a peer
-    NormalMessage(CounterRequest),
+    Normal(CounterRequest),
     /// message a conductor sent to a node
     /// that the node must send to other node(s)
-    ConductorMessage(CounterRequest, ConductorMessageMethod),
+    Conductor(CounterRequest, ConductorMessageMethod),
+    // announce the conductor
+    ConductorIdIs(PeerId),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -116,7 +116,7 @@ pub async fn handle_normal_msg(
         CounterRequest::AskForCounter => {
             if let Some(chan) = chan {
                 let response =
-                    Message::NormalMessage(CounterRequest::MyCounterIs(*handle.state.lock().await));
+                    Message::Normal(CounterRequest::MyCounterIs(*handle.state.lock().await));
                 let serialized_response = serialize_msg(&response).context(SerializationSnafu)?;
                 println!("sending back reponse: {:?})", response);
                 handle
@@ -149,10 +149,23 @@ pub async fn regular_handle_network_event(
         GossipMsg(m) | DirectResponse(m, _) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
-                    Message::NormalMessage(msg) => {
+                    Message::ConductorIdIs(peerid) => {
+                        handle
+                            .send_network
+                            .send_async(ClientRequest::IgnorePeers(vec![peerid]))
+                            .await
+                            .context(SendSnafu)?;
+                        handle
+                            .connection_state
+                            .lock()
+                            .await
+                            .ignored_peers
+                            .insert(peerid);
+                    }
+                    Message::Normal(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
                     }
-                    Message::ConductorMessage(..) => {
+                    Message::Conductor(..) => {
                         // do nothing. We only expect to be reached out to by the conductor via
                         // direct message
                     }
@@ -162,14 +175,15 @@ pub async fn regular_handle_network_event(
         DirectRequest(msg, _peer_id, chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&msg) {
                 match msg {
-                    Message::NormalMessage(msg) => {
+                    Message::ConductorIdIs(_) => {}
+                    Message::Normal(msg) => {
                         println!("recv-ed normal direct message {:?}", msg);
                         handle_normal_msg(handle.clone(), msg, Some(chan)).await?;
                     }
-                    Message::ConductorMessage(msg, method) => {
+                    Message::Conductor(msg, method) => {
                         println!("recv-ed conductor message!");
-                        let serialized_msg = serialize_msg(&Message::NormalMessage(msg))
-                            .context(SerializationSnafu)?;
+                        let serialized_msg =
+                            serialize_msg(&Message::Normal(msg)).context(SerializationSnafu)?;
                         match method {
                             ConductorMessageMethod::Broadcast => {
                                 handle
@@ -188,7 +202,7 @@ pub async fn regular_handle_network_event(
                                     .await
                                     .context(SendSnafu)?;
                                 let response =
-                                    serialize_msg(&Message::NormalMessage(CounterRequest::Recvd))
+                                    serialize_msg(&Message::Normal(CounterRequest::Recvd))
                                         .context(SerializationSnafu)?;
                                 handle
                                     .send_network
@@ -213,106 +227,111 @@ pub async fn regular_handle_network_event(
     Ok(())
 }
 
+pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
+    let mut i = s.split(':');
+    let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
+}
+
 #[derive(StructOpt)]
 pub struct CliOpt {
-    /// Which node to start. Will strong compare with the `multiaddr` value
-    #[structopt(long = "ip_addr", short = "ip")]
-    pub ip: Option<String>,
-    /// Path to the node configuration file. Defaults to `./identity_mapping.json`
-    #[structopt(long = "toplogy_path", short = "path")]
-    pub path: Option<String>,
-
+    /// Path to the node configuration file
+    /// only should be provided for conductor node
+    // #[structopt(long = "inventory", short = "i")]
+    // pub inventory: Option<String>,
+    #[structopt(long = "bootstrap")]
+    #[structopt(parse(try_from_str = parse_node))]
+    pub bootstrap_addrs: Vec<Multiaddr>,
+    #[structopt(long = "num_nodes")]
+    pub num_nodes: usize,
+    #[structopt(long = "node_type")]
+    pub node_type: NetworkNodeType,
+    #[structopt(long = "bound_addr")]
+    #[structopt(parse(try_from_str = parse_node))]
+    pub bound_addr: Multiaddr,
     #[cfg(feature = "webui")]
     /// If this value is set, a webserver will be spawned on this address with debug info
     #[structopt(long = "webui")]
-    pub webui: Option<SocketAddr>,
+    pub webui_addr: Option<SocketAddr>,
 }
 
-pub async fn parse_config(path: Option<String>) -> Result<Vec<NodeDescription>, CounterError> {
-    let mut f = File::open(&path.unwrap_or_else(|| "./identity_mapping.json".to_string()))
-        .await
-        .context(FileReadSnafu)?;
-    let mut s = String::new();
-    f.read_to_string(&mut s).await.context(FileReadSnafu)?;
-    serde_json::from_str(&s).context(JsonParseSnafu)
-}
-
-pub async fn start_main(
-    ip_addr: String,
-    path: Option<String>,
-    #[cfg(feature = "webui")] webui_addr: Option<SocketAddr>,
-) -> Result<(), CounterError> {
+/// ['bootstrap_addrs`] list of bootstrap multiaddrs. Needed to bootstrap into network
+/// [`num_nodes`] total number of nodes. Needed to create pruning rules
+/// [`node_type`] the type of this node
+/// ['bound_addr`] the address to bind to
+pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     // FIXME can we pass in a function that returns an error type
     INIT.call_once(|| {
         color_eyre::install().unwrap();
         tracing_setup::setup_tracing();
     });
-    let swarm_config = parse_config(path).await?;
-
-    let ignored_peers = swarm_config
+    let bootstrap_nodes = opts
+        .bootstrap_addrs
         .iter()
-        .filter_map(|n| {
-            if n.node_type == NetworkNodeType::Conductor {
-                Some(n.identity.public().to_peer_id())
-            } else {
-                None
-            }
-        })
-        .collect::<HashSet<_>>();
+        .cloned()
+        .map(|a| (None, a))
+        .collect::<Vec<_>>();
 
-    let (idx, node_description) = swarm_config
-        .iter()
-        .enumerate()
-        .find(|(_, node)| node.multiaddr.clone().to_string().contains(&ip_addr))
-        .unwrap();
-    println!("found entry!: {idx}");
-
-    match node_description.node_type {
+    match opts.node_type {
         NetworkNodeType::Conductor => {
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(node_description.bound_addr.clone())
-                .min_num_peers(swarm_config.len() - 1)
-                .max_num_peers(swarm_config.len() - 1)
+                .bound_addr(opts.bound_addr)
+                .min_num_peers(opts.num_nodes - 1)
+                .max_num_peers(opts.num_nodes - 1)
                 .node_type(NetworkNodeType::Conductor)
-                .identity(node_description.identity.clone())
-                .ignored_peers(ignored_peers)
+                .ignored_peers(HashSet::new())
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
             let handle = Arc::new(
-                NetworkNodeHandle::<ConductorState>::new(config.clone(), idx)
+                NetworkNodeHandle::<ConductorState>::new(config.clone(), 0)
                     .await
                     .context(HandleSnafu)?,
             );
             #[cfg(feature = "webui")]
-            if let Some(addr) = webui_addr {
+            if let Some(addr) = opts.webui_addr {
                 web::spawn_server(Arc::clone(&handle), addr);
             }
 
-            spin_up_swarm(
-                TIMEOUT,
-                swarm_config
-                    .iter()
-                    .map(|c| (Some(c.identity.public().to_peer_id()), c.multiaddr.clone()))
-                    .collect::<Vec<_>>(),
-                config,
-                idx,
-                &handle,
-            )
-            .await
-            .context(HandleSnafu)?;
+            spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
+                .await
+                .context(HandleSnafu)?;
 
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
 
-            // initialize the state of each node
             let mut state = handle.state.lock().await;
-            for (i, connection) in swarm_config.iter().enumerate() {
-                if i != idx {
-                    state.insert(connection.identity.public().to_peer_id(), 0);
+            for a_peer in handle.connection_state.lock().await.known_peers.clone() {
+                if a_peer != handle.peer_id && state.get(&a_peer).is_none() {
+                    state.insert(a_peer, 0);
                 }
             }
             drop(state);
             handle.notify_webui().await;
+
+            let handle_dup = handle.clone();
+            let conductor_peerid = handle.peer_id;
+            // the "conductor id"
+            // periodically say "ignore me!"
+            spawn(async move {
+                let msg = Message::ConductorIdIs(conductor_peerid);
+                let serialized_msg = serialize_msg(&msg)
+                    .context(SerializationSnafu)
+                    .context(HandleSnafu)?;
+                while !*handle_dup.killed.lock().await {
+                    sleep(Duration::from_secs(1)).await;
+                    handle_dup
+                        .send_network
+                        .send_async(ClientRequest::GossipMsg(
+                            Topic::new("global"),
+                            serialized_msg.clone(),
+                        ))
+                        .await
+                        .context(SendSnafu)
+                        .context(HandleSnafu)?;
+                }
+                Ok::<(), CounterError>(())
+            });
 
             for i in 0..5 {
                 conductor_broadcast(TIMEOUT, i, handle.clone())
@@ -326,7 +345,7 @@ pub async fn start_main(
                     .context(HandleSnafu)?
             }
 
-            let kill_msg = Message::NormalMessage(CounterRequest::Kill);
+            let kill_msg = Message::Normal(CounterRequest::Kill);
             let serialized_kill_msg = serialize_msg(&kill_msg)
                 .context(SerializationSnafu)
                 .context(HandleSnafu)?;
@@ -341,6 +360,7 @@ pub async fn start_main(
                     .context(SendSnafu)
                     .context(HandleSnafu)?
             }
+
             while !handle
                 .connection_state
                 .lock()
@@ -348,70 +368,56 @@ pub async fn start_main(
                 .connected_peers
                 .is_empty()
             {}
-
-            // FIXME
-            // we need one other primitive here:
-            // - tell a node to tell all other nodes to increment state with direct message
         }
-        NetworkNodeType::Bootstrap | NetworkNodeType::Regular => {
-            let known_peers = swarm_config
-                .iter()
-                .filter_map(|x| {
-                    // TODO this is gross. Make this a data structure
-                    if x.node_type == NetworkNodeType::Bootstrap {
-                        Some((Some(x.identity.public().to_peer_id()), x.bound_addr.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
+        // regular and bootstrap nodes
+        NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
             let config = NetworkNodeConfigBuilder::default()
-                .bound_addr(node_description.bound_addr.clone())
-                .identity(node_description.identity.clone())
-                .ignored_peers(ignored_peers)
-                .min_num_peers(swarm_config.len() / 4)
-                .max_num_peers(swarm_config.len() / 2)
-                .node_type(node_description.node_type)
+                .bound_addr(opts.bound_addr)
+                .ignored_peers(HashSet::new())
+                .min_num_peers(opts.num_nodes / 4)
+                .max_num_peers(opts.num_nodes / 2)
+                .node_type(opts.node_type)
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
             let handle = Arc::new(
-                NetworkNodeHandle::<CounterState>::new(config.clone(), idx)
+                NetworkNodeHandle::<CounterState>::new(config.clone(), 0)
                     .await
                     .context(HandleSnafu)?,
             );
             #[cfg(feature = "webui")]
-            if let Some(addr) = webui_addr {
+            if let Some(addr) = opts.webui_addr {
                 web::spawn_server(Arc::clone(&handle), addr);
             }
 
-            spin_up_swarm(TIMEOUT, known_peers, config, idx, &handle)
+            spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
                 .await
                 .context(HandleSnafu)?;
             let handle_dup = handle.clone();
             // periodically broadcast state back to conductor node
             spawn(async move {
-                // FIXME map option to error
-                let conductor_id = swarm_config
-                    .iter()
-                    .find(|c| c.node_type == NetworkNodeType::Conductor)
-                    .unwrap()
-                    .identity
-                    .public()
-                    .to_peer_id();
                 while !*handle_dup.killed.lock().await {
-                    sleep(Duration::from_secs(1)).await;
-                    let counter = *handle_dup.state.lock().await;
-                    let msg = Message::NormalMessage(CounterRequest::MyCounterIs(counter));
-                    let serialized_msg = serialize_msg(&msg)
-                        .context(SerializationSnafu)
-                        .context(HandleSnafu)?;
-                    handle_dup
-                        .send_network
-                        .send_async(ClientRequest::DirectRequest(conductor_id, serialized_msg))
+                    if let Some(conductor_id) = handle_dup
+                        .connection_state
+                        .lock()
                         .await
-                        .context(SendSnafu)
-                        .context(HandleSnafu)?;
+                        .ignored_peers
+                        .iter()
+                        .next()
+                    {
+                        let counter = *handle_dup.state.lock().await;
+                        let msg = Message::Normal(CounterRequest::MyCounterIs(counter));
+                        let serialized_msg = serialize_msg(&msg)
+                            .context(SerializationSnafu)
+                            .context(HandleSnafu)?;
+                        handle_dup
+                            .send_network
+                            .send_async(ClientRequest::DirectRequest(*conductor_id, serialized_msg))
+                            .await
+                            .context(SendSnafu)
+                            .context(HandleSnafu)?;
+                    }
+                    sleep(Duration::from_secs(1)).await;
                 }
                 Ok::<(), CounterError>(())
             });
@@ -450,7 +456,7 @@ pub async fn conductor_direct_message(
             });
 
     // dispatch message
-    let msg = Message::NormalMessage(CounterRequest::IncrementCounter {
+    let msg = Message::Normal(CounterRequest::IncrementCounter {
         from: state,
         to: new_state,
     });
@@ -483,7 +489,7 @@ pub async fn conductor_direct_message(
     remaining_nodes.remove(chosen_peer);
 
     for peer in &remaining_nodes {
-        let msg = Message::ConductorMessage(
+        let msg = Message::Conductor(
             CounterRequest::AskForCounter,
             ConductorMessageMethod::DirectMessage(*chosen_peer),
         );
@@ -522,7 +528,7 @@ pub async fn conductor_broadcast(
     };
     println!("broadcasting message!");
     // broadcast message
-    let msg = Message::ConductorMessage(request.clone(), ConductorMessageMethod::Broadcast);
+    let msg = Message::Conductor(request.clone(), ConductorMessageMethod::Broadcast);
     let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
     handle
         .send_network
@@ -538,7 +544,7 @@ pub async fn conductor_broadcast(
                 state.iter().all(|(_, &s)| s == new_state)
             });
 
-    let msg_direct = Message::NormalMessage(request);
+    let msg_direct = Message::Normal(request);
     let serialized_msg_direct = serialize_msg(&msg_direct).context(SerializationSnafu)?;
     handle
         .send_network
@@ -571,7 +577,7 @@ pub async fn conductor_handle_network_event(
         DirectRequest(m, peer_id, _chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 match msg {
-                    Message::NormalMessage(msg) => {
+                    Message::Normal(msg) => {
                         if let CounterRequest::MyCounterIs(state) = msg {
                             let _old_state = (*handle.state.lock().await)
                                 .insert(peer_id, state)
@@ -581,10 +587,11 @@ pub async fn conductor_handle_network_event(
                             handle.notify_webui().await;
                         }
                     }
-                    Message::ConductorMessage(..) => {
+                    Message::Conductor(..) => {
                         /* This should also never happen ... */
                         unreachable!()
                     }
+                    Message::ConductorIdIs(_) => {}
                 }
             }
         }
@@ -607,6 +614,5 @@ pub async fn conductor_handle_network_event(
 pub enum CounterError {
     Handle { source: NetworkNodeHandleError },
     FileRead { source: std::io::Error },
-    JsonParse { source: serde_json::Error },
     MissingBootstrap,
 }
