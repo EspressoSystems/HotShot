@@ -57,7 +57,7 @@ pub struct Prepare<T, S, const N: usize> {
     pub high_qc: QuorumCertificate<N>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// A nodes vote on the prepare field
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
@@ -65,28 +65,20 @@ pub struct Vote<const N: usize> {
     /// Id of the voting nodes
     pub id: u64,
     /// Hash of the item being voted on
+    #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The view this vote was cast for
     pub current_view: u64,
     /// The current stage
+    #[debug(skip)]
     pub stage: Stage,
 }
 
-impl<const N: usize> Debug for Vote<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PrepareVote")
-            .field("current_view", &self.current_view)
-            .field("signature", &self.signature)
-            .field("id", &self.id)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// Pre-commit qc from the leader
 pub struct PreCommit<const N: usize> {
     /// Hash of the item being worked on
+    #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The pre commit qc
     pub qc: QuorumCertificate<N>,
@@ -94,20 +86,11 @@ pub struct PreCommit<const N: usize> {
     pub current_view: u64,
 }
 
-impl<const N: usize> Debug for PreCommit<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PreCommit")
-            .field("current_view", &self.current_view)
-            .field("qc", &self.qc)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// `Commit` qc from the leader
 pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
+    #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The `Commit` qc
     pub qc: QuorumCertificate<N>,
@@ -115,20 +98,11 @@ pub struct Commit<const N: usize> {
     pub current_view: u64,
 }
 
-impl<const N: usize> Debug for Commit<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Commit")
-            .field("current_view", &self.current_view)
-            .field("qc", &self.qc)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// Final decision
 pub struct Decide<const N: usize> {
     /// Hash of the thing we just decided on
+    #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// final qc for the round
     pub qc: QuorumCertificate<N>,
@@ -136,12 +110,10 @@ pub struct Decide<const N: usize> {
     pub current_view: u64,
 }
 
-impl<const N: usize> Debug for Decide<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Decide")
-            .field("current_view", &self.current_view)
-            .field("qc", &self.qc)
-            .field("leaf_hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .finish()
-    }
+/// Format a [`LeafHash`] with [`HexFmt`]
+fn fmt_leaf_hash<const N: usize>(
+    n: &LeafHash<N>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    write!(f, "{:12}", HexFmt(n))
 }

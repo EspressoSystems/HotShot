@@ -21,3 +21,4 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_bytes = "0.11.5"
 snafu = "0.7.0"
 threshold_crypto = "0.4.0"
+custom_debug = "0.5"

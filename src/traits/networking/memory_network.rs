@@ -35,17 +35,13 @@ impl NetworkReliability for DummyReliability {
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
+#[derive(custom_debug::Debug)]
 pub struct MasterMap<T> {
     /// The list of `MemoryNetwork`s
+    #[debug(skip)]
     map: DashMap<PubKey, MemoryNetwork<T>>,
     /// The id of this `MemoryNetwork` cluster
     id: u64,
-}
-
-impl<T> std::fmt::Debug for MasterMap<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MasterMap").field("id", &self.id).finish()
-    }
 }
 
 impl<T> MasterMap<T> {
