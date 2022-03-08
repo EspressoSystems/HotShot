@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, Once},
     time::Duration,
 };
@@ -111,6 +111,7 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     }
 }
 
+#[allow(dead_code)]
 pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     let mut err_msg = "".to_string();
     for (i, handle) in handles.iter().enumerate() {
