@@ -26,6 +26,9 @@ pub mod message;
 /// UI library for clichat example
 pub mod ui;
 
+/// Network related logic
+pub mod network;
+
 /// Network behaviour wrapper
 pub mod network_node;
 
