@@ -327,6 +327,7 @@ fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std:
 }
 
 /// Format a vec with [`HexFmt`]
+#[allow(clippy::ptr_arg)] // required because `custom_debug` requires an exact type match
 fn fmt_vec(n: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{:12}", HexFmt(n))
 }
