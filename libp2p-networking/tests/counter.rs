@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 mod common;
 use async_std::future::timeout;
-use common::{check_connection_state, test_bed, HandleSnafu, TestError};
+use common::{test_bed, HandleSnafu, TestError};
 
 use bincode::Options;
 

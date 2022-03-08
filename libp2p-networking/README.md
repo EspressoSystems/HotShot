@@ -58,3 +58,18 @@ In the direct message case, the conductor will increment the state of a randomly
 In both cases, the test terminates as successful when the conductor receives the incremented state from all other nodes. Then, the conductor sends a special "kill" message to all known nodes and waits for them to disconnect.
 
 Metadata about the toplogy is currently read from an `identity_mapping.json` file that manually labels the type of node (bootstrap, regular, conductor). The conductor uses this to figure out information about all nodes in the network. The regular nodes use this to learn about their ip address and the addresses necessary to bootstrap onto the network. The boostrap nodes only use this to learn about their ip addresses.
+
+### Running counter multi-machine tests
+
+A sample invocation locally:
+
+```bash
+# run each line in a separate terminal
+nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8000
+nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8001
+nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8002
+nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8003
+nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8004
+```
+
+To run on the AWS cluster, see [here](https://github.com/EspressoSystems/cloud-infrastructure/blob/c86873a5c647772836907fc206fce5702a5878bb/ansible/networking-demo/README.md).
