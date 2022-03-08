@@ -55,22 +55,26 @@ use crate::direct_message::DirectMessageProtocol;
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
-#[derive(NetworkBehaviour)]
+#[derive(NetworkBehaviour, custom_debug::Debug)]
 #[behaviour(out_event = "NetworkEvent", poll_method = "poll", event_process = true)]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
     /// in the future it may be able to do peer discovery and routing
     /// <`https://github.com/libp2p/rust-libp2p/issues/2398>
+    #[debug(skip)]
     gossipsub: Gossipsub,
 
     /// purpose: peer routing
+    #[debug(skip)]
     kadem: Kademlia<MemoryStore>,
 
     /// purpose: peer discovery
+    #[debug(skip)]
     identify: Identify,
 
     /// purpose: directly messaging peer
+    #[debug(skip)]
     request_response: RequestResponse<DirectMessageCodec>,
 
     /// if the node has been bootstrapped into the kademlia network
@@ -89,6 +93,7 @@ pub struct NetworkDef {
     known_peers: HashSet<PeerId>,
     /// set of events to send to UI
     #[behaviour(ignore)]
+    #[debug(skip)]
     client_event_queue: Vec<NetworkEvent>,
     /// whether or not to prune nodes
     #[behaviour(ignore)]
@@ -105,22 +110,6 @@ pub struct NetworkDef {
     /// peers we ignore (mainly here for conductor usecase)
     #[behaviour(ignore)]
     ignored_peers: HashSet<PeerId>,
-}
-
-impl Debug for NetworkDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("NetworkDef")
-            .field("bootstrap state", &self.bootstrap_state)
-            .field("connected_peers", &self.connected_peers)
-            .field("connecting_peers", &self.connecting_peers)
-            .field("known_peers", &self.known_peers)
-            .field("ignored_peers", &self.ignored_peers)
-            .field("unknown addrs", &self.unknown_addrs)
-            .field("in progress rr", &self.in_progress_rr)
-            .field("in progress gossip", &self.in_progress_gossip)
-            .field("pruning enabled", &self.pruning_enabled)
-            .finish()
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -311,19 +300,21 @@ impl Default for NetworkNodeType {
 }
 
 /// Network definition
+#[derive(custom_debug::Debug)]
 pub struct NetworkNode {
     /// pub/private key from with peer_id is derived
     pub identity: Keypair,
     /// peer id of network node
     pub peer_id: PeerId,
     /// the swarm of networkbehaviours
+    #[debug(skip)]
     pub swarm: Swarm<NetworkDef>,
     /// the configuration parameters of the netework
     pub config: NetworkNodeConfig,
 }
 
 /// describe the configuration of the network
-#[derive(Clone, Default, derive_builder::Builder)]
+#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
 pub struct NetworkNodeConfig {
     /// max number of connections a node may have before it begins
     /// to disconnect. Only applies if `node_type` is `Regular`
@@ -338,34 +329,15 @@ pub struct NetworkNodeConfig {
     pub node_type: NetworkNodeType,
     /// optional identity
     #[builder(setter(into, strip_option), default)]
+    #[debug(skip)]
     pub identity: Option<Keypair>,
     /// nodes to ignore
     #[builder(default)]
+    #[debug(skip)]
     pub ignored_peers: HashSet<PeerId>,
     /// address to bind to
     #[builder(setter(into, strip_option), default)]
     pub bound_addr: Option<Multiaddr>,
-}
-
-impl Debug for NetworkNodeConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("NetworkNodeConfig")
-            .field("max num peers", &self.max_num_peers)
-            .field("min num peers", &self.min_num_peers)
-            .field("node type", &self.node_type)
-            .field("bound_addr", &self.bound_addr)
-            .finish()
-    }
-}
-
-impl Debug for NetworkNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Network")
-            .field("Peer id", &self.peer_id)
-            .field("Swarm", self.swarm.behaviour())
-            .field("Network Config", &self.config)
-            .finish()
-    }
 }
 
 /// Actions to send from the client to the swarm

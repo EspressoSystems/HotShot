@@ -81,20 +81,13 @@ gen_hash_wrapper_type!(StateHash);
 /// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
 /// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
 /// have for the general case.
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, custom_debug::Debug)]
 pub struct InternalHash<const N: usize> {
     /// The underlying array
     /// No support for const generics
     #[serde(with = "serde_bytes_array")]
+    #[debug(with = "fmt_arr")]
     inner: [u8; N],
-}
-
-impl<const N: usize> Debug for InternalHash<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("InternalHash")
-            .field("inner", &format!("{}", HexFmt(&self.inner)))
-            .finish()
-    }
 }
 
 impl<const N: usize> InternalHash<N> {
@@ -186,17 +179,19 @@ pub enum Stage {
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug)]
 pub struct QuorumCertificate<const N: usize> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
+    #[debug(with = "fmt_blockhash")]
     pub block_hash: BlockHash<N>,
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
+    #[debug(skip)]
     pub leaf_hash: LeafHash<N>,
     /// The view number this quorum certificate was generated during
     ///
@@ -254,18 +249,6 @@ impl<const N: usize> QuorumCertificate<N> {
     }
 }
 
-impl<const N: usize> Debug for QuorumCertificate<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("QuorumCertificate")
-            .field("hash", &format!("{:12}", HexFmt(&self.leaf_hash)))
-            .field("view_number", &self.view_number)
-            .field("stage", &self.stage)
-            .field("signature", &self.signature)
-            .field("genesis", &self.genesis)
-            .finish()
-    }
-}
-
 /// [`QuorumCertificate`] variant using a `Vec` rather than a const-generic array
 ///
 /// This type mainly exists to work around an issue with
@@ -273,9 +256,10 @@ impl<const N: usize> Debug for QuorumCertificate<N> {
 /// const-generic length.
 ///
 /// This type is not used directly by consensus.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug)]
 pub struct VecQuorumCertificate {
     /// Block this QC refers to
+    #[debug(with = "fmt_vec")]
     pub hash: Vec<u8>,
     /// The view we were on when we made this certificate
     pub view_number: u64,
@@ -285,18 +269,6 @@ pub struct VecQuorumCertificate {
     pub signature: Option<tc::Signature>,
     /// Temporary bypass for boostrapping
     pub genesis: bool,
-}
-
-impl Debug for VecQuorumCertificate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("QuorumCertificate")
-            .field("hash", &format!("{:12}", HexFmt(&self.hash)))
-            .field("view_number", &self.view_number)
-            .field("stage", &self.stage)
-            .field("signature", &self.signature)
-            .field("genesis", &self.genesis)
-            .finish()
-    }
 }
 
 /// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in
@@ -314,13 +286,14 @@ pub fn create_verify_hash<const N: usize>(
     VerifyHash::from_array(*hash.as_bytes())
 }
 
-#[derive(Serialize, Deserialize, Clone)]
 /// A node in `PhaseLock`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 pub struct Leaf<T, const N: usize> {
     /// The hash of the parent `Leaf`
+    #[debug(with = "fmt_leaf_hash")]
     pub parent: LeafHash<N>,
     /// The block contained in this `Leaf`
     pub item: T,
@@ -348,11 +321,29 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     }
 }
 
-impl<T: Debug, const N: usize> Debug for Leaf<T, N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&format!("Leaf<{}>", std::any::type_name::<T>()))
-            .field("item", &self.item)
-            .field("parent", &format!("{:12}", HexFmt(&self.parent)))
-            .finish()
-    }
+/// Format a fixed-size array with [`HexFmt`]
+fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", HexFmt(n))
+}
+
+/// Format a vec with [`HexFmt`]
+#[allow(clippy::ptr_arg)] // required because `custom_debug` requires an exact type match
+fn fmt_vec(n: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:12}", HexFmt(n))
+}
+
+/// Format a [`BlockHash`] with [`HexFmt`]
+fn fmt_blockhash<const N: usize>(
+    n: &BlockHash<N>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    write!(f, "{:12}", HexFmt(n))
+}
+
+/// Format a [`LeafHash`] with [`HexFmt`]
+fn fmt_leaf_hash<const N: usize>(
+    n: &LeafHash<N>,
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result {
+    write!(f, "{:12}", HexFmt(n))
 }
