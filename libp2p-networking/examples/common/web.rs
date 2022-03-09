@@ -1,5 +1,4 @@
-use flume::bounded;
-use networking_demo::network_node_handle::NetworkNodeHandle;
+use networking_demo::network::NetworkNodeHandle;
 use std::{net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};
 
@@ -35,12 +34,7 @@ where
                 .await?;
 
             // Register a `Sender<()>` with the `NetworkNodeHandle` so we get notified when it changes
-            let receiver = {
-                let (sender, receiver) = bounded(100);
-                let mut lock = state.webui_listeners.lock().await;
-                lock.push(sender);
-                receiver
-            };
+            let receiver = state.register_webui_listener().await;
 
             while let Ok(()) = receiver.recv_async().await {
                 // TODO: I think this will not work as this `.lock` will conflict with the other lock, but we'll see
@@ -65,8 +59,8 @@ mod network_state {
 
     use libp2p::PeerId;
     use networking_demo::{
-        network_node::{ConnectionData, NetworkNodeConfig},
-        network_node_handle::NetworkNodeHandle,
+        network::{NetworkNodeConfig, NetworkNodeHandle},
+        network_node::ConnectionData,
     };
 
     #[derive(serde::Serialize)]
@@ -81,7 +75,7 @@ mod network_state {
         pub max_num_peers: usize,
         pub min_num_peers: usize,
         pub node_type: String,
-        pub identity: Option<String>,
+        pub identity: String,
         pub ignored_peers: Vec<String>,
     }
 
@@ -98,9 +92,9 @@ mod network_state {
             W: super::WebInfo<Serialized = S> + Send + 'static,
         {
             Self {
-                network_config: NetworkConfig::new(&handle.network_config),
-                state: handle.state.lock().await.get_serializable(),
-                connection_state: ConnectionState::new(&*handle.connection_state.lock().await),
+                network_config: NetworkConfig::new(handle.peer_id(), handle.config()),
+                state: handle.state_lock().await.get_serializable(),
+                connection_state: ConnectionState::new(handle.connection_state().await),
             }
         }
         pub async fn send(self, sender: &tide::sse::Sender) -> std::io::Result<()> {
@@ -109,28 +103,25 @@ mod network_state {
         }
     }
     impl NetworkConfig {
-        fn new(c: &NetworkNodeConfig) -> Self {
+        fn new(identity: PeerId, c: &NetworkNodeConfig) -> Self {
             Self {
                 max_num_peers: c.max_num_peers,
                 min_num_peers: c.min_num_peers,
                 node_type: format!("{:?}", c.node_type),
-                identity: c
-                    .identity
-                    .as_ref()
-                    .map(|i| i.public().to_peer_id().to_string()),
+                identity: identity.to_string(),
                 ignored_peers: c.ignored_peers.iter().map(|p| p.to_string()).collect(),
             }
         }
     }
     impl ConnectionState {
-        fn new(lock: &ConnectionData) -> ConnectionState {
-            fn map(set: &HashSet<PeerId>) -> Vec<String> {
-                set.iter().map(|p| p.to_string()).collect()
+        fn new(lock: ConnectionData) -> ConnectionState {
+            fn map(set: HashSet<PeerId>) -> Vec<String> {
+                set.into_iter().map(|p| p.to_string()).collect()
             }
             Self {
-                connected_peers: map(&lock.connected_peers),
-                connecting_peers: map(&lock.connecting_peers),
-                known_peers: map(&lock.known_peers),
+                connected_peers: map(lock.connected_peers),
+                connecting_peers: map(lock.connecting_peers),
+                known_peers: map(lock.known_peers),
             }
         }
     }

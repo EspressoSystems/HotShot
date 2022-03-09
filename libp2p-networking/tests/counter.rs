@@ -1,27 +1,23 @@
-use std::{sync::Arc, time::Duration};
 mod common;
+
+use crate::common::print_connections;
 use async_std::future::timeout;
-use common::{test_bed, HandleSnafu, TestError};
-
 use bincode::Options;
-
+use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
 use libp2p::gossipsub::Topic;
 use networking_demo::{
-    network_node::{ClientRequest, NetworkEvent},
-    network_node_handle::{
-        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu,
+    network::{
+        network_node_handle_error::SerializationSnafu, NetworkNodeHandle, NetworkNodeHandleError,
     },
+    network_node::{ClientRequest, NetworkEvent},
+    network_node_handle::get_random_handle,
 };
-use std::fmt::Debug;
-
 use serde::{Deserialize, Serialize};
-
 use snafu::ResultExt;
-
+use std::fmt::Debug;
+use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument, warn};
-
-use crate::common::print_connections;
 
 pub type CounterState = u32;
 
@@ -67,17 +63,22 @@ pub async fn counter_handle_network_event(
                 match msg {
                     // direct message only
                     MyCounterIs(c) => {
-                        *handle.state.lock().await = c;
-                        handle.state_changed.notify_all();
-                        handle.notify_webui().await;
+                        handle.modify_state(|s| *s = c).await;
                     }
                     // gossip message only
                     IncrementCounter { from, to, .. } => {
-                        if *handle.state.lock().await == from {
-                            *handle.state.lock().await = to;
-                            handle.state_changed.notify_all();
-                            handle.notify_webui().await;
-                        }
+                        handle
+                            .modify_state(|s| {
+                                if *s == from {
+                                    *s = to;
+                                }
+                            })
+                            .await;
+                        // if *handle.state.lock().await == from {
+                        //     *handle.state.lock().await = to;
+                        //     handle.state_changed.notify_all();
+                        //     handle.notify_webui().await;
+                        // }
                     }
                     // only as a response
                     AskForCounter => {}
@@ -89,34 +90,39 @@ pub async fn counter_handle_network_event(
                 match msg {
                     // direct message request
                     IncrementCounter { from, to, .. } => {
-                        if *handle.state.lock().await == from {
-                            *handle.state.lock().await = to;
-                            handle.state_changed.notify_all();
-                            handle.notify_webui().await;
-                        }
+                        handle
+                            .modify_state(|s| {
+                                if *s == from {
+                                    *s = to
+                                }
+                            })
+                            .await;
+                        // if *handle.state.lock().await == from {
+                        //     *handle.state.lock().await = to;
+                        //     handle.state_changed.notify_all();
+                        //     handle.notify_webui().await;
+                        // }
                     }
                     // direct message response
                     AskForCounter => {
-                        let response = MyCounterIs(*handle.state.lock().await);
+                        let response = MyCounterIs(handle.state().await);
                         let serialized_response = bincode_options
                             .serialize(&response)
                             .context(SerializationSnafu)?;
                         handle
-                            .send_network
-                            .send_async(ClientRequest::DirectResponse(chan, serialized_response))
-                            .await
-                            .context(SendSnafu)?
+                            .send_request(ClientRequest::DirectResponse(chan, serialized_response))
+                            .await?;
                     }
                     MyCounterIs(_) => {}
                 }
             }
         }
         UpdateConnectedPeers(p) => {
-            handle.connection_state.lock().await.connected_peers = p;
+            handle.set_connected_peers(p).await;
             handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
-            handle.connection_state.lock().await.known_peers = p;
+            handle.set_known_peers(p).await;
             handle.notify_webui().await;
         }
     };
@@ -135,37 +141,35 @@ async fn run_request_response_increment(
         .serialize(&CounterMessage::AskForCounter)
         .unwrap();
 
-    let msg = ClientRequest::DirectRequest(requestee_handle.peer_id, msg_inner);
+    let msg = ClientRequest::DirectRequest(requestee_handle.peer_id(), msg_inner);
 
-    let new_state = *requestee_handle.state.lock().await;
+    let new_state = requestee_handle.state().await;
 
     // set up state change listener
-    let recv_fut = requester_handle.state_changed.wait_timeout_until(
-        requester_handle.state.lock().await,
+    let recv_fut = requester_handle.state_changed().wait_timeout_until(
+        requester_handle.state_lock().await,
         timeout,
         |state| *state == new_state,
     );
 
     requester_handle
-        .send_network
-        .send_async(msg)
+        .send_request(msg)
         .await
-        .context(SendSnafu)
         .context(HandleSnafu)?;
 
     let (_, res) = recv_fut.await;
 
     if res.timed_out() {
         Err(TestError::DirectTimeout {
-            requester: requester_handle.id,
-            requestee: requestee_handle.id,
+            requester: requester_handle.id(),
+            requestee: requestee_handle.id(),
         })
     } else {
-        let s1 = *requester_handle.state.lock().await;
+        let s1 = requester_handle.state().await;
         // sanity check
         if s1 != new_state {
             Err(TestError::State {
-                id: requester_handle.id,
+                id: requester_handle.id(),
                 expected: new_state,
                 actual: s1,
             })
@@ -184,24 +188,18 @@ async fn run_gossip_round(
     timeout_duration: Duration,
 ) -> Result<(), TestError<CounterState>> {
     let msg_handle = get_random_handle(handles);
-    *msg_handle.state.lock().await = new_state;
-    msg_handle.notify_webui().await;
+    msg_handle.modify_state(|s| *s = new_state).await;
 
     let mut futs = Vec::new();
     for handle in handles {
         let a_fut = handle
-            .state_changed
-            .wait_until(handle.state.lock().await, |state| *state == new_state);
+            .state_changed()
+            .wait_until(handle.state_lock().await, |state| *state == new_state);
         futs.push(a_fut);
     }
 
     let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
-    msg_handle
-        .send_network
-        .send_async(msg)
-        .await
-        .context(SendSnafu)
-        .context(HandleSnafu)?;
+    msg_handle.send_request(msg).await.context(HandleSnafu)?;
 
     if timeout(timeout_duration, futures::future::join_all(futs))
         .await
@@ -209,9 +207,9 @@ async fn run_gossip_round(
     {
         let mut failing = Vec::new();
         for handle in handles.iter() {
-            let handle_state = *handle.state.lock().await;
+            let handle_state = handle.state().await;
             if handle_state != new_state {
-                failing.push(handle.id);
+                failing.push(handle.id());
             }
         }
         if !failing.is_empty() {
@@ -235,7 +233,7 @@ async fn run_intersperse_many_rounds(
         // println!("finished {}", i);
     }
     for h in handles.into_iter() {
-        assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
+        assert_eq!(h.state().await, NUM_ROUNDS as u32);
     }
 }
 
@@ -247,7 +245,7 @@ async fn run_request_response_many_rounds(
         run_request_response_increment_all(&handles, timeout).await;
     }
     for h in handles.into_iter() {
-        assert_eq!(*h.state.lock().await, NUM_ROUNDS as u32);
+        assert_eq!(h.state().await, NUM_ROUNDS as u32);
     }
 }
 
@@ -257,7 +255,7 @@ pub async fn run_request_response_one_round(
 ) {
     run_request_response_increment_all(&handles, timeout).await;
     for h in handles.into_iter() {
-        assert_eq!(*h.state.lock().await, 1);
+        assert_eq!(h.state().await, 1);
     }
 }
 
@@ -309,16 +307,15 @@ async fn run_request_response_increment_all(
     timeout: Duration,
 ) {
     let requestee_handle = get_random_handle(handles);
-    *requestee_handle.state.lock().await += 1;
+    requestee_handle.modify_state(|s| *s += 1).await;
     requestee_handle
-        .send_network
-        .send_async(ClientRequest::Pruning(false))
+        .send_request(ClientRequest::Pruning(false))
         .await
         .unwrap();
     let mut futs = Vec::new();
     for (_i, h) in handles.iter().enumerate() {
         // skip `requestee_handle`
-        if h.peer_id != requestee_handle.peer_id {
+        if h.peer_id() != requestee_handle.peer_id() {
             let requester_handle = h.clone();
             futs.push(run_request_response_increment(
                 requester_handle,
@@ -340,8 +337,7 @@ async fn run_request_response_increment_all(
     }
 
     requestee_handle
-        .send_network
-        .send_async(ClientRequest::Pruning(true))
+        .send_request(ClientRequest::Pruning(true))
         .await
         .unwrap();
 }

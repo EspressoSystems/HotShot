@@ -1,8 +1,11 @@
 mod config;
+mod handle;
 
 pub use self::config::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
 };
+pub use self::handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError};
+
 use crate::direct_message::DirectMessageCodec;
 use crate::direct_message::DirectMessageProtocol;
 use crate::network::NetworkDef;

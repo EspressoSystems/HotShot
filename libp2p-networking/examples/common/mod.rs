@@ -13,12 +13,12 @@ use std::{
 use libp2p::{gossipsub::Topic, multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use networking_demo::{
     direct_message::DirectMessageResponse,
-    network::NetworkNodeConfigBuilder,
-    network_node::{deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeType},
-    network_node_handle::{
-        spawn_handler, spin_up_swarm, NetworkNodeHandle, NetworkNodeHandleError, NetworkSnafu,
-        NodeConfigSnafu, SendSnafu, SerializationSnafu,
+    network::{
+        network_node_handle_error::{NetworkSnafu, NodeConfigSnafu, SerializationSnafu},
+        NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
     },
+    network_node::{deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeType},
+    network_node_handle::{spawn_handler, spin_up_swarm},
     tracing_setup,
 };
 use rand::{seq::IteratorRandom, thread_rng};
@@ -100,33 +100,36 @@ pub async fn handle_normal_msg(
     match msg {
         // direct message only
         CounterRequest::MyCounterIs(c) => {
-            *handle.state.lock().await = c;
-            handle.notify_webui().await;
+            handle.modify_state(|s| *s = c).await;
         }
         // gossip message only
         CounterRequest::IncrementCounter { from, to, .. } => {
-            if *handle.state.lock().await == from {
-                *handle.state.lock().await = to;
-                handle.notify_webui().await;
-            }
+            handle
+                .modify_state(|s| {
+                    if *s == from {
+                        *s = to
+                    }
+                })
+                .await;
+            // if *handle.state.lock().await == from {
+            //     *handle.state.lock().await = to;
+            //     handle.notify_webui().await;
+            // }
         }
         // only as a response
         CounterRequest::AskForCounter => {
             if let Some(chan) = chan {
-                let response =
-                    Message::Normal(CounterRequest::MyCounterIs(*handle.state.lock().await));
+                let response = Message::Normal(CounterRequest::MyCounterIs(handle.state().await));
                 let serialized_response = serialize_msg(&response).context(SerializationSnafu)?;
                 println!("sending back reponse: {:?})", response);
                 handle
-                    .send_network
-                    .send_async(ClientRequest::DirectResponse(chan, serialized_response))
-                    .await
-                    .context(SendSnafu)?
+                    .send_request(ClientRequest::DirectResponse(chan, serialized_response))
+                    .await?;
             }
         }
         CounterRequest::Kill => {
             println!("killing!");
-            handle.kill().await.context(NetworkSnafu)?;
+            handle.shutdown().await.context(NetworkSnafu)?;
         }
         CounterRequest::Recvd => {}
     }
@@ -149,16 +152,9 @@ pub async fn regular_handle_network_event(
                 match msg {
                     Message::ConductorIdIs(peerid) => {
                         handle
-                            .send_network
-                            .send_async(ClientRequest::IgnorePeers(vec![peerid]))
-                            .await
-                            .context(SendSnafu)?;
-                        handle
-                            .connection_state
-                            .lock()
-                            .await
-                            .ignored_peers
-                            .insert(peerid);
+                            .send_request(ClientRequest::IgnorePeers(vec![peerid]))
+                            .await?;
+                        handle.add_ignored_peer(peerid).await;
                     }
                     Message::Normal(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
@@ -185,28 +181,22 @@ pub async fn regular_handle_network_event(
                         match method {
                             ConductorMessageMethod::Broadcast => {
                                 handle
-                                    .send_network
-                                    .send_async(ClientRequest::GossipMsg(
+                                    .send_request(ClientRequest::GossipMsg(
                                         Topic::new("global"),
                                         serialized_msg,
                                     ))
-                                    .await
-                                    .context(SendSnafu)?;
+                                    .await?;
                             }
                             ConductorMessageMethod::DirectMessage(pid) => {
                                 handle
-                                    .send_network
-                                    .send_async(ClientRequest::DirectRequest(pid, serialized_msg))
-                                    .await
-                                    .context(SendSnafu)?;
+                                    .send_request(ClientRequest::DirectRequest(pid, serialized_msg))
+                                    .await?;
                                 let response =
                                     serialize_msg(&Message::Normal(CounterRequest::Recvd))
                                         .context(SerializationSnafu)?;
                                 handle
-                                    .send_network
-                                    .send_async(ClientRequest::DirectResponse(chan, response))
-                                    .await
-                                    .context(SendSnafu)?;
+                                    .send_request(ClientRequest::DirectResponse(chan, response))
+                                    .await?;
                             }
                         }
                     }
@@ -214,11 +204,11 @@ pub async fn regular_handle_network_event(
             }
         }
         UpdateConnectedPeers(p) => {
-            handle.connection_state.lock().await.connected_peers = p;
+            handle.set_connected_peers(p).await;
             handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
-            handle.connection_state.lock().await.known_peers = p;
+            handle.set_known_peers(p).await;
             handle.notify_webui().await;
         }
     }
@@ -298,9 +288,9 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
 
-            let mut state = handle.state.lock().await;
-            for a_peer in handle.connection_state.lock().await.known_peers.clone() {
-                if a_peer != handle.peer_id && state.get(&a_peer).is_none() {
+            let mut state = handle.state_lock().await;
+            for a_peer in handle.known_peers().await {
+                if a_peer != handle.peer_id() && state.get(&a_peer).is_none() {
                     state.insert(a_peer, 0);
                 }
             }
@@ -308,7 +298,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             handle.notify_webui().await;
 
             let handle_dup = handle.clone();
-            let conductor_peerid = handle.peer_id;
+            let conductor_peerid = handle.peer_id();
             // the "conductor id"
             // periodically say "ignore me!"
             spawn(async move {
@@ -316,16 +306,14 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 let serialized_msg = serialize_msg(&msg)
                     .context(SerializationSnafu)
                     .context(HandleSnafu)?;
-                while !*handle_dup.killed.lock().await {
+                while !handle_dup.is_killed().await {
                     sleep(Duration::from_secs(1)).await;
                     handle_dup
-                        .send_network
-                        .send_async(ClientRequest::GossipMsg(
+                        .send_request(ClientRequest::GossipMsg(
                             Topic::new("global"),
                             serialized_msg.clone(),
                         ))
                         .await
-                        .context(SendSnafu)
                         .context(HandleSnafu)?;
                 }
                 Ok::<(), CounterError>(())
@@ -347,25 +335,19 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             let serialized_kill_msg = serialize_msg(&kill_msg)
                 .context(SerializationSnafu)
                 .context(HandleSnafu)?;
-            for peer_id in &handle.connection_state.lock().await.connected_peers {
+            for peer_id in handle.connected_peers().await {
                 handle
-                    .send_network
-                    .send_async(ClientRequest::DirectRequest(
-                        *peer_id,
+                    .send_request(ClientRequest::DirectRequest(
+                        peer_id,
                         serialized_kill_msg.clone(),
                     ))
                     .await
-                    .context(SendSnafu)
                     .context(HandleSnafu)?
             }
 
-            while !handle
-                .connection_state
-                .lock()
-                .await
-                .connected_peers
-                .is_empty()
-            {}
+            while !handle.connected_peers().await.is_empty() {
+                async_std::task::sleep(Duration::from_millis(100)).await;
+            }
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
@@ -394,25 +376,19 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             let handle_dup = handle.clone();
             // periodically broadcast state back to conductor node
             spawn(async move {
-                while !*handle_dup.killed.lock().await {
-                    if let Some(conductor_id) = handle_dup
-                        .connection_state
-                        .lock()
-                        .await
-                        .ignored_peers
-                        .iter()
-                        .next()
-                    {
-                        let counter = *handle_dup.state.lock().await;
+                while !handle_dup.is_killed().await {
+                    if let Some(conductor_id) = handle_dup.ignored_peers().await.iter().next() {
+                        let counter = handle_dup.state().await;
                         let msg = Message::Normal(CounterRequest::MyCounterIs(counter));
                         let serialized_msg = serialize_msg(&msg)
                             .context(SerializationSnafu)
                             .context(HandleSnafu)?;
                         handle_dup
-                            .send_network
-                            .send_async(ClientRequest::DirectRequest(*conductor_id, serialized_msg))
+                            .send_request(ClientRequest::DirectRequest(
+                                *conductor_id,
+                                serialized_msg,
+                            ))
                             .await
-                            .context(SendSnafu)
                             .context(HandleSnafu)?;
                     }
                     sleep(Duration::from_secs(1)).await;
@@ -420,7 +396,9 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 Ok::<(), CounterError>(())
             });
             spawn_handler(handle.clone(), regular_handle_network_event).await;
-            while !*handle.killed.lock().await {}
+            while !handle.is_killed().await {
+                async_std::task::sleep(Duration::from_millis(100)).await;
+            }
         }
     }
 
@@ -436,8 +414,8 @@ pub async fn conductor_direct_message(
     let new_state = state + 1;
 
     // pick a peer to do the be the recipient of the direct messages
-    let mut known_peers = handle.connection_state.lock().await.known_peers.clone();
-    known_peers.remove(&handle.peer_id);
+    let mut known_peers = handle.known_peers().await;
+    known_peers.remove(&handle.peer_id());
 
     // FIXME wrapper error
     let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
@@ -448,8 +426,8 @@ pub async fn conductor_direct_message(
     // set up listener before any state has the chance to change
     let res_fut =
         handle
-            .state_changed
-            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+            .state_changed()
+            .wait_timeout_until(handle.state_lock().await, timeout, |state| {
                 *state.get(chosen_peer).unwrap() == new_state
             });
 
@@ -460,10 +438,8 @@ pub async fn conductor_direct_message(
     });
     let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
     handle
-        .send_network
-        .send_async(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
-        .await
-        .context(SendSnafu)?;
+        .send_request(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
+        .await?;
 
     if res_fut.await.1.timed_out() {
         panic!("timeout!");
@@ -476,8 +452,8 @@ pub async fn conductor_direct_message(
     // set up listener first
     let res_fut =
         handle
-            .state_changed
-            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+            .state_changed()
+            .wait_timeout_until(handle.state_lock().await, timeout, |state| {
                 state.iter().all(|(_, &s)| s == new_state)
             });
 
@@ -493,10 +469,8 @@ pub async fn conductor_direct_message(
         );
         let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
         handle
-            .send_network
-            .send_async(ClientRequest::DirectRequest(*peer, serialized_msg))
-            .await
-            .context(SendSnafu)?;
+            .send_request(ClientRequest::DirectRequest(*peer, serialized_msg))
+            .await?;
     }
 
     if res_fut.await.1.timed_out() {
@@ -512,8 +486,8 @@ pub async fn conductor_broadcast(
     handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
     let new_state = state + 1;
-    let mut known_peers = handle.connection_state.lock().await.known_peers.clone();
-    known_peers.remove(&handle.peer_id);
+    let mut known_peers = handle.known_peers().await;
+    known_peers.remove(&handle.peer_id());
 
     // FIXME wrapper error
     let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
@@ -529,29 +503,25 @@ pub async fn conductor_broadcast(
     let msg = Message::Conductor(request.clone(), ConductorMessageMethod::Broadcast);
     let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
     handle
-        .send_network
-        .send_async(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
-        .await
-        .context(SendSnafu)?;
+        .send_request(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
+        .await?;
 
     // set up listener before any state has the chance to change
     let res_fut =
         handle
-            .state_changed
-            .wait_timeout_until(handle.state.lock().await, timeout, |state| {
+            .state_changed()
+            .wait_timeout_until(handle.state_lock().await, timeout, |state| {
                 state.iter().all(|(_, &s)| s == new_state)
             });
 
     let msg_direct = Message::Normal(request);
     let serialized_msg_direct = serialize_msg(&msg_direct).context(SerializationSnafu)?;
     handle
-        .send_network
-        .send_async(ClientRequest::DirectRequest(
+        .send_request(ClientRequest::DirectRequest(
             *chosen_peer,
             serialized_msg_direct,
         ))
-        .await
-        .context(SendSnafu)?;
+        .await?;
 
     if res_fut.await.1.timed_out() {
         panic!("timeout!");
@@ -577,12 +547,12 @@ pub async fn conductor_handle_network_event(
                 match msg {
                     Message::Normal(msg) => {
                         if let CounterRequest::MyCounterIs(state) = msg {
-                            let _old_state = (*handle.state.lock().await)
-                                .insert(peer_id, state)
-                                .unwrap_or(0);
-                            println!("new state: {:?}", *handle.state.lock().await);
-                            handle.state_changed.notify_all();
-                            handle.notify_webui().await;
+                            handle
+                                .modify_state(|s| {
+                                    s.insert(peer_id, state);
+                                    println!("new state: {:?}", s);
+                                })
+                                .await;
                         }
                     }
                     Message::Conductor(..) => {
@@ -596,11 +566,11 @@ pub async fn conductor_handle_network_event(
         DirectResponse(_m, _peer_id) => { /* nothing to do here */ }
         // we care about these for the sake of maintaining conenctions, but not much else
         UpdateConnectedPeers(p) => {
-            handle.connection_state.lock().await.connected_peers = p;
+            handle.set_connected_peers(p).await;
             handle.notify_webui().await;
         }
         UpdateKnownPeers(p) => {
-            handle.connection_state.lock().await.known_peers = p;
+            handle.set_known_peers(p).await;
             handle.notify_webui().await;
         }
     }
