@@ -1,12 +1,11 @@
+use crate::{
+    network::{NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError},
+    network_node::{gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent},
+};
 use async_std::{
     future::{timeout, TimeoutError},
     sync::{Condvar, Mutex},
     task::spawn,
-};
-
-use crate::network_node::{
-    gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
@@ -65,7 +64,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
-        let peer_id = network.peer_id;
+        let peer_id = network.peer_id();
         // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
             .start_listen(listen_addr)

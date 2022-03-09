@@ -13,10 +13,8 @@ use std::{
 use libp2p::{gossipsub::Topic, multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use networking_demo::{
     direct_message::DirectMessageResponse,
-    network_node::{
-        deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeConfigBuilder,
-        NetworkNodeType,
-    },
+    network::NetworkNodeConfigBuilder,
+    network_node::{deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeType},
     network_node_handle::{
         spawn_handler, spin_up_swarm, NetworkNodeHandle, NetworkNodeHandleError, NetworkSnafu,
         NodeConfigSnafu, SendSnafu, SerializationSnafu,
