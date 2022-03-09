@@ -2,11 +2,12 @@ use async_std::future::timeout;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
-    network::{NetworkNodeConfig, NetworkNodeConfigBuilder},
-    network_node::{ClientRequest, NetworkEvent, NetworkNodeType},
-    network_node_handle::{
-        spawn_handler, NetworkNodeHandle, NetworkNodeHandleError, NodeConfigSnafu, SendSnafu,
+    network::{
+        network_node_handle_error::{NodeConfigSnafu, SendSnafu},
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
     },
+    network_node::{ClientRequest, NetworkEvent, NetworkNodeType},
+    network_node_handle::spawn_handler,
     tracing_setup,
 };
 use snafu::{ResultExt, Snafu};

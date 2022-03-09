@@ -1,27 +1,24 @@
-use std::{sync::Arc, time::Duration};
 mod common;
+
+use crate::common::print_connections;
 use async_std::future::timeout;
-use common::{test_bed, HandleSnafu, TestError};
-
 use bincode::Options;
-
+use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
 use libp2p::gossipsub::Topic;
 use networking_demo::{
-    network_node::{ClientRequest, NetworkEvent},
-    network_node_handle::{
-        get_random_handle, NetworkNodeHandle, NetworkNodeHandleError, SendSnafu, SerializationSnafu,
+    network::{
+        network_node_handle_error::{SendSnafu, SerializationSnafu},
+        NetworkNodeHandle, NetworkNodeHandleError,
     },
+    network_node::{ClientRequest, NetworkEvent},
+    network_node_handle::get_random_handle,
 };
-use std::fmt::Debug;
-
 use serde::{Deserialize, Serialize};
-
 use snafu::ResultExt;
-
+use std::fmt::Debug;
+use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument, warn};
-
-use crate::common::print_connections;
 
 pub type CounterState = u32;
 

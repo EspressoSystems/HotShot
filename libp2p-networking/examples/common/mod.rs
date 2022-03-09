@@ -13,12 +13,12 @@ use std::{
 use libp2p::{gossipsub::Topic, multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use networking_demo::{
     direct_message::DirectMessageResponse,
-    network::NetworkNodeConfigBuilder,
-    network_node::{deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeType},
-    network_node_handle::{
-        spawn_handler, spin_up_swarm, NetworkNodeHandle, NetworkNodeHandleError, NetworkSnafu,
-        NodeConfigSnafu, SendSnafu, SerializationSnafu,
+    network::{
+        network_node_handle_error::{NetworkSnafu, NodeConfigSnafu, SendSnafu, SerializationSnafu},
+        NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
     },
+    network_node::{deserialize_msg, serialize_msg, ClientRequest, NetworkEvent, NetworkNodeType},
+    network_node_handle::{spawn_handler, spin_up_swarm},
     tracing_setup,
 };
 use rand::{seq::IteratorRandom, thread_rng};
