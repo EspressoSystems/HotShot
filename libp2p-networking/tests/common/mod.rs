@@ -3,17 +3,16 @@ use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
     network::{
-        network_node_handle_error::NodeConfigSnafu, NetworkNodeConfig, NetworkNodeConfigBuilder,
-        NetworkNodeHandle, NetworkNodeHandleError,
+        network_node_handle_error::NodeConfigSnafu, spawn_handler, ClientRequest, NetworkEvent,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
+        NetworkNodeType,
     },
-    network_node::{ClientRequest, NetworkEvent, NetworkNodeType},
-    network_node_handle::spawn_handler,
     tracing_setup,
 };
 use snafu::{ResultExt, Snafu};
-use std::fmt::Debug;
 use std::{
     collections::HashMap,
+    fmt::Debug,
     sync::{Arc, Once},
     time::Duration,
 };

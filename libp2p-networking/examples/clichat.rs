@@ -1,18 +1,17 @@
-use libp2p::Multiaddr;
-use networking_demo::message::Message;
-use networking_demo::ui::{run_app, TableApp};
-
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use networking_demo::network::{NetworkNode, NetworkNodeConfigBuilder};
-use networking_demo::network_node::{gen_multiaddr, ClientRequest};
+use libp2p::Multiaddr;
+use networking_demo::{
+    message::Message,
+    network::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeConfigBuilder},
+    ui::{run_app, TableApp},
+};
 use parking_lot::Mutex;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 use structopt::StructOpt;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};

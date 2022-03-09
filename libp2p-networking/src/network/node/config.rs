@@ -1,4 +1,4 @@
-use crate::network_node::NetworkNodeType;
+use crate::network::NetworkNodeType;
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use std::collections::HashSet;
 

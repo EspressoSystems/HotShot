@@ -1,6 +1,8 @@
 #![allow(clippy::pedantic, clippy::panic)]
-use std::env::{var, VarError};
-use std::fs::File;
+use std::{
+    env::{var, VarError},
+    fs::File,
+};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     fmt::{self, format::FmtSpan, writer::BoxMakeWriter},

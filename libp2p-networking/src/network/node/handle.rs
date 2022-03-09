@@ -1,6 +1,6 @@
-use crate::{
-    network::{NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError},
-    network_node::{gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent},
+use crate::network::{
+    gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
+    NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use async_std::{
     future::TimeoutError,
