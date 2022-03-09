@@ -64,7 +64,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
-        let peer_id = network.peer_id;
+        let peer_id = network.peer_id();
         // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
             .start_listen(listen_addr)

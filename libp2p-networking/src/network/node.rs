@@ -36,14 +36,14 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 #[derive(custom_debug::Debug)]
 pub struct NetworkNode {
     /// pub/private key from with peer_id is derived
-    pub identity: Keypair,
+    identity: Keypair,
     /// peer id of network node
-    pub peer_id: PeerId,
+    peer_id: PeerId,
     /// the swarm of networkbehaviours
     #[debug(skip)]
-    pub swarm: Swarm<NetworkDef>,
+    swarm: Swarm<NetworkDef>,
     /// the configuration parameters of the netework
-    pub config: NetworkNodeConfig,
+    config: NetworkNodeConfig,
 }
 
 impl NetworkNode {
@@ -466,5 +466,10 @@ impl NetworkNode {
             .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
         );
         Ok((s_input, r_output))
+    }
+
+    /// Get a reference to the network node's peer id.
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id
     }
 }
