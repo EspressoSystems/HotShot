@@ -1,16 +1,9 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Once},
-    time::Duration,
-};
-
 use async_std::future::timeout;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
-    network_node::{
-        ClientRequest, NetworkEvent, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeType,
-    },
+    network::{NetworkNodeConfig, NetworkNodeConfigBuilder},
+    network_node::{ClientRequest, NetworkEvent, NetworkNodeType},
     network_node_handle::{
         spawn_handler, NetworkNodeHandle, NetworkNodeHandleError, NodeConfigSnafu, SendSnafu,
     },
@@ -18,6 +11,11 @@ use networking_demo::{
 };
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Once},
+    time::Duration,
+};
 use tracing::{info, instrument, warn};
 
 static INIT: Once = Once::new();

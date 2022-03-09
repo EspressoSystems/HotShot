@@ -1,12 +1,11 @@
+use crate::{
+    network::{NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError},
+    network_node::{gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent},
+};
 use async_std::{
     future::{timeout, TimeoutError},
     sync::{Condvar, Mutex},
     task::spawn,
-};
-
-use crate::network_node::{
-    gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use flume::{Receiver, RecvError, SendError, Sender};
 use futures::{select, Future, FutureExt};
