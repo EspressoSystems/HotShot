@@ -1,22 +1,23 @@
-use crate::direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse};
-use crate::network_node::{NetworkError, NetworkEvent};
-use libp2p::request_response::{RequestId, ResponseChannel};
+use crate::{
+    direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
+    network::{NetworkError, NetworkEvent},
+};
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic as Topic},
     identify::{Identify, IdentifyEvent},
     kad::{store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaEvent, QueryResult},
-    request_response::{RequestResponse, RequestResponseEvent, RequestResponseMessage},
+    request_response::{
+        RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
+    },
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use rand::prelude::IteratorRandom;
-use rand::thread_rng;
-use std::collections::HashMap;
-use std::fmt::Debug;
+use rand::{prelude::IteratorRandom, thread_rng};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
+    fmt::Debug,
     task::{Context, Poll},
 };
 use tracing::{debug, error, info};

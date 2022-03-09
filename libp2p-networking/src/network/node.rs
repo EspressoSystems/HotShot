@@ -1,22 +1,18 @@
 mod config;
 mod handle;
 
-pub use self::config::{
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+pub use self::{
+    config::{NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError},
+    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
 };
-pub use self::handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError};
-
-use crate::direct_message::DirectMessageCodec;
-use crate::direct_message::DirectMessageProtocol;
-use crate::network::NetworkDef;
-use crate::network_node::{
-    gen_transport, ClientRequest, GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError,
-    NetworkEvent, NetworkNodeType, TransportSnafu,
+use super::{
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
 };
+use crate::direct_message::{DirectMessageCodec, DirectMessageProtocol};
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::swarm::ConnectionHandlerUpgrErr;
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -27,7 +23,7 @@ use libp2p::{
     identity::Keypair,
     kad::{self, store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
-    swarm::SwarmEvent,
+    swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
 use rand::{seq::IteratorRandom, thread_rng};

@@ -6,17 +6,13 @@ use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
 use libp2p::gossipsub::Topic;
-use networking_demo::{
-    network::{
-        network_node_handle_error::SerializationSnafu, NetworkNodeHandle, NetworkNodeHandleError,
-    },
-    network_node::{ClientRequest, NetworkEvent},
-    network_node_handle::get_random_handle,
+use networking_demo::network::{
+    get_random_handle, network_node_handle_error::SerializationSnafu, ClientRequest, NetworkEvent,
+    NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use std::fmt::Debug;
-use std::{sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 use tracing::{info, instrument, warn};
 
 pub type CounterState = u32;

@@ -26,14 +26,8 @@ pub mod message;
 /// UI library for clichat example
 pub mod ui;
 
-/// Network related logic
+/// Network logic
 pub mod network;
-
-/// Network behaviour wrapper
-pub mod network_node;
-
-/// handle for network behaviour
-pub mod network_node_handle;
 
 /// used for parsing config file
 pub mod parse_config;

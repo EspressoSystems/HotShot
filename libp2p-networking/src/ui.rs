@@ -1,7 +1,10 @@
 #![allow(missing_docs)]
 use async_std::task::{sleep, spawn};
 
-use crate::network_node::NetworkEvent;
+use crate::{
+    message::Message,
+    network::{ClientRequest, NetworkEvent},
+};
 use bincode::Options;
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -12,7 +15,6 @@ use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{gossipsub::Topic, PeerId};
 use parking_lot::Mutex;
-
 use std::{
     collections::{HashSet, VecDeque},
     sync::Arc,
@@ -26,8 +28,6 @@ use tui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
     Frame, Terminal,
 };
-
-use crate::{message::Message, network_node::ClientRequest};
 
 #[derive(Debug, Copy, Clone)]
 pub enum InputMode {
