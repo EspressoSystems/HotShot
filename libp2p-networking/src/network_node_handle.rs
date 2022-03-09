@@ -1,6 +1,6 @@
 use crate::{
     network::{
-        network_node_handle_error::{RecvSnafu, SendSnafu, TimeoutSnafu},
+        network_node_handle_error::{RecvSnafu, TimeoutSnafu},
         NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError,
     },
     network_node::{ClientRequest, NetworkEvent},
@@ -31,14 +31,14 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
         + 'static
         + std::marker::Sync,
 {
-    let recv_kill = handle.recv_kill.clone();
-    let recv_event = handle.recv_network.clone();
+    let recv_kill = handle.recv_kill();
+    let recv_event = handle.recv_network();
     spawn(
         async move {
             loop {
                 select!(
                     _ = recv_kill.recv_async().fuse() => {
-                        *handle.killed.lock().await = true;
+                        handle.mark_killed().await;
                         break;
                     },
                     event = recv_event.recv_async().fuse() => {
@@ -64,27 +64,23 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle
-        .send_network
-        .send_async(ClientRequest::AddKnownPeers(known_nodes))
-        .await
-        .context(SendSnafu)?;
+        .send_request(ClientRequest::AddKnownPeers(known_nodes))
+        .await?;
 
     timeout(
         timeout_len,
         NetworkNodeHandle::wait_to_connect(
             handle.clone(),
             config.max_num_peers,
-            handle.recv_network.clone(),
+            handle.recv_network(),
             idx,
         ),
     )
     .await
     .context(TimeoutSnafu)??;
     handle
-        .send_network
-        .send_async(ClientRequest::Subscribe("global".to_string()))
-        .await
-        .context(SendSnafu)?;
+        .send_request(ClientRequest::Subscribe("global".to_string()))
+        .await?;
 
     Ok(())
 }

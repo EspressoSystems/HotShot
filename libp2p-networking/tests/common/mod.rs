@@ -3,8 +3,8 @@ use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
     network::{
-        network_node_handle_error::{NodeConfigSnafu, SendSnafu},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
+        network_node_handle_error::NodeConfigSnafu, NetworkNodeConfig, NetworkNodeConfigBuilder,
+        NetworkNodeHandle, NetworkNodeHandleError,
     },
     network_node::{ClientRequest, NetworkEvent, NetworkNodeType},
     network_node_handle::spawn_handler,
@@ -65,14 +65,14 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
 
     // cleanup
     for handle in handles {
-        handle.kill().await.unwrap();
+        handle.shutdown().await.unwrap();
     }
 }
 
 fn gen_peerid_map<S>(handles: &[Arc<NetworkNodeHandle<S>>]) -> HashMap<PeerId, usize> {
     let mut r_val = HashMap::new();
     for handle in handles {
-        r_val.insert(handle.peer_id, handle.id);
+        r_val.insert(handle.peer_id(), handle.id());
     }
     r_val
 }
@@ -85,24 +85,20 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     for handle in handles.iter() {
         warn!(
             "peer {}, connected to {:?}",
-            handle.id,
+            handle.id(),
             handle
-                .connection_state
-                .lock()
+                .connected_peers()
                 .await
-                .connected_peers
                 .iter()
                 .map(|pid| m.get(pid).unwrap())
                 .collect::<Vec<_>>()
         );
         warn!(
             "peer {}, knowns about {:?}",
-            handle.id,
+            handle.id(),
             handle
-                .connection_state
-                .lock()
+                .known_peers()
                 .await
-                .known_peers
                 .iter()
                 .map(|pid| m.get(pid).unwrap())
                 .collect::<Vec<_>>()
@@ -114,9 +110,9 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
 pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
     let mut err_msg = "".to_string();
     for (i, handle) in handles.iter().enumerate() {
-        let state = handle.connection_state.lock().await.clone();
-        if state.known_peers.len() < handle.network_config.min_num_peers
-            && handle.network_config.node_type != NetworkNodeType::Bootstrap
+        let state = handle.connection_state().await;
+        if state.known_peers.len() < handle.config().min_num_peers
+            && handle.config().node_type != NetworkNodeType::Bootstrap
         {
             err_msg.push_str(&format!(
                 "\nhad {} known peers for {}-th handle",
@@ -124,7 +120,7 @@ pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
                 i
             ));
         }
-        if state.connected_peers.len() < handle.network_config.min_num_peers {
+        if state.connected_peers.len() < handle.config().min_num_peers {
             err_msg.push_str(&format!(
                 "\nhad {} connected peers for {}-th handle",
                 state.connected_peers.len(),
@@ -157,16 +153,11 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
                 .await
                 .context(HandleSnafu)?,
         );
-        let addr = node.listen_addr.clone();
-        bootstrap_addrs.push((node.peer_id, addr));
+        let addr = node.listen_addr();
+        bootstrap_addrs.push((node.peer_id(), addr));
         connecting_futs.push(timeout(
             timeout_len,
-            NetworkNodeHandle::wait_to_connect(
-                node.clone(),
-                min_num_peers,
-                node.recv_network.clone(),
-                i,
-            ),
+            NetworkNodeHandle::wait_to_connect(node.clone(), min_num_peers, node.recv_network(), i),
         ));
         handles.push(node);
     }
@@ -186,14 +177,14 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
                 .await
                 .context(HandleSnafu)?,
         );
-        let addr = node.listen_addr.clone();
-        bootstrap_addrs.push((node.peer_id, addr));
+        let addr = node.listen_addr();
+        bootstrap_addrs.push((node.peer_id(), addr));
         connecting_futs.push(timeout(
             timeout_len,
             NetworkNodeHandle::wait_to_connect(
                 node.clone(),
                 min_num_peers,
-                node.recv_network.clone(),
+                node.recv_network(),
                 num_bootstrap + j,
             ),
         ));
@@ -211,15 +202,13 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for handle in &handles {
         handle
-            .send_network
-            .send_async(ClientRequest::AddKnownPeers(
+            .send_request(ClientRequest::AddKnownPeers(
                 bootstrap_addrs
                     .iter()
                     .map(|(a, b)| (Some(*a), b.clone()))
                     .collect::<Vec<_>>(),
             ))
             .await
-            .context(SendSnafu)
             .context(HandleSnafu)?;
     }
 
@@ -237,10 +226,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for handle in &handles {
         handle
-            .send_network
-            .send_async(ClientRequest::Subscribe("global".to_string()))
+            .send_request(ClientRequest::Subscribe("global".to_string()))
             .await
-            .context(SendSnafu)
             .context(HandleSnafu)?;
     }
 

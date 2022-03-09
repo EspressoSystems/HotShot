@@ -6,10 +6,10 @@ use async_std::{
     future::TimeoutError,
     sync::{Condvar, Mutex},
 };
-use flume::{Receiver, RecvError, SendError, Sender};
+use flume::{bounded, Receiver, RecvError, SendError, Sender};
 use libp2p::{Multiaddr, PeerId};
 use snafu::{ResultExt, Snafu};
-use std::{fmt::Debug, sync::Arc};
+use std::{collections::HashSet, fmt::Debug, sync::Arc};
 use tracing::{info, instrument};
 
 /// A handle containing:
@@ -18,35 +18,35 @@ use tracing::{info, instrument};
 #[derive(Debug)]
 pub struct NetworkNodeHandle<S> {
     /// network configuration
-    pub network_config: NetworkNodeConfig,
+    network_config: NetworkNodeConfig,
     /// notifies that a state change has occurred
-    pub state_changed: Condvar,
+    state_changed: Condvar,
     /// the state of the replica
-    pub state: Arc<Mutex<S>>,
+    state: Arc<Mutex<S>>,
     /// send an action to the networkbehaviour
-    pub send_network: Sender<ClientRequest>,
+    send_network: Sender<ClientRequest>,
     /// receive an action from the networkbehaviour
-    pub recv_network: Receiver<NetworkEvent>,
+    recv_network: Receiver<NetworkEvent>,
     /// whether or not the handle has been killed
-    pub killed: Arc<Mutex<bool>>,
+    killed: Arc<Mutex<bool>>,
     /// kill the event handler for events from the swarm
-    pub kill_switch: Sender<()>,
+    kill_switch: Sender<()>,
     /// receiving end of `kill_switch`
-    pub recv_kill: Receiver<()>,
+    recv_kill: Receiver<()>,
     /// the local address we're listening on
-    pub listen_addr: Multiaddr,
+    listen_addr: Multiaddr,
     /// the peer id of the networkbehaviour
-    pub peer_id: PeerId,
+    peer_id: PeerId,
     /// the connection metadata associated with the networkbehaviour
-    pub connection_state: Arc<Mutex<ConnectionData>>,
+    connection_state: Arc<Mutex<ConnectionData>>,
     /// human readable id
-    pub id: usize,
+    id: usize,
 
     /// A list of webui listeners that are listening for changes on this node
     // TODO: Replace the following fields with `SubscribableMutex` (see https://github.com/EspressoSystems/phaselock/pull/33)
     // - `state: Arc<Mutex<S>>`
     // - `connection_state: Arc<Mutex<ConnectionData>>`
-    pub webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
+    webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
 }
 
 impl<S: Default + Debug> NetworkNodeHandle<S> {
@@ -92,7 +92,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// the swarm event handler to stop handling events
     /// and a message to the swarm itself to spin down
     #[instrument]
-    pub async fn kill(&self) -> Result<(), NetworkError> {
+    pub async fn shutdown(&self) -> Result<(), NetworkError> {
         self.send_network
             .send_async(ClientRequest::Shutdown)
             .await
@@ -138,6 +138,13 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
+    /// Get a reference to the network node handle's listen addr.
+    pub fn listen_addr(&self) -> Multiaddr {
+        self.listen_addr.clone()
+    }
+}
+
+impl<S> NetworkNodeHandle<S> {
     /// Notify the webui that either the `state` or `connection_state` has changed.
     ///
     /// If the webui is not started, this will do nothing.
@@ -154,6 +161,127 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         for idx in indexes_to_remove.into_iter().rev() {
             lock.remove(idx);
         }
+    }
+
+    /// Get a clone of the internal `killed` receiver
+    pub fn recv_kill(&self) -> Receiver<()> {
+        self.recv_kill.clone()
+    }
+
+    /// Get a clone of the internal network receiver
+    pub fn recv_network(&self) -> Receiver<NetworkEvent> {
+        self.recv_network.clone()
+    }
+
+    /// Mark this network as killed
+    pub async fn mark_killed(&self) {
+        *self.killed.lock().await = true;
+    }
+
+    /// Send a client request to the network
+    ///
+    /// # Errors
+    ///
+    /// Will throw a [`SendSnafu`] error if all receivers are dropped.
+    pub async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
+        self.send_network.send_async(req).await.context(SendSnafu)?;
+        Ok(())
+    }
+
+    /// Get a reference to the network node handle's id.
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Get a reference to the network node handle's peer id.
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id
+    }
+
+    /// Return a reference to the network config
+    pub fn config(&self) -> &NetworkNodeConfig {
+        &self.network_config
+    }
+
+    /// Get a clone of the internal connection state
+    pub async fn connection_state(&self) -> ConnectionData {
+        self.connection_state.lock().await.clone()
+    }
+
+    /// Get a clone of the known peers list
+    pub async fn known_peers(&self) -> HashSet<PeerId> {
+        self.connection_state.lock().await.known_peers.clone()
+    }
+
+    /// Get a clone of the connected peers list
+    pub async fn connected_peers(&self) -> HashSet<PeerId> {
+        self.connection_state.lock().await.connected_peers.clone()
+    }
+
+    /// Get a clone of the ignored peers list
+    pub async fn ignored_peers(&self) -> HashSet<PeerId> {
+        self.connection_state.lock().await.ignored_peers.clone()
+    }
+
+    /// Modify the state. This will automatically call `state_changed` and `notify_webui`
+    pub async fn modify_state<F>(&self, mut cb: F)
+    where
+        F: FnMut(&mut S),
+    {
+        let mut lock = self.state.lock().await;
+        cb(&mut lock);
+        drop(lock);
+        self.state_changed.notify_all();
+        self.notify_webui().await;
+    }
+
+    /// Set the connected peers list
+    pub async fn set_connected_peers(&self, peers: HashSet<PeerId>) {
+        self.connection_state.lock().await.connected_peers = peers;
+    }
+
+    /// Set the known peers list
+    pub async fn set_known_peers(&self, peers: HashSet<PeerId>) {
+        self.connection_state.lock().await.known_peers = peers;
+    }
+
+    /// Add a peer to the ignored peers list
+    pub async fn add_ignored_peer(&self, peer: PeerId) {
+        self.connection_state
+            .lock()
+            .await
+            .ignored_peers
+            .insert(peer);
+    }
+
+    /// Obtain a lock to the internal state
+    pub async fn state_lock(&self) -> async_std::sync::MutexGuard<'_, S> {
+        self.state.lock().await
+    }
+
+    /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls [`modify_state`]
+    pub fn state_changed(&self) -> &Condvar {
+        &self.state_changed
+    }
+
+    /// Returns `true` if the network state is killed
+    pub async fn is_killed(&self) -> bool {
+        *self.killed.lock().await
+    }
+
+    /// Register a webui listener
+    pub async fn register_webui_listener(&self) -> Receiver<()> {
+        let (sender, receiver) = bounded(100);
+        let mut lock = self.webui_listeners.lock().await;
+        lock.push(sender);
+        receiver
+    }
+}
+
+impl<S: Clone> NetworkNodeHandle<S> {
+    /// Get a clone of the internal state
+    pub async fn state(&self) -> S {
+        self.state.lock().await.clone()
     }
 }
 
