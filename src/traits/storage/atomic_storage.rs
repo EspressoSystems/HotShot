@@ -2,6 +2,8 @@
 mod append_store;
 mod rolling_store;
 
+use self::append_store::AppendStore;
+use self::rolling_store::RollingStore;
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
     traits::{
@@ -11,15 +13,11 @@ use crate::{
     QuorumCertificate,
 };
 use async_std::sync::Mutex;
-use atomic_store::{
-    AtomicStore, AtomicStoreLoader,
-};
+use atomic_store::{AtomicStore, AtomicStoreLoader};
 use futures::future::{BoxFuture, FutureExt};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use tracing::{info_span, trace, Instrument};
-use self::append_store::AppendStore;
-use self::rolling_store::RollingStore;
 
 struct AtomicStorageInner<Block, State, const N: usize>
 where
@@ -30,27 +28,27 @@ where
     atomic_store: Mutex<AtomicStore>,
 
     /// The Blocks stored by this [`AtomicStorage`]
-    blocks: RollingStore<HashMap<BlockHash<N>, Block>>,
+    blocks: RollingStore<BlockHash<N>, Block>,
     /// The [`QuorumCertificate`]s stored by this [`AtomicStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    qcs: AppendStore<Vec<QuorumCertificate<N>>>,
+    qcs: AppendStore<QuorumCertificate<N>>,
     /// Index of the [`QuorumCertificate`]s by hash
-    hash_to_qc: RollingStore<HashMap<BlockHash<N>, usize>>,
+    hash_to_qc: RollingStore<BlockHash<N>, usize>,
     /// Index of the [`QuorumCertificate`]s by view number
-    view_to_qc: RollingStore<HashMap<u64, usize>>,
+    view_to_qc: RollingStore<u64, usize>,
     /// The [`Leaf`s stored by this [`AtomicStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    leaves: AppendStore<Vec<Leaf<Block, N>>>,
+    leaves: AppendStore<Leaf<Block, N>>,
     /// Index of the [`Leaf`]s by their hashes
-    hash_to_leaf: RollingStore<HashMap<LeafHash<N>, usize>>,
+    hash_to_leaf: RollingStore<LeafHash<N>, usize>,
     /// Index of the [`Leaf`]s by their block's hashes
-    block_to_leaf: RollingStore<HashMap<BlockHash<N>, usize>>,
+    block_to_leaf: RollingStore<BlockHash<N>, usize>,
     /// The store of states
-    states: RollingStore<HashMap<LeafHash<N>, State>>,
+    states: RollingStore<LeafHash<N>, State>,
 }
 
 #[derive(Clone)]
@@ -64,8 +62,8 @@ where
 
 impl<Block, State, const N: usize> AtomicStorage<Block, State, N>
 where
-    Block: DeserializeOwned + Serialize,
-    State: DeserializeOwned + Serialize,
+    Block: DeserializeOwned + Serialize + Clone,
+    State: DeserializeOwned + Serialize + Clone,
 {
     #[allow(dead_code)]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
@@ -103,9 +101,8 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 {
     fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'b, StorageResult<B>> {
         async move {
-            if let Some(r) = self.inner.blocks.get(hash).await {
+            if let Some(block) = self.inner.blocks.get(hash).await {
                 trace!("Block found");
-                let block = r.clone();
                 StorageResult::Some(block)
             } else {
                 trace!("Block not found");
@@ -276,25 +273,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             states.apply();
 
             Ok(())
-        }.boxed()
+        }
+        .boxed()
     }
-}
-
-pub trait StoreContents: FromIterator<Self::Entry> {
-    type Entry: DeserializeOwned + Serialize;
-}
-
-impl<K, V> StoreContents for HashMap<K, V>
-where
-    K: DeserializeOwned + Serialize + Eq + std::hash::Hash,
-    V: DeserializeOwned + Serialize,
-{
-    type Entry = (K, V);
-}
-
-impl<V> StoreContents for Vec<V>
-where
-    V: DeserializeOwned + Serialize,
-{
-    type Entry = V;
 }

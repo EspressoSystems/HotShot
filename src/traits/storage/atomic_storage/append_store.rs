@@ -1,20 +1,18 @@
 use async_std::sync::{RwLock, RwLockWriteGuard};
-use atomic_store::{
-    load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader,
-};
-use tracing::{trace, warn, error};
-use super::StoreContents;
+use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
+use serde::{de::DeserializeOwned, Serialize};
+use tracing::{error, trace, warn};
 
-pub struct AppendStore<T: StoreContents> {
-    store: RwLock<AppendLog<BincodeLoadStore<T::Entry>>>,
-    data: RwLock<T>,
-    append: RwLock<Vec<T::Entry>>,
+pub struct AppendStore<T: Serialize + DeserializeOwned> {
+    store: RwLock<AppendLog<BincodeLoadStore<T>>>,
+    data: RwLock<Vec<T>>,
+    append: RwLock<Vec<T>>,
 }
 
-impl<T: StoreContents> AppendStore<T> {
+impl<T: Serialize + DeserializeOwned> AppendStore<T> {
     pub fn load(loader: &mut AtomicStoreLoader, name: &str) -> atomic_store::Result<Self> {
         let store = AppendLog::load(loader, Default::default(), name, 1024)?;
-        let data = store.iter().collect::<Result<T, _>>()?;
+        let data = store.iter().collect::<Result<_, _>>()?;
         let append = Vec::new();
         Ok(Self {
             store: RwLock::new(store),
@@ -40,10 +38,9 @@ impl<T: StoreContents> AppendStore<T> {
     }
 }
 
-impl<T> AppendStore<Vec<T>>
+impl<T> AppendStore<T>
 where
-    Vec<T>: StoreContents<Entry = T>,
-    T: Clone + std::fmt::Debug,
+    T: Serialize + DeserializeOwned + Clone + std::fmt::Debug,
 {
     pub async fn get(&self, idx: usize) -> Option<T> {
         let idx = {
@@ -66,14 +63,13 @@ where
     }
 }
 
-pub struct AppendStoreCommitLock<'a, T: StoreContents> {
-    store: RwLockWriteGuard<'a, AppendLog<BincodeLoadStore<T::Entry>>>,
-    data: RwLockWriteGuard<'a, T>,
-    append: RwLockWriteGuard<'a, Vec<T::Entry>>,
+pub struct AppendStoreCommitLock<'a, T: Serialize + DeserializeOwned> {
+    store: RwLockWriteGuard<'a, AppendLog<BincodeLoadStore<T>>>,
+    data: RwLockWriteGuard<'a, Vec<T>>,
+    append: RwLockWriteGuard<'a, Vec<T>>,
 }
 
-impl<'a, T> AppendStoreCommitLock<'a, Vec<T>> 
-where Vec<T>: StoreContents<Entry = T> {
+impl<'a, T: Serialize + DeserializeOwned> AppendStoreCommitLock<'a, T> {
     pub fn apply(mut self) {
         for item in std::mem::take(&mut *self.append) {
             self.data.push(item);
@@ -81,7 +77,7 @@ where Vec<T>: StoreContents<Entry = T> {
     }
 }
 
-impl<'a, T> Drop for AppendStoreCommitLock<'a, T> where T: StoreContents {
+impl<'a, T: Serialize + DeserializeOwned> Drop for AppendStoreCommitLock<'a, T> {
     fn drop(&mut self) {
         if !self.append.is_empty() {
             let type_name: &str = std::any::type_name::<AppendStore<T>>();

@@ -1,22 +1,25 @@
 use async_std::sync::{RwLock, RwLockWriteGuard};
-use atomic_store::{
-    load_store::BincodeLoadStore, AtomicStoreLoader, RollingLog,
-};
-use serde::{Serialize, de::DeserializeOwned};
-use std::{collections::HashMap};
-use tracing::{warn, error};
-use super::StoreContents;
+use atomic_store::{load_store::BincodeLoadStore, AtomicStoreLoader, RollingLog};
+use serde::{de::DeserializeOwned, Serialize};
+use std::collections::HashMap;
+use tracing::{error, warn};
 
-pub struct RollingStore<T: StoreContents> {
-    store: RwLock<RollingLog<BincodeLoadStore<Vec<T::Entry>>>>,
-    data: RwLock<T>,
-    new_data: RwLock<Vec<T::Entry>>,
+pub struct RollingStore<K, V>
+where
+    K: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
+{
+    store: RwLock<RollingLog<BincodeLoadStore<Vec<(K, V)>>>>,
+    data: RwLock<HashMap<K, V>>,
+    new_data: RwLock<HashMap<K, V>>,
 }
 
-impl<K, V> RollingStore<HashMap<K, V>> where HashMap<K, V>: StoreContents<Entry = (K, V)>,
-K: Serialize + DeserializeOwned + Clone + Eq + std::hash::Hash,
-V: Serialize + DeserializeOwned + Clone, {
-    pub async fn commit(&self) -> atomic_store::Result<RollingStoreCommitLock<'_, HashMap<K, V>>> {
+impl<K, V> RollingStore<K, V>
+where
+    K: Serialize + DeserializeOwned + Clone + Eq + std::hash::Hash,
+    V: Serialize + DeserializeOwned + Clone,
+{
+    pub async fn commit(&self) -> atomic_store::Result<RollingStoreCommitLock<'_, K, V>> {
         // Take write ownership of this store so no new data is added while we commit
         let mut store = self.store.write().await;
         let data = self.data.write().await;
@@ -24,11 +27,16 @@ V: Serialize + DeserializeOwned + Clone, {
 
         let mut new_data = (&*data).clone();
 
-        for (k, v) in new_data_lock.iter().cloned() {
-            new_data.insert(k, v);
+        for (k, v) in new_data_lock.iter() {
+            new_data.insert(k.clone(), v.clone());
         }
-        let new_data: Vec<_> = new_data.into_iter().collect();
-        store.store_resource(&new_data)?;
+        {
+            let new_data: Vec<(K, V)> = new_data
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            store.store_resource(&new_data)?;
+        }
 
         Ok(RollingStoreCommitLock {
             store,
@@ -37,12 +45,10 @@ V: Serialize + DeserializeOwned + Clone, {
             new_data,
         })
     }
-}
 
-impl<T: StoreContents + Default> RollingStore<T> {
     pub fn load(loader: &mut AtomicStoreLoader, name: &str) -> atomic_store::Result<Self> {
         let store = RollingLog::load(loader, Default::default(), name, 1024)?;
-        let data: Vec<T::Entry> = store.load_latest()?;
+        let data: Vec<(K, V)> = store.load_latest()?;
         let data = data.into_iter().collect();
         Ok(Self {
             store: RwLock::new(store),
@@ -52,11 +58,10 @@ impl<T: StoreContents + Default> RollingStore<T> {
     }
 }
 
-impl<K, V> RollingStore<HashMap<K, V>>
+impl<K, V> RollingStore<K, V>
 where
-    HashMap<K, V>: StoreContents<Entry = (K, V)>,
-    K: Eq + std::hash::Hash,
-    V: Clone,
+    K: Serialize + DeserializeOwned + Clone + Eq + std::hash::Hash,
+    V: Serialize + DeserializeOwned + Clone,
 {
     pub async fn get(&self, hash: &K) -> Option<V> {
         if let Some(entry) = self.data.read().await.get(hash).cloned() {
@@ -66,36 +71,47 @@ where
                 .read()
                 .await
                 .iter()
-                .find(|(k, _)| k == hash)
+                .find(|(k, _)| *k == hash)
                 .map(|(_, v)| v.clone())
         }
     }
 
     pub async fn insert(&self, key: K, val: V) {
         let mut new_data = self.new_data.write().await;
-        new_data.push((key, val));
+        new_data.insert(key, val);
     }
 }
 
-pub struct RollingStoreCommitLock<'a, T: StoreContents> {
-    store: RwLockWriteGuard<'a, RollingLog<BincodeLoadStore<Vec<T::Entry>>>>,
-    data: RwLockWriteGuard<'a, T>,
-    new_data_lock: RwLockWriteGuard<'a, Vec<T::Entry>>,
-    new_data: Vec<T::Entry>,
+pub struct RollingStoreCommitLock<'a, K, V>
+where
+    K: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
+{
+    store: RwLockWriteGuard<'a, RollingLog<BincodeLoadStore<Vec<(K, V)>>>>,
+    data: RwLockWriteGuard<'a, HashMap<K, V>>,
+    new_data_lock: RwLockWriteGuard<'a, HashMap<K, V>>,
+    new_data: HashMap<K, V>,
 }
 
-impl<'a, K, V> RollingStoreCommitLock<'a, HashMap<K, V>> 
-where HashMap<K, V>: StoreContents<Entry = (K, V)> {
+impl<'a, K, V> RollingStoreCommitLock<'a, K, V>
+where
+    K: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
+{
     pub fn apply(mut self) {
         self.new_data_lock.clear();
-        *self.data = self.new_data.drain(..).collect();
+        *self.data = std::mem::take(&mut self.new_data);
     }
 }
 
-impl<'a, T> Drop for RollingStoreCommitLock<'a, T> where T: StoreContents {
+impl<'a, K, V> Drop for RollingStoreCommitLock<'a, K, V>
+where
+    K: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
+{
     fn drop(&mut self) {
         if !self.new_data_lock.is_empty() {
-            let type_name: &str = std::any::type_name::<RollingStore<T>>();
+            let type_name: &str = std::any::type_name::<RollingStore<K, V>>();
             warn!("{} did not apply properly, rolling back", type_name);
             if let Err(e) = self.store.revert_version() {
                 error!(?e, "Could not rollback {}", type_name);
