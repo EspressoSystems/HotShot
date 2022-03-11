@@ -49,7 +49,7 @@ jobs:
       #     token: ${{ github.token }}
 
       - name: Cargo Build
-        run: cargo build --release --manifest-path libp2p-networking/Cargo.toml
+        run: cargo build --release --manifest-path libp2p-networking/Cargo.toml --all-features
 
       - name: Cargo Test
         run: cargo test --verbose --release test_stress --manifest-path libp2p-networking/Cargo.toml -- -Zunstable-options --report-time --test-threads=1
