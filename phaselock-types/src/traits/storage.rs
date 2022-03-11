@@ -89,7 +89,7 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it. Make sure to call [`commit`] after all data is inserted.
     fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>>;
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
-    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'_, StorageResult<S>>;
+    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'b, StorageResult<S>>;
 
     /// Commit the changes in the Storage. This should be called every time one or multiple of the following functions are called:
     /// - `insert_block`
