@@ -228,7 +228,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
-    fn get_state<'b, 'a: 'b>(&self, hash: &LeafHash<N>) -> BoxFuture<'_, StorageResult<S>> {
+    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'_, StorageResult<S>> {
         let maybe_state = self.inner.states.get(hash);
         let x: StorageResult<S> = if let Some(state) = maybe_state {
             let state = state.value().clone();
@@ -237,6 +237,12 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             StorageResult::None
         };
         async move { x }.boxed()
+    }
+
+    fn commit(
+        &self,
+    ) -> BoxFuture<'_, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
+        async move { Ok(()) }.boxed()
     }
 }
 

@@ -356,6 +356,12 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             return Err(PhaseLockError::StorageError { err: e })
                         }
                     }
+                    // TODO vko: do something with this error
+                    pl.inner
+                        .storage
+                        .commit()
+                        .await
+                        .expect("Could not commit storage");
                     // Broadcast out the leaf
                     let network_result = pl
                         .send_broadcast_message(ConsensusMessage::Prepare(Prepare {
@@ -437,6 +443,12 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let mut pqc = pl.inner.prepare_qc.write().await;
                         *pqc = Some(qc.clone());
                         pl.inner.storage.insert_qc(qc.clone()).await;
+                        // TODO vko: do something with this error
+                        pl.inner
+                            .storage
+                            .commit()
+                            .await
+                            .expect("Could not commit storage");
                         trace!("Pre-commit qc stored in prepare_qc");
                         let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,
@@ -635,6 +647,12 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
 
                         // Add qc to decision cache
                         pl.inner.storage.insert_qc(qc.clone()).await;
+                        // TODO vko: do something with this error
+                        pl.inner
+                            .storage
+                            .commit()
+                            .await
+                            .expect("Could not commit storage");
                         *old_state = Arc::new(state);
                         *old_leaf = new_leaf_hash;
                         trace!("New state written");
@@ -827,11 +845,21 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         })?;
                         // Insert new state into storage
                         debug!(?new_state, "New state inserted");
-                        match pl.inner.storage.insert_state(new_state, leaf_hash).await {
+                        let result = match pl.inner.storage.insert_state(new_state, leaf_hash).await
+                        {
                             StorageResult::Some(_) => Ok(leaf),
                             StorageResult::None => Ok(leaf),
                             StorageResult::Err(e) => Err(PhaseLockError::StorageError { err: e }),
+                        };
+                        if result.is_ok() {
+                            // TODO vko: do something with this error
+                            pl.inner
+                                .storage
+                                .commit()
+                                .await
+                                .expect("Could not commit storage");
                         }
+                        result
                     } else {
                         error!("is_safe_node: {}", is_safe_node);
                         error!(?leaf, "Leaf failed safe_node predicate");

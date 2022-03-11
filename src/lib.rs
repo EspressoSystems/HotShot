@@ -251,6 +251,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .storage
             .insert_state(starting_state, leaf.hash())
             .await;
+        // TODO vko: do something with this error
+        inner
+            .storage
+            .commit()
+            .await
+            .expect("Could not commit storage");
         Self {
             inner: Arc::new(inner),
         }
@@ -694,18 +700,33 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 // Insert block into store
                 info!(prepare = ?p, "Inserting block and leaf into store");
                 let leaf = p.leaf.clone();
-                self.inner.storage.insert_leaf(leaf.clone()).await;
-                self.inner
+                if let StorageResult::Err(e) = self.inner.storage.insert_leaf(leaf.clone()).await {
+                    error!(?e, "Error inserting leaf into storage");
+                    return;
+                }
+                if let StorageResult::Err(e) = self
+                    .inner
                     .storage
-                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone());
+                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone())
+                    .await
+                {
+                    error!(?e, "Error inserting block into storage");
+                    return;
+                }
+
                 info!(?leaf, "Inserting new state into storage");
-                let result = self
+                if let StorageResult::Err(e) = self
                     .inner
                     .storage
                     .insert_state(p.state.clone(), leaf.hash())
-                    .await;
-                if let StorageResult::Err(e) = result {
+                    .await
+                {
                     error!(?e, "Error inserting state into storage");
+                    return;
+                };
+                if let Err(e) = self.inner.storage.commit().await {
+                    error!(?e, "Error committing storage");
+                    return;
                 };
 
                 self.inner.prepare_waiter.put(p).await;
