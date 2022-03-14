@@ -3052,6 +3052,7 @@ dependencies = [
  "serde_bytes",
  "snafu 0.7.0",
  "structopt",
+ "tempfile",
  "threshold_crypto",
  "toml",
  "tracing",

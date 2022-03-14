@@ -50,6 +50,7 @@ async-std = { version = "1.10.0", features = ["attributes"] }
 proptest = "1.0.0"
 rand_xoshiro = "0.4.0"
 structopt = "0.3.26"
+tempfile = "3.3"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.8", features = ["env-filter", "json"] }
 

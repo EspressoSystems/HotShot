@@ -1,4 +1,5 @@
-//! On-disk storage of node state. Based on [atomic_store](https://github.com/EspressoSystems/atomicstore).
+//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).
+
 mod append_store;
 mod rolling_store;
 
@@ -19,6 +20,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{path::Path, sync::Arc};
 use tracing::{info_span, trace, Instrument};
 
+/// Inner state of an atomic storage
 struct AtomicStorageInner<Block, State, const N: usize>
 where
     Block: DeserializeOwned + Serialize,
@@ -51,12 +53,14 @@ where
     states: RollingStore<LeafHash<N>, State>,
 }
 
+/// Persistent [`Storage`] implementation, based upon [`atomic_store`].
 #[derive(Clone)]
 pub struct AtomicStorage<Block, State, const N: usize>
 where
     Block: DeserializeOwned + Serialize,
     State: DeserializeOwned + Serialize,
 {
+    /// Inner state of the atomic storage
     inner: Arc<AtomicStorageInner<Block, State, N>>,
 }
 
@@ -65,7 +69,15 @@ where
     Block: DeserializeOwned + Serialize + Clone,
     State: DeserializeOwned + Serialize + Clone,
 {
-    #[allow(dead_code)]
+    /// Open an atomic storage at a given path.
+    ///
+    /// # Errors
+    ///
+    /// Returns the underlying errors that the following types can throw:
+    /// - [`atomic_store::AtomicStoreLoader`]
+    /// - [`atomic_store::AtomicStore`]
+    /// - [`atomic_store::RollingLog`]
+    /// - [`atomic_store::AppendLog`]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
         let mut loader = AtomicStoreLoader::load(path, "phaselock")?;
 
@@ -93,6 +105,19 @@ where
                 states,
             }),
         })
+    }
+
+    /// Get a counter indicating how many uncomitted changes there are in the storage.
+    /// This function mostly exists for testing purposes.
+    pub async fn uncommitted_change_count(&self) -> usize {
+        self.inner.blocks.uncommitted_change_count().await
+            + self.inner.qcs.uncommitted_change_count().await
+            + self.inner.hash_to_qc.uncommitted_change_count().await
+            + self.inner.view_to_qc.uncommitted_change_count().await
+            + self.inner.leaves.uncommitted_change_count().await
+            + self.inner.hash_to_leaf.uncommitted_change_count().await
+            + self.inner.block_to_leaf.uncommitted_change_count().await
+            + self.inner.states.uncommitted_change_count().await
     }
 }
 
@@ -253,6 +278,10 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         &self,
     ) -> BoxFuture<'_, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
         async move {
+            // Make sure there are actually changes, else return immediately
+            if self.uncommitted_change_count().await == 0 {
+                return Ok(());
+            }
             let blocks = self.inner.blocks.commit().await?;
             let qcs = self.inner.qcs.commit().await?;
             let hash_to_qc = self.inner.hash_to_qc.commit().await?;
