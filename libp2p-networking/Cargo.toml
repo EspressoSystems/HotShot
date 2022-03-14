@@ -33,5 +33,9 @@ custom_debug = "0.5"
 ## webui
 tide = { version = "0.16", optional = true }
 
+## linux-spefic packet loss feature
+nix = { version = "0.23.1", optional = true } 
+
 [features]
 webui = ["tide"]
+lossy_network = ["nix"]
