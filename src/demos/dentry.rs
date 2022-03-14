@@ -7,6 +7,8 @@
 //! production use.
 
 use blake3::Hasher;
+use phaselock_types::data::{Leaf, QuorumCertificate, Stage};
+use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
@@ -396,4 +398,32 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
         },
         nonce: rng.gen(),
     }
+}
+
+/// Provides a random [`QuorumCertificate`]
+pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
+    let mut rng = thread_rng();
+    let stage = match rng.gen_range(0u8, 5) {
+        0 => Stage::None,
+        1 => Stage::Prepare,
+        2 => Stage::PreCommit,
+        3 => Stage::Commit,
+        4 => Stage::Decide,
+        _ => unreachable!(),
+    };
+    // TODO: Generate a tc::Signature
+    QuorumCertificate {
+        block_hash: BlockHash::random(),
+        genesis: rng.gen(),
+        leaf_hash: LeafHash::random(),
+        signature: None,
+        stage,
+        view_number: rng.gen(),
+    }
+}
+
+/// Provides a random [`Leaf`]
+pub fn random_leaf<const N: usize>(item: DEntryBlock) -> Leaf<DEntryBlock, N> {
+    let parent = LeafHash::random();
+    Leaf { parent, item }
 }
