@@ -1,10 +1,10 @@
 //! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).
 
-mod append_store;
-mod rolling_store;
+mod dual_key_value_store;
+mod hash_map_store;
 
-use self::append_store::AppendStore;
-use self::rolling_store::RollingStore;
+use self::dual_key_value_store::DualKeyValueStore;
+use self::hash_map_store::HashMapStore;
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
     traits::{
@@ -23,41 +23,33 @@ use tracing::{info_span, trace, Instrument};
 /// Inner state of an atomic storage
 struct AtomicStorageInner<Block, State, const N: usize>
 where
-    Block: DeserializeOwned + Serialize,
+    Block: BlockContents<N> + DeserializeOwned + Serialize,
     State: DeserializeOwned + Serialize,
 {
     /// The atomic store loader
     atomic_store: Mutex<AtomicStore>,
 
     /// The Blocks stored by this [`AtomicStorage`]
-    blocks: RollingStore<BlockHash<N>, Block>,
+    blocks: HashMapStore<BlockHash<N>, Block>,
+
     /// The [`QuorumCertificate`]s stored by this [`AtomicStorage`]
-    ///
-    /// In order to maintain the struct constraints, this list must be append only. Once a QC is
-    /// inserted, it index _must not_ change
-    qcs: AppendStore<QuorumCertificate<N>>,
-    /// Index of the [`QuorumCertificate`]s by hash
-    hash_to_qc: RollingStore<BlockHash<N>, usize>,
-    /// Index of the [`QuorumCertificate`]s by view number
-    view_to_qc: RollingStore<u64, usize>,
+    qcs: DualKeyValueStore<QuorumCertificate<N>>,
+
     /// The [`Leaf`s stored by this [`AtomicStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    leaves: AppendStore<Leaf<Block, N>>,
-    /// Index of the [`Leaf`]s by their hashes
-    hash_to_leaf: RollingStore<LeafHash<N>, usize>,
-    /// Index of the [`Leaf`]s by their block's hashes
-    block_to_leaf: RollingStore<BlockHash<N>, usize>,
+    leaves: DualKeyValueStore<Leaf<Block, N>>,
+
     /// The store of states
-    states: RollingStore<LeafHash<N>, State>,
+    states: HashMapStore<LeafHash<N>, State>,
 }
 
 /// Persistent [`Storage`] implementation, based upon [`atomic_store`].
 #[derive(Clone)]
 pub struct AtomicStorage<Block, State, const N: usize>
 where
-    Block: DeserializeOwned + Serialize,
+    Block: BlockContents<N> + DeserializeOwned + Serialize,
     State: DeserializeOwned + Serialize,
 {
     /// Inner state of the atomic storage
@@ -66,7 +58,7 @@ where
 
 impl<Block, State, const N: usize> AtomicStorage<Block, State, N>
 where
-    Block: DeserializeOwned + Serialize + Clone,
+    Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,
     State: DeserializeOwned + Serialize + Clone,
 {
     /// Open an atomic storage at a given path.
@@ -81,14 +73,10 @@ where
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
         let mut loader = AtomicStoreLoader::load(path, "phaselock")?;
 
-        let blocks = RollingStore::load(&mut loader, "phaselock_blocks")?;
-        let qcs = AppendStore::load(&mut loader, "phaselock_qcs")?;
-        let hash_to_qc = RollingStore::load(&mut loader, "phaselock_hash_to_qc")?;
-        let view_to_qc = RollingStore::load(&mut loader, "phaselock_view_to_qc")?;
-        let leaves = AppendStore::load(&mut loader, "phaselock_leaves")?;
-        let hash_to_leaf = RollingStore::load(&mut loader, "phaselock_hash_to_leaf")?;
-        let block_to_leaf = RollingStore::load(&mut loader, "phaselock_block_to_leaf")?;
-        let states = RollingStore::load(&mut loader, "phaselock_states")?;
+        let blocks = HashMapStore::load(&mut loader, "phaselock_blocks")?;
+        let qcs = DualKeyValueStore::open(&mut loader, "phaselock_qcs")?;
+        let leaves = DualKeyValueStore::open(&mut loader, "phaselock_leaves")?;
+        let states = HashMapStore::load(&mut loader, "phaselock_states")?;
 
         let atomic_store = AtomicStore::open(loader)?;
 
@@ -97,27 +85,10 @@ where
                 atomic_store: Mutex::new(atomic_store),
                 blocks,
                 qcs,
-                hash_to_qc,
-                view_to_qc,
                 leaves,
-                hash_to_leaf,
-                block_to_leaf,
                 states,
             }),
         })
-    }
-
-    /// Get a counter indicating how many uncomitted changes there are in the storage.
-    /// This function mostly exists for testing purposes.
-    pub async fn uncommitted_change_count(&self) -> usize {
-        self.inner.blocks.uncommitted_change_count().await
-            + self.inner.qcs.uncommitted_change_count().await
-            + self.inner.hash_to_qc.uncommitted_change_count().await
-            + self.inner.view_to_qc.uncommitted_change_count().await
-            + self.inner.leaves.uncommitted_change_count().await
-            + self.inner.hash_to_leaf.uncommitted_change_count().await
-            + self.inner.block_to_leaf.uncommitted_change_count().await
-            + self.inner.states.uncommitted_change_count().await
     }
 }
 
@@ -134,17 +105,16 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
                 StorageResult::None
             }
         }
-        .instrument(info_span!("MemoryStorage::get_block", ?hash))
+        .instrument(info_span!("AtomicStorage::get_block", ?hash))
         .boxed()
     }
 
     fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult<()>> {
         async move {
             trace!(?block, "inserting block");
-            self.inner.blocks.insert(hash, block).await;
-            StorageResult::Some(())
+            self.inner.blocks.insert(hash, block).await.into()
         }
-        .instrument(info_span!("MemoryStorage::insert_block", ?hash))
+        .instrument(info_span!("AtomicStorage::insert_block", ?hash))
         .boxed()
     }
 
@@ -152,114 +122,71 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         &'a self,
         hash: &'b BlockHash<N>,
     ) -> BoxFuture<'b, StorageResult<QuorumCertificate<N>>> {
-        async move {
-            // Check to see if we have the qc
-            let index = self.inner.hash_to_qc.get(hash).await;
-            if let Some(index) = index {
-                trace!("Found qc");
-                let qc = self.inner.qcs.get(index).await.unwrap();
-                StorageResult::Some(qc)
-            } else {
-                trace!("Did not find qc");
-                StorageResult::None
-            }
-        }
-        .instrument(info_span!("MemoryStorage::get_qc", ?hash))
-        .boxed()
+        self.inner
+            .qcs
+            .load_by_key_1_ref(hash)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::get_qc", ?hash))
+            .boxed()
     }
 
     fn get_qc_for_view(&self, view: u64) -> BoxFuture<'_, StorageResult<QuorumCertificate<N>>> {
-        async move {
-            // Check to see if we have the qc
-            let index = self.inner.view_to_qc.get(&view).await;
-            if let Some(index) = index {
-                trace!("Found qc");
-                let qc = self.inner.qcs.get(index).await.unwrap();
-                StorageResult::Some(qc)
-            } else {
-                trace!("Did not find qc");
-                StorageResult::None
-            }
-        }
-        .instrument(info_span!("MemoryStorage::get_qc_for_view", ?view))
-        .boxed()
+        self.inner
+            .qcs
+            .load_by_key_2(view)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::get_qc_for_view"))
+            .boxed()
     }
 
     fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult<()>> {
-        async move {
-            // Insert the qc into the main vec and the add the references
-            let view = qc.view_number;
-            let hash = qc.block_hash;
-            let index = self.inner.qcs.append(qc).await;
-            self.inner.view_to_qc.insert(view, index).await;
-            self.inner.hash_to_qc.insert(hash, index).await;
-            StorageResult::Some(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_qc"))
-        .boxed()
+        self.inner
+            .qcs
+            .insert(qc)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::insert_qc"))
+            .boxed()
     }
 
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
-        async move {
-            // Check to see if we have the leaf
-            let index = self.inner.hash_to_leaf.get(hash).await;
-            if let Some(index) = index {
-                trace!("Found leaf");
-                let leaf = self.inner.leaves.get(index).await.unwrap();
-                StorageResult::Some(leaf)
-            } else {
-                trace!("Did not find leaf");
-                StorageResult::None
-            }
-        }
-        .instrument(info_span!("MemoryStorage::get_leaf", ?hash))
-        .boxed()
+        self.inner
+            .leaves
+            .load_by_key_1_ref(hash)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::get_leaf", ?hash))
+            .boxed()
     }
 
     fn get_leaf_by_block<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
     ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
-        async move {
-            // Check to see if we have the leaf
-            let index = self.inner.block_to_leaf.get(hash).await;
-            if let Some(index) = index {
-                trace!("Found leaf");
-                let leaf = self.inner.leaves.get(index).await.unwrap();
-                StorageResult::Some(leaf)
-            } else {
-                trace!("Did not find leaf");
-                StorageResult::None
-            }
-        }
-        .instrument(info_span!("MemoryStorage::get_by_block", ?hash))
-        .boxed()
+        self.inner
+            .leaves
+            .load_by_key_2_ref(hash)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::get_by_block", ?hash))
+            .boxed()
     }
 
     fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>> {
-        async move {
-            let hash = leaf.hash();
-            trace!(?leaf, ?hash, "Inserting");
-            let block_hash = BlockContents::hash(&leaf.item);
-            let index = self.inner.leaves.append(leaf).await;
-            self.inner.hash_to_leaf.insert(hash, index).await;
-            self.inner.block_to_leaf.insert(block_hash, index).await;
-            StorageResult::Some(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_leaf"))
-        .boxed()
+        self.inner
+            .leaves
+            .insert(leaf)
+            .map_into()
+            .instrument(info_span!("AtomicStorage::insert_leaf"))
+            .boxed()
     }
 
     fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>> {
         async move {
             trace!(?hash, "Inserting state");
-            self.inner.states.insert(hash, state).await;
-            StorageResult::Some(())
+            self.inner.states.insert(hash, state).await.into()
         }
-        .instrument(info_span!("MemoryStorage::insert_state"))
+        .instrument(info_span!("AtomicStorage::insert_state"))
         .boxed()
     }
 
@@ -278,28 +205,11 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         &self,
     ) -> BoxFuture<'_, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
         async move {
-            // Make sure there are actually changes, else return immediately
-            if self.uncommitted_change_count().await == 0 {
-                return Ok(());
-            }
-            let blocks = self.inner.blocks.commit().await?;
-            let qcs = self.inner.qcs.commit().await?;
-            let hash_to_qc = self.inner.hash_to_qc.commit().await?;
-            let view_to_qc = self.inner.view_to_qc.commit().await?;
-            let leaves = self.inner.leaves.commit().await?;
-            let hash_to_leaf = self.inner.hash_to_leaf.commit().await?;
-            let block_to_leaf = self.inner.block_to_leaf.commit().await?;
-            let states = self.inner.states.commit().await?;
+            self.inner.blocks.commit_version().await?;
+            self.inner.qcs.commit_version().await?;
+            self.inner.leaves.commit_version().await?;
+            self.inner.states.commit_version().await?;
             self.inner.atomic_store.lock().await.commit_version()?;
-
-            blocks.apply();
-            qcs.apply();
-            hash_to_qc.apply();
-            view_to_qc.apply();
-            leaves.apply();
-            hash_to_leaf.apply();
-            block_to_leaf.apply();
-            states.apply();
 
             Ok(())
         }

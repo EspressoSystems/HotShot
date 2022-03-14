@@ -51,6 +51,27 @@ impl<T> StorageResult<T> {
     }
 }
 
+impl<T> From<Option<T>> for StorageResult<T> {
+    fn from(t: Option<T>) -> Self {
+        match t {
+            Some(v) => Self::Some(v),
+            None => Self::None,
+        }
+    }
+}
+
+impl<T, E> From<Result<T, E>> for StorageResult<T>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(t: Result<T, E>) -> Self {
+        match t {
+            Ok(v) => Self::Some(v),
+            Err(e) => Self::Err(Box::new(e)),
+        }
+    }
+}
+
 /// Abstraction over on disk persistence of node state
 ///
 /// This should be a cloneable handle to an underlying storage, with each clone pointing to the same
