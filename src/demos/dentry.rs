@@ -368,9 +368,23 @@ where
 /// panics if state has no balances
 pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
     use rand::seq::IteratorRandom;
-    let input_account = state.balances.keys().choose(&mut rng).unwrap();
-    let output_account = state.balances.keys().choose(&mut rng).unwrap();
-    let amount = rng.gen_range(0, state.balances[input_account]);
+    let mut attempts = 0;
+    #[allow(clippy::panic)]
+    let (input_account, output_account, amount) = loop {
+        let input_account = state.balances.keys().choose(&mut rng).unwrap();
+        let output_account = state.balances.keys().choose(&mut rng).unwrap();
+        let balance = state.balances[input_account];
+        if balance != 0 {
+            let amount = rng.gen_range(0, state.balances[input_account]);
+            break (input_account, output_account, amount);
+        }
+        attempts += 1;
+        assert!(
+            attempts <= 10,
+            "Could not create a transaction. {:?}",
+            state
+        );
+    };
     Transaction {
         add: Addition {
             account: output_account.to_string(),
