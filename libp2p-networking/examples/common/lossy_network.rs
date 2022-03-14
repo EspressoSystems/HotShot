@@ -2,9 +2,11 @@ use async_std::fs::File;
 use async_std::process::Command;
 use nix::sched::setns;
 use nix::sched::CloneFlags;
+use std::io::Result;
 use tracing::info;
 
 use super::ExecutionEnvironment;
+use std::os::unix::io::IntoRawFd;
 
 /// A description of a lossy network
 #[derive(Clone, derive_builder::Builder, custom_debug::Debug)]
@@ -22,7 +24,7 @@ pub struct LossyNetwork {
 
 impl LossyNetwork {
     // Create isolated environment in separate network namespace via network bridge
-    async fn isolate(&self) -> io::Result<()> {
+    pub async fn isolate(&self) -> Result<()> {
         if let Some(ref isolation_config) = self.isolation_config {
             isolation_config.isolate(&self.eth_name).await?
         }
@@ -30,7 +32,7 @@ impl LossyNetwork {
     }
 
     // delete isolated environment and network bridge
-    async fn undo_isolate(&self) -> io::Result<()> {
+    pub async fn undo_isolate(&self) -> Result<()> {
         if let Some(ref isolation_config) = self.isolation_config {
             isolation_config.undo_isolate(self.eth_name.clone()).await?
         }
@@ -38,7 +40,7 @@ impl LossyNetwork {
     }
 
     // create a network qdisc
-    async fn create_qdisc(&self) -> io::Result<()> {
+    pub async fn create_qdisc(&self) -> Result<()> {
         match self.env_type {
             ExecutionEnvironment::Docker => {
                 self.netem_config.create_qdisc(&self.eth_name).await?;
@@ -157,7 +159,7 @@ impl NetemConfig {
         if let Some(delay) = self.delay {
             args.push(format!("{}ms", delay.base));
             if let Some(jitter) = delay.jitter {
-                args.push(format!("{}ms", jitter).clone());
+                args.push(format!("{}ms", jitter));
             }
             if let Some(correlation) = delay.correlation {
                 args.push(format!("{}%", correlation));
@@ -191,7 +193,7 @@ impl IsolationConfig {
     /// - bridging the virtual ethernet device within COUNTER_NS to the default/root network namespace
     /// - adding firewall rules to allow traffic to flow between the network bridge and outside world
     /// - execute the demo inside network namespace
-    async fn isolate(&self, eth_name: &str) -> io::Result<()> {
+    async fn isolate(&self, eth_name: &str) -> Result<()> {
         // generate isolated network namespace
         info!(
             "{:?}",
@@ -379,7 +381,7 @@ impl IsolationConfig {
         info!(
             "{:?}",
             Command::new("iptables")
-                .args(["-A", "FORWARD", "-o", &eth_name, "-i", "br0", "-j", "ACCEPT"])
+                .args(["-A", "FORWARD", "-o", eth_name, "-i", "br0", "-j", "ACCEPT"])
                 .output()
                 .await?
                 .status
@@ -388,7 +390,7 @@ impl IsolationConfig {
         info!(
             "{:?}",
             Command::new("iptables")
-                .args(["-A", "FORWARD", "-i", &eth_name, "-o", "br0", "-j", "ACCEPT"])
+                .args(["-A", "FORWARD", "-i", eth_name, "-o", "br0", "-j", "ACCEPT"])
                 .output()
                 .await?
                 .status
@@ -586,4 +588,3 @@ impl IsolationConfig {
         Ok(())
     }
 }
-

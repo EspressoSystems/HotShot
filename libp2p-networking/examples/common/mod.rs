@@ -247,16 +247,32 @@ pub struct CliOpt {
     pub webui_addr: Option<SocketAddr>,
     #[cfg(feature = "lossy_network")]
     #[structopt(long = "env")]
-    pub env_type: ExecutionEnvironemnt,
+    pub env_type: ExecutionEnvironment,
 }
 
 /// The execution environemnt type
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg(feature = "lossy_network")]
 pub enum ExecutionEnvironment {
     /// execution environment is within docker
     Docker,
     /// execution environment is on metal
     Metal,
+}
+
+#[cfg(feature = "lossy_network")]
+impl FromStr for ExecutionEnvironment {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<ExecutionEnvironment, Self::Err> {
+        match input {
+            "Docker" => Ok(ExecutionEnvironment::Docker),
+            "Metal" => Ok(ExecutionEnvironment::Metal),
+            _ => Err(
+                "Couldn't parse execution environment. Must be one of Metal, Docker".to_string(),
+            ),
+        }
+    }
 }
 
 /// ['bootstrap_addrs`] list of bootstrap multiaddrs. Needed to bootstrap into network
