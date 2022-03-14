@@ -2,7 +2,7 @@ mod common;
 
 use phaselock::{
     demos::dentry::{random_transaction, DEntryBlock, State},
-    traits::{BlockContents, Storage},
+    traits::{BlockContents, Storage, StorageResult},
     H_256,
 };
 use rand::thread_rng;
@@ -42,16 +42,19 @@ async fn test_happy_path_blocks() {
         let new = block
             .add_transaction_raw(&random_transaction(&state, &mut rng))
             .expect("Could not add transaction");
-        println!("Inserting {:?}", new);
-        store.insert_block(new.hash(), new.clone());
+        println!("Inserting {:?}: {:?}", new.hash(), new);
+        store.insert_block(new.hash(), new.clone()).await.unwrap();
         hashes.push(new.hash());
         block = new;
     }
     store.commit().await.expect("Could not commit store");
 
     // read them all back
-    for hash in hashes {
-        let block = store.get_block(&hash).await.unwrap();
-        println!("read {:?}", block);
+    for (idx, hash) in hashes.into_iter().enumerate() {
+        match store.get_block(&hash).await {
+            StorageResult::Some(block) => println!("read {:?}", block),
+            StorageResult::None => panic!("Could not read hash {} {:?}", idx, hash),
+            StorageResult::Err(e) => panic!("Could not read hash {} {:?}\n{:?}", idx, hash, e),
+        }
     }
 }
