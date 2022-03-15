@@ -98,3 +98,14 @@ nix develop -c cargo run --features lossy_network --release --example counter --
 ```
 
 On an AWS instance, a separate network namespace is created and connected to `ens5` via a network bridge, and a netem qdisc is introduced to the veth interface in the namespace. Within a docker container, a netem qdisc is added on interface `eth0`.
+
+### Network Emulation Dockerfile
+
+Usage:
+
+```
+docker build . -t libp2p-networking
+# expose ports
+docker run -P 8000:8000 -P 9000:9000 libp2p-networking
+```
+
