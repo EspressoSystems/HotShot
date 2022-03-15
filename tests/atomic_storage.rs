@@ -5,7 +5,7 @@ use phaselock::{
     demos::dentry::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State,
     },
-    traits::{BlockContents, Storage, StorageResult},
+    traits::{BlockContents, Storage},
     H_256,
 };
 use rand::thread_rng;
@@ -22,7 +22,10 @@ async fn test_happy_path_blocks() {
 
     let block = DEntryBlock::default();
     let hash = block.hash();
-    store.insert_block(hash, block.clone()).await;
+    store
+        .insert_block(hash, block.clone())
+        .await
+        .expect("Could not insert block");
     store.commit().await.expect("Could not commit");
 
     // Make sure the data is still there after re-opening
@@ -30,7 +33,7 @@ async fn test_happy_path_blocks() {
     store = AtomicStorage::open(path).expect("Could not open atomic store");
     assert_eq!(
         store.get_block(&hash).await.unwrap(),
-        DEntryBlock::default()
+        Some(DEntryBlock::default())
     );
 
     // Add some transactions
@@ -63,10 +66,9 @@ async fn test_happy_path_blocks() {
 
         // read them all back
         for (idx, hash) in hashes.iter().enumerate() {
-            match store.get_block(hash).await {
-                StorageResult::Some(block) => println!("read {:?}", block),
-                StorageResult::None => panic!("Could not read hash {} {:?}", idx, hash),
-                StorageResult::Err(e) => panic!("Could not read hash {} {:?}\n{:?}", idx, hash, e),
+            match store.get_block(hash).await.expect("Could not read hash") {
+                Some(block) => println!("read {:?}", block),
+                None => panic!("Could not read hash {} {:?}", idx, hash),
             }
         }
     }
@@ -106,32 +108,32 @@ async fn test_happy_path_qcs() {
         }
 
         for cert in &certs {
-            match store.get_qc_for_view(cert.view_number).await {
-                StorageResult::Some(c) => {
+            match store
+                .get_qc_for_view(cert.view_number)
+                .await
+                .expect("Could not read view_number")
+            {
+                Some(c) => {
                     println!("read {:?}", c);
                     assert_eq!(&c, cert);
                 }
-                StorageResult::None => panic!(
+                None => panic!(
                     "Could not read view_number {}: {:?}",
                     cert.view_number, cert
                 ),
-                StorageResult::Err(e) => panic!(
-                    "Could not read view_number {} {:?}\n{:?}",
-                    cert.view_number, cert, e
-                ),
             }
-            match store.get_qc(&cert.block_hash).await {
-                StorageResult::Some(c) => {
+            match store
+                .get_qc(&cert.block_hash)
+                .await
+                .expect("Could not read qc by hash")
+            {
+                Some(c) => {
                     println!("read {:?}", c);
                     assert_eq!(&c, cert);
                 }
-                StorageResult::None => panic!(
+                None => panic!(
                     "Could not read block_hash {:?}: {:?}",
                     cert.block_hash, cert
-                ),
-                StorageResult::Err(e) => panic!(
-                    "Could not read block_hash {:?} {:?}\n{:?}",
-                    cert.block_hash, cert, e
                 ),
             }
         }
@@ -172,31 +174,30 @@ async fn test_happy_path_leaves() {
         }
 
         for leaf in &leaves {
-            match store.get_leaf(&leaf.hash()).await {
-                StorageResult::Some(l) => {
+            match store
+                .get_leaf(&leaf.hash())
+                .await
+                .expect("Could not read leaf hash")
+            {
+                Some(l) => {
                     println!("read {:?}", l);
                     assert_eq!(&l, leaf);
                 }
-                StorageResult::None => {
+                None => {
                     panic!("Could not read leaf hash {:?}: {:?}", leaf.hash(), leaf)
                 }
-                StorageResult::Err(e) => panic!(
-                    "Could not read leaf hash {:?} {:?}\n{:?}",
-                    leaf.hash(),
-                    leaf,
-                    e
-                ),
             }
             let hash = BlockContents::hash(&leaf.item);
-            match store.get_leaf_by_block(&hash).await {
-                StorageResult::Some(l) => {
+            match store
+                .get_leaf_by_block(&hash)
+                .await
+                .expect("Could not read leaf by block")
+            {
+                Some(l) => {
                     println!("read {:?}", l);
                     assert_eq!(&l, leaf);
                 }
-                StorageResult::None => panic!("Could not read leaf hash {:?}: {:?}", hash, leaf),
-                StorageResult::Err(e) => {
-                    panic!("Could not read leaf hash {:?} {:?}\n{:?}", hash, leaf, e)
-                }
+                None => panic!("Could not read leaf hash {:?}: {:?}", hash, leaf),
             }
         }
     }

@@ -76,7 +76,8 @@ async fn ten_tx_seven_nodes() {
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         phaselocks.push(h);
     }
 
@@ -196,7 +197,8 @@ async fn ten_tx_five_nodes() {
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         phaselocks.push(h);
     }
 

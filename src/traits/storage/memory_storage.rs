@@ -79,26 +79,29 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
 impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
     Storage<B, S, N> for MemoryStorage<B, S, N>
 {
-    fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'b, StorageResult<B>> {
+    fn get_block<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b BlockHash<N>,
+    ) -> BoxFuture<'b, StorageResult<Option<B>>> {
         async move {
-            if let Some(r) = self.inner.blocks.get(hash) {
+            Ok(if let Some(r) = self.inner.blocks.get(hash) {
                 trace!("Block found");
                 let block = r.value().clone();
-                StorageResult::Some(block)
+                Some(block)
             } else {
                 trace!("Block not found");
-                StorageResult::None
-            }
+                None
+            })
         }
         .instrument(info_span!("MemoryStorage::get_block", ?hash))
         .boxed()
     }
 
-    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
         async move {
             trace!(?block, "inserting block");
             self.inner.blocks.insert(hash, block);
-            StorageResult::Some(())
+            Ok(())
         }
         .instrument(info_span!("MemoryStorage::insert_block", ?hash))
         .boxed()
@@ -107,43 +110,46 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     fn get_qc<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<QuorumCertificate<N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<QuorumCertificate<N>>>> {
         async move {
             // Check to see if we have the qc
             let index = self.inner.hash_to_qc.get(hash);
-            if let Some(index) = index {
+            Ok(if let Some(index) = index {
                 trace!("Found qc");
                 let qcs = self.inner.qcs.read().await;
                 let qc = qcs[*index.value()].clone();
-                StorageResult::Some(qc)
+                Some(qc)
             } else {
                 trace!("Did not find qc");
-                StorageResult::None
-            }
+                None
+            })
         }
         .instrument(info_span!("MemoryStorage::get_qc", ?hash))
         .boxed()
     }
 
-    fn get_qc_for_view(&self, view: u64) -> BoxFuture<'_, StorageResult<QuorumCertificate<N>>> {
+    fn get_qc_for_view(
+        &self,
+        view: u64,
+    ) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
         async move {
             // Check to see if we have the qc
             let index = self.inner.view_to_qc.get(&view);
-            if let Some(index) = index {
+            Ok(if let Some(index) = index {
                 trace!("Found qc");
                 let qcs = self.inner.qcs.read().await;
                 let qc = qcs[*index.value()].clone();
-                StorageResult::Some(qc)
+                Some(qc)
             } else {
                 trace!("Did not find qc");
-                StorageResult::None
-            }
+                None
+            })
         }
         .instrument(info_span!("MemoryStorage::get_qc_for_view", ?view))
         .boxed()
     }
 
-    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
         async move {
             // Insert the qc into the main vec and the add the references
             let view = qc.view_number;
@@ -154,7 +160,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             qcs.push(qc);
             self.inner.view_to_qc.insert(view, index);
             self.inner.hash_to_qc.insert(hash, index);
-            StorageResult::Some(())
+            Ok(())
         }
         .instrument(info_span!("MemoryStorage::insert_qc"))
         .boxed()
@@ -163,19 +169,19 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
         async move {
             trace!(?self.inner.hash_to_leaf, ?hash);
             // Check to see if we have the leaf
             let index = self.inner.hash_to_leaf.get(hash);
-            if let Some(index) = index {
+            Ok(if let Some(index) = index {
                 trace!("Found leaf");
                 let leaves = self.inner.leaves.read().await;
-                StorageResult::Some(leaves[*index.value()].clone())
+                Some(leaves[*index.value()].clone())
             } else {
                 trace!("Did not find leaf");
-                StorageResult::None
-            }
+                None
+            })
         }
         .instrument(info_span!("MemoryStorage::get_leaf", ?hash))
         .boxed()
@@ -184,24 +190,24 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     fn get_leaf_by_block<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
         async move {
             // Check to see if we have the leaf
             let index = self.inner.block_to_leaf.get(hash);
-            if let Some(index) = index {
+            Ok(if let Some(index) = index {
                 trace!("Found leaf");
                 let leaves = self.inner.leaves.read().await;
-                StorageResult::Some(leaves[*index.value()].clone())
+                Some(leaves[*index.value()].clone())
             } else {
                 trace!("Did not find leaf");
-                StorageResult::None
-            }
+                None
+            })
         }
         .instrument(info_span!("MemoryStorage::get_by_block", ?hash))
         .boxed()
     }
 
-    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
         async move {
             let hash = leaf.hash();
             trace!(?leaf, ?hash, "Inserting");
@@ -212,36 +218,37 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             leaves.push(leaf);
             self.inner.hash_to_leaf.insert(hash, index);
             self.inner.block_to_leaf.insert(block_hash, index);
-            StorageResult::Some(())
+            Ok(())
         }
         .instrument(info_span!("MemoryStorage::insert_leaf"))
         .boxed()
     }
 
-    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
         async move {
             trace!(?hash, "Inserting state");
             self.inner.states.insert(hash, state);
-            StorageResult::Some(())
+            Ok(())
         }
         .instrument(info_span!("MemoryStorage::insert_state"))
         .boxed()
     }
 
-    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'b, StorageResult<S>> {
+    fn get_state<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b LeafHash<N>,
+    ) -> BoxFuture<'b, StorageResult<Option<S>>> {
         let maybe_state = self.inner.states.get(hash);
-        let x: StorageResult<S> = if let Some(state) = maybe_state {
+        let x = Ok(if let Some(state) = maybe_state {
             let state = state.value().clone();
-            StorageResult::Some(state)
+            Some(state)
         } else {
-            StorageResult::None
-        };
+            None
+        });
         async move { x }.boxed()
     }
 
-    fn commit(
-        &self,
-    ) -> BoxFuture<'_, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
+    fn commit(&self) -> BoxFuture<'_, StorageResult> {
         async move { Ok(()) }.boxed()
     }
 }
@@ -283,18 +290,18 @@ mod test {
         let hash_2 = <DummyBlock as BlockContents<32>>::hash(&test_block_2);
         // Attempt to insert the blocks
         let res = storage.insert_block(hash_1, test_block_1.clone()).await;
-        assert!(res.is_some());
+        assert!(res.is_ok());
         let res = storage.insert_block(hash_2, test_block_2.clone()).await;
-        assert!(res.is_some());
+        assert!(res.is_ok());
         // Then attempt to get the blocks
-        let block_1 = storage.get_block(&hash_1).await.unwrap();
-        let block_2 = storage.get_block(&hash_2).await.unwrap();
+        let block_1 = storage.get_block(&hash_1).await.unwrap().unwrap();
+        let block_2 = storage.get_block(&hash_2).await.unwrap().unwrap();
         // Make sure we got the right blocks
         assert_eq!(block_1, test_block_1);
         assert_eq!(block_2, test_block_2);
         // Try to get an invalid block and make sure it is nothing
         let bad_hash = BlockHash::<32>::random();
-        let res = storage.get_block(&bad_hash).await;
+        let res = storage.get_block(&bad_hash).await.unwrap();
         assert!(res.is_none());
     }
 
@@ -314,21 +321,21 @@ mod test {
         storage.insert_qc(qc_1.clone()).await.unwrap();
         storage.insert_qc(qc_2.clone()).await.unwrap();
         // Attempt to get them back by hash
-        let h_qc_1 = storage.get_qc(&qc_1_hash_block).await.unwrap();
-        let h_qc_2 = storage.get_qc(&qc_2_hash_block).await.unwrap();
+        let h_qc_1 = storage.get_qc(&qc_1_hash_block).await.unwrap().unwrap();
+        let h_qc_2 = storage.get_qc(&qc_2_hash_block).await.unwrap().unwrap();
         // Check to make sure we got the right QCs back
         assert_eq!(h_qc_1, qc_1);
         assert_eq!(h_qc_2, qc_2);
         // Attempt to get them back by view number
-        let v_qc_1 = storage.get_qc_for_view(1).await.unwrap();
-        let v_qc_2 = storage.get_qc_for_view(2).await.unwrap();
+        let v_qc_1 = storage.get_qc_for_view(1).await.unwrap().unwrap();
+        let v_qc_2 = storage.get_qc_for_view(2).await.unwrap().unwrap();
         // Check to make sure we got the right QCs back
         assert_eq!(v_qc_1, qc_1);
         assert_eq!(v_qc_2, qc_2);
         // Make sure trying to get bunk QCs fails
         let bunk_hash = BlockHash::<32>::random();
-        assert!(storage.get_qc(&bunk_hash).await.is_none());
-        assert!(storage.get_qc_for_view(3).await.is_none());
+        assert!(storage.get_qc(&bunk_hash).await.unwrap().is_none());
+        assert!(storage.get_qc_for_view(3).await.unwrap().is_none());
         // Make sure inserting a bunk QC fails
         //let bad_qc = dummy_qc(bunk_hash, 3, false);
         //assert!(!storage.insert_qc(bad_qc).await.is_some());
@@ -358,8 +365,8 @@ mod test {
         storage.insert_leaf(leaf_1.clone()).await.unwrap();
         storage.insert_leaf(leaf_2.clone()).await.unwrap();
         // Attempt to get them back by hash
-        let h_leaf_1 = storage.get_leaf(&hash_1).await.unwrap();
-        let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap();
+        let h_leaf_1 = storage.get_leaf(&hash_1).await.unwrap().unwrap();
+        let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap().unwrap();
         // Make sure they are the right leaves
         assert_eq!(h_leaf_1.parent, leaf_1.parent);
         assert_eq!(h_leaf_1.item, leaf_1.item);
@@ -369,10 +376,12 @@ mod test {
         let b_leaf_1 = storage
             .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_1))
             .await
+            .unwrap()
             .unwrap();
         let b_leaf_2 = storage
             .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_2))
             .await
+            .unwrap()
             .unwrap();
         // Make sure they are the right leaves
         assert_eq!(b_leaf_1.parent, leaf_1.parent);
@@ -380,11 +389,16 @@ mod test {
         assert_eq!(b_leaf_2.parent, leaf_2.parent);
         assert_eq!(b_leaf_2.item, leaf_2.item);
         // Getting a bunk leaf by hash fails
-        assert!(storage.get_leaf(&LeafHash::<32>::random()).await.is_none());
+        assert!(storage
+            .get_leaf(&LeafHash::<32>::random())
+            .await
+            .unwrap()
+            .is_none());
         // Getting a bunk leaf by block hash fails
         assert!(storage
             .get_leaf_by_block(&BlockHash::<32>::random())
             .await
+            .unwrap()
             .is_none());
     }
 }

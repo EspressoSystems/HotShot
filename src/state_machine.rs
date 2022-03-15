@@ -17,16 +17,18 @@ use super::{
     ResultExt, Stage, Vote,
 };
 use crate::{
-    traits::{BlockContents, State, StatefulHandler, Storage, StorageResult},
+    traits::{BlockContents, State, StatefulHandler, Storage},
     utility::broadcast::BroadcastSender,
     NodeImplementation,
 };
 use futures::{future::BoxFuture, Future, FutureExt};
-use phaselock_types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError};
+use phaselock_types::error::{
+    FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu,
+};
+use std::time::Duration;
 use std::{
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
 };
 use tracing::{info, instrument};
 
@@ -268,31 +270,30 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         .storage
                         .get_leaf_by_block(&high_qc.block_hash)
                         .await
+                        .context(StorageSnafu)?
                     {
-                        StorageResult::Some(x) => x,
-                        StorageResult::None => {
-                            error!(?high_qc, "State not found in storage (by qc)");
+                        Some(x) => x,
+                        None => {
                             return Err(PhaseLockError::ItemNotFound {
                                 hash: high_qc.block_hash.to_vec(),
                             });
                         }
-                        StorageResult::Err(err) => {
-                            return Err(PhaseLockError::StorageError { err })
-                        }
                     };
                     let leaf_hash = leaf.hash();
                     // Find the state
-                    let state = match pl.inner.storage.get_state(&leaf_hash).await {
-                        StorageResult::Some(x) => x,
-                        StorageResult::None => {
-                            error!(?leaf_hash, "State not found in storage (by leaf)");
-                            return Err(PhaseLockError::ItemNotFound {
-                                hash: leaf_hash.to_vec(),
-                            });
-                        }
-                        StorageResult::Err(err) => {
-                            return Err(PhaseLockError::StorageError { err })
-                        }
+                    let state = if let Some(x) = pl
+                        .inner
+                        .storage
+                        .get_state(&leaf_hash)
+                        .await
+                        .context(StorageSnafu)?
+                    {
+                        x
+                    } else {
+                        error!(?leaf_hash, "State not found in storage (by leaf)");
+                        return Err(PhaseLockError::ItemNotFound {
+                            hash: leaf_hash.to_vec(),
+                        });
                     };
                     trace!(?state, ?leaf_hash);
                     // Prepare our block
@@ -333,7 +334,11 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     // Create new leaf and add it to the store
                     let new_leaf = Leaf::new(block.clone(), high_qc.leaf_hash);
                     let the_hash = new_leaf.hash();
-                    pl.inner.storage.insert_leaf(new_leaf.clone()).await;
+                    pl.inner
+                        .storage
+                        .insert_leaf(new_leaf.clone())
+                        .await
+                        .context(StorageSnafu)?;
                     debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
                     // Add resulting state to storage
                     let new_state = state.append(&new_leaf.item).map_err(|error| {
@@ -344,24 +349,13 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     })?;
                     // Insert new state into storage
                     debug!(?new_state, "New state inserted");
-                    match pl
-                        .inner
+                    pl.inner
                         .storage
                         .insert_state(new_state.clone(), the_hash)
                         .await
-                    {
-                        StorageResult::Some(_) => (),
-                        StorageResult::None => (),
-                        StorageResult::Err(e) => {
-                            return Err(PhaseLockError::StorageError { err: e })
-                        }
-                    }
-                    // TODO vko: do something with this error
-                    pl.inner
-                        .storage
-                        .commit()
-                        .await
-                        .expect("Could not commit storage");
+                        .context(StorageSnafu)?;
+
+                    pl.inner.storage.commit().await.context(StorageSnafu)?;
                     // Broadcast out the leaf
                     let network_result = pl
                         .send_broadcast_message(ConsensusMessage::Prepare(Prepare {
@@ -442,7 +436,11 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         // Store the precommit qc
                         let mut pqc = pl.inner.prepare_qc.write().await;
                         *pqc = Some(qc.clone());
-                        pl.inner.storage.insert_qc(qc.clone()).await;
+                        pl.inner
+                            .storage
+                            .insert_qc(qc.clone())
+                            .await
+                            .context(StorageSnafu)?;
                         // TODO vko: do something with this error
                         pl.inner
                             .storage
@@ -611,27 +609,29 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let mut walk_leaf = new_leaf_hash;
                         while walk_leaf != *old_leaf {
                             debug!(?walk_leaf, "Looping");
-                            let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
-                                StorageResult::Some(x) => x,
-                                StorageResult::None => {
-                                    warn!(?walk_leaf, "Parent did not exist in store");
-                                    break;
-                                }
-                                StorageResult::Err(e) => {
-                                    warn!(?walk_leaf, ?e, "Error finding parent");
-                                    break;
-                                }
+                            let block = if let Some(x) = pl
+                                .inner
+                                .storage
+                                .get_leaf(&walk_leaf)
+                                .await
+                                .context(StorageSnafu)?
+                            {
+                                x
+                            } else {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
                             };
-                            let state = match pl.inner.storage.get_state(&walk_leaf).await {
-                                StorageResult::Some(x) => x,
-                                StorageResult::None => {
-                                    warn!(?walk_leaf, "Parent did not exist in store");
-                                    break;
-                                }
-                                StorageResult::Err(e) => {
-                                    warn!(?walk_leaf, ?e, "Error finding parent");
-                                    break;
-                                }
+                            let state = if let Some(x) = pl
+                                .inner
+                                .storage
+                                .get_state(&walk_leaf)
+                                .await
+                                .context(StorageSnafu)?
+                            {
+                                x
+                            } else {
+                                warn!(?walk_leaf, "Parent did not exist in store");
+                                break;
                             };
                             state.on_commit();
                             events.push((block.item, state));
@@ -646,7 +646,11 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         ctx.send_decide(current_view, &events);
 
                         // Add qc to decision cache
-                        pl.inner.storage.insert_qc(qc.clone()).await;
+                        pl.inner
+                            .storage
+                            .insert_qc(qc.clone())
+                            .await
+                            .context(StorageSnafu)?;
                         // TODO vko: do something with this error
                         pl.inner
                             .storage
@@ -799,12 +803,17 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 let ctx = context.clone();
                 let fut = async move {
                     debug!(?leaf, "Looking for state for leaf");
-                    let state = match pl.inner.storage.get_state(&leaf.parent).await {
-                        StorageResult::Some(x) => Ok(x),
-                        StorageResult::None => Err(PhaseLockError::ItemNotFound {
+                    let state = match pl
+                        .inner
+                        .storage
+                        .get_state(&leaf.parent)
+                        .await
+                        .context(StorageSnafu)?
+                    {
+                        Some(x) => Ok(x),
+                        None => Err(PhaseLockError::ItemNotFound {
                             hash: leaf.parent.to_vec(),
                         }),
-                        StorageResult::Err(e) => Err(PhaseLockError::StorageError { err: e }),
                     }?;
 
                     // Check that the message is safe, extends from the given qc, and is valid given
@@ -845,21 +854,14 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         })?;
                         // Insert new state into storage
                         debug!(?new_state, "New state inserted");
-                        let result = match pl.inner.storage.insert_state(new_state, leaf_hash).await
-                        {
-                            StorageResult::Some(_) => Ok(leaf),
-                            StorageResult::None => Ok(leaf),
-                            StorageResult::Err(e) => Err(PhaseLockError::StorageError { err: e }),
-                        };
-                        if result.is_ok() {
-                            // TODO vko: do something with this error
-                            pl.inner
-                                .storage
-                                .commit()
-                                .await
-                                .expect("Could not commit storage");
-                        }
-                        result
+                        pl.inner
+                            .storage
+                            .insert_state(new_state, leaf_hash)
+                            .await
+                            .context(StorageSnafu)?;
+                        pl.inner.storage.commit().await.context(StorageSnafu)?;
+
+                        Ok(leaf)
                     } else {
                         error!("is_safe_node: {}", is_safe_node);
                         error!(?leaf, "Leaf failed safe_node predicate");
@@ -1030,12 +1032,17 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         });
                     }
                     // apply the state
-                    let state = match pl.inner.storage.get_state(&leaf_hash).await {
-                        StorageResult::Some(x) => Ok(x),
-                        StorageResult::None => Err(PhaseLockError::ItemNotFound {
+                    let state = match pl
+                        .inner
+                        .storage
+                        .get_state(&leaf_hash)
+                        .await
+                        .context(StorageSnafu)?
+                    {
+                        Some(x) => Ok(x),
+                        None => Err(PhaseLockError::ItemNotFound {
                             hash: leaf.parent.to_vec(),
                         }),
-                        StorageResult::Err(e) => Err(PhaseLockError::StorageError { err: e }),
                     }?;
                     let mut old_state = pl.inner.committed_state.write().await;
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
@@ -1044,27 +1051,29 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
 
                     while walk_leaf != *old_leaf {
                         debug!(?walk_leaf, "Looping");
-                        let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
-                            StorageResult::Some(x) => x,
-                            StorageResult::None => {
-                                warn!(?walk_leaf, "Parent did not exist in store");
-                                break;
-                            }
-                            StorageResult::Err(e) => {
-                                warn!(?walk_leaf, ?e, "Error finding parent");
-                                break;
-                            }
+                        let block = if let Some(x) = pl
+                            .inner
+                            .storage
+                            .get_leaf(&walk_leaf)
+                            .await
+                            .context(StorageSnafu)?
+                        {
+                            x
+                        } else {
+                            warn!(?walk_leaf, "Parent did not exist in store");
+                            break;
                         };
-                        let state = match pl.inner.storage.get_state(&walk_leaf).await {
-                            StorageResult::Some(x) => x,
-                            StorageResult::None => {
-                                warn!(?walk_leaf, "Parent did not exist in store");
-                                break;
-                            }
-                            StorageResult::Err(e) => {
-                                warn!(?walk_leaf, ?e, "Error finding parent");
-                                break;
-                            }
+                        let state = if let Some(x) = pl
+                            .inner
+                            .storage
+                            .get_state(&walk_leaf)
+                            .await
+                            .context(StorageSnafu)?
+                        {
+                            x
+                        } else {
+                            warn!(?walk_leaf, "Parent did not exist in store");
+                            break;
                         };
                         state.on_commit();
                         events.push((block.item, state));
@@ -1113,12 +1122,17 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     }
                     let leaf_hash = message.leaf_hash;
                     // apply the state
-                    let state = match pl.inner.storage.get_state(&leaf_hash).await {
-                        StorageResult::Some(x) => Ok(x),
-                        StorageResult::None => Err(PhaseLockError::ItemNotFound {
+                    let state = match pl
+                        .inner
+                        .storage
+                        .get_state(&leaf_hash)
+                        .await
+                        .context(StorageSnafu)?
+                    {
+                        Some(x) => Ok(x),
+                        None => Err(PhaseLockError::ItemNotFound {
                             hash: leaf_hash.to_vec(),
                         }),
-                        StorageResult::Err(e) => Err(PhaseLockError::StorageError { err: e }),
                     }?;
                     let mut old_state = pl.inner.committed_state.write().await;
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
@@ -1127,27 +1141,29 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
 
                     while walk_leaf != *old_leaf {
                         debug!(?walk_leaf, "Looping");
-                        let block = match pl.inner.storage.get_leaf(&walk_leaf).await {
-                            StorageResult::Some(x) => x,
-                            StorageResult::None => {
-                                warn!(?walk_leaf, "Parent did not exist in store");
-                                break;
-                            }
-                            StorageResult::Err(e) => {
-                                warn!(?walk_leaf, ?e, "Error finding parent");
-                                break;
-                            }
+                        let block = if let Some(x) = pl
+                            .inner
+                            .storage
+                            .get_leaf(&walk_leaf)
+                            .await
+                            .context(StorageSnafu)?
+                        {
+                            x
+                        } else {
+                            warn!(?walk_leaf, "Parent did not exist in store");
+                            break;
                         };
-                        let state = match pl.inner.storage.get_state(&walk_leaf).await {
-                            StorageResult::Some(x) => x,
-                            StorageResult::None => {
-                                warn!(?walk_leaf, "Parent did not exist in store");
-                                break;
-                            }
-                            StorageResult::Err(e) => {
-                                warn!(?walk_leaf, ?e, "Error finding parent");
-                                break;
-                            }
+                        let state = if let Some(x) = pl
+                            .inner
+                            .storage
+                            .get_state(&walk_leaf)
+                            .await
+                            .context(StorageSnafu)?
+                        {
+                            x
+                        } else {
+                            warn!(?walk_leaf, "Parent did not exist in store");
+                            break;
                         };
                         state.on_commit();
                         events.push((block.item, state));

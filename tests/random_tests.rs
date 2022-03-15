@@ -142,7 +142,8 @@ async fn init_state_and_phaselocks(
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         if !nodes_to_fail.contains(&node_id) {
             phaselocks.push(phaselock);
         }

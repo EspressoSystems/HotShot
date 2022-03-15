@@ -79,7 +79,8 @@ async fn single_permanent_failure() {
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         phaselocks.push(h);
     }
 
@@ -227,7 +228,8 @@ async fn double_permanent_failure() {
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         phaselocks.push(h);
     }
 

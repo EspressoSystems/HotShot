@@ -95,24 +95,20 @@ where
 impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
     Storage<B, S, N> for AtomicStorage<B, S, N>
 {
-    fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> BoxFuture<'b, StorageResult<B>> {
-        async move {
-            if let Some(block) = self.inner.blocks.get(hash).await {
-                trace!("Block found");
-                StorageResult::Some(block)
-            } else {
-                trace!("Block not found");
-                StorageResult::None
-            }
-        }
-        .instrument(info_span!("AtomicStorage::get_block", ?hash))
-        .boxed()
+    fn get_block<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b BlockHash<N>,
+    ) -> BoxFuture<'b, StorageResult<Option<B>>> {
+        async move { Ok(self.inner.blocks.get(hash).await) }
+            .instrument(info_span!("AtomicStorage::get_block", ?hash))
+            .boxed()
     }
 
-    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
         async move {
             trace!(?block, "inserting block");
-            self.inner.blocks.insert(hash, block).await.into()
+            self.inner.blocks.insert(hash, block).await?;
+            Ok(())
         }
         .instrument(info_span!("AtomicStorage::insert_block", ?hash))
         .boxed()
@@ -121,41 +117,44 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     fn get_qc<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<QuorumCertificate<N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<QuorumCertificate<N>>>> {
         self.inner
             .qcs
             .load_by_key_1_ref(hash)
-            .map_into()
+            .map(Ok)
             .instrument(info_span!("AtomicStorage::get_qc", ?hash))
             .boxed()
     }
 
-    fn get_qc_for_view(&self, view: u64) -> BoxFuture<'_, StorageResult<QuorumCertificate<N>>> {
+    fn get_qc_for_view(
+        &self,
+        view: u64,
+    ) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
         self.inner
             .qcs
             .load_by_key_2(view)
-            .map_into()
+            .map(Ok)
             .instrument(info_span!("AtomicStorage::get_qc_for_view"))
             .boxed()
     }
 
-    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult<()>> {
-        self.inner
-            .qcs
-            .insert(qc)
-            .map_into()
-            .instrument(info_span!("AtomicStorage::insert_qc"))
-            .boxed()
+    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            self.inner.qcs.insert(qc).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_qc"))
+        .boxed()
     }
 
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
         self.inner
             .leaves
             .load_by_key_1_ref(hash)
-            .map_into()
+            .map(Ok)
             .instrument(info_span!("AtomicStorage::get_leaf", ?hash))
             .boxed()
     }
@@ -163,47 +162,42 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     fn get_leaf_by_block<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Leaf<B, N>>> {
+    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
         self.inner
             .leaves
             .load_by_key_2_ref(hash)
-            .map_into()
+            .map(Ok)
             .instrument(info_span!("AtomicStorage::get_by_block", ?hash))
             .boxed()
     }
 
-    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult<()>> {
-        self.inner
-            .leaves
-            .insert(leaf)
-            .map_into()
-            .instrument(info_span!("AtomicStorage::insert_leaf"))
-            .boxed()
+    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            self.inner.leaves.insert(leaf).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_leaf"))
+        .boxed()
     }
 
-    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult<()>> {
+    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
         async move {
             trace!(?hash, "Inserting state");
-            self.inner.states.insert(hash, state).await.into()
+            self.inner.states.insert(hash, state).await?;
+            Ok(())
         }
         .instrument(info_span!("AtomicStorage::insert_state"))
         .boxed()
     }
 
-    fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> BoxFuture<'b, StorageResult<S>> {
-        async move {
-            if let Some(state) = self.inner.states.get(hash).await {
-                StorageResult::Some(state)
-            } else {
-                StorageResult::None
-            }
-        }
-        .boxed()
+    fn get_state<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b LeafHash<N>,
+    ) -> BoxFuture<'b, StorageResult<Option<S>>> {
+        self.inner.states.get(hash).map(Ok).boxed()
     }
 
-    fn commit(
-        &self,
-    ) -> BoxFuture<'_, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
+    fn commit(&self) -> BoxFuture<'_, StorageResult> {
         async move {
             self.inner.blocks.commit_version().await?;
             self.inner.qcs.commit_version().await?;
