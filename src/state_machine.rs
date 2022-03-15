@@ -441,12 +441,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .insert_qc(qc.clone())
                             .await
                             .context(StorageSnafu)?;
-                        // TODO vko: do something with this error
-                        pl.inner
-                            .storage
-                            .commit()
-                            .await
-                            .expect("Could not commit storage");
+                        pl.inner.storage.commit().await.context(StorageSnafu)?;
                         trace!("Pre-commit qc stored in prepare_qc");
                         let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,
@@ -651,12 +646,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             .insert_qc(qc.clone())
                             .await
                             .context(StorageSnafu)?;
-                        // TODO vko: do something with this error
-                        pl.inner
-                            .storage
-                            .commit()
-                            .await
-                            .expect("Could not commit storage");
+                        pl.inner.storage.commit().await.context(StorageSnafu)?;
                         *old_state = Arc::new(state);
                         *old_leaf = new_leaf_hash;
                         trace!("New state written");
