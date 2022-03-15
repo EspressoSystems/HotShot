@@ -24,6 +24,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.GITHUB_PAT }}@github.com".insteadOf git://github.com
+          git config --global url."https://ancient123:${{ secrets.GITHUB_PAT }}@github.com".insteadOf ssh://git@github.com
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:

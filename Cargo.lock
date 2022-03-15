@@ -2713,16 +2713,6 @@ dependencies = [
 [[package]]
 name = "netlink-packet-core"
 version = "0.4.2"
-dependencies = [
- "anyhow",
- "byteorder",
- "libc",
- "netlink-packet-utils 0.5.1",
-]
-
-[[package]]
-name = "netlink-packet-core"
-version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "345b8ab5bd4e71a2986663e88c56856699d060e78e152e6e9d7966fcd5491297"
 dependencies = [
@@ -2733,28 +2723,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "netlink-packet-generic"
-version = "0.2.0"
+name = "netlink-packet-core"
+version = "0.4.2"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
  "anyhow",
  "byteorder",
  "libc",
- "netlink-packet-core 0.4.2",
- "netlink-packet-utils 0.5.1",
+ "netlink-packet-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "netlink-packet-route"
-version = "0.11.0"
+name = "netlink-packet-generic"
+version = "0.2.0"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
  "anyhow",
- "bitflags",
  "byteorder",
  "libc",
- "netlink-packet-core 0.4.2",
- "netlink-packet-generic",
- "netlink-packet-utils 0.5.1",
- "netlink-proto 0.9.2",
+ "netlink-packet-core 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "netlink-packet-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2772,13 +2760,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "netlink-packet-utils"
-version = "0.5.1"
+name = "netlink-packet-route"
+version = "0.11.0"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
  "anyhow",
+ "bitflags",
  "byteorder",
- "paste",
- "thiserror",
+ "libc",
+ "netlink-packet-core 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "netlink-packet-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2794,15 +2785,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "netlink-proto"
-version = "0.9.2"
+name = "netlink-packet-utils"
+version = "0.5.1"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
- "bytes",
- "futures",
- "log",
- "netlink-packet-core 0.4.2",
- "netlink-sys 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio",
+ "anyhow",
+ "byteorder",
+ "paste",
+ "thiserror",
 ]
 
 [[package]]
@@ -2820,14 +2810,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "netlink-sys"
-version = "0.8.2"
+name = "netlink-proto"
+version = "0.9.2"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
- "async-io",
  "bytes",
  "futures",
- "libc",
  "log",
+ "netlink-packet-core 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "netlink-sys 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio",
 ]
 
 [[package]]
@@ -2845,6 +2837,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "netlink-sys"
+version = "0.8.2"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
+dependencies = [
+ "async-io",
+ "bytes",
+ "futures",
+ "libc",
+ "log",
+]
+
+[[package]]
 name = "networking-demo"
 version = "0.0.0"
 dependencies = [
@@ -2859,16 +2863,16 @@ dependencies = [
  "flume",
  "futures",
  "libp2p",
- "netlink-packet-core 0.4.2",
+ "netlink-packet-core 0.4.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "netlink-packet-generic",
- "netlink-packet-route 0.11.0",
- "netlink-packet-utils 0.5.1",
- "netlink-proto 0.9.2",
- "netlink-sys 0.8.2",
+ "netlink-packet-route 0.11.0 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-packet-utils 0.5.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-proto 0.9.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-sys 0.8.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "nix 0.23.1",
  "parking_lot 0.12.0",
  "rand 0.8.5",
- "rtnetlink 0.9.1",
+ "rtnetlink 0.9.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "serde",
  "serde_json",
  "snafu",
@@ -3634,16 +3638,14 @@ checksum = "56770675ebc04927ded3e60633437841581c285dc6236109ea25fbf3beb7b59e"
 [[package]]
 name = "rtnetlink"
 version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f54290e54521dac3de4149d83ddf9f62a359b3cc93bcb494a794a41e6f4744b"
 dependencies = [
  "async-global-executor",
- "byteorder",
  "futures",
  "log",
- "netlink-packet-core 0.4.2",
- "netlink-packet-generic",
- "netlink-packet-route 0.11.0",
- "netlink-packet-utils 0.5.1",
- "netlink-proto 0.9.2",
+ "netlink-packet-route 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "netlink-proto 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.22.3",
  "thiserror",
 ]
@@ -3651,10 +3653,10 @@ dependencies = [
 [[package]]
 name = "rtnetlink"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f54290e54521dac3de4149d83ddf9f62a359b3cc93bcb494a794a41e6f4744b"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#ca4e6fb88225394fd72ce96197a7cebfaf5ef0f0"
 dependencies = [
  "async-global-executor",
+ "byteorder",
  "futures",
  "log",
  "netlink-packet-route 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
