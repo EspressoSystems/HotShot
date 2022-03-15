@@ -45,4 +45,4 @@ netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.g
 
 [features]
 webui = ["tide"]
-lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic"]
+lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
