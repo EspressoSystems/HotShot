@@ -1,7 +1,6 @@
-use async_std::process::Command;
+use crate::common::lossy_network::LOSSY_QDISC;
 use color_eyre::eyre::Result;
 use structopt::StructOpt;
-use tracing::info;
 use tracing::instrument;
 
 pub mod common;
@@ -22,7 +21,7 @@ async fn main() -> Result<()> {
     #[cfg(feature = "lossy_network")]
     let network = {
         let mut builder = LossyNetworkBuilder::default();
-        builder.env_type(args.env_type);
+        builder.env_type(args.env_type).netem_config(LOSSY_QDISC);
         match args.env_type {
             ExecutionEnvironment::Docker => {
                 builder.eth_name("eth0".to_string()).isolation_config(None)
@@ -33,34 +32,12 @@ async fn main() -> Result<()> {
         };
         builder.build()
     }?;
+
     #[cfg(feature = "lossy_network")]
     {
         network.isolate().await?;
         network.create_qdisc().await?;
     }
-
-    // check is correct
-    let cmdout = Command::new("ip").arg("a").output().await?.stdout;
-    info!("OUTPUT: {}", std::str::from_utf8(&cmdout).unwrap());
-
-    // ping google for sanity check
-    let cmdout = Command::new("ping")
-        .args(["-c", "2", "142.250.80.68"])
-        .output()
-        .await?;
-    info!(
-        "OUTPUT: {} {}",
-        std::str::from_utf8(&cmdout.stdout).unwrap(),
-        std::str::from_utf8(&cmdout.stderr).unwrap()
-    );
-
-    // list qdisc interfaces to ensure netem exists
-    let cmdout = Command::new("tc").args(["qdisc", "list"]).output().await?;
-    info!(
-        "OUTPUT: {} {}",
-        std::str::from_utf8(&cmdout.stdout).unwrap(),
-        std::str::from_utf8(&cmdout.stderr).unwrap()
-    );
 
     start_main(args).await?;
 

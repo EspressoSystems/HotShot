@@ -73,3 +73,28 @@ nix develop -c cargo run --features webui --release --example counter -- --bound
 ```
 
 To run on the AWS cluster, see [here](https://github.com/EspressoSystems/cloud-infrastructure/blob/c86873a5c647772836907fc206fce5702a5878bb/ansible/networking-demo/README.md).
+
+### Network Emulation 
+One may introduce simulated network latency via the network emulationn queueing discipline. This is implemented in two ways: on what is assumed to be a AWS EC2 instance, and in a docker container. Example usage on AWS EC2 instance:
+
+```bash
+# run each line in a separate AWS instance
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+```
+
+And on docker:
+
+```bash
+# run each line in a separate Docker container instance
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+```
+
+On an AWS instance, a separate network namespace is created and connected to `ens5` via a network bridge, and a netem qdisc is introduced to the veth interface in the namespace. Within a docker container, a netem qdisc is added on interface `eth0`.
