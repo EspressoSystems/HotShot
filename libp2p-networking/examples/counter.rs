@@ -1,4 +1,3 @@
-use crate::common::lossy_network::LOSSY_QDISC;
 use color_eyre::eyre::Result;
 use structopt::StructOpt;
 use tracing::instrument;
@@ -20,6 +19,7 @@ async fn main() -> Result<()> {
 
     #[cfg(feature = "lossy_network")]
     let network = {
+        use crate::common::lossy_network::LOSSY_QDISC;
         let mut builder = LossyNetworkBuilder::default();
         builder.env_type(args.env_type).netem_config(LOSSY_QDISC);
         match args.env_type {
