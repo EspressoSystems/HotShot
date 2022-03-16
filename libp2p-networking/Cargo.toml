@@ -25,7 +25,7 @@ tracing-subscriber = { version = "0.3.9", features = ["env-filter", "json"] }
 tui = { version = "0.17.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.52"
-derive_builder = "0.10.2"
+derive_builder = "0.11.0"
 custom_debug = "0.5"
 
 # Feature dependencies
