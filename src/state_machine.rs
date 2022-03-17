@@ -11,28 +11,26 @@
     clippy::type_complexity,
     clippy::shadow_unrelated
 )] // Clippy hates select and me
+use super::{
+    debug, error, generate_qc, trace, warn, yield_now, Arc, Commit, Debug, Decide, Event,
+    EventType, Leaf, LeafHash, PhaseLock, PreCommit, Prepare, PubKey, QuorumCertificate, Result,
+    ResultExt, Stage, Vote,
+};
+use crate::{
+    traits::{BlockContents, State, StatefulHandler, Storage, StorageResult},
+    utility::broadcast::BroadcastSender,
+    NodeImplementation,
+};
+use futures::{future::BoxFuture, Future, FutureExt};
+use phaselock_types::{
+    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError},
+    message::ConsensusMessage,
+};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-
-use futures::{future::BoxFuture, Future, FutureExt};
 use tracing::{info, instrument};
-
-use phaselock_types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError};
-
-use super::{
-    debug, error, generate_qc, trace, warn, yield_now, Arc, Commit, Debug, Decide, Event,
-    EventType, Leaf, LeafHash, Message, PhaseLock, PreCommit, Prepare, PubKey, QuorumCertificate,
-    Result, ResultExt, Stage, Vote,
-};
-use crate::{
-    traits::{
-        BlockContents, NetworkingImplementation, State, StatefulHandler, Storage, StorageResult,
-    },
-    utility::broadcast::BroadcastSender,
-    NodeImplementation,
-};
 
 // TODO(nm): state_machine_future is kind of jank, not well documented, and not quite flexible
 // enough for this. A lot of this module is boiler plate and can be macroed away. I need to write
@@ -360,9 +358,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     }
                     // Broadcast out the leaf
                     let network_result = pl
-                        .inner
-                        .networking
-                        .broadcast_message(Message::Prepare(Prepare {
+                        .send_broadcast_message(ConsensusMessage::Prepare(Prepare {
                             current_view,
                             leaf: new_leaf.clone(),
                             high_qc: high_qc.clone(),
@@ -442,19 +438,16 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         *pqc = Some(qc.clone());
                         pl.inner.storage.insert_qc(qc.clone()).await;
                         trace!("Pre-commit qc stored in prepare_qc");
-                        let pc_message = Message::PreCommit(PreCommit {
+                        let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,
                             qc,
                             current_view,
                         });
-                        let network_result = pl
-                            .inner
-                            .networking
-                            .broadcast_message(pc_message)
-                            .await
-                            .context(FailedToBroadcastSnafu {
+                        let network_result = pl.send_broadcast_message(pc_message).await.context(
+                            FailedToBroadcastSnafu {
                                 stage: Stage::PreCommit,
-                            });
+                            },
+                        );
                         if let Err(e) = network_result {
                             warn!(?e, "Failed to broadcast precommit");
                         }
@@ -522,19 +515,16 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             genesis: false,
                         };
                         debug!(?qc, "commit qc generated");
-                        let pc_message = Message::Commit(Commit {
+                        let pc_message = ConsensusMessage::Commit(Commit {
                             leaf_hash: new_leaf_hash,
                             qc,
                             current_view,
                         });
-                        let network_result = pl
-                            .inner
-                            .networking
-                            .broadcast_message(pc_message)
-                            .await
-                            .context(FailedToBroadcastSnafu {
+                        let network_result = pl.send_broadcast_message(pc_message).await.context(
+                            FailedToBroadcastSnafu {
                                 stage: Stage::Commit,
-                            });
+                            },
+                        );
                         if let Err(e) = network_result {
                             warn!(?e, "Failed to broadcast commit message");
                         }
@@ -649,20 +639,17 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         *old_leaf = new_leaf_hash;
                         trace!("New state written");
                         // Broadcast the decision
-                        let d_message = Message::Decide(Decide {
+                        let d_message = ConsensusMessage::Decide(Decide {
                             leaf_hash: new_leaf_hash,
                             qc,
                             current_view,
                         });
 
-                        let network_result = pl
-                            .inner
-                            .networking
-                            .broadcast_message(d_message)
-                            .await
-                            .context(FailedToBroadcastSnafu {
+                        let network_result = pl.send_broadcast_message(d_message).await.context(
+                            FailedToBroadcastSnafu {
                                 stage: Stage::Decide,
-                            });
+                            },
+                        );
 
                         if let Err(e) = network_result {
                             warn!(?e, "Error broadcasting decision");
@@ -818,11 +805,9 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             current_view,
                             stage: Stage::Prepare,
                         };
-                        let vote_message = Message::PrepareVote(vote);
+                        let vote_message = ConsensusMessage::PrepareVote(vote);
                         let network_result = pl
-                            .inner
-                            .networking
-                            .message_node(vote_message, pl.inner.get_leader(current_view))
+                            .send_direct_message(vote_message, pl.inner.get_leader(current_view))
                             .await
                             .context(FailedToMessageLeaderSnafu {
                                 stage: Stage::Prepare,
@@ -894,7 +879,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         Stage::PreCommit,
                         current_view,
                     );
-                    let vote_message = Message::PreCommitVote(Vote {
+                    let vote_message = ConsensusMessage::PreCommitVote(Vote {
                         leaf_hash,
                         signature,
                         id: pl.inner.public_key.nonce,
@@ -907,9 +892,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     trace!("Prepare qc stored");
                     // send the vote message
                     let network_result = pl
-                        .inner
-                        .networking
-                        .message_node(vote_message, pl.inner.get_leader(current_view))
+                        .send_direct_message(vote_message, pl.inner.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeaderSnafu {
                             stage: Stage::PreCommit,
@@ -963,7 +946,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         pl.inner
                             .private_key
                             .partial_sign(&leaf_hash, Stage::Commit, current_view);
-                    let vote_message = Message::CommitVote(Vote {
+                    let vote_message = ConsensusMessage::CommitVote(Vote {
                         leaf_hash,
                         signature,
                         id: pl.inner.public_key.nonce,
@@ -972,9 +955,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     });
                     trace!("Commit vote packed");
                     let network_result = pl
-                        .inner
-                        .networking
-                        .message_node(vote_message, pl.inner.get_leader(current_view))
+                        .send_direct_message(vote_message, pl.inner.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeaderSnafu {
                             stage: Stage::Commit,

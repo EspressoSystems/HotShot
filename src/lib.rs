@@ -38,17 +38,6 @@ pub mod types;
 /// Contains general utility structures and methods
 pub mod utility;
 
-use std::fmt::Debug;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
-use async_std::sync::{Mutex, RwLock};
-use async_std::task::{spawn, yield_now, JoinHandle};
-use snafu::ResultExt;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
-use phaselock_types::error::NetworkFaultSnafu;
-
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
@@ -61,6 +50,17 @@ use crate::{
         waitqueue::{WaitOnce, WaitQueue},
     },
 };
+use async_std::sync::{Mutex, RwLock};
+use async_std::task::{spawn, yield_now, JoinHandle};
+use phaselock_types::error::NetworkFaultSnafu;
+use phaselock_types::message::ConsensusMessage;
+use phaselock_types::traits::network::NetworkError;
+use phaselock_types::traits::node_implementation::TypeMap;
+use snafu::ResultExt;
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 // -- Rexports
 // External
@@ -323,15 +323,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         #[allow(clippy::if_not_else)]
         if new_leader != self.inner.public_key {
             info!("Follower for this round");
-            let view_message = Message::NewView(NewView {
+            let view_message = ConsensusMessage::NewView(NewView {
                 current_view,
                 justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
             });
             trace!("View message packed");
             let network_result = self
-                .inner
-                .networking
-                .message_node(view_message, new_leader)
+                .send_direct_message(view_message, new_leader)
                 .await
                 .context(NetworkFaultSnafu);
             if let Err(e) = network_result {
@@ -395,57 +393,29 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// wrong queue
     #[allow(clippy::too_many_lines)]
     pub async fn spawn_networking_tasks(&self) {
-        let x = self.clone();
+        let phaselock = self.clone();
         // Spawn broadcast processing task
         spawn(
             async move {
                 info!("Launching broadcast processing task");
-                let networking = &x.inner.networking;
-                let phaselock = &x.inner;
+                let networking = &phaselock.inner.networking;
                 while let Ok(queue) = networking.broadcast_queue().await {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
                         trace!("No message, yielding");
                         yield_now().await;
-                    } else {
-                        for item in queue {
-                            trace!(?item, "Processing item");
-                            match item {
-                                Message::Prepare(p) => {
-                                    // Insert block into store
-                                    info!(prepare = ?p, "Inserting block and leaf into store");
-                                    let leaf = p.leaf.clone();
-                                    phaselock.storage.insert_leaf(leaf.clone()).await;
-                                    phaselock.storage.insert_block(
-                                        BlockContents::hash(&leaf.item),
-                                        leaf.item.clone(),
-                                    );
-                                    info!(?leaf, "Inserting new state into storage");
-                                    let result = phaselock
-                                        .storage
-                                        .insert_state(p.state.clone(), leaf.hash())
-                                        .await;
-                                    if let StorageResult::Err(e) = result {
-                                        error!(?e, "Error inserting state into storage");
-                                    };
-
-                                    phaselock.prepare_waiter.put(p).await;
-                                }
-                                Message::PreCommit(pc) => phaselock.precommit_waiter.put(pc).await,
-                                Message::Commit(c) => phaselock.commit_waiter.put(c).await,
-                                Message::Decide(d) => phaselock.decide_waiter.put(d).await,
-                                Message::SubmitTransaction(d) => {
-                                    phaselock.transaction_queue.write().await.push(d);
-                                }
-                                _ => {
-                                    // Log the exceptional situation and proceed
-                                    warn!(?item, "Direct message received over broadcast channel");
-                                }
+                        continue;
+                    }
+                    for item in queue {
+                        trace!(?item, "Processing item");
+                        match item {
+                            Message::Consensus(msg) => {
+                                phaselock.handle_broadcast_consensus_message(msg).await;
                             }
                         }
-                        trace!("Item processed, yeilding");
-                        yield_now().await;
                     }
+                    trace!("Item processed, yeilding");
+                    yield_now().await;
                 }
             }
             .instrument(info_span!(
@@ -453,41 +423,29 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 id = self.inner.public_key.nonce
             )),
         );
-        let x = self.clone();
+        let phaselock = self.clone();
         // Spawn direct processing task
         spawn(
             async move {
                 info!("Launching direct processing task");
-                let phaselock = &x.inner;
-                let networking = &x.inner.networking;
+                let networking = &phaselock.inner.networking;
                 while let Ok(queue) = networking.direct_queue().await {
                     debug!(?queue, "Processing messages");
                     if queue.is_empty() {
                         trace!("No message, yeilding");
                         yield_now().await;
-                    } else {
-                        for item in queue {
-                            trace!(?item, "Processing item");
-                            match item {
-                                Message::NewView(nv) => phaselock.new_view_queue.push(nv).await,
-                                Message::PrepareVote(pv) => {
-                                    phaselock.prepare_vote_queue.push(pv).await;
-                                }
-                                Message::PreCommitVote(pcv) => {
-                                    phaselock.precommit_vote_queue.push(pcv).await;
-                                }
-                                Message::CommitVote(cv) => {
-                                    phaselock.commit_vote_queue.push(cv).await;
-                                }
-                                _ => {
-                                    // Log exceptional situation and proceed
-                                    warn!(?item, "Broadcast message received over direct channel");
-                                }
+                        continue;
+                    }
+                    for item in queue {
+                        trace!(?item, "Processing item");
+                        match item {
+                            Message::Consensus(msg) => {
+                                phaselock.handle_direct_consensus_message(msg).await;
                             }
                         }
-                        trace!("Item processed, yeilding");
-                        yield_now().await;
                     }
+                    trace!("Item processed, yeilding");
+                    yield_now().await;
                 }
             }
             .instrument(info_span!(
@@ -511,11 +469,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         trace!("Adding transaction to our own queue");
         self.inner.transaction_queue.write().await.push(tx.clone());
         // Wrap up a message
-        let message = Message::SubmitTransaction(tx);
+        let message = ConsensusMessage::SubmitTransaction(tx);
         let network_result = self
-            .inner
-            .networking
-            .broadcast_message(message.clone())
+            .send_broadcast_message(message.clone())
             .await
             .context(NetworkFaultSnafu);
         if let Err(e) = network_result {
@@ -687,6 +643,94 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
         );
         (task, handle)
+    }
+
+    /// Send a broadcast message.
+    ///
+    /// This is an alias for `phaselock.inner.networking.broadcast_message(msg.into())`.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors that the underlying `broadcast_message` can return.
+    pub async fn send_broadcast_message(
+        &self,
+        msg: impl Into<<I as TypeMap<N>>::Message>,
+    ) -> std::result::Result<(), NetworkError> {
+        self.inner.networking.broadcast_message(msg.into()).await
+    }
+
+    /// Send a direct message to a given recipient.
+    ///
+    /// This is an alias for `phaselock.inner.networking.message_node(msg.into(), recipient)`.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors that the underlying `message_node` can return.
+    pub async fn send_direct_message(
+        &self,
+        msg: impl Into<<I as TypeMap<N>>::Message>,
+        recipient: PubKey,
+    ) -> std::result::Result<(), NetworkError> {
+        self.inner
+            .networking
+            .message_node(msg.into(), recipient)
+            .await
+    }
+
+    /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
+    async fn handle_broadcast_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
+        match msg {
+            ConsensusMessage::Prepare(p) => {
+                // Insert block into store
+                info!(prepare = ?p, "Inserting block and leaf into store");
+                let leaf = p.leaf.clone();
+                self.inner.storage.insert_leaf(leaf.clone()).await;
+                self.inner
+                    .storage
+                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone());
+                info!(?leaf, "Inserting new state into storage");
+                let result = self
+                    .inner
+                    .storage
+                    .insert_state(p.state.clone(), leaf.hash())
+                    .await;
+                if let StorageResult::Err(e) = result {
+                    error!(?e, "Error inserting state into storage");
+                };
+
+                self.inner.prepare_waiter.put(p).await;
+            }
+            ConsensusMessage::PreCommit(pc) => self.inner.precommit_waiter.put(pc).await,
+            ConsensusMessage::Commit(c) => self.inner.commit_waiter.put(c).await,
+            ConsensusMessage::Decide(d) => self.inner.decide_waiter.put(d).await,
+            ConsensusMessage::SubmitTransaction(d) => {
+                self.inner.transaction_queue.write().await.push(d);
+            }
+            _ => {
+                // Log the exceptional situation and proceed
+                warn!(?msg, "Direct message received over broadcast channel");
+            }
+        }
+    }
+
+    /// Handle an incoming [`ConsensusMessage`] directed at this node.
+    async fn handle_direct_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
+        match msg {
+            ConsensusMessage::NewView(nv) => self.inner.new_view_queue.push(nv).await,
+            ConsensusMessage::PrepareVote(pv) => {
+                self.inner.prepare_vote_queue.push(pv).await;
+            }
+            ConsensusMessage::PreCommitVote(pcv) => {
+                self.inner.precommit_vote_queue.push(pcv).await;
+            }
+            ConsensusMessage::CommitVote(cv) => {
+                self.inner.commit_vote_queue.push(cv).await;
+            }
+            _ => {
+                // Log exceptional situation and proceed
+                warn!(?msg, "Broadcast message received over direct channel");
+            }
+        }
     }
 }
 
