@@ -4,17 +4,28 @@
 //! `PhaseLock` nodes can send among themselves.
 
 use crate::data::Stage;
+use crate::data::{Leaf, LeafHash, QuorumCertificate};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
-use threshold_crypto::SignatureShare;
-
 use std::fmt::Debug;
-
-use crate::data::{Leaf, LeafHash, QuorumCertificate};
+use threshold_crypto::SignatureShare;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Enum representation of any message type
 pub enum Message<B, T, S, const N: usize> {
+    /// Messages related to the consensus protocol
+    Consensus(ConsensusMessage<B, T, S, N>),
+}
+
+impl<B, T, S, const N: usize> From<ConsensusMessage<B, T, S, N>> for Message<B, T, S, N> {
+    fn from(m: ConsensusMessage<B, T, S, N>) -> Self {
+        Self::Consensus(m)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Messages related to the consensus protocol
+pub enum ConsensusMessage<B, T, S, const N: usize> {
     /// Signals start of a new view
     NewView(NewView<N>),
     /// Contains the prepare qc from the leader
