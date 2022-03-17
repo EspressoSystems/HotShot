@@ -51,11 +51,12 @@ use crate::{
     },
 };
 use async_std::sync::{Mutex, RwLock};
-use async_std::task::{spawn, yield_now, JoinHandle};
-use phaselock_types::error::NetworkFaultSnafu;
-use phaselock_types::message::ConsensusMessage;
-use phaselock_types::traits::network::NetworkError;
-use phaselock_types::traits::node_implementation::TypeMap;
+use async_std::task::{spawn, JoinHandle};
+use phaselock_types::{
+    error::NetworkFaultSnafu,
+    message::ConsensusMessage,
+    traits::{network::NetworkError, node_implementation::TypeMap},
+};
 use snafu::ResultExt;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -399,13 +400,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             async move {
                 info!("Launching broadcast processing task");
                 let networking = &phaselock.inner.networking;
+                let mut incremental_backoff_ms = 10;
                 while let Ok(queue) = networking.broadcast_queue().await {
-                    debug!(?queue, "Processing messages");
                     if queue.is_empty() {
-                        trace!("No message, yielding");
-                        yield_now().await;
+                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
                         continue;
                     }
+                    // Make sure to reset the backoff time
+                    incremental_backoff_ms = 10;
                     for item in queue {
                         trace!(?item, "Processing item");
                         match item {
@@ -414,8 +418,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                             }
                         }
                     }
-                    trace!("Item processed, yeilding");
-                    yield_now().await;
+                    trace!("Items processed, querying for more");
                 }
             }
             .instrument(info_span!(
@@ -429,13 +432,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             async move {
                 info!("Launching direct processing task");
                 let networking = &phaselock.inner.networking;
+                let mut incremental_backoff_ms = 10;
                 while let Ok(queue) = networking.direct_queue().await {
-                    debug!(?queue, "Processing messages");
                     if queue.is_empty() {
-                        trace!("No message, yeilding");
-                        yield_now().await;
+                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
                         continue;
                     }
+                    // Make sure to reset the backoff time
+                    incremental_backoff_ms = 10;
                     for item in queue {
                         trace!(?item, "Processing item");
                         match item {
@@ -444,8 +450,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                             }
                         }
                     }
-                    trace!("Item processed, yeilding");
-                    yield_now().await;
+                    trace!("Items processed, querying for more");
                 }
             }
             .instrument(info_span!(
@@ -547,6 +552,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
                 let mut int_duration = default_interrupt_duration;
                 let mut view = 0;
+                let mut incremental_backoff_ms = 10;
                 // PhaseLock background handler loop
                 loop {
                     // First, check for shutdown signal and break if sent
@@ -565,11 +571,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                             *p
                         }
                     };
-                    // If we are paused, yield and continue
+                    // If we are paused, sleep and continue
                     if p_flag {
-                        yield_now().await;
+                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
                         continue;
                     }
+                    // Make sure to reset the backoff timeout
+                    incremental_backoff_ms = 10;
+
                     // Send the next view
                     let next_view_res = phaselock.next_view(view, Some(&channel)).await;
                     // If we fail to send the next view, broadcast the error and pause
