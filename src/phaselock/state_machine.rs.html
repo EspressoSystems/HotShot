@@ -1264,25 +1264,6 @@
 <span id="1263">1263</span>
 <span id="1264">1264</span>
 <span id="1265">1265</span>
-<span id="1266">1266</span>
-<span id="1267">1267</span>
-<span id="1268">1268</span>
-<span id="1269">1269</span>
-<span id="1270">1270</span>
-<span id="1271">1271</span>
-<span id="1272">1272</span>
-<span id="1273">1273</span>
-<span id="1274">1274</span>
-<span id="1275">1275</span>
-<span id="1276">1276</span>
-<span id="1277">1277</span>
-<span id="1278">1278</span>
-<span id="1279">1279</span>
-<span id="1280">1280</span>
-<span id="1281">1281</span>
-<span id="1282">1282</span>
-<span id="1283">1283</span>
-<span id="1284">1284</span>
 </pre><pre class="rust"><code><span class="doccomment">//! State machine representation of round logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the logic for completing an individual round of</span>
@@ -1296,28 +1277,26 @@
     <span class="ident">clippy::type_complexity</span>,
     <span class="ident">clippy::shadow_unrelated</span>
 )]</span> <span class="comment">// Clippy hates select and me</span>
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">generate_qc</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">yield_now</span>, <span class="ident">Arc</span>, <span class="ident">Commit</span>, <span class="ident">Debug</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>,
+    <span class="ident">EventType</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">PhaseLock</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">PubKey</span>, <span class="ident">QuorumCertificate</span>, <span class="prelude-ty">Result</span>,
+    <span class="ident">ResultExt</span>, <span class="ident">Stage</span>, <span class="ident">Vote</span>,
+};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>},
+    <span class="ident">utility::broadcast::BroadcastSender</span>,
+    <span class="ident">NodeImplementation</span>,
+};
+<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
+<span class="kw">use</span> <span class="ident">phaselock_types</span>::{
+    <span class="ident">error</span>::{<span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>},
+    <span class="ident">message::ConsensusMessage</span>,
+};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
 };
-
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
-
-<span class="kw">use</span> <span class="ident">phaselock_types::error</span>::{<span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>};
-
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">generate_qc</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">yield_now</span>, <span class="ident">Arc</span>, <span class="ident">Commit</span>, <span class="ident">Debug</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>,
-    <span class="ident">EventType</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">Message</span>, <span class="ident">PhaseLock</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">PubKey</span>, <span class="ident">QuorumCertificate</span>,
-    <span class="prelude-ty">Result</span>, <span class="ident">ResultExt</span>, <span class="ident">Stage</span>, <span class="ident">Vote</span>,
-};
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">traits</span>::{
-        <span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>,
-    },
-    <span class="ident">utility::broadcast::BroadcastSender</span>,
-    <span class="ident">NodeImplementation</span>,
-};
 
 <span class="comment">// TODO(nm): state_machine_future is kind of jank, not well documented, and not quite flexible</span>
 <span class="comment">// enough for this. A lot of this module is boiler plate and can be macroed away. I need to write</span>
@@ -1645,9 +1624,7 @@
                     }
                     <span class="comment">// Broadcast out the leaf</span>
                     <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                        .<span class="ident">inner</span>
-                        .<span class="ident">networking</span>
-                        .<span class="ident">broadcast_message</span>(<span class="ident">Message::Prepare</span>(<span class="ident">Prepare</span> {
+                        .<span class="ident">send_broadcast_message</span>(<span class="ident">ConsensusMessage::Prepare</span>(<span class="ident">Prepare</span> {
                             <span class="ident">current_view</span>,
                             <span class="ident">leaf</span>: <span class="ident">new_leaf</span>.<span class="ident">clone</span>(),
                             <span class="ident">high_qc</span>: <span class="ident">high_qc</span>.<span class="ident">clone</span>(),
@@ -1727,19 +1704,16 @@
                         <span class="kw-2">*</span><span class="ident">pqc</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">qc</span>.<span class="ident">clone</span>());
                         <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
                         <span class="macro">trace!</span>(<span class="string">&quot;Pre-commit qc stored in prepare_qc&quot;</span>);
-                        <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">Message::PreCommit</span>(<span class="ident">PreCommit</span> {
+                        <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommit</span>(<span class="ident">PreCommit</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
                             <span class="ident">qc</span>,
                             <span class="ident">current_view</span>,
                         });
-                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                            .<span class="ident">inner</span>
-                            .<span class="ident">networking</span>
-                            .<span class="ident">broadcast_message</span>(<span class="ident">pc_message</span>)
-                            .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
+                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">pc_message</span>).<span class="kw">await</span>.<span class="ident">context</span>(
+                            <span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::PreCommit</span>,
-                            });
+                            },
+                        );
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
                             <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Failed to broadcast precommit&quot;</span>);
                         }
@@ -1807,19 +1781,16 @@
                             <span class="ident">genesis</span>: <span class="bool-val">false</span>,
                         };
                         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">qc</span>, <span class="string">&quot;commit qc generated&quot;</span>);
-                        <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">Message::Commit</span>(<span class="ident">Commit</span> {
+                        <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::Commit</span>(<span class="ident">Commit</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
                             <span class="ident">qc</span>,
                             <span class="ident">current_view</span>,
                         });
-                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                            .<span class="ident">inner</span>
-                            .<span class="ident">networking</span>
-                            .<span class="ident">broadcast_message</span>(<span class="ident">pc_message</span>)
-                            .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
+                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">pc_message</span>).<span class="kw">await</span>.<span class="ident">context</span>(
+                            <span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,
-                            });
+                            },
+                        );
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
                             <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Failed to broadcast commit message&quot;</span>);
                         }
@@ -1934,20 +1905,17 @@
                         <span class="kw-2">*</span><span class="ident">old_leaf</span> <span class="op">=</span> <span class="ident">new_leaf_hash</span>;
                         <span class="macro">trace!</span>(<span class="string">&quot;New state written&quot;</span>);
                         <span class="comment">// Broadcast the decision</span>
-                        <span class="kw">let</span> <span class="ident">d_message</span> <span class="op">=</span> <span class="ident">Message::Decide</span>(<span class="ident">Decide</span> {
+                        <span class="kw">let</span> <span class="ident">d_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::Decide</span>(<span class="ident">Decide</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
                             <span class="ident">qc</span>,
                             <span class="ident">current_view</span>,
                         });
 
-                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                            .<span class="ident">inner</span>
-                            .<span class="ident">networking</span>
-                            .<span class="ident">broadcast_message</span>(<span class="ident">d_message</span>)
-                            .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">FailedToBroadcastSnafu</span> {
+                        <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">d_message</span>).<span class="kw">await</span>.<span class="ident">context</span>(
+                            <span class="ident">FailedToBroadcastSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Decide</span>,
-                            });
+                            },
+                        );
 
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
                             <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error broadcasting decision&quot;</span>);
@@ -2103,11 +2071,9 @@
                             <span class="ident">current_view</span>,
                             <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
                         };
-                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">Message::PrepareVote</span>(<span class="ident">vote</span>);
+                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PrepareVote</span>(<span class="ident">vote</span>);
                         <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                            .<span class="ident">inner</span>
-                            .<span class="ident">networking</span>
-                            .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
+                            .<span class="ident">send_direct_message</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                             .<span class="kw">await</span>
                             .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                                 <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
@@ -2179,7 +2145,7 @@
                         <span class="ident">Stage::PreCommit</span>,
                         <span class="ident">current_view</span>,
                     );
-                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">Message::PreCommitVote</span>(<span class="ident">Vote</span> {
+                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommitVote</span>(<span class="ident">Vote</span> {
                         <span class="ident">leaf_hash</span>,
                         <span class="ident">signature</span>,
                         <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
@@ -2192,9 +2158,7 @@
                     <span class="macro">trace!</span>(<span class="string">&quot;Prepare qc stored&quot;</span>);
                     <span class="comment">// send the vote message</span>
                     <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                        .<span class="ident">inner</span>
-                        .<span class="ident">networking</span>
-                        .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
+                        .<span class="ident">send_direct_message</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                         .<span class="kw">await</span>
                         .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                             <span class="ident">stage</span>: <span class="ident">Stage::PreCommit</span>,
@@ -2248,7 +2212,7 @@
                         <span class="ident">pl</span>.<span class="ident">inner</span>
                             .<span class="ident">private_key</span>
                             .<span class="ident">partial_sign</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>, <span class="ident">Stage::Commit</span>, <span class="ident">current_view</span>);
-                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">Message::CommitVote</span>(<span class="ident">Vote</span> {
+                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::CommitVote</span>(<span class="ident">Vote</span> {
                         <span class="ident">leaf_hash</span>,
                         <span class="ident">signature</span>,
                         <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
@@ -2257,9 +2221,7 @@
                     });
                     <span class="macro">trace!</span>(<span class="string">&quot;Commit vote packed&quot;</span>);
                     <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
-                        .<span class="ident">inner</span>
-                        .<span class="ident">networking</span>
-                        .<span class="ident">message_node</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
+                        .<span class="ident">send_direct_message</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
                         .<span class="kw">await</span>
                         .<span class="ident">context</span>(<span class="ident">FailedToMessageLeaderSnafu</span> {
                             <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,

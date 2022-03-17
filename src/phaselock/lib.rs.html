@@ -711,6 +711,50 @@
 <span id="710">710</span>
 <span id="711">711</span>
 <span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -751,17 +795,6 @@
 <span class="doccomment">/// Contains general utility structures and methods</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utility</span>;
 
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>};
-
-<span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
-<span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
-
-<span class="kw">use</span> <span class="ident">phaselock_types::error::NetworkFaultSnafu</span>;
-
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">Stage</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>},
@@ -774,6 +807,17 @@
         <span class="ident">waitqueue</span>::{<span class="ident">WaitOnce</span>, <span class="ident">WaitQueue</span>},
     },
 };
+<span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
+<span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
+<span class="kw">use</span> <span class="ident">phaselock_types::error::NetworkFaultSnafu</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::message::ConsensusMessage</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkError</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::node_implementation::TypeMap</span>;
+<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
+<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">std::time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
 
 <span class="comment">// -- Rexports</span>
 <span class="comment">// External</span>
@@ -1036,15 +1080,13 @@
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::if_not_else</span>)]</span>
         <span class="kw">if</span> <span class="ident">new_leader</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span> {
             <span class="macro">info!</span>(<span class="string">&quot;Follower for this round&quot;</span>);
-            <span class="kw">let</span> <span class="ident">view_message</span> <span class="op">=</span> <span class="ident">Message::NewView</span>(<span class="ident">NewView</span> {
+            <span class="kw">let</span> <span class="ident">view_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::NewView</span>(<span class="ident">NewView</span> {
                 <span class="ident">current_view</span>,
                 <span class="ident">justify</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">prepare_qc</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>(),
             });
             <span class="macro">trace!</span>(<span class="string">&quot;View message packed&quot;</span>);
             <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">inner</span>
-                .<span class="ident">networking</span>
-                .<span class="ident">message_node</span>(<span class="ident">view_message</span>, <span class="ident">new_leader</span>)
+                .<span class="ident">send_direct_message</span>(<span class="ident">view_message</span>, <span class="ident">new_leader</span>)
                 .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">NetworkFaultSnafu</span>);
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -1108,57 +1150,29 @@
     <span class="doccomment">/// wrong queue</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spawn_networking_tasks</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
         <span class="comment">// Spawn broadcast processing task</span>
         <span class="ident">spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="macro">info!</span>(<span class="string">&quot;Launching broadcast processing task&quot;</span>);
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
-                <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">inner</span>;
+                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
                 <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">queue</span>) <span class="op">=</span> <span class="ident">networking</span>.<span class="ident">broadcast_queue</span>().<span class="kw">await</span> {
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">queue</span>, <span class="string">&quot;Processing messages&quot;</span>);
                     <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
                         <span class="macro">trace!</span>(<span class="string">&quot;No message, yielding&quot;</span>);
                         <span class="ident">yield_now</span>().<span class="kw">await</span>;
-                    } <span class="kw">else</span> {
-                        <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
-                            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
-                            <span class="kw">match</span> <span class="ident">item</span> {
-                                <span class="ident">Message::Prepare</span>(<span class="ident">p</span>) =&gt; {
-                                    <span class="comment">// Insert block into store</span>
-                                    <span class="macro">info!</span>(<span class="ident">prepare</span> <span class="op">=</span> <span class="question-mark">?</span><span class="ident">p</span>, <span class="string">&quot;Inserting block and leaf into store&quot;</span>);
-                                    <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">leaf</span>.<span class="ident">clone</span>();
-                                    <span class="ident">phaselock</span>.<span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-                                    <span class="ident">phaselock</span>.<span class="ident">storage</span>.<span class="ident">insert_block</span>(
-                                        <span class="ident">BlockContents::hash</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>.<span class="ident">item</span>),
-                                        <span class="ident">leaf</span>.<span class="ident">item</span>.<span class="ident">clone</span>(),
-                                    );
-                                    <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="string">&quot;Inserting new state into storage&quot;</span>);
-                                    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">phaselock</span>
-                                        .<span class="ident">storage</span>
-                                        .<span class="ident">insert_state</span>(<span class="ident">p</span>.<span class="ident">state</span>.<span class="ident">clone</span>(), <span class="ident">leaf</span>.<span class="ident">hash</span>())
-                                        .<span class="kw">await</span>;
-                                    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">result</span> {
-                                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error inserting state into storage&quot;</span>);
-                                    };
-
-                                    <span class="ident">phaselock</span>.<span class="ident">prepare_waiter</span>.<span class="ident">put</span>(<span class="ident">p</span>).<span class="kw">await</span>;
-                                }
-                                <span class="ident">Message::PreCommit</span>(<span class="ident">pc</span>) =&gt; <span class="ident">phaselock</span>.<span class="ident">precommit_waiter</span>.<span class="ident">put</span>(<span class="ident">pc</span>).<span class="kw">await</span>,
-                                <span class="ident">Message::Commit</span>(<span class="ident">c</span>) =&gt; <span class="ident">phaselock</span>.<span class="ident">commit_waiter</span>.<span class="ident">put</span>(<span class="ident">c</span>).<span class="kw">await</span>,
-                                <span class="ident">Message::Decide</span>(<span class="ident">d</span>) =&gt; <span class="ident">phaselock</span>.<span class="ident">decide_waiter</span>.<span class="ident">put</span>(<span class="ident">d</span>).<span class="kw">await</span>,
-                                <span class="ident">Message::SubmitTransaction</span>(<span class="ident">d</span>) =&gt; {
-                                    <span class="ident">phaselock</span>.<span class="ident">transaction_queue</span>.<span class="ident">write</span>().<span class="kw">await</span>.<span class="ident">push</span>(<span class="ident">d</span>);
-                                }
-                                <span class="kw">_</span> =&gt; {
-                                    <span class="comment">// Log the exceptional situation and proceed</span>
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Direct message received over broadcast channel&quot;</span>);
-                                }
+                        <span class="kw">continue</span>;
+                    }
+                    <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
+                        <span class="kw">match</span> <span class="ident">item</span> {
+                            <span class="ident">Message::Consensus</span>(<span class="ident">msg</span>) =&gt; {
+                                <span class="ident">phaselock</span>.<span class="ident">handle_broadcast_consensus_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
                             }
                         }
-                        <span class="macro">trace!</span>(<span class="string">&quot;Item processed, yeilding&quot;</span>);
-                        <span class="ident">yield_now</span>().<span class="kw">await</span>;
                     }
+                    <span class="macro">trace!</span>(<span class="string">&quot;Item processed, yeilding&quot;</span>);
+                    <span class="ident">yield_now</span>().<span class="kw">await</span>;
                 }
             }
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(
@@ -1166,41 +1180,29 @@
                 <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>
             )),
         );
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
         <span class="comment">// Spawn direct processing task</span>
         <span class="ident">spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="macro">info!</span>(<span class="string">&quot;Launching direct processing task&quot;</span>);
-                <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">inner</span>;
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
+                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
                 <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">queue</span>) <span class="op">=</span> <span class="ident">networking</span>.<span class="ident">direct_queue</span>().<span class="kw">await</span> {
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">queue</span>, <span class="string">&quot;Processing messages&quot;</span>);
                     <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
                         <span class="macro">trace!</span>(<span class="string">&quot;No message, yeilding&quot;</span>);
                         <span class="ident">yield_now</span>().<span class="kw">await</span>;
-                    } <span class="kw">else</span> {
-                        <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
-                            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
-                            <span class="kw">match</span> <span class="ident">item</span> {
-                                <span class="ident">Message::NewView</span>(<span class="ident">nv</span>) =&gt; <span class="ident">phaselock</span>.<span class="ident">new_view_queue</span>.<span class="ident">push</span>(<span class="ident">nv</span>).<span class="kw">await</span>,
-                                <span class="ident">Message::PrepareVote</span>(<span class="ident">pv</span>) =&gt; {
-                                    <span class="ident">phaselock</span>.<span class="ident">prepare_vote_queue</span>.<span class="ident">push</span>(<span class="ident">pv</span>).<span class="kw">await</span>;
-                                }
-                                <span class="ident">Message::PreCommitVote</span>(<span class="ident">pcv</span>) =&gt; {
-                                    <span class="ident">phaselock</span>.<span class="ident">precommit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">pcv</span>).<span class="kw">await</span>;
-                                }
-                                <span class="ident">Message::CommitVote</span>(<span class="ident">cv</span>) =&gt; {
-                                    <span class="ident">phaselock</span>.<span class="ident">commit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">cv</span>).<span class="kw">await</span>;
-                                }
-                                <span class="kw">_</span> =&gt; {
-                                    <span class="comment">// Log exceptional situation and proceed</span>
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Broadcast message received over direct channel&quot;</span>);
-                                }
+                        <span class="kw">continue</span>;
+                    }
+                    <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
+                        <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
+                        <span class="kw">match</span> <span class="ident">item</span> {
+                            <span class="ident">Message::Consensus</span>(<span class="ident">msg</span>) =&gt; {
+                                <span class="ident">phaselock</span>.<span class="ident">handle_direct_consensus_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
                             }
                         }
-                        <span class="macro">trace!</span>(<span class="string">&quot;Item processed, yeilding&quot;</span>);
-                        <span class="ident">yield_now</span>().<span class="kw">await</span>;
                     }
+                    <span class="macro">trace!</span>(<span class="string">&quot;Item processed, yeilding&quot;</span>);
+                    <span class="ident">yield_now</span>().<span class="kw">await</span>;
                 }
             }
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(
@@ -1224,11 +1226,9 @@
         <span class="macro">trace!</span>(<span class="string">&quot;Adding transaction to our own queue&quot;</span>);
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">transaction_queue</span>.<span class="ident">write</span>().<span class="kw">await</span>.<span class="ident">push</span>(<span class="ident">tx</span>.<span class="ident">clone</span>());
         <span class="comment">// Wrap up a message</span>
-        <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">Message::SubmitTransaction</span>(<span class="ident">tx</span>);
+        <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::SubmitTransaction</span>(<span class="ident">tx</span>);
         <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">networking</span>
-            .<span class="ident">broadcast_message</span>(<span class="ident">message</span>.<span class="ident">clone</span>())
+            .<span class="ident">send_broadcast_message</span>(<span class="ident">message</span>.<span class="ident">clone</span>())
             .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">NetworkFaultSnafu</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">network_result</span> {
@@ -1400,6 +1400,94 @@
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;PhaseLock Background Driver&quot;</span>, <span class="ident">id</span> <span class="op">=</span> <span class="ident">node_id</span>)),
         );
         (<span class="ident">task</span>, <span class="ident">handle</span>)
+    }
+
+    <span class="doccomment">/// Send a broadcast message.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is an alias for `phaselock.inner.networking.broadcast_message(msg.into())`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Will return any errors that the underlying `broadcast_message` can return.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Message</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">networking</span>.<span class="ident">broadcast_message</span>(<span class="ident">msg</span>.<span class="ident">into</span>()).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Send a direct message to a given recipient.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is an alias for `phaselock.inner.networking.message_node(msg.into(), recipient)`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Will return any errors that the underlying `message_node` can return.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Message</span><span class="op">&gt;</span>,
+        <span class="ident">recipient</span>: <span class="ident">PubKey</span>,
+    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">networking</span>
+            .<span class="ident">message_node</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">recipient</span>)
+            .<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>) {
+        <span class="kw">match</span> <span class="ident">msg</span> {
+            <span class="ident">ConsensusMessage::Prepare</span>(<span class="ident">p</span>) =&gt; {
+                <span class="comment">// Insert block into store</span>
+                <span class="macro">info!</span>(<span class="ident">prepare</span> <span class="op">=</span> <span class="question-mark">?</span><span class="ident">p</span>, <span class="string">&quot;Inserting block and leaf into store&quot;</span>);
+                <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">leaf</span>.<span class="ident">clone</span>();
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                <span class="self">self</span>.<span class="ident">inner</span>
+                    .<span class="ident">storage</span>
+                    .<span class="ident">insert_block</span>(<span class="ident">BlockContents::hash</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>.<span class="ident">item</span>), <span class="ident">leaf</span>.<span class="ident">item</span>.<span class="ident">clone</span>());
+                <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="string">&quot;Inserting new state into storage&quot;</span>);
+                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>
+                    .<span class="ident">inner</span>
+                    .<span class="ident">storage</span>
+                    .<span class="ident">insert_state</span>(<span class="ident">p</span>.<span class="ident">state</span>.<span class="ident">clone</span>(), <span class="ident">leaf</span>.<span class="ident">hash</span>())
+                    .<span class="kw">await</span>;
+                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">result</span> {
+                    <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error inserting state into storage&quot;</span>);
+                };
+
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">prepare_waiter</span>.<span class="ident">put</span>(<span class="ident">p</span>).<span class="kw">await</span>;
+            }
+            <span class="ident">ConsensusMessage::PreCommit</span>(<span class="ident">pc</span>) =&gt; <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">precommit_waiter</span>.<span class="ident">put</span>(<span class="ident">pc</span>).<span class="kw">await</span>,
+            <span class="ident">ConsensusMessage::Commit</span>(<span class="ident">c</span>) =&gt; <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">commit_waiter</span>.<span class="ident">put</span>(<span class="ident">c</span>).<span class="kw">await</span>,
+            <span class="ident">ConsensusMessage::Decide</span>(<span class="ident">d</span>) =&gt; <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">decide_waiter</span>.<span class="ident">put</span>(<span class="ident">d</span>).<span class="kw">await</span>,
+            <span class="ident">ConsensusMessage::SubmitTransaction</span>(<span class="ident">d</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">transaction_queue</span>.<span class="ident">write</span>().<span class="kw">await</span>.<span class="ident">push</span>(<span class="ident">d</span>);
+            }
+            <span class="kw">_</span> =&gt; {
+                <span class="comment">// Log the exceptional situation and proceed</span>
+                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Direct message received over broadcast channel&quot;</span>);
+            }
+        }
+    }
+
+    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] directed at this node.</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>) {
+        <span class="kw">match</span> <span class="ident">msg</span> {
+            <span class="ident">ConsensusMessage::NewView</span>(<span class="ident">nv</span>) =&gt; <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">new_view_queue</span>.<span class="ident">push</span>(<span class="ident">nv</span>).<span class="kw">await</span>,
+            <span class="ident">ConsensusMessage::PrepareVote</span>(<span class="ident">pv</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">prepare_vote_queue</span>.<span class="ident">push</span>(<span class="ident">pv</span>).<span class="kw">await</span>;
+            }
+            <span class="ident">ConsensusMessage::PreCommitVote</span>(<span class="ident">pcv</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">precommit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">pcv</span>).<span class="kw">await</span>;
+            }
+            <span class="ident">ConsensusMessage::CommitVote</span>(<span class="ident">cv</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">commit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">cv</span>).<span class="kw">await</span>;
+            }
+            <span class="kw">_</span> =&gt; {
+                <span class="comment">// Log exceptional situation and proceed</span>
+                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Broadcast message received over direct channel&quot;</span>);
+            }
+        }
     }
 }
 
