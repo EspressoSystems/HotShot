@@ -12,7 +12,7 @@
     clippy::shadow_unrelated
 )] // Clippy hates select and me
 use super::{
-    debug, error, generate_qc, trace, warn, yield_now, Arc, Commit, Debug, Decide, Event,
+    debug, error, generate_qc, trace, warn, Arc, Commit, ConsensusMessage, Debug, Decide, Event,
     EventType, Leaf, LeafHash, PhaseLock, PreCommit, Prepare, PubKey, QuorumCertificate, Result,
     ResultExt, Stage, Vote,
 };
@@ -22,13 +22,11 @@ use crate::{
     NodeImplementation,
 };
 use futures::{future::BoxFuture, Future, FutureExt};
-use phaselock_types::{
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError},
-    message::ConsensusMessage,
-};
+use phaselock_types::error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError};
 use std::{
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 use tracing::{info, instrument};
 
@@ -303,9 +301,11 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     while !found_txn {
                         // spin while the transaction_queue is empty
                         trace!("Entering spin while we wait for transactions");
+                        let mut delay_ms = 10;
                         while pl.inner.transaction_queue.read().await.is_empty() {
                             trace!("executing transaction queue spin cycle");
-                            yield_now().await;
+                            async_std::task::sleep(Duration::from_millis(delay_ms)).await;
+                            delay_ms = (delay_ms * 2).min(1000);
                         }
                         debug!("Unloading transactions");
                         let mut transaction_queue = pl.inner.transaction_queue.write().await;
