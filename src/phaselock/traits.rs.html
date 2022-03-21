@@ -26,6 +26,7 @@
 <span id="25">25</span>
 <span id="26">26</span>
 <span id="27">27</span>
+<span id="28">28</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Sortition trait</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">election</span>;
 <span class="kw">mod</span> <span class="ident">networking</span>;
@@ -44,6 +45,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">implementations</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::w_network::WNetwork</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::storage::atomic_storage::AtomicStorage</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::storage::memory_storage::MemoryStorage</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits::stateful_handler::Stateless</span>;
 }

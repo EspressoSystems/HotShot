@@ -1264,6 +1264,40 @@
 <span id="1263">1263</span>
 <span id="1264">1264</span>
 <span id="1265">1265</span>
+<span id="1266">1266</span>
+<span id="1267">1267</span>
+<span id="1268">1268</span>
+<span id="1269">1269</span>
+<span id="1270">1270</span>
+<span id="1271">1271</span>
+<span id="1272">1272</span>
+<span id="1273">1273</span>
+<span id="1274">1274</span>
+<span id="1275">1275</span>
+<span id="1276">1276</span>
+<span id="1277">1277</span>
+<span id="1278">1278</span>
+<span id="1279">1279</span>
+<span id="1280">1280</span>
+<span id="1281">1281</span>
+<span id="1282">1282</span>
+<span id="1283">1283</span>
+<span id="1284">1284</span>
+<span id="1285">1285</span>
+<span id="1286">1286</span>
+<span id="1287">1287</span>
+<span id="1288">1288</span>
+<span id="1289">1289</span>
+<span id="1290">1290</span>
+<span id="1291">1291</span>
+<span id="1292">1292</span>
+<span id="1293">1293</span>
+<span id="1294">1294</span>
+<span id="1295">1295</span>
+<span id="1296">1296</span>
+<span id="1297">1297</span>
+<span id="1298">1298</span>
+<span id="1299">1299</span>
 </pre><pre class="rust"><code><span class="doccomment">//! State machine representation of round logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the logic for completing an individual round of</span>
@@ -1283,16 +1317,18 @@
     <span class="ident">ResultExt</span>, <span class="ident">Stage</span>, <span class="ident">Vote</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>},
+    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>},
     <span class="ident">utility::broadcast::BroadcastSender</span>,
     <span class="ident">NodeImplementation</span>,
 };
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
-<span class="kw">use</span> <span class="ident">phaselock_types::error</span>::{<span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>};
+<span class="kw">use</span> <span class="ident">phaselock_types::error</span>::{
+    <span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>, <span class="ident">StorageSnafu</span>,
+};
+<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,
     <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
-    <span class="ident">time::Duration</span>,
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
 
@@ -1534,31 +1570,30 @@
                         .<span class="ident">storage</span>
                         .<span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="ident">high_qc</span>.<span class="ident">block_hash</span>)
                         .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
                     {
-                        <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                        <span class="ident">StorageResult::None</span> =&gt; {
-                            <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">high_qc</span>, <span class="string">&quot;State not found in storage (by qc)&quot;</span>);
+                        <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
+                        <span class="prelude-val">None</span> =&gt; {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
                                 <span class="ident">hash</span>: <span class="ident">high_qc</span>.<span class="ident">block_hash</span>.<span class="ident">to_vec</span>(),
                             });
                         }
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">err</span>) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span> })
-                        }
                     };
                     <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
                     <span class="comment">// Find the state</span>
-                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>).<span class="kw">await</span> {
-                        <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                        <span class="ident">StorageResult::None</span> =&gt; {
-                            <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">leaf_hash</span>, <span class="string">&quot;State not found in storage (by leaf)&quot;</span>);
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
-                                <span class="ident">hash</span>: <span class="ident">leaf_hash</span>.<span class="ident">to_vec</span>(),
-                            });
-                        }
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">err</span>) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span> })
-                        }
+                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>)
+                        .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                    {
+                        <span class="ident">x</span>
+                    } <span class="kw">else</span> {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">leaf_hash</span>, <span class="string">&quot;State not found in storage (by leaf)&quot;</span>);
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                            <span class="ident">hash</span>: <span class="ident">leaf_hash</span>.<span class="ident">to_vec</span>(),
+                        });
                     };
                     <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">state</span>, <span class="question-mark">?</span><span class="ident">leaf_hash</span>);
                     <span class="comment">// Prepare our block</span>
@@ -1599,7 +1634,11 @@
                     <span class="comment">// Create new leaf and add it to the store</span>
                     <span class="kw">let</span> <span class="ident">new_leaf</span> <span class="op">=</span> <span class="ident">Leaf::new</span>(<span class="ident">block</span>.<span class="ident">clone</span>(), <span class="ident">high_qc</span>.<span class="ident">leaf_hash</span>);
                     <span class="kw">let</span> <span class="ident">the_hash</span> <span class="op">=</span> <span class="ident">new_leaf</span>.<span class="ident">hash</span>();
-                    <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">new_leaf</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                    <span class="ident">pl</span>.<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">insert_leaf</span>(<span class="ident">new_leaf</span>.<span class="ident">clone</span>())
+                        .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">new_leaf</span>, <span class="question-mark">?</span><span class="ident">the_hash</span>, <span class="string">&quot;Leaf created and added to store&quot;</span>);
                     <span class="comment">// Add resulting state to storage</span>
                     <span class="kw">let</span> <span class="ident">new_state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">new_leaf</span>.<span class="ident">item</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> {
@@ -1610,18 +1649,13 @@
                     })<span class="question-mark">?</span>;
                     <span class="comment">// Insert new state into storage</span>
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">new_state</span>, <span class="string">&quot;New state inserted&quot;</span>);
-                    <span class="kw">match</span> <span class="ident">pl</span>
-                        .<span class="ident">inner</span>
+                    <span class="ident">pl</span>.<span class="ident">inner</span>
                         .<span class="ident">storage</span>
                         .<span class="ident">insert_state</span>(<span class="ident">new_state</span>.<span class="ident">clone</span>(), <span class="ident">the_hash</span>)
                         .<span class="kw">await</span>
-                    {
-                        <span class="ident">StorageResult::Some</span>(<span class="kw">_</span>) =&gt; (),
-                        <span class="ident">StorageResult::None</span> =&gt; (),
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span>: <span class="ident">e</span> })
-                        }
-                    }
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+
+                    <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">commit</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
                     <span class="comment">// Broadcast out the leaf</span>
                     <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
                         .<span class="ident">send_broadcast_message</span>(<span class="ident">ConsensusMessage::Prepare</span>(<span class="ident">Prepare</span> {
@@ -1702,7 +1736,12 @@
                         <span class="comment">// Store the precommit qc</span>
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pqc</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">prepare_qc</span>.<span class="ident">write</span>().<span class="kw">await</span>;
                         <span class="kw-2">*</span><span class="ident">pqc</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">qc</span>.<span class="ident">clone</span>());
-                        <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                        <span class="ident">pl</span>.<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">insert_qc</span>(<span class="ident">qc</span>.<span class="ident">clone</span>())
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+                        <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">commit</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
                         <span class="macro">trace!</span>(<span class="string">&quot;Pre-commit qc stored in prepare_qc&quot;</span>);
                         <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommit</span>(<span class="ident">PreCommit</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
@@ -1865,27 +1904,29 @@
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">walk_leaf</span> <span class="op">=</span> <span class="ident">new_leaf_hash</span>;
                         <span class="kw">while</span> <span class="ident">walk_leaf</span> <span class="op">!</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">old_leaf</span> {
                             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Looping&quot;</span>);
-                            <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                                <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                                <span class="ident">StorageResult::None</span> =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                    <span class="kw">break</span>;
-                                }
-                                <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                    <span class="kw">break</span>;
-                                }
+                            <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                                .<span class="ident">inner</span>
+                                .<span class="ident">storage</span>
+                                .<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                                .<span class="kw">await</span>
+                                .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                            {
+                                <span class="ident">x</span>
+                            } <span class="kw">else</span> {
+                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                                <span class="kw">break</span>;
                             };
-                            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                                <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                                <span class="ident">StorageResult::None</span> =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                    <span class="kw">break</span>;
-                                }
-                                <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                    <span class="kw">break</span>;
-                                }
+                            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                                .<span class="ident">inner</span>
+                                .<span class="ident">storage</span>
+                                .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                                .<span class="kw">await</span>
+                                .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                            {
+                                <span class="ident">x</span>
+                            } <span class="kw">else</span> {
+                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                                <span class="kw">break</span>;
                             };
                             <span class="ident">state</span>.<span class="ident">on_commit</span>();
                             <span class="ident">events</span>.<span class="ident">push</span>((<span class="ident">block</span>.<span class="ident">item</span>, <span class="ident">state</span>));
@@ -1900,7 +1941,12 @@
                         <span class="ident">ctx</span>.<span class="ident">send_decide</span>(<span class="ident">current_view</span>, <span class="kw-2">&amp;</span><span class="ident">events</span>);
 
                         <span class="comment">// Add qc to decision cache</span>
-                        <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                        <span class="ident">pl</span>.<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">insert_qc</span>(<span class="ident">qc</span>.<span class="ident">clone</span>())
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+                        <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">commit</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
                         <span class="kw-2">*</span><span class="ident">old_state</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">state</span>);
                         <span class="kw-2">*</span><span class="ident">old_leaf</span> <span class="op">=</span> <span class="ident">new_leaf_hash</span>;
                         <span class="macro">trace!</span>(<span class="string">&quot;New state written&quot;</span>);
@@ -2047,12 +2093,17 @@
                 <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="string">&quot;Looking for state for leaf&quot;</span>);
-                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>.<span class="ident">parent</span>).<span class="kw">await</span> {
-                        <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
-                        <span class="ident">StorageResult::None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf</span>.<span class="ident">parent</span>)
+                        .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                    {
+                        <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
+                        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
                             <span class="ident">hash</span>: <span class="ident">leaf</span>.<span class="ident">parent</span>.<span class="ident">to_vec</span>(),
                         }),
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
                     }<span class="question-mark">?</span>;
 
                     <span class="comment">// Check that the message is safe, extends from the given qc, and is valid given</span>
@@ -2093,11 +2144,14 @@
                         })<span class="question-mark">?</span>;
                         <span class="comment">// Insert new state into storage</span>
                         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">new_state</span>, <span class="string">&quot;New state inserted&quot;</span>);
-                        <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">insert_state</span>(<span class="ident">new_state</span>, <span class="ident">leaf_hash</span>).<span class="kw">await</span> {
-                            <span class="ident">StorageResult::Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">leaf</span>),
-                            <span class="ident">StorageResult::None</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">leaf</span>),
-                            <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
-                        }
+                        <span class="ident">pl</span>.<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">insert_state</span>(<span class="ident">new_state</span>, <span class="ident">leaf_hash</span>)
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+                        <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">commit</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+
+                        <span class="prelude-val">Ok</span>(<span class="ident">leaf</span>)
                     } <span class="kw">else</span> {
                         <span class="macro">error!</span>(<span class="string">&quot;is_safe_node: {}&quot;</span>, <span class="ident">is_safe_node</span>);
                         <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="string">&quot;Leaf failed safe_node predicate&quot;</span>);
@@ -2268,12 +2322,17 @@
                         });
                     }
                     <span class="comment">// apply the state</span>
-                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>).<span class="kw">await</span> {
-                        <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
-                        <span class="ident">StorageResult::None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>)
+                        .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                    {
+                        <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
+                        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
                             <span class="ident">hash</span>: <span class="ident">leaf</span>.<span class="ident">parent</span>.<span class="ident">to_vec</span>(),
                         }),
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
                     }<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_state</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">committed_state</span>.<span class="ident">write</span>().<span class="kw">await</span>;
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_leaf</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">committed_leaf</span>.<span class="ident">write</span>().<span class="kw">await</span>;
@@ -2282,27 +2341,29 @@
 
                     <span class="kw">while</span> <span class="ident">walk_leaf</span> <span class="op">!</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">old_leaf</span> {
                         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Looping&quot;</span>);
-                        <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                            <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                            <span class="ident">StorageResult::None</span> =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
+                        <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                            .<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                        {
+                            <span class="ident">x</span>
+                        } <span class="kw">else</span> {
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                            <span class="kw">break</span>;
                         };
-                        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                            <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                            <span class="ident">StorageResult::None</span> =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
+                        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                            .<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                        {
+                            <span class="ident">x</span>
+                        } <span class="kw">else</span> {
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                            <span class="kw">break</span>;
                         };
                         <span class="ident">state</span>.<span class="ident">on_commit</span>();
                         <span class="ident">events</span>.<span class="ident">push</span>((<span class="ident">block</span>.<span class="ident">item</span>, <span class="ident">state</span>));
@@ -2351,12 +2412,17 @@
                     }
                     <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">leaf_hash</span>;
                     <span class="comment">// apply the state</span>
-                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>).<span class="kw">await</span> {
-                        <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
-                        <span class="ident">StorageResult::None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>)
+                        .<span class="kw">await</span>
+                        .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                    {
+                        <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
+                        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
                             <span class="ident">hash</span>: <span class="ident">leaf_hash</span>.<span class="ident">to_vec</span>(),
                         }),
-                        <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::StorageError</span> { <span class="ident">err</span>: <span class="ident">e</span> }),
                     }<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_state</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">committed_state</span>.<span class="ident">write</span>().<span class="kw">await</span>;
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_leaf</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">committed_leaf</span>.<span class="ident">write</span>().<span class="kw">await</span>;
@@ -2365,27 +2431,29 @@
 
                     <span class="kw">while</span> <span class="ident">walk_leaf</span> <span class="op">!</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">old_leaf</span> {
                         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Looping&quot;</span>);
-                        <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                            <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                            <span class="ident">StorageResult::None</span> =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
+                        <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                            .<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                        {
+                            <span class="ident">x</span>
+                        } <span class="kw">else</span> {
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                            <span class="kw">break</span>;
                         };
-                        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>).<span class="kw">await</span> {
-                            <span class="ident">StorageResult::Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
-                            <span class="ident">StorageResult::None</span> =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="ident">StorageResult::Err</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Error finding parent&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
+                        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">pl</span>
+                            .<span class="ident">inner</span>
+                            .<span class="ident">storage</span>
+                            .<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">walk_leaf</span>)
+                            .<span class="kw">await</span>
+                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>
+                        {
+                            <span class="ident">x</span>
+                        } <span class="kw">else</span> {
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">walk_leaf</span>, <span class="string">&quot;Parent did not exist in store&quot;</span>);
+                            <span class="kw">break</span>;
                         };
                         <span class="ident">state</span>.<span class="ident">on_commit</span>();
                         <span class="ident">events</span>.<span class="ident">push</span>((<span class="ident">block</span>.<span class="ident">item</span>, <span class="ident">state</span>));

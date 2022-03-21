@@ -383,6 +383,26 @@
 <span id="382">382</span>
 <span id="383">383</span>
 <span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
@@ -464,26 +484,29 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
     <span class="ident">Storage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
 {
-    <span class="kw">fn</span> <span class="ident">get_block</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_block</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
+        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">get</span>(<span class="ident">hash</span>) {
+            <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">get</span>(<span class="ident">hash</span>) {
                 <span class="macro">trace!</span>(<span class="string">&quot;Block found&quot;</span>);
                 <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">value</span>().<span class="ident">clone</span>();
-                <span class="ident">StorageResult::Some</span>(<span class="ident">block</span>)
+                <span class="prelude-val">Some</span>(<span class="ident">block</span>)
             } <span class="kw">else</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Block not found&quot;</span>);
-                <span class="ident">StorageResult::None</span>
-            }
+                <span class="prelude-val">None</span>
+            })
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">block</span>);
-            <span class="ident">StorageResult::Some</span>(())
+            <span class="prelude-val">Ok</span>(())
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
@@ -492,43 +515,46 @@
     <span class="kw">fn</span> <span class="ident">get_qc</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="comment">// Check to see if we have the qc</span>
             <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_qc</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
+            <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Found qc&quot;</span>);
                 <span class="kw">let</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">read</span>().<span class="kw">await</span>;
                 <span class="kw">let</span> <span class="ident">qc</span> <span class="op">=</span> <span class="ident">qcs</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>();
-                <span class="ident">StorageResult::Some</span>(<span class="ident">qc</span>)
+                <span class="prelude-val">Some</span>(<span class="ident">qc</span>)
             } <span class="kw">else</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Did not find qc&quot;</span>);
-                <span class="ident">StorageResult::None</span>
-            }
+                <span class="prelude-val">None</span>
+            })
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_qc&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_qc_for_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view</span>: <span class="ident">u64</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_qc_for_view</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">view</span>: <span class="ident">u64</span>,
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="comment">// Check to see if we have the qc</span>
             <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">view_to_qc</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
+            <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Found qc&quot;</span>);
                 <span class="kw">let</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">read</span>().<span class="kw">await</span>;
                 <span class="kw">let</span> <span class="ident">qc</span> <span class="op">=</span> <span class="ident">qcs</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>();
-                <span class="ident">StorageResult::Some</span>(<span class="ident">qc</span>)
+                <span class="prelude-val">Some</span>(<span class="ident">qc</span>)
             } <span class="kw">else</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Did not find qc&quot;</span>);
-                <span class="ident">StorageResult::None</span>
-            }
+                <span class="prelude-val">None</span>
+            })
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_qc_for_view&quot;</span>, <span class="question-mark">?</span><span class="ident">view</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="comment">// Insert the qc into the main vec and the add the references</span>
             <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">view_number</span>;
@@ -539,7 +565,7 @@
             <span class="ident">qcs</span>.<span class="ident">push</span>(<span class="ident">qc</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">view_to_qc</span>.<span class="ident">insert</span>(<span class="ident">view</span>, <span class="ident">index</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_qc</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">index</span>);
-            <span class="ident">StorageResult::Some</span>(())
+            <span class="prelude-val">Ok</span>(())
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_qc&quot;</span>))
         .<span class="ident">boxed</span>()
@@ -548,19 +574,19 @@
     <span class="kw">fn</span> <span class="ident">get_leaf</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_leaf</span>, <span class="question-mark">?</span><span class="ident">hash</span>);
             <span class="comment">// Check to see if we have the leaf</span>
             <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_leaf</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
+            <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Found leaf&quot;</span>);
                 <span class="kw">let</span> <span class="ident">leaves</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-                <span class="ident">StorageResult::Some</span>(<span class="ident">leaves</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>())
+                <span class="prelude-val">Some</span>(<span class="ident">leaves</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>())
             } <span class="kw">else</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Did not find leaf&quot;</span>);
-                <span class="ident">StorageResult::None</span>
-            }
+                <span class="prelude-val">None</span>
+            })
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_leaf&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
@@ -569,24 +595,24 @@
     <span class="kw">fn</span> <span class="ident">get_leaf_by_block</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="comment">// Check to see if we have the leaf</span>
             <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">block_to_leaf</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
+            <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Found leaf&quot;</span>);
                 <span class="kw">let</span> <span class="ident">leaves</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-                <span class="ident">StorageResult::Some</span>(<span class="ident">leaves</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>())
+                <span class="prelude-val">Some</span>(<span class="ident">leaves</span>[<span class="kw-2">*</span><span class="ident">index</span>.<span class="ident">value</span>()].<span class="ident">clone</span>())
             } <span class="kw">else</span> {
                 <span class="macro">trace!</span>(<span class="string">&quot;Did not find leaf&quot;</span>);
-                <span class="ident">StorageResult::None</span>
-            }
+                <span class="prelude-val">None</span>
+            })
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_by_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting&quot;</span>);
@@ -597,31 +623,38 @@
             <span class="ident">leaves</span>.<span class="ident">push</span>(<span class="ident">leaf</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_leaf</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">index</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">block_to_leaf</span>.<span class="ident">insert</span>(<span class="ident">block_hash</span>, <span class="ident">index</span>);
-            <span class="ident">StorageResult::Some</span>(())
+            <span class="prelude-val">Ok</span>(())
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_leaf&quot;</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">state</span>);
-            <span class="ident">StorageResult::Some</span>(())
+            <span class="prelude-val">Ok</span>(())
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_state&quot;</span>))
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
+        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">maybe_state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
-        <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">maybe_state</span> {
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">maybe_state</span> {
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">value</span>().<span class="ident">clone</span>();
-            <span class="ident">StorageResult::Some</span>(<span class="ident">state</span>)
+            <span class="prelude-val">Some</span>(<span class="ident">state</span>)
         } <span class="kw">else</span> {
-            <span class="ident">StorageResult::None</span>
-        };
+            <span class="prelude-val">None</span>
+        });
         <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">x</span> }.<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> { <span class="prelude-val">Ok</span>(()) }.<span class="ident">boxed</span>()
     }
 }
 
@@ -662,18 +695,18 @@
         <span class="kw">let</span> <span class="ident">hash_2</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">DummyBlock</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::hash</span>(<span class="kw-2">&amp;</span><span class="ident">test_block_2</span>);
         <span class="comment">// Attempt to insert the blocks</span>
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">insert_block</span>(<span class="ident">hash_1</span>, <span class="ident">test_block_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-        <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_ok</span>());
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">insert_block</span>(<span class="ident">hash_2</span>, <span class="ident">test_block_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
-        <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_ok</span>());
         <span class="comment">// Then attempt to get the blocks</span>
-        <span class="kw">let</span> <span class="ident">block_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">block_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">hash_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">block_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">block_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">hash_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="comment">// Make sure we got the right blocks</span>
         <span class="macro">assert_eq!</span>(<span class="ident">block_1</span>, <span class="ident">test_block_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">block_2</span>, <span class="ident">test_block_2</span>);
         <span class="comment">// Try to get an invalid block and make sure it is nothing</span>
         <span class="kw">let</span> <span class="ident">bad_hash</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">bad_hash</span>).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">bad_hash</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_none</span>());
     }
 
@@ -693,21 +726,21 @@
         <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="comment">// Attempt to get them back by hash</span>
-        <span class="kw">let</span> <span class="ident">h_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_1_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">h_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_2_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_1_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_2_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="comment">// Check to make sure we got the right QCs back</span>
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_1</span>, <span class="ident">qc_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_2</span>, <span class="ident">qc_2</span>);
         <span class="comment">// Attempt to get them back by view number</span>
-        <span class="kw">let</span> <span class="ident">v_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">v_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">v_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">v_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="comment">// Check to make sure we got the right QCs back</span>
         <span class="macro">assert_eq!</span>(<span class="ident">v_qc_1</span>, <span class="ident">qc_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">v_qc_2</span>, <span class="ident">qc_2</span>);
         <span class="comment">// Make sure trying to get bunk QCs fails</span>
         <span class="kw">let</span> <span class="ident">bunk_hash</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">bunk_hash</span>).<span class="kw">await</span>.<span class="ident">is_none</span>());
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">3</span>).<span class="kw">await</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">bunk_hash</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">3</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_none</span>());
         <span class="comment">// Make sure inserting a bunk QC fails</span>
         <span class="comment">//let bad_qc = dummy_qc(bunk_hash, 3, false);</span>
         <span class="comment">//assert!(!storage.insert_qc(bad_qc).await.is_some());</span>
@@ -737,8 +770,8 @@
         <span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
         <span class="comment">// Attempt to get them back by hash</span>
-        <span class="kw">let</span> <span class="ident">h_leaf_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">h_leaf_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_leaf_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">h_leaf_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="comment">// Make sure they are the right leaves</span>
         <span class="macro">assert_eq!</span>(<span class="ident">h_leaf_1</span>.<span class="ident">parent</span>, <span class="ident">leaf_1</span>.<span class="ident">parent</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">h_leaf_1</span>.<span class="ident">item</span>, <span class="ident">leaf_1</span>.<span class="ident">item</span>);
@@ -748,10 +781,12 @@
         <span class="kw">let</span> <span class="ident">b_leaf_1</span> <span class="op">=</span> <span class="ident">storage</span>
             .<span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">DummyBlock</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::hash</span>(<span class="kw-2">&amp;</span><span class="ident">block_1</span>))
             .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>()
             .<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">b_leaf_2</span> <span class="op">=</span> <span class="ident">storage</span>
             .<span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">DummyBlock</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::hash</span>(<span class="kw-2">&amp;</span><span class="ident">block_2</span>))
             .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>()
             .<span class="ident">unwrap</span>();
         <span class="comment">// Make sure they are the right leaves</span>
         <span class="macro">assert_eq!</span>(<span class="ident">b_leaf_1</span>.<span class="ident">parent</span>, <span class="ident">leaf_1</span>.<span class="ident">parent</span>);
@@ -759,11 +794,16 @@
         <span class="macro">assert_eq!</span>(<span class="ident">b_leaf_2</span>.<span class="ident">parent</span>, <span class="ident">leaf_2</span>.<span class="ident">parent</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">b_leaf_2</span>.<span class="ident">item</span>, <span class="ident">leaf_2</span>.<span class="ident">item</span>);
         <span class="comment">// Getting a bunk leaf by hash fails</span>
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>()).<span class="kw">await</span>.<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">storage</span>
+            .<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>())
+            .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">is_none</span>());
         <span class="comment">// Getting a bunk leaf by block hash fails</span>
         <span class="macro">assert!</span>(<span class="ident">storage</span>
             .<span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>())
             .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>()
             .<span class="ident">is_none</span>());
     }
 }
