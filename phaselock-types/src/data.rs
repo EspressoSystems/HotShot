@@ -290,7 +290,7 @@ pub fn create_verify_hash<const N: usize>(
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, PartialEq)]
 pub struct Leaf<T, const N: usize> {
     /// The hash of the parent `Leaf`
     #[debug(with = "fmt_leaf_hash")]

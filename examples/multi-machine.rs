@@ -133,7 +133,8 @@ async fn init_state_and_phaselock(
         MemoryStorage::default(),
         Stateless::default(),
     )
-    .await;
+    .await
+    .expect("Could not init phaselock");
     debug!("phaselock launched");
 
     (state, phaselock)

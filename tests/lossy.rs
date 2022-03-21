@@ -270,7 +270,8 @@ async fn lossy_network(
             MemoryStorage::default(),
             Stateless::default(),
         )
-        .await;
+        .await
+        .expect("Could not init phaselock");
         phaselocks.push(h);
     }
 

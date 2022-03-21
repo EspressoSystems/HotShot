@@ -40,7 +40,7 @@ pub mod utility;
 
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
-    traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage, StorageResult},
+    traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{
         Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
         Vote,
@@ -53,7 +53,7 @@ use crate::{
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{spawn, JoinHandle};
 use phaselock_types::{
-    error::NetworkFaultSnafu,
+    error::{NetworkFaultSnafu, StorageSnafu},
     message::ConsensusMessage,
     traits::{network::NetworkError, node_implementation::TypeMap},
 };
@@ -180,7 +180,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
-    ) -> Self {
+    ) -> Result<Self> {
         info!("Creating a new phaselock");
         let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
@@ -245,15 +245,18 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 parent: [0_u8; { N }].into(),
                 item: genesis,
             })
-            .await;
+            .await
+            .context(StorageSnafu)?;
         trace!("Genesis leaf hash: {:?}", leaf.hash());
         inner
             .storage
             .insert_state(starting_state, leaf.hash())
-            .await;
-        Self {
+            .await
+            .context(StorageSnafu)?;
+        inner.storage.commit().await.context(StorageSnafu)?;
+        Ok(Self {
             inner: Arc::new(inner),
-        }
+        })
     }
 
     /// Returns true if the proposed leaf extends from the given block
@@ -271,7 +274,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 return true;
             }
             let next_parent = self.inner.storage.get_leaf(&parent).await;
-            if let StorageResult::Some(next_parent) = next_parent {
+            if let Ok(Some(next_parent)) = next_parent {
                 parent = next_parent.parent;
             } else {
                 error!("Leaf does not extend from node");
@@ -499,6 +502,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
     /// the `PhaseLock` instance will log the error and shut down.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
         genesis: I::Block,
@@ -510,7 +517,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
-    ) -> (JoinHandle<()>, PhaseLockHandle<I, N>) {
+    ) -> Result<(JoinHandle<()>, PhaseLockHandle<I, N>)> {
         let (input, output) = crate::utility::broadcast::channel();
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
@@ -524,7 +531,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             storage.clone(),
             handler,
         )
-        .await;
+        .await?;
         let pause = Arc::new(RwLock::new(true));
         let run_once = Arc::new(RwLock::new(false));
         let shut_down = Arc::new(RwLock::new(false));
@@ -652,7 +659,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             }
             .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
         );
-        (task, handle)
+        Ok((task, handle))
     }
 
     /// Send a broadcast message.
@@ -694,18 +701,34 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 // Insert block into store
                 info!(prepare = ?p, "Inserting block and leaf into store");
                 let leaf = p.leaf.clone();
-                self.inner.storage.insert_leaf(leaf.clone()).await;
-                self.inner
+
+                if let Err(e) = self.inner.storage.insert_leaf(leaf.clone()).await {
+                    error!(?e, "Error inserting leaf into storage");
+                    return;
+                }
+                if let Err(e) = self
+                    .inner
                     .storage
-                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone());
+                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone())
+                    .await
+                {
+                    error!(?e, "Error inserting block into storage");
+                    return;
+                }
+
                 info!(?leaf, "Inserting new state into storage");
-                let result = self
+                if let Err(e) = self
                     .inner
                     .storage
                     .insert_state(p.state.clone(), leaf.hash())
-                    .await;
-                if let StorageResult::Err(e) = result {
+                    .await
+                {
                     error!(?e, "Error inserting state into storage");
+                    return;
+                };
+                if let Err(e) = self.inner.storage.commit().await {
+                    error!(?e, "Error committing storage");
+                    return;
                 };
 
                 self.inner.prepare_waiter.put(p).await;

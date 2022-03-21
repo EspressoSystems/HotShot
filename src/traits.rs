@@ -16,6 +16,7 @@ pub use storage::{Storage, StorageResult};
 pub mod implementations {
     pub use super::networking::memory_network::{DummyReliability, MasterMap, MemoryNetwork};
     pub use super::networking::w_network::WNetwork;
+    pub use super::storage::atomic_storage::AtomicStorage;
     pub use super::storage::memory_storage::MemoryStorage;
     pub use phaselock_types::traits::stateful_handler::Stateless;
 }
