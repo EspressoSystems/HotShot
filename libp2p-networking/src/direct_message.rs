@@ -29,7 +29,7 @@ impl ProtocolName for DirectMessageProtocol {
     }
 }
 
-const MAX_MSG_SIZE: usize = 500;
+const MAX_MSG_SIZE: usize = 10000;
 
 #[async_trait]
 impl RequestResponseCodec for DirectMessageCodec {
