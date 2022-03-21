@@ -24,6 +24,12 @@ jobs:
           toolchain: nightly-2022-03-10
           override: true
 
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PATH }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+
       - name: Run Cargo Test With Coverage Options
         uses: actions-rs/cargo@v1
         with:

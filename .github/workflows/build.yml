@@ -21,11 +21,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global url."https://tl-ancients:${{ secrets.GITLAB_PAT }}@gitlab.com/".insteadOf git://gitlab.com
-          git config --global url."https://tl-ancients:${{ secrets.GITLAB_PAT }}@gitlab.com/".insteadOf ssh://git@gitlab.com
-          git config --global url."https://ancient123:${{ secrets.GITHUB_PAT }}@github.com/".insteadOf git://github.com
-          git config --global url."https://ancient123:${{ secrets.GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com
-          git config --global url."https://dl.cloudsmith.io/${{ secrets.CLOUDSMITH_ENTITLEMENT }}/".insteadOf https://dl.cloudsmith.io/basic/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
