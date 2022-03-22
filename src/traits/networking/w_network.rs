@@ -938,7 +938,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 #[allow(clippy::panic)]
 mod tests {
     use super::*;
-    use crate::utility::test_util::setup_logging;
+    use phaselock_utils::test_util::setup_logging;
     use rand::Rng;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]

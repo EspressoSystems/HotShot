@@ -1,3 +1,4 @@
+#![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 use async_std::{sync::RwLock, task::block_on};
 use flume::{Receiver, Sender};
 

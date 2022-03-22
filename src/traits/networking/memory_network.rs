@@ -403,7 +403,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::test_util::setup_logging;
+    use phaselock_utils::test_util::setup_logging;
     use serde::Deserialize;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]

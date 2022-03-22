@@ -3154,6 +3154,7 @@ dependencies = [
  "futures",
  "hex_fmt",
  "phaselock-types",
+ "phaselock-utils",
  "proptest",
  "rand 0.7.3",
  "rand_chacha 0.2.2",
@@ -3189,6 +3190,17 @@ dependencies = [
  "serde_bytes",
  "snafu 0.7.0",
  "threshold_crypto",
+]
+
+[[package]]
+name = "phaselock-utils"
+version = "0.0.6"
+dependencies = [
+ "async-std",
+ "flume",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
 ]
 
 [[package]]

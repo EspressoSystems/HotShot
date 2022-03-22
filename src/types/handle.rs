@@ -6,9 +6,10 @@ use std::sync::Arc;
 use crate::{
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
     types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
-    utility::broadcast::{BroadcastReceiver, BroadcastSender},
     PhaseLock,
 };
+
+use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background
 ///

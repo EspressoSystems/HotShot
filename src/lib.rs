@@ -35,8 +35,6 @@ pub mod state_machine;
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
-/// Contains general utility structures and methods
-pub mod utility;
 
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
@@ -45,10 +43,6 @@ use crate::{
         Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
         Vote,
     },
-    utility::{
-        broadcast::BroadcastSender,
-        waitqueue::{WaitOnce, WaitQueue},
-    },
 };
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{spawn, JoinHandle};
@@ -56,6 +50,10 @@ use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::ConsensusMessage,
     traits::{network::NetworkError, node_implementation::TypeMap},
+};
+use phaselock_utils::{
+    broadcast::{channel, BroadcastSender},
+    waitqueue::{WaitOnce, WaitQueue},
 };
 use snafu::ResultExt;
 use std::fmt::Debug;
@@ -518,7 +516,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         storage: I::Storage,
         handler: I::StatefulHandler,
     ) -> Result<(JoinHandle<()>, PhaseLockHandle<I, N>)> {
-        let (input, output) = crate::utility::broadcast::channel();
+        let (input, output) = channel();
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
