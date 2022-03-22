@@ -41,15 +41,6 @@ static INIT: Once = Once::new();
 pub type CounterState = u32;
 pub type Epoch = (CounterState, CounterState);
 
-impl EpochData {
-    pub fn avg(&self) -> Duration {
-        todo!()
-    }
-    pub fn max(&self) -> Duration {
-        todo!()
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EpochType {
     BroadcastViaGossip,
@@ -94,6 +85,7 @@ impl Default for ConductorState {
 }
 
 impl ConductorState {
+    /// Increment conductor to the next epoch
     pub fn complete_round(&mut self, next_epoch_type: EpochType) {
         let current_epoch = self.current_epoch.clone();
         self.previous_epochs
@@ -128,17 +120,26 @@ impl web::WebInfo for CounterState {
 /// Normal message. Sent amongst [`Regular`] and [`BootStrap`] nodes
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum CounterRequest {
+    /// Request state
     StateRequest,
+    /// Reply with state
     StateResponse(CounterState),
+    /// kill node
     Kill,
 }
 
+/// Message sent between non-[`Conductor`] nodes
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct NormalMessage {
+    /// timestamp when message was sent
     sent_ts: SystemTime,
+    /// whether or not message shuld be relayed to conductor
     relay_to_conductor: bool,
+    /// the underlying request the recv-ing node should take
     req: CounterRequest,
+    /// the epoch the message was sent on
     epoch: (CounterState, CounterState),
+    /// arbitrary amount of padding to vary message length
     padding: Vec<u64>,
 }
 
@@ -146,8 +147,11 @@ pub struct NormalMessage {
 /// that is to be relayed back to a [`Conductor`] node
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct RelayedMessage {
+    /// time message took to propagate from sender to recv-er
     duration: Duration,
+    /// the requeset being made
     req: CounterRequest,
+    /// the epoch the request was made on
     epoch: (CounterState, CounterState),
 }
 
@@ -155,7 +159,9 @@ pub struct RelayedMessage {
 /// that is to be relayed back to a [`Conductor`] node
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ConductorMessage {
+    /// the requeset the recv-ing node should make
     req: CounterRequest,
+    /// the type of broadcast (direct or broadcast)
     broadcast_type: ConductorMessageMethod,
 }
 
@@ -171,10 +177,12 @@ pub enum Message {
     Conductor(ConductorMessage),
     // announce the conductor
     ConductorIdIs(PeerId),
+    /// recv-ed the conductor id
     RecvdConductor,
 }
 
 impl NormalMessage {
+    /// convert a normal message into a message to relay to conductor
     pub fn normal_to_relayed(&self) -> RelayedMessage {
         let recv_ts = SystemTime::now();
         let elapsed_time = recv_ts
@@ -188,12 +196,16 @@ impl NormalMessage {
     }
 }
 
+/// ways to send messages between nodes
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ConductorMessageMethod {
+    /// broadcast message to all nodes
     Broadcast,
+    /// direct message [`PeerId`]
     DirectMessage(PeerId),
 }
 
+/// handler for non-conductor nodes for normal messages
 pub async fn handle_normal_msg(
     handle: Arc<NetworkNodeHandle<CounterState>>,
     msg: NormalMessage,
@@ -338,6 +350,7 @@ pub async fn regular_handle_network_event(
     Ok(())
 }
 
+/// convert node string into multi addr
 pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
@@ -347,24 +360,25 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 
 #[derive(StructOpt)]
 pub struct CliOpt {
-    /// Path to the node configuration file
-    /// only should be provided for conductor node
-    // #[structopt(long = "inventory", short = "i")]
-    // pub inventory: Option<String>,
+    /// list of bootstrap node addrs
     #[structopt(long = "bootstrap")]
     #[structopt(parse(try_from_str = parse_node))]
     pub bootstrap_addrs: Vec<Multiaddr>,
+    /// total number of nodes
     #[structopt(long = "num_nodes")]
     pub num_nodes: usize,
+    /// the role this node plays
     #[structopt(long = "node_type")]
     pub node_type: NetworkNodeType,
+    /// internal interface to bind to
     #[structopt(long = "bound_addr")]
     #[structopt(parse(try_from_str = parse_node))]
     pub bound_addr: Multiaddr,
-    #[cfg(feature = "webui")]
     /// If this value is set, a webserver will be spawned on this address with debug info
+    #[cfg(feature = "webui")]
     #[structopt(long = "webui")]
     pub webui_addr: Option<SocketAddr>,
+    /// type of environment
     #[cfg(feature = "lossy_network")]
     #[structopt(long = "env")]
     pub env_type: ExecutionEnvironment,
@@ -579,6 +593,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     Ok(())
 }
 
+/// have conductor direct message all participants
 pub async fn conductor_direct_message(
     timeout: Duration,
     state: CounterState,
@@ -765,6 +780,7 @@ pub async fn conductor_broadcast(
     Ok(())
 }
 
+/// network event handler for conductor
 #[instrument]
 pub async fn conductor_handle_network_event(
     event: NetworkEvent,
