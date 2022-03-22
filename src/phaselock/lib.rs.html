@@ -786,8 +786,6 @@
 <span id="785">785</span>
 <span id="786">786</span>
 <span id="787">787</span>
-<span id="788">788</span>
-<span id="789">789</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -825,8 +823,6 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">traits</span>;
 <span class="doccomment">/// Contains types used by the crate</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
-<span class="doccomment">/// Contains general utility structures and methods</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utility</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">Stage</span>},
@@ -835,10 +831,6 @@
         <span class="ident">Commit</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">Message</span>, <span class="ident">NewView</span>, <span class="ident">PhaseLockHandle</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>,
         <span class="ident">Vote</span>,
     },
-    <span class="ident">utility</span>::{
-        <span class="ident">broadcast::BroadcastSender</span>,
-        <span class="ident">waitqueue</span>::{<span class="ident">WaitOnce</span>, <span class="ident">WaitQueue</span>},
-    },
 };
 <span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn</span>, <span class="ident">JoinHandle</span>};
@@ -846,6 +838,10 @@
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
     <span class="ident">message::ConsensusMessage</span>,
     <span class="ident">traits</span>::{<span class="ident">network::NetworkError</span>, <span class="ident">node_implementation::TypeMap</span>},
+};
+<span class="kw">use</span> <span class="ident">phaselock_utils</span>::{
+    <span class="ident">broadcast</span>::{<span class="ident">channel</span>, <span class="ident">BroadcastSender</span>},
+    <span class="ident">waitqueue</span>::{<span class="ident">WaitOnce</span>, <span class="ident">WaitQueue</span>},
 };
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -1308,7 +1304,7 @@
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
         <span class="ident">handler</span>: <span class="ident">I::StatefulHandler</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">JoinHandle</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">input</span>, <span class="ident">output</span>) <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::utility::broadcast::channel</span>();
+        <span class="kw">let</span> (<span class="ident">input</span>, <span class="ident">output</span>) <span class="op">=</span> <span class="ident">channel</span>();
         <span class="comment">// Save a clone of the storage for the handle</span>
         <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
             <span class="ident">genesis</span>,

@@ -1318,13 +1318,13 @@
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">StatefulHandler</span>, <span class="ident">Storage</span>},
-    <span class="ident">utility::broadcast::BroadcastSender</span>,
     <span class="ident">NodeImplementation</span>,
 };
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types::error</span>::{
     <span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>, <span class="ident">StorageSnafu</span>,
 };
+<span class="kw">use</span> <span class="ident">phaselock_utils::broadcast::BroadcastSender</span>;
 <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,

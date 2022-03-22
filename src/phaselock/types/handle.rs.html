@@ -187,6 +187,7 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`PhaseLock`] running in the background</span>
 
 <span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">sync::RwLock</span>, <span class="ident">task::block_on</span>};
@@ -195,9 +196,10 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">PhaseLockError</span>, <span class="ident">PhaseLockError::NetworkFault</span>},
-    <span class="ident">utility::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>},
     <span class="ident">PhaseLock</span>,
 };
+
+<span class="kw">use</span> <span class="ident">phaselock_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 
 <span class="doccomment">/// Event streaming handle for a [`PhaseLock`] instance running in the background</span>
 <span class="doccomment">///</span>

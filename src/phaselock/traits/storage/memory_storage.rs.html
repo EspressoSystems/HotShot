@@ -662,9 +662,9 @@
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::data::Stage</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utility::test_util::setup_logging</span>;
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wildcard_imports</span>)]</span>
     <span class="kw">use</span> <span class="ident">phaselock_types::traits::block_contents::dummy</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">phaselock_utils::test_util::setup_logging</span>;
     <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 
     <span class="kw">fn</span> <span class="ident">dummy_qc</span>(

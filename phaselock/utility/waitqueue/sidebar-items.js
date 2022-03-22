@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["WaitOnce","A type that allows waiting on a single value that satisfies a given predicate to show up"],["WaitQueue","Allows the consumer to wait until the queue is full enough before dumping it"]]});
