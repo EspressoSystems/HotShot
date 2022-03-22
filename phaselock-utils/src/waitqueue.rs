@@ -16,6 +16,7 @@ pub struct WaitQueue<T> {
 }
 
 impl<T: Debug> WaitQueue<T> {
+    #![allow(clippy::must_use_candidate)]
     /// Creates a new `WaitQueue`
     pub fn new(wait_limit: usize) -> Self {
         WaitQueue {
@@ -77,6 +78,7 @@ pub struct WaitOnce<T> {
 }
 
 impl<T: Debug> WaitOnce<T> {
+    #![allow(clippy::must_use_candidate)]
     /// Creates a new, empty `WaitOnce`
     pub fn new() -> Self {
         WaitOnce {

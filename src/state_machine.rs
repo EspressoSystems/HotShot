@@ -18,13 +18,13 @@ use super::{
 };
 use crate::{
     traits::{BlockContents, State, StatefulHandler, Storage},
-    utility::broadcast::BroadcastSender,
     NodeImplementation,
 };
 use futures::{future::BoxFuture, Future, FutureExt};
 use phaselock_types::error::{
     FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu,
 };
+use phaselock_utils::broadcast::BroadcastSender;
 use std::time::Duration;
 use std::{
     pin::Pin,

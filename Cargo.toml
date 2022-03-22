@@ -33,7 +33,8 @@ dashmap = "5.1.0"
 flume = "0.10.10"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
-phaselock-types = { path = "./phaselock-types", version = "0.0.6", registry = "translucence"  }
+phaselock-types = { path = "./phaselock-types", version = "0.0.6"}
+phaselock-utils = { path = "./phaselock-utils", version = "0.0.6"}
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
@@ -53,6 +54,7 @@ structopt = "0.3.26"
 tempfile = "3.3"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.8", features = ["env-filter", "json"] }
+phaselock-utils = { path = "./phaselock-utils", version = "0.0.6", features = ["logging-utils"]}
 
 ### Profiles
 ###
@@ -75,11 +77,12 @@ lto = "thin"
 
 
 ### Workspace
-# The phaselock-types crate needs to be a seperate crate, as to not create a circular depenedncy
+# The phaselock-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 
 members = [
         "phaselock-types",
+        "phaselock-utils",
         "libp2p-networking"
 ]

@@ -1,3 +1,14 @@
+//! Contains general utility structures and methods
+
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+
 /// Provides an unbounded size broadcast async-aware queue
 pub mod broadcast;
 /// A mutex that can be subscribed to, and will notify the subscribers whenever the internal data is changed.
@@ -6,7 +17,7 @@ pub mod subscribable_mutex;
 pub mod waitqueue;
 
 /// Provides utility functions used for testing
-#[cfg(test)]
+#[cfg(feature = "logging-utils")]
 pub mod test_util {
     // turn off some lints, this is a janky test method
     #![allow(
@@ -23,8 +34,11 @@ pub mod test_util {
         EnvFilter, Registry,
     };
 
+    /// Ensure logging is only
+    /// initialized once
     static INIT: Once = Once::new();
 
+    /// Set up logging exactly once
     pub fn setup_logging() {
         INIT.call_once(|| {
             let internal_event_filter =

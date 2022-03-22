@@ -1,0 +1,22 @@
+[package]
+authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+description = "Accompanying utilities used by phaselock."
+edition = "2021"
+name = "phaselock-utils"
+readme = "../README.md"
+version = "0.0.6"
+
+[dependencies]
+flume = "0.10.12"
+tracing = "0.1.30"
+async-std = { version = "1.10.0", features = ["unstable"] }
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.8", features = ["env-filter", "json"], optional = true}
+
+[dev-dependencies]
+# need async-std test attribute for subscriber mutex tests
+async-std = { version = "1.10.0", features = ["attributes"] }
+
+[features]
+# needed for logging feature
+logging-utils = ["tracing-subscriber"]

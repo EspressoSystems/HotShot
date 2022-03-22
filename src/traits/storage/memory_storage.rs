@@ -257,9 +257,9 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 mod test {
     use super::*;
     use crate::data::Stage;
-    use crate::utility::test_util::setup_logging;
     #[allow(clippy::wildcard_imports)]
     use phaselock_types::traits::block_contents::dummy::*;
+    use phaselock_utils::test_util::setup_logging;
     use tracing::instrument;
 
     fn dummy_qc(
