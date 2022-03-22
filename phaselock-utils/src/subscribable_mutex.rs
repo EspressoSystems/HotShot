@@ -1,6 +1,7 @@
 use async_std::sync::{Mutex, MutexGuard};
-use flume::{bounded, Receiver, Sender};
+use flume::{unbounded, Receiver, Sender};
 use std::{fmt, time::Duration};
+use tracing::warn;
 
 /// A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:
 ///
@@ -29,6 +30,7 @@ impl<T> SubscribableMutex<T> {
     ///
     /// Returns a guard that releases the mutex when dropped.
     ///
+    /// Direct usage of this function may result in unintentional deadlocks.
     /// Consider using one of the following functions instead:
     /// - `modify` to edit the inner value.
     /// - `set` to set the inner value.
@@ -59,7 +61,7 @@ impl<T> SubscribableMutex<T> {
 
     /// Create a [`Receiver`] that will be notified every time a thread calls [`notify_change_subscribers`]
     pub async fn subscribe(&self) -> Receiver<()> {
-        let (sender, receiver) = bounded(10);
+        let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
         receiver
     }
@@ -84,11 +86,14 @@ impl<T> SubscribableMutex<T> {
     }
 
     /// Wait until `condition` returns `true`. Will block until then.
-    pub async fn wait_until<F>(&self, mut f: F)
+    pub async fn wait_until<F>(&self, mut f: F, ready_chan: Sender<bool>)
     where
         F: FnMut(&T) -> bool,
     {
         let receiver = self.subscribe().await;
+        if ready_chan.send_async(true).await.is_err() {
+            warn!("unable to notify that channel is ready");
+        };
         loop {
             receiver
                 .recv_async()
@@ -96,11 +101,14 @@ impl<T> SubscribableMutex<T> {
                 .expect("`SubscribableMutex::wait_until` was still running when it was dropped");
             let lock = self.mutex.lock().await;
             if f(&*lock) {
+                drop(lock);
                 return;
             }
         }
     }
     /// Wait `timeout` until `f` returns `true`. Will return `Ok(())` if the function returned `true` before the time elapsed.
+    /// Notifies caller over `ready_chan` when has begun to listen for changes to the
+    /// internal state (locked within the [`Mutex`])
     ///
     /// # Errors
     ///
@@ -109,11 +117,12 @@ impl<T> SubscribableMutex<T> {
         &self,
         timeout: Duration,
         f: F,
+        ready_chan: Sender<bool>,
     ) -> Result<(), async_std::future::TimeoutError>
     where
         F: FnMut(&T) -> bool,
     {
-        async_std::future::timeout(timeout, self.wait_until(f)).await
+        async_std::future::timeout(timeout, self.wait_until(f, ready_chan)).await
     }
 }
 

@@ -1,4 +1,5 @@
 use async_std::future::timeout;
+use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
@@ -54,11 +55,9 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
         spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
             .await
             .unwrap();
-    print_connections(&handles).await;
     for handle in &handles {
         spawn_handler(handle.clone(), client_handler.clone()).await;
     }
-    print_connections(&handles).await;
 
     run_test(handles.clone(), timeout).await;
 
@@ -236,6 +235,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum TestError<S: Debug> {
+    #[snafu(display("Channel error {source:?}"))]
+    Recv { source: RecvError },
     #[snafu(display(
         "Timeout while running direct message round. Timed out when {requester} dmed {requestee}"
     ))]

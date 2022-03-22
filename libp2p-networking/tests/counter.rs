@@ -1,9 +1,9 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::future::timeout;
+use async_std::{future::timeout, task::spawn};
 use bincode::Options;
-use common::{test_bed, HandleSnafu, TestError};
+use common::{test_bed, HandleSnafu, RecvSnafu, TestError};
 use futures::future::join_all;
 use libp2p::gossipsub::Topic;
 use networking_demo::network::{
@@ -141,21 +141,27 @@ async fn run_request_response_increment(
 
     let new_state = requestee_handle.state().await;
 
+    let (s, r) = flume::bounded(1);
+
     // set up state change listener
-    let recv_fut = requester_handle.state_changed().wait_timeout_until(
-        requester_handle.state_lock().await,
-        timeout,
-        |state| *state == new_state,
-    );
+    let recv_fut =
+        requester_handle.state_wait_timeout_until(timeout, |state| *state == new_state, s);
 
-    requester_handle
-        .send_request(msg)
-        .await
-        .context(HandleSnafu)?;
+    let requester_handle_dup = requester_handle.clone();
 
-    let (_, res) = recv_fut.await;
+    spawn(async move {
+        r.recv_async().await.context(RecvSnafu)?;
 
-    if res.timed_out() {
+        requester_handle_dup
+            .send_request(msg)
+            .await
+            .context(HandleSnafu)?;
+        Ok::<(), TestError<CounterState>>(())
+    });
+
+    let res = recv_fut.await;
+
+    if res.is_err() {
         Err(TestError::DirectTimeout {
             requester: requester_handle.id(),
             requestee: requestee_handle.id(),
@@ -187,15 +193,31 @@ async fn run_gossip_round(
     msg_handle.modify_state(|s| *s = new_state).await;
 
     let mut futs = Vec::new();
+    println!("num handles: {:?}", handles.len());
+    let mut ready_chans = Vec::new();
     for handle in handles {
-        let a_fut = handle
-            .state_changed()
-            .wait_until(handle.state_lock().await, |state| *state == new_state);
-        futs.push(a_fut);
+        // already modified, so skip msg_handle
+        if handle.peer_id() != msg_handle.peer_id() {
+            let (s, r) = flume::bounded(1);
+            let a_fut =
+                handle.state_wait_timeout_until(timeout_duration, |state| *state == new_state, s);
+            ready_chans.push(r);
+            futs.push(a_fut);
+        }
     }
 
-    let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
-    msg_handle.send_request(msg).await.context(HandleSnafu)?;
+    spawn(async move {
+        // wait to be notified that all channels are ready
+        for chan in ready_chans {
+            chan.recv_async().await.context(RecvSnafu)?;
+        }
+        let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
+        msg_handle.send_request(msg).await.context(HandleSnafu)?;
+        println!("send gossip msg");
+        Ok::<(), TestError<CounterState>>(())
+    });
+
+    // must launch listener futures BEFORE sending increment message
 
     if timeout(timeout_duration, futures::future::join_all(futs))
         .await

@@ -8,8 +8,9 @@ use async_std::{
 };
 use flume::{bounded, Receiver, RecvError, SendError, Sender};
 use libp2p::{Multiaddr, PeerId};
+use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use snafu::{ResultExt, Snafu};
-use std::{collections::HashSet, fmt::Debug, sync::Arc};
+use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
 /// A handle containing:
@@ -22,7 +23,7 @@ pub struct NetworkNodeHandle<S> {
     /// notifies that a state change has occurred
     state_changed: Condvar,
     /// the state of the replica
-    state: Arc<Mutex<S>>,
+    state: Arc<SubscribableMutex<S>>,
     /// send an action to the networkbehaviour
     send_network: Sender<ClientRequest>,
     /// receive an action from the networkbehaviour
@@ -38,7 +39,7 @@ pub struct NetworkNodeHandle<S> {
     /// the peer id of the networkbehaviour
     peer_id: PeerId,
     /// the connection metadata associated with the networkbehaviour
-    connection_state: Arc<Mutex<ConnectionData>>,
+    connection_state: Arc<SubscribableMutex<ConnectionData>>,
     /// human readable id
     id: usize,
 
@@ -73,7 +74,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(NetworkNodeHandle {
             network_config: config,
             state_changed: Condvar::new(),
-            state: Arc::new(Mutex::new(S::default())),
+            state: Arc::new(SubscribableMutex::new(S::default())),
             send_network: send_chan,
             recv_network: recv_chan,
             killed: Arc::new(Mutex::new(false)),
@@ -123,12 +124,20 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                         pids.len(),
                         num_peers
                     );
-                    node.connection_state.lock().await.connected_peers = pids.clone();
+                    node.connection_state
+                        .modify(|state| {
+                            state.connected_peers = pids.clone();
+                        })
+                        .await;
                     connected_ok = pids.len() >= num_peers;
                     node.notify_webui().await;
                 }
                 NetworkEvent::UpdateKnownPeers(pids) => {
-                    node.connection_state.lock().await.known_peers = pids.clone();
+                    node.connection_state
+                        .modify(|state| {
+                            state.known_peers = pids.clone();
+                        })
+                        .await;
                     known_ok = pids.len() >= num_peers;
                     node.notify_webui().await;
                 }
@@ -205,58 +214,59 @@ impl<S> NetworkNodeHandle<S> {
 
     /// Get a clone of the internal connection state
     pub async fn connection_state(&self) -> ConnectionData {
-        self.connection_state.lock().await.clone()
+        self.connection_state.cloned().await
     }
 
     /// Get a clone of the known peers list
     pub async fn known_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.lock().await.known_peers.clone()
+        self.connection_state.cloned().await.known_peers
     }
 
     /// Get a clone of the connected peers list
     pub async fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.lock().await.connected_peers.clone()
+        self.connection_state.cloned().await.connected_peers
     }
 
     /// Get a clone of the ignored peers list
     pub async fn ignored_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.lock().await.ignored_peers.clone()
+        self.connection_state.cloned().await.ignored_peers
     }
 
     /// Modify the state. This will automatically call `state_changed` and `notify_webui`
-    pub async fn modify_state<F>(&self, mut cb: F)
+    pub async fn modify_state<F>(&self, cb: F)
     where
         F: FnMut(&mut S),
     {
-        let mut lock = self.state.lock().await;
-        cb(&mut lock);
-        drop(lock);
+        self.state.modify(cb).await;
         self.state_changed.notify_all();
         self.notify_webui().await;
     }
 
     /// Set the connected peers list
     pub async fn set_connected_peers(&self, peers: HashSet<PeerId>) {
-        self.connection_state.lock().await.connected_peers = peers;
+        self.connection_state
+            .modify(|s| {
+                s.connected_peers = peers;
+            })
+            .await;
     }
 
     /// Set the known peers list
     pub async fn set_known_peers(&self, peers: HashSet<PeerId>) {
-        self.connection_state.lock().await.known_peers = peers;
+        self.connection_state
+            .modify(|s| {
+                s.known_peers = peers;
+            })
+            .await;
     }
 
     /// Add a peer to the ignored peers list
     pub async fn add_ignored_peer(&self, peer: PeerId) {
         self.connection_state
-            .lock()
-            .await
-            .ignored_peers
-            .insert(peer);
-    }
-
-    /// Obtain a lock to the internal state
-    pub async fn state_lock(&self) -> async_std::sync::MutexGuard<'_, S> {
-        self.state.lock().await
+            .modify(|s| {
+                s.ignored_peers.insert(peer);
+            })
+            .await;
     }
 
     /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls [`modify_state`]
@@ -276,12 +286,28 @@ impl<S> NetworkNodeHandle<S> {
         lock.push(sender);
         receiver
     }
+
+    /// Call `wait_timeout_until` on the state's [`SubscribableMutex`]
+    /// will notify the caller through `chan` when listening for event
+    /// # Errors
+    /// Will throw a [`TimeoutSnafu`] error upon timeout
+    pub async fn state_wait_timeout_until<F>(
+        &self,
+        timeout: Duration,
+        f: F,
+        chan: Sender<bool>,
+    ) -> Result<(), async_std::future::TimeoutError>
+    where
+        F: FnMut(&S) -> bool,
+    {
+        self.state.wait_timeout_until(timeout, f, chan).await
+    }
 }
 
 impl<S: Clone> NetworkNodeHandle<S> {
     /// Get a clone of the internal state
     pub async fn state(&self) -> S {
-        self.state.lock().await.clone()
+        self.state.cloned().await
     }
 }
 
