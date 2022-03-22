@@ -403,7 +403,7 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id, error } => {
-                error!("connecting error {:?}", error);
+                warn!(?error);
                 if let Some(peer_id) = peer_id {
                     behaviour.remove_peer(peer_id);
                 }

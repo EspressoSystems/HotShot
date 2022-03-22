@@ -289,6 +289,8 @@ impl NetworkDef {
     pub fn subscribe_gossip(&mut self, t: &str) {
         if self.gossipsub.subscribe(&Topic::new(t)).is_err() {
             error!("error subscribing to topic {}", t);
+        } else {
+            println!("subscribed to {}", t);
         }
     }
 
