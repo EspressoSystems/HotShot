@@ -11,7 +11,7 @@ default = ["demo", "docs"]
 # Enable demo/testing logic
 demo = ["blake3"]
 # Enable insecure testing only mock cryptography
-test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto"]
+test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto", "phaselock-types/test_crypto"]
 # Build the extended documentation
 docs = []
 
