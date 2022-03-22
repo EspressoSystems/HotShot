@@ -34,8 +34,11 @@ pub mod test_util {
         EnvFilter, Registry,
     };
 
+    /// Ensure logging is only
+    /// initialized once
     static INIT: Once = Once::new();
 
+    /// Set up logging exactly once
     pub fn setup_logging() {
         INIT.call_once(|| {
             let internal_event_filter =
