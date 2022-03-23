@@ -229,29 +229,32 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             storage,
             stateful_handler: Mutex::new(handler),
         };
-        inner.storage.insert_qc(QuorumCertificate {
-            block_hash: genesis_hash,
-            leaf_hash: leaf.hash(),
-            view_number: 0,
-            stage: Stage::Decide,
-            signature: None,
-            genesis: true,
-        });
+        let leaf_hash = leaf.hash();
+        trace!("Genesis leaf hash: {:?}", leaf_hash);
+
         inner
             .storage
-            .insert_leaf(Leaf {
-                parent: [0_u8; { N }].into(),
-                item: genesis,
+            .update(|mut m| async move {
+                m.insert_qc(QuorumCertificate {
+                    block_hash: genesis_hash,
+                    leaf_hash,
+                    view_number: 0,
+                    stage: Stage::Decide,
+                    signature: None,
+                    genesis: true,
+                })
+                .await?;
+                m.insert_leaf(Leaf {
+                    parent: [0_u8; { N }].into(),
+                    item: genesis,
+                })
+                .await?;
+                m.insert_state(starting_state, leaf_hash).await?;
+                Ok(())
             })
             .await
             .context(StorageSnafu)?;
-        trace!("Genesis leaf hash: {:?}", leaf.hash());
-        inner
-            .storage
-            .insert_state(starting_state, leaf.hash())
-            .await
-            .context(StorageSnafu)?;
-        inner.storage.commit().await.context(StorageSnafu)?;
+
         Ok(Self {
             inner: Arc::new(inner),
         })
@@ -698,36 +701,26 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             ConsensusMessage::Prepare(p) => {
                 // Insert block into store
                 info!(prepare = ?p, "Inserting block and leaf into store");
-                let leaf = p.leaf.clone();
 
-                if let Err(e) = self.inner.storage.insert_leaf(leaf.clone()).await {
+                if let Err(e) = self
+                    .inner
+                    .storage
+                    .update(|mut m| {
+                        let leaf = p.leaf.clone();
+                        let state = p.state.clone();
+                        async move {
+                            m.insert_leaf(leaf.clone()).await?;
+                            m.insert_block(BlockContents::hash(&leaf.item), leaf.item.clone())
+                                .await?;
+                            m.insert_state(state.clone(), leaf.hash()).await?;
+                            Ok(())
+                        }
+                    })
+                    .await
+                {
                     error!(?e, "Error inserting leaf into storage");
                     return;
                 }
-                if let Err(e) = self
-                    .inner
-                    .storage
-                    .insert_block(BlockContents::hash(&leaf.item), leaf.item.clone())
-                    .await
-                {
-                    error!(?e, "Error inserting block into storage");
-                    return;
-                }
-
-                info!(?leaf, "Inserting new state into storage");
-                if let Err(e) = self
-                    .inner
-                    .storage
-                    .insert_state(p.state.clone(), leaf.hash())
-                    .await
-                {
-                    error!(?e, "Error inserting state into storage");
-                    return;
-                };
-                if let Err(e) = self.inner.storage.commit().await {
-                    error!(?e, "Error committing storage");
-                    return;
-                };
 
                 self.inner.prepare_waiter.put(p).await;
             }

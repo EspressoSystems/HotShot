@@ -15,7 +15,11 @@ use crate::{
 };
 use async_std::sync::Mutex;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
-use futures::future::{BoxFuture, FutureExt};
+use futures::{
+    future::{BoxFuture, FutureExt},
+    Future,
+};
+use phaselock_types::traits::storage::StorageUpdater;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{path::Path, sync::Arc};
 use tracing::{info_span, trace, Instrument};
@@ -104,16 +108,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             .boxed()
     }
 
-    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
-        async move {
-            trace!(?block, "inserting block");
-            self.inner.blocks.insert(hash, block).await?;
-            Ok(())
-        }
-        .instrument(info_span!("AtomicStorage::insert_block", ?hash))
-        .boxed()
-    }
-
     fn get_qc<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
@@ -137,16 +131,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             .instrument(info_span!("AtomicStorage::get_qc_for_view"))
             .boxed()
     }
-
-    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            self.inner.qcs.insert(qc).await?;
-            Ok(())
-        }
-        .instrument(info_span!("AtomicStorage::insert_qc"))
-        .boxed()
-    }
-
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
@@ -171,25 +155,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             .boxed()
     }
 
-    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            self.inner.leaves.insert(leaf).await?;
-            Ok(())
-        }
-        .instrument(info_span!("AtomicStorage::insert_leaf"))
-        .boxed()
-    }
-
-    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            trace!(?hash, "Inserting state");
-            self.inner.states.insert(hash, state).await?;
-            Ok(())
-        }
-        .instrument(info_span!("AtomicStorage::insert_state"))
-        .boxed()
-    }
-
     fn get_state<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
@@ -197,8 +162,16 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         self.inner.states.get(hash).map(Ok).boxed()
     }
 
-    fn commit(&self) -> BoxFuture<'_, StorageResult> {
+    fn update<'a, F, FUT>(&'a self, update_fn: F) -> BoxFuture<'_, StorageResult>
+    where
+        F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
+        FUT: Future<Output = StorageResult> + Send + 'a,
+    {
         async move {
+            let updater = Box::new(AtomicStorageUpdater { inner: &self.inner });
+            update_fn(updater).await?;
+
+            // Make sure to commit everything
             self.inner.blocks.commit_version().await?;
             self.inner.qcs.commit_version().await?;
             self.inner.leaves.commit_version().await?;
@@ -207,6 +180,58 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 
             Ok(())
         }
+        .boxed()
+    }
+}
+
+/// Implementation of [`StorageUpdater`] for the [`AtomicStorage`]
+struct AtomicStorageUpdater<
+    'a,
+    B: BlockContents<N> + 'static,
+    S: State<N, Block = B> + 'static,
+    const N: usize,
+> {
+    /// A reference to the internals of the [`AtomicStorage`]
+    inner: &'a AtomicStorageInner<B, S, N>,
+}
+
+impl<'a, B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+    StorageUpdater<'a, B, S, N> for AtomicStorageUpdater<'a, B, S, N>
+{
+    fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
+        async move {
+            trace!(?block, "inserting block");
+            self.inner.blocks.insert(hash, block).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_block", ?hash))
+        .boxed()
+    }
+    fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            self.inner.leaves.insert(leaf).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_leaf"))
+        .boxed()
+    }
+
+    fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            self.inner.qcs.insert(qc).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_qc"))
+        .boxed()
+    }
+
+    fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            trace!(?hash, "Inserting state");
+            self.inner.states.insert(hash, state).await?;
+            Ok(())
+        }
+        .instrument(info_span!("AtomicStorage::insert_state"))
         .boxed()
     }
 }

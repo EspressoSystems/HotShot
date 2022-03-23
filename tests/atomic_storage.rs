@@ -23,10 +23,12 @@ async fn test_happy_path_blocks() {
     let block = DEntryBlock::default();
     let hash = block.hash();
     store
-        .insert_block(hash, block.clone())
+        .update(|mut m| {
+            let block = block.clone();
+            async move { m.insert_block(hash, block).await }
+        })
         .await
-        .expect("Could not insert block");
-    store.commit().await.expect("Could not commit");
+        .unwrap();
 
     // Make sure the data is still there after re-opening
     drop(store);
@@ -46,20 +48,22 @@ async fn test_happy_path_blocks() {
             .add_transaction_raw(&random_transaction(&state, &mut rng))
             .expect("Could not add transaction");
         println!("Inserting {:?}: {:?}", new.hash(), new);
-        store.insert_block(new.hash(), new.clone()).await.unwrap();
+        store
+            .update(|mut m| {
+                let new = new.clone();
+                async move { m.insert_block(new.hash(), new.clone()).await }
+            })
+            .await
+            .unwrap();
         hashes.push(new.hash());
         block = new;
     }
 
     // read them all back 3 times
     // 1st time: normal readback
-    // 2nd: after a commit
-    // 3rd: after dropping and re-opening the store
+    // 2nd: after dropping and re-opening the store
     for i in 0..3 {
         if i == 1 {
-            store.commit().await.unwrap();
-        }
-        if i == 2 {
             drop(store);
             store = AtomicStorage::open(path).expect("Could not open atomic store");
         }
@@ -90,19 +94,21 @@ async fn test_happy_path_qcs() {
             ..random_quorom_certificate()
         };
         println!("Inserting {:?}", cert);
-        store.insert_qc(cert.clone()).await.unwrap();
+        store
+            .update(|mut m| {
+                let cert = cert.clone();
+                async move { m.insert_qc(cert).await }
+            })
+            .await
+            .unwrap();
         certs.push(cert);
     }
 
     // read them all back 3 times
     // 1st time: normal readback
-    // 2nd: after a commit
-    // 3rd: after dropping and re-opening the store
-    for i in 0..3 {
+    // 2nd: after dropping and re-opening the store
+    for i in 0..2 {
         if i == 1 {
-            store.commit().await.unwrap();
-        }
-        if i == 2 {
             drop(store);
             store = AtomicStorage::open(path).expect("Could not open atomic store");
         }
@@ -156,19 +162,21 @@ async fn test_happy_path_leaves() {
             ..Default::default()
         });
         println!("Inserting {:?}", leaf);
-        store.insert_leaf(leaf.clone()).await.unwrap();
+        store
+            .update(|mut m| {
+                let leaf = leaf.clone();
+                async move { m.insert_leaf(leaf).await }
+            })
+            .await
+            .unwrap();
         leaves.push(leaf);
     }
 
-    // read them all back 3 times
+    // read them all back 2 times
     // 1st time: normal readback
-    // 2nd: after a commit
-    // 3rd: after dropping and re-opening the store
-    for i in 0..3 {
+    // 2nd: after dropping and re-opening the store
+    for i in 0..2 {
         if i == 1 {
-            store.commit().await.unwrap();
-        }
-        if i == 2 {
             drop(store);
             store = AtomicStorage::open(path).expect("Could not open atomic store");
         }

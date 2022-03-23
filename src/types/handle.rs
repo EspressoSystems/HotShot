@@ -1,15 +1,13 @@
 //! Provides an event-streaming handle for a [`PhaseLock`] running in the background
 
-use async_std::{sync::RwLock, task::block_on};
-use std::sync::Arc;
-
 use crate::{
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
     types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
     PhaseLock,
 };
-
+use async_std::{sync::RwLock, task::block_on};
 use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
+use std::sync::Arc;
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background
 ///

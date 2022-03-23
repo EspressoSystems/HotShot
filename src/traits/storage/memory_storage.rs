@@ -2,13 +2,6 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use async_std::sync::RwLock;
-use dashmap::DashMap;
-use futures::future::{BoxFuture, FutureExt};
-use tracing::{info_span, trace, Instrument};
-
-use std::sync::Arc;
-
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
     traits::{
@@ -17,6 +10,15 @@ use crate::{
     },
     QuorumCertificate,
 };
+use async_std::sync::RwLock;
+use dashmap::DashMap;
+use futures::{
+    future::{BoxFuture, FutureExt},
+    Future,
+};
+use phaselock_types::traits::storage::StorageUpdater;
+use std::sync::Arc;
+use tracing::{info_span, trace, Instrument};
 
 /// Internal state for a [`MemoryStorage`]
 struct MemoryStorageInternal<Block, State, const N: usize> {
@@ -96,17 +98,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .instrument(info_span!("MemoryStorage::get_block", ?hash))
         .boxed()
     }
-
-    fn insert_block(&self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
-        async move {
-            trace!(?block, "inserting block");
-            self.inner.blocks.insert(hash, block);
-            Ok(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_block", ?hash))
-        .boxed()
-    }
-
     fn get_qc<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
@@ -148,24 +139,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .instrument(info_span!("MemoryStorage::get_qc_for_view", ?view))
         .boxed()
     }
-
-    fn insert_qc(&self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            // Insert the qc into the main vec and the add the references
-            let view = qc.view_number;
-            let hash = qc.block_hash;
-            let mut qcs = self.inner.qcs.write().await;
-            let index = qcs.len();
-            trace!(?qc, ?index, "Inserting qc");
-            qcs.push(qc);
-            self.inner.view_to_qc.insert(view, index);
-            self.inner.hash_to_qc.insert(hash, index);
-            Ok(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_qc"))
-        .boxed()
-    }
-
     fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
@@ -207,7 +180,73 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
-    fn insert_leaf(&self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
+    fn get_state<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b LeafHash<N>,
+    ) -> BoxFuture<'b, StorageResult<Option<S>>> {
+        let maybe_state = self.inner.states.get(hash);
+        let x = Ok(if let Some(state) = maybe_state {
+            let state = state.value().clone();
+            Some(state)
+        } else {
+            None
+        });
+        async move { x }.boxed()
+    }
+
+    fn update<'a, F, FUT>(&'a self, update_fn: F) -> BoxFuture<'_, StorageResult>
+    where
+        F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
+        FUT: Future<Output = StorageResult> + Send + 'a,
+    {
+        async move {
+            let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
+            update_fn(updater).await?;
+            Ok(())
+        }
+        .boxed()
+    }
+}
+
+/// An implementation of [`StorageUpdater`] for [`MemoryStorage`]
+struct MemoryStorageUpdater<'a, B, S, const N: usize> {
+    /// Reference to the internals of the memory storage
+    inner: &'a MemoryStorageInternal<B, S, N>,
+}
+
+impl<'a, B, S, const N: usize> StorageUpdater<'a, B, S, N> for MemoryStorageUpdater<'a, B, S, N>
+where
+    B: BlockContents<N> + 'static,
+    S: State<N, Block = B> + 'static,
+{
+    fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
+        async move {
+            trace!(?block, "inserting block");
+            self.inner.blocks.insert(hash, block);
+            Ok(())
+        }
+        .instrument(info_span!("MemoryStorage::insert_block", ?hash))
+        .boxed()
+    }
+
+    fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
+        async move {
+            // Insert the qc into the main vec and the add the references
+            let view = qc.view_number;
+            let hash = qc.block_hash;
+            let mut qcs = self.inner.qcs.write().await;
+            let index = qcs.len();
+            trace!(?qc, ?index, "Inserting qc");
+            qcs.push(qc);
+            self.inner.view_to_qc.insert(view, index);
+            self.inner.hash_to_qc.insert(hash, index);
+            Ok(())
+        }
+        .instrument(info_span!("MemoryStorage::insert_qc"))
+        .boxed()
+    }
+
+    fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
         async move {
             let hash = leaf.hash();
             trace!(?leaf, ?hash, "Inserting");
@@ -224,7 +263,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
-    fn insert_state(&self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
+    fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
         async move {
             trace!(?hash, "Inserting state");
             self.inner.states.insert(hash, state);
@@ -232,24 +271,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         }
         .instrument(info_span!("MemoryStorage::insert_state"))
         .boxed()
-    }
-
-    fn get_state<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b LeafHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<S>>> {
-        let maybe_state = self.inner.states.get(hash);
-        let x = Ok(if let Some(state) = maybe_state {
-            let state = state.value().clone();
-            Some(state)
-        } else {
-            None
-        });
-        async move { x }.boxed()
-    }
-
-    fn commit(&self) -> BoxFuture<'_, StorageResult> {
-        async move { Ok(()) }.boxed()
     }
 }
 
@@ -289,9 +310,22 @@ mod test {
         let test_block_2 = DummyBlock::random();
         let hash_2 = <DummyBlock as BlockContents<32>>::hash(&test_block_2);
         // Attempt to insert the blocks
-        let res = storage.insert_block(hash_1, test_block_1.clone()).await;
+        let res = storage
+            .update(|mut m| {
+                let test_block_1 = test_block_1.clone();
+                async move { m.insert_block(hash_1, test_block_1).await }
+            })
+            .await;
         assert!(res.is_ok());
-        let res = storage.insert_block(hash_2, test_block_2.clone()).await;
+        let res = storage
+            .update(|mut m| {
+                let test_block_2 = test_block_2.clone();
+                async move {
+                    m.insert_block(hash_2, test_block_2).await?;
+                    Ok(())
+                }
+            })
+            .await;
         assert!(res.is_ok());
         // Then attempt to get the blocks
         let block_1 = storage.get_block(&hash_1).await.unwrap().unwrap();
@@ -318,8 +352,18 @@ mod test {
         let qc_2_hash_leaf = LeafHash::<32>::random();
         let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, 2, true);
         // Attempt to insert them
-        storage.insert_qc(qc_1.clone()).await.unwrap();
-        storage.insert_qc(qc_2.clone()).await.unwrap();
+        storage
+            .update(|mut m| {
+                let qc_1 = qc_1.clone();
+                let qc_2 = qc_2.clone();
+                async move {
+                    m.insert_qc(qc_1).await?;
+                    m.insert_qc(qc_2).await?;
+                    Ok(())
+                }
+            })
+            .await
+            .unwrap();
         // Attempt to get them back by hash
         let h_qc_1 = storage.get_qc(&qc_1_hash_block).await.unwrap().unwrap();
         let h_qc_2 = storage.get_qc(&qc_2_hash_block).await.unwrap().unwrap();
@@ -362,8 +406,18 @@ mod test {
         };
         let hash_2 = leaf_2.hash();
         // Attempt to insert them
-        storage.insert_leaf(leaf_1.clone()).await.unwrap();
-        storage.insert_leaf(leaf_2.clone()).await.unwrap();
+        storage
+            .update(|mut m| {
+                let leaf_1 = leaf_1.clone();
+                let leaf_2 = leaf_2.clone();
+                async move {
+                    m.insert_leaf(leaf_1).await?;
+                    m.insert_leaf(leaf_2).await?;
+                    Ok(())
+                }
+            })
+            .await
+            .unwrap();
         // Attempt to get them back by hash
         let h_leaf_1 = storage.get_leaf(&hash_1).await.unwrap().unwrap();
         let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap().unwrap();
