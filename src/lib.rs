@@ -47,8 +47,11 @@ use async_std::sync::{Mutex, RwLock};
 use async_std::task::JoinHandle;
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::ConsensusMessage,
-    traits::{network::NetworkError, node_implementation::TypeMap},
+    message::{ConsensusMessage, DataMessage},
+    traits::{
+        network::{NetworkChange, NetworkError},
+        node_implementation::TypeMap,
+    },
 };
 use phaselock_utils::{
     broadcast::BroadcastSender,
@@ -550,6 +553,57 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             _ => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
+            }
+        }
+    }
+
+    /// Handle an incoming [`DataMessage`] that was broadcasted on the network
+    async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+        match msg {
+            DataMessage::NewestQuorumCertificate(_) => {}
+        }
+    }
+
+    /// Handle an incoming [`DataMessage`] thatdirected at this node
+    #[allow(clippy::panic)]
+    async fn handle_direct_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+        match msg {
+            DataMessage::NewestQuorumCertificate(qc) => {
+                panic!("Incoming QC: {:?}", qc);
+            }
+        }
+    }
+
+    /// Handle a change in the network
+    async fn handle_network_change(&self, node: NetworkChange) {
+        match node {
+            NetworkChange::NodeConnected(peer) => {
+                info!("Connected to node {:?}", peer);
+                match self.inner.storage.get_newest_qc().await {
+                    Ok(Some(qc)) => {
+                        if let Err(e) = self
+                            .send_direct_message(
+                                DataMessage::NewestQuorumCertificate(qc),
+                                peer.clone(),
+                            )
+                            .await
+                        {
+                            error!(
+                                ?e,
+                                "Could not send newest quorumcertificate to node {:?}", peer
+                            );
+                        }
+                    }
+                    Ok(None) => {
+                        info!("Node connected but we have no QC yet");
+                    }
+                    Err(e) => {
+                        error!(?e, "Could not retrieve newest QC");
+                    }
+                }
+            }
+            NetworkChange::NodeDisconnected(peer) => {
+                info!("Lost connection to node {:?}", peer);
             }
         }
     }

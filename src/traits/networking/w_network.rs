@@ -22,6 +22,7 @@ use async_tungstenite::{
 };
 use bincode::Options;
 use dashmap::DashMap;
+use flume::{Receiver, Sender};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use phaselock_types::traits::network::NetworkChange;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -134,8 +135,10 @@ struct WNetworkInner<T> {
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
 
-    /// Changes in the network
-    changes: Mutex<Vec<NetworkChange>>,
+    /// Sender for changes in the network
+    network_change_input: Sender<NetworkChange>,
+    /// Receiver for changes in the network
+    network_change_output: Receiver<NetworkChange>,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
@@ -558,6 +561,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .context(FailedToBindListenerSnafu)?;
         debug!("Successfully bound socket");
 
+        let (network_change_input, network_change_output) = flume::unbounded();
+
         let inner = WNetworkInner {
             handles: DashMap::new(),
             pub_key: own_key,
@@ -578,7 +583,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
             keep_alive_duration,
-            changes: Mutex::default(),
+            network_change_input,
+            network_change_output,
         };
         let w = Self {
             inner: Arc::new(inner),
@@ -641,10 +647,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                             trace!(?addr, "Spawned task for stream");
                                             w.inner.handles.insert(pub_key.clone(), handle);
                                             w.inner
-                                                .changes
-                                                .lock()
+                                                .network_change_input
+                                                .send_async(NetworkChange::NodeConnected(pub_key))
                                                 .await
-                                                .push(NetworkChange::NodeConnected(pub_key));
+                                                .unwrap();
                                             trace!(?addr, "Stored handle for stream");
                                         }
                                         Err(e) => error!(
@@ -760,19 +766,19 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 error!("Remote did not respond in time! Removing from node map");
                 self.inner.handles.remove(&remote);
                 self.inner
-                    .changes
-                    .lock()
+                    .network_change_input
+                    .send_async(NetworkChange::NodeDisconnected(remote))
                     .await
-                    .push(NetworkChange::NodeDisconnected(remote));
+                    .unwrap();
             }
         } else {
             error!("Handle has been shutdown! Removing from node map");
             self.inner.handles.remove(&remote);
             self.inner
-                .changes
-                .lock()
+                .network_change_input
+                .send_async(NetworkChange::NodeDisconnected(remote))
                 .await
-                .push(NetworkChange::NodeDisconnected(remote));
+                .unwrap();
         }
     }
 }
@@ -953,13 +959,25 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         Box::new(self.clone())
     }
 
-    fn network_changes(&self) -> BoxFuture<'_, Vec<NetworkChange>> {
-        // TODO: Make this a `Receiver` construction like e.g. `next_direct`
-        // Not doing this now because maybe we don't need this any more after libp2p gets merged
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
         async move {
-            let mut lock = self.inner.changes.lock().await;
-            std::mem::take(&mut *lock)
+            debug!("Waiting for network changes to show up");
+            let mut ret = Vec::new();
+            // Wait for the first message to come up
+            let first = self.inner.network_change_output.recv_async().await;
+            if let Ok(first) = first {
+                trace!(?first, "First message in network changes queue found");
+                ret.push(first);
+                while let Ok(x) = self.inner.network_change_output.try_recv() {
+                    ret.push(x);
+                }
+                Ok(ret)
+            } else {
+                error!("The underlying MemoryNetwork has shut down");
+                Err(NetworkError::ShutDown)
+            }
         }
+        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
         .boxed()
     }
 }

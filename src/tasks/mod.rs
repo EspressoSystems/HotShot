@@ -33,6 +33,12 @@ pub fn spawn_all<I: NodeImplementation<N>, const N: usize>(
             id = phaselock.inner.public_key.nonce
         )),
     );
+    spawn(
+        network_change_task(phaselock.clone()).instrument(info_span!(
+            "PhaseLock network change listener task",
+            id = phaselock.inner.public_key.nonce
+        )),
+    );
 
     let (sender, receiver) = channel();
 
@@ -80,6 +86,9 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
                 Message::Consensus(msg) => {
                     phaselock.handle_broadcast_consensus_message(msg).await;
                 }
+                Message::Data(msg) => {
+                    phaselock.handle_broadcast_data_message(msg).await;
+                }
             }
         }
         trace!("Items processed, querying for more");
@@ -108,9 +117,35 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
                 Message::Consensus(msg) => {
                     phaselock.handle_direct_consensus_message(msg).await;
                 }
+                Message::Data(msg) => {
+                    phaselock.handle_direct_data_message(msg).await;
+                }
             }
         }
         trace!("Items processed, querying for more");
+    }
+}
+
+/// Runs a task that will call `phaselock.handle_network_change` whenever a change in the network is detected.
+pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
+    phaselock: PhaseLock<I, N>,
+) {
+    info!("Launching network change handler task");
+    let networking = &phaselock.inner.networking;
+    let mut incremental_backoff_ms = 10;
+    while let Ok(queue) = networking.network_changes().await {
+        if queue.is_empty() {
+            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+            async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
+            continue;
+        }
+        // Make sure to reset the backoff time
+        incremental_backoff_ms = 10;
+
+        for node in queue {
+            phaselock.handle_network_change(node).await;
+        }
     }
 }
 

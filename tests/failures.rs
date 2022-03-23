@@ -47,8 +47,7 @@ async fn single_permanent_failure() {
             pub_key.clone(),
             master.clone(),
             Option::<DummyReliability>::None,
-        )
-        .await;
+        );
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
@@ -197,8 +196,7 @@ async fn double_permanent_failure() {
             pub_key.clone(),
             master.clone(),
             Option::<DummyReliability>::None,
-        )
-        .await;
+        );
         networkings.push((mn, pub_key));
     }
     info!("Created networking");

@@ -117,10 +117,11 @@ where
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
 
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
-    fn network_changes(&self) -> BoxFuture<'_, Vec<NetworkChange>>;
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>>;
 }
 
 /// Changes that can occur in the network
+#[derive(Debug)]
 pub enum NetworkChange {
     /// A node is connected
     NodeConnected(PubKey),

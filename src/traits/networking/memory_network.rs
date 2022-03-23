@@ -3,7 +3,8 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-use async_std::sync::Mutex;
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
+use crate::PubKey;
 use async_std::task::spawn;
 use bincode::Options;
 use dashmap::DashMap;
@@ -13,13 +14,9 @@ use phaselock_types::traits::network::NetworkChange;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
 use std::fmt::Debug;
 use std::sync::Arc;
-
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
-use crate::PubKey;
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]
 /// dummy implementation of network reliability
@@ -79,8 +76,10 @@ struct MemoryNetworkInner<T> {
     /// The master map
     master_map: Arc<MasterMap<T>>,
 
-    /// A list of changes that happened in the network
-    changes: Mutex<Vec<NetworkChange>>,
+    /// Input for network change messages
+    network_changes_input: flume::Sender<NetworkChange>,
+    /// Output for network change messages
+    network_changes_output: flume::Receiver<NetworkChange>,
 }
 
 /// In memory only network simulator.
@@ -110,7 +109,7 @@ where
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
-    pub async fn new(
+    pub fn new(
         pub_key: PubKey,
         master_map: Arc<MasterMap<T>>,
         reliability_config: Option<impl 'static + NetworkReliability>,
@@ -120,6 +119,7 @@ where
         let (direct_input, direct_task_recv) = flume::bounded(128);
         let (broadcast_task_send, broadcast_output) = flume::bounded(128);
         let (direct_task_send, direct_output) = flume::bounded(128);
+        let (network_changes_input, network_changes_output) = flume::bounded(128);
         trace!("Channels open, spawning background task");
 
         spawn(
@@ -225,10 +225,9 @@ where
             other
                 .value()
                 .inner
-                .changes
-                .lock()
-                .await
-                .push(NetworkChange::NodeConnected(pub_key.clone()));
+                .network_changes_input
+                .try_send(NetworkChange::NodeConnected(pub_key.clone()))
+                .expect("Could not deliver message");
         }
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
@@ -239,7 +238,8 @@ where
                 broadcast_output,
                 direct_output,
                 master_map: master_map.clone(),
-                changes: Mutex::default(),
+                network_changes_input,
+                network_changes_output,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -415,11 +415,25 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Box::new(self.clone())
     }
 
-    fn network_changes(&self) -> BoxFuture<'_, Vec<NetworkChange>> {
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
         async move {
-            let mut lock = self.inner.changes.lock().await;
-            std::mem::take(&mut *lock)
+            debug!("Waiting for network changes to show up");
+            let mut ret = Vec::new();
+            // Wait for the first message to come up
+            let first = self.inner.network_changes_output.recv_async().await;
+            if let Ok(first) = first {
+                trace!(?first, "First message in network changes queue found");
+                ret.push(first);
+                while let Ok(x) = self.inner.network_changes_output.try_recv() {
+                    ret.push(x);
+                }
+                Ok(ret)
+            } else {
+                error!("The underlying MemoryNetwork has shut down");
+                Err(NetworkError::ShutDown)
+            }
         }
+        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
         .boxed()
     }
 }
@@ -479,11 +493,10 @@ mod tests {
             pub_key_1.clone(),
             group.clone(),
             Option::<DummyReliability>::None,
-        )
-        .await;
+        );
         let pub_key_2 = get_pubkey();
         let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None).await;
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
 
         // Test 1 -> 2
         // Send messages
@@ -541,11 +554,10 @@ mod tests {
             pub_key_1.clone(),
             group.clone(),
             Option::<DummyReliability>::None,
-        )
-        .await;
+        );
         let pub_key_2 = get_pubkey();
         let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None).await;
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
 
         // Test 1 -> 2
         // Send messages

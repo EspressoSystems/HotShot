@@ -15,11 +15,19 @@ use threshold_crypto::SignatureShare;
 pub enum Message<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<B, T, S, N>),
+    /// Messages relating to sharing data between nodes
+    Data(DataMessage<N>),
 }
 
 impl<B, T, S, const N: usize> From<ConsensusMessage<B, T, S, N>> for Message<B, T, S, N> {
     fn from(m: ConsensusMessage<B, T, S, N>) -> Self {
         Self::Consensus(m)
+    }
+}
+
+impl<B, T, S, const N: usize> From<DataMessage<N>> for Message<B, T, S, N> {
+    fn from(m: DataMessage<N>) -> Self {
+        Self::Data(m)
     }
 }
 
@@ -44,6 +52,13 @@ pub enum ConsensusMessage<B, T, S, const N: usize> {
     Decide(Decide<N>),
     /// Contains a transaction to be submitted
     SubmitTransaction(T),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Messages related to sending data between nodes
+pub enum DataMessage<const N: usize> {
+    /// The newest [`QuorumCertificate`] that a node knows. This is send from existing nodes to a new node when the new node joins the network
+    NewestQuorumCertificate(QuorumCertificate<N>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

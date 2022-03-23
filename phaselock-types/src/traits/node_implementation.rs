@@ -4,7 +4,7 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 use crate::{
-    message::{ConsensusMessage, Message},
+    message::{ConsensusMessage, DataMessage, Message},
     traits::{
         network::NetworkingImplementation, stateful_handler::StatefulHandler, storage::Storage,
         BlockContents,
@@ -62,6 +62,8 @@ pub trait TypeMap<const N: usize> {
     type Message;
     /// Type alias for the [`ConsensusMessage`] enum.
     type ConsensusMessage;
+    /// Type alias for the [`DataMessage`] enum.
+    type DataMessage;
 }
 
 impl<I, const N: usize> TypeMap<N> for I
@@ -71,4 +73,5 @@ where
     type Message = Message<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
     type ConsensusMessage =
         ConsensusMessage<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
+    type DataMessage = DataMessage<N>;
 }
