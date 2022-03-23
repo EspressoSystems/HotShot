@@ -334,28 +334,29 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     // Create new leaf and add it to the store
                     let new_leaf = Leaf::new(block.clone(), high_qc.leaf_hash);
                     let the_hash = new_leaf.hash();
-                    pl.inner
-                        .storage
-                        .insert_leaf(new_leaf.clone())
-                        .await
-                        .context(StorageSnafu)?;
-                    debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
-                    // Add resulting state to storage
                     let new_state = state.append(&new_leaf.item).map_err(|error| {
                         error!(?error, "Failed to append block to existing state");
                         PhaseLockError::InconsistentBlock {
                             stage: Stage::Prepare,
                         }
                     })?;
-                    // Insert new state into storage
-                    debug!(?new_state, "New state inserted");
                     pl.inner
                         .storage
-                        .insert_state(new_state.clone(), the_hash)
+                        .update(|mut m| {
+                            let new_leaf = new_leaf.clone();
+                            let new_state = new_state.clone();
+                            async move {
+                                m.insert_leaf(new_leaf).await?;
+                                m.insert_state(new_state, the_hash).await?;
+                                Ok(())
+                            }
+                        })
                         .await
                         .context(StorageSnafu)?;
 
-                    pl.inner.storage.commit().await.context(StorageSnafu)?;
+                    debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
+                    debug!(?new_state, "New state inserted");
+
                     // Broadcast out the leaf
                     let network_result = pl
                         .send_broadcast_message(ConsensusMessage::Prepare(Prepare {
@@ -438,10 +439,12 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         *pqc = Some(qc.clone());
                         pl.inner
                             .storage
-                            .insert_qc(qc.clone())
+                            .update(|mut m| {
+                                let qc = qc.clone();
+                                async move { m.insert_qc(qc).await }
+                            })
                             .await
                             .context(StorageSnafu)?;
-                        pl.inner.storage.commit().await.context(StorageSnafu)?;
                         trace!("Pre-commit qc stored in prepare_qc");
                         let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,
@@ -643,10 +646,12 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         // Add qc to decision cache
                         pl.inner
                             .storage
-                            .insert_qc(qc.clone())
+                            .update(|mut m| {
+                                let qc = qc.clone();
+                                async move { m.insert_qc(qc).await }
+                            })
                             .await
                             .context(StorageSnafu)?;
-                        pl.inner.storage.commit().await.context(StorageSnafu)?;
                         *old_state = Arc::new(state);
                         *old_leaf = new_leaf_hash;
                         trace!("New state written");
@@ -846,10 +851,11 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         debug!(?new_state, "New state inserted");
                         pl.inner
                             .storage
-                            .insert_state(new_state, leaf_hash)
+                            .update(
+                                |mut m| async move { m.insert_state(new_state, leaf_hash).await },
+                            )
                             .await
                             .context(StorageSnafu)?;
-                        pl.inner.storage.commit().await.context(StorageSnafu)?;
 
                         Ok(leaf)
                     } else {
