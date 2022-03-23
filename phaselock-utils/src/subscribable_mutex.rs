@@ -86,7 +86,35 @@ impl<T> SubscribableMutex<T> {
     }
 
     /// Wait until `condition` returns `true`. Will block until then.
-    pub async fn wait_until<F>(&self, mut f: F, ready_chan: Sender<bool>)
+    pub async fn wait_until<F>(&self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let receiver = {
+            let lock = self.mutex.lock().await;
+            // Check if we already match the condition. If we do we don't have to subscribe at all.
+            if f(&*lock) {
+                return;
+            }
+            // note: don't drop the lock yet, we want to make sure we subscribe first
+            let receiver = self.subscribe().await;
+            drop(lock);
+            receiver
+        };
+        loop {
+            receiver
+                .recv_async()
+                .await
+                .expect("`SubscribableMutex::wait_until` was still running when it was dropped");
+            let lock = self.mutex.lock().await;
+            if f(&*lock) {
+                return;
+            }
+        }
+    }
+
+    /// Wait until `condition` returns `true`. Signal on [`ready_chan`]
+    pub async fn wait_until_with_trigger<F>(&self, mut f: F, ready_chan: Sender<bool>)
     where
         F: FnMut(&T) -> bool,
     {
@@ -101,11 +129,28 @@ impl<T> SubscribableMutex<T> {
                 .expect("`SubscribableMutex::wait_until` was still running when it was dropped");
             let lock = self.mutex.lock().await;
             if f(&*lock) {
-                drop(lock);
                 return;
             }
         }
     }
+
+    /// Wait `timeout` until `f` returns `true`. Will return `Ok(())` if the function returned `true` before the time elapsed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when this function timed out.
+    pub async fn wait_timeout_until_with_trigger<F>(
+        &self,
+        timeout: Duration,
+        f: F,
+        ready_chan: Sender<bool>,
+    ) -> Result<(), async_std::future::TimeoutError>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        async_std::future::timeout(timeout, self.wait_until_with_trigger(f, ready_chan)).await
+    }
+
     /// Wait `timeout` until `f` returns `true`. Will return `Ok(())` if the function returned `true` before the time elapsed.
     /// Notifies caller over `ready_chan` when has begun to listen for changes to the
     /// internal state (locked within the [`Mutex`])
@@ -117,12 +162,11 @@ impl<T> SubscribableMutex<T> {
         &self,
         timeout: Duration,
         f: F,
-        ready_chan: Sender<bool>,
     ) -> Result<(), async_std::future::TimeoutError>
     where
         F: FnMut(&T) -> bool,
     {
-        async_std::future::timeout(timeout, self.wait_until(f, ready_chan)).await
+        async_std::future::timeout(timeout, self.wait_until(f)).await
     }
 }
 

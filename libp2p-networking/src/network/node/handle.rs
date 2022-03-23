@@ -295,12 +295,11 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         timeout: Duration,
         f: F,
-        chan: Sender<bool>,
     ) -> Result<(), async_std::future::TimeoutError>
     where
         F: FnMut(&S) -> bool,
     {
-        self.state.wait_timeout_until(timeout, f, chan).await
+        self.state.wait_timeout_until(timeout, f).await
     }
 }
 
