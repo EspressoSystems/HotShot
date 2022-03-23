@@ -403,16 +403,63 @@
 <span id="402">402</span>
 <span id="403">403</span>
 <span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
-
-<span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
-<span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
-<span class="kw">use</span> <span class="ident">futures::future</span>::{<span class="ident">BoxFuture</span>, <span class="ident">FutureExt</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info_span</span>, <span class="ident">trace</span>, <span class="ident">Instrument</span>};
-
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>},
@@ -422,6 +469,15 @@
     },
     <span class="ident">QuorumCertificate</span>,
 };
+<span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
+<span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
+<span class="kw">use</span> <span class="ident">futures</span>::{
+    <span class="ident">future</span>::{<span class="ident">BoxFuture</span>, <span class="ident">FutureExt</span>},
+    <span class="ident">Future</span>,
+};
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::storage::StorageUpdater</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info_span</span>, <span class="ident">trace</span>, <span class="ident">Instrument</span>};
 
 <span class="doccomment">/// Internal state for a [`MemoryStorage`]</span>
 <span class="kw">struct</span> <span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
@@ -501,17 +557,6 @@
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
         .<span class="ident">boxed</span>()
     }
-
-    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">block</span>);
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
-        .<span class="ident">boxed</span>()
-    }
-
     <span class="kw">fn</span> <span class="ident">get_qc</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -553,24 +598,6 @@
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::get_qc_for_view&quot;</span>, <span class="question-mark">?</span><span class="ident">view</span>))
         .<span class="ident">boxed</span>()
     }
-
-    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// Insert the qc into the main vec and the add the references</span>
-            <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">view_number</span>;
-            <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">block_hash</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">write</span>().<span class="kw">await</span>;
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">qcs</span>.<span class="ident">len</span>();
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">qc</span>, <span class="question-mark">?</span><span class="ident">index</span>, <span class="string">&quot;Inserting qc&quot;</span>);
-            <span class="ident">qcs</span>.<span class="ident">push</span>(<span class="ident">qc</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">view_to_qc</span>.<span class="ident">insert</span>(<span class="ident">view</span>, <span class="ident">index</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_qc</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">index</span>);
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_qc&quot;</span>))
-        .<span class="ident">boxed</span>()
-    }
-
     <span class="kw">fn</span> <span class="ident">get_leaf</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -612,7 +639,73 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
+        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">maybe_state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">maybe_state</span> {
+            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">value</span>().<span class="ident">clone</span>();
+            <span class="prelude-val">Some</span>(<span class="ident">state</span>)
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
+        });
+        <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">x</span> }.<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">update</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">F</span>, <span class="ident">FUT</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">update_fn</span>: <span class="ident">F</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>) -&gt; <span class="ident">FUT</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+        <span class="ident">FUT</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">StorageResult</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+    {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="kw">let</span> <span class="ident">updater</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">MemoryStorageUpdater</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> });
+            <span class="ident">update_fn</span>(<span class="ident">updater</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">boxed</span>()
+    }
+}
+
+<span class="doccomment">/// An implementation of [`StorageUpdater`] for [`MemoryStorage`]</span>
+<span class="kw">struct</span> <span class="ident">MemoryStorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Reference to the internals of the memory storage</span>
+    <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+{
+    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">block</span>);
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
+        .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="comment">// Insert the qc into the main vec and the add the references</span>
+            <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">view_number</span>;
+            <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">block_hash</span>;
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">write</span>().<span class="kw">await</span>;
+            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">qcs</span>.<span class="ident">len</span>();
+            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">qc</span>, <span class="question-mark">?</span><span class="ident">index</span>, <span class="string">&quot;Inserting qc&quot;</span>);
+            <span class="ident">qcs</span>.<span class="ident">push</span>(<span class="ident">qc</span>);
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">view_to_qc</span>.<span class="ident">insert</span>(<span class="ident">view</span>, <span class="ident">index</span>);
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hash_to_qc</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">index</span>);
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_qc&quot;</span>))
+        .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting&quot;</span>);
@@ -629,7 +722,7 @@
         .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">state</span>);
@@ -637,24 +730,6 @@
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryStorage::insert_state&quot;</span>))
         .<span class="ident">boxed</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
-        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">maybe_state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>);
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">maybe_state</span> {
-            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">value</span>().<span class="ident">clone</span>();
-            <span class="prelude-val">Some</span>(<span class="ident">state</span>)
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        });
-        <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">x</span> }.<span class="ident">boxed</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> { <span class="prelude-val">Ok</span>(()) }.<span class="ident">boxed</span>()
     }
 }
 
@@ -694,9 +769,22 @@
         <span class="kw">let</span> <span class="ident">test_block_2</span> <span class="op">=</span> <span class="ident">DummyBlock::random</span>();
         <span class="kw">let</span> <span class="ident">hash_2</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">DummyBlock</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::hash</span>(<span class="kw-2">&amp;</span><span class="ident">test_block_2</span>);
         <span class="comment">// Attempt to insert the blocks</span>
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">insert_block</span>(<span class="ident">hash_1</span>, <span class="ident">test_block_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>
+            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">test_block_1</span> <span class="op">=</span> <span class="ident">test_block_1</span>.<span class="ident">clone</span>();
+                <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">m</span>.<span class="ident">insert_block</span>(<span class="ident">hash_1</span>, <span class="ident">test_block_1</span>).<span class="kw">await</span> }
+            })
+            .<span class="kw">await</span>;
         <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_ok</span>());
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">insert_block</span>(<span class="ident">hash_2</span>, <span class="ident">test_block_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">storage</span>
+            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">test_block_2</span> <span class="op">=</span> <span class="ident">test_block_2</span>.<span class="ident">clone</span>();
+                <span class="kw">async</span> <span class="kw">move</span> {
+                    <span class="ident">m</span>.<span class="ident">insert_block</span>(<span class="ident">hash_2</span>, <span class="ident">test_block_2</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(())
+                }
+            })
+            .<span class="kw">await</span>;
         <span class="macro">assert!</span>(<span class="ident">res</span>.<span class="ident">is_ok</span>());
         <span class="comment">// Then attempt to get the blocks</span>
         <span class="kw">let</span> <span class="ident">block_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
@@ -723,8 +811,18 @@
         <span class="kw">let</span> <span class="ident">qc_2_hash_leaf</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
         <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_2_hash_block</span>, <span class="ident">qc_2_hash_leaf</span>, <span class="number">2</span>, <span class="bool-val">true</span>);
         <span class="comment">// Attempt to insert them</span>
-        <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="ident">storage</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="ident">storage</span>
+            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">qc_1</span> <span class="op">=</span> <span class="ident">qc_1</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">qc_2</span>.<span class="ident">clone</span>();
+                <span class="kw">async</span> <span class="kw">move</span> {
+                    <span class="ident">m</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_1</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="ident">m</span>.<span class="ident">insert_qc</span>(<span class="ident">qc_2</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(())
+                }
+            })
+            .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>();
         <span class="comment">// Attempt to get them back by hash</span>
         <span class="kw">let</span> <span class="ident">h_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_1_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">h_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">qc_2_hash_block</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
@@ -767,8 +865,18 @@
         };
         <span class="kw">let</span> <span class="ident">hash_2</span> <span class="op">=</span> <span class="ident">leaf_2</span>.<span class="ident">hash</span>();
         <span class="comment">// Attempt to insert them</span>
-        <span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_1</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="ident">storage</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_2</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+        <span class="ident">storage</span>
+            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">leaf_1</span> <span class="op">=</span> <span class="ident">leaf_1</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">leaf_2</span> <span class="op">=</span> <span class="ident">leaf_2</span>.<span class="ident">clone</span>();
+                <span class="kw">async</span> <span class="kw">move</span> {
+                    <span class="ident">m</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_1</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="ident">m</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf_2</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(())
+                }
+            })
+            .<span class="kw">await</span>
+            .<span class="ident">unwrap</span>();
         <span class="comment">// Attempt to get them back by hash</span>
         <span class="kw">let</span> <span class="ident">h_leaf_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">h_leaf_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">hash_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();

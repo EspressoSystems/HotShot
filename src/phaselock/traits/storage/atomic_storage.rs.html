@@ -211,6 +211,31 @@
 <span id="210">210</span>
 <span id="211">211</span>
 <span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
 </pre><pre class="rust"><code><span class="doccomment">//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).</span>
 
 <span class="kw">mod</span> <span class="ident">dual_key_value_store</span>;
@@ -228,7 +253,11 @@
 };
 <span class="kw">use</span> <span class="ident">async_std::sync::Mutex</span>;
 <span class="kw">use</span> <span class="ident">atomic_store</span>::{<span class="ident">AtomicStore</span>, <span class="ident">AtomicStoreLoader</span>};
-<span class="kw">use</span> <span class="ident">futures::future</span>::{<span class="ident">BoxFuture</span>, <span class="ident">FutureExt</span>};
+<span class="kw">use</span> <span class="ident">futures</span>::{
+    <span class="ident">future</span>::{<span class="ident">BoxFuture</span>, <span class="ident">FutureExt</span>},
+    <span class="ident">Future</span>,
+};
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::storage::StorageUpdater</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::Path</span>, <span class="ident">sync::Arc</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info_span</span>, <span class="ident">trace</span>, <span class="ident">Instrument</span>};
@@ -317,16 +346,6 @@
             .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">block</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
-        .<span class="ident">boxed</span>()
-    }
-
     <span class="kw">fn</span> <span class="ident">get_qc</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -350,16 +369,6 @@
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::get_qc_for_view&quot;</span>))
             .<span class="ident">boxed</span>()
     }
-
-    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">insert</span>(<span class="ident">qc</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_qc&quot;</span>))
-        .<span class="ident">boxed</span>()
-    }
-
     <span class="kw">fn</span> <span class="ident">get_leaf</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -384,25 +393,6 @@
             .<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">insert</span>(<span class="ident">leaf</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_leaf&quot;</span>))
-        .<span class="ident">boxed</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">state</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_state&quot;</span>))
-        .<span class="ident">boxed</span>()
-    }
-
     <span class="kw">fn</span> <span class="ident">get_state</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
         <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -410,8 +400,16 @@
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>).<span class="ident">map</span>(<span class="prelude-val">Ok</span>).<span class="ident">boxed</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">update</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">F</span>, <span class="ident">FUT</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">update_fn</span>: <span class="ident">F</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>) -&gt; <span class="ident">FUT</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+        <span class="ident">FUT</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">StorageResult</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+    {
         <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="kw">let</span> <span class="ident">updater</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">AtomicStorageUpdater</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> });
+            <span class="ident">update_fn</span>(<span class="ident">updater</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+            <span class="comment">// Make sure to commit everything</span>
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">commit_version</span>().<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">commit_version</span>().<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">commit_version</span>().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -420,6 +418,58 @@
 
             <span class="prelude-val">Ok</span>(())
         }
+        .<span class="ident">boxed</span>()
+    }
+}
+
+<span class="doccomment">/// Implementation of [`StorageUpdater`] for the [`AtomicStorage`]</span>
+<span class="kw">struct</span> <span class="ident">AtomicStorageUpdater</span><span class="op">&lt;</span>
+    <span class="lifetime">&#39;a</span>,
+    <span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span>,
+<span class="op">&gt;</span> {
+    <span class="doccomment">/// A reference to the internals of the [`AtomicStorage`]</span>
+    <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
+    <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
+{
+    <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">block</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_block&quot;</span>, <span class="question-mark">?</span><span class="ident">hash</span>))
+        .<span class="ident">boxed</span>()
+    }
+    <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">insert</span>(<span class="ident">leaf</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_leaf&quot;</span>))
+        .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">insert_qc</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">qc</span>: <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">insert</span>(<span class="ident">qc</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_qc&quot;</span>))
+        .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">StorageResult</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">insert</span>(<span class="ident">hash</span>, <span class="ident">state</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;AtomicStorage::insert_state&quot;</span>))
         .<span class="ident">boxed</span>()
     }
 }
