@@ -74,7 +74,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(NetworkNodeHandle {
             network_config: config,
             state_changed: Condvar::new(),
-            state: Arc::new(SubscribableMutex::new(S::default())),
+            state: Default::default(),
             send_network: send_chan,
             recv_network: recv_chan,
             killed: Arc::new(Mutex::new(false)),
@@ -238,8 +238,6 @@ impl<S> NetworkNodeHandle<S> {
         F: FnMut(&mut S),
     {
         self.state.modify(cb).await;
-        self.state_changed.notify_all();
-        self.notify_webui().await;
     }
 
     /// Set the connected peers list
