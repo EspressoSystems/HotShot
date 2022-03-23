@@ -62,7 +62,8 @@ async fn get_networkings<
             pub_key.clone(),
             master.clone(),
             Option::<DummyReliability>::None,
-        );
+        )
+        .await;
         networkings.push((network, pub_key));
     }
     networkings

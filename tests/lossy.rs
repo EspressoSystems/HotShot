@@ -226,7 +226,8 @@ async fn lossy_network(
     )> = Vec::new();
     for node_id in 0..num_nodes {
         let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id.try_into().unwrap());
-        let mn = MemoryNetwork::new(pub_key.clone(), master.clone(), Some(network_reliability));
+        let mn =
+            MemoryNetwork::new(pub_key.clone(), master.clone(), Some(network_reliability)).await;
         networkings.push((mn, pub_key));
     }
     info!("Created networking");

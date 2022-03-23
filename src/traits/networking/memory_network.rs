@@ -3,11 +3,13 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
+use async_std::sync::Mutex;
 use async_std::task::spawn;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use futures::{FutureExt, StreamExt};
+use phaselock_types::traits::network::NetworkChange;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
@@ -76,6 +78,9 @@ struct MemoryNetworkInner<T> {
     direct_output: flume::Receiver<T>,
     /// The master map
     master_map: Arc<MasterMap<T>>,
+
+    /// A list of changes that happened in the network
+    changes: Mutex<Vec<NetworkChange>>,
 }
 
 /// In memory only network simulator.
@@ -105,7 +110,7 @@ where
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
-    pub fn new(
+    pub async fn new(
         pub_key: PubKey,
         master_map: Arc<MasterMap<T>>,
         reliability_config: Option<impl 'static + NetworkReliability>,
@@ -215,6 +220,16 @@ where
                 info_span!("MemoryNetwork Background task", id = ?pub_key.nonce, map = ?master_map),
             ),
         );
+        trace!("Notifying other networks of the new connected peer");
+        for other in master_map.map.iter() {
+            other
+                .value()
+                .inner
+                .changes
+                .lock()
+                .await
+                .push(NetworkChange::NodeConnected(pub_key.clone()));
+        }
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
@@ -224,6 +239,7 @@ where
                 broadcast_output,
                 direct_output,
                 master_map: master_map.clone(),
+                changes: Mutex::default(),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -398,6 +414,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
     }
+
+    fn network_changes(&self) -> BoxFuture<'_, Vec<NetworkChange>> {
+        async move {
+            let mut lock = self.inner.changes.lock().await;
+            std::mem::take(&mut *lock)
+        }
+        .boxed()
+    }
 }
 
 #[cfg(test)]
@@ -455,10 +479,11 @@ mod tests {
             pub_key_1.clone(),
             group.clone(),
             Option::<DummyReliability>::None,
-        );
+        )
+        .await;
         let pub_key_2 = get_pubkey();
         let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None).await;
 
         // Test 1 -> 2
         // Send messages
@@ -516,10 +541,11 @@ mod tests {
             pub_key_1.clone(),
             group.clone(),
             Option::<DummyReliability>::None,
-        );
+        )
+        .await;
         let pub_key_2 = get_pubkey();
         let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
+            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None).await;
 
         // Test 1 -> 2
         // Send messages

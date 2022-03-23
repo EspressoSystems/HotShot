@@ -23,6 +23,7 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
+use phaselock_types::traits::network::NetworkChange;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -132,6 +133,9 @@ struct WNetworkInner<T> {
     socket_holder: Mutex<Option<TcpListener>>,
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
+
+    /// Changes in the network
+    changes: Mutex<Vec<NetworkChange>>,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
@@ -574,6 +578,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
             keep_alive_duration,
+            changes: Mutex::default(),
         };
         let w = Self {
             inner: Arc::new(inner),
@@ -634,7 +639,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                     match res {
                                         Ok((pub_key, handle)) => {
                                             trace!(?addr, "Spawned task for stream");
-                                            w.inner.handles.insert(pub_key, handle);
+                                            w.inner.handles.insert(pub_key.clone(), handle);
+                                            w.inner
+                                                .changes
+                                                .lock()
+                                                .await
+                                                .push(NetworkChange::NodeConnected(pub_key));
                                             trace!(?addr, "Stored handle for stream");
                                         }
                                         Err(e) => error!(
@@ -749,10 +759,20 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             } else {
                 error!("Remote did not respond in time! Removing from node map");
                 self.inner.handles.remove(&remote);
+                self.inner
+                    .changes
+                    .lock()
+                    .await
+                    .push(NetworkChange::NodeDisconnected(remote));
             }
         } else {
             error!("Handle has been shutdown! Removing from node map");
             self.inner.handles.remove(&remote);
+            self.inner
+                .changes
+                .lock()
+                .await
+                .push(NetworkChange::NodeDisconnected(remote));
         }
     }
 }
@@ -931,6 +951,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
+    }
+
+    fn network_changes(&self) -> BoxFuture<'_, Vec<NetworkChange>> {
+        // TODO: Make this a `Receiver` construction like e.g. `next_direct`
+        // Not doing this now because maybe we don't need this any more after libp2p gets merged
+        async move {
+            let mut lock = self.inner.changes.lock().await;
+            std::mem::take(&mut *lock)
+        }
+        .boxed()
     }
 }
 

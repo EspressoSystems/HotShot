@@ -44,7 +44,8 @@ async fn ten_tx_seven_nodes() {
             pub_key.clone(),
             master.clone(),
             Option::<DummyReliability>::None,
-        );
+        )
+        .await;
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
@@ -165,7 +166,8 @@ async fn ten_tx_five_nodes() {
             pub_key.clone(),
             master.clone(),
             Option::<DummyReliability>::None,
-        );
+        )
+        .await;
         networkings.push((mn, pub_key));
     }
     info!("Created networking");
