@@ -11,7 +11,7 @@ use tracing::{debug, error, info};
 /// - SEE in `tide`: <https://docs.rs/tide/0.16.0/tide/sse/index.html>
 pub fn spawn_server<S>(state: Arc<NetworkNodeHandle<S>>, addr: SocketAddr)
 where
-    S: WebInfo + Send + 'static,
+    S: WebInfo + Send + 'static + Clone,
 {
     let mut tide = tide::with_state(state);
     // Unwrap this in the calling thread so that if it fails we fail completely
@@ -84,13 +84,13 @@ mod network_state {
     }
 
     impl<S: serde::Serialize> State<S> {
-        pub async fn new<W>(handle: &NetworkNodeHandle<W>) -> Self
+        pub async fn new<W: Clone>(handle: &NetworkNodeHandle<W>) -> Self
         where
             W: super::WebInfo<Serialized = S> + Send + 'static,
         {
             Self {
                 network_config: NetworkConfig::new(handle.peer_id(), handle.config()),
-                state: handle.state_lock().await.get_serializable(),
+                state: handle.state().await.get_serializable(),
                 connection_state: ConnectionState::new(handle.connection_state().await),
             }
         }

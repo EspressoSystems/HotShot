@@ -216,8 +216,8 @@ pub async fn handle_normal_msg(
     if msg.relay_to_conductor {
         if let Some(conductor_id) = handle.ignored_peers().await.iter().next() {
             let relayed_msg = msg.normal_to_relayed();
-            let serialized_msg =
-                serialize_msg(&Message::Relayed(relayed_msg)).context(SerializationSnafu)?;
+            let serialized_msg = serialize_msg::<Message>(&Message::Relayed(relayed_msg))
+                .context(SerializationSnafu)?;
             handle
                 .send_request(ClientRequest::DirectRequest(*conductor_id, serialized_msg))
                 .await?;
@@ -229,7 +229,13 @@ pub async fn handle_normal_msg(
     match msg.req {
         // direct message only
         CounterRequest::StateResponse(c) => {
-            handle.modify_state(|s| *s = c).await;
+            handle
+                .modify_state(|s| {
+                    if c >= *s {
+                        *s = c
+                    }
+                })
+                .await;
         }
         // only as a response
         CounterRequest::StateRequest => {
@@ -242,14 +248,14 @@ pub async fn handle_normal_msg(
                     epoch: (state, state + 1),
                     padding: vec![0; PADDING_SIZE],
                 });
-                let serialized_response = serialize_msg(&response).context(SerializationSnafu)?;
+                let serialized_response =
+                    serialize_msg::<Message>(&response).context(SerializationSnafu)?;
                 handle
                     .send_request(ClientRequest::DirectResponse(chan, serialized_response))
                     .await?;
             }
         }
         CounterRequest::Kill => {
-            println!("killing!");
             handle.shutdown().await.context(NetworkSnafu)?;
         }
     }
@@ -275,7 +281,7 @@ pub async fn regular_handle_network_event(
                             .send_request(ClientRequest::IgnorePeers(vec![peerid]))
                             .await?;
                         handle.add_ignored_peer(peerid).await;
-                        let recv_msg = serialize_msg(&Message::RecvdConductor).context(SerializationSnafu)?;
+                        let recv_msg = serialize_msg::<Message>(&Message::RecvdConductor).context(SerializationSnafu)?;
                         handle.send_request(ClientRequest::DirectRequest(peerid, recv_msg)).await?;
                     }
                     Message::Normal(msg) => {
@@ -309,7 +315,7 @@ pub async fn regular_handle_network_event(
                     Message::Conductor(msg) => {
                         let state = handle.state().await;
                         let serialized_msg =
-                            serialize_msg(&Message::Normal(NormalMessage {
+                            serialize_msg::<Message>(&Message::Normal(NormalMessage {
                                 sent_ts: SystemTime::now(),
                                 relay_to_conductor: true,
                                 req: msg.req,
@@ -447,45 +453,41 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 web::spawn_server(Arc::clone(&handle), addr);
             }
 
-            println!("spinning up swarm");
-
             spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
                 .await
                 .context(HandleSnafu)?;
 
-            println!("spun up swarm");
-
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
 
-            let mut state = handle.state_lock().await;
-            for a_peer in handle.known_peers().await {
-                if a_peer != handle.peer_id()
-                    && state.current_epoch.node_states.get(&a_peer).is_none()
-                {
-                    state.current_epoch.node_states.insert(a_peer, 0);
-                }
-            }
-            drop(state);
+            let known_peers = handle.known_peers().await;
+            handle
+                .modify_state(|s| {
+                    for a_peer in &known_peers {
+                        if *a_peer != handle.peer_id()
+                            && s.current_epoch.node_states.get(a_peer).is_none()
+                        {
+                            s.current_epoch.node_states.insert(*a_peer, 0);
+                        }
+                    }
+                })
+                .await;
             handle.notify_webui().await;
 
             let handle_dup = handle.clone();
             let conductor_peerid = handle.peer_id();
 
-            // start listener
-
-            let res_fut = handle.state_changed().wait_timeout_until(
-                handle.state_lock().await,
-                TIMEOUT,
-                |state| state.ready_set.len() >= opts.num_nodes - 1,
-            );
+            let res_fut = handle.state_wait_timeout_until(TIMEOUT, |state| {
+                state.ready_set.len() >= opts.num_nodes - 1
+            });
 
             let (s, r) = flume::bounded::<bool>(1);
 
             // the "conductor id"
             // periodically say "ignore me!"
             spawn(async move {
+                // must wait for the listener to start
                 let msg = Message::ConductorIdIs(conductor_peerid);
-                let serialized_msg = serialize_msg(&msg)
+                let serialized_msg = serialize_msg::<Message>(&msg)
                     .context(SerializationSnafu)
                     .context(HandleSnafu)?;
                 while r.is_empty() {
@@ -501,12 +503,12 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 Ok::<(), CounterError>(())
             });
 
-            if res_fut.await.1.timed_out() {
+            if res_fut.await.is_err() {
                 panic!("timeout waiting for conductor peerid to propagate!");
             }
 
+            // kill conductor id broadcast thread
             s.send_async(true).await.unwrap();
-            println!("starting conductor broadcasts");
 
             for i in 0..5 {
                 handle
@@ -519,7 +521,6 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .modify_state(|s| s.complete_round(EpochType::BroadcastViaGossip))
                     .await;
             }
-            println!("DONE WITH GOSSIP");
 
             for j in 5..10 {
                 handle
@@ -538,11 +539,10 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 relay_to_conductor: false,
                 sent_ts: SystemTime::now(),
                 epoch: (10, 11),
-                // epoch: (5, 6),
                 padding: vec![0; PADDING_SIZE],
             });
 
-            let serialized_kill_msg = serialize_msg(&kill_msg)
+            let serialized_kill_msg = serialize_msg::<Message>(&kill_msg)
                 .context(SerializationSnafu)
                 .context(HandleSnafu)?;
             for peer_id in handle.connected_peers().await {
@@ -612,73 +612,45 @@ pub async fn conductor_direct_message(
 
     // step 1: increment counter on the chosen/"leader" node
 
-    let (s, r) = flume::bounded(1);
-
     let handle_dup = handle.clone();
 
-    spawn(async move {
-        // set up listener before any state has the chance to change
-        let res_fut = handle_dup.state_changed().wait_timeout_until(
-            handle_dup.state_lock().await,
-            timeout,
-            |state| {
-                *state
-                    .current_epoch
-                    .node_states
-                    .get(&chosen_peer_dup)
-                    .unwrap()
-                    == new_state
-            },
-        );
-        if res_fut.await.1.timed_out() {
-            s.send_async(true).await?;
-        } else {
-            s.send_async(false).await?;
-        }
-        Ok::<(), flume::SendError<bool>>(())
+    // spawn(async move {
+    // set up listener before any state has the chance to change
+    let res_fut = handle.state_wait_timeout_until(timeout, |state| {
+        *state
+            .current_epoch
+            .node_states
+            .get(&chosen_peer_dup)
+            .unwrap()
+            == new_state
     });
 
     // dispatch message
     let msg = Message::Normal(NormalMessage {
         sent_ts: SystemTime::now(),
         relay_to_conductor: true,
-        req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
-        epoch: handle.state().await.current_epoch.epoch_idx,
+        req: CounterRequest::StateResponse(handle_dup.state().await.current_epoch.epoch_idx.1),
+        epoch: handle_dup.state().await.current_epoch.epoch_idx,
         padding: vec![0; PADDING_SIZE],
     });
-    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
-    handle
+    let serialized_msg = serialize_msg::<Message>(&msg).context(SerializationSnafu)?;
+    handle_dup
         .send_request(ClientRequest::DirectRequest(chosen_peer, serialized_msg))
         .await?;
 
-    if r.recv_async().await.unwrap() {
-        panic!("timeout!");
+    if res_fut.await.is_err() {
+        panic!("failed to send!");
     }
 
     // step 2: iterate through remaining nodes, message them "request state from chosen node"
 
     let handle_dup = handle.clone();
-    let (s, r) = flume::bounded(1);
-    // always spawn listener FIRST
-    spawn(async move {
-        // set up listener first
-        let res_fut = handle.state_changed().wait_timeout_until(
-            handle.state_lock().await,
-            timeout,
-            |state| {
-                state
-                    .current_epoch
-                    .node_states
-                    .iter()
-                    .all(|(_, &s)| s == new_state)
-            },
-        );
-        if res_fut.await.1.timed_out() {
-            s.send_async(true).await?;
-        } else {
-            s.send_async(false).await?;
-        }
-        Ok::<(), flume::SendError<bool>>(())
+    let res_fut = handle.state_wait_timeout_until(timeout, |state| {
+        state
+            .current_epoch
+            .node_states
+            .iter()
+            .all(|(_, &s)| s == new_state)
     });
 
     // send out the requests to ask the chosen peer for its state (and replace ours)
@@ -691,14 +663,14 @@ pub async fn conductor_direct_message(
             req: CounterRequest::StateRequest,
             broadcast_type: ConductorMessageMethod::DirectMessage(chosen_peer),
         });
-        let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
+        let serialized_msg = serialize_msg::<Message>(&msg).context(SerializationSnafu)?;
         handle_dup
             .send_request(ClientRequest::DirectRequest(*peer, serialized_msg))
             .await?;
     }
 
-    if r.recv_async().await.unwrap() {
-        panic!("timeout!");
+    if res_fut.await.is_err() {
+        panic!("failed to send!");
     }
 
     Ok(())
@@ -714,7 +686,7 @@ pub async fn conductor_broadcast(
     known_peers.remove(&handle.peer_id());
 
     // FIXME wrapper error
-    let chosen_peer = known_peers.iter().choose(&mut thread_rng()).unwrap();
+    let chosen_peer = *known_peers.iter().choose(&mut thread_rng()).unwrap();
 
     let request = CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1);
 
@@ -726,54 +698,47 @@ pub async fn conductor_broadcast(
 
     let handle_dup = handle.clone();
 
-    let (s, r) = flume::bounded(1);
+    let res_fut = handle.state_wait_timeout_until(timeout, |state| {
+        state
+            .current_epoch
+            .node_states
+            .iter()
+            .all(|(_, &s)| s == new_state)
+    });
 
     // always spawn listener FIRST
     spawn(async move {
-        // set up listener before any state has the chance to change
-        let res_fut = handle_dup.state_changed().wait_timeout_until(
-            handle_dup.state_lock().await,
-            timeout,
-            |state| {
-                state
-                    .current_epoch
-                    .node_states
-                    .iter()
-                    .all(|(_, &s)| s == new_state)
-            },
-        );
+        let serialized_msg = serialize_msg::<Message>(&msg)
+            .context(SerializationSnafu)
+            .context(HandleSnafu)?;
+        let increment_leader_msg = Message::Normal(NormalMessage {
+            sent_ts: SystemTime::now(),
+            relay_to_conductor: true,
+            req: CounterRequest::StateResponse(handle_dup.state().await.current_epoch.epoch_idx.1),
+            epoch: handle_dup.state().await.current_epoch.epoch_idx,
+            padding: vec![0; PADDING_SIZE],
+        });
+        // send direct message from conductor to leader to do broadcast
+        let serialized_msg_direct = serialize_msg::<Message>(&increment_leader_msg)
+            .context(SerializationSnafu)
+            .context(HandleSnafu)?;
 
-        if res_fut.await.1.timed_out() {
-            s.send_async(true).await?;
-        } else {
-            s.send_async(false).await?;
-        }
-        Ok::<(), flume::SendError<bool>>(())
+        handle_dup
+            .send_request(ClientRequest::DirectRequest(chosen_peer, serialized_msg))
+            .await
+            .context(HandleSnafu)?;
+
+        handle_dup
+            .send_request(ClientRequest::DirectRequest(
+                chosen_peer,
+                serialized_msg_direct,
+            ))
+            .await
+            .context(HandleSnafu)?;
+        Ok::<(), CounterError>(())
     });
 
-    let serialized_msg = serialize_msg(&msg).context(SerializationSnafu)?;
-    let increment_leader_msg = Message::Normal(NormalMessage {
-        sent_ts: SystemTime::now(),
-        relay_to_conductor: true,
-        req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
-        epoch: handle.state().await.current_epoch.epoch_idx,
-        padding: vec![0; PADDING_SIZE],
-    });
-    // send direct message from conductor to leader to do broadcast
-    let serialized_msg_direct = serialize_msg(&increment_leader_msg).context(SerializationSnafu)?;
-
-    handle
-        .send_request(ClientRequest::DirectRequest(*chosen_peer, serialized_msg))
-        .await?;
-
-    handle
-        .send_request(ClientRequest::DirectRequest(
-            *chosen_peer,
-            serialized_msg_direct,
-        ))
-        .await?;
-
-    if r.recv_async().await.unwrap() {
+    if res_fut.await.is_err() {
         panic!("timeout!");
     }
 
@@ -825,7 +790,15 @@ pub async fn conductor_handle_network_event(
                         if let CounterRequest::StateResponse(state) = msg.req {
                             handle
                                 .modify_state(|s| {
-                                    s.current_epoch.node_states.insert(peer_id, state);
+                                    if let Some(rec_state) =
+                                        s.current_epoch.node_states.get(&peer_id)
+                                    {
+                                        if *rec_state < state {
+                                            s.current_epoch.node_states.insert(peer_id, state);
+                                        }
+                                    } else {
+                                        s.current_epoch.node_states.insert(peer_id, state);
+                                    }
                                 })
                                 .await;
                         }
@@ -838,9 +811,7 @@ pub async fn conductor_handle_network_event(
                             .await;
                     }
                     Message::Conductor(..) | Message::Normal(..) | Message::ConductorIdIs(..) => {
-                        /* This should also never happen. We only expect
-                         * relayed messages to be returned. */
-                        unreachable!()
+                        /* Do nothing. Conductor doesn't care about these messages. */
                     }
                 }
             } else {

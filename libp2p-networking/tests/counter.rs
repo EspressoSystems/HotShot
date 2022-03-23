@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::future::timeout;
+use async_std::{future::timeout, task::spawn};
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
@@ -142,20 +142,21 @@ async fn run_request_response_increment(
     let new_state = requestee_handle.state().await;
 
     // set up state change listener
-    let recv_fut = requester_handle.state_changed().wait_timeout_until(
-        requester_handle.state_lock().await,
-        timeout,
-        |state| *state == new_state,
-    );
+    let recv_fut = requester_handle.state_wait_timeout_until(timeout, |state| *state == new_state);
 
-    requester_handle
-        .send_request(msg)
-        .await
-        .context(HandleSnafu)?;
+    let requester_handle_dup = requester_handle.clone();
 
-    let (_, res) = recv_fut.await;
+    spawn(async move {
+        requester_handle_dup
+            .send_request(msg)
+            .await
+            .context(HandleSnafu)?;
+        Ok::<(), TestError<CounterState>>(())
+    });
 
-    if res.timed_out() {
+    let res = recv_fut.await;
+
+    if res.is_err() {
         Err(TestError::DirectTimeout {
             requester: requester_handle.id(),
             requestee: requestee_handle.id(),
@@ -188,14 +189,21 @@ async fn run_gossip_round(
 
     let mut futs = Vec::new();
     for handle in handles {
-        let a_fut = handle
-            .state_changed()
-            .wait_until(handle.state_lock().await, |state| *state == new_state);
-        futs.push(a_fut);
+        // already modified, so skip msg_handle
+        if handle.peer_id() != msg_handle.peer_id() {
+            let a_fut =
+                handle.state_wait_timeout_until(timeout_duration, |state| *state == new_state);
+            futs.push(a_fut);
+        }
     }
 
-    let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
-    msg_handle.send_request(msg).await.context(HandleSnafu)?;
+    spawn(async move {
+        let msg = ClientRequest::GossipMsg(Topic::new("global"), msg_inner.clone());
+        msg_handle.send_request(msg).await.context(HandleSnafu)?;
+        Ok::<(), TestError<CounterState>>(())
+    });
+
+    // must launch listener futures BEFORE sending increment message
 
     if timeout(timeout_duration, futures::future::join_all(futs))
         .await
