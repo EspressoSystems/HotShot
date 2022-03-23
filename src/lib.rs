@@ -36,30 +36,29 @@ pub mod traits;
 /// Contains types used by the crate
 pub mod types;
 
+mod tasks;
+
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{
-        Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
-        Vote,
-    },
+    types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
 };
 use async_std::sync::{Mutex, RwLock};
-use async_std::task::{spawn, JoinHandle};
+use async_std::task::JoinHandle;
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::ConsensusMessage,
     traits::{network::NetworkError, node_implementation::TypeMap},
 };
 use phaselock_utils::{
-    broadcast::{channel, BroadcastSender},
+    broadcast::BroadcastSender,
     waitqueue::{WaitOnce, WaitQueue},
 };
 use snafu::ResultExt;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
 // External
@@ -388,82 +387,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         state.await
     }
 
-    /// Spawns the background tasks for network processin for this instance
-    ///
-    /// These will process in the background and load items into their designated queues
-    ///
-    /// # Panics
-    ///
-    /// Panics if the underlying network implementation incorrectly routes a network request to the
-    /// wrong queue
-    #[allow(clippy::too_many_lines)]
-    pub async fn spawn_networking_tasks(&self) {
-        let phaselock = self.clone();
-        // Spawn broadcast processing task
-        spawn(
-            async move {
-                info!("Launching broadcast processing task");
-                let networking = &phaselock.inner.networking;
-                let mut incremental_backoff_ms = 10;
-                while let Ok(queue) = networking.broadcast_queue().await {
-                    if queue.is_empty() {
-                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff time
-                    incremental_backoff_ms = 10;
-                    for item in queue {
-                        trace!(?item, "Processing item");
-                        match item {
-                            Message::Consensus(msg) => {
-                                phaselock.handle_broadcast_consensus_message(msg).await;
-                            }
-                        }
-                    }
-                    trace!("Items processed, querying for more");
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Broadcast Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
-        let phaselock = self.clone();
-        // Spawn direct processing task
-        spawn(
-            async move {
-                info!("Launching direct processing task");
-                let networking = &phaselock.inner.networking;
-                let mut incremental_backoff_ms = 10;
-                while let Ok(queue) = networking.direct_queue().await {
-                    if queue.is_empty() {
-                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff time
-                    incremental_backoff_ms = 10;
-                    for item in queue {
-                        trace!(?item, "Processing item");
-                        match item {
-                            Message::Consensus(msg) => {
-                                phaselock.handle_direct_consensus_message(msg).await;
-                            }
-                        }
-                    }
-                    trace!("Items processed, querying for more");
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Direct Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
-    }
-
     /// Publishes a transaction to the network
     ///
     /// # Errors
@@ -519,7 +442,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         storage: I::Storage,
         handler: I::StatefulHandler,
     ) -> Result<(JoinHandle<()>, PhaseLockHandle<I, N>)> {
-        let (input, output) = channel();
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
@@ -533,133 +455,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             handler,
         )
         .await?;
-        let pause = Arc::new(RwLock::new(true));
-        let run_once = Arc::new(RwLock::new(false));
-        let shut_down = Arc::new(RwLock::new(false));
-        // Spawn the background tasks
-        phaselock.spawn_networking_tasks().await;
-        let handle = PhaseLockHandle {
-            sender_handle: Arc::new(input.clone()),
-            phaselock: phaselock.clone(),
-            stream_output: output,
-            pause: pause.clone(),
-            run_once: run_once.clone(),
-            shut_down: shut_down.clone(),
-            storage,
-        };
-        let task = spawn(
-            async move {
-                // Do waitup
-                let time = Instant::now();
-                let duration = Duration::from_millis(phaselock.inner.config.start_delay);
-                while Instant::now().duration_since(time) < duration {
-                    async_std::task::sleep(Duration::from_millis(1)).await;
-                }
-                let channel = input;
-                let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
-                let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
-                let mut int_duration = default_interrupt_duration;
-                let mut view = 0;
-                let mut incremental_backoff_ms = 10;
-                // PhaseLock background handler loop
-                loop {
-                    // First, check for shutdown signal and break if sent
-                    if *shut_down.read().await {
-                        break;
-                    }
-                    // Capture the pause and run_once flags
-                    // Reset the run_once flag if its set
-                    let p_flag = {
-                        let p = pause.read().await;
-                        let mut r = run_once.write().await;
-                        if *r {
-                            *r = false;
-                            false
-                        } else {
-                            *p
-                        }
-                    };
-                    // If we are paused, sleep and continue
-                    if p_flag {
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff timeout
-                    incremental_backoff_ms = 10;
+        let (task, handle) = tasks::spawn_all(&phaselock);
 
-                    // Send the next view
-                    let next_view_res = phaselock.next_view(view, Some(&channel)).await;
-                    // If we fail to send the next view, broadcast the error and pause
-                    if let Err(e) = next_view_res {
-                        let x = channel
-                            .send_async(Event {
-                                view_number: view,
-                                stage: e.get_stage().unwrap_or(Stage::None),
-
-                                event: EventType::Error { error: Arc::new(e) },
-                            })
-                            .await;
-                        if x.is_err() {
-                            error!("All event streams closed! Shutting down.");
-                            break;
-                        }
-                        *pause.write().await = true;
-                        continue;
-                    }
-                    // Increment the view counter
-                    view += 1;
-                    // run the next block, with a timeout
-                    let t = Duration::from_millis(int_duration);
-                    let round_res =
-                        async_std::future::timeout(t, phaselock.run_round(view, Some(&channel)))
-                            .await;
-                    match round_res {
-                        // If it succeded, simply reset the timeout
-                        Ok(Ok(x)) => {
-                            int_duration = default_interrupt_duration;
-                            // Check if we completed the same view we started
-                            if x != view {
-                                info!(?x, ?view, "Round short circuited");
-                                view = x;
-                            }
-                        }
-                        // If it errored, broadcast the error, reset the timeout, and continue
-                        Ok(Err(e)) => {
-                            let x = channel
-                                .send_async(Event {
-                                    view_number: view,
-                                    stage: e.get_stage().unwrap_or(Stage::None),
-                                    event: EventType::Error { error: Arc::new(e) },
-                                })
-                                .await;
-                            if x.is_err() {
-                                error!("All event streams closed! Shutting down.");
-                                break;
-                            }
-                            continue;
-                        }
-                        // if we timed out, log it, send the event, and increase the timeout
-                        Err(_) => {
-                            warn!("Round timed out");
-                            let x = channel
-                                .send_async(Event {
-                                    view_number: view,
-                                    stage: Stage::None,
-                                    event: EventType::ViewTimeout { view_number: view },
-                                })
-                                .await;
-                            if x.is_err() {
-                                error!("All event streams closed! Shutting down.");
-                                break;
-                            }
-                            int_duration = (int_duration * int_mul) / int_div;
-                        }
-                    }
-                }
-            }
-            .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
-        );
         Ok((task, handle))
     }
 
