@@ -43,8 +43,11 @@ use crate::{
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
 };
-use async_std::sync::{Mutex, RwLock};
 use async_std::task::JoinHandle;
+use async_std::{
+    sync::{Mutex, RwLock},
+    task::spawn,
+};
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage},
@@ -564,12 +567,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         }
     }
 
-    /// Handle an incoming [`DataMessage`] thatdirected at this node
-    #[allow(clippy::panic)]
+    /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
         match msg {
             DataMessage::NewestQuorumCertificate(qc) => {
-                panic!("Incoming QC: {:?}", qc);
+                warn!("TODO: Incoming QC: {:?}", qc);
             }
         }
     }
@@ -581,18 +583,23 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 info!("Connected to node {:?}", peer);
                 match self.inner.storage.get_newest_qc().await {
                     Ok(Some(qc)) => {
-                        if let Err(e) = self
-                            .send_direct_message(
-                                DataMessage::NewestQuorumCertificate(qc),
-                                peer.clone(),
-                            )
-                            .await
-                        {
-                            error!(
-                                ?e,
-                                "Could not send newest quorumcertificate to node {:?}", peer
-                            );
-                        }
+                        let phaselock = self.clone();
+                        spawn(async move {
+                            // TODO(vko): This sleep is needed else the tests don't work, and I don't know why
+                            async_std::task::sleep(Duration::from_secs(1)).await;
+                            if let Err(e) = phaselock
+                                .send_direct_message(
+                                    DataMessage::NewestQuorumCertificate(qc),
+                                    peer.clone(),
+                                )
+                                .await
+                            {
+                                error!(
+                                    ?e,
+                                    "Could not send newest quorumcertificate to node {:?}", peer
+                                );
+                            }
+                        });
                     }
                     Ok(None) => {
                         info!("Node connected but we have no QC yet");
