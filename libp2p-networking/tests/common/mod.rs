@@ -5,8 +5,7 @@ use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
     network::{
         network_node_handle_error::NodeConfigSnafu, spawn_handler, ClientRequest, NetworkEvent,
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType,
+        NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     tracing_setup,
 };
@@ -14,6 +13,7 @@ use snafu::{ResultExt, Snafu};
 use std::{
     collections::HashMap,
     fmt::Debug,
+    num::NonZeroUsize,
     sync::{Arc, Once},
     time::Duration,
 };
@@ -144,12 +144,25 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut connecting_futs = Vec::new();
     let min_num_peers = num_of_nodes / 4;
     let max_num_peers = num_of_nodes / 2;
+    let replication_factor = Some(unsafe { NonZeroUsize::new_unchecked(num_of_nodes) });
 
     for i in 0..num_bootstrap {
+        let mut config = NetworkNodeConfigBuilder::default();
+        config
+            .replication_factor(replication_factor)
+            .node_type(NetworkNodeType::Bootstrap)
+            .max_num_peers(0)
+            .min_num_peers(0);
         let node = Arc::new(
-            NetworkNodeHandle::new(NetworkNodeConfig::default(), i)
-                .await
-                .context(HandleSnafu)?,
+            NetworkNodeHandle::new(
+                config
+                    .build()
+                    .context(NodeConfigSnafu)
+                    .context(HandleSnafu)?,
+                i,
+            )
+            .await
+            .context(HandleSnafu)?,
         );
         let addr = node.listen_addr();
         bootstrap_addrs.push((node.peer_id(), addr));
@@ -164,6 +177,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         .node_type(NetworkNodeType::Regular)
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
+        .replication_factor(replication_factor)
         .build()
         .context(NodeConfigSnafu)
         .context(HandleSnafu)?;
@@ -240,15 +254,29 @@ pub enum TestError<S: Debug> {
     #[snafu(display(
         "Timeout while running direct message round. Timed out when {requester} dmed {requestee}"
     ))]
-    DirectTimeout { requester: usize, requestee: usize },
+    DirectTimeout {
+        requester: usize,
+        requestee: usize,
+    },
     #[snafu(display("Timeout while running gossip round. Timed out on {failing:?}."))]
-    GossipTimeout { failing: Vec<usize> },
+    GossipTimeout {
+        failing: Vec<usize>,
+    },
     #[snafu(display(
         "Inconsistent state while running test. Expected {expected:?}, got {actual:?} on node {id}"
     ))]
-    State { id: usize, expected: S, actual: S },
+    State {
+        id: usize,
+        expected: S,
+        actual: S,
+    },
     #[snafu(display("Handler error while running test. {source:?}"))]
-    Handle { source: NetworkNodeHandleError },
+    Handle {
+        source: NetworkNodeHandleError,
+    },
     #[snafu(display("Failed to spin up nodes. Hit timeout instead. {failing_nodes:?}"))]
-    SpinupTimeout { failing_nodes: Vec<usize> },
+    SpinupTimeout {
+        failing_nodes: Vec<usize>,
+    },
+    DHTTimeout,
 }

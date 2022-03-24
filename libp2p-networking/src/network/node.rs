@@ -150,6 +150,9 @@ impl NetworkNode {
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
             kconfig.set_caching(kad::KademliaCaching::Disabled);
+            if let Some(factor) = config.replication_factor {
+                kconfig.set_replication_factor(factor);
+            }
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
             // request response for direct messages
@@ -286,6 +289,12 @@ impl NetworkNode {
                 #[allow(clippy::enum_glob_use)]
                 use ClientRequest::*;
                 match msg {
+                    PutDHT { key, value, notify } => {
+                        self.swarm.behaviour_mut().put_record(&key, &value, notify);
+                    }
+                    GetDHT { key, notify } => {
+                        self.swarm.behaviour_mut().get_record(&key, notify);
+                    }
                     IgnorePeers(peers) => {
                         behaviour.extend_ignored_peers(peers);
                     }

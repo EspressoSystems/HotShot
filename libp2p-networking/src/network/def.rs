@@ -2,10 +2,15 @@ use crate::{
     direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
     network::{NetworkError, NetworkEvent},
 };
+use async_std::task::spawn;
+use flume::Sender;
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic as Topic},
     identify::{Identify, IdentifyEvent},
-    kad::{store::MemoryStore, GetClosestPeersOk, Kademlia, KademliaEvent, QueryResult},
+    kad::{
+        store::MemoryStore, GetClosestPeersOk, GetRecordError, GetRecordOk, Kademlia,
+        KademliaEvent, PutRecordError, PutRecordOk, QueryId, QueryResult, Quorum, Record,
+    },
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
@@ -20,7 +25,7 @@ use std::{
     fmt::Debug,
     task::{Context, Poll},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -33,7 +38,7 @@ pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
     /// in the future it may be able to do peer discovery and routing
-    /// <`https://github.com/libp2p/rust-libp2p/issues/2398>
+    /// <https://github.com/libp2p/rust-libp2p/issues/2398>
     #[debug(skip)]
     gossipsub: Gossipsub,
 
@@ -82,6 +87,10 @@ pub struct NetworkDef {
     /// peers we ignore (mainly here for conductor usecase)
     #[behaviour(ignore)]
     ignored_peers: HashSet<PeerId>,
+    #[behaviour(ignore)]
+    in_progress_get_record_queries: HashMap<QueryId, Sender<Result<Vec<u8>, GetRecordError>>>,
+    #[behaviour(ignore)]
+    in_progress_put_record_queries: HashMap<QueryId, Sender<Result<(), PutRecordError>>>,
 }
 
 impl NetworkDef {
@@ -108,6 +117,8 @@ impl NetworkDef {
             in_progress_rr: HashMap::new(),
             in_progress_gossip: Vec::new(),
             unknown_addrs: HashSet::new(),
+            in_progress_get_record_queries: HashMap::new(),
+            in_progress_put_record_queries: HashMap::new(),
             // currently only functionality is to "not prune" these nodes
             ignored_peers,
         }
@@ -313,6 +324,39 @@ impl NetworkDef {
     }
 }
 
+/// DHT functions
+impl NetworkDef {
+    /// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`PutRecordError`] is
+    /// sent instead.
+    pub fn put_record(
+        &mut self,
+        key: &[u8],
+        value: &[u8],
+        chan: Sender<Result<(), PutRecordError>>,
+    ) {
+        let record = Record::new(key.to_vec(), value.to_vec());
+
+        match self.kadem.put_record(record, Quorum::Majority) {
+            Err(e) => {
+                error!("Error publishing to DHT: {e:?}");
+            }
+            Ok(qid) => {
+                self.in_progress_put_record_queries.insert(qid, chan);
+            }
+        }
+    }
+
+    /// Retrieve a value for a key from the DHT.
+    /// Value (serialized) is sent over `chan`, and if a value is not found,
+    /// a [`GetRecordError`] is sent instead.
+    pub fn get_record(&mut self, key: &[u8], chan: Sender<Result<Vec<u8>, GetRecordError>>) {
+        let qid = self.kadem.get_record(key.to_vec().into(), Quorum::One);
+        self.in_progress_get_record_queries.insert(qid, chan);
+    }
+}
+
 /// Request/response functions
 impl NetworkDef {
     /// Add a direct request for a given peer
@@ -380,6 +424,54 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 self.known_peers.insert(peer);
                 self.client_event_queue
                     .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
+            }
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::GetRecord(r),
+                id,
+                ..
+            } => {
+                if let Some(chan) = self.in_progress_get_record_queries.remove(&id) {
+                    let value_to_send = match r {
+                        Ok(GetRecordOk {
+                            records,
+                            cache_candidates: _,
+                        }) => {
+                            // TODO do some sort of "this needs to be in at least N trusted peers"
+                            let first_result = records[0].record.value.clone();
+                            // we don't want this to block, so spawn a thread
+                            Ok(first_result)
+                        }
+                        Err(e) => Err(e),
+                    };
+                    spawn(async move {
+                        if chan.send_async(value_to_send).await.is_err() {
+                            error!("channel closed before get record request could be sent");
+                        }
+                    });
+                    self.in_progress_get_record_queries.remove(&id);
+                } else {
+                    warn!("completed DHT query that is no longer tracked.");
+                }
+            }
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::PutRecord(r),
+                id,
+                ..
+            } => {
+                if let Some(chan) = self.in_progress_put_record_queries.remove(&id) {
+                    let value_to_send = match r {
+                        Ok(PutRecordOk { .. }) => Ok(()),
+                        Err(e) => Err(e),
+                    };
+                    spawn(async move {
+                        if chan.send_async(value_to_send).await.is_err() {
+                            error!("channel closed before get record request could be sent");
+                        }
+                    });
+                    self.in_progress_put_record_queries.remove(&id);
+                } else {
+                    warn!("completed DHT query that is no longer tracked.");
+                }
             }
             _ => {
                 debug!("Not handled");

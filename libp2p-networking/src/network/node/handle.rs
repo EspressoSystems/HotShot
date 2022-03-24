@@ -267,7 +267,7 @@ impl<S> NetworkNodeHandle<S> {
             .await;
     }
 
-    /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls [`modify_state`]
+    /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls `modify_state`
     pub fn state_changed(&self) -> &Condvar {
         &self.state_changed
     }
