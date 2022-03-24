@@ -1,10 +1,22 @@
 #![allow(dead_code)]
 
-use phaselock::demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction};
-
-use std::collections::{BTreeMap, BTreeSet};
-use std::env::{var, VarError};
-use std::sync::Once;
+use phaselock::{
+    demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction},
+    tc,
+    traits::{
+        implementations::{DummyReliability, MasterMap, MemoryNetwork},
+        NodeImplementation,
+    },
+    types::PhaseLockHandle,
+    PhaseLock, PhaseLockConfig, PubKey,
+};
+use serde::{de::DeserializeOwned, Serialize};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    env::{var, VarError},
+    sync::{Arc, Once},
+};
+use tracing::{debug, instrument};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     fmt::{self, format::FmtSpan},
@@ -252,4 +264,122 @@ pub fn setup_logging() {
                 },
             };
         });
+}
+
+pub fn get_threshold(num_nodes: u64) -> u64 {
+    ((num_nodes * 2) / 3) + 1
+}
+
+pub fn get_tolerance(num_nodes: u64) -> u64 {
+    num_nodes - get_threshold(num_nodes)
+}
+
+/// Gets networking backends of all nodes.
+pub async fn get_networkings<
+    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+>(
+    num_nodes: u64,
+    sks: &tc::SecretKeySet,
+) -> (Arc<MasterMap<T>>, Vec<(MemoryNetwork<T>, PubKey)>) {
+    let master = MasterMap::<T>::new();
+    let mut networkings: Vec<(MemoryNetwork<T>, PubKey)> = Vec::new();
+    for node_id in 0..num_nodes {
+        let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
+        let network = MemoryNetwork::new(
+            pub_key.clone(),
+            master.clone(),
+            Option::<DummyReliability>::None,
+        );
+        networkings.push((network, pub_key));
+    }
+    (master, networkings)
+}
+
+/// Provides a random valid transaction from the current state.
+pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
+    use rand::seq::IteratorRandom;
+    let input_account = state.balances.keys().choose(&mut rng).unwrap();
+    let output_account = state.balances.keys().choose(&mut rng).unwrap();
+    let amount = rng.gen_range(0, state.balances[input_account]);
+    Transaction {
+        add: Addition {
+            account: output_account.to_string(),
+            amount,
+        },
+        sub: Subtraction {
+            account: input_account.to_string(),
+            amount,
+        },
+        nonce: rng.gen(),
+    }
+}
+
+/// Creates the initial state and phaselocks.
+///
+/// Returns the initial state and the phaselocks of unfailing nodes.
+///
+/// # Arguments
+///
+/// * `nodes_to_fail` - a set of nodes to be failed, i.e., nodes whose
+/// phaselocks will never get unpaused, and a boolean indicating whether
+/// to fail the first or last `num_failed_nodes` nodes.
+#[instrument(skip(sks, networkings))]
+#[allow(clippy::too_many_arguments)]
+pub async fn init_state_and_phaselocks<I, const N: usize>(
+    sks: &tc::SecretKeySet,
+    num_nodes: u64,
+    nodes_to_fail: HashSet<u64>,
+    threshold: u64,
+    networkings: Vec<(I::Networking, PubKey)>,
+    timeout_ratio: (u64, u64),
+    next_view_timeout: u64,
+    state: <I as NodeImplementation<N>>::State,
+) -> (
+    <I as NodeImplementation<N>>::State,
+    Vec<PhaseLockHandle<I, N>>,
+)
+where
+    I: NodeImplementation<N>,
+    <I as NodeImplementation<N>>::Block: Default,
+    <I as NodeImplementation<N>>::Storage: Default,
+    <I as NodeImplementation<N>>::StatefulHandler: Default,
+{
+    // Create the initial phaselocks
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(sks, x))
+        .collect();
+    let config = PhaseLockConfig {
+        total_nodes: num_nodes as u32,
+        threshold: threshold as u32,
+        max_transactions: 100,
+        known_nodes,
+        next_view_timeout,
+        timeout_ratio,
+        round_start_delay: 1,
+        start_delay: 1,
+    };
+    debug!(?config);
+    let genesis = <I::Block>::default();
+    let mut phaselocks = Vec::new();
+    for node_id in 0..num_nodes {
+        let (_, phaselock) = PhaseLock::init(
+            genesis.clone(),
+            sks.public_keys(),
+            sks.secret_key_share(node_id),
+            node_id,
+            config.clone(),
+            state.clone(),
+            networkings[node_id as usize].0.clone(),
+            I::Storage::default(),
+            I::StatefulHandler::default(),
+        )
+        .await
+        .expect("Could not init phaselock");
+        if !nodes_to_fail.contains(&node_id) {
+            phaselocks.push(phaselock);
+        }
+        debug!("phaselock launched");
+    }
+
+    (state, phaselocks)
 }
