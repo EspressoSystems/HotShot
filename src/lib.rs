@@ -151,6 +151,9 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     storage: I::Storage,
     /// This `PhaseLock` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
+
+    /// Senders to the background tasks.
+    background_task_handle: tasks::TaskHandle,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
@@ -233,6 +236,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
+            background_task_handle: tasks::TaskHandle::default(),
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -454,14 +458,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             public_keys,
             secret_key_share,
             node_id,
-            config.clone(),
+            config,
             starting_state,
             networking,
-            storage.clone(),
+            storage,
             handler,
         )
         .await?;
-        let (task, handle) = tasks::spawn_all(&phaselock);
+        let (task, handle) = tasks::spawn_all(&phaselock).await;
 
         Ok((task, handle))
     }
@@ -563,15 +567,67 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
         match msg {
-            DataMessage::NewestQuorumCertificate(_) => {}
+            DataMessage::NewestQuorumCertificate { .. } => {}
         }
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+        debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate(qc) => {
-                warn!("TODO: Incoming QC: {:?}", qc);
+            DataMessage::NewestQuorumCertificate {
+                quorum_certificate: qc,
+                block,
+                state,
+            } => {
+                let own_newest = match self.inner.storage.get_newest_qc().await {
+                    Err(e) => {
+                        error!(?e, "Could not load QC");
+                        return;
+                    }
+                    Ok(n) => n,
+                };
+                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
+                // we should be getting multiple data messages soon
+                let should_save = if let Some(own) = own_newest {
+                    own.view_number < qc.view_number // incoming view is newer
+                } else {
+                    true // we have no QC yet
+                };
+                if should_save {
+                    let new_view_number = qc.view_number;
+                    let block_hash = BlockContents::hash(&block);
+                    let leaf_hash = qc.leaf_hash;
+                    let leaf = Leaf::new(block.clone(), leaf_hash);
+                    debug!(?leaf, ?block, ?state, ?qc, "Saving");
+
+                    if let Err(e) = self
+                        .inner
+                        .storage
+                        .update(|mut m| async move {
+                            m.insert_leaf(leaf).await?;
+                            m.insert_block(block_hash, block).await?;
+                            m.insert_state(state, leaf_hash).await?;
+                            m.insert_qc(qc).await?;
+                            Ok(())
+                        })
+                        .await
+                    {
+                        error!(?e, "Could not insert incoming QC");
+                    }
+                    // Make sure to update the background round runner
+                    if let Err(e) = self
+                        .inner
+                        .background_task_handle
+                        .send_to_round_runner(tasks::ToRoundRunner::NewViewNumber(new_view_number))
+                        .await
+                    {
+                        error!(
+                            ?e,
+                            "Could not update the background round runner of a new view number"
+                        );
+                    }
+                }
             }
         }
     }
@@ -581,15 +637,20 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
-                match self.inner.storage.get_newest_qc().await {
-                    Ok(Some(qc)) => {
+
+                match load_latest_state::<I, N>(&self.inner.storage).await {
+                    Ok(Some((quorum_certificate, leaf, state))) => {
                         let phaselock = self.clone();
                         spawn(async move {
-                            // TODO(vko): This sleep is needed else the tests don't work, and I don't know why
-                            async_std::task::sleep(Duration::from_secs(1)).await;
+                            // TODO(vko): This sleep is needed else the tests lock up, and I don't know why
+                            async_std::task::sleep(Duration::from_millis(100)).await;
                             if let Err(e) = phaselock
                                 .send_direct_message(
-                                    DataMessage::NewestQuorumCertificate(qc),
+                                    DataMessage::NewestQuorumCertificate {
+                                        quorum_certificate,
+                                        state,
+                                        block: leaf.item,
+                                    },
                                     peer.clone(),
                                 )
                                 .await
@@ -635,4 +696,25 @@ async fn send_event<B, S, const N: usize>(
     if let Some(c) = channel {
         let _result = c.send_async(event).await;
     }
+}
+/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`State`] from the given [`Storage`]
+async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
+    storage: &I::Storage,
+) -> std::result::Result<
+    Option<(QuorumCertificate<N>, Leaf<I::Block, N>, I::State)>,
+    Box<dyn std::error::Error + Send + Sync + 'static>,
+> {
+    let qc = match storage.get_newest_qc().await? {
+        Some(qc) => qc,
+        None => return Ok(None),
+    };
+    let leaf = match storage.get_leaf(&qc.leaf_hash).await? {
+        Some(leaf) => leaf,
+        None => return Ok(None),
+    };
+    let state = match storage.get_state(&qc.leaf_hash).await? {
+        Some(state) => state,
+        None => return Ok(None),
+    };
+    Ok(Some((qc, leaf, state)))
 }

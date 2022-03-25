@@ -328,6 +328,7 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
 pub async fn init_state_and_phaselocks<I, const N: usize>(
     sks: &tc::SecretKeySet,
     num_nodes: u64,
+    known_nodes: Vec<PubKey>,
     nodes_to_fail: HashSet<u64>,
     threshold: u64,
     networkings: Vec<(I::Networking, PubKey)>,
@@ -345,9 +346,6 @@ where
     <I as NodeImplementation<N>>::StatefulHandler: Default,
 {
     // Create the initial phaselocks
-    let known_nodes: Vec<_> = (0..num_nodes)
-        .map(|x| PubKey::from_secret_key_set_escape_hatch(sks, x))
-        .collect();
     let config = PhaseLockConfig {
         total_nodes: num_nodes as u32,
         threshold: threshold as u32,

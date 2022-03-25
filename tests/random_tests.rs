@@ -8,7 +8,7 @@ use phaselock::{
     tc,
     traits::{implementations::MemoryNetwork, NodeImplementation},
     types::{Event, EventType, Message, PhaseLockHandle},
-    PhaseLockError, H_256,
+    PhaseLockError, PubKey, H_256,
 };
 use proptest::prelude::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -84,9 +84,13 @@ async fn fail_nodes(
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
+        .collect();
     let (mut state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
         &sks,
         num_nodes,
+        known_nodes,
         nodes_to_fail.clone(),
         threshold,
         networkings,
@@ -236,9 +240,13 @@ async fn mul_txns(
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
+        .collect();
     let (state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
         &sks,
         num_nodes,
+        known_nodes,
         HashSet::new(),
         threshold,
         networkings,

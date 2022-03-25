@@ -5,6 +5,7 @@ use async_std::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
+use flume::{Receiver, SendError, Sender, TryRecvError};
 use phaselock_types::{
     data::Stage,
     event::{Event, EventType},
@@ -15,12 +16,48 @@ use phaselock_utils::broadcast::{channel, BroadcastSender};
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, info_span, trace, warn, Instrument};
 
+/// A handle with senders to send events to the background runners.
+#[derive(Default)]
+pub struct TaskHandle {
+    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`PhaseLock`] struct. It should be safe to `unwrap` this.
+    inner: RwLock<Option<TaskHandleInner>>,
+}
+impl TaskHandle {
+    /// Send a message to the [`round_runner_task`].
+    pub async fn send_to_round_runner(
+        &self,
+        msg: ToRoundRunner,
+    ) -> Result<(), SendError<ToRoundRunner>> {
+        self.inner
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .round_runner
+            .send_async(msg)
+            .await
+    }
+}
+/// Inner struct of the [`TaskHandle`]
+struct TaskHandleInner {
+    /// The sender for the [`round_runner_task`].
+    pub round_runner: Sender<ToRoundRunner>,
+}
+
+/// Events going to the round runner.
+pub enum ToRoundRunner {
+    /// Notify the round runner that there is a new view number inserted externally that it should use from now on
+    NewViewNumber(u64),
+}
+
 /// Spawn all tasks that operate on the given [`PhaseLock`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub fn spawn_all<I: NodeImplementation<N>, const N: usize>(
+pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     phaselock: &PhaseLock<I, N>,
 ) -> (JoinHandle<()>, PhaseLockHandle<I, N>) {
+    let (round_runner, round_runner_receiver) = flume::unbounded();
+
     spawn(
         network_broadcast_task(phaselock.clone()).instrument(info_span!(
             "PhaseLock Broadcast Task",
@@ -57,9 +94,19 @@ pub fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     };
     let node_id = phaselock.inner.public_key.nonce;
     let task = spawn(
-        round_runner_task(sender, phaselock.clone(), pause, run_once, shut_down)
-            .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
+        round_runner_task(
+            sender,
+            phaselock.clone(),
+            pause,
+            run_once,
+            shut_down,
+            round_runner_receiver,
+        )
+        .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
     );
+
+    let mut background_task_handle = phaselock.inner.background_task_handle.inner.write().await;
+    *background_task_handle = Some(TaskHandleInner { round_runner });
 
     (task, handle)
 }
@@ -163,6 +210,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
 ///
 /// [`phaselock.next_view`]: ../struct.PhaseLock.html#method.next_view
 /// [`phaselock.run_round`]: ../struct.PhaseLock.html#method.run_round
+#[allow(clippy::too_many_lines)]
 pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
     channel: BroadcastSender<
         Event<<I as NodeImplementation<N>>::Block, <I as NodeImplementation<N>>::State>,
@@ -171,6 +219,7 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
     pause: Arc<RwLock<bool>>,
     run_once: Arc<RwLock<bool>>,
     shut_down: Arc<RwLock<bool>>,
+    from_main: Receiver<ToRoundRunner>,
 ) {
     let duration = Duration::from_millis(phaselock.inner.config.start_delay);
     async_std::task::sleep(duration).await;
@@ -205,6 +254,21 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
         }
         // Make sure to reset the backoff timeout
         incremental_backoff_ms = 10;
+
+        // Listen for incoming messages
+        loop {
+            match from_main.try_recv() {
+                Err(TryRecvError::Disconnected) => {
+                    error!("Round runner can't receive events any more, `shut_down` should've notified us of this");
+                    return;
+                }
+                Err(TryRecvError::Empty) => break,
+                Ok(ToRoundRunner::NewViewNumber(new_view)) => {
+                    info!(new_view, "Round runner received a new view number");
+                    view = new_view;
+                }
+            }
+        }
 
         // Send the next view
         let next_view_res = phaselock.next_view(view, Some(&channel)).await;
