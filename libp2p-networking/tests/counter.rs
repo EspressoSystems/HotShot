@@ -13,7 +13,7 @@ use networking_demo::network::{
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 pub type CounterState = u32;
 
@@ -304,41 +304,17 @@ async fn run_dht_rounds(
         value.push((starting_val + i) as u8);
 
         // put the key
-        let (s, r) = flume::unbounded();
-        loop {
-            let req = ClientRequest::PutDHT {
-                key: key.clone(),
-                value: value.clone(),
-                notify: s.clone(),
-            };
-            msg_handle.send_request(req).await.unwrap();
-            match r.recv_timeout(timeout) {
-                Err(e) => {
-                    panic!("DHT timeout {:?} during PUT", e);
-                }
-                Ok(Err(e)) => {
-                    error!("PUT error {:?}", e);
-                }
-                Ok(Ok(())) => break,
-            }
-        }
+        msg_handle.put_record(&key, &value).await.unwrap();
 
         // get the key from the other nodes
         for handle in handles.iter() {
-            let (s, r) = flume::unbounded();
-            let req = ClientRequest::GetDHT {
-                key: key.clone(),
-                notify: s,
-            };
-            handle.send_request(req).await.unwrap();
-            match r.recv_timeout(timeout) {
+            let result: Result<Vec<u8>, NetworkNodeHandleError> =
+                handle.get_record_timeout(&key, timeout).await;
+            match result {
                 Err(e) => {
-                    panic!("DHT timeout {:?} during GET", e);
+                    panic!("DHT error {:?} during GET", e);
                 }
-                Ok(Err(e)) => {
-                    panic!("GET error {:?}", e);
-                }
-                Ok(Ok(v)) => {
+                Ok(v) => {
                     assert_eq!(v, value);
                     break;
                 }

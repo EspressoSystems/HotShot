@@ -12,13 +12,13 @@ pub use self::{
 };
 
 use self::{
-    error::TransportLaunchSnafu,
+    error::{DHTError, TransportLaunchSnafu},
     node::network_node_handle_error::{RecvSnafu, TimeoutSnafu},
 };
 use crate::direct_message::DirectMessageResponse;
 use async_std::{future::timeout, task::spawn};
 use bincode::Options;
-use flume::Sender;
+use futures::channel::oneshot::Sender;
 use futures::{select, Future, FutureExt};
 use libp2p::{
     build_multiaddr,
@@ -26,7 +26,6 @@ use libp2p::{
     dns,
     gossipsub::IdentTopic as Topic,
     identity::Keypair,
-    kad::{GetRecordError, PutRecordError},
     mplex, noise,
     request_response::ResponseChannel,
     tcp, websocket, yamux, Multiaddr, PeerId, Transport,
@@ -135,14 +134,14 @@ pub enum ClientRequest {
         /// Value to publish under
         value: Vec<u8>,
         /// Channel to notify caller of result of publishing
-        notify: Sender<Result<(), PutRecordError>>,
+        notify: Sender<Result<(), DHTError>>,
     },
     /// Get(Key, Chan)
     GetDHT {
         /// Key to search for
         key: Vec<u8>,
         /// Channel to notify caller of value (or failure to find value)
-        notify: Sender<Result<Vec<u8>, GetRecordError>>,
+        notify: Sender<Result<Vec<u8>, DHTError>>,
     },
 }
 

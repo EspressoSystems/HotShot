@@ -1,14 +1,16 @@
 use crate::network::{
-    gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode,
-    NetworkNodeConfig, NetworkNodeConfigBuilderError,
+    error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
+    NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
 };
 use async_std::{
     future::TimeoutError,
     sync::{Condvar, Mutex},
 };
+use bincode::Options;
 use flume::{bounded, Receiver, RecvError, SendError, Sender};
 use libp2p::{Multiaddr, PeerId};
 use phaselock_utils::subscribable_mutex::SubscribableMutex;
+use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
 use tracing::{info, instrument};
@@ -154,6 +156,102 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 }
 
 impl<S> NetworkNodeHandle<S> {
+    /// Insert a record into the kademlia DHT
+    /// # Errors
+    /// - Will return `DHTError` when encountering an error putting to DHT
+    /// - Will return `SerializationError` when unable to serialize the key or value
+    pub async fn put_record(
+        &self,
+        key: &impl Serialize,
+        value: &impl Serialize,
+    ) -> Result<(), NetworkNodeHandleError> {
+        use crate::network::error::CancelledRequestSnafu;
+
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::PutDHT {
+            key: bincode_options.serialize(key).context(SerializationSnafu)?,
+            value: bincode_options
+                .serialize(value)
+                .context(SerializationSnafu)?,
+            notify: s,
+        };
+
+        self.send_request(req).await?;
+
+        match r.await.context(CancelledRequestSnafu) {
+            Ok(r) => r.context(DHTSnafu),
+            Err(e) => Err(e).context(DHTSnafu),
+        }
+    }
+
+    /// Receive a record from the kademlia DHT if it exists.
+    /// Must be replicated on at least 2 nodes
+    /// # Errors
+    /// - Will return `DHTError` when encountering an error putting to DHT
+    /// - Will return `SerializationError` when unable to serialize the key
+    /// - Will return `DeserializationError` when unable to deserialize the returned value
+    pub async fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        key: &impl Serialize,
+    ) -> Result<V, NetworkNodeHandleError> {
+        use crate::network::error::CancelledRequestSnafu;
+
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetDHT {
+            key: bincode_options.serialize(key).context(SerializationSnafu)?,
+            notify: s,
+        };
+        self.send_request(req).await?;
+
+        match r.await.context(CancelledRequestSnafu) {
+            Ok(result) => match result {
+                Ok(r) => bincode_options
+                    .deserialize(&r)
+                    .context(DeserializationSnafu),
+                Err(e) => Err(e).context(DHTSnafu),
+            },
+            Err(e) => Err(e).context(DHTSnafu),
+        }
+    }
+
+    /// Get a record from the kademlia DHT with a timeout
+    /// # Errors
+    /// - Will return `DHTError` when encountering an error putting to DHT
+    /// - Will return `TimeoutError` when times out
+    /// - Will return `SerializationError` when unable to serialize the key
+    /// - Will return `DeserializationError` when unable to deserialize the returned value
+    pub async fn get_record_timeout<V: for<'a> Deserialize<'a>>(
+        &self,
+        key: &impl Serialize,
+        timeout: Duration,
+    ) -> Result<V, NetworkNodeHandleError> {
+        let result = async_std::future::timeout(timeout, self.get_record(key)).await;
+        match result {
+            Err(e) => Err(e).context(TimeoutSnafu),
+            Ok(r) => r,
+        }
+    }
+
+    /// Insert a record into the kademlia DHT with a timeout
+    /// # Errors
+    /// - Will return `DHTError` when encountering an error putting to DHT
+    /// - Will return `TimeoutError` when times out
+    /// - Will return `SerializationError` when unable to serialize the key or value
+    pub async fn put_record_timeout(
+        &self,
+        key: &impl Serialize,
+        value: &impl Serialize,
+        timeout: Duration,
+    ) -> Result<(), NetworkNodeHandleError> {
+        let result = async_std::future::timeout(timeout, self.put_record(key, value)).await;
+        match result {
+            Err(e) => Err(e).context(TimeoutSnafu),
+            Ok(r) => r,
+        }
+    }
+
     /// Notify the webui that either the `state` or `connection_state` has changed.
     ///
     /// If the webui is not started, this will do nothing.
@@ -323,7 +421,10 @@ pub enum NetworkNodeHandleError {
         source: Box<bincode::ErrorKind>,
     },
     /// Failure to deserialize a message
-    DeserializationError {},
+    DeserializationError {
+        /// source of error
+        source: Box<bincode::ErrorKind>,
+    },
     /// Error sending request to network
     SendError {
         /// source of error
@@ -343,6 +444,11 @@ pub enum NetworkNodeHandleError {
     TimeoutError {
         /// source of error
         source: TimeoutError,
+    },
+    /// Error in the kademlia DHT
+    DHTError {
+        /// source of error
+        source: DHTError,
     },
 }
 

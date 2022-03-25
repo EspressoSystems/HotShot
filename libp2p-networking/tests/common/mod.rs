@@ -144,7 +144,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut connecting_futs = Vec::new();
     let min_num_peers = num_of_nodes / 4;
     let max_num_peers = num_of_nodes / 2;
-    let replication_factor = Some(unsafe { NonZeroUsize::new_unchecked(num_of_nodes) });
+    // should never panic unless num_nodes is 0
+    let replication_factor = NonZeroUsize::new(num_of_nodes).unwrap();
 
     for i in 0..num_bootstrap {
         let mut config = NetworkNodeConfigBuilder::default();
@@ -250,7 +251,9 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 #[snafu(visibility(pub))]
 pub enum TestError<S: Debug> {
     #[snafu(display("Channel error {source:?}"))]
-    Recv { source: RecvError },
+    Recv {
+        source: RecvError,
+    },
     #[snafu(display(
         "Timeout while running direct message round. Timed out when {requester} dmed {requestee}"
     ))]

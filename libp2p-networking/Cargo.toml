@@ -28,6 +28,7 @@ async-trait = "0.1.52"
 derive_builder = "0.11.0"
 custom_debug = "0.5"
 phaselock-utils = { path = "../phaselock-utils", version = "0.0.6"}
+phaselock-types = { path = "../phaselock-types", version = "0.0.6"}
 
 # Feature dependencies
 

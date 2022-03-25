@@ -1,15 +1,17 @@
 use crate::{
     direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
-    network::{NetworkError, NetworkEvent},
+    network::{
+        error::{DHTError, GetRecordWrapperError},
+        NetworkError, NetworkEvent,
+    },
 };
-use async_std::task::spawn;
-use flume::Sender;
+use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic as Topic},
     identify::{Identify, IdentifyEvent},
     kad::{
-        store::MemoryStore, GetClosestPeersOk, GetRecordError, GetRecordOk, Kademlia,
-        KademliaEvent, PutRecordError, PutRecordOk, QueryId, QueryResult, Quorum, Record,
+        store::MemoryStore, GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia,
+        KademliaEvent, QueryId, QueryResult, Quorum, Record,
     },
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
@@ -20,12 +22,17 @@ use libp2p::{
     Multiaddr, NetworkBehaviour, PeerId,
 };
 use rand::{prelude::IteratorRandom, thread_rng};
+use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
+    num::NonZeroUsize,
     task::{Context, Poll},
 };
 use tracing::{debug, error, info, warn};
+
+pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
+const MAX_DHT_QUERY_SIZE: usize = 5;
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -87,10 +94,12 @@ pub struct NetworkDef {
     /// peers we ignore (mainly here for conductor usecase)
     #[behaviour(ignore)]
     ignored_peers: HashSet<PeerId>,
+    /// query id -> (notify_channel to client, quorum size, key)
     #[behaviour(ignore)]
-    in_progress_get_record_queries: HashMap<QueryId, Sender<Result<Vec<u8>, GetRecordError>>>,
+    in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
+    /// query_id -> (notify_channel to client)
     #[behaviour(ignore)]
-    in_progress_put_record_queries: HashMap<QueryId, Sender<Result<(), PutRecordError>>>,
+    in_progress_put_record_queries: HashMap<QueryId, Sender<Result<(), DHTError>>>,
 }
 
 impl NetworkDef {
@@ -328,15 +337,10 @@ impl NetworkDef {
 impl NetworkDef {
     /// Publish a key/value to the kv store.
     /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`PutRecordError`] is
+    /// `chan`. If there is an error, a [`DHTError`] is
     /// sent instead.
-    pub fn put_record(
-        &mut self,
-        key: &[u8],
-        value: &[u8],
-        chan: Sender<Result<(), PutRecordError>>,
-    ) {
-        let record = Record::new(key.to_vec(), value.to_vec());
+    pub fn put_record(&mut self, key: Vec<u8>, value: Vec<u8>, chan: Sender<Result<(), DHTError>>) {
+        let record = Record::new(key, value);
 
         match self.kadem.put_record(record, Quorum::Majority) {
             Err(e) => {
@@ -350,10 +354,83 @@ impl NetworkDef {
 
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`GetRecordError`] is sent instead.
-    pub fn get_record(&mut self, key: &[u8], chan: Sender<Result<Vec<u8>, GetRecordError>>) {
-        let qid = self.kadem.get_record(key.to_vec().into(), Quorum::One);
-        self.in_progress_get_record_queries.insert(qid, chan);
+    /// a [`DHTError`] is sent instead.
+    pub fn get_record(
+        &mut self,
+        key: Vec<u8>,
+        chan: Sender<Result<Vec<u8>, DHTError>>,
+        factor: NonZeroUsize,
+    ) {
+        let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
+        let query = KadGetQuery {
+            notify: chan,
+            num_replicas: factor,
+            key,
+        };
+        self.in_progress_get_record_queries.insert(qid, query);
+    }
+
+    /// If we receive a get query, either send response/error to client,
+    /// or initiate new get query to more nodes
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
+        use crate::network::error::GetRecordSnafu;
+        if let Some(KadGetQuery {
+            notify,
+            num_replicas,
+            key,
+        }) = self.in_progress_get_record_queries.remove(&id)
+        {
+            let value_to_send = match record_results {
+                Ok(GetRecordOk {
+                    records,
+                    cache_candidates: _,
+                }) => {
+                    let mut results: HashMap<Vec<u8>, usize> = HashMap::new();
+
+                    // count the number of records that agree on each value
+                    for record in &records {
+                        if record.record.key.to_vec() == key {
+                            let value = record.record.value.clone();
+                            let old_val: usize = results.get(&value.clone()).copied().unwrap_or(0);
+                            results.insert(value, old_val + 1);
+                        }
+                    }
+                    // agreement on two or more nodes => success
+                    // NOTE case where multiple nodes agree on different
+                    // values is not handles
+                    if let Some((r, _)) = results.into_iter().find(|(_, v)| *v >= 2) {
+                        Ok(r)
+                    }
+                    // lack of replication => error
+                    else if records.len() < NUM_REPLICATED_TO_TRUST {
+                        Err(DHTError::NotFound)
+                    }
+                    // many records that don't match => disagreement
+                    else if records.len() > MAX_DHT_QUERY_SIZE {
+                        Err(DHTError::Disagreement)
+                    }
+                    // disagreement => query more nodes
+                    else {
+                        // there is some internal disagreement.
+                        // Initiate new query that hits more replicas
+                        let new_factor =
+                            NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
+
+                        self.get_record(key, notify, new_factor);
+                        return;
+                    }
+                }
+                Err(e) => {
+                    Err(GetRecordWrapperError::GetRecordError { source: e }).context(GetRecordSnafu)
+                }
+            };
+            if notify.send(value_to_send).is_err() {
+                error!("channel closed before get record request could be sent");
+            }
+            self.in_progress_get_record_queries.remove(&id);
+        } else {
+            warn!("completed DHT query that is no longer tracked.");
+        }
     }
 }
 
@@ -426,48 +503,23 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
             }
             KademliaEvent::OutboundQueryCompleted {
-                result: QueryResult::GetRecord(r),
+                result: QueryResult::GetRecord(record_results),
                 id,
                 ..
             } => {
-                if let Some(chan) = self.in_progress_get_record_queries.remove(&id) {
-                    let value_to_send = match r {
-                        Ok(GetRecordOk {
-                            records,
-                            cache_candidates: _,
-                        }) => {
-                            // TODO do some sort of "this needs to be in at least N trusted peers"
-                            let first_result = records[0].record.value.clone();
-                            // we don't want this to block, so spawn a thread
-                            Ok(first_result)
-                        }
-                        Err(e) => Err(e),
-                    };
-                    spawn(async move {
-                        if chan.send_async(value_to_send).await.is_err() {
-                            error!("channel closed before get record request could be sent");
-                        }
-                    });
-                    self.in_progress_get_record_queries.remove(&id);
-                } else {
-                    warn!("completed DHT query that is no longer tracked.");
-                }
+                self.handle_get_query(record_results, id);
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::PutRecord(r),
                 id,
                 ..
             } => {
+                use crate::network::error::PutRecordSnafu;
                 if let Some(chan) = self.in_progress_put_record_queries.remove(&id) {
-                    let value_to_send = match r {
-                        Ok(PutRecordOk { .. }) => Ok(()),
-                        Err(e) => Err(e),
-                    };
-                    spawn(async move {
-                        if chan.send_async(value_to_send).await.is_err() {
-                            error!("channel closed before get record request could be sent");
-                        }
-                    });
+                    let value_to_send = r.map(|_| {}).context(PutRecordSnafu);
+                    if chan.send(value_to_send).is_err() {
+                        error!("client channel closed before get record request could be sent");
+                    }
                     self.in_progress_put_record_queries.remove(&id);
                 } else {
                     warn!("completed DHT query that is no longer tracked.");
@@ -550,4 +602,15 @@ enum BootstrapState {
     NotStarted,
     Started,
     Finished,
+}
+
+/// Metadata holder for get query
+#[derive(Debug)]
+struct KadGetQuery {
+    /// notify client of result
+    notify: Sender<Result<Vec<u8>, DHTError>>,
+    /// number of replicas required to replicate over
+    num_replicas: NonZeroUsize,
+    /// the key to look up
+    key: Vec<u8>,
 }
