@@ -10,6 +10,7 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 pub use threshold_crypto as tc;
 
+pub mod constants;
 pub mod data;
 pub mod error;
 pub mod event;

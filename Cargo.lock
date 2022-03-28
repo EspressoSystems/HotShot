@@ -2892,6 +2892,7 @@ dependencies = [
  "netlink-sys 0.8.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "nix 0.23.1",
  "parking_lot 0.12.0",
+ "phaselock-types",
  "phaselock-utils",
  "rand 0.8.5",
  "rtnetlink 0.9.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",

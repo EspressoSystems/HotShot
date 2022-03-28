@@ -1,6 +1,7 @@
 use crate::network::NetworkNodeType;
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
-use std::collections::HashSet;
+use phaselock_types::constants::DEFAULT_REPLICATION_FACTOR;
+use std::{collections::HashSet, num::NonZeroUsize};
 
 /// describe the configuration of the network
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
@@ -27,4 +28,8 @@ pub struct NetworkNodeConfig {
     /// address to bind to
     #[builder(setter(into, strip_option), default)]
     pub bound_addr: Option<Multiaddr>,
+    /// replication factor for entries in the DHT
+    /// default is [`libp2p::kad::K_VALUE`] which is 20
+    #[builder(setter(into, strip_option), default = "DEFAULT_REPLICATION_FACTOR")]
+    pub replication_factor: Option<NonZeroUsize>,
 }

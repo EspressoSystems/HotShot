@@ -150,12 +150,12 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                     let send_swarm = app.send_swarm.clone();
                                     if let Some(selected_peer) = app.connected_peer_list.lock().iter().copied().next() {
                                         spawn(async move {
-                                            let (s, r) = flume::bounded(1);
-                                            send_swarm.send_async(ClientRequest::GetId(s)).await.context("")?;
+                                            let (s, r) = futures::channel::oneshot::channel();
+                                            send_swarm.send(ClientRequest::GetId(s)).context("")?;
                                             let msg = Message {
                                                 topic: "DM".to_string(),
                                                 content: app.input,
-                                                sender: r.recv_async().await?.to_string(),
+                                                sender: r.await?.to_string(),
                                             };
                                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                             let s_msg = bincode_options.serialize(&msg)?;
@@ -173,12 +173,12 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                     let send_swarm = app.send_swarm.clone();
                                     // we don't want this to block the event loop
                                     spawn(async move {
-                                        let (s, r) = flume::bounded(1);
-                                        send_swarm.send_async(ClientRequest::GetId(s)).await.context("")?;
+                                        let (s, r) = futures::channel::oneshot::channel();
+                                        send_swarm.send(ClientRequest::GetId(s)).context("")?;
                                         let msg = Message {
                                             topic: "global".to_string(),
                                             content: app.input,
-                                            sender: r.recv_async().await?.to_string(),
+                                            sender: r.await?.to_string(),
                                         };
                                         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                         let s_msg = bincode_options.serialize(&msg)?;

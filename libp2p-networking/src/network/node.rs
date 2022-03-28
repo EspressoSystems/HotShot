@@ -9,7 +9,10 @@ use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
 };
-use crate::direct_message::{DirectMessageCodec, DirectMessageProtocol};
+use crate::{
+    direct_message::{DirectMessageCodec, DirectMessageProtocol},
+    network::def::NUM_REPLICATED_TO_TRUST,
+};
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
@@ -28,7 +31,7 @@ use libp2p::{
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
-use std::{collections::HashSet, io::Error, iter, time::Duration};
+use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, time::Duration};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
@@ -150,6 +153,9 @@ impl NetworkNode {
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
             kconfig.set_caching(kad::KademliaCaching::Disabled);
+            if let Some(factor) = config.replication_factor {
+                kconfig.set_replication_factor(factor);
+            }
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
             // request response for direct messages
@@ -286,6 +292,16 @@ impl NetworkNode {
                 #[allow(clippy::enum_glob_use)]
                 use ClientRequest::*;
                 match msg {
+                    PutDHT { key, value, notify } => {
+                        self.swarm.behaviour_mut().put_record(key, value, notify);
+                    }
+                    GetDHT { key, notify } => {
+                        self.swarm.behaviour_mut().get_record(
+                            key,
+                            notify,
+                            NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                        );
+                    }
                     IgnorePeers(peers) => {
                         behaviour.extend_ignored_peers(peers);
                     }
@@ -299,8 +315,7 @@ impl NetworkNode {
                     GetId(reply_chan) => {
                         // FIXME proper error handling
                         reply_chan
-                            .send_async(self.peer_id)
-                            .await
+                            .send(self.peer_id)
                             .map_err(|_e| NetworkError::StreamClosed)?;
                     }
                     Subscribe(t) => {

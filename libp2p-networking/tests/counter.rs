@@ -27,6 +27,8 @@ const TOTAL_NUM_PEERS_STRESS: usize = 15;
 const NUM_OF_BOOTSTRAP_STRESS: usize = 3;
 const TIMEOUT_STRESS: Duration = Duration::from_secs(60);
 
+const DHT_KV_PADDING: usize = 1024;
+
 /// Message types. We can either
 /// - increment the Counter
 /// - request a counter value
@@ -241,6 +243,17 @@ async fn run_intersperse_many_rounds(
     }
 }
 
+async fn run_dht_many_rounds(
+    handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
+    timeout: Duration,
+) {
+    run_dht_rounds(&handles, timeout, 0, NUM_ROUNDS).await;
+}
+
+async fn run_dht_one_round(handles: Vec<Arc<NetworkNodeHandle<CounterState>>>, timeout: Duration) {
+    run_dht_rounds(&handles, timeout, 0, 1).await;
+}
+
 async fn run_request_response_many_rounds(
     handles: Vec<Arc<NetworkNodeHandle<CounterState>>>,
     timeout: Duration,
@@ -275,6 +288,39 @@ async fn run_gossip_one_round(
     timeout: Duration,
 ) {
     run_gossip_rounds(&handles, 1, 0, timeout).await
+}
+
+async fn run_dht_rounds(
+    handles: &[Arc<NetworkNodeHandle<CounterState>>],
+    timeout: Duration,
+    starting_val: usize,
+    num_rounds: usize,
+) {
+    for i in 0..num_rounds {
+        let msg_handle = get_random_handle(handles);
+        let mut key = vec![0; DHT_KV_PADDING];
+        key.push((starting_val + i) as u8);
+        let mut value = vec![0; DHT_KV_PADDING];
+        value.push((starting_val + i) as u8);
+
+        // put the key
+        msg_handle.put_record(&key, &value).await.unwrap();
+
+        // get the key from the other nodes
+        for handle in handles.iter() {
+            let result: Result<Vec<u8>, NetworkNodeHandleError> =
+                handle.get_record_timeout(&key, timeout).await;
+            match result {
+                Err(e) => {
+                    panic!("DHT error {:?} during GET", e);
+                }
+                Ok(v) => {
+                    assert_eq!(v, value);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// runs `num_rounds` of message broadcast, incrementing the state of all nodes each broadcast
@@ -482,6 +528,62 @@ async fn test_stress_gossip_one_round() {
         TOTAL_NUM_PEERS_STRESS,
         NUM_OF_BOOTSTRAP_STRESS,
         TIMEOUT_STRESS,
+    )
+    .await;
+}
+
+/// simple case of one dht publish event
+#[async_std::test]
+#[instrument]
+async fn test_stress_dht_one_round() {
+    test_bed(
+        run_gossip_one_round,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+    )
+    .await;
+}
+
+/// many dht publishing events
+#[async_std::test]
+#[instrument]
+async fn test_stress_dht_many_rounds() {
+    test_bed(
+        run_dht_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+    )
+    .await;
+}
+
+/// simple case of one dht publish event
+#[async_std::test]
+#[instrument]
+async fn test_coverage_dht_one_round() {
+    test_bed(
+        run_dht_one_round,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
+    )
+    .await;
+}
+
+/// many dht publishing events
+#[async_std::test]
+#[instrument]
+async fn test_coverage_dht_many_rounds() {
+    test_bed(
+        run_dht_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_COVERAGE,
+        NUM_OF_BOOTSTRAP_COVERAGE,
+        TIMEOUT_COVERAGE,
     )
     .await;
 }

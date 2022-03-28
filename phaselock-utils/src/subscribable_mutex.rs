@@ -5,9 +5,9 @@ use tracing::warn;
 
 /// A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:
 ///
-/// [`subscribe`] will return a [`Receiver`] which can be used to be notified of changes.
+/// [`Self::subscribe`] will return a [`Receiver`] which can be used to be notified of changes.
 ///
-/// [`notify_change_subscribers`] will notify all `Receiver` that are registered with the `subscribe` function.
+/// [`Self::notify_change_subscribers`] will notify all `Receiver` that are registered with the `subscribe` function.
 #[derive(Default)]
 pub struct SubscribableMutex<T: ?Sized> {
     /// A list of subscribers of this mutex.
@@ -41,7 +41,7 @@ impl<T> SubscribableMutex<T> {
         self.mutex.lock().await
     }
 
-    /// Notify the subscribers that a change has occured. Subscribers can be registered by calling [`subscribe`].
+    /// Notify the subscribers that a change has occured. Subscribers can be registered by calling [`Self::subscribe`].
     ///
     /// Subscribers cannot be removed as they have no unique identifying information. Instead this function will simply remove all senders that fail to deliver their message.
     pub async fn notify_change_subscribers(&self) {
@@ -59,7 +59,7 @@ impl<T> SubscribableMutex<T> {
         }
     }
 
-    /// Create a [`Receiver`] that will be notified every time a thread calls [`notify_change_subscribers`]
+    /// Create a [`Receiver`] that will be notified every time a thread calls [`Self::notify_change_subscribers`]
     pub async fn subscribe(&self) -> Receiver<()> {
         let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
