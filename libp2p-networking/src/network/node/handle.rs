@@ -1,14 +1,14 @@
-use crate::network::{
+use crate::{network::{
     error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
     NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
-};
+}, direct_message::DirectMessageResponse};
 use async_std::{
     future::TimeoutError,
     sync::{Condvar, Mutex},
 };
 use bincode::Options;
 use flume::{bounded, Receiver, RecvError, SendError, Sender};
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{Multiaddr, PeerId, request_response::ResponseChannel};
 use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -95,15 +95,15 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// the swarm event handler to stop handling events
     /// and a message to the swarm itself to spin down
     #[instrument]
-    pub async fn shutdown(&self) -> Result<(), NetworkError> {
+    pub async fn shutdown(&self) -> Result<(), NetworkNodeHandleError> {
         self.send_network
             .send_async(ClientRequest::Shutdown)
-            .await
-            .map_err(|_e| NetworkError::StreamClosed)?;
+            .await.map_err(|_| NetworkNodeHandleError::SendError)?;
+        /// if this fails, the thread has already been killed.
         self.kill_switch
             .send_async(())
             .await
-            .map_err(|_e| NetworkError::StreamClosed)?;
+            .context(CantKillTwiceSnafu)?;
         Ok(())
     }
 
@@ -270,6 +270,54 @@ impl<S> NetworkNodeHandle<S> {
         }
     }
 
+    /// Subscribe to a topic
+    pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError>{
+        let req = ClientRequest::Subscribe(topic);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    /// Unsubscribe from a topic
+    pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError>{
+        let req = ClientRequest::Unsubscribe(topic);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkNodeHandleError> {
+        let req = ClientRequest::IgnorePeers(peers);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn direct_request(&self, peer_id: PeerId, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn direct_response(&self, chan: ResponseChannel<DirectMessageResponse>, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let req = ClientRequest::DirectResponse(chan, serialized_msg);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn gossip(&self, topic: String, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let req = ClientRequest::GossipMsg(topic, serialized_msg);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn set_prune(&self, prune: bool) -> Result<(), NetworkNodeHandleError> {
+        let req = ClientRequest::Pruning(prune);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn add_known_peers(&self, known_peers: Vec<(Option<PeerId>, Multiaddr)>) -> Result<(), NetworkNodeHandleError> {
+        let req = ClientRequest::AddKnownPeers(known_peers);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
     /// Get a clone of the internal `killed` receiver
     pub fn recv_kill(&self) -> Receiver<()> {
         self.recv_kill.clone()
@@ -290,8 +338,9 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     ///
     /// Will throw a [`SendSnafu`] error if all receivers are dropped.
-    pub async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
-        self.send_network.send_async(req).await.context(SendSnafu)?;
+    async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
+        self.send_network.send_async(req)
+            .await.map_err(|_| NetworkNodeHandleError::SendError)?;
         Ok(())
     }
 
@@ -426,10 +475,7 @@ pub enum NetworkNodeHandleError {
         source: Box<bincode::ErrorKind>,
     },
     /// Error sending request to network
-    SendError {
-        /// source of error
-        source: SendError<ClientRequest>,
-    },
+    SendError,
     /// Error receiving message from network
     RecvError {
         /// source of error
@@ -449,6 +495,9 @@ pub enum NetworkNodeHandleError {
     DHTError {
         /// source of error
         source: DHTError,
+    },
+    CantKillTwice {
+        source: SendError<()>,
     },
 }
 

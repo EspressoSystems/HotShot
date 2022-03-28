@@ -23,11 +23,10 @@ pub mod tracing_setup;
 
 /// Example message used by the UI library
 pub mod message;
-/// UI library for clichat example
-pub mod ui;
+
+// /// UI library for clichat example
+// TODO uncomment
+// pub mod ui;
 
 /// Network logic
 pub mod network;
-
-/// used for parsing config file
-pub mod parse_config;

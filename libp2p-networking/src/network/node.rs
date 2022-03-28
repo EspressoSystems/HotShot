@@ -20,7 +20,7 @@ use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
         error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
-        MessageAuthenticity, MessageId, ValidationMode,
+        MessageAuthenticity, MessageId, ValidationMode, Topic,
     },
     identify::{Identify, IdentifyConfig},
     identity::Keypair,
@@ -310,13 +310,7 @@ impl NetworkNode {
                         return Ok(true);
                     }
                     GossipMsg(topic, contents) => {
-                        behaviour.publish_gossip(topic, contents);
-                    }
-                    GetId(reply_chan) => {
-                        // FIXME proper error handling
-                        reply_chan
-                            .send(self.peer_id)
-                            .map_err(|_e| NetworkError::StreamClosed)?;
+                        behaviour.publish_gossip(Topic::new(topic), contents);
                     }
                     Subscribe(t) => {
                         behaviour.subscribe_gossip(&t);
@@ -438,7 +432,7 @@ impl NetworkNode {
     /// as well as any events produced by libp2p
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
-    pub async fn spawn_listeners(
+    pub(crate) async fn spawn_listeners(
         mut self,
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();

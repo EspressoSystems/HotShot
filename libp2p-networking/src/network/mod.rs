@@ -104,18 +104,16 @@ impl Default for NetworkNodeType {
 
 /// Actions to send from the client to the swarm
 #[derive(Debug)]
-pub enum ClientRequest {
+pub(crate) enum ClientRequest {
     /// kill the swarm
     Shutdown,
     /// broadcast a serialized message
-    GossipMsg(Topic, Vec<u8>),
-    /// send the peer id
-    GetId(Sender<PeerId>),
+    GossipMsg(String, Vec<u8>),
     /// subscribe to a topic
     Subscribe(String),
     /// unsubscribe from a topic
     Unsubscribe(String),
-    /// client request to send a direct message a serialized message
+    /// client request to send a direct serialized message
     DirectRequest(PeerId, Vec<u8>),
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
@@ -255,9 +253,8 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle
-        .send_request(ClientRequest::AddKnownPeers(known_nodes))
+        .add_known_peers(known_nodes)
         .await?;
-
     timeout(
         timeout_len,
         NetworkNodeHandle::wait_to_connect(
@@ -270,7 +267,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     .await
     .context(TimeoutSnafu)??;
     handle
-        .send_request(ClientRequest::Subscribe("global".to_string()))
+        .subscribe("global".to_string())
         .await?;
 
     Ok(())

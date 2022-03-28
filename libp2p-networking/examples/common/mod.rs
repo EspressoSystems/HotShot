@@ -19,7 +19,7 @@ use networking_demo::{
     network::{
         deserialize_msg,
         network_node_handle_error::{NetworkSnafu, NodeConfigSnafu, SerializationSnafu},
-        serialize_msg, spawn_handler, spin_up_swarm, ClientRequest, NetworkEvent,
+        serialize_msg, spawn_handler, spin_up_swarm, NetworkEvent,
         NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     tracing_setup,
@@ -215,11 +215,9 @@ pub async fn handle_normal_msg(
     // relay the message to conductor
     if msg.relay_to_conductor {
         if let Some(conductor_id) = handle.ignored_peers().await.iter().next() {
-            let relayed_msg = msg.normal_to_relayed();
-            let serialized_msg = serialize_msg::<Message>(&Message::Relayed(relayed_msg))
-                .context(SerializationSnafu)?;
+            let relayed_msg = Message::Relayed(msg.normal_to_relayed());
             handle
-                .send_request(ClientRequest::DirectRequest(*conductor_id, serialized_msg))
+                .direct_request(*conductor_id, &relayed_msg)
                 .await?;
         } else {
             println!("We have a message to send to the conductor, but we do not know who the conductor is!");
@@ -248,15 +246,14 @@ pub async fn handle_normal_msg(
                     epoch: (state, state + 1),
                     padding: vec![0; PADDING_SIZE],
                 });
-                let serialized_response =
-                    serialize_msg::<Message>(&response).context(SerializationSnafu)?;
                 handle
-                    .send_request(ClientRequest::DirectResponse(chan, serialized_response))
+                    .direct_response(chan, &response)
                     .await?;
             }
         }
         CounterRequest::Kill => {
-            handle.shutdown().await.context(NetworkSnafu)?;
+            println!("killing!");
+            handle.shutdown().await?;
         }
     }
     Ok(())
@@ -275,14 +272,14 @@ pub async fn regular_handle_network_event(
     match event {
         GossipMsg(m) | DirectResponse(m, _) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
+                println!("msg recved: {:?}", msg.clone());
                 match msg {
                     Message::ConductorIdIs(peerid) => {
                         handle
-                            .send_request(ClientRequest::IgnorePeers(vec![peerid]))
+                            .ignore_peers(vec![peerid])
                             .await?;
                         handle.add_ignored_peer(peerid).await;
-                        let recv_msg = serialize_msg::<Message>(&Message::RecvdConductor).context(SerializationSnafu)?;
-                        handle.send_request(ClientRequest::DirectRequest(peerid, recv_msg)).await?;
+                        handle.direct_request(peerid, &Message::RecvdConductor).await?;
                     }
                     Message::Normal(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
@@ -301,6 +298,7 @@ pub async fn regular_handle_network_event(
         }
         DirectRequest(msg, _peer_id, chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&msg) {
+                println!("msg recved: {:?}", msg.clone());
                 match msg {
                     // this is only done via broadcast
                     Message::ConductorIdIs(_)
@@ -314,29 +312,25 @@ pub async fn regular_handle_network_event(
                     }
                     Message::Conductor(msg) => {
                         let state = handle.state().await;
-                        let serialized_msg =
-                            serialize_msg::<Message>(&Message::Normal(NormalMessage {
+                        let response =
+                            Message::Normal(NormalMessage {
                                 sent_ts: SystemTime::now(),
                                 relay_to_conductor: true,
                                 req: msg.req,
                                 epoch: (state, state+1),
                                 padding: vec![0; PADDING_SIZE]
-                        })).context(SerializationSnafu)?;
+                        });
                         match msg.broadcast_type {
                             // if the conductor says to broadcast
                             // perform broadcast with gossip protocol
                             ConductorMessageMethod::Broadcast => {
-                                handle
-                                    .send_request(ClientRequest::GossipMsg(
-                                        Topic::new("global"),
-                                        serialized_msg,
-                                    ))
-                                    .await?;
+                                handle.gossip("global".to_string(), &response).await?;
                             }
                             ConductorMessageMethod::DirectMessage(pid) => {
-                                handle
-                                    .send_request(ClientRequest::DirectRequest(pid, serialized_msg))
-                                    .await?;
+                                handle.direct_request(
+                                    pid,
+                                    &response
+                                ).await?;
                             }
                         }
                     }
@@ -487,15 +481,9 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             spawn(async move {
                 // must wait for the listener to start
                 let msg = Message::ConductorIdIs(conductor_peerid);
-                let serialized_msg = serialize_msg::<Message>(&msg)
-                    .context(SerializationSnafu)
-                    .context(HandleSnafu)?;
                 while r.is_empty() {
                     handle_dup
-                        .send_request(ClientRequest::GossipMsg(
-                            Topic::new("global"),
-                            serialized_msg.clone(),
-                        ))
+                        .gossip("global".to_string(), &msg)
                         .await
                         .context(HandleSnafu)?;
                     sleep(Duration::from_secs(1)).await;
@@ -542,15 +530,9 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 padding: vec![0; PADDING_SIZE],
             });
 
-            let serialized_kill_msg = serialize_msg::<Message>(&kill_msg)
-                .context(SerializationSnafu)
-                .context(HandleSnafu)?;
             for peer_id in handle.connected_peers().await {
                 handle
-                    .send_request(ClientRequest::DirectRequest(
-                        peer_id,
-                        serialized_kill_msg.clone(),
-                    ))
+                    .direct_request(peer_id, &kill_msg)
                     .await
                     .context(HandleSnafu)?
             }
@@ -633,9 +615,8 @@ pub async fn conductor_direct_message(
         epoch: handle_dup.state().await.current_epoch.epoch_idx,
         padding: vec![0; PADDING_SIZE],
     });
-    let serialized_msg = serialize_msg::<Message>(&msg).context(SerializationSnafu)?;
-    handle_dup
-        .send_request(ClientRequest::DirectRequest(chosen_peer, serialized_msg))
+    handle
+        .direct_request(chosen_peer, &msg)
         .await?;
 
     if res_fut.await.is_err() {
@@ -663,9 +644,8 @@ pub async fn conductor_direct_message(
             req: CounterRequest::StateRequest,
             broadcast_type: ConductorMessageMethod::DirectMessage(chosen_peer),
         });
-        let serialized_msg = serialize_msg::<Message>(&msg).context(SerializationSnafu)?;
         handle_dup
-            .send_request(ClientRequest::DirectRequest(*peer, serialized_msg))
+            .direct_request(*peer, &msg)
             .await?;
     }
 
@@ -724,15 +704,12 @@ pub async fn conductor_broadcast(
             .context(HandleSnafu)?;
 
         handle_dup
-            .send_request(ClientRequest::DirectRequest(chosen_peer, serialized_msg))
+            .direct_request(chosen_peer, &msg)
             .await
             .context(HandleSnafu)?;
 
-        handle_dup
-            .send_request(ClientRequest::DirectRequest(
-                chosen_peer,
-                serialized_msg_direct,
-            ))
+        handle_dup.
+            direct_request(chosen_peer, &increment_leader_msg)
             .await
             .context(HandleSnafu)?;
         Ok::<(), CounterError>(())
