@@ -1178,6 +1178,18 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         events.iter().map(|(_, x)| x.clone()).collect(),
                     );
                     ctx.send_decide(current_view, &events);
+
+                    // Add qc to decision cache
+                    debug!(?decide_qc, "Storing QC");
+                    pl.inner
+                        .storage
+                        .update(|mut m| {
+                            let qc = decide_qc.clone();
+                            async move { m.insert_qc(qc).await }
+                        })
+                        .await
+                        .context(StorageSnafu)?;
+
                     let mut pqc = pl.inner.prepare_qc.write().await;
                     let mut lqc = pl.inner.locked_qc.write().await;
                     *old_state = Arc::new(state);

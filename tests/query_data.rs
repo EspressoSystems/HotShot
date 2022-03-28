@@ -116,7 +116,7 @@ async fn sync_newest_quorom() {
         phaselock.start().await;
     }
 
-    println!("Before round 1:");
+    info!("Before round 1:");
     validate_qc_numbers(&phaselocks, 0).await;
 
     // Two nodes propose transactions
@@ -138,7 +138,7 @@ async fn sync_newest_quorom() {
         .await
         .expect("Could not run round");
 
-    println!("After round 1:");
+    info!("After round 1:");
     validate_qc_numbers(&phaselocks, 1).await;
 
     // Have another node join, this node should get QC view number 1 send to it
@@ -179,14 +179,16 @@ async fn sync_newest_quorom() {
     .await
     .expect("Could not init phaselock");
     phaselock.start().await;
-    // wait a second for the phaselock to start up
-    async_std::task::sleep(Duration::from_millis(1500)).await;
-    // New node now should have QC 1
-    println!("New node:");
-    validate_qc_numbers(&[phaselock.clone()], 1).await;
 
-    // now run the round with this new node connected
+    // wait a second for the phaselock to start up
+    async_std::task::sleep(Duration::from_millis(150)).await;
+
+    // All nodes should now have QC 1
     phaselocks.push(phaselock);
+    info!("After new node joined:");
+    validate_qc_numbers(&phaselocks, 1).await;
+
+    // run the round with this new node connected
 
     // Two nodes propose transactions
     debug!("Proposing two transactions");
@@ -207,7 +209,7 @@ async fn sync_newest_quorom() {
         .await
         .expect("Could not run round");
 
-    println!("After round 2:");
+    info!("After round 2:");
     validate_qc_numbers(&phaselocks, 9).await;
 }
 
@@ -223,7 +225,7 @@ async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
             .unwrap()
             .unwrap()
             .view_number;
-        println!(
+        info!(
             "{} is at view number {} (expected {})",
             index, newest_view_number, expected
         );

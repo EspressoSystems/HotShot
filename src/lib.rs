@@ -627,6 +627,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                             "Could not update the background round runner of a new view number"
                         );
                     }
+
+                    // And make sure to update the phaselock `committed_leaf`
+                    *self.inner.committed_leaf.write().await = leaf_hash;
                 }
             }
         }
