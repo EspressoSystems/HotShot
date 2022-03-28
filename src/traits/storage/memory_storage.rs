@@ -124,7 +124,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             let iter = self.inner.view_to_qc.iter();
             let idx = match iter.max_by_key(|pair| *pair.key()) {
                 Some(pair) => *pair.value(),
-                None => return Ok(None)
+                None => return Ok(None),
             };
             let qcs = self.inner.qcs.read().await;
             Ok(Some(qcs[idx].clone()))
