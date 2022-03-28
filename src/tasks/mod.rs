@@ -12,7 +12,7 @@ use phaselock_types::{
     message::Message,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
-use phaselock_utils::broadcast::{channel, BroadcastSender};
+use phaselock_utils::broadcast::channel;
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, info_span, trace, warn, Instrument};
 
@@ -92,10 +92,11 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
         shut_down: shut_down.clone(),
         storage: phaselock.inner.storage.clone(),
     };
+    *phaselock.inner.event_sender.write().await = Some(sender);
+
     let node_id = phaselock.inner.public_key.nonce;
     let task = spawn(
         round_runner_task(
-            sender,
             phaselock.clone(),
             pause,
             run_once,
@@ -206,15 +207,12 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
 /// - [`phaselock.next_view`]
 /// - [`phaselock.run_round`]
 ///
-/// If any error occurs, they will be send to `channel` as an [`Event`] with `EventType::Error` or `EventType::Timeout` together with the current view number and stage.
+/// If any error occurs, they will be send to `phaselock.inner.event_sender` as an [`Event`] with `EventType::Error` or `EventType::Timeout` together with the current view number and stage.
 ///
 /// [`phaselock.next_view`]: ../struct.PhaseLock.html#method.next_view
 /// [`phaselock.run_round`]: ../struct.PhaseLock.html#method.run_round
 #[allow(clippy::too_many_lines)]
 pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
-    channel: BroadcastSender<
-        Event<<I as NodeImplementation<N>>::Block, <I as NodeImplementation<N>>::State>,
-    >,
     phaselock: PhaseLock<I, N>,
     pause: Arc<RwLock<bool>>,
     run_once: Arc<RwLock<bool>>,
@@ -271,18 +269,18 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
         }
 
         // Send the next view
-        let next_view_res = phaselock.next_view(view, Some(&channel)).await;
+        let next_view_res = phaselock.next_view(view).await;
         // If we fail to send the next view, broadcast the error and pause
         if let Err(e) = next_view_res {
-            let x = channel
-                .send_async(Event {
+            if !phaselock
+                .send_event(Event {
                     view_number: view,
                     stage: e.get_stage().unwrap_or(Stage::None),
 
                     event: EventType::Error { error: Arc::new(e) },
                 })
-                .await;
-            if x.is_err() {
+                .await
+            {
                 error!("All event streams closed! Shutting down.");
                 break;
             }
@@ -293,8 +291,7 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
         view += 1;
         // run the next block, with a timeout
         let t = Duration::from_millis(int_duration);
-        let round_res =
-            async_std::future::timeout(t, phaselock.run_round(view, Some(&channel))).await;
+        let round_res = async_std::future::timeout(t, phaselock.run_round(view)).await;
         match round_res {
             // If it succeded, simply reset the timeout
             Ok(Ok(x)) => {
@@ -307,14 +304,14 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
             }
             // If it errored, broadcast the error, reset the timeout, and continue
             Ok(Err(e)) => {
-                let x = channel
-                    .send_async(Event {
+                if !phaselock
+                    .send_event(Event {
                         view_number: view,
                         stage: e.get_stage().unwrap_or(Stage::None),
                         event: EventType::Error { error: Arc::new(e) },
                     })
-                    .await;
-                if x.is_err() {
+                    .await
+                {
                     error!("All event streams closed! Shutting down.");
                     break;
                 }
@@ -323,14 +320,14 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
             // if we timed out, log it, send the event, and increase the timeout
             Err(_) => {
                 warn!("Round timed out");
-                let x = channel
-                    .send_async(Event {
+                if !phaselock
+                    .send_event(Event {
                         view_number: view,
                         stage: Stage::None,
                         event: EventType::ViewTimeout { view_number: view },
                     })
-                    .await;
-                if x.is_err() {
+                    .await
+                {
                     error!("All event streams closed! Shutting down.");
                     break;
                 }

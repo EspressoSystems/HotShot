@@ -70,15 +70,18 @@ where
     }
 }
 
-impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialRound<I, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialRound<I, N>
+where
+    Option<Event<I::Block, I::State>>: Clone,
+{
     /// Creates a new state machine
-    pub fn new(
-        phaselock: PhaseLock<I, N>,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Self {
+    pub async fn new(phaselock: PhaseLock<I, N>, current_view: u64) -> Self {
+        let sender = {
+            let lock = phaselock.inner.event_sender.read().await;
+            (&*lock).clone()
+        };
         Self {
-            state: SequentialState::Start(channel.cloned()),
+            state: SequentialState::Start(sender),
             phaselock,
             current_view,
         }

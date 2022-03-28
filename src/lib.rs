@@ -43,11 +43,8 @@ use crate::{
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
 };
+use async_std::sync::{Mutex, RwLock};
 use async_std::task::JoinHandle;
-use async_std::{
-    sync::{Mutex, RwLock},
-    task::spawn,
-};
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage},
@@ -152,6 +149,9 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// This `PhaseLock` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
 
+    /// Sender for [`Event`]s
+    event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
+
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
 }
@@ -236,6 +236,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
+            event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
         };
         let leaf_hash = leaf.hash();
@@ -325,12 +326,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// # Errors
     ///
     /// Returns an error if an underlying networking error occurs
-    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn next_view(
-        &self,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Result<()> {
+    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    pub async fn next_view(&self, current_view: u64) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
         // If we are the new leader, do nothing
@@ -359,18 +356,29 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             trace!("NewView packed");
             self.inner.new_view_queue.push(view_message).await;
         }
-        send_event::<I::Block, I::State, { N }>(
-            channel,
-            Event {
+        self.send_event(Event {
+            view_number: current_view,
+            stage: Stage::None,
+            event: EventType::NewView {
                 view_number: current_view,
-                stage: Stage::None,
-                event: EventType::NewView {
-                    view_number: current_view,
-                },
             },
-        )
+        })
         .await;
         Ok(())
+    }
+
+    /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
+    ///
+    /// Returns `true` if the event was send, `false` otherwise
+    pub async fn send_event(&self, event: Event<I::Block, I::State>) -> bool {
+        if let Some(c) = self.inner.event_sender.read().await.as_ref() {
+            if let Err(e) = c.send_async(event).await {
+                warn!(?e, "Could not send event to the registered broadcaster");
+            } else {
+                return true;
+            }
+        }
+        false
     }
 
     /// Runs a single round of consensus
@@ -381,13 +389,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Panics if consensus hits a bad round
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn run_round(
-        &self,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Result<u64> {
-        let state = state_machine::SequentialRound::new(self.clone(), current_view, channel);
+    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    pub async fn run_round(&self, current_view: u64) -> Result<u64> {
+        let state = state_machine::SequentialRound::new(self.clone(), current_view).await;
         // Do waitup
         let time = Instant::now();
         let duration = Duration::from_millis(self.inner.config.round_start_delay);
@@ -630,6 +634,17 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
 
                     // And make sure to update the phaselock `committed_leaf`
                     *self.inner.committed_leaf.write().await = leaf_hash;
+
+                    // Broadcast that we're updated
+
+                    self.send_event(Event {
+                        view_number: new_view_number,
+                        stage: Stage::None,
+                        event: EventType::Synced {
+                            view_number: new_view_number,
+                        },
+                    })
+                    .await;
                 }
             }
         }
@@ -644,26 +659,22 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 match load_latest_state::<I, N>(&self.inner.storage).await {
                     Ok(Some((quorum_certificate, leaf, state))) => {
                         let phaselock = self.clone();
-                        spawn(async move {
-                            // TODO(vko): This sleep is needed else the tests lock up, and I don't know why
-                            async_std::task::sleep(Duration::from_millis(100)).await;
-                            if let Err(e) = phaselock
-                                .send_direct_message(
-                                    DataMessage::NewestQuorumCertificate {
-                                        quorum_certificate,
-                                        state,
-                                        block: leaf.item,
-                                    },
-                                    peer.clone(),
-                                )
-                                .await
-                            {
-                                error!(
-                                    ?e,
-                                    "Could not send newest quorumcertificate to node {:?}", peer
-                                );
-                            }
-                        });
+                        if let Err(e) = phaselock
+                            .send_direct_message(
+                                DataMessage::NewestQuorumCertificate {
+                                    quorum_certificate,
+                                    state,
+                                    block: leaf.item,
+                                },
+                                peer.clone(),
+                            )
+                            .await
+                        {
+                            error!(
+                                ?e,
+                                "Could not send newest quorumcertificate to node {:?}", peer
+                            );
+                        }
                     }
                     Ok(None) => {
                         info!("Node connected but we have no QC yet");
@@ -688,18 +699,6 @@ fn generate_qc<'a>(
     key_set.combine_signatures(signatures)
 }
 
-/// Sends an event over a `Some(BroadcastSender<T>)`, does nothing otherwise
-async fn send_event<B, S, const N: usize>(
-    channel: Option<&BroadcastSender<Event<B, S>>>,
-    event: Event<B, S>,
-) where
-    B: Send + Sync + Clone,
-    S: Send + Sync + Clone,
-{
-    if let Some(c) = channel {
-        let _result = c.send_async(event).await;
-    }
-}
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`State`] from the given [`Storage`]
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,

@@ -11,7 +11,7 @@ use phaselock::{
         implementations::{DummyReliability, MemoryNetwork},
         NodeImplementation,
     },
-    types::{Message, PhaseLockHandle},
+    types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
 };
 use phaselock_types::traits::storage::Storage;
@@ -165,7 +165,7 @@ async fn sync_newest_quorom() {
         start_delay: 1,
     };
     debug!(?config);
-    let (_, phaselock) = PhaseLock::<NODE, H_256>::init(
+    let (_, mut phaselock) = PhaseLock::<NODE, H_256>::init(
         <NODE as NodeImplementation<H_256>>::Block::default(),
         sks.public_keys(),
         sks.secret_key_share(node_id),
@@ -180,8 +180,21 @@ async fn sync_newest_quorom() {
     .expect("Could not init phaselock");
     phaselock.start().await;
 
-    // wait a second for the phaselock to start up
-    async_std::task::sleep(Duration::from_millis(150)).await;
+    // wait for the phaselock to start up
+
+    // These events can come in any order, and `EventType` is not `Ord` (and it shouldn't be)
+    // so we have to manually match the two cases
+    let first_event = phaselock.next_event().await.unwrap();
+    let second_event = phaselock.next_event().await.unwrap();
+
+    match (first_event.event, second_event.event) {
+        (EventType::NewView { .. }, EventType::Synced { .. }) => {} // ok
+        (EventType::Synced { .. }, EventType::NewView { .. }) => {} // ok
+        (first, second) => panic!(
+            "Expected NewView & Synced, got {:?} and {:?}",
+            first, second
+        ),
+    }
 
     // All nodes should now have QC 1
     phaselocks.push(phaselock);
