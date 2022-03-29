@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust Nightly Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2022-03-10
+          toolchain: nightly-2022-03-28
           override: true
 
       - name: Configure Git
