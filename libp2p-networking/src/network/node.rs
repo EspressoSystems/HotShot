@@ -20,7 +20,7 @@ use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
         error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
-        MessageAuthenticity, MessageId, ValidationMode, Topic,
+        MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{Identify, IdentifyConfig},
     identity::Keypair,
@@ -312,11 +312,17 @@ impl NetworkNode {
                     GossipMsg(topic, contents) => {
                         behaviour.publish_gossip(Topic::new(topic), contents);
                     }
-                    Subscribe(t) => {
+                    Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
+                        if chan.send(()).is_err() {
+                            error!("finished subscribing but response channel dropped");
+                        }
                     }
-                    Unsubscribe(t) => {
+                    Unsubscribe(t, chan) => {
                         behaviour.unsubscribe_gossip(&t);
+                        if chan.send(()).is_err() {
+                            error!("finished unsubscribing but response channel dropped");
+                        }
                     }
                     DirectRequest(pid, msg) => {
                         behaviour.add_direct_request(pid, msg);

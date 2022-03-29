@@ -1,5 +1,9 @@
-use async_std::sync::{Mutex, MutexGuard};
+use async_std::{
+    prelude::StreamExt,
+    sync::{Mutex, MutexGuard},
+};
 use flume::{unbounded, Receiver, Sender};
+use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
 use tracing::warn;
 
@@ -113,13 +117,17 @@ impl<T> SubscribableMutex<T> {
         }
     }
 
-    /// Wait until `condition` returns `true`. Signal on [`ready_chan`]
-    pub async fn wait_until_with_trigger<F>(&self, mut f: F, ready_chan: Sender<bool>)
-    where
-        F: FnMut(&T) -> bool,
+    /// Wait until `f` returns `true`. Signal on [`ready_chan`]
+    /// once has begun to listen
+    async fn wait_until_with_trigger_inner<'a, F>(
+        &self,
+        mut f: F,
+        ready_chan: futures::channel::oneshot::Sender<()>,
+    ) where
+        F: FnMut(&T) -> bool + 'a,
     {
         let receiver = self.subscribe().await;
-        if ready_chan.send_async(true).await.is_err() {
+        if ready_chan.send(()).is_err() {
             warn!("unable to notify that channel is ready");
         };
         loop {
@@ -134,21 +142,36 @@ impl<T> SubscribableMutex<T> {
         }
     }
 
-    /// Wait `timeout` until `f` returns `true`. Will return `Ok(())` if the function returned `true` before the time elapsed.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when this function timed out.
-    pub async fn wait_timeout_until_with_trigger<F>(
-        &self,
+    /// Wait until `f` returns `true`. Turns a stream with two ordered
+    /// events. The first event indicates that the stream is now listening for
+    /// the state change, and the second event indicates that `f` has become true
+    pub fn wait_until_with_trigger<'a, F>(
+        &'a self,
+        f: F,
+    ) -> FuturesOrdered<impl Future<Output = ()> + 'a>
+    where
+        F: FnMut(&T) -> bool + 'a,
+    {
+        let (s, r) = futures::channel::oneshot::channel::<()>();
+        let mut result = FuturesOrdered::new();
+        let f1 = r.map(|_| ()).left_future();
+        let f2 = self.wait_until_with_trigger_inner(f, s).right_future();
+        result.push(f1);
+        result.push(f2);
+        result
+    }
+
+    /// Same functionality as `Self::wait_until_with_trigger`, except
+    /// with timeout `timeout` on both events in stream
+    pub fn wait_timeout_until_with_trigger<'a, F>(
+        &'a self,
         timeout: Duration,
         f: F,
-        ready_chan: Sender<bool>,
-    ) -> Result<(), async_std::future::TimeoutError>
+    ) -> async_std::stream::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
     where
-        F: FnMut(&T) -> bool,
+        F: FnMut(&T) -> bool + 'a,
     {
-        async_std::future::timeout(timeout, self.wait_until_with_trigger(f, ready_chan)).await
+        self.wait_until_with_trigger(f).timeout(timeout)
     }
 
     /// Wait `timeout` until `f` returns `true`. Will return `Ok(())` if the function returned `true` before the time elapsed.

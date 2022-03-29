@@ -13,7 +13,7 @@ pub use self::{
 
 use self::{
     error::{DHTError, TransportLaunchSnafu},
-    node::network_node_handle_error::{RecvSnafu, TimeoutSnafu},
+    node::network_node_handle_error::TimeoutSnafu,
 };
 use crate::direct_message::DirectMessageResponse;
 use async_std::{future::timeout, task::spawn};
@@ -24,7 +24,6 @@ use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
     dns,
-    gossipsub::IdentTopic as Topic,
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
@@ -110,9 +109,9 @@ pub(crate) enum ClientRequest {
     /// broadcast a serialized message
     GossipMsg(String, Vec<u8>),
     /// subscribe to a topic
-    Subscribe(String),
+    Subscribe(String, Sender<()>),
     /// unsubscribe from a topic
-    Unsubscribe(String),
+    Unsubscribe(String, Sender<()>),
     /// client request to send a direct serialized message
     DirectRequest(PeerId, Vec<u8>),
     /// client request to send a direct reply to a message
@@ -231,7 +230,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
                         break;
                     },
                     event = recv_event.recv_async().fuse() => {
-                        event_handler(event.context(RecvSnafu)?, handle.clone()).await?;
+                        event_handler(event.map_err(|_| NetworkNodeHandleError::RecvError)?, handle.clone()).await?;
                     },
                 );
             }
@@ -252,9 +251,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     handle: &Arc<NetworkNodeHandle<S>>,
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
-    handle
-        .add_known_peers(known_nodes)
-        .await?;
+    handle.add_known_peers(known_nodes).await?;
     timeout(
         timeout_len,
         NetworkNodeHandle::wait_to_connect(
@@ -266,9 +263,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     )
     .await
     .context(TimeoutSnafu)??;
-    handle
-        .subscribe("global".to_string())
-        .await?;
+    handle.subscribe("global".to_string()).await?;
 
     Ok(())
 }

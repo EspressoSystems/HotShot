@@ -1,14 +1,18 @@
-use crate::{network::{
-    error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
-    NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
-}, direct_message::DirectMessageResponse};
+use crate::{
+    direct_message::DirectMessageResponse,
+    network::{
+        error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
+        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
+    },
+};
 use async_std::{
     future::TimeoutError,
     sync::{Condvar, Mutex},
 };
 use bincode::Options;
-use flume::{bounded, Receiver, RecvError, SendError, Sender};
-use libp2p::{Multiaddr, PeerId, request_response::ResponseChannel};
+use flume::{bounded, Receiver, SendError, Sender};
+use futures::{stream::FuturesOrdered, Future};
+use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -76,7 +80,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(NetworkNodeHandle {
             network_config: config,
             state_changed: Condvar::new(),
-            state: Default::default(),
+            state: std::sync::Arc::default(),
             send_network: send_chan,
             recv_network: recv_chan,
             killed: Arc::new(Mutex::new(false)),
@@ -98,8 +102,9 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn shutdown(&self) -> Result<(), NetworkNodeHandleError> {
         self.send_network
             .send_async(ClientRequest::Shutdown)
-            .await.map_err(|_| NetworkNodeHandleError::SendError)?;
-        /// if this fails, the thread has already been killed.
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        // if this fails, the thread has already been killed.
         self.kill_switch
             .send_async(())
             .await
@@ -119,7 +124,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut connected_ok = false;
         let mut known_ok = false;
         while !(known_ok && connected_ok) {
-            match chan.recv_async().await.context(RecvSnafu)? {
+            match chan
+                .recv_async()
+                .await
+                .map_err(|_| NetworkNodeHandleError::RecvError)?
+            {
                 NetworkEvent::UpdateConnectedPeers(pids) => {
                     info!(
                         "updating connected peers to: {}, waiting on {}",
@@ -158,8 +167,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 impl<S> NetworkNodeHandle<S> {
     /// Insert a record into the kademlia DHT
     /// # Errors
-    /// - Will return `DHTError` when encountering an error putting to DHT
-    /// - Will return `SerializationError` when unable to serialize the key or value
+    /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
     pub async fn put_record(
         &self,
         key: &impl Serialize,
@@ -188,9 +197,9 @@ impl<S> NetworkNodeHandle<S> {
     /// Receive a record from the kademlia DHT if it exists.
     /// Must be replicated on at least 2 nodes
     /// # Errors
-    /// - Will return `DHTError` when encountering an error putting to DHT
-    /// - Will return `SerializationError` when unable to serialize the key
-    /// - Will return `DeserializationError` when unable to deserialize the returned value
+    /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
+    /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
     pub async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: &impl Serialize,
@@ -218,10 +227,10 @@ impl<S> NetworkNodeHandle<S> {
 
     /// Get a record from the kademlia DHT with a timeout
     /// # Errors
-    /// - Will return `DHTError` when encountering an error putting to DHT
-    /// - Will return `TimeoutError` when times out
-    /// - Will return `SerializationError` when unable to serialize the key
-    /// - Will return `DeserializationError` when unable to deserialize the returned value
+    /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
+    /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
+    /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
     pub async fn get_record_timeout<V: for<'a> Deserialize<'a>>(
         &self,
         key: &impl Serialize,
@@ -236,9 +245,10 @@ impl<S> NetworkNodeHandle<S> {
 
     /// Insert a record into the kademlia DHT with a timeout
     /// # Errors
-    /// - Will return `DHTError` when encountering an error putting to DHT
-    /// - Will return `TimeoutError` when times out
-    /// - Will return `SerializationError` when unable to serialize the key or value
+    /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
+    /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key or value
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn put_record_timeout(
         &self,
         key: &impl Serialize,
@@ -255,6 +265,8 @@ impl<S> NetworkNodeHandle<S> {
     /// Notify the webui that either the `state` or `connection_state` has changed.
     ///
     /// If the webui is not started, this will do nothing.
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn notify_webui(&self) {
         let mut lock = self.webui_listeners.lock().await;
         // Keep a list of indexes that are unable to send the update
@@ -271,51 +283,120 @@ impl<S> NetworkNodeHandle<S> {
     }
 
     /// Subscribe to a topic
-    pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError>{
-        let req = ClientRequest::Subscribe(topic);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::Subscribe(topic, s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
     /// Unsubscribe from a topic
-    pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError>{
-        let req = ClientRequest::Unsubscribe(topic);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::Unsubscribe(topic, s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
+    /// Ignore `peers` when pruning
+    /// e.g. maintain their connection
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::IgnorePeers(peers);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    pub async fn direct_request(&self, peer_id: PeerId, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+    /// Make a direct request to `peer_id` containing `msg`
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
+    pub async fn direct_request(
+        &self,
+        peer_id: PeerId,
+        msg: &impl Serialize,
+    ) -> Result<(), NetworkNodeHandleError> {
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    pub async fn direct_response(&self, chan: ResponseChannel<DirectMessageResponse>, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+    /// Reply with `msg` to a request over `chan`
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
+    pub async fn direct_response(
+        &self,
+        chan: ResponseChannel<DirectMessageResponse>,
+        msg: &impl Serialize,
+    ) -> Result<(), NetworkNodeHandleError> {
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    pub async fn gossip(&self, topic: String, msg: &impl Serialize) -> Result<(), NetworkNodeHandleError> {
+    /// Gossip a message to peers
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
+    pub async fn gossip(
+        &self,
+        topic: String,
+        msg: &impl Serialize,
+    ) -> Result<(), NetworkNodeHandleError> {
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    pub async fn set_prune(&self, prune: bool) -> Result<(), NetworkNodeHandleError> {
+    /// Toggle pruning the number of connections
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    pub async fn toggle_prune(&self, prune: bool) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::Pruning(prune);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    pub async fn add_known_peers(&self, known_peers: Vec<(Option<PeerId>, Multiaddr)>) -> Result<(), NetworkNodeHandleError> {
+    /// Tell libp2p about known network nodes
+    /// # Errors
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
+    pub async fn add_known_peers(
+        &self,
+        known_peers: Vec<(Option<PeerId>, Multiaddr)>,
+    ) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::AddKnownPeers(known_peers);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
     /// Get a clone of the internal `killed` receiver
@@ -336,11 +417,12 @@ impl<S> NetworkNodeHandle<S> {
     /// Send a client request to the network
     ///
     /// # Errors
-    ///
-    /// Will throw a [`SendSnafu`] error if all receivers are dropped.
+    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
-        self.send_network.send_async(req)
-            .await.map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
         Ok(())
     }
 
@@ -433,18 +515,43 @@ impl<S> NetworkNodeHandle<S> {
     }
 
     /// Call `wait_timeout_until` on the state's [`SubscribableMutex`]
-    /// will notify the caller through `chan` when listening for event
     /// # Errors
-    /// Will throw a [`TimeoutSnafu`] error upon timeout
+    /// Will throw a [`NetworkNodeHandleError::TimeoutError`] error upon timeout
     pub async fn state_wait_timeout_until<F>(
         &self,
         timeout: Duration,
         f: F,
-    ) -> Result<(), async_std::future::TimeoutError>
+    ) -> Result<(), NetworkNodeHandleError>
     where
         F: FnMut(&S) -> bool,
     {
-        self.state.wait_timeout_until(timeout, f).await
+        self.state
+            .wait_timeout_until(timeout, f)
+            .await
+            .context(TimeoutSnafu)
+    }
+
+    /// Call `wait_timeout_until_with_trigger` on the state's [`SubscribableMutex`]
+    pub fn state_wait_timeout_until_with_trigger<'a, F>(
+        &'a self,
+        timeout: Duration,
+        f: F,
+    ) -> async_std::stream::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
+    where
+        F: FnMut(&S) -> bool + 'a,
+    {
+        self.state.wait_timeout_until_with_trigger(timeout, f)
+    }
+
+    /// Call `wait_until` on the state's [`SubscribableMutex`]
+    /// # Errors
+    /// Will throw a [`NetworkNodeHandleError::TimeoutError`] error upon timeout
+    pub async fn state_wait_until<F>(&self, f: F) -> Result<(), NetworkNodeHandleError>
+    where
+        F: FnMut(&S) -> bool,
+    {
+        self.state.wait_until(f).await;
+        Ok(())
     }
 }
 
@@ -477,10 +584,7 @@ pub enum NetworkNodeHandleError {
     /// Error sending request to network
     SendError,
     /// Error receiving message from network
-    RecvError {
-        /// source of error
-        source: RecvError,
-    },
+    RecvError,
     /// Error building Node config
     NodeConfigError {
         /// source of error
@@ -496,7 +600,9 @@ pub enum NetworkNodeHandleError {
         /// source of error
         source: DHTError,
     },
+    /// The inner [`NetworkNode`] has already been killed
     CantKillTwice {
+        /// dummy source
         source: SendError<()>,
     },
 }
