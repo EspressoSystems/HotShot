@@ -156,6 +156,12 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A store that operates on a value with 2 different keys.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Implementations should implement [`DualKeyValue`] before they can use [`KKVStore`].</span>
@@ -242,6 +248,12 @@
     <span class="doccomment">/// Load the `K` value based on the 2nd key.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">load_by_key_2</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K::Key2</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">load_by_key_2_ref</span>(<span class="kw-2">&amp;</span><span class="ident">k</span>).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Load the latest inserted entry in this `KKVStore`</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">load_latest</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="ident">read</span>.<span class="ident">values</span>.<span class="ident">last</span>().<span class="ident">cloned</span>()
     }
 
     <span class="doccomment">/// Insert a value into this `KKVStore`</span>

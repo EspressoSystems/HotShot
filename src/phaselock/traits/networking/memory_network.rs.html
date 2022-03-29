@@ -563,26 +563,63 @@
 <span id="562">562</span>
 <span id="563">563</span>
 <span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
 <span class="doccomment">//! integration tests.</span>
 
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">FailedToSerializeSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PubKey</span>;
 <span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
 <span class="kw">use</span> <span class="ident">futures::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkChange</span>;
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
-
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">FailedToSerializeSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PubKey</span>;
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="doccomment">/// dummy implementation of network reliability</span>
@@ -641,6 +678,11 @@
     <span class="ident">direct_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The master map</span>
     <span class="ident">master_map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Input for network change messages</span>
+    <span class="ident">network_changes_input</span>: <span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Output for network change messages</span>
+    <span class="ident">network_changes_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// In memory only network simulator.</span>
@@ -680,6 +722,7 @@
         <span class="kw">let</span> (<span class="ident">direct_input</span>, <span class="ident">direct_task_recv</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="kw">let</span> (<span class="ident">broadcast_task_send</span>, <span class="ident">broadcast_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="kw">let</span> (<span class="ident">direct_task_send</span>, <span class="ident">direct_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">network_changes_input</span>, <span class="ident">network_changes_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
         <span class="macro">trace!</span>(<span class="string">&quot;Channels open, spawning background task&quot;</span>);
 
         <span class="ident">spawn</span>(
@@ -780,6 +823,15 @@
                 <span class="macro">info_span!</span>(<span class="string">&quot;MemoryNetwork Background task&quot;</span>, <span class="ident">id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="ident">pub_key</span>.<span class="ident">nonce</span>, <span class="ident">map</span> <span class="op">=</span> <span class="question-mark">?</span><span class="ident">master_map</span>),
             ),
         );
+        <span class="macro">trace!</span>(<span class="string">&quot;Notifying other networks of the new connected peer&quot;</span>);
+        <span class="kw">for</span> <span class="ident">other</span> <span class="kw">in</span> <span class="ident">master_map</span>.<span class="ident">map</span>.<span class="ident">iter</span>() {
+            <span class="ident">other</span>
+                .<span class="ident">value</span>()
+                .<span class="ident">inner</span>
+                .<span class="ident">network_changes_input</span>
+                .<span class="ident">try_send</span>(<span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">pub_key</span>.<span class="ident">clone</span>()))
+                .<span class="ident">expect</span>(<span class="string">&quot;Could not deliver message&quot;</span>);
+        }
         <span class="macro">trace!</span>(<span class="string">&quot;Task spawned, creating MemoryNetwork&quot;</span>);
         <span class="kw">let</span> <span class="ident">mn</span> <span class="op">=</span> <span class="ident">MemoryNetwork</span> {
             <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">MemoryNetworkInner</span> {
@@ -789,6 +841,8 @@
                 <span class="ident">broadcast_output</span>,
                 <span class="ident">direct_output</span>,
                 <span class="ident">master_map</span>: <span class="ident">master_map</span>.<span class="ident">clone</span>(),
+                <span class="ident">network_changes_input</span>,
+                <span class="ident">network_changes_output</span>,
             }),
         };
         <span class="ident">master_map</span>.<span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">pub_key</span>, <span class="ident">mn</span>.<span class="ident">clone</span>());
@@ -962,6 +1016,28 @@
 
     <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
         <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
+    }
+
+    <span class="kw">fn</span> <span class="ident">network_changes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="macro">debug!</span>(<span class="string">&quot;Waiting for network changes to show up&quot;</span>);
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+            <span class="comment">// Wait for the first message to come up</span>
+            <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
+                <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">first</span>, <span class="string">&quot;First message in network changes queue found&quot;</span>);
+                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
+                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_output</span>.<span class="ident">try_recv</span>() {
+                    <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
+                }
+                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+            } <span class="kw">else</span> {
+                <span class="macro">error!</span>(<span class="string">&quot;The underlying MemoryNetwork has shut down&quot;</span>);
+                <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
+            }
+        }
+        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryNetwork::direct_queue&quot;</span>, <span class="self">self</span>.<span class="ident">id</span> <span class="op">=</span> <span class="question-mark">?</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>))
+        .<span class="ident">boxed</span>()
     }
 }
 

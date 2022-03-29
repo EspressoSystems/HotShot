@@ -721,64 +721,6 @@
 <span id="720">720</span>
 <span id="721">721</span>
 <span id="722">722</span>
-<span id="723">723</span>
-<span id="724">724</span>
-<span id="725">725</span>
-<span id="726">726</span>
-<span id="727">727</span>
-<span id="728">728</span>
-<span id="729">729</span>
-<span id="730">730</span>
-<span id="731">731</span>
-<span id="732">732</span>
-<span id="733">733</span>
-<span id="734">734</span>
-<span id="735">735</span>
-<span id="736">736</span>
-<span id="737">737</span>
-<span id="738">738</span>
-<span id="739">739</span>
-<span id="740">740</span>
-<span id="741">741</span>
-<span id="742">742</span>
-<span id="743">743</span>
-<span id="744">744</span>
-<span id="745">745</span>
-<span id="746">746</span>
-<span id="747">747</span>
-<span id="748">748</span>
-<span id="749">749</span>
-<span id="750">750</span>
-<span id="751">751</span>
-<span id="752">752</span>
-<span id="753">753</span>
-<span id="754">754</span>
-<span id="755">755</span>
-<span id="756">756</span>
-<span id="757">757</span>
-<span id="758">758</span>
-<span id="759">759</span>
-<span id="760">760</span>
-<span id="761">761</span>
-<span id="762">762</span>
-<span id="763">763</span>
-<span id="764">764</span>
-<span id="765">765</span>
-<span id="766">766</span>
-<span id="767">767</span>
-<span id="768">768</span>
-<span id="769">769</span>
-<span id="770">770</span>
-<span id="771">771</span>
-<span id="772">772</span>
-<span id="773">773</span>
-<span id="774">774</span>
-<span id="775">775</span>
-<span id="776">776</span>
-<span id="777">777</span>
-<span id="778">778</span>
-<span id="779">779</span>
-<span id="780">780</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -817,30 +759,32 @@
 <span class="doccomment">/// Contains types used by the crate</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
 
+<span class="kw">mod</span> <span class="ident">tasks</span>;
+
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">Stage</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>},
-    <span class="ident">types</span>::{
-        <span class="ident">Commit</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">Message</span>, <span class="ident">NewView</span>, <span class="ident">PhaseLockHandle</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>,
-        <span class="ident">Vote</span>,
-    },
+    <span class="ident">types</span>::{<span class="ident">Commit</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">NewView</span>, <span class="ident">PhaseLockHandle</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">Vote</span>},
 };
 <span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
-<span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn</span>, <span class="ident">JoinHandle</span>};
+<span class="kw">use</span> <span class="ident">async_std::task::JoinHandle</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
-    <span class="ident">message::ConsensusMessage</span>,
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkError</span>, <span class="ident">node_implementation::TypeMap</span>},
+    <span class="ident">message</span>::{<span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>},
+    <span class="ident">traits</span>::{
+        <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>},
+        <span class="ident">node_implementation::TypeMap</span>,
+    },
 };
 <span class="kw">use</span> <span class="ident">phaselock_utils</span>::{
-    <span class="ident">broadcast</span>::{<span class="ident">channel</span>, <span class="ident">BroadcastSender</span>},
+    <span class="ident">broadcast::BroadcastSender</span>,
     <span class="ident">waitqueue</span>::{<span class="ident">WaitOnce</span>, <span class="ident">WaitQueue</span>},
 };
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
 
 <span class="comment">// -- Rexports</span>
 <span class="comment">// External</span>
@@ -927,6 +871,12 @@
     <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
     <span class="doccomment">/// This `PhaseLock` instance&#39;s stateful callback handler</span>
     <span class="ident">stateful_handler</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">I::StatefulHandler</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Sender for [`Event`]s</span>
+    <span class="ident">event_sender</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Senders to the background tasks.</span>
+    <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">PhaseLockInner</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span> {
@@ -1009,6 +959,8 @@
             <span class="ident">decide_waiter</span>: <span class="ident">WaitOnce::new</span>(),
             <span class="ident">storage</span>,
             <span class="ident">stateful_handler</span>: <span class="ident">Mutex::new</span>(<span class="ident">handler</span>),
+            <span class="ident">event_sender</span>: <span class="ident">RwLock::default</span>(),
+            <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle::default</span>(),
         };
         <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
         <span class="macro">trace!</span>(<span class="string">&quot;Genesis leaf hash: {:?}&quot;</span>, <span class="ident">leaf_hash</span>);
@@ -1097,12 +1049,8 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an error if an underlying networking error occurs</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>,<span class="ident">channel</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_view</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">current_view</span>: <span class="ident">u64</span>,
-        <span class="ident">channel</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">new_leader</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span> <span class="op">+</span> <span class="number">1</span>);
         <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">new_leader</span>, <span class="string">&quot;leader for next view&quot;</span>);
         <span class="comment">// If we are the new leader, do nothing</span>
@@ -1131,18 +1079,29 @@
             <span class="macro">trace!</span>(<span class="string">&quot;NewView packed&quot;</span>);
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">new_view_queue</span>.<span class="ident">push</span>(<span class="ident">view_message</span>).<span class="kw">await</span>;
         }
-        <span class="ident">send_event</span>::<span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, { <span class="ident">N</span> }<span class="op">&gt;</span>(
-            <span class="ident">channel</span>,
-            <span class="ident">Event</span> {
+        <span class="self">self</span>.<span class="ident">send_event</span>(<span class="ident">Event</span> {
+            <span class="ident">view_number</span>: <span class="ident">current_view</span>,
+            <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
+            <span class="ident">event</span>: <span class="ident">EventType::NewView</span> {
                 <span class="ident">view_number</span>: <span class="ident">current_view</span>,
-                <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
-                <span class="ident">event</span>: <span class="ident">EventType::NewView</span> {
-                    <span class="ident">view_number</span>: <span class="ident">current_view</span>,
-                },
             },
-        )
+        })
         .<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Sends an event over an event broadcaster if one is registered, does nothing otherwise</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `true` if the event was send, `false` otherwise</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">as_ref</span>() {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">c</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span> {
+                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not send event to the registered broadcaster&quot;</span>);
+            } <span class="kw">else</span> {
+                <span class="kw">return</span> <span class="bool-val">true</span>;
+            }
+        }
+        <span class="bool-val">false</span>
     }
 
     <span class="doccomment">/// Runs a single round of consensus</span>
@@ -1153,13 +1112,9 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Panics if consensus hits a bad round</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>,<span class="ident">channel</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_round</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">current_view</span>: <span class="ident">u64</span>,
-        <span class="ident">channel</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state_machine::SequentialRound::new</span>(<span class="self">self</span>.<span class="ident">clone</span>(), <span class="ident">current_view</span>, <span class="ident">channel</span>);
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">state_machine::SequentialRound::new</span>(<span class="self">self</span>.<span class="ident">clone</span>(), <span class="ident">current_view</span>).<span class="kw">await</span>;
         <span class="comment">// Do waitup</span>
         <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
         <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">round_start_delay</span>);
@@ -1167,82 +1122,6 @@
             <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="number">1</span>)).<span class="kw">await</span>;
         }
         <span class="ident">state</span>.<span class="kw">await</span>
-    }
-
-    <span class="doccomment">/// Spawns the background tasks for network processin for this instance</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// These will process in the background and load items into their designated queues</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Panics if the underlying network implementation incorrectly routes a network request to the</span>
-    <span class="doccomment">/// wrong queue</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spawn_networking_tasks</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-        <span class="comment">// Spawn broadcast processing task</span>
-        <span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="macro">info!</span>(<span class="string">&quot;Launching broadcast processing task&quot;</span>);
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
-                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">queue</span>) <span class="op">=</span> <span class="ident">networking</span>.<span class="ident">broadcast_queue</span>().<span class="kw">await</span> {
-                    <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
-                        <span class="macro">trace!</span>(<span class="string">&quot;No message, sleeping for {} ms&quot;</span>, <span class="ident">incremental_backoff_ms</span>);
-                        <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
-                        <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="comment">// Make sure to reset the backoff time</span>
-                    <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
-                    <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
-                        <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
-                        <span class="kw">match</span> <span class="ident">item</span> {
-                            <span class="ident">Message::Consensus</span>(<span class="ident">msg</span>) =&gt; {
-                                <span class="ident">phaselock</span>.<span class="ident">handle_broadcast_consensus_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
-                            }
-                        }
-                    }
-                    <span class="macro">trace!</span>(<span class="string">&quot;Items processed, querying for more&quot;</span>);
-                }
-            }
-            .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(
-                <span class="string">&quot;PhaseLock Broadcast Task&quot;</span>,
-                <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>
-            )),
-        );
-        <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-        <span class="comment">// Spawn direct processing task</span>
-        <span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="macro">info!</span>(<span class="string">&quot;Launching direct processing task&quot;</span>);
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">networking</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
-                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">queue</span>) <span class="op">=</span> <span class="ident">networking</span>.<span class="ident">direct_queue</span>().<span class="kw">await</span> {
-                    <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
-                        <span class="macro">trace!</span>(<span class="string">&quot;No message, sleeping for {} ms&quot;</span>, <span class="ident">incremental_backoff_ms</span>);
-                        <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
-                        <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="comment">// Make sure to reset the backoff time</span>
-                    <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
-                    <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">queue</span> {
-                        <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">item</span>, <span class="string">&quot;Processing item&quot;</span>);
-                        <span class="kw">match</span> <span class="ident">item</span> {
-                            <span class="ident">Message::Consensus</span>(<span class="ident">msg</span>) =&gt; {
-                                <span class="ident">phaselock</span>.<span class="ident">handle_direct_consensus_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
-                            }
-                        }
-                    }
-                    <span class="macro">trace!</span>(<span class="string">&quot;Items processed, querying for more&quot;</span>);
-                }
-            }
-            .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(
-                <span class="string">&quot;PhaseLock Direct Task&quot;</span>,
-                <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>
-            )),
-        );
     }
 
     <span class="doccomment">/// Publishes a transaction to the network</span>
@@ -1300,147 +1179,21 @@
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
         <span class="ident">handler</span>: <span class="ident">I::StatefulHandler</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">JoinHandle</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">input</span>, <span class="ident">output</span>) <span class="op">=</span> <span class="ident">channel</span>();
         <span class="comment">// Save a clone of the storage for the handle</span>
         <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
             <span class="ident">genesis</span>,
             <span class="ident">public_keys</span>,
             <span class="ident">secret_key_share</span>,
             <span class="ident">node_id</span>,
-            <span class="ident">config</span>.<span class="ident">clone</span>(),
+            <span class="ident">config</span>,
             <span class="ident">starting_state</span>,
             <span class="ident">networking</span>,
-            <span class="ident">storage</span>.<span class="ident">clone</span>(),
+            <span class="ident">storage</span>,
             <span class="ident">handler</span>,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">pause</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="bool-val">true</span>));
-        <span class="kw">let</span> <span class="ident">run_once</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="bool-val">false</span>));
-        <span class="kw">let</span> <span class="ident">shut_down</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="bool-val">false</span>));
-        <span class="comment">// Spawn the background tasks</span>
-        <span class="ident">phaselock</span>.<span class="ident">spawn_networking_tasks</span>().<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">PhaseLockHandle</span> {
-            <span class="ident">sender_handle</span>: <span class="ident">Arc::new</span>(<span class="ident">input</span>.<span class="ident">clone</span>()),
-            <span class="ident">phaselock</span>: <span class="ident">phaselock</span>.<span class="ident">clone</span>(),
-            <span class="ident">stream_output</span>: <span class="ident">output</span>,
-            <span class="ident">pause</span>: <span class="ident">pause</span>.<span class="ident">clone</span>(),
-            <span class="ident">run_once</span>: <span class="ident">run_once</span>.<span class="ident">clone</span>(),
-            <span class="ident">shut_down</span>: <span class="ident">shut_down</span>.<span class="ident">clone</span>(),
-            <span class="ident">storage</span>,
-        };
-        <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="comment">// Do waitup</span>
-                <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
-                <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">start_delay</span>);
-                <span class="kw">while</span> <span class="ident">Instant::now</span>().<span class="ident">duration_since</span>(<span class="ident">time</span>) <span class="op">&lt;</span> <span class="ident">duration</span> {
-                    <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-                }
-                <span class="kw">let</span> <span class="ident">channel</span> <span class="op">=</span> <span class="ident">input</span>;
-                <span class="kw">let</span> <span class="ident">default_interrupt_duration</span> <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>;
-                <span class="kw">let</span> (<span class="ident">int_mul</span>, <span class="ident">int_div</span>) <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">timeout_ratio</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">view</span> <span class="op">=</span> <span class="number">0</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
-                <span class="comment">// PhaseLock background handler loop</span>
-                <span class="kw">loop</span> {
-                    <span class="comment">// First, check for shutdown signal and break if sent</span>
-                    <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">shut_down</span>.<span class="ident">read</span>().<span class="kw">await</span> {
-                        <span class="kw">break</span>;
-                    }
-                    <span class="comment">// Capture the pause and run_once flags</span>
-                    <span class="comment">// Reset the run_once flag if its set</span>
-                    <span class="kw">let</span> <span class="ident">p_flag</span> <span class="op">=</span> {
-                        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">pause</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">run_once</span>.<span class="ident">write</span>().<span class="kw">await</span>;
-                        <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">r</span> {
-                            <span class="kw-2">*</span><span class="ident">r</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                            <span class="bool-val">false</span>
-                        } <span class="kw">else</span> {
-                            <span class="kw-2">*</span><span class="ident">p</span>
-                        }
-                    };
-                    <span class="comment">// If we are paused, sleep and continue</span>
-                    <span class="kw">if</span> <span class="ident">p_flag</span> {
-                        <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
-                        <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="comment">// Make sure to reset the backoff timeout</span>
-                    <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> <span class="number">10</span>;
+        <span class="kw">let</span> (<span class="ident">task</span>, <span class="ident">handle</span>) <span class="op">=</span> <span class="ident">tasks::spawn_all</span>(<span class="kw-2">&amp;</span><span class="ident">phaselock</span>).<span class="kw">await</span>;
 
-                    <span class="comment">// Send the next view</span>
-                    <span class="kw">let</span> <span class="ident">next_view_res</span> <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">next_view</span>(<span class="ident">view</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">channel</span>)).<span class="kw">await</span>;
-                    <span class="comment">// If we fail to send the next view, broadcast the error and pause</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">next_view_res</span> {
-                        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">channel</span>
-                            .<span class="ident">send_async</span>(<span class="ident">Event</span> {
-                                <span class="ident">view_number</span>: <span class="ident">view</span>,
-                                <span class="ident">stage</span>: <span class="ident">e</span>.<span class="ident">get_stage</span>().<span class="ident">unwrap_or</span>(<span class="ident">Stage::None</span>),
-
-                                <span class="ident">event</span>: <span class="ident">EventType::Error</span> { <span class="ident">error</span>: <span class="ident">Arc::new</span>(<span class="ident">e</span>) },
-                            })
-                            .<span class="kw">await</span>;
-                        <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">is_err</span>() {
-                            <span class="macro">error!</span>(<span class="string">&quot;All event streams closed! Shutting down.&quot;</span>);
-                            <span class="kw">break</span>;
-                        }
-                        <span class="kw-2">*</span><span class="ident">pause</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="bool-val">true</span>;
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="comment">// Increment the view counter</span>
-                    <span class="ident">view</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="comment">// run the next block, with a timeout</span>
-                    <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="ident">int_duration</span>);
-                    <span class="kw">let</span> <span class="ident">round_res</span> <span class="op">=</span>
-                        <span class="ident">async_std::future::timeout</span>(<span class="ident">t</span>, <span class="ident">phaselock</span>.<span class="ident">run_round</span>(<span class="ident">view</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">channel</span>)))
-                            .<span class="kw">await</span>;
-                    <span class="kw">match</span> <span class="ident">round_res</span> {
-                        <span class="comment">// If it succeded, simply reset the timeout</span>
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">x</span>)) =&gt; {
-                            <span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
-                            <span class="comment">// Check if we completed the same view we started</span>
-                            <span class="kw">if</span> <span class="ident">x</span> <span class="op">!</span><span class="op">=</span> <span class="ident">view</span> {
-                                <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">x</span>, <span class="question-mark">?</span><span class="ident">view</span>, <span class="string">&quot;Round short circuited&quot;</span>);
-                                <span class="ident">view</span> <span class="op">=</span> <span class="ident">x</span>;
-                            }
-                        }
-                        <span class="comment">// If it errored, broadcast the error, reset the timeout, and continue</span>
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)) =&gt; {
-                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">channel</span>
-                                .<span class="ident">send_async</span>(<span class="ident">Event</span> {
-                                    <span class="ident">view_number</span>: <span class="ident">view</span>,
-                                    <span class="ident">stage</span>: <span class="ident">e</span>.<span class="ident">get_stage</span>().<span class="ident">unwrap_or</span>(<span class="ident">Stage::None</span>),
-                                    <span class="ident">event</span>: <span class="ident">EventType::Error</span> { <span class="ident">error</span>: <span class="ident">Arc::new</span>(<span class="ident">e</span>) },
-                                })
-                                .<span class="kw">await</span>;
-                            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">is_err</span>() {
-                                <span class="macro">error!</span>(<span class="string">&quot;All event streams closed! Shutting down.&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="kw">continue</span>;
-                        }
-                        <span class="comment">// if we timed out, log it, send the event, and increase the timeout</span>
-                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                            <span class="macro">warn!</span>(<span class="string">&quot;Round timed out&quot;</span>);
-                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">channel</span>
-                                .<span class="ident">send_async</span>(<span class="ident">Event</span> {
-                                    <span class="ident">view_number</span>: <span class="ident">view</span>,
-                                    <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
-                                    <span class="ident">event</span>: <span class="ident">EventType::ViewTimeout</span> { <span class="ident">view_number</span>: <span class="ident">view</span> },
-                                })
-                                .<span class="kw">await</span>;
-                            <span class="kw">if</span> <span class="ident">x</span>.<span class="ident">is_err</span>() {
-                                <span class="macro">error!</span>(<span class="string">&quot;All event streams closed! Shutting down.&quot;</span>);
-                                <span class="kw">break</span>;
-                            }
-                            <span class="ident">int_duration</span> <span class="op">=</span> (<span class="ident">int_duration</span> <span class="op">*</span> <span class="ident">int_mul</span>) <span class="op">/</span> <span class="ident">int_div</span>;
-                        }
-                    }
-                }
-            }
-            .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;PhaseLock Background Driver&quot;</span>, <span class="ident">id</span> <span class="op">=</span> <span class="ident">node_id</span>)),
-        );
         <span class="prelude-val">Ok</span>((<span class="ident">task</span>, <span class="ident">handle</span>))
     }
 
@@ -1537,6 +1290,128 @@
             }
         }
     }
+
+    <span class="doccomment">/// Handle an incoming [`DataMessage`] that was broadcasted on the network</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_data_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>) {
+        <span class="kw">match</span> <span class="ident">msg</span> {
+            <span class="ident">DataMessage::NewestQuorumCertificate</span> { .. } =&gt; {}
+        }
+    }
+
+    <span class="doccomment">/// Handle an incoming [`DataMessage`] that directed at this node</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_data_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>) {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Incoming direct data message&quot;</span>);
+        <span class="kw">match</span> <span class="ident">msg</span> {
+            <span class="ident">DataMessage::NewestQuorumCertificate</span> {
+                <span class="ident">quorum_certificate</span>: <span class="ident">qc</span>,
+                <span class="ident">block</span>,
+                <span class="ident">state</span>,
+            } =&gt; {
+                <span class="kw">let</span> <span class="ident">own_newest</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_newest_qc</span>().<span class="kw">await</span> {
+                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not load QC&quot;</span>);
+                        <span class="kw">return</span>;
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="ident">n</span>) =&gt; <span class="ident">n</span>,
+                };
+                <span class="comment">// TODO: Don&#39;t blindly accept the newest QC but make sure it&#39;s valid with other nodes too</span>
+                <span class="comment">// we should be getting multiple data messages soon</span>
+                <span class="kw">let</span> <span class="ident">should_save</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">own</span>) <span class="op">=</span> <span class="ident">own_newest</span> {
+                    <span class="ident">own</span>.<span class="ident">view_number</span> <span class="op">&lt;</span> <span class="ident">qc</span>.<span class="ident">view_number</span> <span class="comment">// incoming view is newer</span>
+                } <span class="kw">else</span> {
+                    <span class="bool-val">true</span> <span class="comment">// we have no QC yet</span>
+                };
+                <span class="kw">if</span> <span class="ident">should_save</span> {
+                    <span class="kw">let</span> <span class="ident">new_view_number</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">view_number</span>;
+                    <span class="kw">let</span> <span class="ident">block_hash</span> <span class="op">=</span> <span class="ident">BlockContents::hash</span>(<span class="kw-2">&amp;</span><span class="ident">block</span>);
+                    <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">leaf_hash</span>;
+                    <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">Leaf::new</span>(<span class="ident">block</span>.<span class="ident">clone</span>(), <span class="ident">leaf_hash</span>);
+                    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="question-mark">?</span><span class="ident">block</span>, <span class="question-mark">?</span><span class="ident">state</span>, <span class="question-mark">?</span><span class="ident">qc</span>, <span class="string">&quot;Saving&quot;</span>);
+
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">storage</span>
+                        .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
+                            <span class="ident">m</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="ident">m</span>.<span class="ident">insert_block</span>(<span class="ident">block_hash</span>, <span class="ident">block</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="ident">m</span>.<span class="ident">insert_state</span>(<span class="ident">state</span>, <span class="ident">leaf_hash</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="ident">m</span>.<span class="ident">insert_qc</span>(<span class="ident">qc</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="prelude-val">Ok</span>(())
+                        })
+                        .<span class="kw">await</span>
+                    {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not insert incoming QC&quot;</span>);
+                    }
+                    <span class="comment">// Make sure to update the background round runner</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>
+                        .<span class="ident">inner</span>
+                        .<span class="ident">background_task_handle</span>
+                        .<span class="ident">send_to_round_runner</span>(<span class="ident">tasks::ToRoundRunner::NewViewNumber</span>(<span class="ident">new_view_number</span>))
+                        .<span class="kw">await</span>
+                    {
+                        <span class="macro">error!</span>(
+                            <span class="question-mark">?</span><span class="ident">e</span>,
+                            <span class="string">&quot;Could not update the background round runner of a new view number&quot;</span>
+                        );
+                    }
+
+                    <span class="comment">// And make sure to update the phaselock `committed_leaf`</span>
+                    <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">committed_leaf</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="ident">leaf_hash</span>;
+
+                    <span class="comment">// Broadcast that we&#39;re updated</span>
+
+                    <span class="self">self</span>.<span class="ident">send_event</span>(<span class="ident">Event</span> {
+                        <span class="ident">view_number</span>: <span class="ident">new_view_number</span>,
+                        <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
+                        <span class="ident">event</span>: <span class="ident">EventType::Synced</span> {
+                            <span class="ident">view_number</span>: <span class="ident">new_view_number</span>,
+                        },
+                    })
+                    .<span class="kw">await</span>;
+                }
+            }
+        }
+    }
+
+    <span class="doccomment">/// Handle a change in the network</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_network_change</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">NetworkChange</span>) {
+        <span class="kw">match</span> <span class="ident">node</span> {
+            <span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">peer</span>) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, <span class="ident">peer</span>);
+
+                <span class="kw">match</span> <span class="ident">load_latest_state</span>::<span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>).<span class="kw">await</span> {
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((<span class="ident">quorum_certificate</span>, <span class="ident">leaf</span>, <span class="ident">state</span>))) =&gt; {
+                        <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">phaselock</span>
+                            .<span class="ident">send_direct_message</span>(
+                                <span class="ident">DataMessage::NewestQuorumCertificate</span> {
+                                    <span class="ident">quorum_certificate</span>,
+                                    <span class="ident">state</span>,
+                                    <span class="ident">block</span>: <span class="ident">leaf</span>.<span class="ident">item</span>,
+                                },
+                                <span class="ident">peer</span>.<span class="ident">clone</span>(),
+                            )
+                            .<span class="kw">await</span>
+                        {
+                            <span class="macro">error!</span>(
+                                <span class="question-mark">?</span><span class="ident">e</span>,
+                                <span class="string">&quot;Could not send newest quorumcertificate to node {:?}&quot;</span>, <span class="ident">peer</span>
+                            );
+                        }
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                        <span class="macro">info!</span>(<span class="string">&quot;Node connected but we have no QC yet&quot;</span>);
+                    }
+                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not retrieve newest QC&quot;</span>);
+                    }
+                }
+            }
+            <span class="ident">NetworkChange::NodeDisconnected</span>(<span class="ident">peer</span>) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Lost connection to node {:?}&quot;</span>, <span class="ident">peer</span>);
+            }
+        }
+    }
 }
 
 <span class="doccomment">/// Attempts to generate a quorum certificate from the provided signatures</span>
@@ -1547,17 +1422,26 @@
     <span class="ident">key_set</span>.<span class="ident">combine_signatures</span>(<span class="ident">signatures</span>)
 }
 
-<span class="doccomment">/// Sends an event over a `Some(BroadcastSender&lt;T&gt;)`, does nothing otherwise</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(
-    <span class="ident">channel</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span><span class="op">&gt;</span>,
-) <span class="kw">where</span>
-    <span class="ident">B</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Clone</span>,
-    <span class="ident">S</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Clone</span>,
-{
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=</span> <span class="ident">channel</span> {
-        <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="ident">c</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span>;
-    }
+<span class="doccomment">/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`State`] from the given [`Storage`]</span>
+<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">load_latest_state</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(
+    <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">I::Storage</span>,
+) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>
+    <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">I::State</span>)<span class="op">&gt;</span>,
+    <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
+<span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">qc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">storage</span>.<span class="ident">get_newest_qc</span>().<span class="kw">await</span><span class="question-mark">?</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">qc</span>) =&gt; <span class="ident">qc</span>,
+        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+    };
+    <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">storage</span>.<span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="ident">qc</span>.<span class="ident">leaf_hash</span>).<span class="kw">await</span><span class="question-mark">?</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">leaf</span>) =&gt; <span class="ident">leaf</span>,
+        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+    };
+    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">storage</span>.<span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="ident">qc</span>.<span class="ident">leaf_hash</span>).<span class="kw">await</span><span class="question-mark">?</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">state</span>) =&gt; <span class="ident">state</span>,
+        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+    };
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((<span class="ident">qc</span>, <span class="ident">leaf</span>, <span class="ident">state</span>)))
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="phaselock" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
