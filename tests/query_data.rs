@@ -26,7 +26,7 @@ use tracing::{debug, error, info};
 #[allow(clippy::upper_case_acronyms)]
 type NODE = DEntryNode<MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
 
-const NEXT_VIEW_TIMEOUT: u64 = 100;
+const NEXT_VIEW_TIMEOUT: u64 = 500;
 const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (15, 10);
 const SEED: u64 = 1234;
 
@@ -57,6 +57,11 @@ async fn run_round<I: NodeImplementation<N>, const N: usize>(
     handles: &mut [PhaseLockHandle<I, N>],
     round: usize,
 ) -> Result<(), RoundError> {
+    // Start phaselocks
+    for phaselock in handles.iter() {
+        phaselock.run_one_round().await;
+    }
+
     // iter through all handles until there are no more events
     let mut any_event = true;
     while any_event {
@@ -110,11 +115,6 @@ async fn sync_newest_quorom() {
         init_state(),
     )
     .await;
-
-    // Start phaselocks
-    for phaselock in phaselocks.clone() {
-        phaselock.start().await;
-    }
 
     info!("Before round 1:");
     validate_qc_numbers(&phaselocks, 0).await;
@@ -178,22 +178,16 @@ async fn sync_newest_quorom() {
     )
     .await
     .expect("Could not init phaselock");
-    phaselock.start().await;
 
     // wait for the phaselock to start up
 
     // These events can come in any order, and `EventType` is not `Ord` (and it shouldn't be)
     // so we have to manually match the two cases
     let first_event = phaselock.next_event().await.unwrap();
-    let second_event = phaselock.next_event().await.unwrap();
 
-    match (first_event.event, second_event.event) {
-        (EventType::NewView { .. }, EventType::Synced { .. }) => {} // ok
-        (EventType::Synced { .. }, EventType::NewView { .. }) => {} // ok
-        (first, second) => panic!(
-            "Expected NewView & Synced, got {:?} and {:?}",
-            first, second
-        ),
+    match first_event.event {
+        EventType::Synced { .. } => {} // ok
+        first => panic!("Expected Synced, got {:?}", first,),
     }
 
     // All nodes should now have QC 1
@@ -223,7 +217,7 @@ async fn sync_newest_quorom() {
         .expect("Could not run round");
 
     info!("After round 2:");
-    validate_qc_numbers(&phaselocks, 9).await;
+    validate_qc_numbers(&phaselocks, 2).await;
 }
 
 async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
