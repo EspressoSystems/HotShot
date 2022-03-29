@@ -21,9 +21,15 @@ impl SignatureKey for PubKey {
 
     fn validate(&self, signature: &[u8], data: &[u8]) -> bool {
         // make sure the signature is the right length, 96 bytes for this algorithm
+        #[cfg(not(feature = "test_crypto"))]
         if signature.len() != 96 {
             return false;
         }
+        #[cfg(feature = "test_crypto")]
+        if signature.len() != 4 {
+            return false;
+        }
+
         #[cfg(not(feature = "test_crypto"))]
         let mut share_slice = [0; 96];
         #[cfg(feature = "test_crypto")]
