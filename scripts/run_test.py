@@ -7,9 +7,9 @@
 #
 # Usage:
 # In /:
-# `./script/run_test.py sync_newest_quorom`
+# `./scripts/run_test.py sync_newest_quorom`
 # In /libp2p-networking/:
-# `../script/run_test.py test_coverage_request_response_one_round`
+# `../scripts/run_test.py test_coverage_request_response_one_round`
 
 import os
 import sys
@@ -27,7 +27,7 @@ env["RUST_LOG_FMT"] = "compact"
 env["RUST_LOG"] = "debug"
 env["RUST_BACKTRACE"] = "1"
 result = subprocess.run(
-    "source $HOME/.cargo/env && cargo test --all-features --release -- " + test + " --test-threads=1 --nocapture",
+    "cargo test --all-features --release -- " + test + " --test-threads=1 --nocapture",
     shell=True,
     executable='bash',
     stdout=subprocess.PIPE,
