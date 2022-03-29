@@ -120,6 +120,15 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             .boxed()
     }
 
+    fn get_newest_qc(&self) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
+        self.inner
+            .qcs
+            .load_latest()
+            .map(Ok)
+            .instrument(info_span!("AtomicStorage::get_qc"))
+            .boxed()
+    }
+
     fn get_qc_for_view(
         &self,
         view: u64,

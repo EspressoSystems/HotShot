@@ -70,15 +70,18 @@ where
     }
 }
 
-impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialRound<I, N> {
+impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> SequentialRound<I, N>
+where
+    Option<Event<I::Block, I::State>>: Clone,
+{
     /// Creates a new state machine
-    pub fn new(
-        phaselock: PhaseLock<I, N>,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Self {
+    pub async fn new(phaselock: PhaseLock<I, N>, current_view: u64) -> Self {
+        let sender = {
+            let lock = phaselock.inner.event_sender.read().await;
+            (&*lock).clone()
+        };
         Self {
-            state: SequentialState::Start(channel.cloned()),
+            state: SequentialState::Start(sender),
             phaselock,
             current_view,
         }
@@ -1010,16 +1013,15 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 Poll::Pending => Poll::Pending,
             },
             BeforeDecide { leaf, message } => {
-                let leaf = leaf.clone();
-                let leaf_hash = leaf.hash();
+                let new_leaf = leaf.clone();
+                let new_leaf_hash = new_leaf.hash();
                 let message = message.clone();
                 let pl = phaselock.clone();
                 let ctx = context.clone();
                 let fut = async move {
-                    let _ = &leaf;
                     let decide_qc = message.qc;
                     if !(decide_qc.verify(&pl.inner.public_key.set, current_view, Stage::Commit)
-                        && decide_qc.leaf_hash == leaf_hash)
+                        && decide_qc.leaf_hash == new_leaf_hash)
                     {
                         error!(?decide_qc, "Bad or forged commit qc");
                         return Err(PhaseLockError::BadOrForgedQC {
@@ -1031,19 +1033,19 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     let state = match pl
                         .inner
                         .storage
-                        .get_state(&leaf_hash)
+                        .get_state(&new_leaf_hash)
                         .await
                         .context(StorageSnafu)?
                     {
                         Some(x) => Ok(x),
                         None => Err(PhaseLockError::ItemNotFound {
-                            hash: leaf.parent.to_vec(),
+                            hash: new_leaf.parent.to_vec(),
                         }),
                     }?;
                     let mut old_state = pl.inner.committed_state.write().await;
                     let mut old_leaf = pl.inner.committed_leaf.write().await;
                     let mut events = vec![];
-                    let mut walk_leaf = leaf_hash;
+                    let mut walk_leaf = new_leaf_hash;
 
                     while walk_leaf != *old_leaf {
                         debug!(?walk_leaf, "Looping");
@@ -1076,6 +1078,13 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         walk_leaf = block.parent;
                     }
 
+                    info!(?decide_qc, "Storing QC");
+                    pl.inner
+                        .storage
+                        .update(|mut m| async move { m.insert_qc(decide_qc).await })
+                        .await
+                        .context(StorageSnafu)?;
+
                     info!(?events, "Sending decide events");
                     // Send decide event
                     pl.inner.stateful_handler.lock().await.notify(
@@ -1084,7 +1093,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     );
                     ctx.send_decide(current_view, &events);
                     *old_state = Arc::new(state);
-                    *old_leaf = leaf_hash;
+                    *old_leaf = new_leaf_hash;
                     debug!("Round finished");
                     Ok(current_view)
                 }
@@ -1172,6 +1181,18 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         events.iter().map(|(_, x)| x.clone()).collect(),
                     );
                     ctx.send_decide(current_view, &events);
+
+                    // Add qc to decision cache
+                    debug!(?decide_qc, "Storing QC");
+                    pl.inner
+                        .storage
+                        .update(|mut m| {
+                            let qc = decide_qc.clone();
+                            async move { m.insert_qc(qc).await }
+                        })
+                        .await
+                        .context(StorageSnafu)?;
+
                     let mut pqc = pl.inner.prepare_qc.write().await;
                     let mut lqc = pl.inner.locked_qc.write().await;
                     *old_state = Arc::new(state);

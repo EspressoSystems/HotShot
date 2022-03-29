@@ -82,32 +82,52 @@ where
     ///
     /// Should provide that the message eventually reach all non-faulty nodes
     fn broadcast_message(&self, message: M) -> BoxFuture<'_, Result<(), NetworkError>>;
+
     /// Sends a direct message to a specific node
     fn message_node(
         &self,
         message: M,
         recipient: PubKey,
     ) -> BoxFuture<'_, Result<(), NetworkError>>;
+
     /// Moves out the entire queue of received broadcast messages, should there be any
     ///
     /// Provided as a future to allow the backend to do async locking
     fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>>;
+
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
     fn next_broadcast(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
+
     /// Moves out the entire queue of received direct messages to this node
     fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>>;
+
     /// Provides a future for the next received direct message to this node
     ///
     /// Will unwrap the underlying `NetworkMessage`
     fn next_direct(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
+
     /// Node's currently known to the networking implementation
     ///
     /// Kludge function to work around leader election
     fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>>;
+
     /// Object safe clone
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
+
+    /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>>;
+}
+
+/// Changes that can occur in the network
+#[derive(Debug)]
+pub enum NetworkChange {
+    /// A node is connected
+    NodeConnected(PubKey),
+
+    /// A node is disconnected
+    NodeDisconnected(PubKey),
 }
 
 /// interface describing how reliable the network is

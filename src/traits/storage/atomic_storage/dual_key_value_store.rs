@@ -86,6 +86,12 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
         self.load_by_key_2_ref(&k).await
     }
 
+    /// Load the latest inserted entry in this `KKVStore`
+    pub async fn load_latest(&self) -> Option<K> {
+        let read = self.inner.read().await;
+        read.values.last().cloned()
+    }
+
     /// Insert a value into this `KKVStore`
     ///
     /// # Errors

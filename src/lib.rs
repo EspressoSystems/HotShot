@@ -36,30 +36,32 @@ pub mod traits;
 /// Contains types used by the crate
 pub mod types;
 
+mod tasks;
+
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{
-        Commit, Decide, Event, EventType, Message, NewView, PhaseLockHandle, PreCommit, Prepare,
-        Vote,
-    },
+    types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
 };
 use async_std::sync::{Mutex, RwLock};
-use async_std::task::{spawn, JoinHandle};
+use async_std::task::JoinHandle;
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::ConsensusMessage,
-    traits::{network::NetworkError, node_implementation::TypeMap},
+    message::{ConsensusMessage, DataMessage},
+    traits::{
+        network::{NetworkChange, NetworkError},
+        node_implementation::TypeMap,
+    },
 };
 use phaselock_utils::{
-    broadcast::{channel, BroadcastSender},
+    broadcast::BroadcastSender,
     waitqueue::{WaitOnce, WaitQueue},
 };
 use snafu::ResultExt;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
 // External
@@ -146,6 +148,12 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     storage: I::Storage,
     /// This `PhaseLock` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
+
+    /// Sender for [`Event`]s
+    event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
+
+    /// Senders to the background tasks.
+    background_task_handle: tasks::TaskHandle,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
@@ -228,6 +236,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
+            event_sender: RwLock::default(),
+            background_task_handle: tasks::TaskHandle::default(),
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -316,12 +326,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// # Errors
     ///
     /// Returns an error if an underlying networking error occurs
-    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn next_view(
-        &self,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Result<()> {
+    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    pub async fn next_view(&self, current_view: u64) -> Result<()> {
         let new_leader = self.inner.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
         // If we are the new leader, do nothing
@@ -350,18 +356,29 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             trace!("NewView packed");
             self.inner.new_view_queue.push(view_message).await;
         }
-        send_event::<I::Block, I::State, { N }>(
-            channel,
-            Event {
+        self.send_event(Event {
+            view_number: current_view,
+            stage: Stage::None,
+            event: EventType::NewView {
                 view_number: current_view,
-                stage: Stage::None,
-                event: EventType::NewView {
-                    view_number: current_view,
-                },
             },
-        )
+        })
         .await;
         Ok(())
+    }
+
+    /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
+    ///
+    /// Returns `true` if the event was send, `false` otherwise
+    pub async fn send_event(&self, event: Event<I::Block, I::State>) -> bool {
+        if let Some(c) = self.inner.event_sender.read().await.as_ref() {
+            if let Err(e) = c.send_async(event).await {
+                warn!(?e, "Could not send event to the registered broadcaster");
+            } else {
+                return true;
+            }
+        }
+        false
     }
 
     /// Runs a single round of consensus
@@ -372,13 +389,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Panics if consensus hits a bad round
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self,channel),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn run_round(
-        &self,
-        current_view: u64,
-        channel: Option<&BroadcastSender<Event<I::Block, I::State>>>,
-    ) -> Result<u64> {
-        let state = state_machine::SequentialRound::new(self.clone(), current_view, channel);
+    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    pub async fn run_round(&self, current_view: u64) -> Result<u64> {
+        let state = state_machine::SequentialRound::new(self.clone(), current_view).await;
         // Do waitup
         let time = Instant::now();
         let duration = Duration::from_millis(self.inner.config.round_start_delay);
@@ -386,82 +399,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             async_std::task::sleep(Duration::from_millis(1)).await;
         }
         state.await
-    }
-
-    /// Spawns the background tasks for network processin for this instance
-    ///
-    /// These will process in the background and load items into their designated queues
-    ///
-    /// # Panics
-    ///
-    /// Panics if the underlying network implementation incorrectly routes a network request to the
-    /// wrong queue
-    #[allow(clippy::too_many_lines)]
-    pub async fn spawn_networking_tasks(&self) {
-        let phaselock = self.clone();
-        // Spawn broadcast processing task
-        spawn(
-            async move {
-                info!("Launching broadcast processing task");
-                let networking = &phaselock.inner.networking;
-                let mut incremental_backoff_ms = 10;
-                while let Ok(queue) = networking.broadcast_queue().await {
-                    if queue.is_empty() {
-                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff time
-                    incremental_backoff_ms = 10;
-                    for item in queue {
-                        trace!(?item, "Processing item");
-                        match item {
-                            Message::Consensus(msg) => {
-                                phaselock.handle_broadcast_consensus_message(msg).await;
-                            }
-                        }
-                    }
-                    trace!("Items processed, querying for more");
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Broadcast Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
-        let phaselock = self.clone();
-        // Spawn direct processing task
-        spawn(
-            async move {
-                info!("Launching direct processing task");
-                let networking = &phaselock.inner.networking;
-                let mut incremental_backoff_ms = 10;
-                while let Ok(queue) = networking.direct_queue().await {
-                    if queue.is_empty() {
-                        trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff time
-                    incremental_backoff_ms = 10;
-                    for item in queue {
-                        trace!(?item, "Processing item");
-                        match item {
-                            Message::Consensus(msg) => {
-                                phaselock.handle_direct_consensus_message(msg).await;
-                            }
-                        }
-                    }
-                    trace!("Items processed, querying for more");
-                }
-            }
-            .instrument(info_span!(
-                "PhaseLock Direct Task",
-                id = self.inner.public_key.nonce
-            )),
-        );
     }
 
     /// Publishes a transaction to the network
@@ -519,147 +456,21 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         storage: I::Storage,
         handler: I::StatefulHandler,
     ) -> Result<(JoinHandle<()>, PhaseLockHandle<I, N>)> {
-        let (input, output) = channel();
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
             public_keys,
             secret_key_share,
             node_id,
-            config.clone(),
+            config,
             starting_state,
             networking,
-            storage.clone(),
+            storage,
             handler,
         )
         .await?;
-        let pause = Arc::new(RwLock::new(true));
-        let run_once = Arc::new(RwLock::new(false));
-        let shut_down = Arc::new(RwLock::new(false));
-        // Spawn the background tasks
-        phaselock.spawn_networking_tasks().await;
-        let handle = PhaseLockHandle {
-            sender_handle: Arc::new(input.clone()),
-            phaselock: phaselock.clone(),
-            stream_output: output,
-            pause: pause.clone(),
-            run_once: run_once.clone(),
-            shut_down: shut_down.clone(),
-            storage,
-        };
-        let task = spawn(
-            async move {
-                // Do waitup
-                let time = Instant::now();
-                let duration = Duration::from_millis(phaselock.inner.config.start_delay);
-                while Instant::now().duration_since(time) < duration {
-                    async_std::task::sleep(Duration::from_millis(1)).await;
-                }
-                let channel = input;
-                let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
-                let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
-                let mut int_duration = default_interrupt_duration;
-                let mut view = 0;
-                let mut incremental_backoff_ms = 10;
-                // PhaseLock background handler loop
-                loop {
-                    // First, check for shutdown signal and break if sent
-                    if *shut_down.read().await {
-                        break;
-                    }
-                    // Capture the pause and run_once flags
-                    // Reset the run_once flag if its set
-                    let p_flag = {
-                        let p = pause.read().await;
-                        let mut r = run_once.write().await;
-                        if *r {
-                            *r = false;
-                            false
-                        } else {
-                            *p
-                        }
-                    };
-                    // If we are paused, sleep and continue
-                    if p_flag {
-                        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-                        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-                        continue;
-                    }
-                    // Make sure to reset the backoff timeout
-                    incremental_backoff_ms = 10;
+        let (task, handle) = tasks::spawn_all(&phaselock).await;
 
-                    // Send the next view
-                    let next_view_res = phaselock.next_view(view, Some(&channel)).await;
-                    // If we fail to send the next view, broadcast the error and pause
-                    if let Err(e) = next_view_res {
-                        let x = channel
-                            .send_async(Event {
-                                view_number: view,
-                                stage: e.get_stage().unwrap_or(Stage::None),
-
-                                event: EventType::Error { error: Arc::new(e) },
-                            })
-                            .await;
-                        if x.is_err() {
-                            error!("All event streams closed! Shutting down.");
-                            break;
-                        }
-                        *pause.write().await = true;
-                        continue;
-                    }
-                    // Increment the view counter
-                    view += 1;
-                    // run the next block, with a timeout
-                    let t = Duration::from_millis(int_duration);
-                    let round_res =
-                        async_std::future::timeout(t, phaselock.run_round(view, Some(&channel)))
-                            .await;
-                    match round_res {
-                        // If it succeded, simply reset the timeout
-                        Ok(Ok(x)) => {
-                            int_duration = default_interrupt_duration;
-                            // Check if we completed the same view we started
-                            if x != view {
-                                info!(?x, ?view, "Round short circuited");
-                                view = x;
-                            }
-                        }
-                        // If it errored, broadcast the error, reset the timeout, and continue
-                        Ok(Err(e)) => {
-                            let x = channel
-                                .send_async(Event {
-                                    view_number: view,
-                                    stage: e.get_stage().unwrap_or(Stage::None),
-                                    event: EventType::Error { error: Arc::new(e) },
-                                })
-                                .await;
-                            if x.is_err() {
-                                error!("All event streams closed! Shutting down.");
-                                break;
-                            }
-                            continue;
-                        }
-                        // if we timed out, log it, send the event, and increase the timeout
-                        Err(_) => {
-                            warn!("Round timed out");
-                            let x = channel
-                                .send_async(Event {
-                                    view_number: view,
-                                    stage: Stage::None,
-                                    event: EventType::ViewTimeout { view_number: view },
-                                })
-                                .await;
-                            if x.is_err() {
-                                error!("All event streams closed! Shutting down.");
-                                break;
-                            }
-                            int_duration = (int_duration * int_mul) / int_div;
-                        }
-                    }
-                }
-            }
-            .instrument(info_span!("PhaseLock Background Driver", id = node_id)),
-        );
         Ok((task, handle))
     }
 
@@ -756,6 +567,128 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             }
         }
     }
+
+    /// Handle an incoming [`DataMessage`] that was broadcasted on the network
+    async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+        match msg {
+            DataMessage::NewestQuorumCertificate { .. } => {}
+        }
+    }
+
+    /// Handle an incoming [`DataMessage`] that directed at this node
+    async fn handle_direct_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+        debug!(?msg, "Incoming direct data message");
+        match msg {
+            DataMessage::NewestQuorumCertificate {
+                quorum_certificate: qc,
+                block,
+                state,
+            } => {
+                let own_newest = match self.inner.storage.get_newest_qc().await {
+                    Err(e) => {
+                        error!(?e, "Could not load QC");
+                        return;
+                    }
+                    Ok(n) => n,
+                };
+                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
+                // we should be getting multiple data messages soon
+                let should_save = if let Some(own) = own_newest {
+                    own.view_number < qc.view_number // incoming view is newer
+                } else {
+                    true // we have no QC yet
+                };
+                if should_save {
+                    let new_view_number = qc.view_number;
+                    let block_hash = BlockContents::hash(&block);
+                    let leaf_hash = qc.leaf_hash;
+                    let leaf = Leaf::new(block.clone(), leaf_hash);
+                    debug!(?leaf, ?block, ?state, ?qc, "Saving");
+
+                    if let Err(e) = self
+                        .inner
+                        .storage
+                        .update(|mut m| async move {
+                            m.insert_leaf(leaf).await?;
+                            m.insert_block(block_hash, block).await?;
+                            m.insert_state(state, leaf_hash).await?;
+                            m.insert_qc(qc).await?;
+                            Ok(())
+                        })
+                        .await
+                    {
+                        error!(?e, "Could not insert incoming QC");
+                    }
+                    // Make sure to update the background round runner
+                    if let Err(e) = self
+                        .inner
+                        .background_task_handle
+                        .send_to_round_runner(tasks::ToRoundRunner::NewViewNumber(new_view_number))
+                        .await
+                    {
+                        error!(
+                            ?e,
+                            "Could not update the background round runner of a new view number"
+                        );
+                    }
+
+                    // And make sure to update the phaselock `committed_leaf`
+                    *self.inner.committed_leaf.write().await = leaf_hash;
+
+                    // Broadcast that we're updated
+
+                    self.send_event(Event {
+                        view_number: new_view_number,
+                        stage: Stage::None,
+                        event: EventType::Synced {
+                            view_number: new_view_number,
+                        },
+                    })
+                    .await;
+                }
+            }
+        }
+    }
+
+    /// Handle a change in the network
+    async fn handle_network_change(&self, node: NetworkChange) {
+        match node {
+            NetworkChange::NodeConnected(peer) => {
+                info!("Connected to node {:?}", peer);
+
+                match load_latest_state::<I, N>(&self.inner.storage).await {
+                    Ok(Some((quorum_certificate, leaf, state))) => {
+                        let phaselock = self.clone();
+                        if let Err(e) = phaselock
+                            .send_direct_message(
+                                DataMessage::NewestQuorumCertificate {
+                                    quorum_certificate,
+                                    state,
+                                    block: leaf.item,
+                                },
+                                peer.clone(),
+                            )
+                            .await
+                        {
+                            error!(
+                                ?e,
+                                "Could not send newest quorumcertificate to node {:?}", peer
+                            );
+                        }
+                    }
+                    Ok(None) => {
+                        info!("Node connected but we have no QC yet");
+                    }
+                    Err(e) => {
+                        error!(?e, "Could not retrieve newest QC");
+                    }
+                }
+            }
+            NetworkChange::NodeDisconnected(peer) => {
+                info!("Lost connection to node {:?}", peer);
+            }
+        }
+    }
 }
 
 /// Attempts to generate a quorum certificate from the provided signatures
@@ -766,15 +699,24 @@ fn generate_qc<'a>(
     key_set.combine_signatures(signatures)
 }
 
-/// Sends an event over a `Some(BroadcastSender<T>)`, does nothing otherwise
-async fn send_event<B, S, const N: usize>(
-    channel: Option<&BroadcastSender<Event<B, S>>>,
-    event: Event<B, S>,
-) where
-    B: Send + Sync + Clone,
-    S: Send + Sync + Clone,
-{
-    if let Some(c) = channel {
-        let _result = c.send_async(event).await;
-    }
+/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`State`] from the given [`Storage`]
+async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
+    storage: &I::Storage,
+) -> std::result::Result<
+    Option<(QuorumCertificate<N>, Leaf<I::Block, N>, I::State)>,
+    Box<dyn std::error::Error + Send + Sync + 'static>,
+> {
+    let qc = match storage.get_newest_qc().await? {
+        Some(qc) => qc,
+        None => return Ok(None),
+    };
+    let leaf = match storage.get_leaf(&qc.leaf_hash).await? {
+        Some(leaf) => leaf,
+        None => return Ok(None),
+    };
+    let state = match storage.get_state(&qc.leaf_hash).await? {
+        Some(state) => state,
+        None => return Ok(None),
+    };
+    Ok(Some((qc, leaf, state)))
 }

@@ -2,21 +2,22 @@
 
 mod common;
 
+use common::{get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks};
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::implementations::{
-        DummyReliability, MasterMap, MemoryNetwork, MemoryStorage, Stateless,
-    },
+    traits::{implementations::MemoryNetwork, NodeImplementation},
     types::{Event, EventType, Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
+    PhaseLockError, PubKey, H_256,
 };
 use proptest::prelude::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-use serde::{de::DeserializeOwned, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::iter::FromIterator;
-use tracing::{debug, error, instrument, warn};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    iter::FromIterator,
+    sync::Arc,
+};
+use tracing::{debug, error, warn};
 
 const NEXT_VIEW_TIMEOUT: u64 = 100;
 const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (15, 10);
@@ -39,35 +40,6 @@ pub enum ConsensusError {
     InconsistentAfterTxn,
 }
 
-fn get_threshold(num_nodes: u64) -> u64 {
-    ((num_nodes * 2) / 3) + 1
-}
-
-fn get_tolerance(num_nodes: u64) -> u64 {
-    num_nodes - get_threshold(num_nodes)
-}
-
-/// Gets networking backends of all nodes.
-async fn get_networkings<
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
->(
-    num_nodes: u64,
-    sks: &tc::SecretKeySet,
-) -> Vec<(MemoryNetwork<T>, PubKey)> {
-    let master = MasterMap::<T>::new();
-    let mut networkings: Vec<(MemoryNetwork<T>, PubKey)> = Vec::new();
-    for node_id in 0..num_nodes {
-        let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
-        let network = MemoryNetwork::new(
-            pub_key.clone(),
-            master.clone(),
-            Option::<DummyReliability>::None,
-        );
-        networkings.push((network, pub_key));
-    }
-    networkings
-}
-
 fn init_state() -> State {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
@@ -83,92 +55,6 @@ fn init_state() -> State {
     State {
         balances,
         nonces: BTreeSet::default(),
-    }
-}
-
-/// Creates the initial state and phaselocks.
-///
-/// Returns the initial state and the phaselocks of unfailing nodes.
-///
-/// # Arguments
-///
-/// * `nodes_to_fail` - a set of nodes to be failed, i.e., nodes whose
-/// phaselocks will never get unpaused, and a boolean indicating whether
-/// to fail the first or last `num_failed_nodes` nodes.
-#[instrument(skip(sks, networkings))]
-async fn init_state_and_phaselocks(
-    sks: &tc::SecretKeySet,
-    num_nodes: u64,
-    nodes_to_fail: HashSet<u64>,
-    threshold: u64,
-    networkings: Vec<(
-        MemoryNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
-        PubKey,
-    )>,
-    updated_timeout_ratio: Option<(u64, u64)>,
-) -> (State, Vec<PhaseLockHandle<NODE, H_256>>) {
-    let state = init_state();
-
-    // Create the initial phaselocks
-    let known_nodes: Vec<_> = (0..num_nodes)
-        .map(|x| PubKey::from_secret_key_set_escape_hatch(sks, x))
-        .collect();
-    let timeout_ratio = match updated_timeout_ratio {
-        Some(time) => time,
-        None => DEFAULT_TIMEOUT_RATIO,
-    };
-    let config = PhaseLockConfig {
-        total_nodes: num_nodes as u32,
-        threshold: threshold as u32,
-        max_transactions: 100,
-        known_nodes,
-        next_view_timeout: NEXT_VIEW_TIMEOUT,
-        timeout_ratio,
-        round_start_delay: 1,
-        start_delay: 1,
-    };
-    debug!(?config);
-    let genesis = DEntryBlock::default();
-    let mut phaselocks = Vec::new();
-    for node_id in 0..num_nodes {
-        let (_, phaselock) = PhaseLock::init(
-            genesis.clone(),
-            sks.public_keys(),
-            sks.secret_key_share(node_id),
-            node_id,
-            config.clone(),
-            state.clone(),
-            networkings[node_id as usize].0.clone(),
-            MemoryStorage::default(),
-            Stateless::default(),
-        )
-        .await
-        .expect("Could not init phaselock");
-        if !nodes_to_fail.contains(&node_id) {
-            phaselocks.push(phaselock);
-        }
-        debug!("phaselock launched");
-    }
-
-    (state, phaselocks)
-}
-
-/// Provides a random valid transaction from the current state.
-fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
-    use rand::seq::IteratorRandom;
-    let input_account = state.balances.keys().choose(&mut rng).unwrap();
-    let output_account = state.balances.keys().choose(&mut rng).unwrap();
-    let amount = rng.gen_range(0, state.balances[input_account]);
-    Transaction {
-        add: Addition {
-            account: output_account.to_string(),
-            amount,
-        },
-        sub: Subtraction {
-            account: input_account.to_string(),
-            amount,
-        },
-        nonce: rng.gen(),
     }
 }
 
@@ -193,18 +79,24 @@ async fn fail_nodes(
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
 
     // Get networking information
-    let networkings =
+    let (_, networkings) =
         get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
-    let (mut state, mut phaselocks) = init_state_and_phaselocks(
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
+        .collect();
+    let (mut state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
         &sks,
         num_nodes,
+        known_nodes,
         nodes_to_fail.clone(),
         threshold,
         networkings,
-        updated_timeout_ratio,
+        updated_timeout_ratio.unwrap_or(DEFAULT_TIMEOUT_RATIO),
+        NEXT_VIEW_TIMEOUT,
+        init_state(),
     )
     .await;
 
@@ -343,18 +235,24 @@ async fn mul_txns(
     let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
 
     // Get networking information
-    let networkings =
+    let (_, networkings) =
         get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
     debug!("All nodes connected to network");
 
     // Initialize the state and phaselocks
-    let (state, mut phaselocks) = init_state_and_phaselocks(
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
+        .collect();
+    let (state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
         &sks,
         num_nodes,
+        known_nodes,
         HashSet::new(),
         threshold,
         networkings,
-        updated_timeout_ratio,
+        updated_timeout_ratio.unwrap_or(DEFAULT_TIMEOUT_RATIO),
+        NEXT_VIEW_TIMEOUT,
+        init_state(),
     )
     .await;
 
@@ -392,75 +290,35 @@ async fn mul_txns(
             return Err(ConsensusError::TimedOutWithAnyLeader);
         }
 
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
-        let mut timed_out = false;
-        for phaselock in &mut phaselocks {
-            debug!("Waiting for consensus to occur");
-            let mut event: Event<DEntryBlock, State> = match phaselock.next_event().await {
-                Ok(event) => event,
-                Err(err) => {
-                    return Err(ConsensusError::PhaselockClosed(err));
-                }
-            };
-            // Skip all messages from previous rounds
-            while event.view_number < round {
-                event = match phaselock.next_event().await {
-                    Ok(event) => event,
-                    Err(err) => {
-                        return Err(ConsensusError::PhaselockClosed(err));
+        match run_round(&mut phaselocks, round).await {
+            Ok((blocks, states)) => {
+                debug!("All nodes reached decision");
+
+                // Check consensus
+                assert!(states.len() as u64 == num_nodes);
+                assert!(blocks.len() as u64 == num_nodes);
+                let b_test = &blocks[0][0];
+                for b in &blocks[1..] {
+                    if &b[0] != b_test {
+                        return Err(ConsensusError::InconsistentAfterTxn);
                     }
-                };
-            }
-            while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
-                    warn!(?event, "Round timed out!");
-                    timed_out = true;
-                    break;
                 }
-                event = match phaselock.next_event().await {
-                    Ok(event) => event,
-                    Err(err) => {
-                        return Err(ConsensusError::PhaselockClosed(err));
+                let s_test = &states[0][0];
+                for s in &states[1..] {
+                    if &s[0] != s_test {
+                        return Err(ConsensusError::InconsistentAfterTxn);
                     }
-                };
-            }
-            if timed_out {
+                }
+                println!("All states match");
+                assert!(!blocks[0][0].transactions.is_empty());
+                assert_eq!(
+                    blocks[0][0].transactions,
+                    vec![txn_1.clone(), txn_2.clone()]
+                );
                 break;
             }
-            debug!("Decision emitted");
-            if let EventType::Decide { block, state } = event.event {
-                blocks.push(block);
-                states.push(state);
-            } else {
-                unreachable!()
-            }
-        }
-        if !timed_out {
-            debug!("All nodes reached decision");
-
-            // Check consensus
-            assert!(states.len() as u64 == num_nodes);
-            assert!(blocks.len() as u64 == num_nodes);
-            let b_test = &blocks[0][0];
-            for b in &blocks[1..] {
-                if &b[0] != b_test {
-                    return Err(ConsensusError::InconsistentAfterTxn);
-                }
-            }
-            let s_test = &states[0][0];
-            for s in &states[1..] {
-                if &s[0] != s_test {
-                    return Err(ConsensusError::InconsistentAfterTxn);
-                }
-            }
-            println!("All states match");
-            assert!(!blocks[0][0].transactions.is_empty());
-            assert_eq!(
-                blocks[0][0].transactions,
-                vec![txn_1.clone(), txn_2.clone()]
-            );
-            break;
+            Err(ConsensusError::TimedOutWithAnyLeader) => {}
+            Err(e) => panic!("{:?}", e),
         }
 
         // Increment the round count
@@ -469,6 +327,67 @@ async fn mul_txns(
 
     println!("Consensus completed\n");
     Ok(())
+}
+
+async fn run_round<I: NodeImplementation<N>, const N: usize>(
+    phaselocks: &mut [PhaseLockHandle<I, N>],
+    round: u64,
+) -> Result<
+    (
+        Vec<Arc<Vec<<I as NodeImplementation<N>>::Block>>>,
+        Vec<Arc<Vec<<I as NodeImplementation<N>>::State>>>,
+    ),
+    ConsensusError,
+> {
+    let mut blocks = Vec::new();
+    let mut states = Vec::new();
+    let mut timed_out = false;
+    for phaselock in phaselocks {
+        debug!("Waiting for consensus to occur");
+        let mut event = match phaselock.next_event().await {
+            Ok(event) => event,
+            Err(err) => {
+                return Err(ConsensusError::PhaselockClosed(err));
+            }
+        };
+        // Skip all messages from previous rounds
+        while event.view_number < round {
+            event = match phaselock.next_event().await {
+                Ok(event) => event,
+                Err(err) => {
+                    return Err(ConsensusError::PhaselockClosed(err));
+                }
+            };
+        }
+        while !matches!(event.event, EventType::Decide { .. }) {
+            if matches!(event.event, EventType::ViewTimeout { .. }) {
+                warn!(?event, "Round timed out!");
+                timed_out = true;
+                break;
+            }
+            event = match phaselock.next_event().await {
+                Ok(event) => event,
+                Err(err) => {
+                    return Err(ConsensusError::PhaselockClosed(err));
+                }
+            };
+        }
+        if timed_out {
+            break;
+        }
+        debug!("Decision emitted");
+        if let EventType::Decide { block, state } = event.event {
+            blocks.push(block);
+            states.push(state);
+        } else {
+            unreachable!()
+        }
+    }
+    if timed_out {
+        return Err(ConsensusError::TimedOutWithAnyLeader);
+    }
+
+    Ok((blocks, states))
 }
 
 // Notes: Tests with #[ignore] are skipped because they fail nondeterministically due to timeout or config setting.

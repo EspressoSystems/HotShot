@@ -29,6 +29,8 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
         &'a self,
         hash: &'b BlockHash<N>,
     ) -> BoxFuture<'b, StorageResult<Option<QuorumCertificate<N>>>>;
+    /// Retrieves the newest Quorum Certificate
+    fn get_newest_qc(&self) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>>;
     /// Retrieves the Quorum Certificate associated with a particular view number
     fn get_qc_for_view(
         &self,

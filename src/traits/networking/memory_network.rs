@@ -3,21 +3,20 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
+use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
+use crate::PubKey;
 use async_std::task::spawn;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use futures::{FutureExt, StreamExt};
+use phaselock_types::traits::network::NetworkChange;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-
 use std::fmt::Debug;
 use std::sync::Arc;
-
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
-use crate::PubKey;
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]
 /// dummy implementation of network reliability
@@ -76,6 +75,11 @@ struct MemoryNetworkInner<T> {
     direct_output: flume::Receiver<T>,
     /// The master map
     master_map: Arc<MasterMap<T>>,
+
+    /// Input for network change messages
+    network_changes_input: flume::Sender<NetworkChange>,
+    /// Output for network change messages
+    network_changes_output: flume::Receiver<NetworkChange>,
 }
 
 /// In memory only network simulator.
@@ -115,6 +119,7 @@ where
         let (direct_input, direct_task_recv) = flume::bounded(128);
         let (broadcast_task_send, broadcast_output) = flume::bounded(128);
         let (direct_task_send, direct_output) = flume::bounded(128);
+        let (network_changes_input, network_changes_output) = flume::bounded(128);
         trace!("Channels open, spawning background task");
 
         spawn(
@@ -215,6 +220,15 @@ where
                 info_span!("MemoryNetwork Background task", id = ?pub_key.nonce, map = ?master_map),
             ),
         );
+        trace!("Notifying other networks of the new connected peer");
+        for other in master_map.map.iter() {
+            other
+                .value()
+                .inner
+                .network_changes_input
+                .try_send(NetworkChange::NodeConnected(pub_key.clone()))
+                .expect("Could not deliver message");
+        }
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
@@ -224,6 +238,8 @@ where
                 broadcast_output,
                 direct_output,
                 master_map: master_map.clone(),
+                network_changes_input,
+                network_changes_output,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -397,6 +413,28 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
+    }
+
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
+        async move {
+            debug!("Waiting for network changes to show up");
+            let mut ret = Vec::new();
+            // Wait for the first message to come up
+            let first = self.inner.network_changes_output.recv_async().await;
+            if let Ok(first) = first {
+                trace!(?first, "First message in network changes queue found");
+                ret.push(first);
+                while let Ok(x) = self.inner.network_changes_output.try_recv() {
+                    ret.push(x);
+                }
+                Ok(ret)
+            } else {
+                error!("The underlying MemoryNetwork has shut down");
+                Err(NetworkError::ShutDown)
+            }
+        }
+        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
+        .boxed()
     }
 }
 

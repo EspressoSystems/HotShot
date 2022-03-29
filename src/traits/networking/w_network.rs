@@ -22,7 +22,9 @@ use async_tungstenite::{
 };
 use bincode::Options;
 use dashmap::DashMap;
+use flume::{Receiver, Sender};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
+use phaselock_types::traits::network::NetworkChange;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -132,6 +134,11 @@ struct WNetworkInner<T> {
     socket_holder: Mutex<Option<TcpListener>>,
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
+
+    /// Sender for changes in the network
+    network_change_input: Sender<NetworkChange>,
+    /// Receiver for changes in the network
+    network_change_output: Receiver<NetworkChange>,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
@@ -554,6 +561,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .context(FailedToBindListenerSnafu)?;
         debug!("Successfully bound socket");
 
+        let (network_change_input, network_change_output) = flume::unbounded();
+
         let inner = WNetworkInner {
             handles: DashMap::new(),
             pub_key: own_key,
@@ -574,6 +583,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
             keep_alive_duration,
+            network_change_input,
+            network_change_output,
         };
         let w = Self {
             inner: Arc::new(inner),
@@ -634,7 +645,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                     match res {
                                         Ok((pub_key, handle)) => {
                                             trace!(?addr, "Spawned task for stream");
-                                            w.inner.handles.insert(pub_key, handle);
+                                            w.inner.handles.insert(pub_key.clone(), handle);
+                                            w.inner
+                                                .network_change_input
+                                                .send_async(NetworkChange::NodeConnected(pub_key))
+                                                .await
+                                                .unwrap();
                                             trace!(?addr, "Stored handle for stream");
                                         }
                                         Err(e) => error!(
@@ -749,10 +765,20 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             } else {
                 error!("Remote did not respond in time! Removing from node map");
                 self.inner.handles.remove(&remote);
+                self.inner
+                    .network_change_input
+                    .send_async(NetworkChange::NodeDisconnected(remote))
+                    .await
+                    .unwrap();
             }
         } else {
             error!("Handle has been shutdown! Removing from node map");
             self.inner.handles.remove(&remote);
+            self.inner
+                .network_change_input
+                .send_async(NetworkChange::NodeDisconnected(remote))
+                .await
+                .unwrap();
         }
     }
 }
@@ -931,6 +957,28 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
+    }
+
+    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
+        async move {
+            debug!("Waiting for network changes to show up");
+            let mut ret = Vec::new();
+            // Wait for the first message to come up
+            let first = self.inner.network_change_output.recv_async().await;
+            if let Ok(first) = first {
+                trace!(?first, "First message in network changes queue found");
+                ret.push(first);
+                while let Ok(x) = self.inner.network_change_output.try_recv() {
+                    ret.push(x);
+                }
+                Ok(ret)
+            } else {
+                error!("The underlying MemoryNetwork has shut down");
+                Err(NetworkError::ShutDown)
+            }
+        }
+        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
+        .boxed()
     }
 }
 

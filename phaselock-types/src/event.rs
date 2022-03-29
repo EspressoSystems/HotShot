@@ -72,4 +72,10 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
         /// The current view number
         view_number: u64,
     },
+
+    /// The node has been synced with the network
+    Synced {
+        /// The current view number
+        view_number: u64,
+    },
 }

@@ -119,6 +119,20 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         .boxed()
     }
 
+    fn get_newest_qc(&self) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
+        async move {
+            let iter = self.inner.view_to_qc.iter();
+            let idx = match iter.max_by_key(|pair| *pair.key()) {
+                Some(pair) => *pair.value(),
+                None => return Ok(None),
+            };
+            let qcs = self.inner.qcs.read().await;
+            Ok(Some(qcs[idx].clone()))
+        }
+        .instrument(info_span!("MemoryStorage::get_qc"))
+        .boxed()
+    }
+
     fn get_qc_for_view(
         &self,
         view: u64,
