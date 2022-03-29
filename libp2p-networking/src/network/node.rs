@@ -20,7 +20,7 @@ use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
         error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
-        MessageAuthenticity, MessageId, ValidationMode,
+        MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{Identify, IdentifyConfig},
     identity::Keypair,
@@ -310,19 +310,19 @@ impl NetworkNode {
                         return Ok(true);
                     }
                     GossipMsg(topic, contents) => {
-                        behaviour.publish_gossip(topic, contents);
+                        behaviour.publish_gossip(Topic::new(topic), contents);
                     }
-                    GetId(reply_chan) => {
-                        // FIXME proper error handling
-                        reply_chan
-                            .send(self.peer_id)
-                            .map_err(|_e| NetworkError::StreamClosed)?;
-                    }
-                    Subscribe(t) => {
+                    Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
+                        if chan.send(()).is_err() {
+                            error!("finished subscribing but response channel dropped");
+                        }
                     }
-                    Unsubscribe(t) => {
+                    Unsubscribe(t, chan) => {
                         behaviour.unsubscribe_gossip(&t);
+                        if chan.send(()).is_err() {
+                            error!("finished unsubscribing but response channel dropped");
+                        }
                     }
                     DirectRequest(pid, msg) => {
                         behaviour.add_direct_request(pid, msg);
@@ -438,7 +438,7 @@ impl NetworkNode {
     /// as well as any events produced by libp2p
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
-    pub async fn spawn_listeners(
+    pub(crate) async fn spawn_listeners(
         mut self,
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();

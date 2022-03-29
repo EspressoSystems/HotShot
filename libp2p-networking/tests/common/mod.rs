@@ -4,7 +4,7 @@ use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
 use networking_demo::{
     network::{
-        network_node_handle_error::NodeConfigSnafu, spawn_handler, ClientRequest, NetworkEvent,
+        network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
         NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
     },
     tracing_setup,
@@ -215,12 +215,12 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for handle in &handles {
         handle
-            .send_request(ClientRequest::AddKnownPeers(
+            .add_known_peers(
                 bootstrap_addrs
                     .iter()
                     .map(|(a, b)| (Some(*a), b.clone()))
                     .collect::<Vec<_>>(),
-            ))
+            )
             .await
             .context(HandleSnafu)?;
     }
@@ -239,7 +239,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for handle in &handles {
         handle
-            .send_request(ClientRequest::Subscribe("global".to_string()))
+            .subscribe("global".to_string())
             .await
             .context(HandleSnafu)?;
     }
