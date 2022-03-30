@@ -31,6 +31,8 @@ use std::{
 };
 use tracing::{debug, error, info, warn};
 
+use super::ConnectionData;
+
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 const MAX_DHT_QUERY_SIZE: usize = 5;
 
@@ -64,17 +66,11 @@ pub struct NetworkDef {
     /// if the node has been bootstrapped into the kademlia network
     #[behaviour(ignore)]
     bootstrap_state: BootstrapState,
-    // TODO separate out into ConnectionData struct
-    /// set of connected peers
+
+    /// connection data
     #[behaviour(ignore)]
-    connected_peers: HashSet<PeerId>,
-    // TODO replace this with a set of queryids
-    /// set of currently connecting peers
-    #[behaviour(ignore)]
-    connecting_peers: HashSet<PeerId>,
-    /// set of peers that were at one point connected
-    #[behaviour(ignore)]
-    known_peers: HashSet<PeerId>,
+    connection_data: ConnectionData,
+
     /// set of events to send to UI
     #[behaviour(ignore)]
     #[debug(skip)]
@@ -117,9 +113,7 @@ impl NetworkDef {
             kadem,
             identify,
             request_response,
-            connected_peers: HashSet::new(),
-            connecting_peers: HashSet::new(),
-            known_peers: HashSet::new(),
+            connection_data: ConnectionData::default(),
             client_event_queue: Vec::new(),
             bootstrap_state: BootstrapState::NotStarted,
             pruning_enabled,
@@ -201,52 +195,53 @@ impl NetworkDef {
 impl NetworkDef {
     /// Add a connected peer
     pub fn add_connected_peer(&mut self, peer_id: PeerId) {
-        self.connected_peers.insert(peer_id);
-        self.connecting_peers.remove(&peer_id);
+        self.connection_data.connected_peers.insert(peer_id);
+        self.connection_data.connecting_peers.remove(&peer_id);
     }
 
     /// Remove a connected peer
     pub fn remove_connected_peer(&mut self, peer_id: PeerId) {
-        self.connected_peers.remove(&peer_id);
+        self.connection_data.connected_peers.remove(&peer_id);
     }
 
     /// Get a list of the connected peers
     pub fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connected_peers.clone()
+        self.connection_data.connected_peers.clone()
     }
 
     /// Add a known peer
     pub fn add_known_peer(&mut self, peer_id: PeerId) {
-        self.known_peers.insert(peer_id);
+        self.connection_data.known_peers.insert(peer_id);
     }
 
     /// Get a list of the known peers
     pub fn known_peers(&self) -> HashSet<PeerId> {
-        self.known_peers.clone()
+        self.connection_data.known_peers.clone()
     }
 
     /// Add a connecting peer
     pub fn add_connecting_peer(&mut self, a_peer: PeerId) {
-        self.connecting_peers.insert(a_peer);
+        self.connection_data.connecting_peers.insert(a_peer);
     }
 
     /// Remove a peer, both connecting and connected
     pub fn remove_peer(&mut self, peer_id: PeerId) {
-        self.connected_peers.remove(&peer_id);
-        self.connecting_peers.remove(&peer_id);
+        self.connection_data.connected_peers.remove(&peer_id);
+        self.connection_data.connecting_peers.remove(&peer_id);
     }
 
     /// Notify the event queue that there are new known peers
     pub fn notify_update_known_peers(&mut self) {
-        let new_peers = self.known_peers.clone();
+        let new_peers = self.connection_data.known_peers.clone();
         self.client_event_queue
             .push(NetworkEvent::UpdateKnownPeers(new_peers));
     }
 
     /// Get a list of peers, both connecting and connected
     pub fn get_peers(&self) -> HashSet<PeerId> {
-        self.connecting_peers
-            .union(&self.connected_peers)
+        self.connection_data
+            .connecting_peers
+            .union(&self.connection_data.connected_peers)
             .copied()
             .collect()
     }
@@ -255,14 +250,19 @@ impl NetworkDef {
     pub fn get_peers_to_prune(&self, max_num_peers: usize) -> Vec<PeerId> {
         if !self.is_bootstrapped()
             || !self.pruning_enabled
-            || self.connected_peers.len() <= max_num_peers
+            || self.connection_data.connected_peers.len() <= max_num_peers
         {
             return Vec::new();
         }
-        let peers_to_rm = self.connected_peers.iter().copied().choose_multiple(
-            &mut thread_rng(),
-            self.connected_peers.len() - max_num_peers,
-        );
+        let peers_to_rm = self
+            .connection_data
+            .connected_peers
+            .iter()
+            .copied()
+            .choose_multiple(
+                &mut thread_rng(),
+                self.connection_data.connected_peers.len() - max_num_peers,
+            );
         let rr_peers = self
             .in_progress_rr
             .iter()
@@ -492,15 +492,17 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 ..
             } => {
                 for peer in peers {
-                    self.known_peers.insert(peer);
+                    self.connection_data.known_peers.insert(peer);
                 }
-                self.client_event_queue
-                    .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
+                self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
+                    self.connection_data.known_peers.clone(),
+                ));
             }
             KademliaEvent::RoutingUpdated { peer, .. } => {
-                self.known_peers.insert(peer);
-                self.client_event_queue
-                    .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
+                self.connection_data.known_peers.insert(peer);
+                self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
+                    self.connection_data.known_peers.clone(),
+                ));
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetRecord(record_results),
@@ -538,9 +540,10 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
             for addr in info.listen_addrs {
                 self.kadem.add_address(&peer_id, addr.clone());
             }
-            self.known_peers.insert(peer_id);
-            self.client_event_queue
-                .push(NetworkEvent::UpdateKnownPeers(self.known_peers.clone()));
+            self.connection_data.known_peers.insert(peer_id);
+            self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
+                self.connection_data.known_peers.clone(),
+            ));
         }
     }
 }
