@@ -3,7 +3,8 @@ name: Code Coverage (libp2p-newtorking)
 on:
   push:
     - "ci/*" # any branch starting with "ci/..."
-  pull_request: # all pull requests
+  pull_request:
+    - "*" # all pull requests
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
