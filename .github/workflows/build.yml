@@ -2,13 +2,15 @@ name: Build
 
 on:
   push:
+  schedule:
+    - cron: '0 0 * * 1'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: self-hosted
     container:
-      image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.58
+      image: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: styfle/cancel-workflow-action@0.9.1
         name: Cancel Outdated Builds
