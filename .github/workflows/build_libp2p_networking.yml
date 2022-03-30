@@ -2,9 +2,9 @@ name: Build (libp2p-networking)
 
 on:
   push:
-    - "ci/*" # any branch starting with "ci/..."
+    branches:
+      - "ci/*" # any branch starting with "ci/..."
   pull_request:
-    - "*" # all pull requests
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
