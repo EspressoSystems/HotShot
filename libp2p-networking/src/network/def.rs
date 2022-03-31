@@ -212,7 +212,7 @@ impl NetworkDef {
     pub fn remove_connected_peer(&mut self, peer_id: PeerId) {
         self.connection_data.modify(|s| {
             s.connected_peers.remove(&peer_id);
-        })
+        });
     }
 
     /// Get a list of the connected peers
@@ -252,7 +252,7 @@ impl NetworkDef {
         let cd = self.connection_data.cloned();
         cd.connecting_peers
             .union(&cd.connected_peers)
-            .cloned()
+            .copied()
             .collect()
     }
 

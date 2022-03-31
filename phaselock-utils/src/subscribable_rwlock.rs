@@ -86,6 +86,7 @@ impl<T: Clone> SubscribableRwLock<T> {
         });
     }
 
+    /// send subscribers the updated state
     async fn notify_change_subscribers(&self, t: T) {
         let mut lock = self.subscribers.lock().await;
         let mut idx_to_remove = Vec::new();
