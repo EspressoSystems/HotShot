@@ -2,8 +2,6 @@ name: Build (libp2p-networking)
 
 on:
   push:
-    branches:
-      - "ci/*" # any branch starting with "ci/..."
   pull_request:
   schedule:
     - cron: '0 0 * * 1'
@@ -56,3 +54,5 @@ jobs:
 
       - name: Cargo Test
         run: cargo test --verbose --release test_stress --manifest-path libp2p-networking/Cargo.toml -- -Zunstable-options --report-time --test-threads=1
+        env:
+          RUST_BACKTRACE: 1
