@@ -2,20 +2,17 @@ name: Build
 
 on:
   push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 1'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: self-hosted
     container:
-      image: registry.gitlab.com/asuran-rs/containers/rust-sccache-docker:1.58
+      image: ghcr.io/espressosystems/devops-rust:stable
     steps:
-      - uses: styfle/cancel-workflow-action@0.9.1
-        name: Cancel Outdated Builds
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v3
         name: Checkout Repository
 
@@ -44,9 +41,13 @@ jobs:
 
       - name: Test
         run: cargo test --release --all-features
+        env:
+          RUST_BACKTRACE: 1
 
       - name: Test dentry-simulator
         run: ./target/release/examples/dentry-simulator
+        env:
+          RUST_BACKTRACE: 1
 
       - name: Generate Documentation
         run: |

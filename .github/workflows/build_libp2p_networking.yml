@@ -2,11 +2,7 @@ name: Build (libp2p-networking)
 
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -15,12 +11,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel Outdated Builds
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -47,14 +37,10 @@ jobs:
           token: ${{ github.token }}
           args: --manifest-path libp2p-networking/Cargo.toml
 
-      # Does not work with a nested dir
-      # - name: Audit
-      #   uses: actions-rs/audit-check@v1
-      #   with:
-      #     token: ${{ github.token }}
-
       - name: Cargo Build
         run: cargo build --release --manifest-path libp2p-networking/Cargo.toml --all-features
 
       - name: Cargo Test
         run: cargo test --verbose --release test_stress --manifest-path libp2p-networking/Cargo.toml -- -Zunstable-options --report-time --test-threads=1
+        env:
+          RUST_BACKTRACE: 1
