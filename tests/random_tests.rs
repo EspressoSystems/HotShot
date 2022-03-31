@@ -6,10 +6,11 @@ use common::{get_networkings, get_threshold, get_tolerance, init_state_and_phase
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::{implementations::MemoryNetwork, NodeImplementation},
+    traits::{implementations::MemoryNetwork, NodeImplementation, Storage},
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLockError, PubKey, H_256,
 };
+use phaselock_testing::TestLauncher;
 use proptest::prelude::*;
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use std::{
@@ -543,5 +544,24 @@ proptest! {
                 mul_txns(30, txn_proposer_1, txn_proposer_2, Some((20, 10))).await.unwrap_or_else(|err| {panic!("{:?}", err)});
             }
         );
+    }
+}
+
+#[async_std::test]
+pub async fn test_harness() {
+    let mut runner = TestLauncher::new(5).launch();
+
+    runner.add_nodes(5).await;
+    for node in runner.nodes() {
+        let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+        assert_eq!(qc.view_number, 0);
+    }
+    runner
+        .add_random_transaction()
+        .expect("Could not add a random transaction");
+    runner.run_one_round().await;
+    for node in runner.nodes() {
+        let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+        assert_eq!(qc.view_number, 1);
     }
 }

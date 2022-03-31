@@ -54,7 +54,8 @@ structopt = "0.3.26"
 tempfile = "3.3"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.8", features = ["env-filter", "json"] }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.6", features = ["logging-utils"]}
+phaselock-utils = { path = "./phaselock-utils", version = "0.0.6", features = ["logging-utils"] }
+phaselock-testing = { path = "./phaselock-testing", version = "0.0.1" }
 
 ### Profiles
 ###
@@ -82,6 +83,7 @@ lto = "thin"
 [workspace]
 
 members = [
+        "phaselock-testing",
         "phaselock-types",
         "phaselock-utils",
         "libp2p-networking"
