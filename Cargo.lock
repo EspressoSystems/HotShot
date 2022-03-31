@@ -3155,6 +3155,7 @@ dependencies = [
  "flume",
  "futures",
  "hex_fmt",
+ "phaselock-testing",
  "phaselock-types",
  "phaselock-utils",
  "proptest",
@@ -3173,6 +3174,17 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber",
  "tracing-unwrap",
+]
+
+[[package]]
+name = "phaselock-testing"
+version = "0.0.1"
+dependencies = [
+ "async-std",
+ "phaselock",
+ "phaselock-types",
+ "rand 0.7.3",
+ "tracing",
 ]
 
 [[package]]
