@@ -6,3 +6,7 @@ VRF committee elections.
 # Usage
 
 Please see the rustdoc for API documentation, and the examples directory for usage.
+
+# Workflow
+
+See [here](./WORKFLOW.md)
