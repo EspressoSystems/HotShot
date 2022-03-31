@@ -7,7 +7,7 @@ pub use self::{
 };
 use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
+    gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
 };
 use crate::{
     direct_message::{DirectMessageCodec, DirectMessageProtocol},
@@ -29,9 +29,10 @@ use libp2p::{
     swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
+use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
-use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, time::Duration};
+use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
@@ -49,6 +50,12 @@ pub struct NetworkNode {
 }
 
 impl NetworkNode {
+    /// Return a reference to the network
+    #[instrument(skip(self))]
+    fn connection_data(&mut self) -> Arc<SubscribableRwLock<ConnectionData>> {
+        self.swarm.behaviour().connection_data()
+    }
+
     /// starts the swarm listening on `listen_addr`
     /// and optionally dials into peer `known_peer`
     /// returns the address the swarm is listening upon
@@ -72,7 +79,7 @@ impl NetworkNode {
     /// the `spawn_listeners` function
     /// will start connecting to peers
     #[instrument(skip(self))]
-    pub async fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
+    pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
         let behaviour = self.swarm.behaviour_mut();
         for (peer_id, addr) in known_peers {
             match peer_id {
@@ -90,7 +97,6 @@ impl NetworkNode {
                 }
             }
         }
-        behaviour.notify_update_known_peers();
     }
 
     /// Creates a new `Network` with the given settings.
@@ -334,7 +340,7 @@ impl NetworkNode {
                         behaviour.toggle_pruning(is_enabled);
                     }
                     AddKnownPeers(peers) => {
-                        self.add_known_peers(&peers).await;
+                        self.add_known_peers(&peers);
                     }
                 }
             }
@@ -378,11 +384,6 @@ impl NetworkNode {
                         .bootstrap()
                         .map_err(|_e| NetworkError::NoKnownPeers)?;
                 }
-                let connected_peers = behaviour.connected_peers();
-                send_to_client
-                    .send_async(NetworkEvent::UpdateConnectedPeers(connected_peers))
-                    .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
             }
             ConnectionClosed {
                 peer_id,
@@ -395,12 +396,6 @@ impl NetworkNode {
                 // swarm.kadem.remove_peer(&peer_id);
                 // swarm.kadem.remove_address();
                 // swarm.request_response.remove_address(peer, address)
-
-                let connected_peers = behaviour.connected_peers();
-                send_to_client
-                    .send_async(NetworkEvent::UpdateConnectedPeers(connected_peers))
-                    .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
             }
             Dialing(_)
             | NewListenAddr { .. }

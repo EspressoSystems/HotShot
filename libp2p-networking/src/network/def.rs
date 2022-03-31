@@ -21,12 +21,14 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
+use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
 use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
+    sync::Arc,
     task::{Context, Poll},
 };
 use tracing::{debug, error, info, warn};
@@ -69,7 +71,7 @@ pub struct NetworkDef {
 
     /// connection data
     #[behaviour(ignore)]
-    connection_data: ConnectionData,
+    connection_data: Arc<SubscribableRwLock<ConnectionData>>,
 
     /// set of events to send to UI
     #[behaviour(ignore)]
@@ -113,7 +115,7 @@ impl NetworkDef {
             kadem,
             identify,
             request_response,
-            connection_data: ConnectionData::default(),
+            connection_data: Arc::default(),
             client_event_queue: Vec::new(),
             bootstrap_state: BootstrapState::NotStarted,
             pruning_enabled,
@@ -170,6 +172,11 @@ impl NetworkDef {
     pub fn should_bootstrap(&self) -> bool {
         self.bootstrap_state == BootstrapState::NotStarted
     }
+
+    /// Returns a reference to the internal `ConnectionData`
+    pub fn connection_data(&self) -> Arc<SubscribableRwLock<ConnectionData>> {
+        self.connection_data.clone()
+    }
 }
 
 /// Address functions
@@ -195,74 +202,74 @@ impl NetworkDef {
 impl NetworkDef {
     /// Add a connected peer
     pub fn add_connected_peer(&mut self, peer_id: PeerId) {
-        self.connection_data.connected_peers.insert(peer_id);
-        self.connection_data.connecting_peers.remove(&peer_id);
+        self.connection_data.modify(|s| {
+            s.connected_peers.insert(peer_id);
+            s.connecting_peers.remove(&peer_id);
+        });
     }
 
     /// Remove a connected peer
     pub fn remove_connected_peer(&mut self, peer_id: PeerId) {
-        self.connection_data.connected_peers.remove(&peer_id);
+        self.connection_data.modify(|s| {
+            s.connected_peers.remove(&peer_id);
+        })
     }
 
     /// Get a list of the connected peers
     pub fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.connected_peers.clone()
+        self.connection_data.cloned().connected_peers
     }
 
     /// Add a known peer
     pub fn add_known_peer(&mut self, peer_id: PeerId) {
-        self.connection_data.known_peers.insert(peer_id);
+        self.connection_data.modify(|s| {
+            s.known_peers.insert(peer_id);
+        });
     }
 
     /// Get a list of the known peers
     pub fn known_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.known_peers.clone()
+        self.connection_data.cloned().known_peers
     }
 
     /// Add a connecting peer
     pub fn add_connecting_peer(&mut self, a_peer: PeerId) {
-        self.connection_data.connecting_peers.insert(a_peer);
+        self.connection_data.modify(|s| {
+            s.connecting_peers.insert(a_peer);
+        });
     }
 
     /// Remove a peer, both connecting and connected
     pub fn remove_peer(&mut self, peer_id: PeerId) {
-        self.connection_data.connected_peers.remove(&peer_id);
-        self.connection_data.connecting_peers.remove(&peer_id);
-    }
-
-    /// Notify the event queue that there are new known peers
-    pub fn notify_update_known_peers(&mut self) {
-        let new_peers = self.connection_data.known_peers.clone();
-        self.client_event_queue
-            .push(NetworkEvent::UpdateKnownPeers(new_peers));
+        self.connection_data.modify(|s| {
+            s.connected_peers.remove(&peer_id);
+            s.connecting_peers.remove(&peer_id);
+        });
     }
 
     /// Get a list of peers, both connecting and connected
     pub fn get_peers(&self) -> HashSet<PeerId> {
-        self.connection_data
-            .connecting_peers
-            .union(&self.connection_data.connected_peers)
-            .copied()
+        let cd = self.connection_data.cloned();
+        cd.connecting_peers
+            .union(&cd.connected_peers)
+            .cloned()
             .collect()
     }
 
     /// Return a list of peers to prune, based on given `max_num_peers`
     pub fn get_peers_to_prune(&self, max_num_peers: usize) -> Vec<PeerId> {
+        let cd = self.connection_data().cloned();
         if !self.is_bootstrapped()
             || !self.pruning_enabled
-            || self.connection_data.connected_peers.len() <= max_num_peers
+            || cd.connected_peers.len() <= max_num_peers
         {
             return Vec::new();
         }
-        let peers_to_rm = self
-            .connection_data
+        let peers_to_rm = cd
             .connected_peers
             .iter()
             .copied()
-            .choose_multiple(
-                &mut thread_rng(),
-                self.connection_data.connected_peers.len() - max_num_peers,
-            );
+            .choose_multiple(&mut thread_rng(), cd.connected_peers.len() - max_num_peers);
         let rr_peers = self
             .in_progress_rr
             .iter()
@@ -492,17 +499,15 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 ..
             } => {
                 for peer in peers {
-                    self.connection_data.known_peers.insert(peer);
+                    self.connection_data.modify(|s| {
+                        s.known_peers.insert(peer);
+                    });
                 }
-                self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
-                    self.connection_data.known_peers.clone(),
-                ));
             }
             KademliaEvent::RoutingUpdated { peer, .. } => {
-                self.connection_data.known_peers.insert(peer);
-                self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
-                    self.connection_data.known_peers.clone(),
-                ));
+                self.connection_data.modify(|s| {
+                    s.known_peers.insert(peer);
+                });
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetRecord(record_results),
@@ -540,10 +545,9 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
             for addr in info.listen_addrs {
                 self.kadem.add_address(&peer_id, addr.clone());
             }
-            self.connection_data.known_peers.insert(peer_id);
-            self.client_event_queue.push(NetworkEvent::UpdateKnownPeers(
-                self.connection_data.known_peers.clone(),
-            ));
+            self.connection_data.modify(|s| {
+                s.known_peers.insert(peer_id);
+            });
         }
     }
 }

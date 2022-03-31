@@ -146,10 +146,6 @@ pub(crate) enum ClientRequest {
 /// to relay to the client
 #[derive(Debug)]
 pub enum NetworkEvent {
-    /// connected to a new peer
-    UpdateConnectedPeers(HashSet<PeerId>),
-    /// discovered a new peer
-    UpdateKnownPeers(HashSet<PeerId>),
     /// recv-ed a broadcast
     GossipMsg(Vec<u8>),
     /// recv-ed a direct message from a node
@@ -214,10 +210,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
         + std::marker::Send
         + 'static,
 ) where
-    Fut: Future<Output = Result<(), NetworkNodeHandleError>>
-        + std::marker::Send
-        + 'static
-        + std::marker::Sync,
+    Fut: Future<Output = Result<(), NetworkNodeHandleError>> + std::marker::Send + 'static,
 {
     let recv_kill = handle.recv_kill();
     let recv_event = handle.recv_network();

@@ -113,12 +113,6 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                             let msg : Message = bincode_options.deserialize(&m)?;
                             app.message_buffer.lock().push_back(msg);
                         },
-                        UpdateConnectedPeers(peer_set) => {
-                            *app.connected_peer_list.lock() = peer_set.clone();
-                        }
-                        UpdateKnownPeers(peer_set) => {
-                            *app.known_peer_list.lock() = peer_set.clone();
-                        }
                         DirectResponse(..) => { /* NOTE unimplemented in this example */ }
                     }
                 }

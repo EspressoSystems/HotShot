@@ -13,11 +13,13 @@ use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
-use phaselock_utils::subscribable_mutex::SubscribableMutex;
+use phaselock_utils::{
+    subscribable_mutex::SubscribableMutex, subscribable_rwlock::ThreadedReadView,
+};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::{info, instrument};
+use tracing::instrument;
 
 /// A handle containing:
 /// - A reference to the state
@@ -44,15 +46,14 @@ pub struct NetworkNodeHandle<S> {
     listen_addr: Multiaddr,
     /// the peer id of the networkbehaviour
     peer_id: PeerId,
+
     /// the connection metadata associated with the networkbehaviour
-    connection_state: Arc<SubscribableMutex<ConnectionData>>,
+    connection_data: Arc<dyn ThreadedReadView<ConnectionData>>,
+
     /// human readable id
     id: usize,
 
     /// A list of webui listeners that are listening for changes on this node
-    // TODO: Replace the following fields with `SubscribableMutex` (see https://github.com/EspressoSystems/phaselock/pull/33)
-    // - `state: Arc<Mutex<S>>`
-    // - `connection_state: Arc<Mutex<ConnectionData>>`
     webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
 }
 
@@ -68,6 +69,9 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
+
+        let connection_data = network.connection_data();
+
         let peer_id = network.peer_id();
         // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
@@ -88,7 +92,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             recv_kill,
             listen_addr,
             peer_id,
-            connection_state: Arc::default(),
+            connection_data,
             id,
             webui_listeners: Arc::default(),
         })
@@ -120,40 +124,17 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
-        info!("waiting to connect!");
         let mut connected_ok = false;
         let mut known_ok = false;
+        let chan = node.connection_data.subscribe().await;
         while !(known_ok && connected_ok) {
-            match chan
+            let connection_data = chan
                 .recv_async()
                 .await
-                .map_err(|_| NetworkNodeHandleError::RecvError)?
-            {
-                NetworkEvent::UpdateConnectedPeers(pids) => {
-                    info!(
-                        "updating connected peers to: {}, waiting on {}",
-                        pids.len(),
-                        num_peers
-                    );
-                    node.connection_state
-                        .modify(|state| {
-                            state.connected_peers = pids.clone();
-                        })
-                        .await;
-                    connected_ok = pids.len() >= num_peers;
-                    node.notify_webui().await;
-                }
-                NetworkEvent::UpdateKnownPeers(pids) => {
-                    node.connection_state
-                        .modify(|state| {
-                            state.known_peers = pids.clone();
-                        })
-                        .await;
-                    known_ok = pids.len() >= num_peers;
-                    node.notify_webui().await;
-                }
-                _ => {}
-            }
+                .map_err(|_| NetworkNodeHandleError::RecvError)?;
+            connected_ok = connection_data.connected_peers.len() >= num_peers;
+            known_ok = connection_data.known_peers.len() >= num_peers;
+            node.notify_webui().await;
         }
         Ok(())
     }
@@ -443,22 +424,22 @@ impl<S> NetworkNodeHandle<S> {
 
     /// Get a clone of the internal connection state
     pub async fn connection_state(&self) -> ConnectionData {
-        self.connection_state.cloned().await
+        self.connection_data.cloned_async().await
     }
 
     /// Get a clone of the known peers list
     pub async fn known_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.cloned().await.known_peers
+        self.connection_data.cloned_async().await.known_peers
     }
 
     /// Get a clone of the connected peers list
     pub async fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.cloned().await.connected_peers
+        self.connection_data.cloned_async().await.connected_peers
     }
 
     /// Get a clone of the ignored peers list
     pub async fn ignored_peers(&self) -> HashSet<PeerId> {
-        self.connection_state.cloned().await.ignored_peers
+        self.connection_data.cloned_async().await.ignored_peers
     }
 
     /// Modify the state. This will automatically call `state_changed` and `notify_webui`
@@ -467,33 +448,6 @@ impl<S> NetworkNodeHandle<S> {
         F: FnMut(&mut S),
     {
         self.state.modify(cb).await;
-    }
-
-    /// Set the connected peers list
-    pub async fn set_connected_peers(&self, peers: HashSet<PeerId>) {
-        self.connection_state
-            .modify(|s| {
-                s.connected_peers = peers;
-            })
-            .await;
-    }
-
-    /// Set the known peers list
-    pub async fn set_known_peers(&self, peers: HashSet<PeerId>) {
-        self.connection_state
-            .modify(|s| {
-                s.known_peers = peers;
-            })
-            .await;
-    }
-
-    /// Add a peer to the ignored peers list
-    pub async fn add_ignored_peer(&self, peer: PeerId) {
-        self.connection_state
-            .modify(|s| {
-                s.ignored_peers.insert(peer);
-            })
-            .await;
     }
 
     /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls `modify_state`
