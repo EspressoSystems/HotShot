@@ -199,14 +199,37 @@ impl<
     /// Add a random transaction to this runner.
     ///
     /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`].
-    pub fn add_random_transaction(&self) {
+    pub fn add_random_transaction(&self) -> Result<(), TransactionError> {
+        if self.nodes.is_empty() {
+            return Err(TransactionError::NoNodes);
+        }
+
         // we're assuming all nodes have the same state
         let state = self.nodes[0].handle.get_state_sync();
 
         use rand::{seq::IteratorRandom, thread_rng, Rng};
         let mut rng = thread_rng();
-        let input_account = state.balances.keys().choose(&mut rng).unwrap();
-        let output_account = state.balances.keys().choose(&mut rng).unwrap();
+
+        // Only get the balances that have an actual value
+        let non_zero_balances = state
+            .balances
+            .iter()
+            .filter(|b| *b.1 > 0)
+            .collect::<Vec<_>>();
+        if non_zero_balances.is_empty() {
+            return Err(TransactionError::NoValidBalance);
+        }
+
+        let input_account = non_zero_balances
+            .iter()
+            .choose(&mut rng)
+            .ok_or(TransactionError::NoValidBalance)?
+            .0;
+        let output_account = state
+            .balances
+            .keys()
+            .choose(&mut rng)
+            .ok_or(TransactionError::NoValidBalance)?;
         let amount = rng.gen_range(0, state.balances[input_account]);
         let transaction = Transaction {
             add: Addition {
@@ -221,11 +244,25 @@ impl<
         };
 
         // find a random handle to send this transaction from
-        let node = self.nodes.iter().choose(&mut rng).unwrap();
+        let node = self
+            .nodes
+            .iter()
+            .choose(&mut rng)
+            .ok_or(TransactionError::NoNodes)?;
         node.handle
             .submit_transaction_sync(transaction)
             .expect("Could not send transaction");
+        Ok(())
     }
+}
+
+#[derive(Debug)]
+/// Error that is returned from [`TestRunner`] with methods related to transactions
+pub enum TransactionError {
+    /// There are no valid nodes online
+    NoNodes,
+    /// There are no valid balances available
+    NoValidBalance,
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]

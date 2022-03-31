@@ -556,7 +556,9 @@ pub async fn test_harness() {
         let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
         assert_eq!(qc.view_number, 0);
     }
-    runner.add_random_transaction();
+    runner
+        .add_random_transaction()
+        .expect("Could not add a random transaction");
     runner.run_one_round().await;
     for node in runner.nodes() {
         let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
