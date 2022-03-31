@@ -12,7 +12,7 @@ mod launcher;
 
 pub use self::launcher::TestLauncher;
 
-use async_std::task::JoinHandle;
+use async_std::{prelude::FutureExt, task::JoinHandle};
 use phaselock::{
     demos::dentry::{
         Account, Addition, Balance, DEntryBlock, State as DemoState, Subtraction, Transaction,
@@ -24,11 +24,11 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, H_256,
 };
-use std::marker::PhantomData;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
 };
+use std::{marker::PhantomData, time::Duration};
 use tracing::{debug, info, trace, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -156,29 +156,46 @@ impl<
                 .next_event()
                 .await
                 .expect("PhaseLock unexpectedly closed");
-            while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
-                    warn!(?event, "Round timed out!");
-                    failed = true;
-                    break;
-                }
+            let mut decide_event = None;
+
+            // drain all events from this node
+            loop {
                 trace!(?id, ?event);
-                event = node
+                match event.event {
+                    EventType::ViewTimeout { .. } => {
+                        warn!(?event, "Round timed out!");
+                        failed = true;
+                        break;
+                    }
+                    x @ EventType::Decide { .. } => decide_event = Some(x),
+                    _ => {}
+                }
+
+                match node
                     .handle
                     .next_event()
+                    .timeout(Duration::from_millis(10))
                     .await
-                    .expect("PhaseLock unexpectedly closed");
+                {
+                    Err(_) => {
+                        // timeout
+                        break;
+                    }
+                    Ok(Err(e)) => {
+                        panic!("Could not get node {}'s event: {:?}", id, e);
+                    }
+                    Ok(Ok(new_event)) => event = new_event,
+                }
             }
             if failed {
-                // put the tx back where we found it and break
                 break;
             }
             debug!(?id, "Node reached decision");
-            if let EventType::Decide { block, state } = event.event {
+            if let Some(EventType::Decide { block, state }) = decide_event {
                 blocks.push(block.iter().cloned().collect());
                 states.push(state.iter().cloned().collect());
             } else {
-                unreachable!()
+                panic!("Node {} not receive a decide event", id);
             }
         }
         if failed {
