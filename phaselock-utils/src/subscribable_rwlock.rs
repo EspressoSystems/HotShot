@@ -7,7 +7,7 @@ use std::fmt;
 /// read only view of [`SubscribableRwLock`]
 #[async_trait]
 pub trait ReadView<T: Clone> {
-    /// subscribe to state changes. Recveive
+    /// subscribe to state changes. Receive
     /// the updated state upon state change
     async fn subscribe(&self) -> Receiver<T>;
     /// async clone the internal state and return it
@@ -46,7 +46,7 @@ impl<T: Clone + Send + Sync> ReadView<T> for SubscribableRwLock<T> {
     }
 
     fn cloned(&self) -> T {
-        block_on(self.rw_lock.read()).clone()
+        block_on(self.cloned_async())
     }
 }
 
@@ -59,7 +59,7 @@ impl<T: Clone> SubscribableRwLock<T> {
         }
     }
 
-    /// subscribe to state changes. Recveive
+    /// subscribe to state changes. Receive
     /// the updated state upon state change
     pub async fn modify_async<F>(&self, cb: F)
     where
@@ -77,13 +77,7 @@ impl<T: Clone> SubscribableRwLock<T> {
     where
         F: FnOnce(&mut T),
     {
-        block_on(async {
-            let mut lock = self.rw_lock.write().await;
-            cb(&mut *lock);
-            let result = lock.clone();
-            drop(lock);
-            self.notify_change_subscribers(result).await;
-        });
+        block_on(self.modify_async(cb));
     }
 
     /// send subscribers the updated state
