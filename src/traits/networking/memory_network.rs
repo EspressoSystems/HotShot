@@ -5,6 +5,7 @@
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
 use crate::PubKey;
+use async_std::sync::RwLock;
 use async_std::task::spawn;
 use bincode::Options;
 use dashmap::DashMap;
@@ -66,9 +67,9 @@ struct MemoryNetworkInner<T> {
     /// The public key of this node
     pub_key: PubKey,
     /// Input for broadcast messages
-    broadcast_input: flume::Sender<Vec<u8>>,
+    broadcast_input: RwLock<Option<flume::Sender<Vec<u8>>>>,
     /// Input for direct messages
-    direct_input: flume::Sender<Vec<u8>>,
+    direct_input: RwLock<Option<flume::Sender<Vec<u8>>>>,
     /// Output for broadcast messages
     broadcast_output: flume::Receiver<T>,
     /// Output for direct messages
@@ -77,7 +78,7 @@ struct MemoryNetworkInner<T> {
     master_map: Arc<MasterMap<T>>,
 
     /// Input for network change messages
-    network_changes_input: flume::Sender<NetworkChange>,
+    network_changes_input: RwLock<Option<flume::Sender<NetworkChange>>>,
     /// Output for network change messages
     network_changes_output: flume::Receiver<NetworkChange>,
 }
@@ -222,23 +223,23 @@ where
         );
         trace!("Notifying other networks of the new connected peer");
         for other in master_map.map.iter() {
-            other
-                .value()
-                .inner
-                .network_changes_input
-                .try_send(NetworkChange::NodeConnected(pub_key.clone()))
-                .expect("Could not deliver message");
+            async_std::task::block_on(
+                other
+                    .value()
+                    .network_changes_input(NetworkChange::NodeConnected(pub_key.clone())),
+            )
+            .expect("Could not deliver message");
         }
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
                 pub_key: pub_key.clone(),
-                broadcast_input,
-                direct_input,
+                broadcast_input: RwLock::new(Some(broadcast_input)),
+                direct_input: RwLock::new(Some(direct_input)),
                 broadcast_output,
                 direct_output,
                 master_map: master_map.clone(),
-                network_changes_input,
+                network_changes_input: RwLock::new(Some(network_changes_input)),
                 network_changes_output,
             }),
         };
@@ -246,6 +247,39 @@ where
         trace!("Master map updated");
 
         mn
+    }
+
+    /// Send a [`Vec<u8>`] message to the inner `broadcast_input`
+    async fn broadcast_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+        let input = self.inner.broadcast_input.read().await;
+        if let Some(input) = &*input {
+            input.send_async(message).await
+        } else {
+            Err(flume::SendError(message))
+        }
+    }
+
+    /// Send a [`Vec<u8>`] message to the inner `direct_input`
+    async fn direct_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+        let input = self.inner.direct_input.read().await;
+        if let Some(input) = &*input {
+            input.send_async(message).await
+        } else {
+            Err(flume::SendError(message))
+        }
+    }
+
+    /// Send a [`NetworkChange`] message to the inner `network_changes_input`
+    async fn network_changes_input(
+        &self,
+        message: NetworkChange,
+    ) -> Result<(), flume::SendError<NetworkChange>> {
+        let input = self.inner.network_changes_input.read().await;
+        if let Some(input) = &*input {
+            input.send_async(message).await
+        } else {
+            Err(flume::SendError(message))
+        }
     }
 }
 
@@ -267,7 +301,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             for node in self.inner.master_map.map.iter() {
                 let (key, node) = node.pair();
                 trace!(?key, "Sending message to node");
-                let res = node.inner.broadcast_input.send_async(vec.clone()).await;
+                let res = node.broadcast_input(vec.clone()).await;
                 match res {
                     Ok(_) => trace!(?key, "Delivered message to remote"),
                     Err(e) => {
@@ -299,7 +333,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             trace!("Message bincoded, finding recipient");
             if let Some(node) = self.inner.master_map.map.get(&recipient) {
                 let node = node.value();
-                let res = node.inner.direct_input.send_async(vec).await;
+                let res = node.direct_input(vec).await;
                 match res {
                     Ok(_) => {
                         trace!(?recipient, "Delivered message to remote");
@@ -434,6 +468,15 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             }
         }
         .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
+        .boxed()
+    }
+
+    fn shut_down(&self) -> BoxFuture<'_, ()> {
+        async move {
+            *self.inner.broadcast_input.write().await = None;
+            *self.inner.direct_input.write().await = None;
+            *self.inner.network_changes_input.write().await = None;
+        }
         .boxed()
     }
 }

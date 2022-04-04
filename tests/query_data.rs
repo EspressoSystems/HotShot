@@ -165,7 +165,7 @@ async fn sync_newest_quorom() {
         start_delay: 1,
     };
     debug!(?config);
-    let (_, mut phaselock) = PhaseLock::<NODE, H_256>::init(
+    let mut phaselock = PhaseLock::<NODE, H_256>::init(
         <NODE as NodeImplementation<H_256>>::Block::default(),
         sks.public_keys(),
         sks.secret_key_share(node_id),

@@ -980,6 +980,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
         .boxed()
     }
+
+    fn shut_down(&self) -> BoxFuture<'_, ()> {
+        // TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I'm not sure
+        // I'll need some proper test cases
+        unimplemented!();
+    }
 }
 
 #[cfg(test)]

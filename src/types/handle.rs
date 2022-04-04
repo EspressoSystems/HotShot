@@ -6,6 +6,7 @@ use crate::{
     PhaseLock,
 };
 use async_std::{sync::RwLock, task::block_on};
+use phaselock_types::traits::network::NetworkingImplementation;
 use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::Arc;
 
@@ -183,5 +184,16 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
+    }
+
+    /// Shut down the the inner phaselock and wait until all background threads are closed.
+    pub async fn shut_down(self) {
+        *self.shut_down.write().await = true;
+        self.phaselock.inner.networking.shut_down().await;
+        self.phaselock
+            .inner
+            .background_task_handle
+            .wait_shutdown()
+            .await;
     }
 }

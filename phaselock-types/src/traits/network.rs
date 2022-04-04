@@ -118,6 +118,11 @@ where
 
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
     fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>>;
+
+    /// Shut down this network. Afterwards this network should no longer be used.
+    ///
+    /// This should also cause other functions to immediately return with a [`NetworkError`]
+    fn shut_down(&self) -> BoxFuture<'_, ()>;
 }
 
 /// Changes that can occur in the network

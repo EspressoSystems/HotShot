@@ -349,7 +349,7 @@ async fn get_phaselock(
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
-    let (_, h) = PhaseLock::init(
+    let h = PhaseLock::init(
         genesis,
         keys.public_keys(),
         keys.secret_key_share(node_id),

@@ -68,7 +68,7 @@ async fn single_permanent_failure() {
     let state = get_starting_state();
     let mut phaselocks: Vec<PhaseLockHandle<NODE, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = PhaseLock::init(
+        let h = PhaseLock::init(
             gensis.clone(),
             sks.public_keys(),
             sks.secret_key_share(node_id),
@@ -217,7 +217,7 @@ async fn double_permanent_failure() {
     let state = get_starting_state();
     let mut phaselocks: Vec<PhaseLockHandle<NODE, H_256>> = Vec::new();
     for node_id in 0..nodes {
-        let (_, h) = PhaseLock::init(
+        let h = PhaseLock::init(
             gensis.clone(),
             sks.public_keys(),
             sks.secret_key_share(node_id),

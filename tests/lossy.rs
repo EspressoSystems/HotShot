@@ -259,7 +259,7 @@ async fn lossy_network(
     };
     let mut phaselocks: Vec<PhaseLockHandle<NODE, H_256>> = Vec::new();
     for node_id in 0..num_nodes {
-        let (_, h) = PhaseLock::init(
+        let h = PhaseLock::init(
             gensis.clone(),
             sks.public_keys(),
             sks.secret_key_share(node_id),
