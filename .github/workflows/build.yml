@@ -31,7 +31,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Audit
-        run: cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
+        run: cargo audit --deny warnings
 
       - name: Check
         run: cargo check
