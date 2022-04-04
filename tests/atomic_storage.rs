@@ -10,7 +10,7 @@ use phaselock::{
 };
 use phaselock_testing::TestLauncher;
 use rand::thread_rng;
-use tracing::{debug_span, Instrument};
+use tracing::debug_span;
 
 type AtomicStorage = phaselock::traits::implementations::AtomicStorage<DEntryBlock, State, H_256>;
 

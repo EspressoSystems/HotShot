@@ -169,7 +169,7 @@ impl<
                 match node
                     .handle
                     .next_event()
-                    .timeout(Duration::from_millis(10))
+                    .timeout(Duration::from_millis(50))
                     .await
                 {
                     Err(_) => {
