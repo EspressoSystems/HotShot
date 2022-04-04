@@ -11,7 +11,10 @@ use phaselock_types::{
     data::Stage,
     event::{Event, EventType},
     message::Message,
-    traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
+    traits::{
+        network::NetworkingImplementation, node_implementation::NodeImplementation,
+        storage::Storage,
+    },
 };
 use phaselock_utils::broadcast::channel;
 use std::{sync::Arc, time::Duration};
@@ -287,7 +290,14 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
     let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
     let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
     let mut int_duration = default_interrupt_duration;
-    let mut view = 0;
+    let mut view = match phaselock.inner.storage.get_newest_qc().await {
+        Ok(Some(qc)) => qc.view_number,
+        Ok(None) => 0,
+        Err(e) => {
+            error!(?e, "Could not load the newest QC from the storage. Assuming there are no QC in the system.");
+            0
+        }
+    };
     let mut incremental_backoff_ms = 10;
     // PhaseLock background handler loop
     loop {

@@ -8,7 +8,9 @@ use phaselock::{
     traits::{BlockContents, Storage},
     H_256,
 };
+use phaselock_testing::TestLauncher;
 use rand::thread_rng;
+use tracing::{debug_span, Instrument};
 
 type AtomicStorage = phaselock::traits::implementations::AtomicStorage<DEntryBlock, State, H_256>;
 
@@ -208,5 +210,95 @@ async fn test_happy_path_leaves() {
                 None => panic!("Could not read leaf hash {:?}: {:?}", hash, leaf),
             }
         }
+    }
+}
+
+#[async_std::test]
+async fn restart() {
+    use std::path::Path;
+
+    common::setup_logging();
+
+    const PATH: &str = "target/test/restart";
+    // make sure PATH doesn't exist
+    let _ = async_std::fs::remove_dir_all(PATH).await;
+
+    let mut launcher = TestLauncher::new(5)
+        .with_storage(|idx| {
+            let path = format!("{}/{}", PATH, idx);
+            AtomicStorage::open(Path::new(&path)).unwrap()
+        })
+        .launch();
+    launcher.add_nodes(5).await;
+    // nodes should start at view_number 0
+    for node in launcher.nodes() {
+        assert_eq!(
+            node.storage()
+                .get_newest_qc()
+                .await
+                .unwrap()
+                .unwrap()
+                .view_number,
+            0
+        );
+    }
+
+    // run a round
+    launcher.add_random_transaction().unwrap();
+    launcher.run_one_round().await;
+
+    // nodes should now be at view_number 1
+    for node in launcher.nodes() {
+        assert_eq!(
+            node.storage()
+                .get_newest_qc()
+                .await
+                .unwrap()
+                .unwrap()
+                .view_number,
+            1
+        );
+    }
+
+    // take everything down and restart it
+    launcher.shutdown().await;
+    let mut launcher = TestLauncher::new(5)
+        .with_storage(|idx| {
+            let span = debug_span!("Storage", idx);
+            let _guard = span;
+            let path = format!("{}/{}", PATH, idx);
+            AtomicStorage::open(Path::new(&path)).unwrap()
+        })
+        .launch();
+    launcher.add_nodes(5).await;
+
+    // make sure they're all on view_number 1
+    for node in launcher.nodes() {
+        assert_eq!(
+            node.storage()
+                .get_newest_qc()
+                .await
+                .unwrap()
+                .unwrap()
+                .view_number,
+            1
+        );
+    }
+
+    // run a round
+    launcher.add_random_transaction().unwrap();
+    launcher.run_one_round().await;
+
+    // nodes should now be at view_number 2
+    for node in launcher.nodes() {
+        assert_eq!(
+            node.storage()
+                .get_newest_qc()
+                .await
+                .unwrap()
+                .unwrap()
+                .view_number,
+            2
+        );
     }
 }
