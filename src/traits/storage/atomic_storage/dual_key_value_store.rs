@@ -87,9 +87,13 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
     }
 
     /// Load the latest inserted entry in this `KKVStore`
-    pub async fn load_latest(&self) -> Option<K> {
+    pub async fn load_latest<F, V>(&self, cb: F) -> Option<K>
+    where
+        F: FnMut(&&K) -> V,
+        V: std::cmp::Ord,
+    {
         let read = self.inner.read().await;
-        read.values.last().cloned()
+        read.values.iter().max_by_key::<V, F>(cb).cloned()
     }
 
     /// Insert a value into this `KKVStore`

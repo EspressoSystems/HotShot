@@ -44,7 +44,6 @@ use crate::{
     types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
 };
 use async_std::sync::{Mutex, RwLock};
-use async_std::task::JoinHandle;
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage},
@@ -455,7 +454,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
-    ) -> Result<(JoinHandle<()>, PhaseLockHandle<I, N>)> {
+    ) -> Result<PhaseLockHandle<I, N>> {
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
@@ -469,9 +468,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             handler,
         )
         .await?;
-        let (task, handle) = tasks::spawn_all(&phaselock).await;
+        let handle = tasks::spawn_all(&phaselock).await;
 
-        Ok((task, handle))
+        Ok(handle)
     }
 
     /// Send a broadcast message.

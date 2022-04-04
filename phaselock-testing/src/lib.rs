@@ -12,7 +12,7 @@ mod launcher;
 
 pub use self::launcher::TestLauncher;
 
-use async_std::{prelude::FutureExt, task::JoinHandle};
+use async_std::prelude::FutureExt;
 use phaselock::{
     demos::dentry::{
         Account, Addition, Balance, DEntryBlock, State as DemoState, Subtraction, Transaction,
@@ -63,7 +63,6 @@ struct Node<
 > {
     pub node_id: u64,
     pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, STATE>, N>,
-    pub join_handle: JoinHandle<()>,
 }
 
 impl<
@@ -113,7 +112,7 @@ impl<
     ) {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
-        let (join_handle, handle) = PhaseLock::init(
+        let handle = PhaseLock::init(
             Block::default(),
             self.sks.public_keys(),
             self.sks.secret_key_share(node_id),
@@ -126,11 +125,7 @@ impl<
         )
         .await
         .expect("Could not init phaselock");
-        self.nodes.push(Node {
-            join_handle,
-            handle,
-            node_id,
-        });
+        self.nodes.push(Node { handle, node_id });
     }
 
     /// Iterate over the [`PhaseLockHandle`] nodes in this runner.
@@ -174,7 +169,7 @@ impl<
                 match node
                     .handle
                     .next_event()
-                    .timeout(Duration::from_millis(10))
+                    .timeout(Duration::from_millis(50))
                     .await
                 {
                     Err(_) => {
@@ -205,6 +200,14 @@ impl<
         assert_eq!(states.len(), self.nodes.len());
         assert_eq!(blocks.len(), self.nodes.len());
         (states, blocks)
+    }
+
+    /// Gracefully shut down this system
+    pub async fn shutdown(self) {
+        for node in self.nodes {
+            node.handle.shut_down().await;
+        }
+        debug!("All nodes should be shut down now.");
     }
 }
 

@@ -360,7 +360,7 @@ where
     let genesis = <I::Block>::default();
     let mut phaselocks = Vec::new();
     for node_id in 0..num_nodes {
-        let (_, phaselock) = PhaseLock::init(
+        let phaselock = PhaseLock::init(
             genesis.clone(),
             sks.public_keys(),
             sks.secret_key_share(node_id),
