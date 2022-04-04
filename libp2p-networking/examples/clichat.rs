@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     };
     let listen_addr = gen_multiaddr(port);
     networking.start_listen(listen_addr).await?;
-    networking.add_known_peers(peer_list.as_slice()).await;
+    networking.add_known_peers(peer_list.as_slice());
     let (send_chan, recv_chan) = networking.spawn_listeners().await?;
 
     // -- Spin up the UI
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
     // -- Create the app and run it
     let app = TableApp::new(message_buffer.clone(), send_chan, recv_chan);
     app.send_swarm
-        .send(ClientRequest::Subscribe("global".to_string()))?;
+        .send(ClientRequest::Subscribe("global".to_string(), None))?;
     let res = run_app(&mut terminal, app).await;
     // -- Tear down the TUI, and restore the terminal
     disable_raw_mode()?;

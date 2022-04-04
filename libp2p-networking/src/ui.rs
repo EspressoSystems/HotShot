@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
-use async_std::task::{sleep, spawn};
 
 use crate::{
     message::Message,
     network::{ClientRequest, NetworkEvent},
 };
+use async_std::task::{sleep, spawn};
 use bincode::Options;
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -13,7 +13,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
-use libp2p::{gossipsub::Topic, PeerId};
+use libp2p::PeerId;
 use parking_lot::Mutex;
 use std::{
     collections::{HashSet, VecDeque},
@@ -147,8 +147,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             let msg = Message {
                                                 topic: "DM".to_string(),
                                                 content: app.input,
-                                                // TODO deal with this later
-                                                sender: todo!(),
+                                                sender: "Client".to_string(),
                                             };
                                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                             let s_msg = bincode_options.serialize(&msg)?;
@@ -169,12 +168,11 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                         let msg = Message {
                                             topic: "global".to_string(),
                                             content: app.input,
-                                            // TODO fix this later
-                                            sender: todo!(),
+                                            sender: "Client".to_string(),
                                         };
                                         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                                         let s_msg = bincode_options.serialize(&msg)?;
-                                        send_swarm.send_async(ClientRequest::GossipMsg(Topic::new(msg.topic.clone()), s_msg)).await?;
+                                        send_swarm.send_async(ClientRequest::GossipMsg(msg.topic.clone(), s_msg)).await?;
                                         Result::<(), Report>::Ok(())
                                     }.instrument(info_span!("Broadcast Handler")));
                                     app.input = String::new();
