@@ -39,7 +39,6 @@ impl NetworkReliability for SynchronousNetwork {
     /// never drop a packet
     fn sample_keep(&self) -> bool {
         true
-            asdfakdf
     }
     fn sample_delay(&self) -> Duration {
         Duration::from_millis(
