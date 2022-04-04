@@ -100,14 +100,6 @@ pub async fn counter_handle_network_event(
                 }
             }
         }
-        UpdateConnectedPeers(p) => {
-            handle.set_connected_peers(p).await;
-            handle.notify_webui().await;
-        }
-        UpdateKnownPeers(p) => {
-            handle.set_known_peers(p).await;
-            handle.notify_webui().await;
-        }
     };
     Ok(())
 }

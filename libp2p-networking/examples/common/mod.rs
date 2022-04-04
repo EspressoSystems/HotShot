@@ -277,7 +277,6 @@ pub async fn regular_handle_network_event(
                         handle
                             .ignore_peers(vec![peerid])
                             .await?;
-                        handle.add_ignored_peer(peerid).await;
                         handle.direct_request(peerid, &Message::RecvdConductor).await?;
                     }
                     Message::Normal(msg) => {
@@ -336,14 +335,6 @@ pub async fn regular_handle_network_event(
                 }
             } else {
             }
-        }
-        UpdateConnectedPeers(p) => {
-            handle.set_connected_peers(p).await;
-            handle.notify_webui().await;
-        }
-        UpdateKnownPeers(p) => {
-            handle.set_known_peers(p).await;
-            handle.notify_webui().await;
         }
     }
     Ok(())
@@ -554,11 +545,12 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
-            let handle = Arc::new(
-                NetworkNodeHandle::<CounterState>::new(config.clone(), 0)
-                    .await
-                    .context(HandleSnafu)?,
-            );
+
+            let node = NetworkNodeHandle::<CounterState>::new(config.clone(), 0)
+                .await
+                .context(HandleSnafu)?;
+
+            let handle = Arc::new(node);
             #[cfg(feature = "webui")]
             if let Some(addr) = opts.webui_addr {
                 web::spawn_server(Arc::clone(&handle), addr);
@@ -792,15 +784,6 @@ pub async fn conductor_handle_network_event(
             }
         }
         DirectResponse(_m, _peer_id) => { /* nothing to do here */ }
-        // we care about these for the sake of maintaining conenctions, but not much else
-        UpdateConnectedPeers(p) => {
-            handle.set_connected_peers(p).await;
-            handle.notify_webui().await;
-        }
-        UpdateKnownPeers(p) => {
-            handle.set_known_peers(p).await;
-            handle.notify_webui().await;
-        }
     }
     Ok(())
 }
