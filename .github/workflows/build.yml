@@ -39,7 +39,12 @@ jobs:
       - name: Build
         run: cargo build --release --examples
 
-      - name: Test
+      - name: Test phaselock
+        run: cargo test --release --all-features --manifest-path phaselock-testing/Cargo.toml
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Test phaselock lib
         run: cargo test --release --all-features
         env:
           RUST_BACKTRACE: 1
