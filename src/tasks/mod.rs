@@ -1,4 +1,4 @@
-//! Provides a number of tasks that run continuously on a [`Phaselock`]
+//! Provides a number of tasks that run continuously on a `Phaselock`
 
 use crate::{types::PhaseLockHandle, PhaseLock};
 use async_std::{

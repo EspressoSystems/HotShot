@@ -1,6 +1,6 @@
 //! A store that operates on a value with 2 different keys.
 //!
-//! Implementations should implement [`DualKeyValue`] before they can use [`KKVStore`].
+//! Implementations should implement [`DualKeyValue`] before they can use [`DualKeyValueStore`].
 
 use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
@@ -17,7 +17,7 @@ pub struct DualKeyValueStore<K: DualKeyValue> {
     inner: RwLock<Inner<K>>,
 }
 
-/// The inner struct of the [`KKVStore`]
+/// The inner struct of the [`DualKeyValueStore`]
 struct Inner<K: DualKeyValue> {
     /// The underlying store
     store: AppendLog<BincodeLoadStore<K>>,
@@ -33,7 +33,7 @@ struct Inner<K: DualKeyValue> {
 }
 
 impl<K: DualKeyValue> DualKeyValueStore<K> {
-    /// Open the `KKVStore` with the given loader and name.
+    /// Open the `DualKeyValueStore` with the given loader and name.
     ///
     /// # Errors
     ///
@@ -86,7 +86,7 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
         self.load_by_key_2_ref(&k).await
     }
 
-    /// Load the latest inserted entry in this `KKVStore`
+    /// Load the latest inserted entry in this `DualKeyValueStore`
     pub async fn load_latest<F, V>(&self, cb: F) -> Option<K>
     where
         F: FnMut(&&K) -> V,
@@ -96,7 +96,7 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
         read.values.iter().max_by_key::<V, F>(cb).cloned()
     }
 
-    /// Insert a value into this `KKVStore`
+    /// Insert a value into this `DualKeyValueStore`
     ///
     /// # Errors
     ///
@@ -114,7 +114,7 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
         Ok(())
     }
 
-    /// Commit this `KKVStore`.
+    /// Commit this `DualKeyValueStore`.
     ///
     /// # Errors
     ///
@@ -126,7 +126,7 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
     }
 }
 
-/// A dual key value. Used for [`KKVStore`]
+/// A dual key value. Used for [`DualKeyValueStore`]
 pub trait DualKeyValue: Serialize + DeserializeOwned + Clone {
     /// The first key type
     type Key1: Serialize + DeserializeOwned + Hash + Eq;

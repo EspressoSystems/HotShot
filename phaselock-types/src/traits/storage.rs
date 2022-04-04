@@ -69,13 +69,13 @@ pub trait StorageUpdater<
     const N: usize,
 >: Send
 {
-    /// Inserts a block into storage. Make sure to call [`commit`] after all data is inserted.
+    /// Inserts a block into storage.
     fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult>;
     /// Inserts a Quorum Certificate into the storage. Should reject the QC if it is malformed or
-    /// not from a decide stage. Make sure to call [`commit`] after all data is inserted.
+    /// not from a decide stage.
     fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult>;
-    /// Inserts a leaf. Make sure to call [`commit`] after all data is inserted.
+    /// Inserts a leaf.
     fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult>;
-    /// Inserts a `State`, indexed by the hash of the `Leaf` that created it. Make sure to call [`commit`] after all data is inserted.
+    /// Inserts a `State`, indexed by the hash of the `Leaf` that created it.
     fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult>;
 }
