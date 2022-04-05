@@ -11,6 +11,21 @@ updates:
       interval: "daily"
 
   - package-ecosystem: "cargo"
+    directory: "/phaselock-testing"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "cargo"
+    directory: "/phaselock-types"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "cargo"
+    directory: "/phaselock-utils"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "cargo"
     directory: "/libp2p-networking"
     schedule:
       interval: "daily"
