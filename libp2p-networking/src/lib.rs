@@ -24,9 +24,8 @@ pub mod tracing_setup;
 /// Example message used by the UI library
 pub mod message;
 
-// /// UI library for clichat example
-// TODO uncomment
-// pub mod ui;
+/// UI library for clichat example
+pub mod ui;
 
 /// Network logic
 pub mod network;

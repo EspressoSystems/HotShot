@@ -103,13 +103,13 @@ impl Default for NetworkNodeType {
 
 /// Actions to send from the client to the swarm
 #[derive(Debug)]
-pub(crate) enum ClientRequest {
+pub enum ClientRequest {
     /// kill the swarm
     Shutdown,
     /// broadcast a serialized message
     GossipMsg(String, Vec<u8>),
     /// subscribe to a topic
-    Subscribe(String, Sender<()>),
+    Subscribe(String, Option<Sender<()>>),
     /// unsubscribe from a topic
     Unsubscribe(String, Sender<()>),
     /// client request to send a direct serialized message

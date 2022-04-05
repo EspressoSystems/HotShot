@@ -352,7 +352,7 @@ async fn run_request_response_increment_all(
         }
     }
     let results = join_all(futs).await;
-    if results.iter().find(|x| x.is_err()).is_some() {
+    if results.iter().any(|x| x.is_err()) {
         print_connections(handles).await;
         panic!(
             "{:?}",
