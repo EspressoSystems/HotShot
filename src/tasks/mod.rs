@@ -22,7 +22,7 @@ use phaselock_types::{
 };
 use phaselock_utils::broadcast::channel;
 use std::{sync::Arc, time::Duration};
-use tracing::{error, info, info_span, trace, warn, Instrument};
+use tracing::{debug, error, info, info_span, trace, warn, Instrument};
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
@@ -62,7 +62,7 @@ impl TaskHandle {
             .round_runner
             .send_async(ToRoundRunner::GetState(sender))
             .await?;
-        let state = receiver.timeout(Duration::from_secs(2)).await??;
+        let state = receiver.timeout(Duration::from_millis(200)).await??;
         Ok(state)
     }
 
@@ -408,7 +408,7 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
                 }
             }
             _ = round_runner_trigger(pause.clone(), run_once.clone(), shut_down.clone()).fuse() => {
-                if !*shut_down.read().await {
+                if *shut_down.read().await {
                     break;
                 }
                 // Received a signal to start a round
@@ -484,4 +484,5 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
             }
         }
     }
+    debug!("round_runner_task exited");
 }

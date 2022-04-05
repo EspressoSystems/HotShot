@@ -4,10 +4,7 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
-    traits::{
-        storage::{Storage, StorageResult},
-        BlockContents, State,
-    },
+    traits::{BlockContents, State},
     QuorumCertificate,
 };
 use async_std::sync::RwLock;
@@ -16,7 +13,9 @@ use futures::{
     future::{BoxFuture, FutureExt},
     Future,
 };
-use phaselock_types::traits::storage::{StorageState, StorageUpdater};
+use phaselock_types::traits::storage::{
+    InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater,
+};
 use std::sync::Arc;
 use tracing::{info_span, trace, Instrument};
 
@@ -291,12 +290,38 @@ where
             let view = qc.view_number;
             let hash = qc.block_hash;
             let mut qcs = self.inner.qcs.write().await;
-            let index = qcs.len();
-            trace!(?qc, ?index, "Inserting qc");
-            qcs.push(qc);
-            self.inner.view_to_qc.insert(view, index);
-            self.inner.hash_to_qc.insert(hash, index);
-            Ok(())
+
+            match (
+                self.inner.view_to_qc.get(&view),
+                self.inner.hash_to_qc.get(&hash),
+            ) {
+                (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
+                    let index: usize = *view_idx.value() as usize;
+                    trace!(?qc, ?index, "Updating qc");
+                    qcs[index] = qc;
+                    Ok(())
+                }
+                (Some(_), Some(_)) => InconsistencySnafu {
+                    description: String::from("the view_number and block_hash already exists"),
+                }
+                .fail(),
+                (Some(_), None) => InconsistencySnafu {
+                    description: String::from("the view_number already exists"),
+                }
+                .fail(),
+                (None, Some(_)) => InconsistencySnafu {
+                    description: String::from("the block_hash already exists"),
+                }
+                .fail(),
+                (None, None) => {
+                    let index = qcs.len();
+                    trace!(?qc, ?index, "Inserting qc");
+                    qcs.push(qc);
+                    self.inner.view_to_qc.insert(view, index);
+                    self.inner.hash_to_qc.insert(hash, index);
+                    Ok(())
+                }
+            }
         }
         .instrument(info_span!("MemoryStorage::insert_qc"))
         .boxed()

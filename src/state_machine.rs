@@ -346,10 +346,10 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     pl.inner
                         .storage
                         .update(|mut m| {
-                            let new_leaf = new_leaf.clone();
+                            // let new_leaf = new_leaf.clone();
                             let new_state = new_state.clone();
                             async move {
-                                m.insert_leaf(new_leaf).await?;
+                                // m.insert_leaf(new_leaf).await?;
                                 m.insert_state(new_state, the_hash).await?;
                                 Ok(())
                             }
@@ -357,7 +357,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         .await
                         .context(StorageSnafu)?;
 
-                    debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
+                    // debug!(?new_leaf, ?the_hash, "Leaf created and added to store");
                     debug!(?new_state, "New state inserted");
 
                     // Broadcast out the leaf
@@ -440,14 +440,14 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         // Store the precommit qc
                         let mut pqc = pl.inner.prepare_qc.write().await;
                         *pqc = Some(qc.clone());
-                        pl.inner
-                            .storage
-                            .update(|mut m| {
-                                let qc = qc.clone();
-                                async move { m.insert_qc(qc).await }
-                            })
-                            .await
-                            .context(StorageSnafu)?;
+                        // pl.inner
+                        //     .storage
+                        //     .update(|mut m| {
+                        //         let qc = qc.clone();
+                        //         async move { m.insert_qc(qc).await }
+                        //     })
+                        //     .await
+                        //     .context(StorageSnafu)?;
                         trace!("Pre-commit qc stored in prepare_qc");
                         let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,

@@ -5,10 +5,26 @@ use crate::{
     traits::{BlockContents, State},
 };
 use futures::{future::BoxFuture, Future};
+use snafu::Snafu;
+
+/// Errors that can occur in the storage layer.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+pub enum StorageError {
+    /// The atomic store encountered an error
+    AtomicStore {
+        /// The inner error
+        source: atomic_store::error::PersistenceError,
+    },
+    /// An inconsistency was found in the data.
+    InconsistencyError {
+        /// The description of the inconsistency
+        description: String,
+    },
+}
 
 /// Result for a storage type
-pub type StorageResult<T = ()> =
-    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 
 /// Abstraction over on disk persistence of node state
 ///

@@ -136,8 +136,6 @@ impl<
     }
 
     /// Run a single round, returning the `STATE` and `Block` of each node in order.
-    ///
-    /// Will also call `validate_node_states` at the end to make sure all the nodes are on the same page.
     pub async fn run_one_round(&mut self) -> (Vec<Vec<STATE>>, Vec<Vec<Block>>) {
         let mut blocks = Vec::new();
         let mut states = Vec::new();
@@ -148,11 +146,21 @@ impl<
         let mut failed = false;
         for node in &mut self.nodes {
             let id = node.node_id;
-            let mut event = node
+            let mut event = match node
                 .handle
                 .next_event()
+                .timeout(Duration::from_secs(5))
                 .await
-                .expect("PhaseLock unexpectedly closed");
+            {
+                Err(_timeout) => {
+                    panic!(
+                        "PhaseLockHandle {} did not trigger an event within 5 seconds",
+                        id
+                    );
+                }
+                Ok(Err(e)) => panic!("PhaseLockHandle {} unexpectedly closed: {:?}", id, e),
+                Ok(Ok(event)) => event,
+            };
             let mut decide_event = None;
 
             // drain all events from this node
@@ -211,7 +219,6 @@ impl<
         assert_eq!(states.len(), self.nodes.len());
         assert_eq!(blocks.len(), self.nodes.len());
 
-        self.validate_node_states().await;
         (states, blocks)
     }
 

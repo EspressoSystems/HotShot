@@ -6,9 +6,13 @@ use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
 use phaselock_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
-    traits::BlockContents,
+    traits::{
+        storage::{AtomicStoreSnafu, InconsistencySnafu, StorageError},
+        BlockContents,
+    },
 };
 use serde::{de::DeserializeOwned, Serialize};
+use snafu::ResultExt;
 use std::{collections::HashMap, hash::Hash};
 
 /// A store that allows lookup of a value by 2 different keys.
@@ -106,17 +110,44 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
     /// # Errors
     ///
     /// Returns any errors that [`AppendLog`]'s `store_resource` returns.
-    pub async fn insert(&self, val: K) -> Result<(), atomic_store::PersistenceError> {
+    pub async fn insert(&self, val: K) -> Result<(), StorageError> {
         let mut lock = self.inner.write().await;
 
-        lock.store.store_resource(&val)?;
+        match (lock.key_1.get(&val.key_1()), lock.key_2.get(&val.key_2())) {
+            (Some(idx), Some(key_2_idx)) if idx == key_2_idx => {
+                // updating
+                let idx = *idx;
 
-        let idx = lock.values.len();
-        lock.key_1.insert(val.key_1(), idx);
-        lock.key_2.insert(val.key_2(), idx);
-        lock.values.push(val);
+                // TODO: This still adds a duplicate `K` in the storage
+                // ideally we'd update this record instead
+                lock.store.store_resource(&val).context(AtomicStoreSnafu)?;
+                lock.values[idx] = val;
+                Ok(())
+            }
+            (Some(_), Some(_)) => InconsistencySnafu {
+                description: String::from("the view_number and block_hash already exists"),
+            }
+            .fail(),
+            (Some(_), None) => InconsistencySnafu {
+                description: String::from("the view_number already exists"),
+            }
+            .fail(),
+            (None, Some(_)) => InconsistencySnafu {
+                description: String::from("the block_hash already exists"),
+            }
+            .fail(),
+            (None, None) => {
+                // inserting
+                lock.store.store_resource(&val).context(AtomicStoreSnafu)?;
 
-        Ok(())
+                let idx = lock.values.len();
+                lock.key_1.insert(val.key_1(), idx);
+                lock.key_2.insert(val.key_2(), idx);
+                lock.values.push(val);
+
+                Ok(())
+            }
+        }
     }
 
     /// Commit this [`DualKeyValueStore`].
