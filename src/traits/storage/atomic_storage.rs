@@ -19,7 +19,7 @@ use futures::{
     future::{BoxFuture, FutureExt},
     Future,
 };
-use phaselock_types::traits::storage::StorageUpdater;
+use phaselock_types::traits::storage::{StorageState, StorageUpdater};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{path::Path, sync::Arc};
 use tracing::{info_span, trace, Instrument};
@@ -188,6 +188,34 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             self.inner.atomic_store.lock().await.commit_version()?;
 
             Ok(())
+        }
+        .boxed()
+    }
+
+    fn get_internal_state(&self) -> BoxFuture<'_, StorageState<B, S, N>> {
+        async move {
+            let mut blocks: Vec<(BlockHash<N>, B)> =
+                self.inner.blocks.load_all().await.into_iter().collect();
+            blocks.sort_by_key(|(hash, _)| *hash);
+            let blocks = blocks.into_iter().map(|(_, block)| block).collect();
+
+            let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.load_all().await;
+            leafs.sort_by_cached_key(Leaf::hash);
+
+            let mut quorum_certificates = self.inner.qcs.load_all().await;
+            quorum_certificates.sort_by_key(|qc| qc.view_number);
+
+            let mut states: Vec<(LeafHash<N>, S)> =
+                self.inner.states.load_all().await.into_iter().collect();
+            states.sort_by_key(|(hash, _)| *hash);
+            let states = states.into_iter().map(|(_, state)| state).collect();
+
+            StorageState {
+                blocks,
+                quorum_certificates,
+                leafs,
+                states,
+            }
         }
         .boxed()
     }
