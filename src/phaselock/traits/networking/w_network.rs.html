@@ -1279,6 +1279,12 @@
 <span id="1277">1277</span>
 <span id="1278">1278</span>
 <span id="1279">1279</span>
+<span id="1280">1280</span>
+<span id="1281">1281</span>
+<span id="1282">1282</span>
+<span id="1283">1283</span>
+<span id="1284">1284</span>
+<span id="1285">1285</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -2260,6 +2266,12 @@
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryNetwork::direct_queue&quot;</span>, <span class="self">self</span>.<span class="ident">id</span> <span class="op">=</span> <span class="question-mark">?</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>))
         .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">shut_down</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, ()<span class="op">&gt;</span> {
+        <span class="comment">// TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I&#39;m not sure</span>
+        <span class="comment">// I&#39;ll need some proper test cases</span>
+        <span class="macro">unimplemented!</span>();
     }
 }
 

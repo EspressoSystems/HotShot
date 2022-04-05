@@ -721,7 +721,6 @@
 <span id="719">719</span>
 <span id="720">720</span>
 <span id="721">721</span>
-<span id="722">722</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -768,7 +767,6 @@
     <span class="ident">types</span>::{<span class="ident">Commit</span>, <span class="ident">Decide</span>, <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">NewView</span>, <span class="ident">PhaseLockHandle</span>, <span class="ident">PreCommit</span>, <span class="ident">Prepare</span>, <span class="ident">Vote</span>},
 };
 <span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
-<span class="kw">use</span> <span class="ident">async_std::task::JoinHandle</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
     <span class="ident">message</span>::{<span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>},
@@ -1179,7 +1177,7 @@
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
         <span class="ident">handler</span>: <span class="ident">I::StatefulHandler</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">JoinHandle</span><span class="op">&lt;</span>()<span class="op">&gt;</span>, <span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// Save a clone of the storage for the handle</span>
         <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
             <span class="ident">genesis</span>,
@@ -1193,9 +1191,9 @@
             <span class="ident">handler</span>,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">task</span>, <span class="ident">handle</span>) <span class="op">=</span> <span class="ident">tasks::spawn_all</span>(<span class="kw-2">&amp;</span><span class="ident">phaselock</span>).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">tasks::spawn_all</span>(<span class="kw-2">&amp;</span><span class="ident">phaselock</span>).<span class="kw">await</span>;
 
-        <span class="prelude-val">Ok</span>((<span class="ident">task</span>, <span class="ident">handle</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
     }
 
     <span class="doccomment">/// Send a broadcast message.</span>

@@ -602,6 +602,49 @@
 <span id="600">600</span>
 <span id="601">601</span>
 <span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
@@ -609,6 +652,7 @@
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">FailedToSerializeSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PubKey</span>;
+<span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
@@ -670,9 +714,9 @@
     <span class="doccomment">/// The public key of this node</span>
     <span class="ident">pub_key</span>: <span class="ident">PubKey</span>,
     <span class="doccomment">/// Input for broadcast messages</span>
-    <span class="ident">broadcast_input</span>: <span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">broadcast_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Input for direct messages</span>
-    <span class="ident">direct_input</span>: <span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">direct_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for broadcast messages</span>
     <span class="ident">broadcast_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for direct messages</span>
@@ -681,7 +725,7 @@
     <span class="ident">master_map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Input for network change messages</span>
-    <span class="ident">network_changes_input</span>: <span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>,
+    <span class="ident">network_changes_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for network change messages</span>
     <span class="ident">network_changes_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>,
 }
@@ -826,23 +870,23 @@
         );
         <span class="macro">trace!</span>(<span class="string">&quot;Notifying other networks of the new connected peer&quot;</span>);
         <span class="kw">for</span> <span class="ident">other</span> <span class="kw">in</span> <span class="ident">master_map</span>.<span class="ident">map</span>.<span class="ident">iter</span>() {
-            <span class="ident">other</span>
-                .<span class="ident">value</span>()
-                .<span class="ident">inner</span>
-                .<span class="ident">network_changes_input</span>
-                .<span class="ident">try_send</span>(<span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">pub_key</span>.<span class="ident">clone</span>()))
-                .<span class="ident">expect</span>(<span class="string">&quot;Could not deliver message&quot;</span>);
+            <span class="ident">async_std::task::block_on</span>(
+                <span class="ident">other</span>
+                    .<span class="ident">value</span>()
+                    .<span class="ident">network_changes_input</span>(<span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">pub_key</span>.<span class="ident">clone</span>())),
+            )
+            .<span class="ident">expect</span>(<span class="string">&quot;Could not deliver message&quot;</span>);
         }
         <span class="macro">trace!</span>(<span class="string">&quot;Task spawned, creating MemoryNetwork&quot;</span>);
         <span class="kw">let</span> <span class="ident">mn</span> <span class="op">=</span> <span class="ident">MemoryNetwork</span> {
             <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">MemoryNetworkInner</span> {
                 <span class="ident">pub_key</span>: <span class="ident">pub_key</span>.<span class="ident">clone</span>(),
-                <span class="ident">broadcast_input</span>,
-                <span class="ident">direct_input</span>,
+                <span class="ident">broadcast_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">broadcast_input</span>)),
+                <span class="ident">direct_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">direct_input</span>)),
                 <span class="ident">broadcast_output</span>,
                 <span class="ident">direct_output</span>,
                 <span class="ident">master_map</span>: <span class="ident">master_map</span>.<span class="ident">clone</span>(),
-                <span class="ident">network_changes_input</span>,
+                <span class="ident">network_changes_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">network_changes_input</span>)),
                 <span class="ident">network_changes_output</span>,
             }),
         };
@@ -850,6 +894,39 @@
         <span class="macro">trace!</span>(<span class="string">&quot;Master map updated&quot;</span>);
 
         <span class="ident">mn</span>
+    }
+
+    <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `broadcast_input`</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
+            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+        }
+    }
+
+    <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `direct_input`</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
+            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+        }
+    }
+
+    <span class="doccomment">/// Send a [`NetworkChange`] message to the inner `network_changes_input`</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">network_changes_input</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">message</span>: <span class="ident">NetworkChange</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
+            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+        }
     }
 }
 
@@ -871,7 +948,7 @@
             <span class="kw">for</span> <span class="ident">node</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">master_map</span>.<span class="ident">map</span>.<span class="ident">iter</span>() {
                 <span class="kw">let</span> (<span class="ident">key</span>, <span class="ident">node</span>) <span class="op">=</span> <span class="ident">node</span>.<span class="ident">pair</span>();
                 <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">key</span>, <span class="string">&quot;Sending message to node&quot;</span>);
-                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">inner</span>.<span class="ident">broadcast_input</span>.<span class="ident">send_async</span>(<span class="ident">vec</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">broadcast_input</span>(<span class="ident">vec</span>.<span class="ident">clone</span>()).<span class="kw">await</span>;
                 <span class="kw">match</span> <span class="ident">res</span> {
                     <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">key</span>, <span class="string">&quot;Delivered message to remote&quot;</span>),
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
@@ -903,7 +980,7 @@
             <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, finding recipient&quot;</span>);
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">node</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">master_map</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">recipient</span>) {
                 <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">value</span>();
-                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">inner</span>.<span class="ident">direct_input</span>.<span class="ident">send_async</span>(<span class="ident">vec</span>).<span class="kw">await</span>;
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">direct_input</span>(<span class="ident">vec</span>).<span class="kw">await</span>;
                 <span class="kw">match</span> <span class="ident">res</span> {
                     <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
                         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;Delivered message to remote&quot;</span>);
@@ -1038,6 +1115,15 @@
             }
         }
         .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;MemoryNetwork::direct_queue&quot;</span>, <span class="self">self</span>.<span class="ident">id</span> <span class="op">=</span> <span class="question-mark">?</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>))
+        .<span class="ident">boxed</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">shut_down</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">async</span> <span class="kw">move</span> {
+            <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+            <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+            <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        }
         .<span class="ident">boxed</span>()
     }
 }
