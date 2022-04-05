@@ -855,9 +855,13 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         debug!(?new_state, "New state inserted");
                         if suggested_state != new_state {
                             // the state that the leader send does not match with what we calculated
-                            error!(?new_state, ?suggested_state, "Suggested state does not match actual state.");
+                            error!(
+                                ?new_state,
+                                ?suggested_state,
+                                "Suggested state does not match actual state."
+                            );
                             return Err(PhaseLockError::InconsistentBlock {
-                                stage: Stage::Prepare
+                                stage: Stage::Prepare,
                             });
                         }
                         pl.inner
