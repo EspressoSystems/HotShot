@@ -55,7 +55,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] has been closed.
+    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] has been closed.
     pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>, PhaseLockError> {
         let result = self.stream_output.recv_async().await;
         match result {
@@ -77,7 +77,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has shut down
+    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has shut down
     pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>, PhaseLockError> {
         let result = self.stream_output.try_recv();
         Ok(result)
@@ -87,7 +87,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkError`] if the underlying [`PhaseLock`] instance has been shut
+    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has been shut
     /// down.
     pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>, PhaseLockError> {
         let mut output = vec![];
@@ -119,7 +119,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return a [`PhaselockError`] if some error occurs in the underlying
+    /// Will return a [`PhaseLockError`] if some error occurs in the underlying
     /// [`PhaseLock`] instance.
     pub async fn submit_transaction(
         &self,
