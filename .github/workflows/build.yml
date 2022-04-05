@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+    timeout-minutes: 25
     container:
       image: ghcr.io/espressosystems/devops-rust:stable
     steps:
