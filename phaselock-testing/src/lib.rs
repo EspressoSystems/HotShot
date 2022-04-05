@@ -25,15 +25,16 @@ use phaselock::{
         NodeImplementation, State, Storage,
     },
     types::{EventType, Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, H_256,
+    PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::traits::BlockContents;
+use phaselock_types::error::TimeoutSnafu;
+use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
 };
 use std::{marker::PhantomData, time::Duration};
-use tracing::{debug, info, info_span, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -147,91 +148,74 @@ impl<
         self.nodes.iter().map(|node| &node.handle)
     }
 
+    /// iterate through all events on a [`Self::Node`] and determine if the node finished
+    /// successfully
+    async fn collect_round_events(
+        node: &mut Node<NETWORK, STORAGE, STATE>,
+    ) -> Result<(Vec<STATE>, Vec<Block>), PhaseLockError> {
+        let id = node.node_id;
+
+        // drain all events from this node
+        loop {
+            let event = node
+                .handle
+                .next_event()
+                .timeout(Duration::from_millis(100))
+                .await
+                .context(TimeoutSnafu)??;
+            trace!(?id, ?event);
+            match event.event {
+                EventType::ViewTimeout { .. } => {
+                    // if view_number == node.handle TODO
+                    error!(?event, "Round timed out!");
+                    // return Err(PhaseLockError::ViewTimeoutError { view_number })
+                    continue;
+                }
+                EventType::Decide { block, state } => {
+                    return Ok((
+                        state.iter().cloned().collect(),
+                        block.iter().cloned().collect(),
+                    ));
+                }
+                _e => {}
+            }
+        }
+    }
+
     /// Run a single round, returning the `STATE` and `Block` of each node in order.
-    pub async fn run_one_round(&mut self) -> (Vec<Vec<STATE>>, Vec<Vec<BLOCK>>) {
+    pub async fn run_one_round(
+        &mut self,
+    ) -> Result<(Vec<Vec<STATE>>, Vec<Vec<Block>>), ConsensusTestError> {
         let mut blocks = Vec::new();
         let mut states = Vec::new();
 
         for handle in self.nodes() {
             handle.run_one_round().await;
         }
-        let mut failed = false;
-        for node in &mut self.nodes {
-            let id = node.node_id;
-            let mut event = match node
-                .handle
-                .next_event()
-                .timeout(Duration::from_secs(5))
-                .await
-            {
-                Err(_timeout) => {
-                    panic!(
-                        "PhaseLockHandle {} did not trigger an event within 5 seconds",
-                        id
-                    );
+        let mut failed_set = Vec::new();
+        for node in self.nodes.iter_mut() {
+            let result = Self::collect_round_events(node).await;
+            match result {
+                Ok((state, block)) => {
+                    states.push(state);
+                    blocks.push(block);
                 }
-                Ok(Err(e)) => panic!("PhaseLockHandle {} unexpectedly closed: {:?}", id, e),
-                Ok(Ok(event)) => event,
-            };
-            let mut decide_event = None;
-
-            // drain all events from this node
-            loop {
-                trace!(?id, ?event);
-                match event.event {
-                    EventType::ViewTimeout { .. } => {
-                        warn!(?event, "Round timed out!");
-                        failed = true;
-                        break;
-                    }
-                    x @ EventType::Decide { .. } => decide_event = Some(x),
-                    _ => {}
-                }
-
-                match node
-                    .handle
-                    .next_event()
-                    .timeout(Duration::from_millis(100))
-                    .await
-                {
-                    Err(_) => {
-                        // timeout
-                        break;
-                    }
-                    Ok(Err(e)) => {
-                        panic!("Could not get node {}'s event: {:?}", id, e);
-                    }
-                    Ok(Ok(new_event)) => event = new_event,
+                Err(e) => {
+                    failed_set.push((node.node_id, e));
                 }
             }
-            if failed {
-                break;
-            }
-            debug!(?id, "Node reached decision");
-            if let Some(EventType::Decide { block, state }) = decide_event {
-                blocks.push(block.iter().cloned().collect());
-                states.push(state.iter().cloned().collect());
-            } else {
-                println!("Node {} did not receive a decide event", id);
-                println!(
-                    "Next event in queue: {:?}",
-                    node.handle
-                        .next_event()
-                        .timeout(Duration::from_secs(1))
-                        .await
-                );
-                println!("(If this is Ok, it means the TestRunner didn't listen for long enough)");
-                panic!();
-            }
-        }
-        if failed {
-            panic!("Could not run this round, not all nodes reached a decision");
         }
         info!("All nodes reached decision");
+        if !failed_set.is_empty() {
+            error!(
+                "Could not run this round, not all nodes reached a decision. Failing nodes: {:?}",
+                failed_set
+            );
+            return Err(ConsensusTestError::PhaseLockRoundErrors { errors: failed_set });
+        }
         assert_eq!(states.len(), self.nodes.len());
         assert_eq!(blocks.len(), self.nodes.len());
-
-        (states, blocks)
+        Ok((states, blocks))
     }
 
     /// Gracefully shut down this system
@@ -296,8 +280,11 @@ impl<
 {
     /// Add a random transaction to this runner.
     ///
-    /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`] and `BLOCK` is [`DEntryBlock`].
-    pub fn add_random_transaction(&self) -> Result<(), TransactionError> {
+    /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`].
+    pub fn add_random_transaction(
+        &self,
+        node_id: Option<usize>,
+    ) -> Result<Transaction, TransactionError> {
         if self.nodes.is_empty() {
             return Err(TransactionError::NoNodes);
         }
@@ -341,26 +328,71 @@ impl<
             nonce: rng.gen(),
         };
 
-        // find a random handle to send this transaction from
-        let node = self
-            .nodes
-            .iter()
-            .choose(&mut rng)
-            .ok_or(TransactionError::NoNodes)?;
+        let node = if let Some(node_id) = node_id {
+            self.nodes
+                .get(node_id)
+                .ok_or(TransactionError::InvalidNode)?
+        } else {
+            // find a random handle to send this transaction from
+            self.nodes
+                .iter()
+                .choose(&mut rng)
+                .ok_or(TransactionError::NoNodes)?
+        };
+
         node.handle
-            .submit_transaction_sync(transaction)
+            .submit_transaction_sync(transaction.clone())
             .expect("Could not send transaction");
-        Ok(())
+        Ok(transaction)
+    }
+
+    /// add `n` transactions
+    /// TODO error handling to make sure entire set of transactions can be processed
+    pub fn add_random_transactions(
+        &mut self,
+        n: usize,
+    ) -> Result<Vec<Transaction>, TransactionError> {
+        let mut result = Vec::new();
+        for _ in 0..n {
+            result.push(self.add_random_transaction(None)?);
+        }
+        Ok(result)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Snafu)]
 /// Error that is returned from [`TestRunner`] with methods related to transactions
 pub enum TransactionError {
     /// There are no valid nodes online
     NoNodes,
     /// There are no valid balances available
     NoValidBalance,
+    /// The requested node does not exist
+    InvalidNode,
+}
+
+/// Errors when trying to reach consensus.
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum ConsensusTestError {
+    /// List of errors
+    #[snafu(display("Errors: \n{:?}", errors.iter().map(|e| format!("\t(id: {}, err: {:?})\n", e.0, e.1)).collect::<Vec<_>>()))]
+    PhaseLockRoundErrors {
+        /// list of errors
+        errors: Vec<(u64, PhaseLockError)>,
+    },
+
+    /// View times out with any node as the leader.
+    TimedOutWithoutAnyLeader,
+
+    /// States after a round of consensus is inconsistent.
+    InconsistentAfterTxn,
+
+    /// Unable to submit valid transaction
+    TransactionError {
+        /// source of error
+        source: TransactionError,
+    },
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]

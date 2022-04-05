@@ -45,7 +45,7 @@ impl
             threshold: threshold as u32,
             max_transactions: 100,
             known_nodes,
-            next_view_timeout: 100,
+            next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,

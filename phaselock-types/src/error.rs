@@ -2,6 +2,7 @@
 //!
 //! This module provides [`PhaseLockError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
+use async_std::future::TimeoutError;
 use snafu::Snafu;
 
 /// Error type for `PhaseLock`
@@ -79,6 +80,16 @@ pub enum PhaseLockError {
     InvalidState {
         /// Context
         context: String,
+    },
+    /// Phaselock timed out waiting for msgs
+    TimeoutError {
+        /// source of error
+        source: TimeoutError,
+    },
+    /// Phaselock timed out during round
+    ViewTimeoutError {
+        /// view number
+        view_number: u64,
     },
     /// Internal value used to drive the state machine
     Continue,
