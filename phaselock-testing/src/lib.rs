@@ -24,6 +24,7 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, H_256,
 };
+use phaselock_types::traits::BlockContents;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -34,47 +35,49 @@ use tracing::{debug, info, trace, warn};
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
-/// For now we only support [`DEntryBlock`] as `Block` type. This can be changed in the future.
-pub type Block = DEntryBlock;
-
 /// For now we only support a size of [`H_256`]. This can be changed in the future.
 pub const N: usize = H_256;
 
 /// The runner of a test network
 pub struct TestRunner<
-    NETWORK: NetworkingImplementation<Message<Block, Transaction, STATE, N>> + Clone + 'static,
-    STORAGE: Storage<Block, STATE, N> + 'static,
-    STATE: State<N, Block = Block> + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
+    block_generator: Generator<BLOCK>,
     state_generator: Generator<STATE>,
     default_node_config: PhaseLockConfig,
     sks: tc::SecretKeySet,
-    nodes: Vec<Node<NETWORK, STORAGE, STATE>>,
+    nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
 }
 
 #[allow(dead_code)]
 struct Node<
-    NETWORK: NetworkingImplementation<Message<Block, Transaction, STATE, N>> + Clone + 'static,
-    STORAGE: Storage<Block, STATE, N> + 'static,
-    STATE: State<N, Block = Block> + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 > {
     pub node_id: u64,
-    pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, STATE>, N>,
+    pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<Block, Transaction, STATE, N>> + Clone + 'static,
-        STORAGE: Storage<Block, STATE, N> + 'static,
-        STATE: State<N, Block = Block> + 'static,
-    > TestRunner<NETWORK, STORAGE, STATE>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N>,
+        STATE: State<N, Block = BLOCK> + 'static,
+    > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
-    pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, STATE>) -> Self {
+    pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
+            block_generator: launcher.block,
             state_generator: launcher.state,
             default_node_config: launcher.config,
             sks: launcher.sks,
@@ -87,10 +90,12 @@ impl<
     pub async fn add_nodes(&mut self, count: usize) {
         for _ in 0..count {
             let node_id = self.next_node_id;
-            let state = (self.state_generator)(node_id);
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
-            self.add_node_with_config(state, network, storage, self.default_node_config.clone())
+            let block = (self.block_generator)(node_id);
+            let state = (self.state_generator)(node_id);
+            let config = self.default_node_config.clone();
+            self.add_node_with_config(network, storage, block, state, config)
                 .await;
         }
     }
@@ -105,15 +110,16 @@ impl<
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        state: STATE,
         network: NETWORK,
         storage: STORAGE,
+        block: BLOCK,
+        state: STATE,
         config: PhaseLockConfig,
     ) {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let handle = PhaseLock::init(
-            Block::default(),
+            block,
             self.sks.public_keys(),
             self.sks.secret_key_share(node_id),
             node_id,
@@ -131,12 +137,13 @@ impl<
     /// Iterate over the [`PhaseLockHandle`] nodes in this runner.
     pub fn nodes(
         &self,
-    ) -> impl Iterator<Item = &PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, STATE>, N>> + '_ {
+    ) -> impl Iterator<Item = &PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> + '_
+    {
         self.nodes.iter().map(|node| &node.handle)
     }
 
     /// Run a single round, returning the `STATE` and `Block` of each node in order.
-    pub async fn run_one_round(&mut self) -> (Vec<Vec<STATE>>, Vec<Vec<Block>>) {
+    pub async fn run_one_round(&mut self) -> (Vec<Vec<STATE>>, Vec<Vec<BLOCK>>) {
         let mut blocks = Vec::new();
         let mut states = Vec::new();
 
@@ -212,13 +219,13 @@ impl<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<Block, Transaction, DemoState, N>> + Clone + 'static,
-        STORAGE: Storage<Block, DemoState, N> + 'static,
-    > TestRunner<NETWORK, STORAGE, DemoState>
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    > TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>
 {
     /// Add a random transaction to this runner.
     ///
-    /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`].
+    /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`] and `BLOCK` is [`DEntryBlock`].
     pub fn add_random_transaction(&self) -> Result<(), TransactionError> {
         if self.nodes.is_empty() {
             return Err(TransactionError::NoNodes);
@@ -287,30 +294,33 @@ pub enum TransactionError {
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
 #[derive(Clone)]
-pub struct TestNodeImpl<NETWORK, STORAGE, STATE> {
+pub struct TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {
     network: PhantomData<NETWORK>,
     storage: PhantomData<STORAGE>,
     state: PhantomData<STATE>,
+    block: PhantomData<BLOCK>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<Block, Transaction, STATE, N>> + Clone + 'static,
-        STORAGE: Storage<Block, STATE, N> + 'static,
-        STATE: State<N, Block = Block> + 'static,
-    > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, STATE>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+    > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
-    type Block = Block;
+    type Block = BLOCK;
     type State = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
-    type StatefulHandler = Stateless<Block, STATE, N>;
+    type StatefulHandler = Stateless<BLOCK, STATE, N>;
 }
 
-impl<NETWORK, STORAGE, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, STATE> {
+impl<NETWORK, STORAGE, BLOCK, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
             .field("network", &std::any::type_name::<NETWORK>())
             .field("storage", &std::any::type_name::<STORAGE>())
+            .field("block", &std::any::type_name::<BLOCK>())
             .field("state", &std::any::type_name::<STATE>())
             .finish_non_exhaustive()
     }
