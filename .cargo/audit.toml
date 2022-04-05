@@ -19,6 +19,7 @@ ignore = [
 
     # time 0.1.44 potential segfault
     # Dependency removed in https://github.com/EspressoSystems/atomicstore/pull/29
+    # waiting on atomicstore release
     # https://rustsec.org/advisories/RUSTSEC-2020-0071
     "RUSTSEC-2020-0071",
 

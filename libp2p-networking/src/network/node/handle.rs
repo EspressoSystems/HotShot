@@ -268,7 +268,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
-        let req = ClientRequest::Subscribe(topic, s);
+        let req = ClientRequest::Subscribe(topic, Some(s));
         self.send_network
             .send_async(req)
             .await

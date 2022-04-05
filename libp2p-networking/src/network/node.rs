@@ -320,8 +320,10 @@ impl NetworkNode {
                     }
                     Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
-                        if chan.send(()).is_err() {
-                            error!("finished subscribing but response channel dropped");
+                        if let Some(chan) = chan {
+                            if chan.send(()).is_err() {
+                                error!("finished subscribing but response channel dropped");
+                            }
                         }
                     }
                     Unsubscribe(t, chan) => {
@@ -433,7 +435,7 @@ impl NetworkNode {
     /// as well as any events produced by libp2p
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
-    pub(crate) async fn spawn_listeners(
+    pub async fn spawn_listeners(
         mut self,
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
