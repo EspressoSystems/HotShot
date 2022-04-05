@@ -179,7 +179,7 @@ impl<
                 match node
                     .handle
                     .next_event()
-                    .timeout(Duration::from_millis(50))
+                    .timeout(Duration::from_millis(100))
                     .await
                 {
                     Err(_) => {
@@ -205,7 +205,7 @@ impl<
                     "Next event in queue: {:?}",
                     node.handle
                         .next_event()
-                        .timeout(Duration::from_millis(50))
+                        .timeout(Duration::from_secs(1))
                         .await
                 );
                 println!("(If this is Ok, it means the TestRunner didn't listen for long enough)");
