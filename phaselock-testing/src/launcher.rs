@@ -1,6 +1,6 @@
-use super::{Block, Generator, TestRunner, N};
+use super::{Generator, TestRunner, N};
 use phaselock::{
-    demos::dentry::{State as DemoState, Transaction},
+    demos::dentry::{DEntryBlock, State as DemoState, Transaction},
     tc,
     traits::{
         implementations::{DummyReliability, MasterMap, MemoryNetwork, MemoryStorage},
@@ -9,12 +9,14 @@ use phaselock::{
     types::Message,
     PhaseLockConfig, PubKey,
 };
+use phaselock_types::traits::BlockContents;
 use rand::thread_rng;
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<NETWORK, STORAGE, STATE> {
+pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) network: Generator<NETWORK>,
     pub(super) storage: Generator<STORAGE>,
+    pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
     pub(super) config: PhaseLockConfig,
     pub(super) sks: tc::SecretKeySet,
@@ -22,8 +24,9 @@ pub struct TestLauncher<NETWORK, STORAGE, STATE> {
 
 impl
     TestLauncher<
-        MemoryNetwork<Message<Block, Transaction, DemoState, N>>,
-        MemoryStorage<Block, DemoState, N>,
+        MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>,
+        MemoryStorage<DEntryBlock, DemoState, N>,
+        DEntryBlock,
         DemoState,
     >
 {
@@ -57,6 +60,7 @@ impl
                 }
             }),
             storage: Box::new(|_| MemoryStorage::default()),
+            block: Box::new(|_| DEntryBlock::default()),
             state: Box::new(|_| super::get_starting_state()),
             sks,
             config,
@@ -64,15 +68,16 @@ impl
     }
 }
 
-impl<NETWORK, STORAGE, STATE> TestLauncher<NETWORK, STORAGE, STATE> {
+impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
         network: impl Fn(u64) -> NewNetwork + 'static,
-    ) -> TestLauncher<NewNetwork, STORAGE, STATE> {
+    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
             network: Box::new(network),
             storage: self.storage,
+            block: self.block,
             state: self.state,
             config: self.config,
             sks: self.sks,
@@ -83,10 +88,26 @@ impl<NETWORK, STORAGE, STATE> TestLauncher<NETWORK, STORAGE, STATE> {
     pub fn with_storage<NewStorage>(
         self,
         storage: impl Fn(u64) -> NewStorage + 'static,
-    ) -> TestLauncher<NETWORK, NewStorage, STATE> {
+    ) -> TestLauncher<NETWORK, NewStorage, BLOCK, STATE> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
+            block: self.block,
+            state: self.state,
+            config: self.config,
+            sks: self.sks,
+        }
+    }
+
+    /// Set a custom block generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
+    pub fn with_block<NewBlock>(
+        self,
+        block: impl Fn(u64) -> NewBlock + 'static,
+    ) -> TestLauncher<NETWORK, STORAGE, NewBlock, STATE> {
+        TestLauncher {
+            network: self.network,
+            storage: self.storage,
+            block: Box::new(block),
             state: self.state,
             config: self.config,
             sks: self.sks,
@@ -97,10 +118,11 @@ impl<NETWORK, STORAGE, STATE> TestLauncher<NETWORK, STORAGE, STATE> {
     pub fn with_state<NewState>(
         self,
         state: impl Fn(u64) -> NewState + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, NewState> {
+    ) -> TestLauncher<NETWORK, STORAGE, BLOCK, NewState> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
+            block: self.block,
             state: Box::new(state),
             config: self.config,
             sks: self.sks,
@@ -115,17 +137,19 @@ impl<NETWORK, STORAGE, STATE> TestLauncher<NETWORK, STORAGE, STATE> {
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<Block, Transaction, STATE, N>> + Clone + 'static,
-        STORAGE: Storage<Block, STATE, N>,
-        STATE: State<N, Block = Block> + 'static,
-    > TestLauncher<NETWORK, STORAGE, STATE>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N>,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements [`NetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
+    /// - `BLOCK` implements [`BlockContents`]
     /// - `STATE` implements [`State`]
-    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, STATE> {
+    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
         TestRunner::new(self)
     }
 }
