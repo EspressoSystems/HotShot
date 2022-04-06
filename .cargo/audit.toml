@@ -50,7 +50,7 @@ ignore = [
     # Windows 0.29.0
     # Dependency of libp2p -> libp2p-mdns -> if-watch
     # Delegate functions are missing `Send` bound
-    # Waiting on https://github.com/mxinden/if-watch/pull/16
+    # Waiting on a new release of https://github.com/mxinden/if-watch
     # https://rustsec.org/advisories/RUSTSEC-2022-0008
     "RUSTSEC-2022-0008",
 ]
