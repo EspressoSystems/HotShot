@@ -21,7 +21,8 @@ use tracing::error;
 use crate::{
     data::{BlockHash, LeafHash, StateHash, TransactionHash},
     traits::{
-        implementations::MemoryStorage, BlockContents, NetworkingImplementation, NodeImplementation,
+        election::StaticCommittee, implementations::MemoryStorage, BlockContents,
+        NetworkingImplementation, NodeImplementation,
     },
     types::Message,
     H_256,
@@ -355,14 +356,11 @@ where
         + 'static,
 {
     type Block = DEntryBlock;
-
     type State = State;
-
     type Storage = MemoryStorage<DEntryBlock, State, H_256>;
-
     type Networking = NET;
-
     type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
+    type Election = StaticCommittee<Self::State, H_256>;
 }
 
 /// Provides a random valid transaction from the current state

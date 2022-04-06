@@ -1,0 +1,48 @@
+//! The election trait, used to decide which node is the leader and determine if a vote is valid.
+
+use crate::data::StateHash;
+use crate::{PrivKey, PubKey};
+
+/// Describes how `PhaseLock` chooses committees and leaders
+pub trait Election<const N: usize>: Send + Sync {
+    /// Data structure describing the currently valid states
+    type StakeTable: Send + Sync;
+    /// The threshold for membership selection.
+    type SelectionThreshold;
+    /// The state type this election implementation is bound to
+    type State: Send + Sync + Default;
+    /// A membership proof
+    type VoteToken;
+    /// A type stated, validated membership proof
+    type ValidatedVoteToken;
+
+    /// Returns the table from the current committed state
+    fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
+    /// Returns leader for the current view number, given the current stake table
+    fn get_leader(&self, table: &Self::StakeTable, view_number: u64) -> PubKey;
+    /// Validates a vote token and returns the number of seats that it has
+    ///
+    /// Salt: Hash of the leaf that is being proposed
+    fn get_votes(
+        &self,
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        view_number: u64,
+        pub_key: PubKey,
+        token: Self::VoteToken,
+        next_state: StateHash<N>,
+    ) -> Option<Self::ValidatedVoteToken>;
+    /// Returns the number of votes the validated vote token has
+    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64;
+    /// Attempts to generate a vote token for self
+    ///
+    /// Returns `None` if the number of seats would be zero
+    fn make_vote_token(
+        &self,
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        view_number: u64,
+        private_key: &PrivKey,
+        next_state: StateHash<N>,
+    ) -> Option<Self::VoteToken>;
+}
