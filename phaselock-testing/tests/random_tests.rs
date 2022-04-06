@@ -3,7 +3,9 @@
 mod common;
 
 use async_std::prelude::FutureExt;
-use common::{get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks, setup_logging};
+use common::{
+    get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks, setup_logging,
+};
 use phaselock::{
     demos::dentry::*,
     tc,
@@ -17,7 +19,8 @@ use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::FromIterator,
-    sync::Arc, time::Duration,
+    sync::Arc,
+    time::Duration,
 };
 use tracing::{debug, error, warn};
 
@@ -141,23 +144,31 @@ async fn fail_nodes(
         let mut timed_out = false;
         for phaselock in &mut phaselocks {
             debug!("Waiting for consensus to occur");
-            let mut event: Event<DEntryBlock, State> = match phaselock.next_event().timeout(Duration::from_secs(60)).await {
+            let mut event: Event<DEntryBlock, State> = match phaselock
+                .next_event()
+                .timeout(Duration::from_secs(60))
+                .await
+            {
                 Ok(Ok(event)) => event,
                 Err(_) => {
                     return Err(ConsensusError::TimedOutWithAnyLeader);
-                } 
+                }
                 Ok(Err(err)) => {
                     return Err(ConsensusError::PhaselockClosed(err));
                 }
             };
             // Skip all messages from previous rounds
             while event.view_number < round {
-                event = match phaselock.next_event().timeout(Duration::from_secs(60)).await {
+                event = match phaselock
+                    .next_event()
+                    .timeout(Duration::from_secs(60))
+                    .await
+                {
                     Ok(Ok(event)) => event,
                     Err(err) => {
                         error!(?err, "Error getting next event");
                         return Err(ConsensusError::TimedOutWithAnyLeader);
-                    } 
+                    }
                     Ok(Err(err)) => {
                         error!(?err, "Error getting next event");
                         return Err(ConsensusError::PhaselockClosed(err));
