@@ -18,7 +18,7 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
-    pub(super) config: PhaseLockConfig,
+    pub config: PhaseLockConfig,
     pub(super) sks: tc::SecretKeySet,
 }
 
@@ -132,6 +132,11 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_default_config(mut self, config: PhaseLockConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    pub fn modify_default_config(mut self, mut f: impl FnMut(&mut PhaseLockConfig)) -> Self {
+        f(&mut self.config);
         self
     }
 }

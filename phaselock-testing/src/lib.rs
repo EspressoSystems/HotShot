@@ -57,6 +57,7 @@ pub struct TestRunner<
     sks: tc::SecretKeySet,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
+    cur_view: u64,
 }
 
 #[allow(dead_code)]
@@ -87,6 +88,11 @@ impl<
             sks: launcher.sks,
             nodes: Vec::new(),
             next_node_id: 0,
+            // FIXME is this the right place for this?
+            // it assumes that all nodes are on the same view
+            // we should probably figure out a way to expose this globally
+            // so we can query the individual nodes
+            cur_view: 0,
         }
     }
 
@@ -152,6 +158,7 @@ impl<
     /// successfully
     async fn collect_round_events(
         node: &mut Node<NETWORK, STORAGE, STATE>,
+        cur_view: u64,
     ) -> Result<(Vec<STATE>, Vec<Block>), PhaseLockError> {
         let id = node.node_id;
 
@@ -160,16 +167,18 @@ impl<
             let event = node
                 .handle
                 .next_event()
-                .timeout(Duration::from_millis(100))
+                // FIXME this probably shouldn't be hardcoded and be a configurable thing.
+                // setting it to the viewtimeout seems safe
+                .timeout(Duration::from_millis(100000))
                 .await
                 .context(TimeoutSnafu)??;
-            trace!(?id, ?event);
+            error!(?id, ?event);
             match event.event {
-                EventType::ViewTimeout { .. } => {
-                    // if view_number == node.handle TODO
-                    error!(?event, "Round timed out!");
-                    // return Err(PhaseLockError::ViewTimeoutError { view_number })
-                    continue;
+                EventType::ViewTimeout { view_number } => {
+                    if view_number >= cur_view {
+                        error!(?event, "Round timed out!");
+                        return Err(PhaseLockError::ViewTimeoutError { view_number });
+                    }
                 }
                 EventType::Decide { block, state } => {
                     return Ok((
@@ -186,6 +195,7 @@ impl<
     pub async fn run_one_round(
         &mut self,
     ) -> Result<(Vec<Vec<STATE>>, Vec<Vec<Block>>), ConsensusTestError> {
+        self.cur_view += 1;
         let mut blocks = Vec::new();
         let mut states = Vec::new();
 
@@ -194,7 +204,7 @@ impl<
         }
         let mut failed_set = Vec::new();
         for node in self.nodes.iter_mut() {
-            let result = Self::collect_round_events(node).await;
+            let result = Self::collect_round_events(node, self.cur_view).await;
             match result {
                 Ok((state, block)) => {
                     states.push(state);

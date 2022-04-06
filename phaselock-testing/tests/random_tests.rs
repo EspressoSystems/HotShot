@@ -3,9 +3,8 @@
 mod common;
 
 use async_std::prelude::FutureExt;
-use common::{
-    get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks, setup_logging,
-};
+use async_std::task::sleep;
+use common::{get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks};
 use phaselock::{
     demos::dentry::*,
     tc,
@@ -64,155 +63,154 @@ async fn fail_nodes(
     num_txns: u64,
     updated_timeout_ratio: Option<(u64, u64)>,
 ) -> Result<(), ConsensusTestError> {
-    todo!()
-    // debug!("Number of nodes: {} ", num_nodes);
-    //
-    // // Calculate the threshold
-    // let threshold = get_threshold(num_nodes);
-    //
-    // // Generate the private key set
-    // let mut rng = Xoshiro256StarStar::seed_from_u64(SEED);
-    // let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
-    //
-    // // Get networking information
-    // let (_, networkings) =
-    //     get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
-    // debug!("All nodes connected to network");
-    //
-    // // Initialize the state and phaselocks
-    // let known_nodes: Vec<_> = (0..num_nodes)
-    //     .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
-    //     .collect();
-    // let (mut state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
-    //     &sks,
-    //     num_nodes,
-    //     known_nodes,
-    //     nodes_to_fail.clone(),
-    //     threshold,
-    //     networkings,
-    //     updated_timeout_ratio.unwrap_or(DEFAULT_TIMEOUT_RATIO),
-    //     NEXT_VIEW_TIMEOUT,
-    //     init_state(),
-    // )
-    // .await;
-    //
-    // // Start phaselocks
-    // for phaselock in phaselocks.clone() {
-    //     phaselock.start().await;
-    // }
-    //
-    // // Run random transactions
-    // let mut round = 1;
-    // let mut completed_txns = 0;
-    // let mut pending_txn: Option<Transaction> = None;
-    // let mut timed_out_views = 0;
-    // debug!("Running {} transactions", num_txns);
-    // while completed_txns < num_txns {
-    //     println!("Round {}:", round);
-    //     // The first node proposes a random transaction if there's no pending transaction
-    //     let txn = match pending_txn.clone() {
-    //         Some(t) => {
-    //             if timed_out_views == num_nodes {
-    //                 return Err(ConsensusTestError::TimedOutWithAnyLeader);
-    //             }
-    //             t
-    //         }
-    //         None => {
-    //             let t = random_transaction(&state, &mut rng);
-    //             debug!("Proposing: {:?}", t);
-    //             if phaselocks[0].submit_transaction(t.clone()).await.is_err() {
-    //                 return Err(ConsensusTestError::FailedToProposeTxn);
-    //             }
-    //             println!("Transaction {} proposed", completed_txns + 1);
-    //             t
-    //         }
-    //     };
-    //
-    //     // Start consensus
-    //     let mut blocks = Vec::new();
-    //     let mut states = Vec::new();
-    //     let mut timed_out = false;
-    //     for phaselock in &mut phaselocks {
-    //         debug!("Waiting for consensus to occur");
-    //         let mut event: Event<DEntryBlock, State> = match phaselock.next_event().await {
-    //             Ok(event) => event,
-    //             Err(err) => {
-    //                 return Err(ConsensusTestError::PhaselockClosed(err));
-    //             }
-    //         };
-    //         // Skip all messages from previous rounds
-    //         while event.view_number < round {
-    //             event = match phaselock.next_event().await {
-    //                 Ok(event) => event,
-    //                 Err(err) => {
-    //                     error!(?err, "Error getting next event");
-    //                     return Err(ConsensusTestError::PhaselockClosed(err));
-    //                 }
-    //             };
-    //         }
-    //         while !matches!(event.event, EventType::Decide { .. }) {
-    //             if matches!(event.event, EventType::ViewTimeout { .. }) {
-    //                 warn!(?event, "Round timed out!");
-    //                 timed_out = true;
-    //                 break;
-    //             }
-    //             event = match phaselock.next_event().await {
-    //                 Ok(event) => event,
-    //                 Err(err) => {
-    //                     error!(?err, "Error getting next event");
-    //                     return Err(ConsensusTestError::PhaselockClosed(err));
-    //                 }
-    //             };
-    //         }
-    //         if timed_out {
-    //             pending_txn = Some(txn.clone());
-    //             break;
-    //         } else {
-    //             pending_txn = None;
-    //         }
-    //         debug!("Decision emitted");
-    //         if let EventType::Decide { block, state } = event.event {
-    //             blocks.push(block);
-    //             states.push(state);
-    //         } else {
-    //             unreachable!()
-    //         }
-    //     }
-    //     if timed_out {
-    //         timed_out_views += 1;
-    //     } else {
-    //         debug!("All nodes reached decision");
-    //
-    //         // Check consensus
-    //         assert!(states.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
-    //         assert!(blocks.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
-    //         let b_test = &blocks[0][0];
-    //         for b in &blocks[1..] {
-    //             if &b[0] != b_test {
-    //                 return Err(ConsensusTestError::InconsistentAfterTxn);
-    //             }
-    //         }
-    //         let s_test = &states[0][0];
-    //         for s in &states[1..] {
-    //             if &s[0] != s_test {
-    //                 return Err(ConsensusTestError::InconsistentAfterTxn);
-    //             }
-    //         }
-    //         println!("All states match");
-    //         assert_eq!(blocks[0][0].transactions.len(), 1);
-    //         assert_eq!(blocks[0][0].transactions, vec![txn.clone()]);
-    //         state = s_test.clone();
-    //
-    //         completed_txns += 1;
-    //         timed_out_views = 0;
-    //     }
-    //
-    //     // Increment the round count
-    //     round += 1;
-    // }
-    //
-    // println!("All rounds completed\n");
-    // Ok(())
+    debug!("Number of nodes: {} ", num_nodes);
+
+    // Calculate the threshold
+    let threshold = get_threshold(num_nodes);
+
+    // Generate the private key set
+    let mut rng = Xoshiro256StarStar::seed_from_u64(SEED);
+    let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
+
+    // Get networking information
+    let (_, networkings) =
+        get_networkings::<Message<DEntryBlock, Transaction, State, H_256>>(num_nodes, &sks).await;
+    debug!("All nodes connected to network");
+
+    // Initialize the state and phaselocks
+    let known_nodes: Vec<_> = (0..num_nodes)
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))
+        .collect();
+    let (mut state, mut phaselocks) = init_state_and_phaselocks::<NODE, H_256>(
+        &sks,
+        num_nodes,
+        known_nodes,
+        nodes_to_fail.clone(),
+        threshold,
+        networkings,
+        updated_timeout_ratio.unwrap_or(DEFAULT_TIMEOUT_RATIO),
+        NEXT_VIEW_TIMEOUT,
+        init_state(),
+    )
+    .await;
+
+    // Start phaselocks
+    for phaselock in phaselocks.clone() {
+        phaselock.start().await;
+    }
+
+    // Run random transactions
+    let mut round = 1;
+    let mut completed_txns = 0;
+    let mut pending_txn: Option<Transaction> = None;
+    let mut timed_out_views = 0;
+    debug!("Running {} transactions", num_txns);
+    while completed_txns < num_txns {
+        println!("Round {}:", round);
+        // The first node proposes a random transaction if there's no pending transaction
+        let txn = match pending_txn.clone() {
+            Some(t) => {
+                if timed_out_views == num_nodes {
+                    return Err(ConsensusTestError::TimedOutWithAnyLeader);
+                }
+                t
+            }
+            None => {
+                let t = random_transaction(&state, &mut rng);
+                debug!("Proposing: {:?}", t);
+                if phaselocks[0].submit_transaction(t.clone()).await.is_err() {
+                    return Err(ConsensusTestError::FailedToProposeTxn);
+                }
+                println!("Transaction {} proposed", completed_txns + 1);
+                t
+            }
+        };
+
+        // Start consensus
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
+        let mut timed_out = false;
+        for phaselock in &mut phaselocks {
+            debug!("Waiting for consensus to occur");
+            let mut event: Event<DEntryBlock, State> = match phaselock.next_event().await {
+                Ok(event) => event,
+                Err(err) => {
+                    return Err(ConsensusTestError::PhaselockClosed(err));
+                }
+            };
+            // Skip all messages from previous rounds
+            while event.view_number < round {
+                event = match phaselock.next_event().await {
+                    Ok(event) => event,
+                    Err(err) => {
+                        error!(?err, "Error getting next event");
+                        return Err(ConsensusTestError::PhaselockClosed(err));
+                    }
+                };
+            }
+            while !matches!(event.event, EventType::Decide { .. }) {
+                if matches!(event.event, EventType::ViewTimeout { .. }) {
+                    warn!(?event, "Round timed out!");
+                    timed_out = true;
+                    break;
+                }
+                event = match phaselock.next_event().await {
+                    Ok(event) => event,
+                    Err(err) => {
+                        error!(?err, "Error getting next event");
+                        return Err(ConsensusTestError::PhaselockClosed(err));
+                    }
+                };
+            }
+            if timed_out {
+                pending_txn = Some(txn.clone());
+                break;
+            } else {
+                pending_txn = None;
+            }
+            debug!("Decision emitted");
+            if let EventType::Decide { block, state } = event.event {
+                blocks.push(block);
+                states.push(state);
+            } else {
+                unreachable!()
+            }
+        }
+        if timed_out {
+            timed_out_views += 1;
+        } else {
+            debug!("All nodes reached decision");
+
+            // Check consensus
+            assert!(states.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
+            assert!(blocks.len() as u64 == num_nodes - nodes_to_fail.len() as u64);
+            let b_test = &blocks[0][0];
+            for b in &blocks[1..] {
+                if &b[0] != b_test {
+                    return Err(ConsensusTestError::InconsistentAfterTxn);
+                }
+            }
+            let s_test = &states[0][0];
+            for s in &states[1..] {
+                if &s[0] != s_test {
+                    return Err(ConsensusTestError::InconsistentAfterTxn);
+                }
+            }
+            println!("All states match");
+            assert_eq!(blocks[0][0].transactions.len(), 1);
+            assert_eq!(blocks[0][0].transactions, vec![txn.clone()]);
+            state = s_test.clone();
+
+            completed_txns += 1;
+            timed_out_views = 0;
+        }
+
+        // Increment the round count
+        round += 1;
+    }
+
+    println!("All rounds completed\n");
+    Ok(())
 }
 
 async fn mul_txns(
@@ -223,29 +221,21 @@ async fn mul_txns(
     round_start_delay: u64,
     start_delay: u64,
 ) -> Result<(), ConsensusTestError> {
-    // there must exists transactions
+    // there must exists transactions otherwise the round will not run
     assert!(txn_ids.len() > 0);
 
     setup_logging();
 
-    let threshold = ((total_nodes * 2) / 3) + 1;
-    let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
-    let known_nodes: Vec<PubKey> = (0..total_nodes)
-        .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
-        .collect();
-    let default_config = PhaseLockConfig {
-        total_nodes: total_nodes as u32,
-        threshold: threshold as u32,
-        max_transactions: 100,
-        known_nodes,
-        next_view_timeout,
-        timeout_ratio,
-        round_start_delay,
-        start_delay,
+    let launcher = TestLauncher::new(total_nodes);
+
+    let f = |a: &mut PhaseLockConfig| {
+        a.next_view_timeout = next_view_timeout;
+        a.timeout_ratio = timeout_ratio;
+        a.round_start_delay = round_start_delay;
+        a.start_delay = start_delay;
     };
-    let mut runner = TestLauncher::new(total_nodes)
-        .with_default_config(default_config)
-        .launch();
+
+    let mut runner = launcher.modify_default_config(f).launch();
     runner.add_nodes(total_nodes).await;
     for node in runner.nodes() {
         let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
@@ -255,8 +245,7 @@ async fn mul_txns(
         .add_random_transactions(2)
         .context(TransactionSnafu)?;
 
-    // Start consensus
-    // TODO this might error out if no transactions more transactions submitted?
+    // NOTE this might error out if round fails no transactions are submitted
     match runner.run_one_round().await {
         Ok((states, blocks)) => {
             debug!("All nodes reached decision");
@@ -353,7 +342,7 @@ async fn mul_txns(
 #[ignore]
 #[async_std::test]
 async fn test_mul_txns_regression() {
-    mul_txns(30, vec![1, 2, 3, 4], 100, (20, 10), 1, 1)
+    mul_txns(30, vec![1, 2, 3, 4], 500, (11, 10), 1, 1)
         .await
         .unwrap()
 }
@@ -442,7 +431,7 @@ proptest! {
     fn test_mul_txns_random(txn_proposer_1 in 0..15usize, txn_proposer_2 in 15..30usize) {
         async_std::task::block_on(
             async {
-                mul_txns(30, vec![txn_proposer_1, txn_proposer_2], 1000, (20, 10), 1, 1).await.unwrap()
+                mul_txns(30, vec![txn_proposer_1, txn_proposer_2], 100000, (20, 10), 1, 1).await.unwrap()
             }
         );
     }
@@ -451,9 +440,10 @@ proptest! {
 #[async_std::test]
 pub async fn test_harness() {
     setup_logging();
-    let mut runner = TestLauncher::new(5).launch();
 
-    runner.add_nodes(5).await;
+    let mut runner = TestLauncher::new(30).launch();
+
+    runner.add_nodes(30).await;
     for node in runner.nodes() {
         let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
         assert_eq!(qc.view_number, 0);
