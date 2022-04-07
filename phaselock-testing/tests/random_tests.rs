@@ -28,12 +28,12 @@ async fn test_large_num_nodes_regression() {
         total_nodes: 50,
         ..TestDescription::default()
     };
-    run_rounds(description_1).await.unwrap();
+    description_1.execute().await.unwrap();
     let description_2 = TestDescription {
         total_nodes: 90,
         ..TestDescription::default()
     };
-    run_rounds(description_2).await.unwrap();
+    description_2.execute().await.unwrap();
 }
 
 // fail_nodes(num_nodes, failures, num_txns, timeout_ratio)
@@ -47,7 +47,7 @@ async fn test_large_num_txns_regression() {
         timeout_ratio: (25, 10),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 #[async_std::test]
@@ -57,7 +57,7 @@ async fn test_fail_last_node_regression() {
         ids_to_shut_down: vec![52].into_iter().collect::<HashSet<_>>(),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 #[async_std::test]
@@ -68,7 +68,7 @@ async fn test_fail_first_node_regression() {
         timeout_ratio: (25, 10),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 // TODO (issue): https://gitlab.com/translucence/systems/hotstuff/-/issues/31
@@ -80,7 +80,7 @@ async fn test_fail_last_f_nodes_regression() {
         ids_to_shut_down: HashSet::<u64>::from_iter((0..get_tolerance(75)).map(|x| 74 - x)),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 #[async_std::test]
@@ -90,7 +90,7 @@ async fn test_fail_last_f_plus_one_nodes_regression() {
         ids_to_shut_down: HashSet::<u64>::from_iter((0..get_tolerance(15) + 1).map(|x| 14 - x)),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 // TODO (vko): these tests seem to fail in CI
@@ -101,7 +101,7 @@ async fn test_mul_txns_regression() {
         total_nodes: 30,
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 proptest! {
@@ -120,7 +120,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -137,7 +137,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -153,7 +153,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -169,7 +169,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -186,7 +186,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -203,7 +203,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }
@@ -219,7 +219,7 @@ proptest! {
         };
         async_std::task::block_on(
             async {
-                run_rounds(description).await.unwrap();
+                description.execute().await.unwrap();
             }
         );
     }

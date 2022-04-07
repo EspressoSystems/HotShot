@@ -2,7 +2,7 @@
 
 use either::Either;
 use phaselock::{
-    demos::dentry::{Account, Addition, Balance, DEntryBlock, State, Subtraction, Transaction},
+    demos::dentry::{Addition, DEntryBlock, State, Subtraction, Transaction},
     tc,
     traits::{
         election::StaticCommittee,
@@ -16,7 +16,7 @@ use phaselock_testing::{ConsensusTestError, TestLauncher, TransactionSnafu};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     env::{var, VarError},
     sync::{Arc, Once},
 };
@@ -29,22 +29,27 @@ use tracing_subscriber::{
 };
 use Either::{Left, Right};
 
-/// FIXME transplant this
-/// # Arguments
-///
-/// * `nodes_to_fail` - a set of nodes to be failed, i.e., nodes whose
-/// phaselocks will never get unpaused, and a boolean indicating whether
-/// to fail the first or last `num_failed_nodes` nodes.
+/// Description of a consensus test
 pub struct TestDescription {
+    /// Total number of nodes in the test
     pub total_nodes: usize,
-    /// either a list of transactions for each round
-    /// or (num_rounds, tx_per_round)
+    /// Either a list of transactions submitter indexes to
+    /// submit a random txn with each round,
+    /// or (`num_rounds`, `tx_per_round`)
+    /// `tx_per_round` transactions are submitted each round
+    /// to random nodes for `num_rounds`
     pub txn_ids: Either<Vec<Vec<u64>>, (usize, usize)>,
+    /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
+    /// The exponential backoff ration for the next-view timeout
     pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
     pub round_start_delay: u64,
+    /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
+    /// List of ids to shut down after spinning up
     pub ids_to_shut_down: HashSet<u64>,
+    /// Description of the network reliability
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
     #[allow(clippy::type_complexity)]
     pub safety_check: Arc<
@@ -56,6 +61,10 @@ pub struct TestDescription {
     >,
 }
 
+/// the default safety check that asserts node blocks and states
+/// match after a round of consensus
+/// FIXME Once <https://github.com/EspressoSystems/phaselock/pull/108> is merged
+/// replace this with that
 pub fn default_check(
     test_description: &TestDescription,
     txns: Vec<Transaction>,
@@ -101,129 +110,115 @@ impl Default for TestDescription {
     }
 }
 
-/// total_nodes: num nodes to run with
-/// txn_ids: vec of vec of transaction ids to send each round
-pub async fn run_rounds(test_description: TestDescription) -> Result<(), ConsensusTestError> {
-    setup_logging();
-    setup_backtrace();
+impl TestDescription {
+    /// execute a consensus test based on
+    /// `Self`
+    /// total_nodes: num nodes to run with
+    /// txn_ids: vec of vec of transaction ids to send each round
+    pub async fn execute(&self) -> Result<(), ConsensusTestError> {
+        setup_logging();
+        setup_backtrace();
 
-    // configure nodes/timing
+        // configure nodes/timing
 
-    let launcher = TestLauncher::new(test_description.total_nodes);
+        let launcher = TestLauncher::new(self.total_nodes);
 
-    let f = |a: &mut PhaseLockConfig| {
-        a.next_view_timeout = test_description.next_view_timeout;
-        a.timeout_ratio = test_description.timeout_ratio;
-        a.round_start_delay = test_description.round_start_delay;
-        a.start_delay = test_description.start_delay;
-    };
-
-    let reliability = test_description.network_reliability.clone();
-    // create runner from launcher
-    let mut runner = launcher
-        .modify_default_config(f)
-        .with_network({
-            let master_map = MasterMap::new();
-            move |pubkey| MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
-        })
-        .launch();
-    runner.add_nodes(test_description.total_nodes).await;
-    for node in runner.nodes() {
-        let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
-        assert_eq!(qc.view_number, 0);
-    }
-
-    // map `txn_ids` to generated transaction ids
-    // do this ahead of time to "fail fast"
-    let ids = runner.ids();
-
-    let round_iter: std::vec::IntoIter<Either<Vec<u64>, usize>> = match test_description.txn_ids {
-        Left(ref all_ids) => {
-            let mut mapped_txn_ids = Vec::new();
-            for round_txn_ids in all_ids {
-                let mut mapped_round_txn_ids = Vec::new();
-                for txn_id in round_txn_ids {
-                    let mapped_id =
-                        *ids.get(*txn_id as usize)
-                            .ok_or(ConsensusTestError::NoSuchNode {
-                                node_ids: ids.clone(),
-                                requested_id: *txn_id,
-                            })?;
-                    mapped_round_txn_ids.push(mapped_id);
-                }
-                mapped_txn_ids.push(Left(mapped_round_txn_ids));
-            }
-            mapped_txn_ids.into_iter()
-        }
-        Right((num_rounds, tx_per_round)) => (0..num_rounds)
-            .map(|_| Right(tx_per_round))
-            .collect::<Vec<_>>()
-            .into_iter(),
-    };
-
-    // shut down requested nodes
-    for shut_down_id in &test_description.ids_to_shut_down {
-        let mapped_id = *ids
-            .get(*shut_down_id as usize)
-            .ok_or(ConsensusTestError::NoSuchNode {
-                node_ids: ids.clone(),
-                requested_id: *shut_down_id,
-            })?;
-        runner.shutdown(mapped_id).await?;
-    }
-
-    // run rounds
-    for txn_senders in round_iter {
-        let txns = match txn_senders {
-            Right(num_txns) => runner
-                .add_random_transactions(num_txns)
-                .context(TransactionSnafu)?,
-            Left(sender_ids) => {
-                assert!(!sender_ids.is_empty());
-                let mut txns = Vec::new();
-                for txn_sender in sender_ids {
-                    let txn = runner
-                        .add_random_transaction(Some(txn_sender as usize))
-                        .context(TransactionSnafu)?;
-                    txns.push(txn);
-                }
-                txns
-            }
+        let f = |a: &mut PhaseLockConfig| {
+            a.next_view_timeout = self.next_view_timeout;
+            a.timeout_ratio = self.timeout_ratio;
+            a.round_start_delay = self.round_start_delay;
+            a.start_delay = self.start_delay;
         };
-        // empty round will never finish, so assert that is at least 1 txn
-        // FIXME this might error out if round fails no transactions are submitted
-        // should submit dummy transactions
-        // run round then assert state is correct
-        let (states, errors) = runner.run_one_round().await;
-        if !errors.is_empty() {
-            error!("ERRORS RUNNING CONSENSUS, {:?}", errors);
+
+        let reliability = self.network_reliability.clone();
+        // create runner from launcher
+        let mut runner = launcher
+            .modify_default_config(f)
+            .with_network({
+                let master_map = MasterMap::new();
+                move |pubkey| MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
+            })
+            .launch();
+        runner.add_nodes(self.total_nodes).await;
+        for node in runner.nodes() {
+            let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+            assert_eq!(qc.view_number, 0);
         }
 
-        let safety_check = test_description.safety_check.clone();
-        (*safety_check)(&test_description, txns, states)?;
-    }
+        // map `txn_ids` to generated transaction ids
+        // do this ahead of time to "fail fast"
+        let ids = runner.ids();
 
-    println!("SHUTTING DOWN ALL");
-    runner.shutdown_all().await;
-    println!("Consensus completed\n");
-    Ok(())
-}
+        let round_iter: std::vec::IntoIter<Either<Vec<u64>, usize>> = match self.txn_ids {
+            Left(ref all_ids) => {
+                let mut mapped_txn_ids = Vec::new();
+                for round_txn_ids in all_ids {
+                    let mut mapped_round_txn_ids = Vec::new();
+                    for txn_id in round_txn_ids {
+                        let mapped_id =
+                            *ids.get(*txn_id as usize)
+                                .ok_or(ConsensusTestError::NoSuchNode {
+                                    node_ids: ids.clone(),
+                                    requested_id: *txn_id,
+                                })?;
+                        mapped_round_txn_ids.push(mapped_id);
+                    }
+                    mapped_txn_ids.push(Left(mapped_round_txn_ids));
+                }
+                mapped_txn_ids.into_iter()
+            }
+            Right((num_rounds, tx_per_round)) => (0..num_rounds)
+                .map(|_| Right(tx_per_round))
+                .collect::<Vec<_>>()
+                .into_iter(),
+        };
 
-/// Provides a common starting state
-pub fn get_starting_state() -> State {
-    let balances: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 0),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    State {
-        balances,
-        nonces: BTreeSet::default(),
+        // shut down requested nodes
+        for shut_down_id in &self.ids_to_shut_down {
+            let mapped_id =
+                *ids.get(*shut_down_id as usize)
+                    .ok_or(ConsensusTestError::NoSuchNode {
+                        node_ids: ids.clone(),
+                        requested_id: *shut_down_id,
+                    })?;
+            runner.shutdown(mapped_id).await?;
+        }
+
+        // run rounds
+        for txn_senders in round_iter {
+            let txns = match txn_senders {
+                Right(num_txns) => runner
+                    .add_random_transactions(num_txns)
+                    .context(TransactionSnafu)?,
+                Left(sender_ids) => {
+                    assert!(!sender_ids.is_empty());
+                    let mut txns = Vec::new();
+                    for txn_sender in sender_ids {
+                        let txn = runner
+                            .add_random_transaction(Some(txn_sender as usize))
+                            .context(TransactionSnafu)?;
+                        txns.push(txn);
+                    }
+                    txns
+                }
+            };
+            // empty round will never finish, so assert that is at least 1 txn
+            // FIXME this might error out if round fails no transactions are submitted
+            // should submit dummy transactions
+            // run round then assert state is correct
+            let (states, errors) = runner.run_one_round().await;
+            if !errors.is_empty() {
+                error!("ERRORS RUNNING CONSENSUS, {:?}", errors);
+            }
+
+            let safety_check = self.safety_check.clone();
+            (*safety_check)(self, txns, states)?;
+        }
+
+        println!("SHUTTING DOWN ALL");
+        runner.shutdown_all().await;
+        println!("Consensus completed\n");
+        Ok(())
     }
 }
 
@@ -253,122 +248,6 @@ pub fn random_transactions<R: rand::Rng>(
         })
     }
     txns
-}
-
-/// Provides a common list of transactions
-pub fn get_ten_prebaked_trasnactions() -> Vec<Transaction> {
-    vec![
-        Transaction {
-            add: Addition {
-                account: "Ian".to_string(),
-                amount: 100,
-            },
-            sub: Subtraction {
-                account: "Joe".to_string(),
-                amount: 100,
-            },
-            nonce: 0,
-        },
-        Transaction {
-            add: Addition {
-                account: "John".to_string(),
-                amount: 25,
-            },
-            sub: Subtraction {
-                account: "Joe".to_string(),
-                amount: 25,
-            },
-            nonce: 1,
-        },
-        Transaction {
-            add: Addition {
-                account: "Nathan Y".to_string(),
-                amount: 534044,
-            },
-            sub: Subtraction {
-                account: "Nathan Y".to_string(),
-                amount: 534044,
-            },
-            nonce: 2,
-        },
-        Transaction {
-            add: Addition {
-                account: "Nathan Y".to_string(),
-                amount: 957954,
-            },
-            sub: Subtraction {
-                account: "Joe".to_string(),
-                amount: 957954,
-            },
-            nonce: 3,
-        },
-        Transaction {
-            add: Addition {
-                account: "Nathan M".to_string(),
-                amount: 40,
-            },
-            sub: Subtraction {
-                account: "Ian".to_string(),
-                amount: 40,
-            },
-            nonce: 4,
-        },
-        Transaction {
-            add: Addition {
-                account: "John".to_string(),
-                amount: 83187,
-            },
-            sub: Subtraction {
-                account: "John".to_string(),
-                amount: 83187,
-            },
-            nonce: 5,
-        },
-        Transaction {
-            add: Addition {
-                account: "Joe".to_string(),
-                amount: 340375,
-            },
-            sub: Subtraction {
-                account: "Nathan M".to_string(),
-                amount: 340375,
-            },
-            nonce: 6,
-        },
-        Transaction {
-            add: Addition {
-                account: "Ian".to_string(),
-                amount: 180862,
-            },
-            sub: Subtraction {
-                account: "John".to_string(),
-                amount: 180862,
-            },
-            nonce: 7,
-        },
-        Transaction {
-            add: Addition {
-                account: "Nathan Y".to_string(),
-                amount: 373073,
-            },
-            sub: Subtraction {
-                account: "Joe".to_string(),
-                amount: 373073,
-            },
-            nonce: 8,
-        },
-        Transaction {
-            add: Addition {
-                account: "Nathan Y".to_string(),
-                amount: 71525,
-            },
-            sub: Subtraction {
-                account: "Nathan M".to_string(),
-                amount: 71525,
-            },
-            nonce: 9,
-        },
-    ]
 }
 
 static INIT: Once = Once::new();

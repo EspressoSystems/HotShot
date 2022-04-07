@@ -14,7 +14,7 @@ async fn ten_tx_seven_nodes() {
         txn_ids: Right((10, 1)),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 #[async_std::test]
@@ -25,5 +25,5 @@ async fn ten_tx_five_nodes() {
         txn_ids: Right((10, 1)),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }

@@ -2,7 +2,7 @@
 mod common;
 use std::sync::Arc;
 
-use common::{run_rounds, TestDescription};
+use common::TestDescription;
 use either::Either::Right;
 use phaselock_testing::network_reliability::{
     AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork,
@@ -314,7 +314,7 @@ async fn test_no_loss_network() {
         network_reliability: Some(Arc::new(SynchronousNetwork::default())),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 // tests network with forced packet delay
@@ -327,7 +327,7 @@ async fn test_synchronous_network() {
         network_reliability: Some(Arc::new(SynchronousNetwork::new(10, 5))),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 // tests network with small packet delay and dropped packets
@@ -340,7 +340,7 @@ async fn test_asynchronous_network() {
         network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 /// tests network with asynchronous patch that eventually becomes synchronous
@@ -356,5 +356,5 @@ async fn test_partially_synchronous_network() {
         network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }

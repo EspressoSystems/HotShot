@@ -19,7 +19,7 @@ async fn single_permanent_failure() {
         ids_to_shut_down: vec![6].into_iter().collect::<HashSet<_>>(),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }
 
 // This test simulates two permanent failed nodes
@@ -35,5 +35,5 @@ async fn double_permanent_failure() {
         ids_to_shut_down: vec![5, 6].into_iter().collect::<HashSet<_>>(),
         ..TestDescription::default()
     };
-    run_rounds(description).await.unwrap();
+    description.execute().await.unwrap();
 }

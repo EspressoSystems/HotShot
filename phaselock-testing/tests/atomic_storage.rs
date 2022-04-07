@@ -8,7 +8,7 @@ use phaselock::{
     traits::{BlockContents, Storage},
     H_256,
 };
-use phaselock_testing::TestLauncher;
+use phaselock_testing::{get_starting_state, TestLauncher};
 use rand::thread_rng;
 use tracing::debug_span;
 
@@ -42,7 +42,7 @@ async fn test_happy_path_blocks() {
 
     // Add some transactions
     let mut rng = thread_rng();
-    let state = common::get_starting_state();
+    let state = get_starting_state();
     let mut hashes = Vec::new();
     let mut block = block;
     for _ in 0..10 {

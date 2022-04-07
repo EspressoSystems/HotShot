@@ -296,7 +296,7 @@ impl<
 
     /// In-place shut down an individual node with id `node_id`
     /// # Errors
-    /// returns [`ConensusTestError::NoSuchNode`] if the node idx is either
+    /// returns [`ConsensusTestError::NoSuchNode`] if the node idx is either
     /// - already shut down
     /// - does not exist
     pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
