@@ -16,6 +16,14 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
 
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+
       - name: Build Docs
         run: |
           cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
