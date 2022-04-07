@@ -119,7 +119,7 @@ impl web::WebInfo for CounterState {
     }
 }
 
-/// Normal message. Sent amongst [`Regular`] and [`BootStrap`] nodes
+/// Normal message. Sent amongst [`NetworkNodeType::Regular`] and [`NetworkNodeType::Bootstrap`] nodes
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum CounterRequest {
     /// Request state
@@ -130,7 +130,7 @@ pub enum CounterRequest {
     Kill,
 }
 
-/// Message sent between non-[`Conductor`] nodes
+/// Message sent between non-[`NetworkNodeType::Conductor`] nodes
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct NormalMessage {
     /// timestamp when message was sent
@@ -145,8 +145,8 @@ pub struct NormalMessage {
     padding: Vec<u64>,
 }
 
-/// A message sent and recv-ed by a ['Regular'] or ['Bootstrap'] node
-/// that is to be relayed back to a [`Conductor`] node
+/// A message sent and recv-ed by a ['NetworkNodeType::Regular'] or ['NetworkNodeType::Bootstrap'] node
+/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct RelayedMessage {
     /// time message took to propagate from sender to recv-er
@@ -157,8 +157,8 @@ pub struct RelayedMessage {
     epoch: (CounterState, CounterState),
 }
 
-/// A message sent and recv-ed by a ['Regular'] or ['Bootstrap'] node
-/// that is to be relayed back to a [`Conductor`] node
+/// A message sent and recv-ed by a ['NetworkNodeType::Regular'] or ['NetworkNodeType::Bootstrap'] node
+/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ConductorMessage {
     /// the requeset the recv-ing node should make

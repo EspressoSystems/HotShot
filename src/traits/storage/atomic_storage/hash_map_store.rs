@@ -15,7 +15,7 @@ where
     inner: RwLock<Inner<K, V>>,
 }
 
-/// The inner value of the [`RollingStore`]
+/// The inner value of the [`HashMapStore`]
 struct Inner<K, V>
 where
     K: Eq + Hash,
@@ -33,7 +33,7 @@ where
     V: Clone,
     HashMap<K, V>: Serialize + DeserializeOwned + Clone,
 {
-    /// Load a `RollingStore` with the given loader and name.
+    /// Load a `HashMapStore` with the given loader and name.
     ///
     /// # Errors
     ///

@@ -117,7 +117,7 @@ impl<T> SubscribableMutex<T> {
         }
     }
 
-    /// Wait until `f` returns `true`. Signal on [`ready_chan`]
+    /// Wait until `f` returns `true`. Signal on `ready_chan`
     /// once has begun to listen
     async fn wait_until_with_trigger_inner<'a, F>(
         &self,

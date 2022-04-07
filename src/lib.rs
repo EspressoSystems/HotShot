@@ -698,7 +698,7 @@ fn generate_qc<'a>(
     key_set.combine_signatures(signatures)
 }
 
-/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`State`] from the given [`Storage`]
+/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`phaselock_types::traits::State`] from the given [`Storage`]
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,
 ) -> std::result::Result<
