@@ -1,0 +1,26 @@
+name: Documentation workflow
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+    timeout-minutes: 25
+    container:
+      image: ghcr.io/espressosystems/devops-rust:stable
+    steps:
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+
+      - name: Build Docs
+        run: cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
+
+      - name: Create documentation
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          cp -R target/doc public
+          echo '<meta http-equiv="refresh" content="0; url=phaselock">' > public/index.html

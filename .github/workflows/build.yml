@@ -37,9 +37,6 @@ jobs:
       - name: Check
         run: cargo check
 
-      - name: Doc
-        run: cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
-
       - name: Build
         run: cargo build --release --examples
 
@@ -57,17 +54,3 @@ jobs:
         run: ./target/release/examples/dentry-simulator
         env:
           RUST_BACKTRACE: 1
-
-      - name: Generate Documentation
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          cp -R target/doc public
-          echo '<meta http-equiv="refresh" content="0; url=phaselock">' > public/index.html
-
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/main' }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          cname: phaselock.docs.goespresso.com
