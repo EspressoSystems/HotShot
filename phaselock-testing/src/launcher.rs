@@ -19,9 +19,7 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
     pub(super) config: PhaseLockConfig,
-
-    /// The SecretKeySet that is being used.
-    pub sks: tc::SecretKeySet,
+    pub(super) sks: tc::SecretKeySet,
 }
 
 impl
