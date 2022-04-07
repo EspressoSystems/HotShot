@@ -577,6 +577,7 @@ proptest! {
 
 #[async_std::test]
 pub async fn test_harness() {
+    setup_logging();
     let mut runner = TestLauncher::new(5).launch();
 
     runner.add_nodes(5).await;
