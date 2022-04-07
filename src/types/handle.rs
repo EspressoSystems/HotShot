@@ -1,6 +1,7 @@
 //! Provides an event-streaming handle for a [`PhaseLock`] running in the background
 
 use crate::{
+    tasks::RoundRunnerState,
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
     types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
     PhaseLock,
@@ -195,5 +196,20 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
             .background_task_handle
             .wait_shutdown()
             .await;
+    }
+
+    /// Get the state of the internal round runner. This is used for testing purposes.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the background thread is unable to respond within a second.
+    pub async fn get_round_runner_state(
+        &self,
+    ) -> Result<RoundRunnerState, Box<dyn std::error::Error>> {
+        self.phaselock
+            .inner
+            .background_task_handle
+            .get_round_runner_state()
+            .await
     }
 }

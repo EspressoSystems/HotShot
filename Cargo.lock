@@ -3134,6 +3134,7 @@ version = "0.0.6"
 dependencies = [
  "async-std",
  "async-tungstenite",
+ "atomic_store",
  "bincode",
  "blake3",
  "custom_debug",

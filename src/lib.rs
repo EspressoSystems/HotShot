@@ -622,7 +622,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     if let Err(e) = self
                         .inner
                         .background_task_handle
-                        .send_to_round_runner(tasks::ToRoundRunner::NewViewNumber(new_view_number))
+                        .set_round_runner_view_number(new_view_number)
                         .await
                     {
                         error!(

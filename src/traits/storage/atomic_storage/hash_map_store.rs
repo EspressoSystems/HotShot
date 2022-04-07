@@ -78,3 +78,14 @@ where
         Ok(())
     }
 }
+
+impl<K, V> HashMapStore<K, V>
+where
+    HashMap<K, V>: Serialize + DeserializeOwned + Clone,
+    K: Eq + Hash,
+{
+    /// Returns all data stored in this [`HashMapStore`].
+    pub async fn load_all(&self) -> HashMap<K, V> {
+        self.inner.read().await.data.clone()
+    }
+}

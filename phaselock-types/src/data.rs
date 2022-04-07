@@ -16,7 +16,7 @@ use crate::traits::BlockContents;
 /// around `InternalHash`
 macro_rules! gen_hash_wrapper_type {
     ($t:ident) => {
-        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, Ord, PartialOrd)]
         ///  External wrapper type
         pub struct $t<const N: usize> {
             inner: InternalHash<N>,
@@ -81,7 +81,9 @@ gen_hash_wrapper_type!(StateHash);
 /// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
 /// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
 /// have for the general case.
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, custom_debug::Debug)]
+#[derive(
+    PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, custom_debug::Debug, PartialOrd, Ord,
+)]
 pub struct InternalHash<const N: usize> {
     /// The underlying array
     /// No support for const generics

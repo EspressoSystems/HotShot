@@ -30,7 +30,7 @@ use std::{
     fmt,
 };
 use std::{marker::PhantomData, time::Duration};
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, info_span, trace, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -153,11 +153,21 @@ impl<
         let mut failed = false;
         for node in &mut self.nodes {
             let id = node.node_id;
-            let mut event = node
+            let mut event = match node
                 .handle
                 .next_event()
+                .timeout(Duration::from_secs(5))
                 .await
-                .expect("PhaseLock unexpectedly closed");
+            {
+                Err(_timeout) => {
+                    panic!(
+                        "PhaseLockHandle {} did not trigger an event within 5 seconds",
+                        id
+                    );
+                }
+                Ok(Err(e)) => panic!("PhaseLockHandle {} unexpectedly closed: {:?}", id, e),
+                Ok(Ok(event)) => event,
+            };
             let mut decide_event = None;
 
             // drain all events from this node
@@ -176,7 +186,7 @@ impl<
                 match node
                     .handle
                     .next_event()
-                    .timeout(Duration::from_millis(50))
+                    .timeout(Duration::from_millis(100))
                     .await
                 {
                     Err(_) => {
@@ -197,7 +207,16 @@ impl<
                 blocks.push(block.iter().cloned().collect());
                 states.push(state.iter().cloned().collect());
             } else {
-                panic!("Node {} not receive a decide event", id);
+                println!("Node {} did not receive a decide event", id);
+                println!(
+                    "Next event in queue: {:?}",
+                    node.handle
+                        .next_event()
+                        .timeout(Duration::from_secs(1))
+                        .await
+                );
+                println!("(If this is Ok, it means the TestRunner didn't listen for long enough)");
+                panic!();
             }
         }
         if failed {
@@ -206,6 +225,7 @@ impl<
         info!("All nodes reached decision");
         assert_eq!(states.len(), self.nodes.len());
         assert_eq!(blocks.len(), self.nodes.len());
+
         (states, blocks)
     }
 
@@ -215,6 +235,52 @@ impl<
             node.handle.shut_down().await;
         }
         debug!("All nodes should be shut down now.");
+    }
+
+    /// Will validate that all nodes are on exactly the same state.
+    pub async fn validate_node_states(&self) {
+        let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
+
+        let runner_state = first
+            .handle
+            .get_round_runner_state()
+            .await
+            .expect("Could not get the first node's runner state");
+        let storage_state = first.handle.storage().get_internal_state().await;
+        // TODO: Should we add this?
+        // let network_state = first.handle.networking().get_internal_state().await.expect("Could not get the networking system's internal state");
+
+        info!("Validating node state, comparing with:");
+        info!(?runner_state);
+        info!(?storage_state);
+
+        let mut is_valid = true;
+
+        for (idx, node) in remaining.iter().enumerate() {
+            let idx = idx + 1;
+            let span = info_span!("Node {}", idx);
+            let _guard = span.enter();
+            let comparison_runner_state = node
+                .handle
+                .get_round_runner_state()
+                .await
+                .expect("Could not get the node's runner state");
+            let comparison_storage_state = node.handle.storage().get_internal_state().await;
+            if comparison_runner_state != runner_state {
+                eprintln!("Node {} runner state does not match the first node", idx);
+                eprintln!("  expected: {:#?}", runner_state);
+                eprintln!("  got:      {:#?}", comparison_runner_state);
+                is_valid = false;
+            }
+            if comparison_storage_state != storage_state {
+                eprintln!("Node {} storage state does not match the first node", idx);
+                eprintln!("  expected: {:#?}", storage_state);
+                eprintln!("  got:      {:#?}", comparison_storage_state);
+                is_valid = false;
+            }
+        }
+        assert!(is_valid, "Nodes had a different state");
+        info!("All nodes are on the same state.");
     }
 }
 
