@@ -479,7 +479,7 @@ async fn test_no_loss_network() {
     let description = TestDescription {
         total_nodes: 10,
         txn_ids: Right((1, 1)),
-        network_reliability: Arc::new(SynchronousNetwork::default()),
+        network_reliability: Some(Arc::new(SynchronousNetwork::default())),
         ..TestDescription::default()
     };
     run_rounds(description).await.unwrap();
@@ -492,7 +492,7 @@ async fn test_synchronous_network() {
     let description = TestDescription {
         total_nodes: 5,
         txn_ids: Right((2, 1)),
-        network_reliability: Arc::new(SynchronousNetwork::new(10, 5)),
+        network_reliability: Some(Arc::new(SynchronousNetwork::new(10, 5))),
         ..TestDescription::default()
     };
     run_rounds(description).await.unwrap();
@@ -505,7 +505,7 @@ async fn test_asynchronous_network() {
     let description = TestDescription {
         total_nodes: 5,
         txn_ids: Right((2, 1)),
-        network_reliability: Arc::new(AsynchronousNetwork::new(97, 100, 0, 5)),
+        network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
         ..TestDescription::default()
     };
     run_rounds(description).await.unwrap();
@@ -521,7 +521,7 @@ async fn test_partially_synchronous_network() {
     let description = TestDescription {
         total_nodes: 5,
         txn_ids: Right((2, 1)),
-        network_reliability: Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst)),
+        network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
         ..TestDescription::default()
     };
     run_rounds(description).await.unwrap();

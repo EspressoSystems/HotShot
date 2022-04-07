@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{Generator, TestRunner, N};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
@@ -35,7 +37,7 @@ impl
     pub fn new(expected_node_count: usize) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
         let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
-        let master = MasterMap::new();
+        let master: Arc<_> = MasterMap::new();
 
         let known_nodes: Vec<PubKey> = (0..expected_node_count)
             .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
@@ -72,14 +74,17 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(PubKey, u64) -> NewNetwork + 'static,
+        network: impl Fn(PubKey) -> NewNetwork + 'static,
     ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
             network: Box::new({
                 let sks = self.sks.clone();
                 move |node_id| {
+                    /// FIXME perhaps this pk generation is a separate function
+                    /// to add as an input
+                    /// that way we don't rely on threshold crypto
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    network(pubkey, node_id)
+                    network(pubkey)
                 }
             }),
             storage: self.storage,

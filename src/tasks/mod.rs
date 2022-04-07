@@ -116,7 +116,7 @@ struct TaskHandleInner {
 
     /// same as phaselock's view_timeout such that
     /// there is not an accidental race between the two
-    shutdown_timeout: Duration
+    shutdown_timeout: Duration,
 }
 
 /// Events going to the round runner.

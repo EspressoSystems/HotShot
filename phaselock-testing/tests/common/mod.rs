@@ -217,7 +217,7 @@ pub struct TestDescription {
     pub round_start_delay: u64,
     pub start_delay: u64,
     pub ids_to_shut_down: HashSet<u64>,
-    pub network_reliability: Arc<dyn NetworkReliability>,
+    pub network_reliability: Option<Arc<dyn NetworkReliability>>,
     #[allow(clippy::type_complexity)]
     pub safety_check: Arc<
         dyn Fn(
@@ -267,7 +267,7 @@ impl Default for TestDescription {
             round_start_delay: 1,
             start_delay: 1,
             ids_to_shut_down: HashSet::new(),
-            network_reliability: Arc::new(SynchronousNetwork::default()),
+            network_reliability: None,
             safety_check: Arc::new(default_check),
         }
     }
@@ -290,12 +290,13 @@ pub async fn run_rounds(test_description: TestDescription) -> Result<(), Consens
         a.start_delay = test_description.start_delay;
     };
 
-    let tmp = test_description.network_reliability.clone();
+    let reliability = test_description.network_reliability.clone();
     // create runner from launcher
     let mut runner = launcher
         .modify_default_config(f)
-        .with_network(move |pubkey, _node_id| {
-            MemoryNetwork::new(pubkey, MasterMap::new(), Some(tmp.clone()))
+        .with_network({
+            let master_map = MasterMap::new();
+            move |pubkey| MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
         })
         .launch();
     runner.add_nodes(test_description.total_nodes).await;

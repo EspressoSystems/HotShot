@@ -516,8 +516,7 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let _network_1 =
-            MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+        let _network_1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
         let _network_2 = MemoryNetwork::new(pub_key_2, group, Option::None);
     }
@@ -533,14 +532,9 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(
-            pub_key_1.clone(),
-            group.clone(),
-            Option::None,
-        );
+        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
 
         // Test 1 -> 2
         // Send messages
@@ -594,14 +588,9 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(
-            pub_key_1.clone(),
-            group.clone(),
-            Option::None,
-        );
+        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
 
         // Test 1 -> 2
         // Send messages
