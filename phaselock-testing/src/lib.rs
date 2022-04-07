@@ -10,6 +10,8 @@
 
 mod impls;
 mod launcher;
+/// implementations of various networking models
+pub mod network_reliability;
 
 pub use self::impls::TestElection;
 pub use self::launcher::TestLauncher;
@@ -27,7 +29,7 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::error::TimeoutSnafu;
+use phaselock_types::error::{StorageSnafu, TimeoutSnafu};
 use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -57,7 +59,6 @@ pub struct TestRunner<
     sks: tc::SecretKeySet,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
-    cur_view: u64,
 }
 
 #[allow(dead_code)]
@@ -88,11 +89,6 @@ impl<
             sks: launcher.sks,
             nodes: Vec::new(),
             next_node_id: 0,
-            // FIXME is this the right place for this?
-            // it assumes that all nodes are on the same view
-            // we should probably figure out a way to expose this globally
-            // so we can query the individual nodes
-            cur_view: 0,
         }
     }
 
@@ -158,18 +154,35 @@ impl<
     /// successfully
     async fn collect_round_events(
         node: &mut Node<NETWORK, STORAGE, BLOCK, STATE>,
-        cur_view: u64,
     ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
+
+        // FIXME after <https://github.com/EspressoSystems/phaselock/pull/108>
+        // change to PhaseLockHandle.get_round_runner_state().await.view
+        let cur_view = node
+            .handle
+            .storage()
+            .get_newest_qc()
+            .await
+            .context(StorageSnafu)?
+            .map(|x| x.view_number)
+            .unwrap_or_else(|| {
+                error!(
+                    "node with id {:?} does not have view number. Has the node been started?",
+                    id
+                );
+                0
+            });
 
         // drain all events from this node
         loop {
             let event = node
                 .handle
                 .next_event()
-                // FIXME this probably shouldn't be hardcoded and be a configurable thing.
-                // setting it to the viewtimeout seems safe
-                .timeout(Duration::from_millis(100000))
+                // FIXME use hardcoded timeout
+                // for first event
+                // then switch to `view_timeout`
+                .timeout(Duration::from_secs(10))
                 .await
                 .context(TimeoutSnafu)??;
             error!(?id, ?event);
@@ -186,7 +199,9 @@ impl<
                         block.iter().cloned().collect(),
                     ));
                 }
-                _e => {}
+                event => {
+                    debug!("Node {} recv-ed event {:?}", id, event);
+                }
             }
         }
     }
@@ -198,7 +213,6 @@ impl<
         HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
         HashMap<u64, PhaseLockError>,
     ) {
-        self.cur_view += 1;
         let mut results = HashMap::new();
 
         for handle in self.nodes() {
@@ -206,7 +220,7 @@ impl<
         }
         let mut failed_set = HashMap::new();
         for node in self.nodes.iter_mut() {
-            let result = Self::collect_round_events(node, self.cur_view).await;
+            let result = Self::collect_round_events(node).await;
             match result {
                 Ok((state, block)) => {
                     results.insert(node.node_id, (state, block));
@@ -286,13 +300,8 @@ impl<
     /// - already shut down
     /// - does not exist
     pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
-        let node = self
-            .nodes
-            .iter()
-            .enumerate()
-            .find(|(_, n)| n.node_id == node_id);
-        if let Some((idx, _)) = node {
-            // FIXME this should really be guarded with a timeout
+        let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
+        if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
             node.handle.shut_down().await;
             Ok(())
@@ -306,7 +315,7 @@ impl<
 
     /// return curent node ids
     pub fn ids(&mut self) -> Vec<u64> {
-        self.nodes.iter().map(|n| n.node_id).collect::<_>()
+        self.nodes.iter().map(|n| n.node_id).collect()
     }
 }
 

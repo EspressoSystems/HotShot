@@ -5,6 +5,8 @@
 use async_std::future::TimeoutError;
 use snafu::Snafu;
 
+use crate::traits::storage::StorageError;
+
 /// Error type for `PhaseLock`
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -73,7 +75,7 @@ pub enum PhaseLockError {
     /// Error accesing storage
     StorageError {
         /// Underlying error
-        source: crate::traits::storage::StorageError,
+        source: StorageError,
     },
     /// Invalid state machine state
     #[snafu(display("Invalid state machine state: {}", context))]

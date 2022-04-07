@@ -80,9 +80,9 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             network: Box::new({
                 let sks = self.sks.clone();
                 move |node_id| {
-                    /// FIXME perhaps this pk generation is a separate function
-                    /// to add as an input
-                    /// that way we don't rely on threshold crypto
+                    // FIXME perhaps this pk generation is a separate function
+                    // to add as an input
+                    // that way we don't rely on threshold crypto
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
                     network(pubkey)
                 }

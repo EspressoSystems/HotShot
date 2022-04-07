@@ -331,7 +331,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .serialize(&message)
                 .context(FailedToSerializeSnafu)?;
             trace!("Message bincoded, finding recipient");
-            error!(?recipient, ?self.inner.master_map.map, "PRINTING");
             if let Some(node) = self.inner.master_map.map.get(&recipient) {
                 let node = node.value();
                 let res = node.direct_input(vec).await;
