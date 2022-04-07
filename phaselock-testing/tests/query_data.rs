@@ -146,11 +146,7 @@ async fn sync_newest_quorom() {
 
     let node_id = num_nodes;
     let pub_key = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-    let new_network = MemoryNetwork::new(
-        pub_key.clone(),
-        master_network.clone(),
-        Option::<DummyReliability>::None,
-    );
+    let new_network = MemoryNetwork::new(pub_key.clone(), master_network.clone(), Option::None);
 
     let known_nodes: Vec<_> = (0..num_nodes)
         .map(|x| PubKey::from_secret_key_set_escape_hatch(&sks, x))

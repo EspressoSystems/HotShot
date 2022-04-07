@@ -263,7 +263,7 @@ async fn restart() {
     }
 
     // take everything down and restart it
-    launcher.shutdown().await;
+    launcher.shutdown_all().await;
     let mut launcher = TestLauncher::new(5)
         .with_storage(|idx| {
             let span = debug_span!("Storage", idx);

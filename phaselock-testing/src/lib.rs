@@ -30,11 +30,11 @@ use phaselock::{
 use phaselock_types::error::TimeoutSnafu;
 use snafu::{ResultExt, Snafu};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
 };
 use std::{marker::PhantomData, time::Duration};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -157,9 +157,9 @@ impl<
     /// iterate through all events on a [`Self::Node`] and determine if the node finished
     /// successfully
     async fn collect_round_events(
-        node: &mut Node<NETWORK, STORAGE, STATE>,
+        node: &mut Node<NETWORK, STORAGE, BLOCK, STATE>,
         cur_view: u64,
-    ) -> Result<(Vec<STATE>, Vec<Block>), PhaseLockError> {
+    ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
 
         // drain all events from this node
@@ -194,24 +194,25 @@ impl<
     /// Run a single round, returning the `STATE` and `Block` of each node in order.
     pub async fn run_one_round(
         &mut self,
-    ) -> Result<(Vec<Vec<STATE>>, Vec<Vec<Block>>), ConsensusTestError> {
+    ) -> (
+        HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
+        HashMap<u64, PhaseLockError>,
+    ) {
         self.cur_view += 1;
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut results = HashMap::new();
 
         for handle in self.nodes() {
             handle.run_one_round().await;
         }
-        let mut failed_set = Vec::new();
+        let mut failed_set = HashMap::new();
         for node in self.nodes.iter_mut() {
             let result = Self::collect_round_events(node, self.cur_view).await;
             match result {
                 Ok((state, block)) => {
-                    states.push(state);
-                    blocks.push(block);
+                    results.insert(node.node_id, (state, block));
                 }
                 Err(e) => {
-                    failed_set.push((node.node_id, e));
+                    failed_set.insert(node.node_id, e);
                 }
             }
         }
@@ -221,15 +222,12 @@ impl<
                 "Could not run this round, not all nodes reached a decision. Failing nodes: {:?}",
                 failed_set
             );
-            return Err(ConsensusTestError::PhaseLockRoundErrors { errors: failed_set });
         }
-        assert_eq!(states.len(), self.nodes.len());
-        assert_eq!(blocks.len(), self.nodes.len());
-        Ok((states, blocks))
+        (results, failed_set)
     }
 
     /// Gracefully shut down this system
-    pub async fn shutdown(self) {
+    pub async fn shutdown_all(self) {
         for node in self.nodes {
             node.handle.shut_down().await;
         }
@@ -281,6 +279,35 @@ impl<
         assert!(is_valid, "Nodes had a different state");
         info!("All nodes are on the same state.");
     }
+
+    /// In-place shut down an individual node with id `node_id`
+    /// # Errors
+    /// returns [`ConensusTestError::NoSuchNode`] if the node idx is either
+    /// - already shut down
+    /// - does not exist
+    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
+        let node = self
+            .nodes
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.node_id == node_id);
+        if let Some((idx, _)) = node {
+            // FIXME this should really be guarded with a timeout
+            let node = self.nodes.remove(idx);
+            node.handle.shut_down().await;
+            Ok(())
+        } else {
+            Err(ConsensusTestError::NoSuchNode {
+                node_ids: self.ids(),
+                requested_id: node_id,
+            })
+        }
+    }
+
+    /// return curent node ids
+    pub fn ids(&mut self) -> Vec<u64> {
+        self.nodes.iter().map(|n| n.node_id).collect::<_>()
+    }
 }
 
 impl<
@@ -300,6 +327,7 @@ impl<
         }
 
         // we're assuming all nodes have the same state
+        // FIXME it may be good to do an assertion on the state matching
         let state = self.nodes[0].handle.get_state_sync();
 
         use rand::{seq::IteratorRandom, thread_rng, Rng};
@@ -377,19 +405,22 @@ pub enum TransactionError {
     NoNodes,
     /// There are no valid balances available
     NoValidBalance,
+    /// FIXME remove this entirely
     /// The requested node does not exist
     InvalidNode,
 }
 
-/// Errors when trying to reach consensus.
+/// Overarchign errors encountered
+/// when trying to reach consensus
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum ConsensusTestError {
-    /// List of errors
-    #[snafu(display("Errors: \n{:?}", errors.iter().map(|e| format!("\t(id: {}, err: {:?})\n", e.0, e.1)).collect::<Vec<_>>()))]
-    PhaseLockRoundErrors {
-        /// list of errors
-        errors: Vec<(u64, PhaseLockError)>,
+    /// No node exists
+    NoSuchNode {
+        /// the existing nodes
+        node_ids: Vec<u64>,
+        /// the node requested
+        requested_id: u64,
     },
 
     /// View times out with any node as the leader.

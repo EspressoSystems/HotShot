@@ -1,9 +1,9 @@
 use super::{Generator, TestRunner, N};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    tc,
+    tc::{self},
     traits::{
-        implementations::{DummyReliability, MasterMap, MemoryNetwork, MemoryStorage},
+        implementations::{MasterMap, MemoryNetwork, MemoryStorage},
         NetworkingImplementation, State, Storage,
     },
     types::Message,
@@ -18,7 +18,7 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
-    pub config: PhaseLockConfig,
+    pub(super) config: PhaseLockConfig,
     pub(super) sks: tc::SecretKeySet,
 }
 
@@ -56,7 +56,7 @@ impl
                 let sks = sks.clone();
                 move |node_id| {
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    MemoryNetwork::new(pubkey, master.clone(), Option::<DummyReliability>::None)
+                    MemoryNetwork::new(pubkey, master.clone(), None)
                 }
             }),
             storage: Box::new(|_| MemoryStorage::default()),
@@ -72,10 +72,16 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(u64) -> NewNetwork + 'static,
+        network: impl Fn(PubKey, u64) -> NewNetwork + 'static,
     ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
-            network: Box::new(network),
+            network: Box::new({
+                let sks = self.sks.clone();
+                move |node_id| {
+                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                    network(pubkey, node_id)
+                }
+            }),
             storage: self.storage,
             block: self.block,
             state: self.state,
@@ -135,6 +141,7 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
         self
     }
 
+    /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(mut self, mut f: impl FnMut(&mut PhaseLockConfig)) -> Self {
         f(&mut self.config);
         self

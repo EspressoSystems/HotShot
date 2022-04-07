@@ -15,6 +15,8 @@ tracing = "0.1.32"
 rand = "0.7.3"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
 snafu = { version = "0.7.0", features = ["backtraces"] }
+color-eyre = "0.6.1"
+either = { version = "1.6.1" }
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }

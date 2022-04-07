@@ -3114,6 +3114,8 @@ name = "phaselock-testing"
 version = "0.0.1"
 dependencies = [
  "async-std",
+ "color-eyre",
+ "either",
  "phaselock",
  "phaselock-types",
  "proptest",
