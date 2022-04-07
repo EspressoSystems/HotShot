@@ -17,7 +17,9 @@ jobs:
         name: Enable Rust Caching
 
       - name: Build Docs
-        run: cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
+        run: |
+          cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
+          cargo test --doc --workspace --all-features
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}
