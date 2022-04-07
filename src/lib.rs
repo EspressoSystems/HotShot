@@ -169,15 +169,6 @@ struct PhaseLockElectionState<E: Election<N>, const N: usize> {
     stake_table: E::StakeTable,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
-    /// Returns the public key for the leader of this round
-    fn get_leader(&self, view: u64) -> PubKey {
-        self.election
-            .election
-            .get_leader(&self.election.stake_table, view)
-    }
-}
-
 /// Thread safe, shared view of a `PhaseLock`
 #[derive(Clone)]
 pub struct PhaseLock<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
@@ -360,7 +351,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Returns an error if an underlying networking error occurs
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
     pub async fn next_view(&self, current_view: u64) -> Result<()> {
-        let new_leader = self.inner.get_leader(current_view + 1);
+        let new_leader = self.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
         // If we are the new leader, do nothing
         #[allow(clippy::if_not_else)]
@@ -722,6 +713,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 info!("Lost connection to node {:?}", peer);
             }
         }
+    }
+
+    /// Returns the public key for the leader of this round
+    fn get_leader(&self, view: u64) -> PubKey {
+        self.inner
+            .election
+            .election
+            .get_leader(&self.inner.election.stake_table, view)
     }
 }
 
