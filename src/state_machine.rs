@@ -440,14 +440,14 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         // Store the precommit qc
                         let mut pqc = pl.inner.prepare_qc.write().await;
                         *pqc = Some(qc.clone());
-                        pl.inner
-                            .storage
-                            .update(|mut m| {
-                                let qc = qc.clone();
-                                async move { m.insert_qc(qc).await }
-                            })
-                            .await
-                            .context(StorageSnafu)?;
+                        // pl.inner
+                        //     .storage
+                        //     .update(|mut m| {
+                        //         let qc = qc.clone();
+                        //         async move { m.insert_qc(qc).await }
+                        //     })
+                        //     .await
+                        //     .context(StorageSnafu)?;
                         trace!("Pre-commit qc stored in prepare_qc");
                         let pc_message = ConsensusMessage::PreCommit(PreCommit {
                             leaf_hash: new_leaf_hash,
@@ -793,11 +793,12 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                 Poll::Ready(Err(PhaseLockError::Continue))
             }
             BeforePrepare(prepare) => {
-                debug!("Preapre message recieved from leader!!!");
+                debug!("Prepare message recieved from leader!!!");
                 let leaf = prepare.leaf.clone();
                 let leaf_hash = leaf.hash();
                 let pl = phaselock.clone();
                 let high_qc = prepare.high_qc.clone();
+                let suggested_state = prepare.state.clone();
                 let ctx = context.clone();
                 let fut = async move {
                     debug!(?leaf, "Looking for state for leaf");
@@ -852,11 +853,27 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         })?;
                         // Insert new state into storage
                         debug!(?new_state, "New state inserted");
+                        if suggested_state != new_state {
+                            // the state that the leader send does not match with what we calculated
+                            error!(
+                                ?new_state,
+                                ?suggested_state,
+                                "Suggested state does not match actual state."
+                            );
+                            return Err(PhaseLockError::InconsistentBlock {
+                                stage: Stage::Prepare,
+                            });
+                        }
                         pl.inner
                             .storage
-                            .update(
-                                |mut m| async move { m.insert_state(new_state, leaf_hash).await },
-                            )
+                            .update(|mut m| {
+                                let leaf = leaf.clone();
+                                async move {
+                                    m.insert_state(new_state, leaf_hash).await?;
+                                    m.insert_leaf(leaf).await?;
+                                    Ok(())
+                                }
+                            })
                             .await
                             .context(StorageSnafu)?;
 

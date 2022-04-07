@@ -4,10 +4,7 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
-    traits::{
-        storage::{Storage, StorageResult},
-        BlockContents, State,
-    },
+    traits::{BlockContents, State},
     QuorumCertificate,
 };
 use async_std::sync::RwLock;
@@ -16,7 +13,9 @@ use futures::{
     future::{BoxFuture, FutureExt},
     Future,
 };
-use phaselock_types::traits::storage::StorageUpdater;
+use phaselock_types::traits::storage::{
+    InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater,
+};
 use std::sync::Arc;
 use tracing::{info_span, trace, Instrument};
 
@@ -220,6 +219,48 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         }
         .boxed()
     }
+
+    fn get_internal_state(&self) -> BoxFuture<'_, StorageState<B, S, N>> {
+        async move {
+            let mut blocks: Vec<(BlockHash<N>, B)> = self
+                .inner
+                .blocks
+                .iter()
+                .map(|pair| {
+                    let (hash, block) = pair.pair();
+                    (*hash, block.clone())
+                })
+                .collect();
+            blocks.sort_by_key(|(hash, _)| *hash);
+            let blocks = blocks.into_iter().map(|(_, block)| block).collect();
+
+            let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.read().await.clone();
+            leafs.sort_by_cached_key(Leaf::hash);
+
+            let mut quorum_certificates = self.inner.qcs.read().await.clone();
+            quorum_certificates.sort_by_key(|qc| qc.view_number);
+
+            let mut states: Vec<(LeafHash<N>, S)> = self
+                .inner
+                .states
+                .iter()
+                .map(|pair| {
+                    let (hash, state) = pair.pair();
+                    (*hash, state.clone())
+                })
+                .collect();
+            states.sort_by_key(|(hash, _)| *hash);
+            let states = states.into_iter().map(|(_, state)| state).collect();
+
+            StorageState {
+                blocks,
+                quorum_certificates,
+                leafs,
+                states,
+            }
+        }
+        .boxed()
+    }
 }
 
 /// An implementation of [`StorageUpdater`] for [`MemoryStorage`]
@@ -249,12 +290,38 @@ where
             let view = qc.view_number;
             let hash = qc.block_hash;
             let mut qcs = self.inner.qcs.write().await;
-            let index = qcs.len();
-            trace!(?qc, ?index, "Inserting qc");
-            qcs.push(qc);
-            self.inner.view_to_qc.insert(view, index);
-            self.inner.hash_to_qc.insert(hash, index);
-            Ok(())
+
+            match (
+                self.inner.view_to_qc.get(&view),
+                self.inner.hash_to_qc.get(&hash),
+            ) {
+                (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
+                    let index: usize = *view_idx.value() as usize;
+                    trace!(?qc, ?index, "Updating qc");
+                    qcs[index] = qc;
+                    Ok(())
+                }
+                (Some(_), Some(_)) => InconsistencySnafu {
+                    description: String::from("the view_number and block_hash already exists"),
+                }
+                .fail(),
+                (Some(_), None) => InconsistencySnafu {
+                    description: String::from("the view_number already exists"),
+                }
+                .fail(),
+                (None, Some(_)) => InconsistencySnafu {
+                    description: String::from("the block_hash already exists"),
+                }
+                .fail(),
+                (None, None) => {
+                    let index = qcs.len();
+                    trace!(?qc, ?index, "Inserting qc");
+                    qcs.push(qc);
+                    self.inner.view_to_qc.insert(view, index);
+                    self.inner.hash_to_qc.insert(hash, index);
+                    Ok(())
+                }
+            }
         }
         .instrument(info_span!("MemoryStorage::insert_qc"))
         .boxed()

@@ -230,6 +230,7 @@ async fn restart() {
         })
         .launch();
     launcher.add_nodes(5).await;
+    launcher.validate_node_states().await;
     // nodes should start at view_number 0
     for node in launcher.nodes() {
         assert_eq!(
@@ -246,6 +247,7 @@ async fn restart() {
     // run a round
     launcher.add_random_transaction().unwrap();
     launcher.run_one_round().await;
+    launcher.validate_node_states().await;
 
     // nodes should now be at view_number 1
     for node in launcher.nodes() {
@@ -271,6 +273,7 @@ async fn restart() {
         })
         .launch();
     launcher.add_nodes(5).await;
+    launcher.validate_node_states().await;
 
     // make sure they're all on view_number 1
     for node in launcher.nodes() {
@@ -288,6 +291,7 @@ async fn restart() {
     // run a round
     launcher.add_random_transaction().unwrap();
     launcher.run_one_round().await;
+    launcher.validate_node_states().await;
 
     // nodes should now be at view_number 2
     for node in launcher.nodes() {

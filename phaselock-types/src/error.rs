@@ -72,7 +72,7 @@ pub enum PhaseLockError {
     /// Error accesing storage
     StorageError {
         /// Underlying error
-        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+        source: crate::traits::storage::StorageError,
     },
     /// Invalid state machine state
     #[snafu(display("Invalid state machine state: {}", context))]

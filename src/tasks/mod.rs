@@ -2,11 +2,15 @@
 
 use crate::{types::PhaseLockHandle, PhaseLock};
 use async_std::{
-    prelude::FutureExt,
+    prelude::FutureExt as _,
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
-use flume::{Receiver, SendError, Sender, TryRecvError};
+use flume::{Receiver, RecvError, Sender};
+use futures::{
+    channel::oneshot::{channel as oneshot_channel, Sender as OneShotSender},
+    select, FutureExt as _,
+};
 use phaselock_types::{
     data::Stage,
     event::{Event, EventType},
@@ -18,7 +22,7 @@ use phaselock_types::{
 };
 use phaselock_utils::broadcast::channel;
 use std::{sync::Arc, time::Duration};
-use tracing::{error, info, info_span, trace, warn, Instrument};
+use tracing::{debug, error, info, info_span, trace, warn, Instrument};
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
@@ -28,32 +32,64 @@ pub struct TaskHandle {
 }
 impl TaskHandle {
     /// Send a message to the [`round_runner_task`].
-    pub async fn send_to_round_runner(
+    pub async fn set_round_runner_view_number(
         &self,
-        msg: ToRoundRunner,
-    ) -> Result<(), SendError<ToRoundRunner>> {
+        view_number: u64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.inner
             .read()
             .await
             .as_ref()
             .unwrap()
             .round_runner
-            .send_async(msg)
+            .send_async(ToRoundRunner::NewViewNumber(view_number))
+            .await?;
+        Ok(())
+    }
+
+    /// Get the internal state of the [`round_runner_task`].
+    ///
+    /// This will time out after two seconds.
+    pub async fn get_round_runner_state(
+        &self,
+    ) -> Result<RoundRunnerState, Box<dyn std::error::Error>> {
+        let (sender, receiver) = oneshot_channel();
+        self.inner
+            .read()
             .await
+            .as_ref()
+            .unwrap()
+            .round_runner
+            .send_async(ToRoundRunner::GetState(sender))
+            .await?;
+        let state = receiver.timeout(Duration::from_millis(200)).await??;
+        Ok(state)
     }
 
     /// Wait until all underlying handles are shut down
     pub async fn wait_shutdown(&self) {
         let inner = self.inner.write().await.take().unwrap();
-        futures::future::join_all([
-            inner.network_broadcast_task_handle,
-            inner.network_direct_task_handle,
-            inner.network_change_task_handle,
-            inner.round_runner_task_handle,
-        ])
-        .timeout(Duration::from_secs(1))
-        .await
-        .expect("Background tasks did not shut down in time");
+        for (handle, name) in [
+            (
+                inner.network_broadcast_task_handle,
+                "network_broadcast_task_handle",
+            ),
+            (
+                inner.network_direct_task_handle,
+                "network_direct_task_handle",
+            ),
+            (
+                inner.network_change_task_handle,
+                "network_change_task_handle",
+            ),
+            (inner.round_runner_task_handle, "round_runner_task_handle"),
+        ] {
+            assert!(
+                handle.timeout(Duration::from_secs(1)).await.is_ok(),
+                "{} did not shut down within a second",
+                name
+            );
+        }
     }
 }
 /// Inner struct of the [`TaskHandle`]
@@ -76,8 +112,11 @@ struct TaskHandleInner {
 
 /// Events going to the round runner.
 pub enum ToRoundRunner {
-    /// Notify the round runner that there is a new view number inserted externally that it should use from now on
+    /// Notify the round runner that there is a new view number inserted externally that it should use from now on.
     NewViewNumber(u64),
+
+    /// Request the current state of the round runner.
+    GetState(OneShotSender<RoundRunnerState>),
 }
 
 /// Spawn all tasks that operate on the given [`PhaseLock`].
@@ -87,6 +126,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     phaselock: &PhaseLock<I, N>,
 ) -> PhaseLockHandle<I, N> {
     let (round_runner, round_runner_receiver) = flume::unbounded();
+    // TODO: This should probably be a `SubscribableRwLock` so we don't have to spin on this.
     let shut_down = Arc::new(RwLock::new(false));
 
     let network_broadcast_task_handle = spawn(
@@ -110,6 +150,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 
     let (sender, receiver) = channel();
 
+    // TODO: These should probably be a `SubscribableRwLock` so we don't have to spin on this.
     let pause = Arc::new(RwLock::new(true));
     let run_once = Arc::new(RwLock::new(false));
 
@@ -263,6 +304,47 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
     }
 }
 
+/// The internal state of the [`round_runner_task`].
+#[derive(Debug, PartialEq, Clone)]
+pub struct RoundRunnerState {
+    /// The view number of the next `QuorumCertificate`
+    pub view: u64,
+
+    /// The timeout of the next round.
+    pub int_duration: u64,
+}
+
+/// The trigger for the [`round_runner_task`]. Will loop until either:
+/// - `pause` is set to `false`
+/// - `run_once` is set to `true`. This function will reset it to `false`
+/// - `shut_down` is set to `true`.
+async fn round_runner_trigger(
+    pause: Arc<RwLock<bool>>,
+    run_once: Arc<RwLock<bool>>,
+    shut_down: Arc<RwLock<bool>>,
+) {
+    let mut incremental_backoff_ms = 10;
+    loop {
+        // Capture the pause and run_once flags
+        // Reset the run_once flag if its set
+        if *run_once.read().await {
+            *run_once.write().await = false;
+            return;
+        }
+
+        if !*pause.read().await {
+            return;
+        }
+
+        if *shut_down.read().await {
+            return;
+        }
+
+        // We are paused, sleep and continue
+        async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+        incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
+    }
+}
 /// Run the phaselock background handler loop.
 ///
 /// - If `run_once` is set to `true`, it will only run once.
@@ -278,6 +360,8 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
 /// [`phaselock.next_view`]: ../struct.PhaseLock.html#method.next_view
 /// [`phaselock.run_round`]: ../struct.PhaseLock.html#method.run_round
 #[allow(clippy::too_many_lines)]
+// Apparently the expansion of the `select!` macro contains a `panic`, so we have to add this
+#[allow(clippy::panic)]
 pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     pause: Arc<RwLock<bool>>,
@@ -289,123 +373,116 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
     async_std::task::sleep(duration).await;
     let default_interrupt_duration = phaselock.inner.config.next_view_timeout;
     let (int_mul, int_div) = phaselock.inner.config.timeout_ratio;
-    let mut int_duration = default_interrupt_duration;
-    let mut view = match phaselock.inner.storage.get_newest_qc().await {
-        Ok(Some(qc)) => qc.view_number,
-        Ok(None) => 0,
-        Err(e) => {
-            error!(?e, "Could not load the newest QC from the storage. Assuming there are no QC in the system.");
-            0
-        }
+
+    let mut state = RoundRunnerState {
+        view: match phaselock.inner.storage.get_newest_qc().await {
+            Ok(Some(qc)) => qc.view_number,
+            Ok(None) => 0,
+            Err(e) => {
+                error!(?e, "Could not load the newest QC from the storage. Assuming there are no QC in the system.");
+                0
+            }
+        },
+        int_duration: default_interrupt_duration,
     };
-    let mut incremental_backoff_ms = 10;
+
     // PhaseLock background handler loop
-    loop {
-        // First, check for shutdown signal and break if sent
-        if *shut_down.read().await {
-            break;
-        }
-        // Capture the pause and run_once flags
-        // Reset the run_once flag if its set
-        let p_flag = {
-            let p = pause.read().await;
-            let mut r = run_once.write().await;
-            if *r {
-                *r = false;
-                false
-            } else {
-                *p
-            }
-        };
-        // If we are paused, sleep and continue
-        if p_flag {
-            async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
-            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-            continue;
-        }
-        // Make sure to reset the backoff timeout
-        incremental_backoff_ms = 10;
-
-        // Listen for incoming messages
-        loop {
-            match from_main.try_recv() {
-                Err(TryRecvError::Disconnected) => {
-                    error!("Round runner can't receive events any more, `shut_down` should've notified us of this");
-                    return;
-                }
-                Err(TryRecvError::Empty) => break,
-                Ok(ToRoundRunner::NewViewNumber(new_view)) => {
-                    info!(new_view, "Round runner received a new view number");
-                    view = new_view;
+    while !*shut_down.read().await {
+        select! {
+            msg = from_main.recv_async() => {
+                // Received message from the main thread
+                match msg {
+                    Err(RecvError::Disconnected) => {
+                        error!("Round runner can't receive events any more, `shut_down` should've notified us of this");
+                        return;
+                    }
+                    Ok(ToRoundRunner::NewViewNumber(new_view)) => {
+                        info!(new_view, "Round runner received a new view number");
+                        state.view = new_view;
+                    }
+                    Ok(ToRoundRunner::GetState(responder)) => {
+                        if let Err(e) = responder.send(state.clone()) {
+                            warn!(?e, "Could not respond state");
+                        }
+                    }
                 }
             }
-        }
-
-        // Send the next view
-        let next_view_res = phaselock.next_view(view).await;
-        // If we fail to send the next view, broadcast the error and pause
-        if let Err(e) = next_view_res {
-            if !phaselock
-                .send_event(Event {
-                    view_number: view,
-                    stage: e.get_stage().unwrap_or(Stage::None),
-
-                    event: EventType::Error { error: Arc::new(e) },
-                })
-                .await
-            {
-                error!("All event streams closed! Shutting down.");
-                break;
-            }
-            *pause.write().await = true;
-            continue;
-        }
-        // Increment the view counter
-        view += 1;
-        // run the next block, with a timeout
-        let t = Duration::from_millis(int_duration);
-        let round_res = async_std::future::timeout(t, phaselock.run_round(view)).await;
-        match round_res {
-            // If it succeded, simply reset the timeout
-            Ok(Ok(x)) => {
-                int_duration = default_interrupt_duration;
-                // Check if we completed the same view we started
-                if x != view {
-                    info!(?x, ?view, "Round short circuited");
-                    view = x;
-                }
-            }
-            // If it errored, broadcast the error, reset the timeout, and continue
-            Ok(Err(e)) => {
-                if !phaselock
-                    .send_event(Event {
-                        view_number: view,
-                        stage: e.get_stage().unwrap_or(Stage::None),
-                        event: EventType::Error { error: Arc::new(e) },
-                    })
-                    .await
-                {
-                    error!("All event streams closed! Shutting down.");
+            _ = round_runner_trigger(pause.clone(), run_once.clone(), shut_down.clone()).fuse() => {
+                if *shut_down.read().await {
                     break;
                 }
-                continue;
-            }
-            // if we timed out, log it, send the event, and increase the timeout
-            Err(_) => {
-                warn!("Round timed out");
-                if !phaselock
-                    .send_event(Event {
-                        view_number: view,
-                        stage: Stage::None,
-                        event: EventType::ViewTimeout { view_number: view },
-                    })
-                    .await
-                {
-                    error!("All event streams closed! Shutting down.");
-                    break;
+                // Received a signal to start a round
+
+                // Send the next view
+                let next_view_res = phaselock.next_view(state.view).await;
+                // If we fail to send the next view, broadcast the error and pause
+                if let Err(e) = next_view_res {
+                    if !phaselock
+                        .send_event(Event {
+                            view_number: state.view,
+                            stage: e.get_stage().unwrap_or(Stage::None),
+
+                            event: EventType::Error { error: Arc::new(e) },
+                        })
+                        .await
+                    {
+                        error!("All event streams closed! Shutting down.");
+                        break;
+                    }
+                    *pause.write().await = true;
+                    continue;
                 }
-                int_duration = (int_duration * int_mul) / int_div;
+                // Increment the view counter
+                state.view += 1;
+                // run the next block, with a timeout
+                let t = Duration::from_millis(state.int_duration);
+                let round_res = async_std::future::timeout(t, phaselock.run_round(state.view)).await;
+                match round_res {
+                    // If it succeded, simply reset the timeout
+                    Ok(Ok(x)) => {
+                        state.int_duration = default_interrupt_duration;
+                        // Check if we completed the same view we started
+                        if x != state.view {
+                            info!(?x, ?state, "Round short circuited");
+                            state.view = x;
+                        }
+                    }
+                    // If it errored, broadcast the error, reset the timeout, and continue
+                    Ok(Err(e)) => {
+                        if !phaselock
+                            .send_event(Event {
+                                view_number: state.view,
+                                stage: e.get_stage().unwrap_or(Stage::None),
+                                event: EventType::Error { error: Arc::new(e) },
+                            })
+                            .await
+                        {
+                            error!("All event streams closed! Shutting down.");
+                            break;
+                        }
+                        continue;
+                    }
+                    // if we timed out, log it, send the event, and increase the timeout
+                    Err(_) => {
+                        warn!("Round timed out");
+                        if !phaselock
+                            .send_event(Event {
+                                view_number: state.view,
+                                stage: Stage::None,
+                                event: EventType::ViewTimeout {
+                                    view_number: state.view,
+                                },
+                            })
+                            .await
+                        {
+                            error!("All event streams closed! Shutting down.");
+                            break;
+                        }
+                        state.int_duration = (state.int_duration * int_mul) / int_div;
+                    }
+                }
             }
         }
     }
+    debug!("round_runner_task exited");
 }

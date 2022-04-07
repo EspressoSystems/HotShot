@@ -5,10 +5,26 @@ use crate::{
     traits::{BlockContents, State},
 };
 use futures::{future::BoxFuture, Future};
+use snafu::Snafu;
+
+/// Errors that can occur in the storage layer.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+pub enum StorageError {
+    /// The atomic store encountered an error
+    AtomicStore {
+        /// The inner error
+        source: atomic_store::error::PersistenceError,
+    },
+    /// An inconsistency was found in the data.
+    InconsistencyError {
+        /// The description of the inconsistency
+        description: String,
+    },
+}
 
 /// Result for a storage type
-pub type StorageResult<T = ()> =
-    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 
 /// Abstraction over on disk persistence of node state
 ///
@@ -59,6 +75,26 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     where
         F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
         FUT: Future<Output = StorageResult> + Send + 'a;
+
+    /// Get the internal state of this storage system.
+    ///
+    /// This function should only be used for testing, never in production code.
+    fn get_internal_state(&self) -> BoxFuture<'_, StorageState<B, S, N>>;
+}
+
+/// An internal representation of the data stored in a [`Storage`].
+///
+/// This should only be used for testing, never in production code.
+#[derive(Debug, PartialEq)]
+pub struct StorageState<B, S, const N: usize> {
+    /// A list of all the blocks in the storage, sorted by [`BlockHash`].
+    pub blocks: Vec<B>,
+    /// A list of all the [`QuorumCertificate`] in the storage, sorted by view_number.
+    pub quorum_certificates: Vec<QuorumCertificate<N>>,
+    /// A list of all the [`Leaf`] in the storage, sorted by [`LeafHash`].
+    pub leafs: Vec<Leaf<B, N>>,
+    /// A list of all the states in the storage, storted by [`LeafHash`]
+    pub states: Vec<S>,
 }
 
 /// Trait to be used with [`Storage`]'s `update` function.
