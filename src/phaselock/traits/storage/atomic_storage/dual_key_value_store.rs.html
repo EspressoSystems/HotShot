@@ -167,6 +167,42 @@
 <span id="165">165</span>
 <span id="166">166</span>
 <span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A store that operates on a value with 2 different keys.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Implementations should implement [`DualKeyValue`] before they can use [`DualKeyValueStore`].</span>
@@ -175,9 +211,13 @@
 <span class="kw">use</span> <span class="ident">atomic_store</span>::{<span class="ident">load_store::BincodeLoadStore</span>, <span class="ident">AppendLog</span>, <span class="ident">AtomicStoreLoader</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>},
-    <span class="ident">traits::BlockContents</span>,
+    <span class="ident">traits</span>::{
+        <span class="ident">storage</span>::{<span class="ident">AtomicStoreSnafu</span>, <span class="ident">InconsistencySnafu</span>, <span class="ident">StorageError</span>},
+        <span class="ident">BlockContents</span>,
+    },
 };
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
+<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashMap</span>, <span class="ident">hash::Hash</span>};
 
 <span class="doccomment">/// A store that allows lookup of a value by 2 different keys.</span>
@@ -202,7 +242,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">DualKeyValue</span><span class="op">&gt;</span> <span class="ident">DualKeyValueStore</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Open the `DualKeyValueStore` with the given loader and name.</span>
+    <span class="doccomment">/// Open the [`DualKeyValueStore`] with the given loader and name.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
@@ -255,7 +295,7 @@
         <span class="self">self</span>.<span class="ident">load_by_key_2_ref</span>(<span class="kw-2">&amp;</span><span class="ident">k</span>).<span class="kw">await</span>
     }
 
-    <span class="doccomment">/// Load the latest inserted entry in this `DualKeyValueStore`</span>
+    <span class="doccomment">/// Load the latest inserted entry in this [`DualKeyValueStore`]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">load_latest</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cb</span>: <span class="ident">F</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="op">&amp;&amp;</span><span class="ident">K</span>) -&gt; <span class="ident">V</span>,
@@ -265,25 +305,57 @@
         <span class="ident">read</span>.<span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">max_by_key</span>::<span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">cb</span>).<span class="ident">cloned</span>()
     }
 
-    <span class="doccomment">/// Insert a value into this `DualKeyValueStore`</span>
+    <span class="doccomment">/// Load all entries in this [`DualKeyValueStore`]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">load_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">values</span>.<span class="ident">clone</span>()
+    }
+
+    <span class="doccomment">/// Insert a value into this [`DualKeyValueStore`]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns any errors that [`AppendLog`]&#39;s `store_resource` returns.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val</span>: <span class="ident">K</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">atomic_store::PersistenceError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val</span>: <span class="ident">K</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">StorageError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">lock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="kw">await</span>;
 
-        <span class="ident">lock</span>.<span class="ident">store</span>.<span class="ident">store_resource</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>)<span class="question-mark">?</span>;
+        <span class="kw">match</span> (<span class="ident">lock</span>.<span class="ident">key_1</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>.<span class="ident">key_1</span>()), <span class="ident">lock</span>.<span class="ident">key_2</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>.<span class="ident">key_2</span>())) {
+            (<span class="prelude-val">Some</span>(<span class="ident">idx</span>), <span class="prelude-val">Some</span>(<span class="ident">key_2_idx</span>)) <span class="kw">if</span> <span class="ident">idx</span> <span class="op">==</span> <span class="ident">key_2_idx</span> =&gt; {
+                <span class="comment">// updating</span>
+                <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">idx</span>;
 
-        <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">lock</span>.<span class="ident">values</span>.<span class="ident">len</span>();
-        <span class="ident">lock</span>.<span class="ident">key_1</span>.<span class="ident">insert</span>(<span class="ident">val</span>.<span class="ident">key_1</span>(), <span class="ident">idx</span>);
-        <span class="ident">lock</span>.<span class="ident">key_2</span>.<span class="ident">insert</span>(<span class="ident">val</span>.<span class="ident">key_2</span>(), <span class="ident">idx</span>);
-        <span class="ident">lock</span>.<span class="ident">values</span>.<span class="ident">push</span>(<span class="ident">val</span>);
+                <span class="comment">// TODO: This still adds a duplicate `K` in the storage</span>
+                <span class="comment">// ideally we&#39;d update this record instead</span>
+                <span class="ident">lock</span>.<span class="ident">store</span>.<span class="ident">store_resource</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>).<span class="ident">context</span>(<span class="ident">AtomicStoreSnafu</span>)<span class="question-mark">?</span>;
+                <span class="ident">lock</span>.<span class="ident">values</span>[<span class="ident">idx</span>] <span class="op">=</span> <span class="ident">val</span>;
+                <span class="prelude-val">Ok</span>(())
+            }
+            (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="ident">InconsistencySnafu</span> {
+                <span class="ident">description</span>: <span class="ident">String::from</span>(<span class="string">&quot;the view_number and block_hash already exists&quot;</span>),
+            }
+            .<span class="ident">fail</span>(),
+            (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt; <span class="ident">InconsistencySnafu</span> {
+                <span class="ident">description</span>: <span class="ident">String::from</span>(<span class="string">&quot;the view_number already exists&quot;</span>),
+            }
+            .<span class="ident">fail</span>(),
+            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="ident">InconsistencySnafu</span> {
+                <span class="ident">description</span>: <span class="ident">String::from</span>(<span class="string">&quot;the block_hash already exists&quot;</span>),
+            }
+            .<span class="ident">fail</span>(),
+            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
+                <span class="comment">// inserting</span>
+                <span class="ident">lock</span>.<span class="ident">store</span>.<span class="ident">store_resource</span>(<span class="kw-2">&amp;</span><span class="ident">val</span>).<span class="ident">context</span>(<span class="ident">AtomicStoreSnafu</span>)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(())
+                <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">lock</span>.<span class="ident">values</span>.<span class="ident">len</span>();
+                <span class="ident">lock</span>.<span class="ident">key_1</span>.<span class="ident">insert</span>(<span class="ident">val</span>.<span class="ident">key_1</span>(), <span class="ident">idx</span>);
+                <span class="ident">lock</span>.<span class="ident">key_2</span>.<span class="ident">insert</span>(<span class="ident">val</span>.<span class="ident">key_2</span>(), <span class="ident">idx</span>);
+                <span class="ident">lock</span>.<span class="ident">values</span>.<span class="ident">push</span>(<span class="ident">val</span>);
+
+                <span class="prelude-val">Ok</span>(())
+            }
+        }
     }
 
-    <span class="doccomment">/// Commit this `DualKeyValueStore`.</span>
+    <span class="doccomment">/// Commit this [`DualKeyValueStore`].</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>

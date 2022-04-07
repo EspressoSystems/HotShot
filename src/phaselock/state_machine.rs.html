@@ -1326,6 +1326,23 @@
 <span id="1324">1324</span>
 <span id="1325">1325</span>
 <span id="1326">1326</span>
+<span id="1327">1327</span>
+<span id="1328">1328</span>
+<span id="1329">1329</span>
+<span id="1330">1330</span>
+<span id="1331">1331</span>
+<span id="1332">1332</span>
+<span id="1333">1333</span>
+<span id="1334">1334</span>
+<span id="1335">1335</span>
+<span id="1336">1336</span>
+<span id="1337">1337</span>
+<span id="1338">1338</span>
+<span id="1339">1339</span>
+<span id="1340">1340</span>
+<span id="1341">1341</span>
+<span id="1342">1342</span>
+<span id="1343">1343</span>
 </pre><pre class="rust"><code><span class="doccomment">//! State machine representation of round logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the logic for completing an individual round of</span>
@@ -1768,14 +1785,14 @@
                         <span class="comment">// Store the precommit qc</span>
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pqc</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">prepare_qc</span>.<span class="ident">write</span>().<span class="kw">await</span>;
                         <span class="kw-2">*</span><span class="ident">pqc</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">qc</span>.<span class="ident">clone</span>());
-                        <span class="ident">pl</span>.<span class="ident">inner</span>
-                            .<span class="ident">storage</span>
-                            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
-                                <span class="kw">let</span> <span class="ident">qc</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">clone</span>();
-                                <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">m</span>.<span class="ident">insert_qc</span>(<span class="ident">qc</span>).<span class="kw">await</span> }
-                            })
-                            .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+                        <span class="comment">// pl.inner</span>
+                        <span class="comment">//     .storage</span>
+                        <span class="comment">//     .update(|mut m| {</span>
+                        <span class="comment">//         let qc = qc.clone();</span>
+                        <span class="comment">//         async move { m.insert_qc(qc).await }</span>
+                        <span class="comment">//     })</span>
+                        <span class="comment">//     .await</span>
+                        <span class="comment">//     .context(StorageSnafu)?;</span>
                         <span class="macro">trace!</span>(<span class="string">&quot;Pre-commit qc stored in prepare_qc&quot;</span>);
                         <span class="kw">let</span> <span class="ident">pc_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommit</span>(<span class="ident">PreCommit</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
@@ -2121,11 +2138,12 @@
                 <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::Continue</span>))
             }
             <span class="ident">BeforePrepare</span>(<span class="ident">prepare</span>) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;Preapre message recieved from leader!!!&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;Prepare message recieved from leader!!!&quot;</span>);
                 <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">prepare</span>.<span class="ident">leaf</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
                 <span class="kw">let</span> <span class="ident">pl</span> <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">prepare</span>.<span class="ident">high_qc</span>.<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">suggested_state</span> <span class="op">=</span> <span class="ident">prepare</span>.<span class="ident">state</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
                     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">leaf</span>, <span class="string">&quot;Looking for state for leaf&quot;</span>);
@@ -2180,11 +2198,27 @@
                         })<span class="question-mark">?</span>;
                         <span class="comment">// Insert new state into storage</span>
                         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">new_state</span>, <span class="string">&quot;New state inserted&quot;</span>);
+                        <span class="kw">if</span> <span class="ident">suggested_state</span> <span class="op">!</span><span class="op">=</span> <span class="ident">new_state</span> {
+                            <span class="comment">// the state that the leader send does not match with what we calculated</span>
+                            <span class="macro">error!</span>(
+                                <span class="question-mark">?</span><span class="ident">new_state</span>,
+                                <span class="question-mark">?</span><span class="ident">suggested_state</span>,
+                                <span class="string">&quot;Suggested state does not match actual state.&quot;</span>
+                            );
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::InconsistentBlock</span> {
+                                <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
+                            });
+                        }
                         <span class="ident">pl</span>.<span class="ident">inner</span>
                             .<span class="ident">storage</span>
-                            .<span class="ident">update</span>(
-                                <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">m</span>.<span class="ident">insert_state</span>(<span class="ident">new_state</span>, <span class="ident">leaf_hash</span>).<span class="kw">await</span> },
-                            )
+                            .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
+                                <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">clone</span>();
+                                <span class="kw">async</span> <span class="kw">move</span> {
+                                    <span class="ident">m</span>.<span class="ident">insert_state</span>(<span class="ident">new_state</span>, <span class="ident">leaf_hash</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                                    <span class="ident">m</span>.<span class="ident">insert_leaf</span>(<span class="ident">leaf</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                                    <span class="prelude-val">Ok</span>(())
+                                }
+                            })
                             .<span class="kw">await</span>
                             .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
 

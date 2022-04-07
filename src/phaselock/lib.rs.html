@@ -1345,7 +1345,7 @@
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>
                         .<span class="ident">inner</span>
                         .<span class="ident">background_task_handle</span>
-                        .<span class="ident">send_to_round_runner</span>(<span class="ident">tasks::ToRoundRunner::NewViewNumber</span>(<span class="ident">new_view_number</span>))
+                        .<span class="ident">set_round_runner_view_number</span>(<span class="ident">new_view_number</span>)
                         .<span class="kw">await</span>
                     {
                         <span class="macro">error!</span>(
