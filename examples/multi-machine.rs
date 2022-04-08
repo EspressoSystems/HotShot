@@ -1,7 +1,10 @@
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::implementations::{MemoryStorage, Stateless, WNetwork},
+    traits::{
+        election::StaticCommittee,
+        implementations::{MemoryStorage, Stateless, WNetwork},
+    },
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
@@ -114,7 +117,7 @@ async fn init_state_and_phaselock(
         total_nodes: nodes as u32,
         threshold: threshold as u32,
         max_transactions: 100,
-        known_nodes,
+        known_nodes: known_nodes.clone(),
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
@@ -132,6 +135,7 @@ async fn init_state_and_phaselock(
         networking,
         MemoryStorage::default(),
         Stateless::default(),
+        StaticCommittee::new(known_nodes),
     )
     .await
     .expect("Could not init phaselock");

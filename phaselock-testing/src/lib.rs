@@ -8,8 +8,10 @@
 
 #![warn(missing_docs)]
 
+mod impls;
 mod launcher;
 
+pub use self::impls::TestElection;
 pub use self::launcher::TestLauncher;
 
 use async_std::prelude::FutureExt;
@@ -19,7 +21,8 @@ use phaselock::{
     },
     tc,
     traits::{
-        implementations::Stateless, NetworkingImplementation, NodeImplementation, State, Storage,
+        election::StaticCommittee, implementations::Stateless, NetworkingImplementation,
+        NodeImplementation, State, Storage,
     },
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, H_256,
@@ -118,6 +121,7 @@ impl<
     ) {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
+        let known_nodes = config.known_nodes.clone();
         let handle = PhaseLock::init(
             block,
             self.sks.public_keys(),
@@ -128,6 +132,7 @@ impl<
             network,
             storage,
             Stateless::default(),
+            StaticCommittee::new(known_nodes),
         )
         .await
         .expect("Could not init phaselock");
@@ -379,6 +384,7 @@ impl<
     type Storage = STORAGE;
     type Networking = NETWORK;
     type StatefulHandler = Stateless<BLOCK, STATE, N>;
+    type Election = StaticCommittee<STATE, N>;
 }
 
 impl<NETWORK, STORAGE, BLOCK, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {

@@ -4,6 +4,7 @@ use phaselock::{
     demos::dentry::{Account, Addition, Balance, State, Subtraction, Transaction},
     tc,
     traits::{
+        election::StaticCommittee,
         implementations::{DummyReliability, MasterMap, MemoryNetwork},
         NodeImplementation,
     },
@@ -340,7 +341,7 @@ pub async fn init_state_and_phaselocks<I, const N: usize>(
     Vec<PhaseLockHandle<I, N>>,
 )
 where
-    I: NodeImplementation<N>,
+    I: NodeImplementation<N, Election = StaticCommittee<<I as NodeImplementation<N>>::State, N>>,
     <I as NodeImplementation<N>>::Block: Default,
     <I as NodeImplementation<N>>::Storage: Default,
     <I as NodeImplementation<N>>::StatefulHandler: Default,
@@ -350,7 +351,7 @@ where
         total_nodes: num_nodes as u32,
         threshold: threshold as u32,
         max_transactions: 100,
-        known_nodes,
+        known_nodes: known_nodes.clone(),
         next_view_timeout,
         timeout_ratio,
         round_start_delay: 1,
@@ -370,6 +371,7 @@ where
             networkings[node_id as usize].0.clone(),
             I::Storage::default(),
             I::StatefulHandler::default(),
+            StaticCommittee::new(known_nodes.clone()),
         )
         .await
         .expect("Could not init phaselock");

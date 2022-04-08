@@ -8,6 +8,7 @@ use phaselock::{
     demos::dentry::*,
     tc,
     traits::{
+        election::StaticCommittee,
         implementations::{DummyReliability, MemoryNetwork},
         NodeImplementation,
     },
@@ -158,7 +159,7 @@ async fn sync_newest_quorom() {
         total_nodes: num_nodes as u32,
         threshold: threshold as u32,
         max_transactions: 100,
-        known_nodes,
+        known_nodes: known_nodes.clone(),
         next_view_timeout: NEXT_VIEW_TIMEOUT,
         timeout_ratio: DEFAULT_TIMEOUT_RATIO,
         round_start_delay: 1,
@@ -175,6 +176,7 @@ async fn sync_newest_quorom() {
         new_network,
         <NODE as NodeImplementation<H_256>>::Storage::default(),
         <NODE as NodeImplementation<H_256>>::StatefulHandler::default(),
+        StaticCommittee::new(known_nodes),
     )
     .await
     .expect("Could not init phaselock");

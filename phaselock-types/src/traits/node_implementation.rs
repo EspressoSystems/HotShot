@@ -6,8 +6,8 @@
 use crate::{
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        network::NetworkingImplementation, stateful_handler::StatefulHandler, storage::Storage,
-        BlockContents,
+        election::Election, network::NetworkingImplementation, stateful_handler::StatefulHandler,
+        storage::Storage, BlockContents,
     },
 };
 use std::fmt::Debug;
@@ -37,6 +37,8 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
         > + Clone;
     /// Stateful call back handler for this consensus implementation
     type StatefulHandler: StatefulHandler<N, Block = Self::Block, State = Self::State>;
+    /// The election algorithm
+    type Election: Election<N>;
 }
 
 /// Helper trait to make aliases.

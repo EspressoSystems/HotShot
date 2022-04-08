@@ -48,6 +48,7 @@ use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage},
     traits::{
+        election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
     },
@@ -147,6 +148,8 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     storage: I::Storage,
     /// This `PhaseLock` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
+    /// This `PhaseLock` instance's election backend
+    election: PhaseLockElectionState<I::Election, N>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
@@ -155,12 +158,15 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     background_task_handle: tasks::TaskHandle,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> PhaseLockInner<I, N> {
-    /// Returns the public key for the leader of this round
-    fn get_leader(&self, view: u64) -> PubKey {
-        let index = view % u64::from(self.config.total_nodes);
-        self.config.known_nodes[index as usize].clone()
-    }
+/// Contains the state of the election of the current [`PhaseLock`].
+struct PhaseLockElectionState<E: Election<N>, const N: usize> {
+    /// An instance of the election
+    election: E,
+    /// The inner state of the election
+    #[allow(dead_code)]
+    state: E::State,
+    /// The stake table of the election
+    stake_table: E::StakeTable,
 }
 
 /// Thread safe, shared view of a `PhaseLock`
@@ -174,7 +180,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Creates a new phaselock with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-    #[instrument(skip(genesis, secret_key_share, starting_state, networking, storage))]
+    #[instrument(skip(
+        genesis,
+        secret_key_share,
+        starting_state,
+        networking,
+        storage,
+        election
+    ))]
     pub async fn new(
         genesis: I::Block,
         public_keys: tc::PublicKeySet,
@@ -185,6 +198,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
+        election: I::Election,
     ) -> Result<Self> {
         info!("Creating a new phaselock");
         let node_pub_key = secret_key_share.public_key_share();
@@ -193,6 +207,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         let leaf = Leaf {
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
+        };
+        let election = {
+            let state = <<I as NodeImplementation<N>>::Election as Election<N>>::State::default();
+            let stake_table = election.get_stake_table(&state);
+            PhaseLockElectionState {
+                election,
+                state,
+                stake_table,
+            }
         };
         let inner: PhaseLockInner<I, N> = PhaseLockInner {
             public_key: PubKey {
@@ -235,6 +258,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
+            election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
         };
@@ -327,7 +351,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Returns an error if an underlying networking error occurs
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
     pub async fn next_view(&self, current_view: u64) -> Result<()> {
-        let new_leader = self.inner.get_leader(current_view + 1);
+        let new_leader = self.get_leader(current_view + 1);
         info!(?new_leader, "leader for next view");
         // If we are the new leader, do nothing
         #[allow(clippy::if_not_else)]
@@ -454,6 +478,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
+        election: I::Election,
     ) -> Result<PhaseLockHandle<I, N>> {
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
@@ -466,6 +491,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             networking,
             storage,
             handler,
+            election,
         )
         .await?;
         let handle = tasks::spawn_all(&phaselock).await;
@@ -687,6 +713,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 info!("Lost connection to node {:?}", peer);
             }
         }
+    }
+
+    /// Returns the public key for the leader of this round
+    fn get_leader(&self, view: u64) -> PubKey {
+        self.inner
+            .election
+            .election
+            .get_leader(&self.inner.election.stake_table, view)
     }
 }
 

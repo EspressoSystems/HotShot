@@ -195,7 +195,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     Poll::Ready(ctx) => {
                         debug!("Context was ready");
                         // Determine if we are the leader or not
-                        let leader = phaselock.inner.get_leader(current_view);
+                        let leader = phaselock.get_leader(current_view);
                         if leader == phaselock.inner.public_key {
                             debug!("Node is leader");
                             *self = SequentialState::Leader(SequentialLeader::Start, ctx);
@@ -833,7 +833,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         };
                         let vote_message = ConsensusMessage::PrepareVote(vote);
                         let network_result = pl
-                            .send_direct_message(vote_message, pl.inner.get_leader(current_view))
+                            .send_direct_message(vote_message, pl.get_leader(current_view))
                             .await
                             .context(FailedToMessageLeaderSnafu {
                                 stage: Stage::Prepare,
@@ -938,7 +938,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     trace!("Prepare qc stored");
                     // send the vote message
                     let network_result = pl
-                        .send_direct_message(vote_message, pl.inner.get_leader(current_view))
+                        .send_direct_message(vote_message, pl.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeaderSnafu {
                             stage: Stage::PreCommit,
@@ -1001,7 +1001,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     });
                     trace!("Commit vote packed");
                     let network_result = pl
-                        .send_direct_message(vote_message, pl.inner.get_leader(current_view))
+                        .send_direct_message(vote_message, pl.get_leader(current_view))
                         .await
                         .context(FailedToMessageLeaderSnafu {
                             stage: Stage::Commit,
