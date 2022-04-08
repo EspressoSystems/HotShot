@@ -1,0 +1,44 @@
+name: Documentation workflow
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: stable
+          override: true
+          default: true
+          components: rustfmt, clippy
+
+
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+
+      - name: Build Docs
+        run: |
+          cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
+          cargo test --doc --workspace --all-features
+
+      - name: Create documentation
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          cp -R target/doc public
+          echo '<meta http-equiv="refresh" content="0; url=phaselock">' > public/index.html
