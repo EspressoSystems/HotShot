@@ -23,9 +23,6 @@ pub enum StorageError {
     },
 }
 
-/// Error for a storage type
-pub type StorageError = Box<dyn std::error::Error + Send + Sync + 'static>;
-
 /// Result for a storage type
 pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 

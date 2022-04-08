@@ -2,21 +2,14 @@
 
 mod common;
 
-use async_std::prelude::FutureExt;
-use async_std::task::sleep;
-use common::{get_networkings, get_threshold, get_tolerance, init_state_and_phaselocks};
-use phaselock::{
-    demos::dentry::*,
-    tc,
-    traits::{implementations::MemoryNetwork, NodeImplementation, Storage},
-    types::{Event, EventType, Message, PhaseLockHandle},
-    PhaseLockConfig, PhaseLockError, PubKey, H_256,
-};
-use phaselock_testing::{ConsensusTestError, TestLauncher, TransactionSnafu};
+use common::get_tolerance;
+use phaselock::traits::Storage;
+use phaselock_testing::TestLauncher;
 use proptest::prelude::*;
 
+use crate::common::TestDescription;
+use either::Either::{Left, Right};
 use std::{collections::HashSet, iter::FromIterator};
-use Either::{Left, Right};
 
 // Notes: Tests with #[ignore] are skipped because they fail nondeterministically due to timeout or config setting.
 
@@ -94,7 +87,7 @@ async fn test_fail_last_f_plus_one_nodes_regression() {
 }
 
 // TODO (vko): these tests seem to fail in CI
-#[ignore]
+// #[ignore]
 #[async_std::test]
 async fn test_mul_txns_regression() {
     let description = TestDescription {

@@ -23,20 +23,20 @@ use phaselock::{
     },
     tc,
     traits::{
-        election::StaticCommittee, implementations::Stateless, NetworkingImplementation,
-        NodeImplementation, State, Storage,
+        election::StaticCommittee, implementations::Stateless, BlockContents,
+        NetworkingImplementation, NodeImplementation, State, Storage,
     },
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::error::{StorageSnafu, TimeoutSnafu};
+use phaselock_types::error::TimeoutSnafu;
 use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
 };
 use std::{marker::PhantomData, time::Duration};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, info_span, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -150,29 +150,16 @@ impl<
         self.nodes.iter().map(|node| &node.handle)
     }
 
-    /// iterate through all events on a [`Self::Node`] and determine if the node finished
+    /// iterate through all events on a [`Node`] and determine if the node finished
     /// successfully
     async fn collect_round_events(
         node: &mut Node<NETWORK, STORAGE, BLOCK, STATE>,
     ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
 
-        // FIXME after <https://github.com/EspressoSystems/phaselock/pull/108>
-        // change to PhaseLockHandle.get_round_runner_state().await.view
-        let cur_view = node
-            .handle
-            .storage()
-            .get_newest_qc()
-            .await
-            .context(StorageSnafu)?
-            .map(|x| x.view_number)
-            .unwrap_or_else(|| {
-                error!(
-                    "node with id {:?} does not have view number. Has the node been started?",
-                    id
-                );
-                0
-            });
+        // FIXME add error type with semantic meaning
+        // delete unwrap
+        let cur_view = node.handle.get_round_runner_state().await.unwrap().view;
 
         // drain all events from this node
         loop {
@@ -182,6 +169,7 @@ impl<
                 // FIXME use hardcoded timeout
                 // for first event
                 // then switch to `view_timeout`
+                // this hardcoded value is not desirable
                 .timeout(Duration::from_secs(10))
                 .await
                 .context(TimeoutSnafu)??;
@@ -219,7 +207,7 @@ impl<
             handle.run_one_round().await;
         }
         let mut failed_set = HashMap::new();
-        for node in self.nodes.iter_mut() {
+        for node in &mut self.nodes {
             let result = Self::collect_round_events(node).await;
             match result {
                 Ok((state, block)) => {

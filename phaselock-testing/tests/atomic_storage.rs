@@ -246,7 +246,7 @@ async fn restart() {
 
     // run a round
     launcher.add_random_transaction(None).unwrap();
-    launcher.run_one_round().await.unwrap();
+    launcher.run_one_round().await;
     launcher.validate_node_states().await;
 
     // nodes should now be at view_number 1
@@ -290,7 +290,7 @@ async fn restart() {
 
     // run a round
     launcher.add_random_transaction(None).unwrap();
-    launcher.run_one_round().await.unwrap();
+    launcher.run_one_round().await;
     launcher.validate_node_states().await;
 
     // nodes should now be at view_number 2

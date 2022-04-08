@@ -90,7 +90,7 @@ impl TaskHandle {
             (inner.round_runner_task_handle, "round_runner_task_handle"),
         ] {
             assert!(
-                handle.timeout(Duration::from_secs(long_timeout)).await.is_ok(),
+                handle.timeout(long_timeout).await.is_ok(),
                 "{} did not shut down within a second",
                 name
             );

@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 
 use either::Either;
+use phaselock::traits::Storage;
 use phaselock::{
     demos::dentry::{Addition, DEntryBlock, State, Subtraction, Transaction},
     tc,
     traits::{
         election::StaticCommittee,
-        implementations::{DummyReliability, MasterMap, MemoryNetwork},
-        NodeImplementation,
+        implementations::{MasterMap, MemoryNetwork},
+        NetworkReliability, NodeImplementation,
     },
     types::PhaseLockHandle,
     PhaseLock, PhaseLockConfig, PubKey,

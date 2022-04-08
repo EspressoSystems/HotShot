@@ -7,11 +7,7 @@ use common::{get_networkings, get_threshold, init_state_and_phaselocks, setup_lo
 use phaselock::{
     demos::dentry::*,
     tc,
-    traits::{
-        election::StaticCommittee,
-        implementations::{DummyReliability, MemoryNetwork},
-        NodeImplementation,
-    },
+    traits::{election::StaticCommittee, implementations::MemoryNetwork, NodeImplementation},
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
 };
