@@ -1,4 +1,5 @@
 use futures::future::join_all;
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -20,10 +21,6 @@ use phaselock::{
 };
 
 type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
-
-mod common;
-
-use common::setup_tracing;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -70,7 +67,9 @@ fn prebaked_transactions() -> Vec<Transaction> {
 #[instrument]
 async fn main() {
     // Setup tracing listener
-    setup_tracing();
+    setup_logging();
+    setup_backtrace();
+
     // Get options
     let opt = Opt::from_args();
     debug!(?opt);

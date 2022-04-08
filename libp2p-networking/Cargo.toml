@@ -27,7 +27,7 @@ rand = "0.8.5"
 async-trait = "0.1.53"
 derive_builder = "0.11.1"
 custom_debug = "0.5"
-phaselock-utils = { path = "../phaselock-utils", version = "0.0.6"}
+phaselock-utils = { path = "../phaselock-utils", version = "0.0.6", features = ["logging-utils"] }
 phaselock-types = { path = "../phaselock-types", version = "0.0.6"}
 
 # Feature dependencies
@@ -46,6 +46,6 @@ netlink-sys = { git = "ssh://git@github.com/EspressoSystems/netlink.git", versio
 netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.2.0", optional = true}
 
 [features]
-default = ["webui", "lossy_network"]
+default = [ "webui" ]
 webui = ["tide"]
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]

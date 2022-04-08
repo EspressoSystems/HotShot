@@ -11,6 +11,7 @@ use networking_demo::{
     ui::{run_app, TableApp},
 };
 use parking_lot::Mutex;
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::VecDeque, sync::Arc};
 use structopt::StructOpt;
 use tracing::instrument;
@@ -31,8 +32,8 @@ struct CliOpt {
 #[instrument]
 async fn main() -> Result<()> {
     // -- Setup color_eyre and tracing
-    color_eyre::install()?;
-    networking_demo::tracing_setup::setup_tracing();
+    setup_logging();
+    setup_backtrace();
     // -- Spin up the network connection
     let networking_config = NetworkNodeConfigBuilder::default()
         .min_num_peers(10usize)

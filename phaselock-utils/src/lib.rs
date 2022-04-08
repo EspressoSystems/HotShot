@@ -43,6 +43,17 @@ pub mod test_util {
     /// initialized once
     static INIT: Once = Once::new();
 
+    /// Ensure backtrace is only
+    /// initialized once
+    static INIT_2: Once = Once::new();
+
+    /// enable backtraces exactly once
+    pub fn setup_backtrace() {
+        INIT_2.call_once(|| {
+            color_eyre::install().unwrap();
+        });
+    }
+
     /// Set up logging exactly once
     pub fn setup_logging() {
         INIT.call_once(|| {

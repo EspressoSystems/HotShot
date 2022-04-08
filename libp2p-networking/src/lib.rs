@@ -18,9 +18,6 @@
 /// Direct Messages between two nodes
 pub mod direct_message;
 
-/// Wrapper for tracing niceties
-pub mod tracing_setup;
-
 /// Example message used by the UI library
 pub mod message;
 

@@ -8,6 +8,7 @@ use phaselock::{
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
 };
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,8 +18,6 @@ use std::path::Path;
 use structopt::StructOpt;
 use toml::Value;
 use tracing::debug;
-
-mod common;
 
 const TRANSACTION_COUNT: u64 = 10;
 
@@ -147,7 +146,8 @@ async fn init_state_and_phaselock(
 #[async_std::main]
 async fn main() {
     // Setup tracing listener
-    common::setup_tracing();
+    setup_logging();
+    setup_backtrace();
 
     // Read configuration file path and node id from options
     let config_path_str = NodeOpt::from_args().config;
