@@ -14,20 +14,12 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PubKey,
 };
 use phaselock_testing::{ConsensusTestError, TestLauncher, TransactionSnafu};
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
-use std::{
-    collections::{HashMap, HashSet},
-    env::{var, VarError},
-    sync::{Arc, Once},
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tracing::{debug, error, instrument};
-use tracing_error::ErrorLayer;
-use tracing_subscriber::{
-    fmt::{self, format::FmtSpan},
-    prelude::*,
-    EnvFilter, Registry,
-};
 use Either::{Left, Right};
 
 /// Description of a consensus test

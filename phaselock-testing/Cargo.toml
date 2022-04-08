@@ -10,6 +10,7 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 [dependencies]
 phaselock = { path = "../" }
 phaselock-types = { path = "../phaselock-types" }
+phaselock-utils = { path = "../phaselock-utils", features = ["logging-utils"] }
 async-std = "1.11.0"
 tracing = "0.1.32"
 rand = "0.7.3"

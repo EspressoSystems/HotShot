@@ -9,6 +9,7 @@ use phaselock::{
     H_256,
 };
 use phaselock_testing::{get_starting_state, TestLauncher};
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;
 
@@ -217,7 +218,8 @@ async fn test_happy_path_leaves() {
 async fn restart() {
     use std::path::Path;
 
-    common::setup_logging();
+    setup_logging();
+    setup_backtrace();
 
     const PATH: &str = "target/test/restart";
     // make sure PATH doesn't exist

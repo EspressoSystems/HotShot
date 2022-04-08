@@ -3117,6 +3117,7 @@ dependencies = [
  "either",
  "phaselock",
  "phaselock-types",
+ "phaselock-utils",
  "proptest",
  "rand 0.7.3",
  "rand_xoshiro",

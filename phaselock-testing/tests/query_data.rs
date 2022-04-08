@@ -3,7 +3,7 @@
 mod common;
 
 use async_std::future::{timeout, TimeoutError};
-use common::{get_networkings, get_threshold, init_state_and_phaselocks, setup_logging};
+use common::{get_networkings, get_threshold, init_state_and_phaselocks};
 use phaselock::{
     demos::dentry::*,
     tc,
@@ -12,6 +12,7 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PhaseLockError, PubKey, H_256,
 };
 use phaselock_types::traits::storage::Storage;
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use snafu::Snafu;
 use std::{
@@ -85,6 +86,7 @@ async fn run_round<I: NodeImplementation<N>, const N: usize>(
 #[async_std::test]
 async fn sync_newest_quorom() {
     setup_logging();
+    setup_backtrace();
 
     let num_nodes = 5;
     let threshold = get_threshold(num_nodes);
