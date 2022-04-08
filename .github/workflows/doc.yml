@@ -8,18 +8,26 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 25
-    container:
-      image: ghcr.io/espressosystems/devops-rust:stable
     steps:
-      - uses: Swatinem/rust-cache@v1
-        name: Enable Rust Caching
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
       - name: Configure Git
         run: |
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: stable
+          override: true
+          default: true
+          components: rustfmt, clippy
+
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
