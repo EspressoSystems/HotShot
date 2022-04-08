@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 use either::Either;
+use phaselock::traits::implementations::MemoryStorage;
 use phaselock::traits::Storage;
+use phaselock::types::Message;
 use phaselock::{
     demos::dentry::{Addition, DEntryBlock, State, Subtraction, Transaction},
     tc,
@@ -13,13 +15,15 @@ use phaselock::{
     types::PhaseLockHandle,
     PhaseLock, PhaseLockConfig, PubKey,
 };
-use phaselock_testing::{ConsensusTestError, TestLauncher, TransactionSnafu};
+use phaselock_testing::{
+    ConsensusTestError, TestLauncher, TransactionSnafu,
+};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 use Either::{Left, Right};
 
 /// Description of a consensus test
@@ -44,15 +48,25 @@ pub struct TestDescription {
     pub ids_to_shut_down: HashSet<u64>,
     /// Description of the network reliability
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
-    #[allow(clippy::type_complexity)]
-    pub safety_check: Arc<
-        dyn Fn(
-            &Self,
-            Vec<Transaction>,
-            HashMap<u64, (Vec<State>, Vec<DEntryBlock>)>,
-        ) -> Result<(), ConsensusTestError>,
-    >,
+    // #[allow(clippy::type_complexity)]
+    // pub safety_check: Arc<
+    //     dyn FnMut(
+    //         &Self,
+    //         RoundResult<TestBlock, TestState>
+    //     ) -> Result<(), ConsensusTestError>,
+    // >,
+    // pub before_rounds: Vec<Arc<
+    //     dyn FnMut(
+    //         &Self,
+    //         &mut TestRunner<TestNetwork, TestStorage, TestBlock, TestState>
+    //     )>
+    // >
 }
+
+pub type TestNetwork = MemoryNetwork<Message<DEntryBlock, Transaction, State, 32_usize>>;
+pub type TestStorage = MemoryStorage<DEntryBlock, State, 32_usize>;
+pub type TestBlock = DEntryBlock;
+pub type TestState = State;
 
 /// the default safety check that asserts node blocks and states
 /// match after a round of consensus
@@ -98,7 +112,6 @@ impl Default for TestDescription {
             start_delay: 1,
             ids_to_shut_down: HashSet::new(),
             network_reliability: None,
-            safety_check: Arc::new(default_check),
         }
     }
 }
@@ -179,7 +192,7 @@ impl TestDescription {
 
         // run rounds
         for txn_senders in round_iter {
-            let txns = match txn_senders {
+            let _txns = match txn_senders {
                 Right(num_txns) => runner
                     .add_random_transactions(num_txns)
                     .context(TransactionSnafu)?,
@@ -199,13 +212,16 @@ impl TestDescription {
             // FIXME this might error out if round fails no transactions are submitted
             // should submit dummy transactions
             // run round then assert state is correct
-            let (states, errors) = runner.run_one_round().await;
-            if !errors.is_empty() {
-                error!("ERRORS RUNNING CONSENSUS, {:?}", errors);
-            }
 
-            let safety_check = self.safety_check.clone();
-            (*safety_check)(self, txns, states)?;
+            // FIXME
+            // let (states, errors) = runner.run_one_round().await;
+            // let (states, errors) = todo!();
+            // if !errors.is_empty() {
+            //     error!("ERRORS RUNNING CONSENSUS, {:?}", errors);
+            // }
+            //
+            // let safety_check = self.safety_check.clone();
+            // (*safety_check)(self, txns, states)?;
         }
 
         println!("SHUTTING DOWN ALL");

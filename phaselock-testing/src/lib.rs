@@ -34,6 +34,7 @@ use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
+    sync::Arc,
 };
 use std::{marker::PhantomData, time::Duration};
 use tracing::{debug, error, info, info_span, warn};
@@ -43,6 +44,40 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
 /// For now we only support a size of [`H_256`]. This can be changed in the future.
 pub const N: usize = H_256;
+
+pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
+    txns: Vec<BLOCK::Transaction>,
+    results: HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
+    failures: HashMap<u64, PhaseLockError>,
+}
+
+/// dummy runner that does nothing
+// #[derive(Clone, Copy, Debug, Default)]
+// pub struct DummyRunner {}
+//
+// impl<
+//     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+//     STORAGE: Storage<BLOCK, STATE, N> + 'static,
+//     BLOCK: BlockContents<N> + 'static,
+//     STATE: State<N, Block = BLOCK> + 'static,
+// > RoundRunner<NETWORK, STORAGE, BLOCK, STATE> for DummyRunner {
+// }
+
+/// A "test" consists of the following steps:
+/// 1) perform modification to the state of the world (spin up nodes, spin down nodes, etc)
+/// 2) run round of consensus
+/// 3) check runner and results of round for failures
+/// The `RoundRunner` trait provides functions necessary to execute a round of consensus
+// pub trait RoundRunner<
+//     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+//     STORAGE: Storage<BLOCK, STATE, N> + 'static,
+//     BLOCK: BlockContents<N> + 'static,
+//     STATE: State<N, Block = BLOCK> + 'static,
+// >{
+//     /// does modifications before the round
+//     fn before_round(&self, runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>);
+//     fn safety_check(&self, runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>, results: RoundResult<BLOCK, STATE>);
+// }
 
 /// The runner of a test network
 pub struct TestRunner<
@@ -59,6 +94,8 @@ pub struct TestRunner<
     sks: tc::SecretKeySet,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
+    setup_round: Vec<Arc<dyn Fn(&mut Self)>>,
+    safety_check: Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>)>,
 }
 
 #[allow(dead_code)]
@@ -89,8 +126,15 @@ impl<
             sks: launcher.sks,
             nodes: Vec::new(),
             next_node_id: 0,
+            setup_round: vec![],
+            safety_check: Arc::new(Self::default_safety_check),
         }
     }
+
+    /// default setup for round
+    pub fn default_before_round(_runner: &mut Self) {}
+    /// default safety check
+    pub fn default_safety_check(_runner: &Self, _results: RoundResult<BLOCK, STATE>) {}
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) {
@@ -104,6 +148,19 @@ impl<
             self.add_node_with_config(network, storage, block, state, config)
                 .await;
         }
+    }
+
+    /// add round setup steps
+    pub async fn add_rounds_setup(&mut self, setup_round: Vec<Arc<dyn Fn(&mut Self)>>) {
+        self.setup_round = setup_round;
+    }
+
+    /// replace the safety check
+    pub async fn with_safety_check(
+        &mut self,
+        safety_check: Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>)>,
+    ) {
+        self.safety_check = safety_check;
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
@@ -194,13 +251,27 @@ impl<
         }
     }
 
+    /// execute `num_rounds` rounds
+    pub async fn execute_rounds(&mut self, num_rounds: u64) {
+        for _i in 0..num_rounds {
+            self.execute_round().await
+        }
+    }
+
+    /// execute a single round of consensus
+    pub async fn execute_round(&mut self) {
+        if let Some(setup_fn) = self.setup_round.pop() {
+            setup_fn(self);
+        } else {
+            Self::default_before_round(self);
+        }
+        let results = self.run_one_round().await;
+        (self.safety_check)(self, results);
+    }
+
     /// Run a single round, returning the `STATE` and `Block` of each node in order.
-    pub async fn run_one_round(
-        &mut self,
-    ) -> (
-        HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
-        HashMap<u64, PhaseLockError>,
-    ) {
+    /// FIXME make private
+    pub async fn run_one_round(&mut self) -> RoundResult<BLOCK, STATE> {
         let mut results = HashMap::new();
 
         for handle in self.nodes() {
@@ -225,7 +296,8 @@ impl<
                 failed_set
             );
         }
-        (results, failed_set)
+        (results, failed_set);
+        todo!()
     }
 
     /// Gracefully shut down this system
@@ -302,7 +374,7 @@ impl<
     }
 
     /// return curent node ids
-    pub fn ids(&mut self) -> Vec<u64> {
+    pub fn ids(&self) -> Vec<u64> {
         self.nodes.iter().map(|n| n.node_id).collect()
     }
 }
@@ -383,10 +455,7 @@ impl<
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub fn add_random_transactions(
-        &mut self,
-        n: usize,
-    ) -> Result<Vec<Transaction>, TransactionError> {
+    pub fn add_random_transactions(&self, n: usize) -> Result<Vec<Transaction>, TransactionError> {
         let mut result = Vec::new();
         for _ in 0..n {
             result.push(self.add_random_transaction(None)?);
