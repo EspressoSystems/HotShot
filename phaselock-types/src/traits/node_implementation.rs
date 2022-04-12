@@ -66,6 +66,8 @@ pub trait TypeMap<const N: usize> {
     type ConsensusMessage;
     /// Type alias for the [`DataMessage`] enum.
     type DataMessage;
+    /// Type alias for the [`BlockContents::Transaction`] implementation.
+    type Transaction;
 }
 
 impl<I, const N: usize> TypeMap<N> for I
@@ -76,4 +78,5 @@ where
     type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
     type DataMessage =
         DataMessage<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
+    type Transaction = <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction;
 }

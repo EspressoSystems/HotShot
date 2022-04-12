@@ -52,6 +52,24 @@ pub enum ConsensusMessage<B, S, const N: usize> {
     Decide(Decide<N>),
 }
 
+impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
+    /// Get the current view number from this message.
+    /// If this message is `SubmitTransaction` the returned value will be `None`.
+    /// Otherwise the return value will be the `current_view` of the inner struct.
+    pub fn current_view_number(&self) -> u64 {
+        match self {
+            Self::NewView(view) => view.current_view,
+            Self::Prepare(prepare) => prepare.current_view,
+            Self::PrepareVote(vote) | Self::PreCommitVote(vote) | Self::CommitVote(vote) => {
+                vote.current_view
+            }
+            Self::PreCommit(precommit) => precommit.current_view,
+            Self::Commit(commit) => commit.current_view,
+            Self::Decide(decide) => decide.current_view,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Messages related to sending data between nodes
 pub enum DataMessage<B, T, S, const N: usize> {
