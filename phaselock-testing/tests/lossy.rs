@@ -2,7 +2,7 @@
 mod common;
 use std::sync::Arc;
 
-use common::TestDescription;
+use common::TestDescriptionBuilder;
 use common::{AppliedTestRunner, TestRoundResult};
 use either::Either::Right;
 use phaselock_testing::{
@@ -45,15 +45,14 @@ pub fn check_safety(
 #[async_std::test]
 #[instrument]
 async fn test_no_loss_network() {
-    let mut description = TestDescription {
+    let mut description = TestDescriptionBuilder {
         total_nodes: 10,
         start_nodes: 10,
-        txn_ids: Right((1, 1)),
         network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-        ..TestDescription::default()
+        ..TestDescriptionBuilder::default()
     }
-    .default_populate_rounds();
-    description.safety_check_post = vec![Arc::new(check_safety); 1];
+    .build();
+    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
     description.execute().await.unwrap();
 }
 
@@ -61,15 +60,17 @@ async fn test_no_loss_network() {
 #[async_std::test]
 #[instrument]
 async fn test_synchronous_network() {
-    let mut description = TestDescription {
+    let mut description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        txn_ids: Right((2, 1)),
+        num_rounds: 2,
+        txn_ids: Right(1),
         network_reliability: Some(Arc::new(SynchronousNetwork::new(10, 5))),
-        ..TestDescription::default()
+        ..TestDescriptionBuilder::default()
     }
-    .default_populate_rounds();
-    description.safety_check_post = vec![Arc::new(check_safety); 7];
+    .build();
+    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    description.rounds[1].safety_check_post = Some(Arc::new(check_safety));
     description.execute().await.unwrap();
 }
 
@@ -78,16 +79,18 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let mut description = TestDescription {
+    let mut description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        txn_ids: Right((2, 1)),
+        num_rounds: 2,
+        txn_ids: Right(1),
         failure_threshold: 5,
         network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-        ..TestDescription::default()
+        ..TestDescriptionBuilder::default()
     }
-    .default_populate_rounds();
-    description.safety_check_post = vec![Arc::new(check_safety); 7];
+    .build();
+    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    description.rounds[1].safety_check_post = Some(Arc::new(check_safety));
     description.execute().await.unwrap();
 }
 
@@ -99,12 +102,14 @@ async fn test_partially_synchronous_network() {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        txn_ids: Right((2, 1)),
+        num_rounds: 2,
+        txn_ids: Right(1),
         network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-        ..TestDescription::default()
-    };
+        ..TestDescriptionBuilder::default()
+    }
+    .build();
     description.execute().await.unwrap();
 }

@@ -55,6 +55,55 @@ pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     pub failures: HashMap<u64, PhaseLockError>,
 }
 
+/// functions to run a round of consensus
+#[derive(Clone)]
+pub struct Round<
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+> {
+    /// Safety check before round is set up and run
+    /// to ensure consistent state
+    #[allow(clippy::type_complexity)]
+    pub safety_check_post: Option<
+        Arc<
+            dyn Fn(
+                &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+                RoundResult<BLOCK, STATE>,
+            ) -> Result<(), ConsensusRoundError>,
+        >,
+    >,
+
+    /// Round set up
+    #[allow(clippy::type_complexity)]
+    pub setup_round: Option<
+        Arc<dyn Fn(&mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Vec<BLOCK::Transaction>>,
+    >,
+
+    /// Safetty check after round is complete
+    #[allow(clippy::type_complexity)]
+    pub safety_check_pre: Option<
+        Arc<dyn Fn(&TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Result<(), ConsensusRoundError>>,
+    >,
+}
+
+impl<
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+    > Default for Round<NETWORK, STORAGE, BLOCK, STATE>
+{
+    fn default() -> Self {
+        Self {
+            safety_check_post: None,
+            setup_round: None,
+            safety_check_pre: None,
+        }
+    }
+}
+
 /// The runner of a test network
 pub struct TestRunner<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
@@ -70,13 +119,7 @@ pub struct TestRunner<
     sks: tc::SecretKeySet,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
-    #[allow(clippy::type_complexity)]
-    setup_round: Vec<Arc<dyn Fn(&mut Self) -> Vec<BLOCK::Transaction>>>,
-    #[allow(clippy::type_complexity)]
-    safety_check_post:
-        Vec<Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>) -> Result<(), ConsensusRoundError>>>,
-    #[allow(clippy::type_complexity)]
-    safety_check_pre: Vec<Arc<dyn Fn(&Self) -> Result<(), ConsensusRoundError>>>,
+    rounds: Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
 #[allow(dead_code)]
@@ -107,9 +150,7 @@ impl<
             sks: launcher.sks,
             nodes: Vec::new(),
             next_node_id: 0,
-            setup_round: vec![],
-            safety_check_pre: vec![],
-            safety_check_post: vec![],
+            rounds: vec![],
         }
     }
 
@@ -138,36 +179,10 @@ impl<
         results
     }
 
-    /// replace round setup steps
+    /// replace round list
     #[allow(clippy::type_complexity)]
-    pub fn with_rounds_setup(
-        &mut self,
-        setup_round: Vec<Arc<dyn Fn(&mut Self) -> Vec<BLOCK::Transaction>>>,
-    ) {
-        self.setup_round = setup_round;
-        self.setup_round.reverse();
-    }
-
-    /// replace the safety check run after round
-    #[allow(clippy::type_complexity)]
-    pub fn with_safety_check_post(
-        &mut self,
-        safety_check: Vec<
-            Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>) -> Result<(), ConsensusRoundError>>,
-        >,
-    ) {
-        self.safety_check_post = safety_check;
-        self.safety_check_post.reverse();
-    }
-
-    /// replace the safety check run after round
-    #[allow(clippy::type_complexity)]
-    pub fn with_safety_check_pre(
-        &mut self,
-        safety_check: Vec<Arc<dyn Fn(&Self) -> Result<(), ConsensusRoundError>>>,
-    ) {
-        self.safety_check_pre = safety_check;
-        self.safety_check_pre.reverse();
+    pub fn with_rounds(&mut self, rounds: Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>) {
+        self.rounds = rounds;
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
@@ -283,18 +298,20 @@ impl<
 
     /// execute a single round of consensus
     pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
-        if let Some(safety_check_pre) = self.safety_check_pre.pop() {
-            safety_check_pre(self)?;
-        }
+        if let Some(round) = self.rounds.pop() {
+            if let Some(safety_check_pre) = round.safety_check_pre {
+                safety_check_pre(self)?;
+            }
 
-        let txns = if let Some(setup_fn) = self.setup_round.pop() {
-            setup_fn(self)
-        } else {
-            Self::default_before_round(self)
-        };
-        let results = self.run_one_round(txns).await;
-        if let Option::Some(safety_check_post) = self.safety_check_post.pop() {
-            safety_check_post(self, results)?;
+            let txns = if let Some(setup_fn) = round.setup_round {
+                setup_fn(self)
+            } else {
+                vec![]
+            };
+            let results = self.run_one_round(txns).await;
+            if let Option::Some(safety_check_post) = round.safety_check_post {
+                safety_check_post(self, results)?;
+            }
         }
         Ok(())
     }

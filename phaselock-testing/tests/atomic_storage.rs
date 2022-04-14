@@ -3,9 +3,11 @@ mod common;
 use std::sync::Arc;
 
 use async_std::task::block_on;
-use common::{TestDescription, TestNetwork, TestRoundResult, TestTransaction};
+use common::{
+    TestDescription, TestDescriptionBuilder, TestNetwork, TestRoundResult, TestTransaction,
+};
 use either::Either::Right;
-use phaselock_testing::{ConsensusRoundError, TestRunner};
+use phaselock_testing::{ConsensusRoundError, Round, TestRunner};
 
 use phaselock::{
     data::{Leaf, QuorumCertificate, StateHash},
@@ -296,10 +298,10 @@ async fn restart() {
 
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut PhaseLockConfig| {
-            a.next_view_timeout = desc.next_view_timeout;
-            a.timeout_ratio = desc.timeout_ratio;
-            a.round_start_delay = desc.round_start_delay;
-            a.start_delay = desc.start_delay;
+            a.next_view_timeout = desc.timing_config.next_view_timeout;
+            a.timeout_ratio = desc.timing_config.timeout_ratio;
+            a.round_start_delay = desc.timing_config.round_start_delay;
+            a.start_delay = desc.timing_config.start_delay;
         };
 
         // create runner from launcher
@@ -315,25 +317,27 @@ async fn restart() {
         .launch()
     });
 
-    let desc = TestDescription::<TestNetwork, AtomicStorage> {
+    let desc = TestDescriptionBuilder::<TestNetwork, AtomicStorage> {
         total_nodes: 5,
         start_nodes: 5,
         num_rounds: 1,
         failure_threshold: 0,
-        txn_ids: Right((1, 1)),
+        txn_ids: Right(1),
         next_view_timeout: 1000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
         ids_to_shut_down: Vec::new(),
         network_reliability: None,
-        setup_round: vec![Arc::new(round_one_setup)],
-        safety_check_pre: vec![Arc::new(round_one_pre_check)],
-        safety_check_post: vec![Arc::new(round_one_post_check)],
+        rounds: Some(vec![Round {
+            setup_round: Some(Arc::new(round_one_setup)),
+            safety_check_pre: Some(Arc::new(round_one_pre_check)),
+            safety_check_post: Some(Arc::new(round_one_post_check)),
+        }]),
         gen_runner: Some(gen_runner.clone()),
     };
 
-    desc.execute().await.unwrap();
+    desc.build().execute().await.unwrap();
 
     let round_two_pre_check = |runner: &TestRunner<
         TestNetwork,
@@ -393,22 +397,24 @@ async fn restart() {
             Ok(())
         };
 
-    let desc = TestDescription::<TestNetwork, AtomicStorage> {
+    let desc = TestDescriptionBuilder::<TestNetwork, AtomicStorage> {
         total_nodes: 5,
         start_nodes: 5,
         num_rounds: 1,
         failure_threshold: 0,
-        txn_ids: Right((1, 1)),
+        txn_ids: Right(1),
         next_view_timeout: 1000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
         ids_to_shut_down: Vec::new(),
         network_reliability: None,
-        setup_round: vec![Arc::new(round_two_setup)],
-        safety_check_pre: vec![Arc::new(round_two_pre_check)],
-        safety_check_post: vec![Arc::new(round_two_post_check)],
+        rounds: Some(vec![Round {
+            setup_round: Some(Arc::new(round_two_setup)),
+            safety_check_pre: Some(Arc::new(round_two_pre_check)),
+            safety_check_post: Some(Arc::new(round_two_post_check)),
+        }]),
         gen_runner: Some(gen_runner),
     };
-    desc.execute().await.unwrap();
+    desc.build().execute().await.unwrap();
 }

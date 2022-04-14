@@ -9,31 +9,27 @@ use tracing::instrument;
 #[async_std::test]
 #[instrument]
 async fn ten_tx_seven_nodes() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
-        txn_ids: Right((10, 1)),
-        ..TestDescription::default()
-    };
-    description
-        .default_populate_rounds()
-        .execute()
-        .await
-        .unwrap();
+        num_rounds: 10,
+        txn_ids: Right(1),
+        ..TestDescriptionBuilder::default()
+    }
+    .build();
+    description.execute().await.unwrap();
 }
 
 #[async_std::test]
 #[instrument]
 async fn ten_tx_five_nodes() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        txn_ids: Right((10, 1)),
-        ..TestDescription::default()
-    };
-    description
-        .default_populate_rounds()
-        .execute()
-        .await
-        .unwrap();
+        num_rounds: 10,
+        txn_ids: Right(1),
+        ..TestDescriptionBuilder::default()
+    }
+    .build();
+    description.execute().await.unwrap();
 }

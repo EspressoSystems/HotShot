@@ -5,11 +5,11 @@ mod common;
 use async_std::task::block_on;
 use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction};
 use phaselock::traits::Storage;
-use phaselock_testing::ConsensusRoundError;
+use phaselock_testing::{ConsensusRoundError, Round};
 use proptest::prelude::*;
 use tracing::instrument;
 
-use crate::common::TestDescription;
+use crate::common::TestDescriptionBuilder;
 use either::Either::{Left, Right};
 use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 
@@ -20,33 +20,31 @@ use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 #[async_std::test]
 #[instrument]
 async fn test_large_num_nodes_regression() {
-    let description_1 = TestDescription {
+    let description_1 = TestDescriptionBuilder {
         total_nodes: 50,
         start_nodes: 50,
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description_1.execute().await.unwrap();
-    let description_2 = TestDescription {
+        ..TestDescriptionBuilder::default()
+    };
+    description_1.build().execute().await.unwrap();
+    let description_2 = TestDescriptionBuilder {
         total_nodes: 90,
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description_2.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description_2.build().execute().await.unwrap();
 }
 
 #[async_std::test]
 #[instrument]
 async fn test_large_num_txns_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 10,
         start_nodes: 10,
-        txn_ids: Right((11, 1)),
+        num_rounds: 11,
+        txn_ids: Right(1),
         timeout_ratio: (25, 10),
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 // TODO jr: fix failure
@@ -54,15 +52,14 @@ async fn test_large_num_txns_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_last_node_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 53,
         start_nodes: 53,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![52].into_iter().collect::<HashSet<_>>()],
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 // TODO jr: fix failure
@@ -70,16 +67,15 @@ async fn test_fail_last_node_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_first_node_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 76,
         start_nodes: 76,
         ids_to_shut_down: vec![vec![0].into_iter().collect::<HashSet<_>>()],
         next_view_timeout: 1000,
-        // timeout_ratio: (25, 10),
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        timeout_ratio: (25, 10),
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 // TODO (issue): https://gitlab.com/translucence/systems/hotstuff/-/issues/31
@@ -87,17 +83,16 @@ async fn test_fail_first_node_regression() {
 #[async_std::test]
 #[instrument]
 async fn test_fail_last_f_nodes_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 75,
         start_nodes: 75,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![HashSet::<u64>::from_iter(
             (0..get_tolerance(75)).map(|x| 74 - x),
         )],
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 // TODO jr: fix failure
@@ -105,17 +100,16 @@ async fn test_fail_last_f_nodes_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_last_f_plus_one_nodes_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 15,
         start_nodes: 15,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![HashSet::<u64>::from_iter(
             (0..get_tolerance(15) + 1).map(|x| 14 - x),
         )],
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 // TODO (vko): these tests seem to fail in CI
@@ -123,13 +117,12 @@ async fn test_fail_last_f_plus_one_nodes_regression() {
 #[async_std::test]
 #[instrument]
 async fn test_mul_txns_regression() {
-    let description = TestDescription {
+    let description = TestDescriptionBuilder {
         total_nodes: 30,
         start_nodes: 30,
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
-    description.execute().await.unwrap();
+        ..TestDescriptionBuilder::default()
+    };
+    description.build().execute().await.unwrap();
 }
 
 proptest! {
@@ -142,14 +135,14 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_nodes_random(num_nodes in 50..100usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -158,16 +151,17 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_txns_random(num_nodes in 5..30usize, num_txns in 10..30usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            txn_ids: Right((num_txns, 1)),
+            num_rounds: num_txns,
+            txn_ids: Right(1),
             timeout_ratio: (25, 10),
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -176,15 +170,15 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_node_random(num_nodes in 30..100usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![(num_nodes - 1) as u64].into_iter().collect()],
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -193,15 +187,15 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_node_random(num_nodes in 30..100usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![0].into_iter().collect()],
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -210,16 +204,17 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_f_nodes_random(num_nodes in 30..100usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
-            txn_ids: Right((5, 1)),
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            num_rounds: 5,
+            txn_ids: Right(1),
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -228,16 +223,17 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_f_nodes_random(num_nodes in 30..100usize) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
-            txn_ids: Right((5, 1)),
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            num_rounds: 5,
+            txn_ids: Right(1),
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -246,15 +242,15 @@ proptest! {
     #[ignore]
     #[test]
     fn test_mul_txns_random(txn_proposer_1 in 0..15u64, txn_proposer_2 in 15..30u64) {
-        let description = TestDescription {
+        let description = TestDescriptionBuilder {
             total_nodes: 30,
             start_nodes: 30,
             txn_ids: Left(vec![vec![txn_proposer_1, txn_proposer_2]]),
-            ..TestDescription::default()
-        }.default_populate_rounds();
+            ..TestDescriptionBuilder::default()
+        };
         async_std::task::block_on(
             async {
-                description.execute().await.unwrap();
+                description.build().execute().await.unwrap();
             }
         );
     }
@@ -288,15 +284,16 @@ pub async fn test_harness() {
         Ok(())
     };
 
-    let test_description = TestDescription {
-        setup_round: vec![Arc::new(run_round)],
-        safety_check_pre: vec![Arc::new(safety_check_pre)],
-        safety_check_post: vec![Arc::new(safety_check_post)],
+    let test_description = TestDescriptionBuilder {
+        rounds: Some(vec![Round {
+            safety_check_post: Some(Arc::new(safety_check_post)),
+            setup_round: Some(Arc::new(run_round)),
+            safety_check_pre: Some(Arc::new(safety_check_pre)),
+        }]),
         total_nodes: 30,
         start_nodes: 30,
-        ..TestDescription::default()
-    }
-    .default_populate_rounds();
+        ..TestDescriptionBuilder::default()
+    };
 
-    test_description.execute().await.unwrap();
+    test_description.build().execute().await.unwrap();
 }

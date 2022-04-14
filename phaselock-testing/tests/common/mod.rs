@@ -14,7 +14,7 @@ use phaselock::{
     PhaseLockConfig,
 };
 use phaselock_testing::{
-    ConsensusRoundError, RoundResult, TestLauncher, TestRunner, TransactionSnafu,
+    ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner, TransactionSnafu,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
@@ -27,8 +27,19 @@ use Either::{Left, Right};
 
 pub const N: usize = 32_usize;
 
+pub struct TimingData {
+    /// Base duration for next-view timeout, in milliseconds
+    pub next_view_timeout: u64,
+    /// The exponential backoff ration for the next-view timeout
+    pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    pub round_start_delay: u64,
+    /// Delay after init before starting consensus, in milliseconds
+    pub start_delay: u64,
+}
+
 /// Description of a consensus test
-pub struct TestDescription<
+pub struct TestDescriptionBuilder<
     NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
 > {
@@ -45,7 +56,8 @@ pub struct TestDescription<
     /// or (`num_rounds`, `tx_per_round`)
     /// `tx_per_round` transactions are submitted each round
     /// to random nodes for `num_rounds + failure_threshold`
-    pub txn_ids: Either<Vec<Vec<u64>>, (usize, usize)>,
+    /// Ignored if `self.rounds` is set
+    pub txn_ids: Either<Vec<Vec<u64>>, usize>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -58,12 +70,91 @@ pub struct TestDescription<
     pub ids_to_shut_down: Vec<HashSet<u64>>,
     /// Description of the network reliability
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
-    pub setup_round: TestSetup<NETWORK, STORAGE>,
-    pub safety_check_pre: TestSafetyCheckPre<NETWORK, STORAGE>,
-    pub safety_check_post: TestSafetyCheckPost<NETWORK, STORAGE>,
+    pub rounds: Option<Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>>>,
+    /// function to generate the runner
     pub gen_runner: GenRunner<NETWORK, STORAGE>,
 }
 
+impl<
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    > TestDescription<NETWORK, STORAGE>
+{
+    /// execute a consensus test based on
+    /// `Self`
+    /// total_nodes: num nodes to run with
+    /// txn_ids: vec of vec of transaction ids to send each round
+    pub async fn execute(&self) -> Result<(), ConsensusRoundError> {
+        setup_logging();
+        setup_backtrace();
+
+        let mut runner = (self.gen_runner.clone().unwrap())(self);
+
+        // configure nodes/timing
+
+        runner.add_nodes(self.start_nodes).await;
+        let len = self.rounds.len() as u64;
+        runner.with_rounds(self.rounds.clone());
+
+        runner
+            .execute_rounds(len, self.failure_threshold as u64)
+            .await
+            .unwrap();
+
+        Ok(())
+    }
+}
+
+impl<
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    > TestDescriptionBuilder<NETWORK, STORAGE>
+{
+    pub fn build(self) -> TestDescription<NETWORK, STORAGE> {
+        let timing_config = TimingData {
+            next_view_timeout: self.next_view_timeout,
+            timeout_ratio: self.timeout_ratio,
+            round_start_delay: self.round_start_delay,
+            start_delay: self.start_delay,
+        };
+
+        let rounds = if let Some(rounds) = self.rounds {
+            rounds
+        } else {
+            self.default_populate_rounds()
+        };
+
+        TestDescription {
+            rounds,
+            gen_runner: self.gen_runner,
+            timing_config,
+            network_reliability: self.network_reliability,
+            total_nodes: self.total_nodes,
+            start_nodes: self.start_nodes,
+            failure_threshold: self.failure_threshold,
+        }
+    }
+}
+
+///
+pub struct TestDescription<
+    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+    STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+> {
+    pub rounds: Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>>,
+    pub gen_runner: GenRunner<NETWORK, STORAGE>,
+    pub timing_config: TimingData,
+    /// Description of the network reliability
+    pub network_reliability: Option<Arc<dyn NetworkReliability>>,
+    /// Total number of nodes in the test
+    pub total_nodes: usize,
+    /// nodes available at start
+    pub start_nodes: usize,
+    /// max number of failing rounds before test is failed
+    pub failure_threshold: usize,
+}
+
+/// type alias for generating a [`TestRunner`]
 pub type GenRunner<NETWORK, STORAGE> = Option<
     Arc<
         dyn Fn(
@@ -72,22 +163,7 @@ pub type GenRunner<NETWORK, STORAGE> = Option<
     >,
 >;
 
-pub type TestSafetyCheckPre<NETWORK, STORAGE> = Vec<
-    Arc<
-        dyn Fn(
-            &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
-        ) -> Result<(), ConsensusRoundError>,
-    >,
->;
-pub type TestSafetyCheckPost<NETWORK, STORAGE> = Vec<
-    Arc<
-        dyn Fn(
-            &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
-            RoundResult<DEntryBlock, DemoState>,
-        ) -> Result<(), ConsensusRoundError>,
-    >,
->;
-
+/// type alias for doing setup for a consensus round
 pub type TestSetup<NETWORK, STORAGE> = Vec<
     Arc<
         dyn Fn(
@@ -96,10 +172,15 @@ pub type TestSetup<NETWORK, STORAGE> = Vec<
     >,
 >;
 
+/// type alias for the typical network we use
 pub type TestNetwork = MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
+/// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryBlock, DemoState, N>;
+/// type alias for the test transaction type
 pub type TestTransaction = <DEntryBlock as BlockContents<N>>::Transaction;
+/// type alias for the test runner type
 pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState>;
+/// type alias for the result of a test round
 pub type TestRoundResult = RoundResult<DEntryBlock, DemoState>;
 
 /// the default safety check that asserts node blocks and states
@@ -157,7 +238,7 @@ pub fn default_check(results: TestRoundResult) -> Result<(), ConsensusRoundError
     Ok(())
 }
 
-impl Default for TestDescription<TestNetwork, TestStorage> {
+impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
     /// by default, just a single round
     fn default() -> Self {
         Self {
@@ -165,16 +246,14 @@ impl Default for TestDescription<TestNetwork, TestStorage> {
             start_nodes: 5,
             num_rounds: 1,
             failure_threshold: 0,
-            txn_ids: Right((1, 1)),
+            txn_ids: Right(1),
             next_view_timeout: 1000,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
             ids_to_shut_down: Vec::new(),
             network_reliability: None,
-            setup_round: Vec::new(),
-            safety_check_pre: Vec::new(),
-            safety_check_post: Vec::new(),
+            rounds: None,
             gen_runner: Some(Arc::new(gen_runner_default)),
         }
     }
@@ -182,6 +261,7 @@ impl Default for TestDescription<TestNetwork, TestStorage> {
 
 /// args
 /// * `shut_down_ids`: vector of ids to shut down each round
+/// * `submitter_ids`: vector of ids to submit txns to each round
 pub fn default_submitter_id_to_round<
     NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
@@ -216,7 +296,10 @@ pub fn default_submitter_id_to_round<
     rounds
 }
 
-/// generate transactions
+/// generate a randomized set of transactions each round
+/// * `shut_down_ids`: vec of ids to shut down each round
+/// * `txns_per_round`: number of transactiosn to submit each round
+/// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
     NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
@@ -251,60 +334,39 @@ pub fn default_randomized_ids_to_round<
 impl<
         NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
         STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-    > TestDescription<NETWORK, STORAGE>
+    > TestDescriptionBuilder<NETWORK, STORAGE>
 {
-    pub fn default_populate_rounds(self) -> Self {
+    /// create rounds of consensus based on the data in `self`
+    pub fn default_populate_rounds(&self) -> Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>> {
         let total_rounds = self.num_rounds + self.failure_threshold;
 
-        let pre_checks = vec![];
+        // let pre_checks = vec![];
         let safety_check_post =
             move |_runner: &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
                   results: TestRoundResult|
                   -> Result<(), ConsensusRoundError> { default_check(results) };
 
-        let rounds = match self.txn_ids.clone() {
+        let setups = match self.txn_ids.clone() {
             Left(l) => default_submitter_id_to_round(self.ids_to_shut_down.clone(), l),
-            Right((num_rounds, tx_per_round)) => default_randomized_ids_to_round(
+            Right(tx_per_round) => default_randomized_ids_to_round(
                 self.ids_to_shut_down.clone(),
-                num_rounds as u64,
+                total_rounds as u64,
                 tx_per_round as u64,
             ),
         };
 
-        TestDescription {
-            setup_round: rounds,
-            safety_check_pre: pre_checks,
-            safety_check_post: vec![Arc::new(safety_check_post); total_rounds],
-            ..self
-        }
-    }
-
-    /// execute a consensus test based on
-    /// `Self`
-    /// total_nodes: num nodes to run with
-    /// txn_ids: vec of vec of transaction ids to send each round
-    pub async fn execute(&self) -> Result<(), ConsensusRoundError> {
-        setup_logging();
-        setup_backtrace();
-
-        let mut runner = (self.gen_runner.clone().unwrap())(self);
-
-        // configure nodes/timing
-
-        runner.add_nodes(self.start_nodes).await;
-        runner.with_rounds_setup(self.setup_round.clone());
-        runner.with_safety_check_pre(self.safety_check_pre.clone());
-        runner.with_safety_check_post(self.safety_check_post.clone());
-
-        runner
-            .execute_rounds(self.num_rounds as u64, self.failure_threshold as u64)
-            .await
-            .unwrap();
-
-        Ok(())
+        setups
+            .into_iter()
+            .map(|setup| Round {
+                setup_round: Some(setup),
+                safety_check_post: Some(Arc::new(safety_check_post)),
+                safety_check_pre: None,
+            })
+            .collect::<Vec<_>>()
     }
 }
 
+/// runner creation function with a bunch of sane defaults
 pub fn gen_runner_default(
     desc: &TestDescription<TestNetwork, TestStorage>,
 ) -> TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState> {
@@ -312,10 +374,10 @@ pub fn gen_runner_default(
 
     // modify runner to recognize timing params
     let set_timing_params = |a: &mut PhaseLockConfig| {
-        a.next_view_timeout = desc.next_view_timeout;
-        a.timeout_ratio = desc.timeout_ratio;
-        a.round_start_delay = desc.round_start_delay;
-        a.start_delay = desc.start_delay;
+        a.next_view_timeout = desc.timing_config.next_view_timeout;
+        a.timeout_ratio = desc.timing_config.timeout_ratio;
+        a.round_start_delay = desc.timing_config.round_start_delay;
+        a.start_delay = desc.timing_config.start_delay;
     };
 
     // create reliability to pass into runner
@@ -332,10 +394,13 @@ pub fn gen_runner_default(
         .launch()
 }
 
+/// given `num_nodes`, calculate min number of honest nodes
+/// for consensus to function properly
 pub fn get_threshold(num_nodes: u64) -> u64 {
     ((num_nodes * 2) / 3) + 1
 }
 
+/// given `num_nodes`, calculate max number of byzantine nodes
 pub fn get_tolerance(num_nodes: u64) -> u64 {
     num_nodes - get_threshold(num_nodes)
 }
