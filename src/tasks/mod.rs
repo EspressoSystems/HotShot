@@ -69,6 +69,11 @@ impl TaskHandle {
     /// Wait until all underlying handles are shut down
     pub async fn wait_shutdown(&self) {
         let inner = self.inner.write().await.take().unwrap();
+        // shutdown_timeout == the phaselock's view timeout
+        // in case the round_runner task is running for `view_timeout`
+        // (exponential timeout maxed out)
+        // then this needs to be slightly longer such that it ends up being checked
+        let long_timeout = inner.shutdown_timeout + Duration::new(1, 0);
         for (handle, name) in [
             (
                 inner.network_broadcast_task_handle,
@@ -85,7 +90,7 @@ impl TaskHandle {
             (inner.round_runner_task_handle, "round_runner_task_handle"),
         ] {
             assert!(
-                handle.timeout(Duration::from_secs(1)).await.is_ok(),
+                handle.timeout(long_timeout).await.is_ok(),
                 "{} did not shut down within a second",
                 name
             );
@@ -108,6 +113,10 @@ struct TaskHandleInner {
 
     /// Join handle for `round_runner`
     pub round_runner_task_handle: JoinHandle<()>,
+
+    /// same as phaselock's view_timeout such that
+    /// there is not an accidental race between the two
+    shutdown_timeout: Duration,
 }
 
 /// Events going to the round runner.
@@ -184,6 +193,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
         network_direct_task_handle,
         network_change_task_handle,
         round_runner_task_handle,
+        shutdown_timeout: Duration::from_millis(phaselock.inner.config.next_view_timeout),
     });
 
     handle

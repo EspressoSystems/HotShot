@@ -3114,8 +3114,10 @@ name = "phaselock-testing"
 version = "0.0.1"
 dependencies = [
  "async-std",
+ "either",
  "phaselock",
  "phaselock-types",
+ "phaselock-utils",
  "proptest",
  "rand 0.7.3",
  "rand_xoshiro",
@@ -3154,6 +3156,7 @@ version = "0.0.6"
 dependencies = [
  "async-std",
  "async-trait",
+ "color-eyre",
  "flume",
  "futures",
  "tracing",

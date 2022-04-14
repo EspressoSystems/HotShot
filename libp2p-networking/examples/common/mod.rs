@@ -8,11 +8,12 @@ use async_std::{
     prelude::StreamExt,
     task::{sleep, spawn},
 };
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
-    sync::{Arc, Once},
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -24,7 +25,6 @@ use networking_demo::{
         NetworkEvent, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
         NetworkNodeType,
     },
-    tracing_setup,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,6 @@ use std::net::SocketAddr;
 
 const TIMEOUT: Duration = Duration::from_secs(1000);
 const PADDING_SIZE: usize = 512;
-static INIT: Once = Once::new();
 
 pub type CounterState = u32;
 pub type Epoch = (CounterState, CounterState);
@@ -405,10 +404,8 @@ impl FromStr for ExecutionEnvironment {
 /// ['bound_addr`] the address to bind to
 pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     // FIXME can we pass in a function that returns an error type
-    INIT.call_once(|| {
-        color_eyre::install().unwrap();
-        tracing_setup::setup_tracing();
-    });
+    setup_logging();
+    setup_backtrace();
     let bootstrap_nodes = opts
         .bootstrap_addrs
         .iter()

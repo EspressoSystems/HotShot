@@ -113,7 +113,7 @@ where
     pub fn new(
         pub_key: PubKey,
         master_map: Arc<MasterMap<T>>,
-        reliability_config: Option<impl 'static + NetworkReliability>,
+        reliability_config: Option<Arc<dyn 'static + NetworkReliability>>,
     ) -> MemoryNetwork<T> {
         info!("Attaching new MemoryNetwork");
         let (broadcast_input, broadcast_task_recv) = flume::bounded(128);
@@ -146,7 +146,7 @@ where
                             match x {
                                 Ok(x) => {
                                     let dts = direct_task_send.clone();
-                                    if let Some(r) = reliability_config {
+                                    if let Some(r) = reliability_config.clone() {
                                         spawn(async move {
                                             if r.sample_keep() {
                                                 let delay = r.sample_delay();
@@ -184,7 +184,7 @@ where
                             match x {
                                 Ok(x) => {
                                     let bts = broadcast_task_send.clone();
-                                    if let Some(r) = reliability_config {
+                                    if let Some(r) = reliability_config.clone() {
                                         spawn(async move {
                                             if r.sample_keep() {
                                                 let delay = r.sample_delay();
@@ -345,7 +345,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     }
                 }
             } else {
-                error!(?recipient, "Node does not exist in map");
+                error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
                 Err(NetworkError::NoSuchNode)
             }
         }
@@ -504,7 +504,7 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
-        let _network = MemoryNetwork::new(pub_key, group, Option::<DummyReliability>::None);
+        let _network = MemoryNetwork::new(pub_key, group, Option::None);
     }
 
     // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -515,10 +515,9 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let _network_1 =
-            MemoryNetwork::new(pub_key_1, group.clone(), Option::<DummyReliability>::None);
+        let _network_1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, group, Option::<DummyReliability>::None);
+        let _network_2 = MemoryNetwork::new(pub_key_2, group, Option::None);
     }
 
     // Check to make sure direct queue works
@@ -532,14 +531,9 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(
-            pub_key_1.clone(),
-            group.clone(),
-            Option::<DummyReliability>::None,
-        );
+        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
+        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
 
         // Test 1 -> 2
         // Send messages
@@ -593,14 +587,9 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(
-            pub_key_1.clone(),
-            group.clone(),
-            Option::<DummyReliability>::None,
-        );
+        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 =
-            MemoryNetwork::new(pub_key_2.clone(), group, Option::<DummyReliability>::None);
+        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
 
         // Test 1 -> 2
         // Send messages

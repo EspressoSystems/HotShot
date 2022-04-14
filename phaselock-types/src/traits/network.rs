@@ -136,7 +136,7 @@ pub enum NetworkChange {
 }
 
 /// interface describing how reliable the network is
-pub trait NetworkReliability: std::fmt::Debug + Sync + std::marker::Send + Copy {
+pub trait NetworkReliability: std::fmt::Debug + Sync + std::marker::Send {
     /// Sample from bernoulli distribution to decide whether
     /// or not to keep a packet
     /// # Panics

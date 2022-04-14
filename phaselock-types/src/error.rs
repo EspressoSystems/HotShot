@@ -2,7 +2,10 @@
 //!
 //! This module provides [`PhaseLockError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
+use async_std::future::TimeoutError;
 use snafu::Snafu;
+
+use crate::traits::storage::StorageError;
 
 /// Error type for `PhaseLock`
 #[derive(Debug, Snafu)]
@@ -72,13 +75,23 @@ pub enum PhaseLockError {
     /// Error accesing storage
     StorageError {
         /// Underlying error
-        source: crate::traits::storage::StorageError,
+        source: StorageError,
     },
     /// Invalid state machine state
     #[snafu(display("Invalid state machine state: {}", context))]
     InvalidState {
         /// Context
         context: String,
+    },
+    /// Phaselock timed out waiting for msgs
+    TimeoutError {
+        /// source of error
+        source: TimeoutError,
+    },
+    /// Phaselock timed out during round
+    ViewTimeoutError {
+        /// view number
+        view_number: u64,
     },
     /// Internal value used to drive the state machine
     Continue,

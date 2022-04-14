@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use super::{Generator, TestRunner, N};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    tc,
+    tc::{self},
     traits::{
-        implementations::{DummyReliability, MasterMap, MemoryNetwork, MemoryStorage},
+        implementations::{MasterMap, MemoryNetwork, MemoryStorage},
         NetworkingImplementation, State, Storage,
     },
     types::Message,
@@ -35,7 +37,7 @@ impl
     pub fn new(expected_node_count: usize) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
         let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
-        let master = MasterMap::new();
+        let master: Arc<_> = MasterMap::new();
 
         let known_nodes: Vec<PubKey> = (0..expected_node_count)
             .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
@@ -45,7 +47,7 @@ impl
             threshold: threshold as u32,
             max_transactions: 100,
             known_nodes,
-            next_view_timeout: 100,
+            next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
@@ -56,7 +58,7 @@ impl
                 let sks = sks.clone();
                 move |node_id| {
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    MemoryNetwork::new(pubkey, master.clone(), Option::<DummyReliability>::None)
+                    MemoryNetwork::new(pubkey, master.clone(), None)
                 }
             }),
             storage: Box::new(|_| MemoryStorage::default()),
@@ -72,10 +74,19 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(u64) -> NewNetwork + 'static,
+        network: impl Fn(PubKey) -> NewNetwork + 'static,
     ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
-            network: Box::new(network),
+            network: Box::new({
+                let sks = self.sks.clone();
+                move |node_id| {
+                    // FIXME perhaps this pk generation is a separate function
+                    // to add as an input
+                    // that way we don't rely on threshold crypto
+                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                    network(pubkey)
+                }
+            }),
             storage: self.storage,
             block: self.block,
             state: self.state,
@@ -132,6 +143,12 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_default_config(mut self, config: PhaseLockConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Modifies the config used when generating nodes with `f`
+    pub fn modify_default_config(mut self, mut f: impl FnMut(&mut PhaseLockConfig)) -> Self {
+        f(&mut self.config);
         self
     }
 }

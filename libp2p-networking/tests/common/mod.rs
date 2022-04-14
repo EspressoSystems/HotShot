@@ -2,24 +2,14 @@ use async_std::future::timeout;
 use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
-use networking_demo::{
-    network::{
-        network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
-        NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
-    },
-    tracing_setup,
+use networking_demo::network::{
+    network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
+    NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
+use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::{ResultExt, Snafu};
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    num::NonZeroUsize,
-    sync::{Arc, Once},
-    time::Duration,
-};
+use std::{collections::HashMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{info, instrument, warn};
-
-static INIT: Once = Once::new();
 
 /// General function to spin up testing infra
 /// perform tests by calling `run_test`
@@ -42,12 +32,8 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     F: FnOnce(Vec<Arc<NetworkNodeHandle<S>>>, Duration) -> FutF,
     G: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> FutG + 'static + Send + Sync,
 {
-    // only call once otherwise panics
-    // <https://github.com/yaahc/color-eyre/issues/78>
-    INIT.call_once(|| {
-        color_eyre::install().unwrap();
-        tracing_setup::setup_tracing();
-    });
+    setup_logging();
+    setup_backtrace();
 
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
