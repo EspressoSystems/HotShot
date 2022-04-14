@@ -46,6 +46,5 @@ netlink-sys = { git = "ssh://git@github.com/EspressoSystems/netlink.git", versio
 netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.2.0", optional = true}
 
 [features]
-default = [ "webui" ]
 webui = ["tide"]
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]

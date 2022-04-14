@@ -232,13 +232,13 @@ impl<
 
     /// iterate through all events on a [`Node`] and determine if the node finished
     /// successfully
+    /// # Panics
+    /// If the `node`'s handle is no longer able to access its state
     async fn collect_round_events(
         node: &mut Node<NETWORK, STORAGE, BLOCK, STATE>,
     ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
 
-        // FIXME add error type with semantic meaning
-        // delete unwrap
         let cur_view = node.handle.get_round_runner_state().await.unwrap().view;
 
         // drain all events from this node
@@ -296,7 +296,11 @@ impl<
         Ok(())
     }
 
-    /// execute a single round of consensus
+    /// Execute a single round of consensus
+    /// This consists of the following steps:
+    /// - checking the state of the phaselock
+    /// - setting up the round (ex: submitting txns) or spinning up or down nodes
+    /// - checking safety conditions to ensure that the round executed as expected
     pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
         if let Some(round) = self.rounds.pop() {
             if let Some(safety_check_pre) = round.safety_check_pre {
@@ -316,7 +320,9 @@ impl<
         Ok(())
     }
 
-    /// Run a single round, returning
+    /// Internal function that unpauses phaselocks and waits for round to complete,
+    /// returns a `RoundResult` upon successful completion, indicating what (if anything) was
+    /// committed
     async fn run_one_round(&mut self, txns: Vec<BLOCK::Transaction>) -> RoundResult<BLOCK, STATE> {
         let mut results = HashMap::new();
 
