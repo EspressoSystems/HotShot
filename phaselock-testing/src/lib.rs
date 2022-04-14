@@ -241,18 +241,19 @@ impl<
 
         let cur_view = node.handle.get_round_runner_state().await.unwrap().view;
 
+        // timeout for first event is longer in case
+        // there is a delta before other nodes are spun up
+        let mut timeout = Duration::from_secs(10);
+
         // drain all events from this node
         loop {
             let event = node
                 .handle
                 .next_event()
-                // FIXME use hardcoded timeout
-                // for first event
-                // then switch to `view_timeout`
-                // this hardcoded value is not desirable
-                .timeout(Duration::from_secs(10))
+                .timeout(timeout)
                 .await
                 .context(TimeoutSnafu)??;
+            timeout = Duration::from_millis(node.handle.get_next_view_timeout());
             error!(?id, ?event);
             match event.event {
                 EventType::ViewTimeout { view_number } => {

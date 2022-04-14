@@ -212,4 +212,9 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
             .get_round_runner_state()
             .await
     }
+
+    /// return the timeout for a view of the underlying `Phaselock`
+    pub fn get_next_view_timeout(&self) -> u64 {
+        self.phaselock.get_next_view_timeout()
+    }
 }
