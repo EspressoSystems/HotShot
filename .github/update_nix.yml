@@ -1,0 +1,20 @@
+name: update-flake-lock
+on:
+  workflow_dispatch: # allows manual triggering
+  schedule:
+    - cron: '0 0 * * 0' # runs weekly on Sunday at 00:00
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v16
+
+      - name: Update flake.lock
+        uses: DeterminateSystems/update-flake-lock@v8
+        with:
+          pr-title: "Bump flake.lock" # Title of PR to be created
