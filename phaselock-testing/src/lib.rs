@@ -275,16 +275,17 @@ impl<
         }
     }
 
-    /// execute `num_rounds` rounds of consensus
-    /// * `num_rounds`: number of successful consensus to run
-    /// * `fail_threshold`: number of rounds that are allowed to fail
+    /// repeatedly executes consensus until either:
+    /// * `self.fail_threshold` rounds fail
+    /// * `self.num_succeeds` rounds are successful
+    /// (for a definition of success defined by safety checks)
     pub async fn execute_rounds(
         &mut self,
-        num_rounds: u64,
+        num_success: u64,
         fail_threshold: u64,
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
-        for i in 0..(num_rounds + fail_threshold) {
+        for i in 0..(num_success + fail_threshold) {
             if let Err(e) = self.execute_round().await {
                 num_fails += 1;
                 error!("failed {:?} round of consensus with error: {:?}", i, e);

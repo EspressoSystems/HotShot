@@ -320,7 +320,7 @@ async fn restart() {
     let desc = TestDescriptionBuilder::<TestNetwork, AtomicStorage> {
         total_nodes: 5,
         start_nodes: 5,
-        num_rounds: 1,
+        num_succeeds: 1,
         failure_threshold: 0,
         txn_ids: Right(1),
         next_view_timeout: 1000,
@@ -400,7 +400,7 @@ async fn restart() {
     let desc = TestDescriptionBuilder::<TestNetwork, AtomicStorage> {
         total_nodes: 5,
         start_nodes: 5,
-        num_rounds: 1,
+        num_succeeds: 1,
         failure_threshold: 0,
         txn_ids: Right(1),
         next_view_timeout: 1000,

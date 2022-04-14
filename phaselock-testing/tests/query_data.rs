@@ -78,7 +78,7 @@ async fn sync_newest_quorom() {
     let test_description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 4,
-        num_rounds: 2,
+        num_succeeds: 2,
         failure_threshold: 0,
         next_view_timeout: NEXT_VIEW_TIMEOUT,
         timeout_ratio: DEFAULT_TIMEOUT_RATIO,

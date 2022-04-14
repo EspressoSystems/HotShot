@@ -17,7 +17,7 @@ async fn single_permanent_failure() {
     let description = TestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
-        num_rounds: 10,
+        num_succeeds: 10,
         txn_ids: Right(1),
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![6].into_iter().collect::<HashSet<_>>()],
@@ -38,7 +38,7 @@ async fn double_permanent_failure() {
     let description = TestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
-        num_rounds: 10,
+        num_succeeds: 10,
         txn_ids: Right(1),
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],

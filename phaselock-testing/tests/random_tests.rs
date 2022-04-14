@@ -39,7 +39,7 @@ async fn test_large_num_txns_regression() {
     let description = TestDescriptionBuilder {
         total_nodes: 10,
         start_nodes: 10,
-        num_rounds: 11,
+        num_succeeds: 11,
         txn_ids: Right(1),
         timeout_ratio: (25, 10),
         ..TestDescriptionBuilder::default()
@@ -154,7 +154,7 @@ proptest! {
         let description = TestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            num_rounds: num_txns,
+            num_succeeds: num_txns,
             txn_ids: Right(1),
             timeout_ratio: (25, 10),
             ..TestDescriptionBuilder::default()
@@ -208,7 +208,7 @@ proptest! {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
-            num_rounds: 5,
+            num_succeeds: 5,
             txn_ids: Right(1),
             ..TestDescriptionBuilder::default()
         };
@@ -227,7 +227,7 @@ proptest! {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
-            num_rounds: 5,
+            num_succeeds: 5,
             txn_ids: Right(1),
             ..TestDescriptionBuilder::default()
         };

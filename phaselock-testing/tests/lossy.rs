@@ -63,7 +63,7 @@ async fn test_synchronous_network() {
     let mut description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        num_rounds: 2,
+        num_succeeds: 2,
         txn_ids: Right(1),
         network_reliability: Some(Arc::new(SynchronousNetwork::new(10, 5))),
         ..TestDescriptionBuilder::default()
@@ -82,7 +82,7 @@ async fn test_asynchronous_network() {
     let mut description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        num_rounds: 2,
+        num_succeeds: 2,
         txn_ids: Right(1),
         failure_threshold: 5,
         network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
@@ -105,7 +105,7 @@ async fn test_partially_synchronous_network() {
     let description = TestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
-        num_rounds: 2,
+        num_succeeds: 2,
         txn_ids: Right(1),
         network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
         ..TestDescriptionBuilder::default()
