@@ -94,6 +94,7 @@ async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
     phaselocks: impl Iterator<Item = &PhaseLockHandle<I, N>>,
     expected: u64,
 ) {
+    error!("RUNNING VALIDATE QC NUMBERS");
     for (index, phaselock) in phaselocks.enumerate() {
         let newest_view_number = phaselock
             .storage()

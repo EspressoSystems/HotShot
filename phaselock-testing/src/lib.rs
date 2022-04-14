@@ -183,6 +183,8 @@ impl<
     #[allow(clippy::type_complexity)]
     pub fn with_rounds(&mut self, rounds: Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>) {
         self.rounds = rounds;
+        // we call pop, so reverse the array such that first element is on top
+        self.rounds.reverse();
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
