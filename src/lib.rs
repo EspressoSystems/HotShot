@@ -727,7 +727,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
-
 }
 
 /// Attempts to generate a quorum certificate from the provided signatures
