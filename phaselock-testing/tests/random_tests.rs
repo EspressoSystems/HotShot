@@ -15,7 +15,7 @@ use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 
 // Notes: Tests with #[ignore] are skipped because they fail nondeterministically due to timeout or config setting.
 
-// TODO: Consensus behaves nondeterministically (https://gitlab.com/translucence/systems/hotstuff/-/issues/32)
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
 #[ignore]
 #[async_std::test]
 #[instrument]
@@ -78,7 +78,7 @@ async fn test_fail_first_node_regression() {
     description.build().execute().await.unwrap();
 }
 
-// TODO (issue): https://gitlab.com/translucence/systems/hotstuff/-/issues/31
+// TODO (issue): https://github.com/EspressoSystems/phaselock/issues/15
 #[ignore]
 #[async_std::test]
 #[instrument]
@@ -131,7 +131,7 @@ proptest! {
         cases: 10,
         .. ProptestConfig::default()
     })]
-    // TODO: Consensus behaves nondeterministically (https://gitlab.com/translucence/systems/hotstuff/-/issues/32)
+    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_large_num_nodes_random(num_nodes in 50..100usize) {
@@ -147,7 +147,7 @@ proptest! {
         );
     }
 
-    // TODO: Consensus behaves nondeterministically (https://gitlab.com/translucence/systems/hotstuff/-/issues/32)
+    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_large_num_txns_random(num_nodes in 5..30usize, num_txns in 10..30usize) {
@@ -166,7 +166,7 @@ proptest! {
         );
     }
 
-    // TODO: Consensus behaves nondeterministically (https://gitlab.com/translucence/systems/hotstuff/-/issues/32)
+    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_fail_last_node_random(num_nodes in 30..100usize) {
@@ -183,7 +183,7 @@ proptest! {
         );
     }
 
-    // TODO: Consensus behaves nondeterministically (https://gitlab.com/translucence/systems/hotstuff/-/issues/32)
+    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_fail_first_node_random(num_nodes in 30..100usize) {
@@ -200,7 +200,7 @@ proptest! {
         );
     }
 
-    // TODO: Consensus times out with f failing nodes (https://gitlab.com/translucence/systems/hotstuff/-/issues/31)
+    // TODO: Consensus times out with f failing nodes (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_fail_last_f_nodes_random(num_nodes in 30..100usize) {
@@ -219,7 +219,7 @@ proptest! {
         );
     }
 
-    // TODO: Consensus times out with f failing nodes (https://gitlab.com/translucence/systems/hotstuff/-/issues/31)
+    // TODO: Consensus times out with f failing nodes (https://github.com/EspressoSystems/phaselock/issues/15)
     #[ignore]
     #[test]
     fn test_fail_first_f_nodes_random(num_nodes in 30..100usize) {

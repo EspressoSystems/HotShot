@@ -187,7 +187,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     }
 
     // TODO !keyao Optimize VRF implementation with the sortition algorithm.
-    // (Issue: https://gitlab.com/translucence/systems/phaselock/-/issues/35.)
+    // (Issue: <https://github.com/EspressoSystems/phaselock/issues/13>)
 
     /// Validates a vote token.
     ///
