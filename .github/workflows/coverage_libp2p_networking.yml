@@ -10,7 +10,7 @@ on:
 jobs:
   code-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -18,7 +18,7 @@ jobs:
       - name: Install Rust Nightly Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2022-03-28
+          toolchain: nightly-2022-04-13
           override: true
 
       - name: Configure Git
@@ -31,7 +31,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast test_coverage -- --test-threads=1
+          args: --workspace --all-features --no-fail-fast test_coverage -- --test-threads=1
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
