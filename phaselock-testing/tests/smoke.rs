@@ -11,10 +11,15 @@ use tracing::instrument;
 async fn ten_tx_seven_nodes() {
     let description = TestDescription {
         total_nodes: 7,
+        start_nodes: 7,
         txn_ids: Right((10, 1)),
         ..TestDescription::default()
     };
-    description.execute().await.unwrap();
+    description
+        .default_populate_rounds()
+        .execute()
+        .await
+        .unwrap();
 }
 
 #[async_std::test]
@@ -22,8 +27,13 @@ async fn ten_tx_seven_nodes() {
 async fn ten_tx_five_nodes() {
     let description = TestDescription {
         total_nodes: 5,
+        start_nodes: 5,
         txn_ids: Right((10, 1)),
         ..TestDescription::default()
     };
-    description.execute().await.unwrap();
+    description
+        .default_populate_rounds()
+        .execute()
+        .await
+        .unwrap();
 }

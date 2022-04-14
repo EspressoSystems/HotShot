@@ -14,12 +14,17 @@ use std::collections::HashSet;
 async fn single_permanent_failure() {
     let description = TestDescription {
         total_nodes: 7,
+        start_nodes: 7,
         txn_ids: Right((10, 1)),
-        next_view_timeout: 100000,
-        ids_to_shut_down: vec![6].into_iter().collect::<HashSet<_>>(),
+        next_view_timeout: 1000,
+        ids_to_shut_down: vec![vec![6].into_iter().collect::<HashSet<_>>()],
         ..TestDescription::default()
     };
-    description.execute().await.unwrap();
+    description
+        .default_populate_rounds()
+        .execute()
+        .await
+        .unwrap();
 }
 
 // This test simulates two permanent failed nodes
@@ -30,10 +35,15 @@ async fn single_permanent_failure() {
 async fn double_permanent_failure() {
     let description = TestDescription {
         total_nodes: 7,
+        start_nodes: 7,
         txn_ids: Right((10, 1)),
         next_view_timeout: 1000,
-        ids_to_shut_down: vec![5, 6].into_iter().collect::<HashSet<_>>(),
+        ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],
         ..TestDescription::default()
     };
-    description.execute().await.unwrap();
+    description
+        .default_populate_rounds()
+        .execute()
+        .await
+        .unwrap();
 }

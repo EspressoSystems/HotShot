@@ -10,9 +10,9 @@ use rand::{
 /// to arrive within `timeout` ns
 #[derive(Clone, Copy, Debug)]
 pub struct SynchronousNetwork {
-    /// max delay of packet before arrival
+    /// Max delay of packet before arrival
     timeout_ms: u64,
-    /// lowest value in milliseconds that a packet may be delayed
+    /// Lowest value in milliseconds that a packet may be delayed
     delay_low_ms: u64,
 }
 

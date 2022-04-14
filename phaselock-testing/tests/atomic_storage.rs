@@ -1,19 +1,27 @@
 mod common;
 
+use std::sync::Arc;
+
+use async_std::task::block_on;
+use common::{TestDescription, TestNetwork, TestRoundResult, TestTransaction};
+use either::Either::Right;
+use phaselock_testing::{ConsensusRoundError, TestRunner};
+
 use phaselock::{
     data::{Leaf, QuorumCertificate, StateHash},
     demos::dentry::{
-        random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State,
+        random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
     },
     traits::{BlockContents, Storage},
-    H_256,
+    PhaseLockConfig, H_256,
 };
 use phaselock_testing::{get_starting_state, TestLauncher};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;
 
-type AtomicStorage = phaselock::traits::implementations::AtomicStorage<DEntryBlock, State, H_256>;
+type AtomicStorage =
+    phaselock::traits::implementations::AtomicStorage<DEntryBlock, DemoState, H_256>;
 
 #[async_std::test]
 async fn test_happy_path_blocks() {
@@ -225,86 +233,182 @@ async fn restart() {
     // make sure PATH doesn't exist
     let _ = async_std::fs::remove_dir_all(PATH).await;
 
-    let mut launcher = TestLauncher::new(5)
-        .with_storage(|idx| {
-            let path = format!("{}/{}", PATH, idx);
-            AtomicStorage::open(Path::new(&path)).unwrap()
-        })
-        .launch();
-    launcher.add_nodes(5).await;
-    launcher.validate_node_states().await;
-    // nodes should start at view_number 0
-    for node in launcher.nodes() {
-        assert_eq!(
-            node.storage()
-                .get_newest_qc()
-                .await
-                .unwrap()
-                .unwrap()
-                .view_number,
-            0
-        );
-    }
+    let round_one_pre_check = |runner: &TestRunner<
+        TestNetwork,
+        AtomicStorage,
+        DEntryBlock,
+        DemoState,
+    >|
+     -> Result<(), ConsensusRoundError> {
+        block_on(async move {
+            runner.validate_node_states().await;
+            // nodes should start at view_number 0
+            for node in runner.nodes() {
+                assert_eq!(
+                    node.storage()
+                        .get_newest_qc()
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .view_number,
+                    0
+                );
+            }
+        });
+        Ok(())
+    };
 
-    // run a round
-    launcher.add_random_transaction(None).unwrap();
-    launcher.run_one_round().await;
-    launcher.validate_node_states().await;
+    let round_one_setup = |runner: &mut TestRunner<
+        TestNetwork,
+        AtomicStorage,
+        DEntryBlock,
+        DemoState,
+    >|
+     -> Vec<TestTransaction> {
+        runner.add_random_transactions(1).unwrap()
+    };
 
-    // nodes should now be at view_number 1
-    for node in launcher.nodes() {
-        assert_eq!(
-            node.storage()
-                .get_newest_qc()
-                .await
-                .unwrap()
-                .unwrap()
-                .view_number,
-            1
-        );
-    }
+    let round_one_post_check =
+        |runner: &TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>,
+         _results: TestRoundResult|
+         -> Result<(), ConsensusRoundError> {
+            block_on(async move {
+                runner.validate_node_states().await;
 
-    // take everything down and restart it
-    launcher.shutdown_all().await;
-    let mut launcher = TestLauncher::new(5)
-        .with_storage(|idx| {
-            let span = debug_span!("Storage", idx);
-            let _guard = span;
-            let path = format!("{}/{}", PATH, idx);
-            AtomicStorage::open(Path::new(&path)).unwrap()
-        })
-        .launch();
-    launcher.add_nodes(5).await;
-    launcher.validate_node_states().await;
+                // nodes should now be at view_number 1
+                for node in runner.nodes() {
+                    assert_eq!(
+                        node.storage()
+                            .get_newest_qc()
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .view_number,
+                        1
+                    );
+                }
+            });
+            Ok(())
+        };
 
-    // make sure they're all on view_number 1
-    for node in launcher.nodes() {
-        assert_eq!(
-            node.storage()
-                .get_newest_qc()
-                .await
-                .unwrap()
-                .unwrap()
-                .view_number,
-            1
-        );
-    }
+    let gen_runner /* : Arc<dyn Fn(&TestDescription<TestNetwork, AtomicStorage>) -> TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>> */ = Arc::new(|desc: &TestDescription<TestNetwork, AtomicStorage>| {
+        let launcher = TestLauncher::new(desc.total_nodes);
 
-    // run a round
-    launcher.add_random_transaction(None).unwrap();
-    launcher.run_one_round().await;
-    launcher.validate_node_states().await;
+        // modify runner to recognize timing params
+        let set_timing_params = |a: &mut PhaseLockConfig| {
+            a.next_view_timeout = desc.next_view_timeout;
+            a.timeout_ratio = desc.timeout_ratio;
+            a.round_start_delay = desc.round_start_delay;
+            a.start_delay = desc.start_delay;
+        };
 
-    // nodes should now be at view_number 2
-    for node in launcher.nodes() {
-        assert_eq!(
-            node.storage()
-                .get_newest_qc()
-                .await
-                .unwrap()
-                .unwrap()
-                .view_number,
-            2
-        );
-    }
+        // create runner from launcher
+        launcher
+            // insert timing parameters
+            .modify_default_config(set_timing_params)
+            .with_storage(|idx| {
+                let span = debug_span!("Storage", idx);
+                let _guard = span;
+                let path = format!("{}/{}", PATH, idx);
+                AtomicStorage::open(Path::new(&path)).unwrap()
+            })
+        .launch()
+    });
+
+    let desc = TestDescription::<TestNetwork, AtomicStorage> {
+        total_nodes: 5,
+        start_nodes: 5,
+        num_rounds: 1,
+        failure_threshold: 0,
+        txn_ids: Right((1, 1)),
+        next_view_timeout: 1000,
+        timeout_ratio: (11, 10),
+        round_start_delay: 1,
+        start_delay: 1,
+        ids_to_shut_down: Vec::new(),
+        network_reliability: None,
+        setup_round: vec![Arc::new(round_one_setup)],
+        safety_check_pre: vec![Arc::new(round_one_pre_check)],
+        safety_check_post: vec![Arc::new(round_one_post_check)],
+        gen_runner: Some(gen_runner.clone()),
+    };
+
+    desc.execute().await.unwrap();
+
+    let round_two_pre_check = |runner: &TestRunner<
+        TestNetwork,
+        AtomicStorage,
+        DEntryBlock,
+        DemoState,
+    >|
+     -> Result<(), ConsensusRoundError> {
+        block_on(async move {
+            runner.validate_node_states().await;
+            // nodes should start at view_number 0
+            for node in runner.nodes() {
+                assert_eq!(
+                    node.storage()
+                        .get_newest_qc()
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .view_number,
+                    1
+                );
+            }
+        });
+        Ok(())
+    };
+
+    let round_two_setup = |runner: &mut TestRunner<
+        TestNetwork,
+        AtomicStorage,
+        DEntryBlock,
+        DemoState,
+    >|
+     -> Vec<TestTransaction> {
+        runner.add_random_transactions(1).unwrap()
+    };
+
+    let round_two_post_check =
+        |runner: &TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>,
+         _results: TestRoundResult|
+         -> Result<(), ConsensusRoundError> {
+            block_on(async move {
+                runner.validate_node_states().await;
+
+                // nodes should now be at view_number 1
+                for node in runner.nodes() {
+                    assert_eq!(
+                        node.storage()
+                            .get_newest_qc()
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .view_number,
+                        2
+                    );
+                }
+            });
+            Ok(())
+        };
+
+    let desc = TestDescription::<TestNetwork, AtomicStorage> {
+        total_nodes: 5,
+        start_nodes: 5,
+        num_rounds: 1,
+        failure_threshold: 0,
+        txn_ids: Right((1, 1)),
+        next_view_timeout: 1000,
+        timeout_ratio: (11, 10),
+        round_start_delay: 1,
+        start_delay: 1,
+        ids_to_shut_down: Vec::new(),
+        network_reliability: None,
+        setup_round: vec![Arc::new(round_two_setup)],
+        safety_check_pre: vec![Arc::new(round_two_pre_check)],
+        safety_check_post: vec![Arc::new(round_two_post_check)],
+        gen_runner: Some(gen_runner),
+    };
+    desc.execute().await.unwrap();
 }

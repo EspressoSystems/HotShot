@@ -45,39 +45,15 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// For now we only support a size of [`H_256`]. This can be changed in the future.
 pub const N: usize = H_256;
 
+/// Result of running a round of consensus
 pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
-    txns: Vec<BLOCK::Transaction>,
-    results: HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
-    failures: HashMap<u64, PhaseLockError>,
+    /// Transactions that were submitted
+    pub txns: Vec<BLOCK::Transaction>,
+    /// Nodes that committed this round
+    pub results: HashMap<u64, (Vec<STATE>, Vec<BLOCK>)>,
+    /// Nodes that failed to commit this round
+    pub failures: HashMap<u64, PhaseLockError>,
 }
-
-/// dummy runner that does nothing
-// #[derive(Clone, Copy, Debug, Default)]
-// pub struct DummyRunner {}
-//
-// impl<
-//     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
-//     STORAGE: Storage<BLOCK, STATE, N> + 'static,
-//     BLOCK: BlockContents<N> + 'static,
-//     STATE: State<N, Block = BLOCK> + 'static,
-// > RoundRunner<NETWORK, STORAGE, BLOCK, STATE> for DummyRunner {
-// }
-
-/// A "test" consists of the following steps:
-/// 1) perform modification to the state of the world (spin up nodes, spin down nodes, etc)
-/// 2) run round of consensus
-/// 3) check runner and results of round for failures
-/// The `RoundRunner` trait provides functions necessary to execute a round of consensus
-// pub trait RoundRunner<
-//     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
-//     STORAGE: Storage<BLOCK, STATE, N> + 'static,
-//     BLOCK: BlockContents<N> + 'static,
-//     STATE: State<N, Block = BLOCK> + 'static,
-// >{
-//     /// does modifications before the round
-//     fn before_round(&self, runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>);
-//     fn safety_check(&self, runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>, results: RoundResult<BLOCK, STATE>);
-// }
 
 /// The runner of a test network
 pub struct TestRunner<
@@ -94,8 +70,13 @@ pub struct TestRunner<
     sks: tc::SecretKeySet,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
-    setup_round: Vec<Arc<dyn Fn(&mut Self)>>,
-    safety_check: Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>)>,
+    #[allow(clippy::type_complexity)]
+    setup_round: Vec<Arc<dyn Fn(&mut Self) -> Vec<BLOCK::Transaction>>>,
+    #[allow(clippy::type_complexity)]
+    safety_check_post:
+        Vec<Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>) -> Result<(), ConsensusRoundError>>>,
+    #[allow(clippy::type_complexity)]
+    safety_check_pre: Vec<Arc<dyn Fn(&Self) -> Result<(), ConsensusRoundError>>>,
 }
 
 #[allow(dead_code)]
@@ -127,17 +108,21 @@ impl<
             nodes: Vec::new(),
             next_node_id: 0,
             setup_round: vec![],
-            safety_check: Arc::new(Self::default_safety_check),
+            safety_check_pre: vec![],
+            safety_check_post: vec![],
         }
     }
 
     /// default setup for round
-    pub fn default_before_round(_runner: &mut Self) {}
+    pub fn default_before_round(_runner: &mut Self) -> Vec<BLOCK::Transaction> {
+        Vec::new()
+    }
     /// default safety check
     pub fn default_safety_check(_runner: &Self, _results: RoundResult<BLOCK, STATE>) {}
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
-    pub async fn add_nodes(&mut self, count: usize) {
+    pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
+        let mut results = vec![];
         for _ in 0..count {
             let node_id = self.next_node_id;
             let network = (self.network_generator)(node_id);
@@ -145,22 +130,44 @@ impl<
             let block = (self.block_generator)(node_id);
             let state = (self.state_generator)(node_id);
             let config = self.default_node_config.clone();
-            self.add_node_with_config(network, storage, block, state, config)
+            let node_id = self
+                .add_node_with_config(network, storage, block, state, config)
                 .await;
+            results.push(node_id);
         }
+        results
     }
 
-    /// add round setup steps
-    pub async fn add_rounds_setup(&mut self, setup_round: Vec<Arc<dyn Fn(&mut Self)>>) {
-        self.setup_round = setup_round;
-    }
-
-    /// replace the safety check
-    pub async fn with_safety_check(
+    /// replace round setup steps
+    #[allow(clippy::type_complexity)]
+    pub fn with_rounds_setup(
         &mut self,
-        safety_check: Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>)>,
+        setup_round: Vec<Arc<dyn Fn(&mut Self) -> Vec<BLOCK::Transaction>>>,
     ) {
-        self.safety_check = safety_check;
+        self.setup_round = setup_round;
+        self.setup_round.reverse();
+    }
+
+    /// replace the safety check run after round
+    #[allow(clippy::type_complexity)]
+    pub fn with_safety_check_post(
+        &mut self,
+        safety_check: Vec<
+            Arc<dyn Fn(&Self, RoundResult<BLOCK, STATE>) -> Result<(), ConsensusRoundError>>,
+        >,
+    ) {
+        self.safety_check_post = safety_check;
+        self.safety_check_post.reverse();
+    }
+
+    /// replace the safety check run after round
+    #[allow(clippy::type_complexity)]
+    pub fn with_safety_check_pre(
+        &mut self,
+        safety_check: Vec<Arc<dyn Fn(&Self) -> Result<(), ConsensusRoundError>>>,
+    ) {
+        self.safety_check_pre = safety_check;
+        self.safety_check_pre.reverse();
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
@@ -178,7 +185,7 @@ impl<
         block: BLOCK,
         state: STATE,
         config: PhaseLockConfig,
-    ) {
+    ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let known_nodes = config.known_nodes.clone();
@@ -197,6 +204,7 @@ impl<
         .await
         .expect("Could not init phaselock");
         self.nodes.push(Node { handle, node_id });
+        node_id
     }
 
     /// Iterate over the [`PhaseLockHandle`] nodes in this runner.
@@ -251,33 +259,54 @@ impl<
         }
     }
 
-    /// execute `num_rounds` rounds
-    pub async fn execute_rounds(&mut self, num_rounds: u64) {
-        for _i in 0..num_rounds {
-            self.execute_round().await
+    /// execute `num_rounds` rounds of consensus
+    /// * `num_rounds`: number of successful consensus to run
+    /// * `fail_threshold`: number of rounds that are allowed to fail
+    pub async fn execute_rounds(
+        &mut self,
+        num_rounds: u64,
+        fail_threshold: u64,
+    ) -> Result<(), ConsensusTestError> {
+        let mut num_fails = 0;
+        for i in 0..(num_rounds + fail_threshold) {
+            if let Err(e) = self.execute_round().await {
+                num_fails += 1;
+                error!("failed {:?} round of consensus with error: {:?}", i, e);
+                if num_fails > fail_threshold {
+                    error!("returning error");
+                    return Err(ConsensusTestError::TooManyFailures);
+                }
+            }
         }
+        Ok(())
     }
 
     /// execute a single round of consensus
-    pub async fn execute_round(&mut self) {
-        if let Some(setup_fn) = self.setup_round.pop() {
-            setup_fn(self);
-        } else {
-            Self::default_before_round(self);
+    pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
+        if let Some(safety_check_pre) = self.safety_check_pre.pop() {
+            safety_check_pre(self)?;
         }
-        let results = self.run_one_round().await;
-        (self.safety_check)(self, results);
+
+        let txns = if let Some(setup_fn) = self.setup_round.pop() {
+            setup_fn(self)
+        } else {
+            Self::default_before_round(self)
+        };
+        let results = self.run_one_round(txns).await;
+        if let Option::Some(safety_check_post) = self.safety_check_post.pop() {
+            safety_check_post(self, results)?;
+        }
+        Ok(())
     }
 
-    /// Run a single round, returning the `STATE` and `Block` of each node in order.
-    /// FIXME make private
-    pub async fn run_one_round(&mut self) -> RoundResult<BLOCK, STATE> {
+    /// Run a single round, returning
+    async fn run_one_round(&mut self, txns: Vec<BLOCK::Transaction>) -> RoundResult<BLOCK, STATE> {
         let mut results = HashMap::new();
 
         for handle in self.nodes() {
             handle.run_one_round().await;
         }
-        let mut failed_set = HashMap::new();
+        let mut failures = HashMap::new();
         for node in &mut self.nodes {
             let result = Self::collect_round_events(node).await;
             match result {
@@ -285,19 +314,22 @@ impl<
                     results.insert(node.node_id, (state, block));
                 }
                 Err(e) => {
-                    failed_set.insert(node.node_id, e);
+                    failures.insert(node.node_id, e);
                 }
             }
         }
         info!("All nodes reached decision");
-        if !failed_set.is_empty() {
+        if !failures.is_empty() {
             error!(
-                "Could not run this round, not all nodes reached a decision. Failing nodes: {:?}",
-                failed_set
+                "Some failures this round. Failing nodes: {:?}. Successful nodes: {:?}",
+                failures, results
             );
         }
-        (results, failed_set);
-        todo!()
+        RoundResult {
+            txns,
+            results,
+            failures,
+        }
     }
 
     /// Gracefully shut down this system
@@ -356,21 +388,36 @@ impl<
 
     /// In-place shut down an individual node with id `node_id`
     /// # Errors
-    /// returns [`ConsensusTestError::NoSuchNode`] if the node idx is either
+    /// returns [`ConsensusRoundError::NoSuchNode`] if the node idx is either
     /// - already shut down
     /// - does not exist
-    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
+    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
             node.handle.shut_down().await;
             Ok(())
         } else {
-            Err(ConsensusTestError::NoSuchNode {
+            Err(ConsensusRoundError::NoSuchNode {
                 node_ids: self.ids(),
                 requested_id: node_id,
             })
         }
+    }
+
+    /// returns the requested handle specified by `id` if it exists
+    /// else returns `None`
+    pub fn get_handle(
+        &self,
+        id: u64,
+    ) -> Option<PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> {
+        self.nodes.iter().find_map(|node| {
+            if node.node_id == id {
+                Some(node.handle.clone())
+            } else {
+                None
+            }
+        })
     }
 
     /// return curent node ids
@@ -480,7 +527,12 @@ pub enum TransactionError {
 /// when trying to reach consensus
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum ConsensusTestError {
+pub enum ConsensusRoundError {
+    /// Safety condition failed
+    SafetyFailed {
+        /// description of error
+        description: String,
+    },
     /// No node exists
     NoSuchNode {
         /// the existing nodes
@@ -500,6 +552,14 @@ pub enum ConsensusTestError {
         /// source of error
         source: TransactionError,
     },
+}
+
+/// An overarching consensus test failure
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum ConsensusTestError {
+    /// Too many nodes failed
+    TooManyFailures,
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
