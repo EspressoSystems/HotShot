@@ -33,11 +33,11 @@ jobs:
         run: cargo build --verbose --workspace --all-targets --all-features --release
 
       - name: Unit and integration tests for all crates in workspace
-        run: cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-thread=1
+        run: cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-threads=1
         env:
           RUST_BACKTRACE: 1
 
       - name: Stress tests for all crates in workspace
-        run: cargo test --verbose --workspace --all-features test_stress --release --no-fail-fast -- --test-thread=1 --ignored
+        run: cargo test --verbose --workspace --all-features test_stress --release --no-fail-fast -- --test-threads=1 --ignored
         env:
           RUST_BACKTRACE: 1
