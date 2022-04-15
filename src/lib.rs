@@ -438,7 +438,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         trace!("Adding transaction to our own queue");
         self.inner.transaction_queue.write().await.push(tx.clone());
         // Wrap up a message
-        let message = ConsensusMessage::SubmitTransaction(tx);
+        let message = DataMessage::SubmitTransaction(tx);
         let network_result = self
             .send_broadcast_message(message.clone())
             .await
@@ -563,9 +563,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             ConsensusMessage::PreCommit(pc) => self.inner.precommit_waiter.put(pc).await,
             ConsensusMessage::Commit(c) => self.inner.commit_waiter.put(c).await,
             ConsensusMessage::Decide(d) => self.inner.decide_waiter.put(d).await,
-            ConsensusMessage::SubmitTransaction(d) => {
-                self.inner.transaction_queue.write().await.push(d);
-            }
             _ => {
                 // Log the exceptional situation and proceed
                 warn!(?msg, "Direct message received over broadcast channel");
@@ -596,7 +593,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
         match msg {
-            DataMessage::NewestQuorumCertificate { .. } => {}
+            DataMessage::SubmitTransaction(d) => {
+                self.inner.transaction_queue.write().await.push(d);
+            }
+            DataMessage::NewestQuorumCertificate { .. } => {
+                // Log the exceptional situation and proceed
+                warn!(?msg, "Direct message received over broadcast channel");
+            }
         }
     }
 
@@ -671,6 +674,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     })
                     .await;
                 }
+            }
+
+            DataMessage::SubmitTransaction(_) => {
+                // Log exceptional situation and proceed
+                warn!(?msg, "Broadcast message received over direct channel");
             }
         }
     }

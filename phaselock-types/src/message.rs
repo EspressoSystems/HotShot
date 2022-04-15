@@ -14,26 +14,26 @@ use threshold_crypto::SignatureShare;
 /// Enum representation of any message type
 pub enum Message<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
-    Consensus(ConsensusMessage<B, T, S, N>),
+    Consensus(ConsensusMessage<B, S, N>),
     /// Messages relating to sharing data between nodes
-    Data(DataMessage<B, S, N>),
+    Data(DataMessage<B, T, S, N>),
 }
 
-impl<B, T, S, const N: usize> From<ConsensusMessage<B, T, S, N>> for Message<B, T, S, N> {
-    fn from(m: ConsensusMessage<B, T, S, N>) -> Self {
+impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for Message<B, T, S, N> {
+    fn from(m: ConsensusMessage<B, S, N>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<B, T, S, const N: usize> From<DataMessage<B, S, N>> for Message<B, T, S, N> {
-    fn from(m: DataMessage<B, S, N>) -> Self {
+impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for Message<B, T, S, N> {
+    fn from(m: DataMessage<B, T, S, N>) -> Self {
         Self::Data(m)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<B, T, S, const N: usize> {
+pub enum ConsensusMessage<B, S, const N: usize> {
     /// Signals start of a new view
     NewView(NewView<N>),
     /// Contains the prepare qc from the leader
@@ -50,13 +50,11 @@ pub enum ConsensusMessage<B, T, S, const N: usize> {
     CommitVote(Vote<N>),
     /// Contains the decide qc from the leader
     Decide(Decide<N>),
-    /// Contains a transaction to be submitted
-    SubmitTransaction(T),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Messages related to sending data between nodes
-pub enum DataMessage<B, S, const N: usize> {
+pub enum DataMessage<B, T, S, const N: usize> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
@@ -70,6 +68,8 @@ pub enum DataMessage<B, S, const N: usize> {
         /// [`State`]: ../traits/state/trait.State.html
         state: S,
     },
+    /// Contains a transaction to be submitted
+    SubmitTransaction(T),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
