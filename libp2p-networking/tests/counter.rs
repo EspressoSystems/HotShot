@@ -439,6 +439,7 @@ async fn test_coverage_gossip_one_round() {
 /// simple case of direct message
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_request_response_one_round() {
     test_bed(
         run_request_response_one_round,
@@ -453,6 +454,7 @@ async fn test_stress_request_response_one_round() {
 /// stress test of direct messsage
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_request_response_many_rounds() {
     test_bed(
         run_request_response_many_rounds,
@@ -467,6 +469,7 @@ async fn test_stress_request_response_many_rounds() {
 /// stress test of broadcast + direct message
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_intersperse_many_rounds() {
     test_bed(
         run_intersperse_many_rounds,
@@ -481,6 +484,7 @@ async fn test_stress_intersperse_many_rounds() {
 /// stress teset that we can broadcast a message out and get counter increments
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_gossip_many_rounds() {
     test_bed(
         run_gossip_many_rounds,
@@ -495,6 +499,7 @@ async fn test_stress_gossip_many_rounds() {
 /// simple case of broadcast message
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_gossip_one_round() {
     test_bed(
         run_gossip_one_round,
@@ -509,6 +514,7 @@ async fn test_stress_gossip_one_round() {
 /// simple case of one dht publish event
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_dht_one_round() {
     test_bed(
         run_gossip_one_round,
@@ -523,6 +529,7 @@ async fn test_stress_dht_one_round() {
 /// many dht publishing events
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_stress_dht_many_rounds() {
     test_bed(
         run_dht_many_rounds,
