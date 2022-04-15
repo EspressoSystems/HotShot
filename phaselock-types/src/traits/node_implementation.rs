@@ -73,7 +73,7 @@ where
     I: NodeImplementation<N>,
 {
     type Message = Message<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
-    type ConsensusMessage =
-        ConsensusMessage<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
-    type DataMessage = DataMessage<I::Block, I::State, N>;
+    type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
+    type DataMessage =
+        DataMessage<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
 }
