@@ -1,0 +1,28 @@
+name: Lints
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout Repository
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+
+      - name: Format Check
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
