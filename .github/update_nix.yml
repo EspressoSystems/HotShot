@@ -17,4 +17,4 @@ jobs:
       - name: Update flake.lock
         uses: DeterminateSystems/update-flake-lock@v8
         with:
-          pr-title: "Bump flake.lock" # Title of PR to be created
+          pr-title: "Weekly PR to bump flake.nix" # Title of PR to be created
