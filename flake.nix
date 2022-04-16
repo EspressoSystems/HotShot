@@ -13,7 +13,7 @@
       flake = false;
     };
     fenix = {
-      url = "github:nix-community/fenix/dependabot/github_actions/staging/cachix/install-nix-action-17";
+      url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
