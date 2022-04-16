@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Install Nix
         uses: cachix/install-nix-action@v16
@@ -27,4 +27,4 @@ jobs:
       # sanity check that repository builds with nix
       - name: Build
         run: |
-          nix develop -c cargo build --all-targets --release
+          nix develop -c cargo build --all-targets --release --workspace --all-features

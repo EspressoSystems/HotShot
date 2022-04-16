@@ -25,16 +25,15 @@
         "rust-analyzer-src": "rust-analyzer-src"
       },
       "locked": {
-        "lastModified": 1649381546,
-        "narHash": "sha256-MKt+ywOBPkq6eJ7f3JHNXAWYQKCLxwlmG+1z+5gw3+A=",
+        "lastModified": 1650090339,
+        "narHash": "sha256-N1a8sCsPu2l7NpZxS/0Q+cnkMPBgRmbXafvuEn7QPV8=",
         "owner": "nix-community",
         "repo": "fenix",
-        "rev": "4795537450dc47356d3b18138605ca480354aac5",
+        "rev": "5cbb7720dcbb684fd8375fdd915fb725a6c2178b",
         "type": "github"
       },
       "original": {
         "owner": "nix-community",
-        "ref": "dependabot/github_actions/staging/cachix/install-nix-action-17",
         "repo": "fenix",
         "type": "github"
       }
@@ -83,11 +82,11 @@
     "rust-analyzer-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1649178056,
-        "narHash": "sha256-dcf7vKAkpdNvjd243LTGkUD6zLaLPN5deM2WTysG/Zs=",
+        "lastModified": 1650054195,
+        "narHash": "sha256-qWls1s4m9XcvXBkHEUyC54u5Bhr0d6e3TwCxf41WzcY=",
         "owner": "rust-analyzer",
         "repo": "rust-analyzer",
-        "rev": "2366d8e05f5f3585f95058fa7427cbde079914ed",
+        "rev": "1c22537b3b7012f76952546ef90b18509a056690",
         "type": "github"
       },
       "original": {

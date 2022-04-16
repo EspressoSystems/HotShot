@@ -13,7 +13,7 @@
       flake = false;
     };
     fenix = {
-      url = "github:nix-community/fenix/dependabot/github_actions/staging/cachix/install-nix-action-17";
+      url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -83,6 +83,8 @@
           git-chglog
           protobuf
           python3
+          zlib.dev
+          zlib.out
           fenix.packages.${system}.rust-analyzer
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
 

@@ -9,10 +9,8 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
-    timeout-minutes: 25
-    container:
-      image: ghcr.io/espressosystems/devops-rust:stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
@@ -31,20 +29,15 @@ jobs:
       - name: Check
         run: cargo check
 
-      - name: Build
-        run: cargo build --release --examples
+      - name: Build all crates in workspace
+        run: cargo build --verbose --workspace --all-targets --all-features --release
 
-      - name: Test phaselock
-        run: cargo test --release --all-features --manifest-path phaselock-testing/Cargo.toml
+      - name: Unit and integration tests for all crates in workspace
+        run: cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-threads=1
         env:
           RUST_BACKTRACE: 1
 
-      - name: Test phaselock lib
-        run: cargo test --release --all-features
-        env:
-          RUST_BACKTRACE: 1
-
-      - name: Test dentry-simulator
-        run: ./target/release/examples/dentry-simulator
+      - name: Stress tests for all crates in workspace
+        run: cargo test --verbose --workspace --all-features test_stress --release --no-fail-fast -- --test-threads=1 --ignored
         env:
           RUST_BACKTRACE: 1
