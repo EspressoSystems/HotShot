@@ -60,7 +60,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
                 if can_insert_view {
                     let phase = v.insert(Phase::prepare(
                         view_number,
-                        api.is_leader_this_round(view_number.0).await,
+                        api.is_leader(view_number.0, Stage::Prepare).await,
                     ));
                     self.active_phases.push_back(view_number);
                     debug_assert!(is_sorted(self.active_phases.iter()));

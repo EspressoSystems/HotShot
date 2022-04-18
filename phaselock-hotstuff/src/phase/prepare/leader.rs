@@ -1,6 +1,7 @@
-use crate::phase::precommit::PreCommitPhase;
-use crate::phase::{err, Phase, Progress, UpdateCtx};
-use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
+use crate::{
+    phase::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx},
+    ConsensusApi, Result, TransactionLink, TransactionState,
+};
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage},
     error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
@@ -28,7 +29,7 @@ impl<const N: usize> PrepareLeader<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreCommitPhase>> {
+    ) -> Result<Progress<PreCommitPhase<N>>> {
         if self.high_qc.is_none() {
             let view_messages = ctx.new_view_messages().collect::<Vec<_>>();
             if view_messages.len() as u64 >= ctx.api.threshold().get() {
@@ -64,7 +65,7 @@ impl<const N: usize> PrepareLeader<N> {
     async fn propose_round<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<PreCommitPhase> {
+    ) -> Result<PreCommitPhase<N>> {
         let high_qc = match self.high_qc.take() {
             Some(high_qc) => high_qc,
             None => return err("in propose_round: no high_qc set"),
@@ -171,7 +172,7 @@ impl<const N: usize> PrepareLeader<N> {
                 current_view,
                 stage: Stage::Prepare,
             };
-            let next = ctx.api.get_leader_for_round(current_view + 1).await;
+            let next = ctx.api.get_leader(current_view, Stage::PreCommit).await;
             ctx.api
                 .send_direct_message(next, ConsensusMessage::PrepareVote(vote))
                 .await

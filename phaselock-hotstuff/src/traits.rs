@@ -31,8 +31,8 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
     fn leader_acts_as_replica(&self) -> bool;
 
-    /// Returns the `PubKey` of the leader for the given round
-    async fn get_leader_for_round(&self, view_number: u64) -> PubKey;
+    /// Returns the `PubKey` of the leader for the given round and stage
+    async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey;
 
     async fn send_direct_message(
         &self,
@@ -63,9 +63,9 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     // Utility functions
 
-    /// Returns `true` if this node is leader this round.
-    async fn is_leader_this_round(&self, view_number: u64) -> bool {
-        &self.get_leader_for_round(view_number).await == self.public_key()
+    /// returns `true` if the current node is a leader for the given `view_number` and `stage`
+    async fn is_leader(&self, view_number: u64, stage: Stage) -> bool {
+        &self.get_leader(view_number, stage).await == self.public_key()
     }
 
     /// sends a proposal event down the channel

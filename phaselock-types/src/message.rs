@@ -101,11 +101,11 @@ pub struct NewView<const N: usize> {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 /// Prepare qc from the leader
-pub struct Prepare<T, S, const N: usize> {
+pub struct Prepare<B, S, const N: usize> {
     /// The current view
     pub current_view: u64,
     /// The item being proposed
-    pub leaf: Leaf<T, N>,
+    pub leaf: Leaf<B, N>,
     /// The state this proposal results in
     pub state: S,
     /// The current high qc

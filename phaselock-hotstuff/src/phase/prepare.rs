@@ -35,7 +35,7 @@ impl<const N: usize> PreparePhase<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreCommitPhase>> {
+    ) -> Result<Progress<PreCommitPhase<N>>> {
         match (self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await,
             (Self::Replica(replica), false) => replica.update(ctx).await,
@@ -44,19 +44,5 @@ impl<const N: usize> PreparePhase<N> {
                 this, ctx.is_leader
             )),
         }
-    }
-
-    async fn update_leader<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
-        &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
-        todo!()
-    }
-
-    async fn update_replica<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
-        &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
-        todo!()
     }
 }
