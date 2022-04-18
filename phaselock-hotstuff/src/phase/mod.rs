@@ -93,7 +93,7 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
             transactions,
             view_number: self.view_number,
         };
-        if let Some(_) = &mut self.precommit {
+        if self.precommit.is_some() {
         } else if let Some(prepare) = &mut self.prepare {
             if let Progress::Next(precommit) = prepare.update(&mut ctx).await? {
                 self.precommit = Some(precommit);
@@ -149,6 +149,12 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
                 None
             }
         })
+    }
+
+    fn get_unclaimed_transactions_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut TransactionState<I, N>> + '_ {
+        self.transactions.iter_mut().filter(|t| t.is_unclaimed())
     }
 }
 

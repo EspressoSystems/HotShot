@@ -48,10 +48,11 @@ impl<const N: usize> PrepareLeader<N> {
             return Ok(Progress::NotReady);
         }
 
-        let has_transactions = ctx.transactions.iter_mut().any(|t| t.is_unclaimed());
         // if we have no transactions and we're not forced to start a round (by `propose_max_round_time`)
         // return now
-        if !has_transactions && self.created_on.elapsed() < ctx.api.propose_max_round_time() {
+        if ctx.get_unclaimed_transactions_mut().count() == 0
+            && self.created_on.elapsed() < ctx.api.propose_max_round_time()
+        {
             return Ok(Progress::NotReady);
         }
 
@@ -73,13 +74,11 @@ impl<const N: usize> PrepareLeader<N> {
         let state = ctx.get_state_by_leaf(&leaf_hash).await?;
         trace!(?state, ?leaf_hash);
         let mut block = state.next_block();
+        let view_number = ctx.view_number;
 
         // get transactions
-        let transactions: Vec<&mut TransactionState<I, N>> = ctx
-            .transactions
-            .iter_mut()
-            .filter(|t| t.is_unclaimed())
-            .collect();
+        let transactions: Vec<&mut TransactionState<I, N>> =
+            ctx.get_unclaimed_transactions_mut().collect();
 
         // try to append these transactions to the blocks
         let mut added_transactions = Vec::with_capacity(transactions.len());
@@ -109,7 +108,7 @@ impl<const N: usize> PrepareLeader<N> {
             // Mark these transactions as added
             transaction.propose = Some(TransactionLink {
                 timestamp: Instant::now(),
-                view_number: ctx.view_number,
+                view_number,
             });
         }
 
