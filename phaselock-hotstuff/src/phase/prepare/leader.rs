@@ -1,8 +1,9 @@
-use super::{err, prepare::PreparePhase, Progress, UpdateCtx};
+use crate::phase::precommit::PreCommitPhase;
+use crate::phase::{err, Phase, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage},
-    error::{FailedToBroadcastSnafu, PhaseLockError, StorageSnafu},
+    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
     message::{ConsensusMessage, Prepare, Vote},
     traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
 };
@@ -10,12 +11,13 @@ use snafu::ResultExt;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
-pub(crate) struct ProposePhase<const N: usize> {
+#[derive(Debug)]
+pub(crate) struct PrepareLeader<const N: usize> {
     high_qc: Option<QuorumCertificate<N>>,
     created_on: Instant,
 }
 
-impl<const N: usize> ProposePhase<N> {
+impl<const N: usize> PrepareLeader<N> {
     pub(super) fn new() -> Self {
         Self {
             high_qc: None,
@@ -26,7 +28,7 @@ impl<const N: usize> ProposePhase<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreparePhase<N>>> {
+    ) -> Result<Progress<PreCommitPhase>> {
         if self.high_qc.is_none() {
             let view_messages = ctx.new_view_messages().collect::<Vec<_>>();
             if view_messages.len() as u64 >= ctx.api.threshold().get() {
@@ -61,7 +63,7 @@ impl<const N: usize> ProposePhase<N> {
     async fn propose_round<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<PreparePhase<N>> {
+    ) -> Result<PreCommitPhase> {
         let high_qc = match self.high_qc.take() {
             Some(high_qc) => high_qc,
             None => return err("in propose_round: no high_qc set"),
@@ -157,7 +159,6 @@ impl<const N: usize> ProposePhase<N> {
         // Notify our listeners
         ctx.api.send_propose(current_view, &block).await;
 
-        let mut prepare = PreparePhase::new();
         // if the leader can vote like a replica, cast this vote now
         if ctx.api.leader_acts_as_replica() {
             let signature =
@@ -171,8 +172,16 @@ impl<const N: usize> ProposePhase<N> {
                 current_view,
                 stage: Stage::Prepare,
             };
-            prepare.add_vote(vote);
+            let next = ctx.api.get_leader_for_round(current_view + 1).await;
+            ctx.api
+                .send_direct_message(next, ConsensusMessage::PrepareVote(vote))
+                .await
+                .context(FailedToMessageLeaderSnafu {
+                    stage: Stage::Prepare,
+                })?;
         }
-        Ok(prepare)
+
+        // We're never 2 leaders in a row
+        Ok(PreCommitPhase::replica())
     }
 }

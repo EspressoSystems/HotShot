@@ -31,10 +31,14 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
     fn leader_acts_as_replica(&self) -> bool;
 
-    /// Returns `true` if this node is leader this round.
-    ///
-    /// TODO: This should probably be implemented in the HotStuff layer.
-    async fn is_leader_this_round(&self, view_number: u64) -> bool;
+    /// Returns the `PubKey` of the leader for the given round
+    async fn get_leader_for_round(&self, view_number: u64) -> PubKey;
+
+    async fn send_direct_message(
+        &self,
+        recipient: PubKey,
+        message: <I as TypeMap<N>>::ConsensusMessage,
+    ) -> std::result::Result<(), NetworkError>;
 
     async fn send_broadcast_message(
         &self,
@@ -58,6 +62,11 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>);
 
     // Utility functions
+
+    /// Returns `true` if this node is leader this round.
+    async fn is_leader_this_round(&self, view_number: u64) -> bool {
+        &self.get_leader_for_round(view_number).await == self.public_key()
+    }
 
     /// sends a proposal event down the channel
     async fn send_propose(&self, view_number: u64, block: &I::Block) {

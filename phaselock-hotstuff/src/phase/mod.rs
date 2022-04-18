@@ -1,7 +1,5 @@
+mod precommit;
 mod prepare;
-mod propose;
-
-use std::future::Future;
 
 use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
 use phaselock_types::{
@@ -13,38 +11,34 @@ use phaselock_types::{
         storage::Storage,
     },
 };
+use precommit::PreCommitPhase;
 use prepare::PreparePhase;
-use propose::ProposePhase;
 use snafu::ResultExt;
+use std::future::Future;
 
 pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
     view_number: ViewNumber,
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
-    propose: Option<ProposePhase<N>>,
     prepare: Option<PreparePhase<N>>,
+    precommit: Option<PreCommitPhase>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
-    pub fn propose(view_number: ViewNumber) -> Self {
+    pub fn prepare(view_number: ViewNumber, is_leader: bool) -> Self {
         Self {
             view_number,
             messages: Vec::new(),
-            propose: Some(ProposePhase::new()),
-            prepare: None,
-        }
-    }
-
-    pub fn prepare(view_number: ViewNumber) -> Self {
-        Self {
-            view_number,
-            messages: Vec::new(),
-            propose: None,
-            prepare: Some(PreparePhase::new()),
+            prepare: Some(if is_leader {
+                PreparePhase::leader()
+            } else {
+                PreparePhase::replica()
+            }),
+            precommit: None,
         }
     }
 
     pub fn stage(&self) -> Stage {
-        if (self.propose.is_some() && self.prepare.is_none()) || self.prepare.is_some() {
+        if self.prepare.is_some() {
             // TODO: Do we want a Propose stage?
             Stage::Prepare
         } else {
@@ -68,18 +62,16 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         };
         #[allow(clippy::match_same_arms)] // TODO(vko): remove
         match message {
-            ConsensusMessage::NewView(_) => {
-                if let Some(prepare) =
-                    update(&mut self.propose, ProposePhase::update, &mut ctx).await?
+            ConsensusMessage::NewView(_)
+            | ConsensusMessage::Prepare(_)
+            | ConsensusMessage::PrepareVote(_) => {
+                if let Some(precommit) =
+                    update(&mut self.prepare, PreparePhase::update, &mut ctx).await?
                 {
-                    self.prepare = Some(prepare);
+                    self.precommit = Some(precommit);
                 }
                 Ok(())
             }
-            ConsensusMessage::Prepare(_prepare) => {
-                todo!()
-            }
-            ConsensusMessage::PrepareVote(_) => todo!(),
             ConsensusMessage::PreCommit(_) => todo!(),
             ConsensusMessage::PreCommitVote(_) => todo!(),
             ConsensusMessage::Commit(_) => todo!(),
@@ -101,13 +93,10 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
             transactions,
             view_number: self.view_number,
         };
-        if let Some(prepare) = &mut self.prepare {
-            if let Progress::Next(()) = prepare.update(&mut ctx).await? {
-                todo!();
-            }
-        } else if let Some(propose) = &mut self.propose {
-            if let Progress::Next(prepare) = propose.update(&mut ctx).await? {
-                self.prepare = Some(prepare);
+        if let Some(_) = &mut self.precommit {
+        } else if let Some(prepare) = &mut self.prepare {
+            if let Progress::Next(precommit) = prepare.update(&mut ctx).await? {
+                self.precommit = Some(precommit);
             }
         }
         todo!()

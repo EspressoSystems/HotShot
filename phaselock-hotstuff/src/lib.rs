@@ -58,11 +58,10 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
                 if can_insert_view {
-                    let phase = v.insert(if api.is_leader_this_round(view_number.0).await {
-                        Phase::propose(view_number)
-                    } else {
-                        Phase::prepare(view_number)
-                    });
+                    let phase = v.insert(Phase::prepare(
+                        view_number,
+                        api.is_leader_this_round(view_number.0).await,
+                    ));
                     self.active_phases.push_back(view_number);
                     debug_assert!(is_sorted(self.active_phases.iter()));
                     phase
