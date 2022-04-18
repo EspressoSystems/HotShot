@@ -84,6 +84,20 @@ pub struct Transaction {
     pub nonce: u64,
 }
 
+impl crate::traits::Transaction<H_256> for Transaction {
+    fn hash(&self) -> TransactionHash<H_256> {
+        let mut hasher = Hasher::new();
+        hasher.update(self.add.account.as_bytes());
+        hasher.update(&self.add.amount.to_be_bytes());
+        hasher.update(self.sub.account.as_bytes());
+        hasher.update(&self.sub.amount.to_be_bytes());
+        hasher.update(&self.nonce.to_be_bytes());
+
+        let x = *hasher.finalize().as_bytes();
+        x.into()
+    }
+}
+
 impl Transaction {
     /// Ensures that this transaction is at least consistent with itself
     pub fn validate_independence(&self) -> bool {

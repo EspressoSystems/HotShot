@@ -56,7 +56,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// Get the current view number from this message.
     /// If this message is `SubmitTransaction` the returned value will be `None`.
     /// Otherwise the return value will be the `current_view` of the inner struct.
-    pub fn current_view_number(&self) -> u64 {
+    pub fn view_number(&self) -> u64 {
         match self {
             Self::NewView(view) => view.current_view,
             Self::Prepare(prepare) => prepare.current_view,

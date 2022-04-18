@@ -45,4 +45,10 @@ pub trait Election<const N: usize>: Send + Sync {
         private_key: &PrivKey,
         next_state: StateHash<N>,
     ) -> Option<Self::VoteToken>;
+
+    // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
+    // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>
+
+    // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
+    // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>
 }

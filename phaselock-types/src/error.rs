@@ -69,6 +69,9 @@ pub enum PhaseLockError {
     },
     /// Item was not present in storage
     ItemNotFound {
+        /// Name of the hash type that was not found.
+        /// Can be easily obtained with `std::any::type_name::<T>()`
+        type_name: &'static str,
         /// Hash of the missing item
         hash: Vec<u8>,
     },

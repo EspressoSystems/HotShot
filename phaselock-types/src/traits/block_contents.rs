@@ -26,15 +26,7 @@ pub trait BlockContents<const N: usize>:
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
-    type Transaction: Clone
-        + Serialize
-        + DeserializeOwned
-        + Debug
-        + Hash
-        + PartialEq
-        + Eq
-        + Sync
-        + Send;
+    type Transaction: Transaction<N>;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -55,6 +47,20 @@ pub trait BlockContents<const N: usize>:
     ///
     /// Used to produce hashes for internal `PhaseLock` control structures
     fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
+}
+
+/// A transaction trait for [`BlockContents`]
+pub trait Transaction<const N: usize>:
+    Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq + Sync + Send
+{
+    /// Generate a [`TransactionHash`] from this `Transaction`.
+    fn hash(&self) -> TransactionHash<N>;
+}
+
+impl<const N: usize> Transaction<N> for () {
+    fn hash(&self) -> TransactionHash<N> {
+        TransactionHash::default()
+    }
 }
 
 /// Dummy implementation of `BlockContents` for unit tests

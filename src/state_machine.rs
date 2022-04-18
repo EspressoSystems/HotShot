@@ -21,8 +21,9 @@ use crate::{
     NodeImplementation,
 };
 use futures::{future::BoxFuture, Future, FutureExt};
-use phaselock_types::error::{
-    FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu,
+use phaselock_types::{
+    data::BlockHash,
+    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
 };
 use phaselock_utils::broadcast::BroadcastSender;
 use std::time::Duration;
@@ -278,6 +279,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         Some(x) => x,
                         None => {
                             return Err(PhaseLockError::ItemNotFound {
+                                type_name: std::any::type_name::<BlockHash<N>>(),
                                 hash: high_qc.block_hash.to_vec(),
                             });
                         }
@@ -295,6 +297,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                     } else {
                         error!(?leaf_hash, "State not found in storage (by leaf)");
                         return Err(PhaseLockError::ItemNotFound {
+                            type_name: std::any::type_name::<LeafHash<N>>(),
                             hash: leaf_hash.to_vec(),
                         });
                     };
@@ -811,6 +814,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     {
                         Some(x) => Ok(x),
                         None => Err(PhaseLockError::ItemNotFound {
+                            type_name: std::any::type_name::<LeafHash<N>>(),
                             hash: leaf.parent.to_vec(),
                         }),
                     }?;
@@ -1056,6 +1060,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     {
                         Some(x) => Ok(x),
                         None => Err(PhaseLockError::ItemNotFound {
+                            type_name: std::any::type_name::<LeafHash<N>>(),
                             hash: new_leaf.parent.to_vec(),
                         }),
                     }?;
@@ -1153,6 +1158,7 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                     {
                         Some(x) => Ok(x),
                         None => Err(PhaseLockError::ItemNotFound {
+                            type_name: std::any::type_name::<LeafHash<N>>(),
                             hash: leaf_hash.to_vec(),
                         }),
                     }?;

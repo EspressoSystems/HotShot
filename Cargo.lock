@@ -3100,6 +3100,7 @@ dependencies = [
 name = "phaselock-hotstuff"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "async-trait",
  "phaselock-types",
  "snafu",
