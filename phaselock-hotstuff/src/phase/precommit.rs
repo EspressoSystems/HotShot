@@ -1,31 +1,34 @@
 mod leader;
 mod replica;
 
-use super::{err, Progress, UpdateCtx};
+use super::{commit::CommitPhase, err, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result};
 use leader::PreCommitLeader;
-use phaselock_types::{message::Vote, traits::node_implementation::NodeImplementation};
+use phaselock_types::{
+    message::{Prepare, Vote},
+    traits::node_implementation::NodeImplementation,
+};
 use replica::PreCommitReplica;
 
 #[derive(Debug)]
-pub(super) enum PreCommitPhase<const N: usize> {
-    Leader(PreCommitLeader<N>),
-    Replica(PreCommitReplica),
+pub(super) enum PreCommitPhase<I: NodeImplementation<N>, const N: usize> {
+    Leader(PreCommitLeader<I, N>),
+    Replica(PreCommitReplica<I, N>),
 }
 
-impl<const N: usize> PreCommitPhase<N> {
-    pub fn replica() -> Self {
-        Self::Replica(PreCommitReplica::new())
+impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
+    pub fn replica(prepare: Option<Prepare<I::Block, I::State, N>>) -> Self {
+        Self::Replica(PreCommitReplica::new(prepare))
     }
 
-    pub fn leader(vote: Option<Vote<N>>) -> Self {
-        Self::Leader(PreCommitLeader::new(vote))
+    pub fn leader(prepare: Option<Prepare<I::Block, I::State, N>>, vote: Option<Vote<N>>) -> Self {
+        Self::Leader(PreCommitLeader::new(prepare, vote))
     }
 
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
+    ) -> Result<Progress<CommitPhase<N>>> {
         match (self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await,
             (Self::Replica(replica), false) => replica.update(ctx).await,

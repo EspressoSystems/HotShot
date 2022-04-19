@@ -13,8 +13,8 @@
 )]
 
 mod phase;
-
 mod traits;
+mod utils;
 
 pub use traits::ConsensusApi;
 

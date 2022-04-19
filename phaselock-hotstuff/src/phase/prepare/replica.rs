@@ -1,6 +1,6 @@
 use crate::{
     phase::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx},
-    ConsensusApi, Result, TransactionLink, TransactionState,
+    utils, ConsensusApi, Result, TransactionLink, TransactionState,
 };
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
@@ -22,8 +22,8 @@ impl PrepareReplica {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreCommitPhase<N>>> {
-        match ctx.get_prepare_message() {
+    ) -> Result<Progress<PreCommitPhase<I, N>>> {
+        match ctx.prepare_message() {
             Some(msg) => self.vote(ctx, msg).await.map(Progress::Next),
             None => Ok(Progress::NotReady),
         }
@@ -33,7 +33,7 @@ impl PrepareReplica {
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
         prepare: &Prepare<I::Block, I::State, N>,
-    ) -> Result<PreCommitPhase<N>> {
+    ) -> Result<PreCommitPhase<I, N>> {
         let leaf = prepare.leaf.clone();
         let leaf_hash = leaf.hash();
         let high_qc = prepare.high_qc.clone();
@@ -44,7 +44,7 @@ impl PrepareReplica {
             Some(qc) => qc,
             None => return err("No QC in storage"),
         };
-        let is_safe_node = safe_node(ctx.api, &self_highest_qc, &leaf, &high_qc).await;
+        let is_safe_node = utils::safe_node(ctx.api, &self_highest_qc, &leaf, &high_qc).await;
         if !is_safe_node || !state.validate_block(&leaf.item) {
             error!("is_safe_node: {}", is_safe_node);
             error!(?leaf, "Leaf failed safe_node predicate");
@@ -87,11 +87,11 @@ impl PrepareReplica {
             } else {
                 debug!("Prepare message successfully processed");
             }
-            PreCommitPhase::replica()
+            PreCommitPhase::replica(None)
         } else if ctx.api.leader_acts_as_replica() {
-            PreCommitPhase::leader(Some(vote()))
+            PreCommitPhase::leader(None, Some(vote()))
         } else {
-            PreCommitPhase::leader(None)
+            PreCommitPhase::leader(None, None)
         };
 
         ctx.api.send_propose(current_view, &leaf.item).await;
@@ -130,50 +130,4 @@ impl PrepareReplica {
 
         Ok(next_phase)
     }
-}
-
-async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
-    api: &A,
-    known_qc: &QuorumCertificate<N>,
-    leaf: &Leaf<I::Block, N>,
-    new_qc: &QuorumCertificate<N>,
-) -> bool {
-    // new nodes can not be a genesis
-    if new_qc.genesis {
-        return false;
-    }
-    let view_number_valid = new_qc.view_number > known_qc.view_number;
-    if !view_number_valid {
-        return false;
-    }
-
-    // check if `new_qc` extends from `known_qc`
-    let valid_leaf_hash = known_qc.leaf_hash;
-    let mut parent = leaf.parent;
-
-    while parent != LeafHash::from_array([0_u8; N]) {
-        if parent == valid_leaf_hash {
-            trace!(?parent, ?leaf, "Leaf extends from");
-            return true;
-        }
-        let result = api.storage().get_leaf(&parent).await;
-        if let Ok(Some(next_parent)) = result {
-            parent = next_parent.parent;
-        } else {
-            error!(?result, ?parent, "Parent leaf does not extend from node");
-            return false;
-        }
-    }
-
-    // The original implementation claimed that this is `true`
-    // However I feel like someone could construct a `leaf` with a parent of `[0; N]`, and bypass this check
-    // So I changed it to `false`
-    // TODO(vko): validate with nathan or joe if this is correct
-    warn!(
-        ?known_qc,
-        ?leaf,
-        ?new_qc,
-        "Received a leaf but it has an invalid parent"
-    );
-    false
 }

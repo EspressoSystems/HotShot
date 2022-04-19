@@ -2,7 +2,7 @@ use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
 use phaselock_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
     error::StorageSnafu,
-    message::{ConsensusMessage, NewView, Prepare},
+    message::{Commit, ConsensusMessage, Decide, NewView, PreCommit, Prepare, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
@@ -55,17 +55,6 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         self.messages.iter().filter_map(filter)
     }
 
-    pub(super) fn get_prepare_message(&self) -> Option<&Prepare<I::Block, I::State, N>> {
-        self.messages(|m| {
-            if let ConsensusMessage::Prepare(prepare) = m {
-                Some(prepare)
-            } else {
-                None
-            }
-        })
-        .next()
-    }
-
     pub(super) fn new_view_messages(&self) -> impl Iterator<Item = &NewView<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::NewView(nv) = m {
@@ -74,6 +63,85 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
                 None
             }
         })
+    }
+
+    pub(super) fn prepare_message(&self) -> Option<&Prepare<I::Block, I::State, N>> {
+        self.messages(|m| {
+            if let ConsensusMessage::Prepare(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+        .last()
+    }
+
+    pub(super) fn prepare_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+        self.messages(|m| {
+            if let ConsensusMessage::PrepareVote(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+    }
+
+    #[allow(dead_code)] // TODO(vko): cleanup
+    pub(super) fn pre_commit_message(&self) -> Option<&PreCommit<N>> {
+        self.messages(|m| {
+            if let ConsensusMessage::PreCommit(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+        .last()
+    }
+
+    #[allow(dead_code)] // TODO(vko): cleanup
+    pub(super) fn pre_commit_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+        self.messages(|m| {
+            if let ConsensusMessage::PreCommitVote(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+    }
+
+    #[allow(dead_code)] // TODO(vko): cleanup
+    pub(super) fn commit_message(&self) -> Option<&Commit<N>> {
+        self.messages(|m| {
+            if let ConsensusMessage::Commit(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+        .last()
+    }
+
+    #[allow(dead_code)] // TODO(vko): cleanup
+    pub(super) fn commit_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+        self.messages(|m| {
+            if let ConsensusMessage::CommitVote(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+    }
+
+    #[allow(dead_code)] // TODO(vko): cleanup
+    pub(super) fn decide_message(&self) -> Option<&Decide<N>> {
+        self.messages(|m| {
+            if let ConsensusMessage::Decide(prepare) = m {
+                Some(prepare)
+            } else {
+                None
+            }
+        })
+        .last()
     }
 
     pub(super) fn get_unclaimed_transactions_mut(

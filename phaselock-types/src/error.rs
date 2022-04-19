@@ -46,6 +46,7 @@ pub enum PhaseLockError {
         /// The stage the error occurred in
         stage: crate::data::Stage,
         /// The underlying crypto fault
+        // TODO: `threshold_crypto::error::Error` does not implement `StdError` so we can't use it as a source
         #[snafu(source(false))]
         source: threshold_crypto::error::Error,
     },

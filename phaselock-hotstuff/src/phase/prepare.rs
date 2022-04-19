@@ -24,18 +24,18 @@ pub(crate) enum PreparePhase<const N: usize> {
 }
 
 impl<const N: usize> PreparePhase<N> {
-    pub(super) fn leader() -> Self {
-        Self::Leader(PrepareLeader::new())
-    }
-
-    pub(super) fn replica() -> Self {
-        Self::Replica(PrepareReplica::new())
+    pub(super) fn new(is_leader: bool) -> Self {
+        if is_leader {
+            Self::Leader(PrepareLeader::new())
+        } else {
+            Self::Replica(PrepareReplica::new())
+        }
     }
 
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreCommitPhase<N>>> {
+    ) -> Result<Progress<PreCommitPhase<I, N>>> {
         match (self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await,
             (Self::Replica(replica), false) => replica.update(ctx).await,

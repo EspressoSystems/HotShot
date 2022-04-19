@@ -28,12 +28,7 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
     type Storage: Storage<Self::Block, Self::State, N> + Clone;
     /// Networking type for this consensus implementation
     type Networking: NetworkingImplementation<
-            Message<
-                Self::Block,
-                <<Self as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-                Self::State,
-                N,
-            >,
+            Message<Self::Block, <Self::Block as BlockContents<N>>::Transaction, Self::State, N>,
         > + Clone;
     /// Stateful call back handler for this consensus implementation
     type StatefulHandler: StatefulHandler<N, Block = Self::Block, State = Self::State>;
@@ -74,9 +69,8 @@ impl<I, const N: usize> TypeMap<N> for I
 where
     I: NodeImplementation<N>,
 {
-    type Message = Message<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
+    type Message = Message<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
-    type DataMessage =
-        DataMessage<I::Block, <I::Block as BlockContents<N>>::Transaction, I::State, N>;
-    type Transaction = <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction;
+    type DataMessage = DataMessage<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
+    type Transaction = <I::Block as BlockContents<N>>::Transaction;
 }

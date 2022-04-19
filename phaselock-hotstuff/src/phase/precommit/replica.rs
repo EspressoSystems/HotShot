@@ -1,21 +1,24 @@
 use crate::{
-    phase::{Progress, UpdateCtx},
+    phase::{commit::CommitPhase, Progress, UpdateCtx},
     ConsensusApi, Result,
 };
-use phaselock_types::traits::node_implementation::NodeImplementation;
+use phaselock_types::{message::Prepare, traits::node_implementation::NodeImplementation};
 
 #[derive(Debug)]
-pub struct PreCommitReplica {}
+pub struct PreCommitReplica<I: NodeImplementation<N>, const N: usize> {
+    #[allow(dead_code)]
+    prepare: Option<Prepare<I::Block, I::State, N>>,
+}
 
-impl PreCommitReplica {
-    pub fn new() -> Self {
-        Self {}
+impl<I: NodeImplementation<N>, const N: usize> PreCommitReplica<I, N> {
+    pub fn new(prepare: Option<Prepare<I::Block, I::State, N>>) -> Self {
+        Self { prepare }
     }
 
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         _ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
+    ) -> Result<Progress<CommitPhase<N>>> {
         todo!()
     }
 }

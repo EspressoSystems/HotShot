@@ -1,15 +1,15 @@
+mod commit;
 mod precommit;
 mod prepare;
 mod update_ctx;
 
+use self::{commit::CommitPhase, precommit::PreCommitPhase, prepare::PreparePhase};
 use crate::{ConsensusApi, Result, TransactionState, ViewNumber};
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
     traits::node_implementation::{NodeImplementation, TypeMap},
 };
-use precommit::PreCommitPhase;
-use prepare::PreparePhase;
 use std::future::Future;
 use tracing::warn;
 use update_ctx::UpdateCtx;
@@ -18,8 +18,9 @@ use update_ctx::UpdateCtx;
 pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
     view_number: ViewNumber,
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
-    prepare: Option<PreparePhase<N>>,
-    precommit: Option<PreCommitPhase<N>>,
+    prepare: PreparePhase<N>,
+    precommit: Option<PreCommitPhase<I, N>>,
+    commit: Option<CommitPhase<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
@@ -27,22 +28,19 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         Self {
             view_number,
             messages: Vec::new(),
-            prepare: Some(if is_leader {
-                PreparePhase::leader()
-            } else {
-                PreparePhase::replica()
-            }),
+            prepare: PreparePhase::new(is_leader),
             precommit: None,
+            commit: None,
         }
     }
 
     pub fn stage(&self) -> Stage {
-        if self.precommit.is_some() {
+        if self.commit.is_some() {
+            Stage::Commit
+        } else if self.precommit.is_some() {
             Stage::PreCommit
-        } else if self.prepare.is_some() {
-            Stage::Prepare
         } else {
-            Stage::None
+            Stage::Prepare
         }
     }
 
@@ -84,22 +82,24 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
                 Ok(())
             }
             Stage::Prepare => {
-                if let Some(precommit) =
-                    update(&mut self.prepare, PreparePhase::update, &mut ctx).await?
-                {
+                if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
                     self.precommit = Some(precommit);
                 }
                 Ok(())
             }
             Stage::PreCommit => {
-                if let Some(()) =
+                if let Some(commit) =
                     update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
                 {
-                    todo!()
+                    self.commit = Some(commit);
                 }
                 Ok(())
             }
-            Stage::Commit | Stage::Decide => todo!(),
+            Stage::Commit => {
+                if let Some(()) = update(&mut self.commit, CommitPhase::update, &mut ctx).await? {}
+                Ok(())
+            }
+            Stage::Decide => todo!(),
         }
     }
 }
