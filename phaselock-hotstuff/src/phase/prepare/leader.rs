@@ -159,7 +159,6 @@ impl<const N: usize> PrepareLeader<N> {
                 })?;
         }
 
-        // We're never 2 leaders in a row
         Ok(if ctx.api.is_leader(current_view, Stage::Commit).await {
             PreCommitPhase::leader(Some(prepare), vote)
         } else {

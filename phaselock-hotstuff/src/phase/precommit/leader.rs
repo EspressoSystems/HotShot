@@ -32,9 +32,12 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     ) -> Result<Progress<CommitPhase<N>>> {
         // Get the prepare message
         // TODO: Should we loop through all incoming prepare messages and get the first that has enough votes?
-        let prepare = match ctx.prepare_message() {
-            Some(msg) => msg,
-            None => return Ok(Progress::NotReady),
+        let prepare = if let Some(prepare) = &self.prepare {
+            prepare
+        } else if let Some(prepare) = ctx.prepare_message() {
+            prepare
+        } else {
+            return Ok(Progress::NotReady);
         };
         // Collect all votes that target this `leaf_hash`
         let new_leaf_hash = prepare.leaf.hash();
