@@ -133,7 +133,6 @@ impl<const N: usize> CommitLeader<N> {
                     signature,
                     id: ctx.api.public_key().nonce,
                     current_view: ctx.view_number.0,
-                    stage: Stage::Commit,
                 }))
             } else {
                 None

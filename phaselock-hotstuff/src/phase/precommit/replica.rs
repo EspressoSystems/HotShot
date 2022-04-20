@@ -95,7 +95,6 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitReplica<I, N> {
             id: ctx.api.public_key().nonce,
             leaf_hash,
             current_view,
-            stage: Stage::Prepare,
         });
         let vote_message = ConsensusMessage::PreCommitVote(vote.clone());
         let next_leader = ctx.api.get_leader(current_view, Stage::Commit).await;

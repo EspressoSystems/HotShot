@@ -65,7 +65,6 @@ impl PrepareReplica {
                 id: ctx.api.public_key().nonce,
                 leaf_hash,
                 current_view,
-                stage: Stage::Prepare,
             })
         };
 

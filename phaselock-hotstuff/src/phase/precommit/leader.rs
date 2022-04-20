@@ -129,7 +129,6 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
                 signature,
                 id: ctx.api.public_key().nonce,
                 current_view,
-                stage: Stage::Commit,
             });
             vote = Some(send_vote.clone());
             let leader = ctx.api.get_leader(current_view, Stage::Commit).await;

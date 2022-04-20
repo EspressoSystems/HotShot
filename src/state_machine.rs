@@ -391,7 +391,6 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         leaf_hash: the_hash,
                         id: pl.inner.public_key.nonce,
                         current_view,
-                        stage: Stage::Prepare,
                     });
                     pl.inner.prepare_vote_queue.push(vote).await;
                     Ok((block, new_leaf, new_state))
@@ -478,7 +477,6 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
-                            stage: Stage::Prepare,
                         });
                         pl.inner.precommit_vote_queue.push(vote_message).await;
                         Ok((block, new_leaf, state))
@@ -555,7 +553,6 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
-                            stage: Stage::Commit,
                         });
                         pl.inner.commit_vote_queue.push(vote_message).await;
 
@@ -834,7 +831,6 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             id: pl.inner.public_key.nonce,
                             leaf_hash,
                             current_view,
-                            stage: Stage::Prepare,
                         });
                         let vote_message = ConsensusMessage::PrepareVote(vote);
                         let network_result = pl
@@ -935,7 +931,6 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
-                        stage: Stage::PreCommit,
                     }));
                     // store the prepare qc
                     let mut pqc = pl.inner.prepare_qc.write().await;
@@ -1002,7 +997,6 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
-                        stage: Stage::Commit,
                     }));
                     trace!("Commit vote packed");
                     let network_result = pl

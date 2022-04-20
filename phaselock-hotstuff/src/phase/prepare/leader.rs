@@ -149,7 +149,6 @@ impl<const N: usize> PrepareLeader<N> {
                 leaf_hash: the_hash,
                 id: ctx.api.public_key().nonce,
                 current_view,
-                stage: Stage::Prepare,
             });
             vote = Some(new_vote.clone());
             ctx.api

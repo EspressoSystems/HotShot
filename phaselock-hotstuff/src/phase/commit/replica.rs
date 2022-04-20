@@ -84,7 +84,6 @@ impl<const N: usize> CommitReplica<N> {
             signature,
             id: ctx.api.public_key().nonce,
             current_view: ctx.view_number.0,
-            stage: Stage::Commit,
         });
         trace!("Commit vote packed");
         let leader = ctx.api.get_leader(ctx.view_number.0, Stage::Decide).await;
