@@ -98,7 +98,8 @@ impl PrepareReplica {
             new_leaf: leaf,
             prepare,
             // TODO: We should validate that the incoming transactions are correct
-            transactions: Vec::new(),
+            added_transactions: Vec::new(),
+            rejected_transactions: Vec::new(),
             vote: Some(vote),
         })
     }

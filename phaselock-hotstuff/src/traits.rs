@@ -34,6 +34,11 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Returns the `PubKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey;
 
+    /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
+    ///
+    /// In production code this should probably always return `true`.
+    async fn should_start_round(&self, view_number: u64) -> bool;
+
     async fn send_direct_message(
         &mut self,
         recipient: PubKey,

@@ -1,8 +1,8 @@
-use crate::{ConsensusApi, Result, TransactionState};
+use crate::{ConsensusApi, Result};
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate},
     error::StorageSnafu,
-    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
+    traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
 use tracing::{debug, error, trace, warn};
@@ -92,34 +92,4 @@ pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>,
         state.on_commit();
     }
     Ok((blocks, states))
-}
-
-pub(crate) fn append_transactions<I: NodeImplementation<N>, const N: usize>(
-    transactions: Vec<TransactionState<I, N>>,
-    block: &mut I::Block,
-    state: &I::State,
-) -> Vec<TransactionState<I, N>> {
-    let mut added_transactions = Vec::new();
-    for transaction in transactions {
-        let tx = &transaction.transaction;
-        // Make sure the transaction is valid given the current state,
-        // otherwise, discard it
-        let new_block = block.add_transaction_raw(tx);
-        match new_block {
-            Ok(new_block) => {
-                if state.validate_block(&new_block) {
-                    *block = new_block;
-                    debug!(?tx, "Added transaction to block");
-                    added_transactions.push(transaction);
-                } else {
-                    // TODO: `state.append` could change our state.
-                    // we should probably make `validate_block` return this error.
-                    let err = state.append(&new_block).unwrap_err();
-                    warn!(?tx, ?err, "Invalid transaction rejected");
-                }
-            }
-            Err(e) => warn!(?e, ?tx, "Invalid transaction rejected"),
-        }
-    }
-    added_transactions
 }

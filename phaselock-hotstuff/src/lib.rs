@@ -85,10 +85,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         transaction: <I as TypeMap<N>>::Transaction,
         api: &mut A,
     ) -> Result {
-        self.transactions.push(TransactionState {
-            transaction,
-            propose: Arc::default(),
-        });
+        self.transactions.push(TransactionState::new(transaction));
         // transactions are useful for the `Prepare` phase
         // so notify these phases
         for view in &self.active_phases {
@@ -127,11 +124,20 @@ struct TransactionState<I: NodeImplementation<N>, const N: usize> {
     transaction: <I as TypeMap<N>>::Transaction,
     // TODO(vko): see if we can remove this `Arc<RwLock<..>>` and use mutable references instead
     propose: Arc<RwLock<Option<TransactionLink>>>,
+    rejected: Arc<RwLock<Option<Instant>>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
+    fn new(transaction: <I as TypeMap<N>>::Transaction) -> TransactionState<I, N> {
+        Self {
+            transaction,
+            propose: Arc::default(),
+            rejected: Arc::default(),
+        }
+    }
+
     async fn is_unclaimed(&self) -> bool {
-        self.propose.read().await.is_none()
+        self.propose.read().await.is_none() && self.rejected.read().await.is_none()
     }
 }
 

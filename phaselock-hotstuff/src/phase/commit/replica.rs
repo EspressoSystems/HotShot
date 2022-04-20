@@ -1,7 +1,7 @@
 use super::Outcome;
 use crate::{
     phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
+    ConsensusApi, Result,
 };
 use phaselock_types::{
     data::Stage,
@@ -10,7 +10,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
 use snafu::ResultExt;
-use tracing::{error, info, trace};
+use tracing::{error, trace};
 
 #[derive(Debug)]
 pub struct CommitReplica {}
@@ -21,9 +21,9 @@ impl CommitReplica {
     }
 
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
-        &mut self,
+        &self,
         ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<Outcome<I, N>>> {
+    ) -> Result<Option<Outcome<N>>> {
         let commit = if let Some(commit) = ctx.commit_message() {
             commit
         } else {
@@ -35,10 +35,10 @@ impl CommitReplica {
     }
 
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
-        &mut self,
+        &self,
         ctx: &UpdateCtx<'_, I, A, N>,
         commit: Commit<N>,
-    ) -> Result<Outcome<I, N>> {
+    ) -> Result<Outcome<N>> {
         // this leaf hash should've been inserted in `PreCommitPhase`
         let leaf = match ctx
             .api
@@ -67,23 +67,7 @@ impl CommitReplica {
                 bad_qc: commit.qc.to_vec_cert(),
             });
         }
-        let old_qc = match ctx.get_newest_qc().await? {
-            Some(qc) => qc,
-            None => {
-                return err("No QC in storage");
-            }
-        };
-        // Find blocks and states that were commited
-        let walk_leaf = commit.leaf_hash;
-        let old_leaf_hash = old_qc.leaf_hash;
 
-        let (blocks, states) = utils::walk_leaves(ctx.api, walk_leaf, old_leaf_hash).await?;
-        info!(?blocks, ?states, "Sending decide events");
-        // TODO(vko): We currently do everything though the storage API, validate that we can indeed drop the `locked_qc` etc
-        // // Update locked qc
-        // let mut locked_qc = pl.inner.locked_qc.write().await;
-        // *locked_qc = Some(pc_qc);
-        // trace!("Locked qc updated");
         let signature =
             ctx.api
                 .private_key()
@@ -97,9 +81,7 @@ impl CommitReplica {
         trace!("Commit vote packed");
 
         Ok(Outcome {
-            blocks,
             commit,
-            states,
             vote: Some(vote),
         })
     }

@@ -33,7 +33,7 @@ impl<const N: usize> CommitPhase<N> {
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<Progress<DecidePhase<N>>> {
-        let outcome: Option<Outcome<I, N>> = match (self, ctx.is_leader) {
+        let outcome: Option<Outcome<N>> = match (self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await?,
             (Self::Replica(replica), false) => replica.update(ctx).await?,
             (this, _) => {
@@ -53,34 +53,24 @@ impl<const N: usize> CommitPhase<N> {
     }
 }
 
-struct Outcome<I: NodeImplementation<N>, const N: usize> {
-    blocks: Vec<I::Block>,
-    states: Vec<I::State>,
+struct Outcome<const N: usize> {
     commit: Commit<N>,
     vote: Option<CommitVote<N>>,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
-    async fn execute<A: ConsensusApi<I, N>>(
+impl<const N: usize> Outcome<N> {
+    async fn execute<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<DecidePhase<N>> {
-        let Outcome {
-            blocks,
-            states,
-            commit,
-            vote,
-        } = self;
+        let Outcome { commit, vote } = self;
 
         let was_leader = ctx.api.is_leader(ctx.view_number.0, Stage::Commit).await;
         let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Decide).await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
-        // Send decide event
-        ctx.api.notify(blocks.clone(), states.clone()).await;
-        ctx.api.send_decide(ctx.view_number.0, blocks, states).await;
-
-        // // Add qc to decision cache
+        // Importantly, a replica becomes locked on the precommitQC at this point by setting its locked QC to
+        // precommitQC
         ctx.api
             .storage()
             .update(|mut m| {

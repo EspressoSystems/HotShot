@@ -1,15 +1,11 @@
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
     error::PhaseLockError,
     message::{Commit, CommitVote, PreCommit, PreCommitVote, Vote},
     traits::node_implementation::NodeImplementation,
 };
-use tracing::{debug, info};
 
 #[derive(Debug)]
 pub(crate) struct CommitLeader<const N: usize> {
@@ -25,7 +21,7 @@ impl<const N: usize> CommitLeader<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<Outcome<I, N>>> {
+    ) -> Result<Option<Outcome<N>>> {
         let valid_votes: Vec<PreCommitVote<N>> = ctx
             .pre_commit_vote_messages()
             // make sure to append our own vote if we have one
@@ -35,7 +31,7 @@ impl<const N: usize> CommitLeader<N> {
             .collect();
 
         if valid_votes.len() as u64 >= ctx.api.threshold().get() {
-            let outcome: Outcome<I, N> = self
+            let outcome: Outcome<N> = self
                 .create_commit(ctx, &self.pre_commit, valid_votes)
                 .await?;
             Ok(Some(outcome))
@@ -49,7 +45,7 @@ impl<const N: usize> CommitLeader<N> {
         ctx: &UpdateCtx<'_, I, A, N>,
         pre_commit: &PreCommit<N>,
         votes: Vec<PreCommitVote<N>>,
-    ) -> Result<Outcome<I, N>> {
+    ) -> Result<Outcome<N>> {
         // Generate QC
         let signature = ctx
             .api
@@ -67,19 +63,6 @@ impl<const N: usize> CommitLeader<N> {
             genesis: false,
             ..pre_commit.qc
         };
-        debug!(?qc, "decide qc generated");
-        let old_qc = match ctx.get_newest_qc().await? {
-            Some(qc) => qc,
-            None => {
-                return err("No QC in storage");
-            }
-        };
-        // Find blocks and states that were commited
-        let walk_leaf = pre_commit.leaf_hash;
-        let old_leaf_hash = old_qc.leaf_hash;
-
-        let (blocks, states) = utils::walk_leaves(ctx.api, walk_leaf, old_leaf_hash).await?;
-        info!(?blocks, ?states, "Sending decide events");
 
         let commit = Commit {
             leaf_hash: qc.leaf_hash,
@@ -103,11 +86,6 @@ impl<const N: usize> CommitLeader<N> {
             None
         };
 
-        Ok(Outcome {
-            blocks,
-            states,
-            commit,
-            vote,
-        })
+        Ok(Outcome { commit, vote })
     }
 }

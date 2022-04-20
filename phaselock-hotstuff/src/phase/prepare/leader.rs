@@ -19,14 +19,14 @@ use tracing::{debug, error, trace, warn};
 #[derive(Debug)]
 pub(crate) struct PrepareLeader<const N: usize> {
     high_qc: Option<QuorumCertificate<N>>,
-    created_on: Instant,
+    round_start: Option<Instant>,
 }
 
 impl<const N: usize> PrepareLeader<N> {
     pub(super) fn new() -> Self {
         Self {
             high_qc: None,
-            created_on: Instant::now(),
+            round_start: None,
         }
     }
 
@@ -46,14 +46,22 @@ impl<const N: usize> PrepareLeader<N> {
                     .justify
                     .clone();
                 self.high_qc = Some(high_qc);
+                self.round_start = Some(Instant::now());
             }
         }
 
-        if self.created_on.elapsed() < ctx.api.propose_min_round_time() {
-            // Not ready
+        let elapsed = if let Some(round_start) = &self.round_start {
+            round_start.elapsed()
+        } else {
+            return Ok(None);
+        };
+
+        if elapsed < ctx.api.propose_min_round_time() {
+            // the minimum round time has not elapsed
             return Ok(None);
         }
 
+        // Get unclaimed transactions
         let mut unclaimed_transactions = Vec::new();
         for transaction in ctx.transactions {
             if transaction.is_unclaimed().await {
@@ -61,25 +69,23 @@ impl<const N: usize> PrepareLeader<N> {
             }
         }
 
-        // if we have no transactions and we're not forced to start a round (by `propose_max_round_time`)
-        // return now
-        if unclaimed_transactions.is_empty()
-            && self.created_on.elapsed() < ctx.api.propose_max_round_time()
-        {
+        if unclaimed_transactions.is_empty() && elapsed < ctx.api.propose_max_round_time() {
+            // we have no transactions and the max round time has not elapsed yet
             return Ok(None);
         }
 
-        // we need to propose a round now
+        // we either have transactions, or the round has timed out
+        // so we need to propose a round now
         let outcome = self.propose_round(ctx, unclaimed_transactions).await?;
         Ok(Some(outcome))
     }
 
     async fn propose_round<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
-        &mut self,
+        &self,
         ctx: &UpdateCtx<'_, I, A, N>,
         transactions: Vec<TransactionState<I, N>>,
     ) -> Result<Outcome<I, N>> {
-        let high_qc = match self.high_qc.take() {
+        let high_qc = match self.high_qc.clone() {
             Some(high_qc) => high_qc,
             None => return err("in propose_round: no high_qc set"),
         };
@@ -92,7 +98,33 @@ impl<const N: usize> PrepareLeader<N> {
         let current_view = ctx.view_number.0;
 
         // try to append unclaimed transactions to the block
-        let transactions = utils::append_transactions(transactions, &mut block, &state);
+        let mut added_transactions = Vec::new();
+        let mut rejected_transactions = Vec::new();
+        for transaction in transactions {
+            let tx = &transaction.transaction;
+            // Make sure the transaction is valid given the current state,
+            // otherwise, discard it
+            let new_block = block.add_transaction_raw(tx);
+            let new_block = match new_block {
+                Ok(new_block) => new_block,
+                Err(e) => {
+                    warn!(?e, ?tx, "Invalid transaction rejected");
+                    rejected_transactions.push(transaction);
+                    continue;
+                }
+            };
+            if state.validate_block(&new_block) {
+                block = new_block;
+                debug!(?tx, "Added transaction to block");
+                added_transactions.push(transaction);
+            } else {
+                // TODO: `state.append` could change our state.
+                // we should probably make `validate_block` return this error.
+                let err = state.append(&new_block).unwrap_err();
+                warn!(?tx, ?err, "Invalid transaction rejected");
+                rejected_transactions.push(transaction);
+            }
+        }
 
         // Create new leaf and add it to the store
         let new_leaf = Leaf::new(block.clone(), high_qc.leaf_hash);
@@ -130,7 +162,8 @@ impl<const N: usize> PrepareLeader<N> {
             None
         };
         Ok(Outcome {
-            transactions,
+            added_transactions,
+            rejected_transactions,
             new_leaf,
             new_state,
             prepare,

@@ -56,7 +56,8 @@ impl<const N: usize> PreparePhase<N> {
 }
 
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
-    transactions: Vec<TransactionState<I, N>>,
+    added_transactions: Vec<TransactionState<I, N>>,
+    rejected_transactions: Vec<TransactionState<I, N>>,
     new_leaf: Leaf<I::Block, N>,
     new_state: I::State,
     prepare: Prepare<I::Block, I::State, N>,
@@ -69,7 +70,8 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<PreCommitPhase<I, N>> {
         let Outcome {
-            transactions,
+            added_transactions,
+            rejected_transactions,
             new_leaf,
             new_state,
             prepare,
@@ -83,11 +85,14 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             .await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
-        for transaction in transactions {
+        for transaction in added_transactions {
             *transaction.propose.write().await = Some(TransactionLink {
                 timestamp: Instant::now(),
                 view_number: ctx.view_number,
             });
+        }
+        for transaction in rejected_transactions {
+            *transaction.rejected.write().await = Some(Instant::now());
         }
         let leaf_hash = new_leaf.hash();
         ctx.api
