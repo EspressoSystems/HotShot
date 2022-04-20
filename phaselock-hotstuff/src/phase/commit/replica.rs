@@ -1,5 +1,5 @@
 use crate::{
-    phase::{Progress, UpdateCtx},
+    phase::{decide::DecidePhase, Progress, UpdateCtx},
     ConsensusApi, Result,
 };
 use phaselock_types::{message::Commit, traits::node_implementation::NodeImplementation};
@@ -18,7 +18,7 @@ impl<const N: usize> CommitReplica<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         _ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
+    ) -> Result<Progress<DecidePhase>> {
         todo!()
     }
 }

@@ -1,9 +1,12 @@
 mod commit;
+mod decide;
 mod precommit;
 mod prepare;
 mod update_ctx;
 
-use self::{commit::CommitPhase, precommit::PreCommitPhase, prepare::PreparePhase};
+use self::{
+    commit::CommitPhase, decide::DecidePhase, precommit::PreCommitPhase, prepare::PreparePhase,
+};
 use crate::{ConsensusApi, Result, TransactionState, ViewNumber};
 use phaselock_types::{
     data::Stage,
@@ -11,16 +14,19 @@ use phaselock_types::{
     traits::node_implementation::{NodeImplementation, TypeMap},
 };
 use std::future::Future;
-use tracing::warn;
+use tracing::{info, trace};
 use update_ctx::UpdateCtx;
 
 #[derive(Debug)]
 pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
     view_number: ViewNumber,
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+    done: bool,
+
     prepare: PreparePhase<N>,
     precommit: Option<PreCommitPhase<I, N>>,
     commit: Option<CommitPhase<N>>,
+    decide: Option<DecidePhase>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
@@ -28,14 +34,21 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         Self {
             view_number,
             messages: Vec::new(),
+            done: false,
+
             prepare: PreparePhase::new(is_leader),
             precommit: None,
             commit: None,
+            decide: None,
         }
     }
 
     pub fn stage(&self) -> Stage {
-        if self.commit.is_some() {
+        if self.done {
+            Stage::None
+        } else if self.decide.is_some() {
+            Stage::Decide
+        } else if self.commit.is_some() {
             Stage::Commit
         } else if self.precommit.is_some() {
             Stage::PreCommit
@@ -67,6 +80,10 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
+        if self.done {
+            trace!(?self, "Phase is done, no updates will be run");
+            return Ok(());
+        }
         let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
         let mut ctx = UpdateCtx {
             is_leader,
@@ -78,8 +95,7 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
 
         match self.stage() {
             Stage::None => {
-                warn!(?self, "Phase is in stage mode");
-                Ok(())
+                unreachable!()
             }
             Stage::Prepare => {
                 if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
@@ -96,10 +112,20 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
                 Ok(())
             }
             Stage::Commit => {
-                if let Some(()) = update(&mut self.commit, CommitPhase::update, &mut ctx).await? {}
+                if let Some(decide) =
+                    update(&mut self.commit, CommitPhase::update, &mut ctx).await?
+                {
+                    self.decide = Some(decide);
+                }
                 Ok(())
             }
-            Stage::Decide => todo!(),
+            Stage::Decide => {
+                if let Some(()) = update(&mut self.decide, DecidePhase::update, &mut ctx).await? {
+                    self.done = true;
+                    info!(?self, "Phase completed");
+                }
+                Ok(())
+            }
         }
     }
 }

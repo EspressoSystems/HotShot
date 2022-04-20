@@ -1,7 +1,7 @@
 mod leader;
 mod replica;
 
-use super::{err, Progress, UpdateCtx};
+use super::{decide::DecidePhase, err, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result};
 use leader::CommitLeader;
 use phaselock_types::{
@@ -28,7 +28,7 @@ impl<const N: usize> CommitPhase<N> {
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<()>> {
+    ) -> Result<Progress<DecidePhase>> {
         match (self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await,
             (Self::Replica(replica), false) => replica.update(ctx).await,

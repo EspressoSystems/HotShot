@@ -115,6 +115,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitReplica<I, N> {
         ctx.api.send_propose(current_view, &leaf.item).await;
         // Insert new state into storage
         debug!(?new_state, "New state inserted");
+        // TODO: Should this only insert when we're in the commit stage?
         ctx.api
             .storage()
             .update(|mut m| {
