@@ -1,47 +1,44 @@
+use super::Outcome;
 use crate::{
-    phase::{decide::DecidePhase, err, Progress, UpdateCtx},
-    ConsensusApi, Result,
+    phase::{err, UpdateCtx},
+    utils, ConsensusApi, Result,
 };
 use phaselock_types::{
     data::Stage,
-    error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{Commit, CommitVote, ConsensusMessage, Vote},
+    error::{PhaseLockError, StorageSnafu},
+    message::{Commit, CommitVote, Vote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
 use snafu::ResultExt;
-use tracing::{debug, error, trace, warn};
+use tracing::{error, info, trace};
 
 #[derive(Debug)]
-pub struct CommitReplica<const N: usize> {
-    commit: Option<Commit<N>>,
-}
+pub struct CommitReplica {}
 
-impl<const N: usize> CommitReplica<N> {
-    pub fn new(commit: Option<Commit<N>>) -> Self {
-        Self { commit }
+impl CommitReplica {
+    pub fn new() -> Self {
+        Self {}
     }
 
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<DecidePhase<N>>> {
-        let commit = if let Some(commit) = &self.commit {
-            commit
-        } else if let Some(commit) = ctx.commit_message() {
+        ctx: &UpdateCtx<'_, I, A, N>,
+    ) -> Result<Option<Outcome<I, N>>> {
+        let commit = if let Some(commit) = ctx.commit_message() {
             commit
         } else {
-            return Ok(Progress::NotReady);
+            return Ok(None);
         };
         let commit = commit.clone();
-        let decide = self.vote(ctx, commit).await?;
-        Ok(Progress::Next(decide))
+        let outcome = self.vote(ctx, commit).await?;
+        Ok(Some(outcome))
     }
 
-    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
+        ctx: &UpdateCtx<'_, I, A, N>,
         commit: Commit<N>,
-    ) -> Result<DecidePhase<N>> {
+    ) -> Result<Outcome<I, N>> {
         // this leaf hash should've been inserted in `PreCommitPhase`
         let leaf = match ctx
             .api
@@ -70,6 +67,18 @@ impl<const N: usize> CommitReplica<N> {
                 bad_qc: commit.qc.to_vec_cert(),
             });
         }
+        let old_qc = match ctx.get_newest_qc().await? {
+            Some(qc) => qc,
+            None => {
+                return err("No QC in storage");
+            }
+        };
+        // Find blocks and states that were commited
+        let walk_leaf = commit.leaf_hash;
+        let old_leaf_hash = old_qc.leaf_hash;
+
+        let (blocks, states) = utils::walk_leaves(ctx.api, walk_leaf, old_leaf_hash).await?;
+        info!(?blocks, ?states, "Sending decide events");
         // TODO(vko): We currently do everything though the storage API, validate that we can indeed drop the `locked_qc` etc
         // // Update locked qc
         // let mut locked_qc = pl.inner.locked_qc.write().await;
@@ -86,24 +95,12 @@ impl<const N: usize> CommitReplica<N> {
             current_view: ctx.view_number.0,
         });
         trace!("Commit vote packed");
-        let leader = ctx.api.get_leader(ctx.view_number.0, Stage::Decide).await;
 
-        if &leader == ctx.api.public_key() {
-            Ok(DecidePhase::leader(Some(vote), false))
-        } else {
-            let network_result = ctx
-                .api
-                .send_direct_message(leader, ConsensusMessage::CommitVote(vote))
-                .await
-                .context(FailedToMessageLeaderSnafu {
-                    stage: Stage::Commit,
-                });
-            if let Err(e) = network_result {
-                warn!(?e, "Error sending commit vote");
-            } else {
-                debug!("Commit vote sent to leader");
-            }
-            Ok(DecidePhase::replica(false))
-        }
+        Ok(Outcome {
+            blocks,
+            commit,
+            states,
+            vote: Some(vote),
+        })
     }
 }

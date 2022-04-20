@@ -16,6 +16,7 @@ mod phase;
 mod traits;
 mod utils;
 
+use async_std::sync::RwLock;
 pub use traits::ConsensusApi;
 
 use phase::Phase;
@@ -26,6 +27,7 @@ use phaselock_types::{
 };
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
+    sync::Arc,
     time::Instant,
 };
 use tracing::warn;
@@ -85,7 +87,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
     ) -> Result {
         self.transactions.push(TransactionState {
             transaction,
-            propose: None,
+            propose: Arc::default(),
         });
         // transactions are useful for the `Prepare` phase
         // so notify these phases
@@ -120,14 +122,16 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
     }
 }
 
+#[derive(Clone)]
 struct TransactionState<I: NodeImplementation<N>, const N: usize> {
     transaction: <I as TypeMap<N>>::Transaction,
-    propose: Option<TransactionLink>,
+    // TODO(vko): see if we can remove this `Arc<RwLock<..>>` and use mutable references instead
+    propose: Arc<RwLock<Option<TransactionLink>>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
-    fn is_unclaimed(&self) -> bool {
-        self.propose.is_none()
+    async fn is_unclaimed(&self) -> bool {
+        self.propose.read().await.is_none()
     }
 }
 

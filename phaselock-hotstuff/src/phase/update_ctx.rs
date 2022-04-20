@@ -16,12 +16,21 @@ use snafu::ResultExt;
 pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> {
     pub(super) api: &'a mut A,
     pub(super) view_number: ViewNumber,
-    pub(super) transactions: &'a mut [TransactionState<I, N>],
+    pub(super) transactions: &'a [TransactionState<I, N>],
     pub(super) messages: &'a [<I as TypeMap<N>>::ConsensusMessage],
     pub(super) is_leader: bool,
 }
 
 impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> UpdateCtx<'a, I, A, N> {
+    pub(super) async fn get_leaf(&self, leaf_hash: &LeafHash<N>) -> Result<Leaf<I::Block, N>> {
+        self.api
+            .storage()
+            .get_leaf(leaf_hash)
+            .await
+            .context(StorageSnafu)?
+            .or_not_found(leaf_hash)
+    }
+
     pub(super) async fn get_leaf_by_block(
         &self,
         block: &BlockHash<N>,
@@ -145,11 +154,5 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             }
         })
         .last()
-    }
-
-    pub(super) fn get_unclaimed_transactions_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut TransactionState<I, N>> + '_ {
-        self.transactions.iter_mut().filter(|t| t.is_unclaimed())
     }
 }

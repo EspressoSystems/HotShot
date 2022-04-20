@@ -1,11 +1,13 @@
-use crate::ConsensusApi;
+use crate::{ConsensusApi, Result, TransactionState};
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate},
-    traits::{node_implementation::NodeImplementation, storage::Storage},
+    error::StorageSnafu,
+    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
 };
-use tracing::{error, trace, warn};
+use snafu::ResultExt;
+use tracing::{debug, error, trace, warn};
 
-pub(super) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
     api: &A,
     known_qc: &QuorumCertificate<N>,
     leaf: &Leaf<I::Block, N>,
@@ -49,4 +51,75 @@ pub(super) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, c
         "Received a leaf but it has an invalid parent"
     );
     false
+}
+
+pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    api: &A,
+    mut walk_leaf: LeafHash<N>,
+    old_leaf_hash: LeafHash<N>,
+) -> Result<(Vec<I::Block>, Vec<I::State>)> {
+    let mut blocks = vec![];
+    let mut states = vec![];
+    while walk_leaf != old_leaf_hash {
+        debug!(?walk_leaf, "Looping");
+        let leaf = if let Some(x) = api
+            .storage()
+            .get_leaf(&walk_leaf)
+            .await
+            .context(StorageSnafu)?
+        {
+            x
+        } else {
+            warn!(?walk_leaf, "Parent did not exist in store");
+            break;
+        };
+        let state = if let Some(x) = api
+            .storage()
+            .get_state(&walk_leaf)
+            .await
+            .context(StorageSnafu)?
+        {
+            x
+        } else {
+            warn!(?walk_leaf, "Parent did not exist in store");
+            break;
+        };
+        blocks.push(leaf.item);
+        states.push(state);
+        walk_leaf = leaf.parent;
+    }
+    for state in &states {
+        state.on_commit();
+    }
+    Ok((blocks, states))
+}
+
+pub(crate) fn append_transactions<I: NodeImplementation<N>, const N: usize>(
+    transactions: Vec<TransactionState<I, N>>,
+    block: &mut I::Block,
+    state: &I::State,
+) -> Vec<TransactionState<I, N>> {
+    let mut added_transactions = Vec::new();
+    for transaction in transactions {
+        let tx = &transaction.transaction;
+        // Make sure the transaction is valid given the current state,
+        // otherwise, discard it
+        let new_block = block.add_transaction_raw(tx);
+        match new_block {
+            Ok(new_block) => {
+                if state.validate_block(&new_block) {
+                    *block = new_block;
+                    debug!(?tx, "Added transaction to block");
+                    added_transactions.push(transaction);
+                } else {
+                    // TODO: `state.append` could change our state.
+                    // we should probably make `validate_block` return this error.
+                    let err = state.append(&new_block).unwrap_err();
+                    warn!(?tx, ?err, "Invalid transaction rejected");
+                }
+            }
+            Err(e) => warn!(?e, ?tx, "Invalid transaction rejected"),
+        }
+    }
+    added_transactions
 }

@@ -1,26 +1,23 @@
-use crate::{
-    phase::{commit::CommitPhase, Progress, UpdateCtx},
-    ConsensusApi, Result,
-};
+use super::Outcome;
+use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{Commit, ConsensusMessage, PreCommitVote, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents},
+    error::PhaseLockError,
+    message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
+    traits::{node_implementation::NodeImplementation, BlockContents},
 };
-use snafu::ResultExt;
-use tracing::{debug, warn};
+use tracing::debug;
 
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) struct PreCommitLeader<I: NodeImplementation<N>, const N: usize> {
-    prepare: Option<Prepare<I::Block, I::State, N>>,
+    prepare: Prepare<I::Block, I::State, N>,
     vote: Option<PrepareVote<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     pub(super) fn new(
-        prepare: Option<Prepare<I::Block, I::State, N>>,
+        prepare: Prepare<I::Block, I::State, N>,
         vote: Option<PrepareVote<N>>,
     ) -> Self {
         Self { prepare, vote }
@@ -28,19 +25,10 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
 
     pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<CommitPhase<N>>> {
-        // Get the prepare message
-        // TODO: Should we loop through all incoming prepare messages and get the first that has enough votes?
-        let prepare = if let Some(prepare) = &self.prepare {
-            prepare
-        } else if let Some(prepare) = ctx.prepare_message() {
-            prepare
-        } else {
-            return Ok(Progress::NotReady);
-        };
+        ctx: &UpdateCtx<'_, I, A, N>,
+    ) -> Result<Option<Outcome<N>>> {
         // Collect all votes that target this `leaf_hash`
-        let new_leaf_hash = prepare.leaf.hash();
+        let new_leaf_hash = self.prepare.leaf.hash();
         let valid_votes: Vec<PrepareVote<N>> = ctx
             .prepare_vote_messages()
             // make sure to append our own vote if we have one
@@ -49,20 +37,20 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .cloned()
             .collect();
         if valid_votes.len() as u64 >= ctx.api.threshold().get() {
-            let prepare = prepare.clone();
-            let result = self.create_commit(ctx, prepare, valid_votes).await?;
-            Ok(Progress::Next(result))
+            let prepare = self.prepare.clone();
+            let outcome = self.create_commit(ctx, prepare, valid_votes).await?;
+            Ok(Some(outcome))
         } else {
-            Ok(Progress::NotReady)
+            Ok(None)
         }
     }
 
     async fn create_commit<A: ConsensusApi<I, N>>(
         &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
+        ctx: &UpdateCtx<'_, I, A, N>,
         prepare: Prepare<I::Block, I::State, N>,
         votes: Vec<PrepareVote<N>>,
-    ) -> Result<CommitPhase<N>> {
+    ) -> Result<Outcome<N>> {
         let signature = ctx
             .api
             .public_key()
@@ -86,64 +74,28 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             genesis: false,
         };
         debug!(?qc, "commit qc generated");
-        let commit = Commit {
+        let pre_commit = PreCommit {
             leaf_hash,
             qc,
             current_view,
         };
-        let network_result = ctx
-            .api
-            .send_broadcast_message(ConsensusMessage::Commit(commit.clone()))
-            .await
-            .context(FailedToBroadcastSnafu {
-                stage: Stage::Commit,
-            });
-        if let Err(e) = network_result {
-            warn!(?e, "Failed to broadcast commit message");
-        }
-        debug!("Commit message sent");
 
-        // Make sure this leaf is inserted, we need it in `CommitPhase`
-        ctx.api
-            .storage()
-            .update(|mut m| {
-                let leaf = prepare.leaf.clone();
-                async move {
-                    m.insert_leaf(leaf).await?;
-                    Ok(())
-                }
-            })
-            .await
-            .context(StorageSnafu)?;
-        debug!("Leaf inserted");
-
-        let mut vote = None;
-        if ctx.api.leader_acts_as_replica() {
+        let vote = if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
             let signature =
                 ctx.api
                     .private_key()
                     .partial_sign(&leaf_hash, Stage::Commit, current_view);
-            let send_vote = PreCommitVote(Vote {
+            Some(PreCommitVote(Vote {
                 leaf_hash,
                 signature,
                 id: ctx.api.public_key().nonce,
                 current_view,
-            });
-            vote = Some(send_vote.clone());
-            let leader = ctx.api.get_leader(current_view, Stage::Commit).await;
-            ctx.api
-                .send_direct_message(leader, ConsensusMessage::PreCommitVote(send_vote))
-                .await
-                .context(FailedToMessageLeaderSnafu {
-                    stage: Stage::PreCommit,
-                })?;
-        }
-
-        Ok(if ctx.api.is_leader(current_view, Stage::Commit).await {
-            CommitPhase::leader(Some(commit), vote)
+            }))
         } else {
-            CommitPhase::replica(Some(commit))
-        })
+            None
+        };
+
+        Ok(Outcome { pre_commit, vote })
     }
 }

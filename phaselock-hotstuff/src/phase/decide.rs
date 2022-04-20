@@ -4,7 +4,10 @@ mod replica;
 use super::{err, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result};
 use leader::DecideLeader;
-use phaselock_types::{message::CommitVote, traits::node_implementation::NodeImplementation};
+use phaselock_types::{
+    message::{Commit, CommitVote},
+    traits::node_implementation::NodeImplementation,
+};
 use replica::DecideReplica;
 
 #[derive(Debug)]
@@ -14,12 +17,12 @@ pub(super) enum DecidePhase<const N: usize> {
 }
 
 impl<const N: usize> DecidePhase<N> {
-    pub fn replica(already_validated: bool) -> Self {
-        Self::Replica(DecideReplica::new(already_validated))
+    pub fn replica() -> Self {
+        Self::Replica(DecideReplica::new())
     }
 
-    pub fn leader(vote: Option<CommitVote<N>>, already_validated: bool) -> Self {
-        Self::Leader(DecideLeader::new(vote, already_validated))
+    pub fn leader(commit: Commit<N>, vote: Option<CommitVote<N>>) -> Self {
+        Self::Leader(DecideLeader::new(commit, vote))
     }
 
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(

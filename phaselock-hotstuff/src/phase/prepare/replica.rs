@@ -1,3 +1,4 @@
+use super::Outcome;
 use crate::{
     phase::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx},
     utils, ConsensusApi, Result, TransactionLink, TransactionState,
@@ -21,19 +22,22 @@ impl PrepareReplica {
     }
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
-        ctx: &mut UpdateCtx<'_, I, A, N>,
-    ) -> Result<Progress<PreCommitPhase<I, N>>> {
-        match ctx.prepare_message() {
-            Some(msg) => self.vote(ctx, msg).await.map(Progress::Next),
-            None => Ok(Progress::NotReady),
-        }
+        ctx: &UpdateCtx<'_, I, A, N>,
+    ) -> Result<Option<Outcome<I, N>>> {
+        let prepare = if let Some(prepare) = ctx.prepare_message() {
+            prepare
+        } else {
+            return Ok(None);
+        };
+        let outcome = self.vote(ctx, prepare.clone()).await?;
+        Ok(Some(outcome))
     }
 
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
-        prepare: &Prepare<I::Block, I::State, N>,
-    ) -> Result<PreCommitPhase<I, N>> {
+        prepare: Prepare<I::Block, I::State, N>,
+    ) -> Result<Outcome<I, N>> {
         let leaf = prepare.leaf.clone();
         let leaf_hash = leaf.hash();
         let high_qc = prepare.high_qc.clone();
@@ -54,46 +58,20 @@ impl PrepareReplica {
         }
 
         let current_view = ctx.view_number.0;
-
-        let vote = || {
-            let signature =
-                ctx.api
-                    .private_key()
-                    .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-            PrepareVote(Vote {
-                signature,
-                id: ctx.api.public_key().nonce,
-                leaf_hash,
-                current_view,
-            })
-        };
-
         let leader_next_round = ctx.api.get_leader(current_view, Stage::PreCommit).await;
         let is_leader_next_round = &leader_next_round == ctx.api.public_key();
 
-        // Only send the vote if we're not a leader next round. Else we'll use it when instantiating PreCommit
-        let next_phase = if !is_leader_next_round {
-            let vote_message = ConsensusMessage::PrepareVote(vote());
-            let network_result = ctx
-                .api
-                .send_direct_message(leader_next_round, vote_message)
-                .await
-                .context(FailedToMessageLeaderSnafu {
-                    stage: Stage::Prepare,
-                });
-            if let Err(e) = network_result {
-                warn!(?e, "Error submitting prepare vote");
-            } else {
-                debug!("Prepare message successfully processed");
-            }
-            PreCommitPhase::replica(None)
-        } else if ctx.api.leader_acts_as_replica() {
-            PreCommitPhase::leader(None, Some(vote()))
-        } else {
-            PreCommitPhase::leader(None, None)
-        };
+        let signature =
+            ctx.api
+                .private_key()
+                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+        let vote = PrepareVote(Vote {
+            signature,
+            id: ctx.api.public_key().nonce,
+            leaf_hash,
+            current_view,
+        });
 
-        ctx.api.send_propose(current_view, &leaf.item).await;
         // Add resulting state to storage
         let new_state = state.append(&leaf.item).map_err(|error| {
             error!(?error, "Failed to append block to existing state");
@@ -114,19 +92,14 @@ impl PrepareReplica {
                 stage: Stage::Prepare,
             });
         }
-        ctx.api
-            .storage()
-            .update(|mut m| {
-                let leaf = leaf.clone();
-                async move {
-                    m.insert_state(new_state, leaf_hash).await?;
-                    m.insert_leaf(leaf).await?;
-                    Ok(())
-                }
-            })
-            .await
-            .context(StorageSnafu)?;
 
-        Ok(next_phase)
+        Ok(Outcome {
+            new_state,
+            new_leaf: leaf,
+            prepare,
+            // TODO: We should validate that the incoming transactions are correct
+            transactions: Vec::new(),
+            vote: Some(vote),
+        })
     }
 }

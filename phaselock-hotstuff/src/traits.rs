@@ -35,18 +35,18 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey;
 
     async fn send_direct_message(
-        &self,
+        &mut self,
         recipient: PubKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     async fn send_broadcast_message(
-        &self,
+        &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `phaselock-hotstuff`.
-    async fn send_event(&self, event: Event<I::Block, I::State>);
+    async fn send_event(&mut self, event: Event<I::Block, I::State>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &PubKey;
@@ -69,25 +69,30 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&self, view_number: u64, block: &I::Block) {
+    async fn send_propose(&mut self, view_number: u64, block: I::Block) {
         self.send_event(Event {
             view_number,
             stage: Stage::Prepare,
             event: EventType::Propose {
-                block: Arc::new(block.clone()),
+                block: Arc::new(block),
             },
         })
         .await;
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: u64, blocks: &[(I::Block, I::State)]) {
+    async fn send_decide(
+        &mut self,
+        view_number: u64,
+        blocks: Vec<I::Block>,
+        states: Vec<I::State>,
+    ) {
         self.send_event(Event {
             view_number,
             stage: Stage::Prepare,
             event: EventType::Decide {
-                block: Arc::new(blocks.iter().map(|x| x.0.clone()).collect()),
-                state: Arc::new(blocks.iter().map(|x| x.1.clone()).collect()),
+                block: Arc::new(blocks),
+                state: Arc::new(states),
             },
         })
         .await;
