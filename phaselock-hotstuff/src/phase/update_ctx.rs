@@ -1,8 +1,11 @@
 use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
 use phaselock_types::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, Stage},
     error::StorageSnafu,
-    message::{Commit, ConsensusMessage, Decide, NewView, PreCommit, Prepare, Vote},
+    message::{
+        Commit, CommitVote, ConsensusMessage, Decide, NewView, PreCommit, PreCommitVote, Prepare,
+        PrepareVote,
+    },
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
@@ -76,9 +79,10 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         .last()
     }
 
-    pub(super) fn prepare_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+    pub(super) fn prepare_vote_messages(&self) -> impl Iterator<Item = &PrepareVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::PrepareVote(prepare) = m {
+                debug_assert_eq!(prepare.stage, Stage::Prepare);
                 Some(prepare)
             } else {
                 None
@@ -99,9 +103,10 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
     }
 
     #[allow(dead_code)] // TODO(vko): cleanup
-    pub(super) fn pre_commit_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+    pub(super) fn pre_commit_vote_messages(&self) -> impl Iterator<Item = &PreCommitVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::PreCommitVote(prepare) = m {
+                debug_assert_eq!(prepare.stage, Stage::PreCommit);
                 Some(prepare)
             } else {
                 None
@@ -122,9 +127,10 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
     }
 
     #[allow(dead_code)] // TODO(vko): cleanup
-    pub(super) fn commit_vote_messages(&self) -> impl Iterator<Item = &Vote<N>> + '_ {
+    pub(super) fn commit_vote_messages(&self) -> impl Iterator<Item = &CommitVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::CommitVote(prepare) = m {
+                debug_assert_eq!(prepare.stage, Stage::Commit);
                 Some(prepare)
             } else {
                 None

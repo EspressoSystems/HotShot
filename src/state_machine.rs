@@ -24,6 +24,7 @@ use futures::{future::BoxFuture, Future, FutureExt};
 use phaselock_types::{
     data::BlockHash,
     error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
+    message::{CommitVote, PreCommitVote, PrepareVote},
 };
 use phaselock_utils::broadcast::BroadcastSender;
 use std::time::Duration;
@@ -385,13 +386,13 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         pl.inner
                             .private_key
                             .partial_sign(&the_hash, Stage::Prepare, current_view);
-                    let vote = Vote {
+                    let vote = PrepareVote(Vote {
                         signature,
                         leaf_hash: the_hash,
                         id: pl.inner.public_key.nonce,
                         current_view,
                         stage: Stage::Prepare,
-                    };
+                    });
                     pl.inner.prepare_vote_queue.push(vote).await;
                     Ok((block, new_leaf, new_state))
                 }
@@ -418,7 +419,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let votes: Vec<_> = vote_queue
                             .drain(..)
                             .filter(|x| x.leaf_hash == new_leaf_hash)
-                            .map(|x| (x.id, x.signature))
+                            .map(|x| (x.id, x.signature.clone()))
                             .collect();
                         // Generate the QC
                         let signature = generate_qc(
@@ -472,13 +473,13 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             Stage::PreCommit,
                             current_view,
                         );
-                        let vote_message = Vote {
+                        let vote_message = PreCommitVote(Vote {
                             leaf_hash: new_leaf_hash,
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
                             stage: Stage::Prepare,
-                        };
+                        });
                         pl.inner.precommit_vote_queue.push(vote_message).await;
                         Ok((block, new_leaf, state))
                     }
@@ -507,7 +508,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let votes: Vec<_> = vote_queue
                             .drain(..)
                             .filter(|x| x.leaf_hash == new_leaf_hash)
-                            .map(|x| (x.id, x.signature))
+                            .map(|x| (x.id, x.signature.clone()))
                             .collect();
                         // Generate a QC
                         let signature = generate_qc(
@@ -549,13 +550,13 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                             Stage::Commit,
                             current_view,
                         );
-                        let vote_message = Vote {
+                        let vote_message = CommitVote(Vote {
                             leaf_hash: new_leaf_hash,
                             signature,
                             id: pl.inner.public_key.nonce,
                             current_view,
                             stage: Stage::Commit,
-                        };
+                        });
                         pl.inner.commit_vote_queue.push(vote_message).await;
 
                         Ok((block, new_leaf, state))
@@ -584,7 +585,7 @@ impl<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> Sequentia
                         let votes: Vec<_> = vote_queue
                             .drain(..)
                             .filter(|x| x.leaf_hash == new_leaf_hash)
-                            .map(|x| (x.id, x.signature))
+                            .map(|x| (x.id, x.signature.clone()))
                             .collect();
                         // Generate QC
                         let signature = generate_qc(
@@ -828,13 +829,13 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                             Stage::Prepare,
                             current_view,
                         );
-                        let vote = Vote {
+                        let vote = PrepareVote(Vote {
                             signature,
                             id: pl.inner.public_key.nonce,
                             leaf_hash,
                             current_view,
                             stage: Stage::Prepare,
-                        };
+                        });
                         let vote_message = ConsensusMessage::PrepareVote(vote);
                         let network_result = pl
                             .send_direct_message(vote_message, pl.get_leader(current_view))
@@ -929,13 +930,13 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         Stage::PreCommit,
                         current_view,
                     );
-                    let vote_message = ConsensusMessage::PreCommitVote(Vote {
+                    let vote_message = ConsensusMessage::PreCommitVote(PreCommitVote(Vote {
                         leaf_hash,
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
                         stage: Stage::PreCommit,
-                    });
+                    }));
                     // store the prepare qc
                     let mut pqc = pl.inner.prepare_qc.write().await;
                     *pqc = Some(prepare_qc);
@@ -996,13 +997,13 @@ impl<I: NodeImplementation<N> + 'static + Send + Sync, const N: usize> Sequentia
                         pl.inner
                             .private_key
                             .partial_sign(&leaf_hash, Stage::Commit, current_view);
-                    let vote_message = ConsensusMessage::CommitVote(Vote {
+                    let vote_message = ConsensusMessage::CommitVote(CommitVote(Vote {
                         leaf_hash,
                         signature,
                         id: pl.inner.public_key.nonce,
                         current_view,
                         stage: Stage::Commit,
-                    });
+                    }));
                     trace!("Commit vote packed");
                     let network_result = pl
                         .send_direct_message(vote_message, pl.get_leader(current_view))

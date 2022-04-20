@@ -5,7 +5,7 @@ use super::{commit::CommitPhase, err, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result};
 use leader::PreCommitLeader;
 use phaselock_types::{
-    message::{Prepare, Vote},
+    message::{Prepare, PrepareVote},
     traits::node_implementation::NodeImplementation,
 };
 use replica::PreCommitReplica;
@@ -21,7 +21,10 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
         Self::Replica(PreCommitReplica::new(prepare))
     }
 
-    pub fn leader(prepare: Option<Prepare<I::Block, I::State, N>>, vote: Option<Vote<N>>) -> Self {
+    pub fn leader(
+        prepare: Option<Prepare<I::Block, I::State, N>>,
+        vote: Option<PrepareVote<N>>,
+    ) -> Self {
         Self::Leader(PreCommitLeader::new(prepare, vote))
     }
 

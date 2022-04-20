@@ -26,7 +26,7 @@ pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
     prepare: PreparePhase<N>,
     precommit: Option<PreCommitPhase<I, N>>,
     commit: Option<CommitPhase<N>>,
-    decide: Option<DecidePhase>,
+    decide: Option<DecidePhase<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {

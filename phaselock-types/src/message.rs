@@ -39,15 +39,15 @@ pub enum ConsensusMessage<B, S, const N: usize> {
     /// Contains the prepare qc from the leader
     Prepare(Prepare<B, S, N>),
     /// A nodes vote on the prepare stage
-    PrepareVote(Vote<N>),
+    PrepareVote(PrepareVote<N>),
     /// Contains the precommit qc from the leader
     PreCommit(PreCommit<N>),
     /// A node's vote on the precommit stage
-    PreCommitVote(Vote<N>),
+    PreCommitVote(PreCommitVote<N>),
     /// Contains the commit qc from the leader
     Commit(Commit<N>),
     /// A node's vote on the commit stage
-    CommitVote(Vote<N>),
+    CommitVote(CommitVote<N>),
     /// Contains the decide qc from the leader
     Decide(Decide<N>),
 }
@@ -60,11 +60,11 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
         match self {
             Self::NewView(view) => view.current_view,
             Self::Prepare(prepare) => prepare.current_view,
-            Self::PrepareVote(vote) | Self::PreCommitVote(vote) | Self::CommitVote(vote) => {
-                vote.current_view
-            }
+            Self::PrepareVote(vote) => vote.current_view,
             Self::PreCommit(precommit) => precommit.current_view,
+            Self::PreCommitVote(vote) => vote.current_view,
             Self::Commit(commit) => commit.current_view,
+            Self::CommitVote(vote) => vote.current_view,
             Self::Decide(decide) => decide.current_view,
         }
     }
@@ -113,7 +113,9 @@ pub struct Prepare<B, S, const N: usize> {
 }
 
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
-/// A nodes vote on the prepare field
+/// A nodes vote on the prepare field.
+///
+/// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
     pub signature: SignatureShare,
@@ -128,6 +130,37 @@ pub struct Vote<const N: usize> {
     #[debug(skip)]
     pub stage: Stage,
 }
+
+/// Generate a wrapper for [`Vote`] for type safety.
+macro_rules! vote_wrapper {
+    ($name:ident) => {
+        /// Wrapper around [`Vote`], used for type safety.
+        #[derive(Serialize, Deserialize, Clone, Debug)]
+        pub struct $name<const N: usize>(pub Vote<N>);
+        impl<const N: usize> std::ops::Deref for $name<N> {
+            type Target = Vote<N>;
+            fn deref(&self) -> &Vote<N> {
+                &self.0
+            }
+        }
+
+        impl<const N: usize> From<Vote<N>> for $name<N> {
+            fn from(v: Vote<N>) -> Self {
+                Self(v)
+            }
+        }
+
+        impl<const N: usize> From<$name<N>> for Vote<N> {
+            fn from(wrapper: $name<N>) -> Self {
+                wrapper.0
+            }
+        }
+    };
+}
+
+vote_wrapper!(PrepareVote);
+vote_wrapper!(PreCommitVote);
+vote_wrapper!(CommitVote);
 
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// Pre-commit qc from the leader

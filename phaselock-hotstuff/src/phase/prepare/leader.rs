@@ -5,7 +5,7 @@ use crate::{
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage, TransactionHash},
     error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, Vote},
+    message::{ConsensusMessage, Prepare, PrepareVote, Vote},
     traits::{
         node_implementation::NodeImplementation, storage::Storage, BlockContents, State,
         Transaction,
@@ -137,29 +137,30 @@ impl<const N: usize> PrepareLeader<N> {
 
         // if the leader can vote like a replica, cast this vote now
         let mut vote = None;
+        let next_leader = ctx.api.get_leader(current_view, Stage::PreCommit).await;
+        let is_leader_next_phase = ctx.api.public_key() == &next_leader;
         if ctx.api.leader_acts_as_replica() {
             let signature =
                 ctx.api
                     .private_key()
                     .partial_sign(&the_hash, Stage::Prepare, current_view);
-            let new_vote = Vote {
+            let new_vote = PrepareVote(Vote {
                 signature,
                 leaf_hash: the_hash,
                 id: ctx.api.public_key().nonce,
                 current_view,
                 stage: Stage::Prepare,
-            };
+            });
             vote = Some(new_vote.clone());
-            let next = ctx.api.get_leader(current_view, Stage::PreCommit).await;
             ctx.api
-                .send_direct_message(next, ConsensusMessage::PrepareVote(new_vote))
+                .send_direct_message(next_leader.clone(), ConsensusMessage::PrepareVote(new_vote))
                 .await
                 .context(FailedToMessageLeaderSnafu {
                     stage: Stage::Prepare,
                 })?;
         }
 
-        Ok(if ctx.api.is_leader(current_view, Stage::Commit).await {
+        Ok(if is_leader_next_phase {
             PreCommitPhase::leader(Some(prepare), vote)
         } else {
             PreCommitPhase::replica(Some(prepare))

@@ -4,9 +4,9 @@ use crate::{
 };
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError},
-    message::{Commit, ConsensusMessage, Prepare, Vote},
-    traits::{node_implementation::NodeImplementation, BlockContents},
+    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
+    message::{Commit, ConsensusMessage, PreCommitVote, Prepare, PrepareVote, Vote},
+    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents},
 };
 use snafu::ResultExt;
 use tracing::{debug, warn};
@@ -15,13 +15,13 @@ use tracing::{debug, warn};
 #[allow(dead_code)]
 pub(crate) struct PreCommitLeader<I: NodeImplementation<N>, const N: usize> {
     prepare: Option<Prepare<I::Block, I::State, N>>,
-    vote: Option<Vote<N>>,
+    vote: Option<PrepareVote<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     pub(super) fn new(
         prepare: Option<Prepare<I::Block, I::State, N>>,
-        vote: Option<Vote<N>>,
+        vote: Option<PrepareVote<N>>,
     ) -> Self {
         Self { prepare, vote }
     }
@@ -41,7 +41,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         };
         // Collect all votes that target this `leaf_hash`
         let new_leaf_hash = prepare.leaf.hash();
-        let valid_votes: Vec<Vote<N>> = ctx
+        let valid_votes: Vec<PrepareVote<N>> = ctx
             .prepare_vote_messages()
             // make sure to append our own vote if we have one
             .chain(self.vote.iter())
@@ -61,7 +61,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
         prepare: Prepare<I::Block, I::State, N>,
-        votes: Vec<Vote<N>>,
+        votes: Vec<PrepareVote<N>>,
     ) -> Result<CommitPhase<N>> {
         let signature = ctx
             .api
@@ -102,6 +102,21 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             warn!(?e, "Failed to broadcast commit message");
         }
         debug!("Commit message sent");
+
+        // Make sure this leaf is inserted, we need it in `CommitPhase`
+        ctx.api
+            .storage()
+            .update(|mut m| {
+                let leaf = prepare.leaf.clone();
+                async move {
+                    m.insert_leaf(leaf).await?;
+                    Ok(())
+                }
+            })
+            .await
+            .context(StorageSnafu)?;
+        debug!("Leaf inserted");
+
         let mut vote = None;
         if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
@@ -109,13 +124,13 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
                 ctx.api
                     .private_key()
                     .partial_sign(&leaf_hash, Stage::Commit, current_view);
-            let send_vote = Vote {
+            let send_vote = PreCommitVote(Vote {
                 leaf_hash,
                 signature,
                 id: ctx.api.public_key().nonce,
                 current_view,
                 stage: Stage::Commit,
-            };
+            });
             vote = Some(send_vote.clone());
             let leader = ctx.api.get_leader(current_view, Stage::Commit).await;
             ctx.api

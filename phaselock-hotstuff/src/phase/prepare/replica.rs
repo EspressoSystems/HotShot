@@ -5,7 +5,7 @@ use crate::{
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, Vote},
+    message::{ConsensusMessage, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
 };
 use snafu::ResultExt;
@@ -60,13 +60,13 @@ impl PrepareReplica {
                 ctx.api
                     .private_key()
                     .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-            Vote {
+            PrepareVote(Vote {
                 signature,
                 id: ctx.api.public_key().nonce,
                 leaf_hash,
                 current_view,
                 stage: Stage::Prepare,
-            }
+            })
         };
 
         let leader_next_round = ctx.api.get_leader(current_view, Stage::PreCommit).await;

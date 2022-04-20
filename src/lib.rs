@@ -46,7 +46,7 @@ use crate::{
 use async_std::sync::{Mutex, RwLock};
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{ConsensusMessage, DataMessage},
+    message::{CommitVote, ConsensusMessage, DataMessage, PreCommitVote, PrepareVote},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -131,11 +131,11 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// Unprocessed NextView messages
     new_view_queue: WaitQueue<NewView<N>>,
     /// Unprocessed PrepareVote messages
-    prepare_vote_queue: WaitQueue<Vote<N>>,
+    prepare_vote_queue: WaitQueue<PrepareVote<N>>,
     /// Unprocessed PreCommit messages
-    precommit_vote_queue: WaitQueue<Vote<N>>,
+    precommit_vote_queue: WaitQueue<PreCommitVote<N>>,
     /// Unprocessed CommitVote messages
-    commit_vote_queue: WaitQueue<Vote<N>>,
+    commit_vote_queue: WaitQueue<CommitVote<N>>,
     /// Currently pending Prepare message
     prepare_waiter: WaitOnce<Prepare<I::Block, I::State, N>>,
     /// Currently pending precommit message

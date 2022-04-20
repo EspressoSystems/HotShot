@@ -5,7 +5,7 @@ use crate::{
 use phaselock_types::{
     data::Stage,
     error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, Vote},
+    message::{ConsensusMessage, PreCommitVote, Prepare, Vote},
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
@@ -90,32 +90,33 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitReplica<I, N> {
             ctx.api
                 .private_key()
                 .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-        let vote = Vote {
+        let vote = PreCommitVote(Vote {
             signature,
             id: ctx.api.public_key().nonce,
             leaf_hash,
             current_view,
             stage: Stage::Prepare,
-        };
-        let vote_message = ConsensusMessage::PrepareVote(vote);
+        });
+        let vote_message = ConsensusMessage::PreCommitVote(vote.clone());
         let next_leader = ctx.api.get_leader(current_view, Stage::Commit).await;
-
-        let network_result = ctx
-            .api
-            .send_direct_message(next_leader, vote_message)
-            .await
-            .context(FailedToMessageLeaderSnafu {
-                stage: Stage::Prepare,
-            });
-        if let Err(e) = network_result {
-            warn!(?e, "Error submitting prepare vote");
-        } else {
-            debug!("Prepare message successfully processed");
+        let is_leader_next = &next_leader == ctx.api.public_key();
+        if !is_leader_next {
+            let network_result = ctx
+                .api
+                .send_direct_message(next_leader, vote_message)
+                .await
+                .context(FailedToMessageLeaderSnafu {
+                    stage: Stage::Prepare,
+                });
+            if let Err(e) = network_result {
+                warn!(?e, "Error submitting prepare vote");
+            } else {
+                debug!("Prepare message successfully processed");
+            }
         }
         ctx.api.send_propose(current_view, &leaf.item).await;
         // Insert new state into storage
         debug!(?new_state, "New state inserted");
-        // TODO: Should this only insert when we're in the commit stage?
         ctx.api
             .storage()
             .update(|mut m| {
@@ -130,7 +131,14 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitReplica<I, N> {
             .context(StorageSnafu)?;
 
         Ok(if ctx.api.is_leader(current_view, Stage::Commit).await {
-            CommitPhase::leader(None, None)
+            CommitPhase::leader(
+                None,
+                if ctx.api.leader_acts_as_replica() {
+                    Some(vote)
+                } else {
+                    None
+                },
+            )
         } else {
             CommitPhase::replica(None)
         })
