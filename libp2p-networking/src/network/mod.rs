@@ -16,7 +16,7 @@ use self::{
     node::network_node_handle_error::TimeoutSnafu,
 };
 use crate::direct_message::DirectMessageResponse;
-use async_std::{future::timeout, task::spawn};
+use async_std::task::spawn;
 use bincode::Options;
 use futures::channel::oneshot::Sender;
 use futures::{select, Future, FutureExt};
@@ -243,17 +243,17 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     idx: usize,
     handle: &Arc<NetworkNodeHandle<S>>,
 ) -> Result<(), NetworkNodeHandleError> {
+    use async_std::prelude::FutureExt;
+
     info!("known_nodes{:?}", known_nodes);
     handle.add_known_peers(known_nodes).await?;
-    timeout(
-        timeout_len,
-        NetworkNodeHandle::wait_to_connect(
-            handle.clone(),
-            config.max_num_peers,
-            handle.recv_network(),
-            idx,
-        ),
+    NetworkNodeHandle::wait_to_connect(
+        handle.clone(),
+        config.max_num_peers,
+        handle.recv_network(),
+        idx,
     )
+    .timeout(timeout_len)
     .await
     .context(TimeoutSnafu)??;
     handle.subscribe("global".to_string()).await?;

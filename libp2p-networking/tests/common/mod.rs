@@ -1,4 +1,4 @@
-use async_std::future::timeout;
+use async_std::{future::timeout, prelude::FutureExt};
 use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
@@ -153,10 +153,10 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         );
         let addr = node.listen_addr();
         bootstrap_addrs.push((node.peer_id(), addr));
-        connecting_futs.push(timeout(
-            timeout_len,
-            NetworkNodeHandle::wait_to_connect(node.clone(), min_num_peers, node.recv_network(), i),
-        ));
+        connecting_futs.push(
+            NetworkNodeHandle::wait_to_connect(node.clone(), min_num_peers, node.recv_network(), i)
+                .timeout(timeout_len),
+        );
         handles.push(node);
     }
 
@@ -178,15 +178,15 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         );
         let addr = node.listen_addr();
         bootstrap_addrs.push((node.peer_id(), addr));
-        connecting_futs.push(timeout(
-            timeout_len,
+        connecting_futs.push(
             NetworkNodeHandle::wait_to_connect(
                 node.clone(),
                 min_num_peers,
                 node.recv_network(),
                 num_bootstrap + j,
-            ),
-        ));
+            )
+            .timeout(timeout_len),
+        );
 
         handles.push(node);
     }
