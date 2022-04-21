@@ -19,7 +19,7 @@
 #![allow(clippy::type_complexity)]
 //! Provides a generic rust implementation of the `PhaseLock` BFT protocol
 //!
-//! See the [protocol documentation](documentation) for a protocol description.
+//! See the [protocol documentation](https://github.com/EspressoSystems/phaselock-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]

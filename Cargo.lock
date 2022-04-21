@@ -2158,6 +2158,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-networking"
+version = "0.0.6"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "bincode",
+ "blake3",
+ "color-eyre",
+ "crossterm 0.23.2",
+ "custom_debug",
+ "derive_builder",
+ "flume",
+ "futures",
+ "libp2p",
+ "netlink-packet-core 0.4.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-packet-generic",
+ "netlink-packet-route 0.11.0 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-packet-utils 0.5.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-proto 0.9.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "netlink-sys 0.8.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "nix 0.23.1",
+ "parking_lot 0.12.0",
+ "phaselock-types",
+ "phaselock-utils",
+ "rand 0.8.5",
+ "rtnetlink 0.9.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
+ "serde",
+ "serde_json",
+ "snafu",
+ "structopt",
+ "tide",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
+ "tui",
+]
+
+[[package]]
 name = "libp2p-noise"
 version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3085,6 +3123,8 @@ dependencies = [
  "futures",
  "hex_fmt",
  "phaselock-hotstuff",
+ "libp2p",
+ "libp2p-networking",
  "phaselock-types",
  "phaselock-utils",
  "rand 0.7.3",

@@ -2,7 +2,7 @@ use async_std::future::timeout;
 use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
-use networking_demo::network::{
+use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };

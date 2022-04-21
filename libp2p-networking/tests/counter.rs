@@ -5,7 +5,7 @@ use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
-use networking_demo::network::{
+use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
