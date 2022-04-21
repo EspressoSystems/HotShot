@@ -4,11 +4,11 @@
 
 use async_std::future::timeout;
 use async_std::task::{sleep, spawn};
+use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use flume::Sender;
-use futures::future::{join_all, BoxFuture};
-use futures::FutureExt;
+use futures::future::join_all;
 use libp2p::PeerId;
 use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
 use libp2p_networking::network::{
@@ -25,7 +25,7 @@ use snafu::ResultExt;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
-use tracing::{debug, error, info_span, trace, Instrument};
+use tracing::{debug, error, trace};
 
 /// The underlying state of the libp2p network
 struct Libp2pNetworkInner<
@@ -215,202 +215,176 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 }
 
+#[async_trait]
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     NetworkingImplementation<M> for Libp2pNetwork<M>
 {
-    fn broadcast_message(&self, message: M) -> BoxFuture<'_, Result<(), NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            nw_err(
-                self.inner
-                    .handle
-                    .gossip("global".to_string(), &message)
-                    .await,
-            )?;
-            // FIXME types
-            Err(NetworkError::ListenerSend)
+    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
         }
-        .instrument(info_span!("Libp2pNetwork::broadcast_message"))
-        .boxed()
-    }
-
-    fn message_node(
-        &self,
-        message: M,
-        recipient: PubKey,
-    ) -> BoxFuture<'_, Result<(), NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            // check local cache. if that fails, initiate search
-            let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
-                *pid
-            } else {
-                nw_err(self.inner.handle.get_record(&recipient).await)?
-            };
-            nw_err(self.inner.handle.direct_request(pid, &message).await)?;
-            Ok(())
-        }
-        .boxed()
-    }
-
-    fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            debug!("Waiting for messages to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.broadcast_recv.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in broadcast queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.broadcast_recv.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
-            }
-        }
-        .instrument(info_span!("Libp2pNetwork::broadcast_queue"))
-        .boxed()
-    }
-
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<M, NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            debug!("Awaiting next broadcast");
-            let x = self.inner.broadcast_recv.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found broadcast");
-                Ok(x)
-            } else {
-                error!("The underlying MemoryNetwork has shutdown");
-                Err(NetworkError::ShutDown)
-            }
-        }
-        .instrument(info_span!("Libp2pNetwork::next_broadcast"))
-        .boxed()
-    }
-
-    fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            debug!("Waiting for messages to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.direct_recv.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in direct queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.direct_recv.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
-            }
-        }
-        .instrument(info_span!("Libp2pNetwork::direct_queue"))
-        .boxed()
-    }
-
-    fn next_direct(&self) -> BoxFuture<'_, Result<M, NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            debug!("Awaiting next direct");
-            let x = self.inner.direct_recv.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found direct");
-                Ok(x)
-            } else {
-                error!("The underlying MemoryNetwork has shutdown");
-                Err(NetworkError::ShutDown)
-            }
-        }
-        .instrument(info_span!("Libp2pNetwork::next_direct"))
-        .boxed()
-    }
-
-    fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>> {
-        async move {
+        nw_err(
             self.inner
-                .pubkey_to_pid
-                .iter()
-                .map(|kv| kv.pair().0.clone())
-                .collect()
-        }
-        .boxed()
+                .handle
+                .gossip("global".to_string(), &message)
+                .await,
+        )?;
+        // FIXME types
+        Err(NetworkError::ListenerSend)
+        // .instrument(info_span!("Libp2pNetwork::broadcast_message"))
     }
 
-    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
-        async move {
-            if !self.inner.handle.is_killed().await {
-                return Err(NetworkError::ShutDown);
-            }
-            let mut result = vec![];
-
-            // get peer ids that are new
-            let old_connected = self.inner.last_connection_set.connected_peers.clone();
-
-            // get peer ids that are old
-            let cur_connected = self.inner.handle.connected_peers().await;
-
-            // new - old -> added peers
-            let added_peers = cur_connected.difference(&old_connected);
-
-            for pid in added_peers {
-                if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
-                    result.push(NetworkChange::NodeConnected(pk.clone()));
-                }
-            }
-
-            let removed_peers = old_connected.difference(&cur_connected);
-
-            for pid in removed_peers {
-                if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
-                    result.push(NetworkChange::NodeDisconnected(pk.clone()));
-                }
-            }
-            Ok(result)
+    async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
         }
-        .boxed()
+        // check local cache. if that fails, initiate search
+        let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
+            *pid
+        } else {
+            nw_err(self.inner.handle.get_record(&recipient).await)?
+        };
+        nw_err(self.inner.handle.direct_request(pid, &message).await)?;
+        Ok(())
     }
 
-    fn shut_down(&self) -> BoxFuture<'_, ()> {
-        async move {
-            if self.inner.handle.is_killed().await {
-                self.inner.handle.shutdown().await.unwrap();
-            }
+    async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
         }
-        .boxed()
+        debug!("Waiting for messages to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.broadcast_recv.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in broadcast queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.broadcast_recv.try_recv() {
+                ret.push(x);
+            }
+            Ok(ret)
+        } else {
+            error!("The underlying MemoryNetwork has shut down");
+            Err(NetworkError::ShutDown)
+        }
+        // .instrument(info_span!("Libp2pNetwork::broadcast_queue"))
+        // .boxed()
     }
 
-    fn put_record(
+    async fn next_broadcast(&self) -> Result<M, NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
+        }
+        debug!("Awaiting next broadcast");
+        let x = self.inner.broadcast_recv.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found broadcast");
+            Ok(x)
+        } else {
+            error!("The underlying MemoryNetwork has shutdown");
+            Err(NetworkError::ShutDown)
+        }
+        // .instrument(info_span!("Libp2pNetwork::next_broadcast"))
+        // .boxed()
+    }
+
+    async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
+        }
+        debug!("Waiting for messages to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.direct_recv.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in direct queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.direct_recv.try_recv() {
+                ret.push(x);
+            }
+            Ok(ret)
+        } else {
+            error!("The underlying MemoryNetwork has shut down");
+            Err(NetworkError::ShutDown)
+        }
+        // .instrument(info_span!("Libp2pNetwork::direct_queue"))
+        // .boxed()
+    }
+
+    async fn next_direct(&self) -> Result<M, NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
+        }
+        debug!("Awaiting next direct");
+        let x = self.inner.direct_recv.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found direct");
+            Ok(x)
+        } else {
+            error!("The underlying MemoryNetwork has shutdown");
+            Err(NetworkError::ShutDown)
+        }
+        // .instrument(info_span!("Libp2pNetwork::next_direct"))
+        // .boxed()
+    }
+
+    async fn known_nodes(&self) -> Vec<PubKey> {
+        self.inner
+            .pubkey_to_pid
+            .iter()
+            .map(|kv| kv.pair().0.clone())
+            .collect()
+    }
+
+    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+        if !self.inner.handle.is_killed().await {
+            return Err(NetworkError::ShutDown);
+        }
+        let mut result = vec![];
+
+        // get peer ids that are new
+        let old_connected = self.inner.last_connection_set.connected_peers.clone();
+
+        // get peer ids that are old
+        let cur_connected = self.inner.handle.connected_peers().await;
+
+        // new - old -> added peers
+        let added_peers = cur_connected.difference(&old_connected);
+
+        for pid in added_peers {
+            if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
+                result.push(NetworkChange::NodeConnected(pk.clone()));
+            }
+        }
+
+        let removed_peers = old_connected.difference(&cur_connected);
+
+        for pid in removed_peers {
+            if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
+                result.push(NetworkChange::NodeDisconnected(pk.clone()));
+            }
+        }
+        Ok(result)
+    }
+
+    async fn shut_down(&self) {
+        if self.inner.handle.is_killed().await {
+            self.inner.handle.shutdown().await.unwrap();
+        }
+    }
+
+    async fn put_record(
         &self,
         key: impl Serialize + Send + Sync + 'static,
         value: impl Serialize + Send + Sync + 'static,
-    ) -> BoxFuture<'_, Result<(), NetworkError>> {
-        async move { nw_err(self.inner.handle.put_record(&key, &value).await) }.boxed()
+    ) -> Result<(), NetworkError> {
+        nw_err(self.inner.handle.put_record(&key, &value).await)
     }
 
-    fn get_record<V: for<'a> Deserialize<'a>>(
+    async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: impl Serialize + Send + Sync + 'static,
-    ) -> BoxFuture<'_, Result<V, NetworkError>> {
-        async move { nw_err(self.inner.handle.get_record(&key).await) }.boxed()
+    ) -> Result<V, NetworkError> {
+        nw_err(self.inner.handle.get_record(&key).await)
     }
 }
