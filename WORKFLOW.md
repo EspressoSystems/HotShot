@@ -1,3 +1,13 @@
+# Branch Naming Convention
+
+Branches to be merged must be named in the following fashion in order to trigger CI: 
+
+```
+$INITIALS/$DESCRIPTION
+```
+
+Example: if the initials are `jr` and the description is `add_a_feature`, then the branch would be `jr/add_a_feature`
+
 # Best Practices
 
 - No pushing to main at all, only through pull requests
