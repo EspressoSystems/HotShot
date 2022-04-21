@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, Deserialize};
 use snafu::Snafu;
 use std::time::Duration;
 
@@ -107,9 +107,6 @@ where
     /// Kludge function to work around leader election
     async fn known_nodes(&self) -> Vec<PubKey>;
 
-    /// Object safe clone
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
-
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError>;
 
@@ -117,6 +114,19 @@ where
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> ();
+
+    /// Insert `value` into the shared store under `key`.
+    async fn put_record(
+        &self,
+        key: impl Serialize + Send + Sync + 'static,
+        value: impl Serialize + Send + Sync + 'static,
+    ) -> Result<(), NetworkError>;
+
+    /// Get value stored in shared store under `key`
+    fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        key: impl Serialize + Send + Sync + 'static,
+    ) -> Result<V, NetworkError>;
 }
 
 /// Changes that can occur in the network

@@ -950,10 +950,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         self.inner.handles.iter().map(|x| x.key().clone()).collect()
     }
 
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
-        Box::new(self.clone())
-    }
-
     #[instrument(
         name="WNetwork::direct_queue",
         fields(node_id = ?self.inner.pub_key.nonce)
@@ -980,6 +976,21 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         // TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I'm not sure
         // I'll need some proper test cases
         unimplemented!();
+    }
+
+    fn put_record(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+        _value: impl Serialize + Send + Sync + 'static,
+    ) -> BoxFuture<'_, Result<(), NetworkError>> {
+        todo!()
+    }
+
+    fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+    ) -> BoxFuture<'_, Result<V, NetworkError>> {
+        todo!()
     }
 }
 

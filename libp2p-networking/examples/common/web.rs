@@ -1,4 +1,4 @@
-use networking_demo::network::NetworkNodeHandle;
+use libp2p_networking::network::NetworkNodeHandle;
 use std::{net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};
 
@@ -58,7 +58,7 @@ mod network_state {
     use std::collections::HashSet;
 
     use libp2p::PeerId;
-    use networking_demo::network::{ConnectionData, NetworkNodeConfig, NetworkNodeHandle};
+    use libp2p_networking::network::{ConnectionData, NetworkNodeConfig, NetworkNodeHandle};
 
     #[derive(serde::Serialize)]
     pub struct State<S: serde::Serialize> {
