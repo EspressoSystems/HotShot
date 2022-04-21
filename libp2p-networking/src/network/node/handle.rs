@@ -13,6 +13,7 @@ use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
+use phaselock_types::traits::network::NetworkError as PhaselockNetworkError;
 use phaselock_utils::{
     subscribable_mutex::SubscribableMutex, subscribable_rwlock::ThreadedReadView,
 };
@@ -513,6 +514,14 @@ impl<S: Clone> NetworkNodeHandle<S> {
     /// Get a clone of the internal state
     pub async fn state(&self) -> S {
         self.state.cloned().await
+    }
+}
+
+impl From<NetworkNodeHandleError> for PhaselockNetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        PhaselockNetworkError::Other {
+            inner: Box::new(error),
+        }
     }
 }
 
