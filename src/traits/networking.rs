@@ -12,7 +12,7 @@ pub mod memory_network;
 pub mod w_network;
 
 pub use phaselock_types::traits::network::{
-    BoxedFuture, ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
+    ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
     FailedToDeserializeSnafu, FailedToSerializeSnafu, IdentityHandshakeSnafu, ListenerSendSnafu,
     NetworkError, NetworkReliability, NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu,
     OtherSnafu, ShutDownSnafu, SocketDecodeSnafu, WebSocketSnafu,

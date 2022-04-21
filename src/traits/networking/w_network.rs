@@ -15,6 +15,7 @@ use async_std::{
     sync::{Mutex, RwLock},
     task::{sleep, spawn},
 };
+use async_trait::async_trait;
 use async_tungstenite::{
     accept_async, client_async,
     tungstenite::{error::Error as WsError, Message},
@@ -23,7 +24,8 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use flume::{Receiver, Sender};
-use futures::{channel::oneshot, future::BoxFuture, prelude::*};
+use futures::future::BoxFuture;
+use futures::{channel::oneshot, prelude::*};
 use phaselock_types::traits::network::NetworkChange;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
@@ -39,7 +41,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{BoxedFuture, NetworkingImplementation};
+use super::NetworkingImplementation;
 use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -604,7 +606,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
-    ) -> Option<Vec<BoxedFuture<Result<(), NetworkError>>>> {
+    ) -> Option<Vec<BoxFuture<'static, Result<(), NetworkError>>>> {
         let generated = self
             .inner
             .tasks_started
@@ -783,205 +785,198 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 }
 
+#[async_trait]
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
     NetworkingImplementation<T> for WNetwork<T>
 {
-    fn broadcast_message(&self, message: T) -> BoxFuture<'_, Result<(), super::NetworkError>> {
-        async move {
-            debug!(?message, "Broadcasting message");
-            // As a stop gap solution to be able to simulate network faults, this method will
-            // collect all the erros encountered during execution, completing all the completeable
-            // requests, before returning an error
-            let mut errors = vec![];
-            // Visit each handle in the map
-            for x in self.inner.handles.iter() {
-                // "Destruct" the RefMulti
-                let (key, handle) = x.pair();
-                trace!(?key, "Attempting to message remote");
-                // Flag an error if this handle has shut down
-                if *handle.shutdown.read().await {
-                    warn!(?key, "Handle to remote node shut down");
-                    errors.push(NetworkError::CouldNotDeliver);
-                }
-                // Pack up the message into a command
-                let id = self.get_next_message_id();
-                let command = Command::Broadcast {
-                    inner: message.clone(),
-                    from: self.inner.pub_key.clone(),
-                    id,
-                };
-                trace!(?command, "Packed up command");
-                // send message down pipe
-                let network_result = handle.outbound.send_async(command).await;
-                if let Err(e) = network_result {
-                    warn!(?e, "Failed to message remote node");
-                } else {
-                    trace!("Command sent to task");
-                }
+    #[instrument(
+        name="WNetwork::broadcast_message",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn broadcast_message(&self, message: T) -> Result<(), super::NetworkError> {
+        debug!(?message, "Broadcasting message");
+        // As a stop gap solution to be able to simulate network faults, this method will
+        // collect all the erros encountered during execution, completing all the completeable
+        // requests, before returning an error
+        let mut errors = vec![];
+        // Visit each handle in the map
+        for x in self.inner.handles.iter() {
+            // "Destruct" the RefMulti
+            let (key, handle) = x.pair();
+            trace!(?key, "Attempting to message remote");
+            // Flag an error if this handle has shut down
+            if *handle.shutdown.read().await {
+                warn!(?key, "Handle to remote node shut down");
+                errors.push(NetworkError::CouldNotDeliver);
             }
-            // Return the first error, if any
-            if errors.is_empty() {
-                Ok(())
+            // Pack up the message into a command
+            let id = self.get_next_message_id();
+            let command = Command::Broadcast {
+                inner: message.clone(),
+                from: self.inner.pub_key.clone(),
+                id,
+            };
+            trace!(?command, "Packed up command");
+            // send message down pipe
+            let network_result = handle.outbound.send_async(command).await;
+            if let Err(e) = network_result {
+                warn!(?e, "Failed to message remote node");
             } else {
-                Err(errors.remove(0))
-            }
-        }
-        .instrument(info_span!("WNetwork::broadcast_message",
-                               self.id = ?self.inner.pub_key.nonce,))
-        .boxed()
-    }
-
-    fn message_node(
-        &self,
-        message: T,
-        recipient: PubKey,
-    ) -> BoxFuture<'_, Result<(), super::NetworkError>> {
-        let r_id = recipient.nonce;
-        async move {
-            debug!(?message, "Messaging node");
-            // Attempt to locate node
-            if let Some(h) = self.inner.handles.get(&recipient) {
-                trace!("Handle found");
-                let handle = h.value();
-                // Flag an error if this handle was shut down
-                if *handle.shutdown.read().await {
-                    error!(?recipient, "Handle to remote node shut down");
-                    return Err(NetworkError::CouldNotDeliver);
-                }
-                // Pack up the message into a command
-                let id = self.get_next_message_id();
-                let command = Command::Direct {
-                    inner: message,
-                    from: self.inner.pub_key.clone(),
-                    to: recipient,
-                    id,
-                };
-                trace!(?command, "Packed up command");
-                // Send the message down the pipe
-                handle
-                    .outbound
-                    .send_async(command)
-                    .await
-                    .ok()
-                    .context(CouldNotDeliverSnafu)?;
                 trace!("Command sent to task");
-                Ok(())
-            } else {
-                error!(?message, ?recipient, "Node did not exist");
-                Err(NetworkError::NoSuchNode)
             }
         }
-        .instrument(info_span!("WNetwork::message_node",
-                              self.id = ?self.inner.pub_key.nonce,
-                              other.id = ?r_id))
-        .boxed()
-    }
-
-    fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<T>, super::NetworkError>> {
-        async move {
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.outputs.broadcast.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in broadcast queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.outputs.broadcast.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying WNetwork has shutdown");
-                Err(NetworkError::ShutDown)
-            }
+        // Return the first error, if any
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.remove(0))
         }
-        .instrument(info_span!("WNetwork::broadcast_queue", self.id = ?self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<T, super::NetworkError>> {
-        async move {
-            debug!("Awaiting next broadcast");
-            let x = self.inner.outputs.broadcast.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found Broadcast");
-                Ok(x)
-            } else {
-                error!("The underlying WNetwork has shutdown");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="WNetwork::message_node",
+        fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
+    )]
+    async fn message_node(&self, message: T, recipient: PubKey) -> Result<(), super::NetworkError> {
+        debug!(?message, "Messaging node");
+        // Attempt to locate node
+        if let Some(h) = self.inner.handles.get(&recipient) {
+            trace!("Handle found");
+            let handle = h.value();
+            // Flag an error if this handle was shut down
+            if *handle.shutdown.read().await {
+                error!(?recipient, "Handle to remote node shut down");
+                return Err(NetworkError::CouldNotDeliver);
             }
+            // Pack up the message into a command
+            let id = self.get_next_message_id();
+            let command = Command::Direct {
+                inner: message,
+                from: self.inner.pub_key.clone(),
+                to: recipient,
+                id,
+            };
+            trace!(?command, "Packed up command");
+            // Send the message down the pipe
+            handle
+                .outbound
+                .send_async(command)
+                .await
+                .ok()
+                .context(CouldNotDeliverSnafu)?;
+            trace!("Command sent to task");
+            Ok(())
+        } else {
+            error!(?message, ?recipient, "Node did not exist");
+            Err(NetworkError::NoSuchNode)
         }
-        .instrument(info_span!("WNetwork::next_broadcast", self.id = ?self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<T>, super::NetworkError>> {
-        async move {
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.outputs.direct.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in direct queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.outputs.direct.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying WNetwork has shutdown");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="WNetwork::broadcast_queue",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn broadcast_queue(&self) -> Result<Vec<T>, super::NetworkError> {
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.outputs.broadcast.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in broadcast queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.outputs.broadcast.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying WNetwork has shutdown");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("WNetwork::direct_queue", self.id = ?self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn next_direct(&self) -> BoxFuture<'_, Result<T, super::NetworkError>> {
-        async move {
-            debug!("Awaiting next direct message");
-            let x = self.inner.outputs.direct.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found direct message");
-                Ok(x)
-            } else {
-                error!("The underlying WNetwork has shutdown");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="WNetwork::next_broadcast",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn next_broadcast(&self) -> Result<T, super::NetworkError> {
+        debug!("Awaiting next broadcast");
+        let x = self.inner.outputs.broadcast.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found Broadcast");
+            Ok(x)
+        } else {
+            error!("The underlying WNetwork has shutdown");
+            Err(NetworkError::ShutDown)
+        }
+    }
+
+    #[instrument(
+        name="WNetwork::direct_queue",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn direct_queue(&self) -> Result<Vec<T>, super::NetworkError> {
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.outputs.direct.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in direct queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.outputs.direct.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying WNetwork has shutdown");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("WNetwork::next_direct", self.id = ?self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>> {
-        async move { self.inner.handles.iter().map(|x| x.key().clone()).collect() }.boxed()
+    #[instrument(
+        name="WNetwork::next_direct",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn next_direct(&self) -> Result<T, super::NetworkError> {
+        debug!("Awaiting next direct message");
+        let x = self.inner.outputs.direct.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found direct message");
+            Ok(x)
+        } else {
+            error!("The underlying WNetwork has shutdown");
+            Err(NetworkError::ShutDown)
+        }
+    }
+
+    async fn known_nodes(&self) -> Vec<PubKey> {
+        self.inner.handles.iter().map(|x| x.key().clone()).collect()
     }
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
     }
 
-    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
-        async move {
-            debug!("Waiting for network changes to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.network_change_output.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in network changes queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.network_change_output.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="WNetwork::direct_queue",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+        debug!("Waiting for network changes to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.network_change_output.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in network changes queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.network_change_output.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying WNetwork has shut down");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn shut_down(&self) -> BoxFuture<'_, ()> {
+    async fn shut_down(&self) {
         // TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I'm not sure
         // I'll need some proper test cases
         unimplemented!();

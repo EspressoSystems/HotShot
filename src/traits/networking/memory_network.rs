@@ -7,10 +7,10 @@ use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, Networking
 use crate::PubKey;
 use async_std::sync::RwLock;
 use async_std::task::spawn;
+use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
-use futures::future::BoxFuture;
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use phaselock_types::traits::network::NetworkChange;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
@@ -283,201 +283,183 @@ where
     }
 }
 
+#[async_trait]
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     NetworkingImplementation<T> for MemoryNetwork<T>
 {
-    fn broadcast_message(
-        &self,
-        message: T,
-    ) -> futures::future::BoxFuture<'_, Result<(), NetworkError>> {
-        async move {
-            debug!(?message, "Broadcasting message");
-            // Bincode the message
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-            let vec = bincode_options
-                .serialize(&message)
-                .context(FailedToSerializeSnafu)?;
-            trace!("Message bincoded, sending");
-            for node in self.inner.master_map.map.iter() {
-                let (key, node) = node.pair();
-                trace!(?key, "Sending message to node");
-                let res = node.broadcast_input(vec.clone()).await;
-                match res {
-                    Ok(_) => trace!(?key, "Delivered message to remote"),
-                    Err(e) => {
-                        error!(?e, ?key, "Error sending broadcast message to node");
-                        return Err(NetworkError::CouldNotDeliver);
-                    }
+    #[instrument(
+        name="MemoryNetwork::broadcast_message",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn broadcast_message(&self, message: T) -> Result<(), NetworkError> {
+        debug!(?message, "Broadcasting message");
+        // Bincode the message
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let vec = bincode_options
+            .serialize(&message)
+            .context(FailedToSerializeSnafu)?;
+        trace!("Message bincoded, sending");
+        for node in self.inner.master_map.map.iter() {
+            let (key, node) = node.pair();
+            trace!(?key, "Sending message to node");
+            let res = node.broadcast_input(vec.clone()).await;
+            match res {
+                Ok(_) => trace!(?key, "Delivered message to remote"),
+                Err(e) => {
+                    error!(?e, ?key, "Error sending broadcast message to node");
+                    return Err(NetworkError::CouldNotDeliver);
                 }
             }
-            Ok(())
         }
-        .instrument(
-            info_span!("MemoryNetwork::broadcast_message", self.id = ?self.inner.pub_key.nonce),
-        )
-        .boxed()
+        Ok(())
     }
 
-    fn message_node(
-        &self,
-        message: T,
-        recipient: PubKey,
-    ) -> futures::future::BoxFuture<'_, Result<(), NetworkError>> {
-        async move {
-            debug!(?message, ?recipient, "Sending direct message");
-            // Bincode the message
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-            let vec = bincode_options
-                .serialize(&message)
-                .context(FailedToSerializeSnafu)?;
-            trace!("Message bincoded, finding recipient");
-            if let Some(node) = self.inner.master_map.map.get(&recipient) {
-                let node = node.value();
-                let res = node.direct_input(vec).await;
-                match res {
-                    Ok(_) => {
-                        trace!(?recipient, "Delivered message to remote");
-                        Ok(())
-                    }
-                    Err(e) => {
-                        error!(?e, ?recipient, "Error delivering direct message");
-                        Err(NetworkError::CouldNotDeliver)
-                    }
+    #[instrument(
+        name="MemoryNetwork::message_node",
+        fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
+    )]
+    async fn message_node(&self, message: T, recipient: PubKey) -> Result<(), NetworkError> {
+        debug!(?message, ?recipient, "Sending direct message");
+        // Bincode the message
+        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let vec = bincode_options
+            .serialize(&message)
+            .context(FailedToSerializeSnafu)?;
+        trace!("Message bincoded, finding recipient");
+        if let Some(node) = self.inner.master_map.map.get(&recipient) {
+            let node = node.value();
+            let res = node.direct_input(vec).await;
+            match res {
+                Ok(_) => {
+                    trace!(?recipient, "Delivered message to remote");
+                    Ok(())
                 }
-            } else {
-                error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
-                Err(NetworkError::NoSuchNode)
-            }
-        }
-        .instrument(info_span!("MemoryNetwork::message_node", self.id = ?self.inner.pub_key.nonce))
-        .boxed()
-    }
-
-    fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<T>, NetworkError>> {
-        async move {
-            debug!("Waiting for messages to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.broadcast_output.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in broadcast queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.broadcast_output.try_recv() {
-                    ret.push(x);
+                Err(e) => {
+                    error!(?e, ?recipient, "Error delivering direct message");
+                    Err(NetworkError::CouldNotDeliver)
                 }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
             }
+        } else {
+            error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
+            Err(NetworkError::NoSuchNode)
         }
-        .instrument(
-            info_span!("MemoryNetwork::broadcast_queue", self.id = ? self.inner.pub_key.nonce),
-        )
-        .boxed()
     }
 
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<T, NetworkError>> {
-        async move {
-            debug!("Awaiting next broadcast");
-            let x = self.inner.broadcast_output.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found broadcast");
-                Ok(x)
-            } else {
-                error!("The underlying MemoryNetwork has shutdown");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="MemoryNetwork::broadcast_queue",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn broadcast_queue(&self) -> Result<Vec<T>, NetworkError> {
+        debug!("Waiting for messages to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.broadcast_output.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in broadcast queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.broadcast_output.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying MemoryNetwork has shut down");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(
-            info_span!("MemoryNetwork::next_broadcast", self.id = ? self.inner.pub_key.nonce),
-        )
-        .boxed()
     }
 
-    fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<T>, NetworkError>> {
-        async move {
-            debug!("Waiting for messages to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.direct_output.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in direct queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.direct_output.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
-            }
+    #[instrument(
+        name="MemoryNetwork::next_broadcast",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn next_broadcast(&self) -> Result<T, NetworkError> {
+        debug!("Awaiting next broadcast");
+        let x = self.inner.broadcast_output.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found broadcast");
+            Ok(x)
+        } else {
+            error!("The underlying MemoryNetwork has shutdown");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn next_direct(&self) -> BoxFuture<'_, Result<T, NetworkError>> {
-        async move {
-            debug!("Awaiting next direct");
-            let x = self.inner.direct_output.recv_async().await;
-            if let Ok(x) = x {
-                trace!(?x, "Found direct");
-                Ok(x)
-            } else {
-                error!("The underlying MemoryNetwork has shutdown");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="MemoryNetwork::direct_queue",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn direct_queue(&self) -> Result<Vec<T>, NetworkError> {
+        debug!("Waiting for messages to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.direct_output.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in direct queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.direct_output.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying MemoryNetwork has shut down");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("MemoryNetwork::next_direct", self.id = ? self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>> {
-        async move {
-            self.inner
-                .master_map
-                .map
-                .iter()
-                .map(|x| x.key().clone())
-                .collect()
+    #[instrument(
+        name="MemoryNetwork::next_direct",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn next_direct(&self) -> Result<T, NetworkError> {
+        debug!("Awaiting next direct");
+        let x = self.inner.direct_output.recv_async().await;
+        if let Ok(x) = x {
+            trace!(?x, "Found direct");
+            Ok(x)
+        } else {
+            error!("The underlying MemoryNetwork has shutdown");
+            Err(NetworkError::ShutDown)
         }
-        .boxed()
+    }
+
+    async fn known_nodes(&self) -> Vec<PubKey> {
+        self.inner
+            .master_map
+            .map
+            .iter()
+            .map(|x| x.key().clone())
+            .collect()
     }
 
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
         Box::new(self.clone())
     }
 
-    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
-        async move {
-            debug!("Waiting for network changes to show up");
-            let mut ret = Vec::new();
-            // Wait for the first message to come up
-            let first = self.inner.network_changes_output.recv_async().await;
-            if let Ok(first) = first {
-                trace!(?first, "First message in network changes queue found");
-                ret.push(first);
-                while let Ok(x) = self.inner.network_changes_output.try_recv() {
-                    ret.push(x);
-                }
-                Ok(ret)
-            } else {
-                error!("The underlying MemoryNetwork has shut down");
-                Err(NetworkError::ShutDown)
+    #[instrument(
+        name="MemoryNetwork::network_changes",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+        debug!("Waiting for network changes to show up");
+        let mut ret = Vec::new();
+        // Wait for the first message to come up
+        let first = self.inner.network_changes_output.recv_async().await;
+        if let Ok(first) = first {
+            trace!(?first, "First message in network changes queue found");
+            ret.push(first);
+            while let Ok(x) = self.inner.network_changes_output.try_recv() {
+                ret.push(x);
             }
+            Ok(ret)
+        } else {
+            error!("The underlying MemoryNetwork has shut down");
+            Err(NetworkError::ShutDown)
         }
-        .instrument(info_span!("MemoryNetwork::direct_queue", self.id = ? self.inner.pub_key.nonce))
-        .boxed()
     }
 
-    fn shut_down(&self) -> BoxFuture<'_, ()> {
-        async move {
-            *self.inner.broadcast_input.write().await = None;
-            *self.inner.direct_input.write().await = None;
-            *self.inner.network_changes_input.write().await = None;
-        }
-        .boxed()
+    async fn shut_down(&self) {
+        *self.inner.broadcast_input.write().await = None;
+        *self.inner.direct_input.write().await = None;
+        *self.inner.network_changes_input.write().await = None;
     }
 }
 
