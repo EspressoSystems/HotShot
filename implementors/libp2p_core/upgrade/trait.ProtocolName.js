@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["networking_demo"] = [{"text":"impl ProtocolName for <a class=\"struct\" href=\"networking_demo/direct_message/struct.DirectMessageProtocol.html\" title=\"struct networking_demo::direct_message::DirectMessageProtocol\">DirectMessageProtocol</a>","synthetic":false,"types":["networking_demo::direct_message::DirectMessageProtocol"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

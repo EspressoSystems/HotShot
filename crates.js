@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["phaselock","threshold_crypto"];
+window.ALL_CRATES = ["clichat","counter","dentry_simulator","multi_machine","networking_demo","phaselock"];

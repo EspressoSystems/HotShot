@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["StaticCommittee","Dummy implementation of [`Election`]"]],"trait":[["Election","Describes how `PhaseLock` chooses committees and leaders"]]});
+initSidebarItems({"struct":[["StaticCommittee","Dummy implementation of [`Election`]"]]});

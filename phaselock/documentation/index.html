@@ -1,6 +1,10 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="PhaseLock: A linear time, committee electing, BFT Protocol."><meta name="keywords" content="rust, rustlang, rust-lang, documentation"><title>phaselock::documentation - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script>
-    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../phaselock/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.png" alt="logo"></div>
-        </a><h2 class="location">Module documentation</h2><div class="sidebar-elems"><div id="sidebar-vars" data-name="documentation" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../phaselock/index.html"><img class="rust-logo" src="../../rust-logo.png" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">phaselock</a>::<wbr><a class="mod" href="#">documentation</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/phaselock/documentation.rs.html#2-9" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="phaselock-a-linear-time-committee-electing-bft-protocol" class="section-header"><a href="#phaselock-a-linear-time-committee-electing-bft-protocol">PhaseLock: A linear time, committee electing, BFT Protocol.</a></h2><h3 id="table-of-contents" class="section-header"><a href="#table-of-contents">Table of contents</a></h3>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../phaselock/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../phaselock/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Module documentation</a></h2><div class="sidebar-elems"><div id="sidebar-vars" data-name="documentation" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../phaselock/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Module <a href="../index.html">phaselock</a>::<wbr><a class="mod" href="#">documentation</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../../src/phaselock/documentation.rs.html#2-9">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="phaselock-a-linear-time-committee-electing-bft-protocol"><a href="#phaselock-a-linear-time-committee-electing-bft-protocol">PhaseLock: A linear time, committee electing, BFT Protocol.</a></h2><h3 id="table-of-contents"><a href="#table-of-contents">Table of contents</a></h3>
 <ol>
 <li><a href="#background">Background</a></li>
 <li><a href="#protocol-overview">Protocol Overview</a>
@@ -30,19 +34,19 @@
 </ol>
 </li>
 </ol>
-<h2 id="background" class="section-header"><a href="#background">Background</a></h2>
+<h2 id="background"><a href="#background">Background</a></h2>
 <p>PhaseLock is a hybrid, committee electing, Proof of Stake protocol for the partially synchronous model that exhibits
 optimistic responsiveness and linear communication footprint.</p>
 <p>PhaseLock’s construction borrows heavily from the construction of <a href="https://arxiv.org/abs/1803.05069">Hotstuff</a> and
 <a href="https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf">Algorand</a>, in many senses being a synthesis of
 Hotstuff’s protocol with Algorand’s sortition.</p>
-<h2 id="protocol-overview" class="section-header"><a href="#protocol-overview">Protocol Overview</a></h2>
+<h2 id="protocol-overview"><a href="#protocol-overview">Protocol Overview</a></h2>
 <p>PhaseLock comes in two variants, <a href="#pipelined">Pipelined Phaselock</a> and <a href="#sequential">Sequential Phaselock</a>.
 Sequential PhaseLock is the simpler of the two variants, and is the basal form, from which Pipelined PhaseLock is
 derived, so it will be discussed first.</p>
-<h3 id="basics" class="section-header"><a href="#basics">Basics</a></h3>
+<h3 id="basics"><a href="#basics">Basics</a></h3>
 <p>The operation of PhaseLock is divided in to a sequence of discrete epoch, referred to as
-‘views’. Each view is assigned an integer index (represented as a <a href="https://doc.rust-lang.org/1.59.0/std/primitive.u64.html" title="u64"><code>u64</code></a>) starting with 0, which is
+‘views’. Each view is assigned an integer index (represented as a <a href="https://doc.rust-lang.org/1.60.0/std/primitive.u64.html" title="u64"><code>u64</code></a>) starting with 0, which is
 monotonically increasing.</p>
 <p>In each view number, a singe node is designated the ‘leader’<sup id="fnref1"><a href="#fn1">1</a></sup>, and is responsible for driving
 consensus for that round. The leader changes with each view number, and every caught-up node
@@ -53,7 +57,7 @@ voting. </p>
 <p>All nodes maintain an internal reference to a Quorum Certificated called the LockedQC, which is
 updated when the node commits a Leaf. Nodes will only accept leaves that extend from their LockedQC
 <em>or</em> leaves that extend from a QC with a view number higher than that of any QC the node has seen.</p>
-<h4 id="view-timeouts" class="section-header"><a href="#view-timeouts">View Timeouts</a></h4>
+<h4 id="view-timeouts"><a href="#view-timeouts">View Timeouts</a></h4>
 <p>The particular method a node uses to determine if a round has timed out is not important for saftey,
 but is critical for liveness.</p>
 <p>Currently, nodes apply an approach where the timeout normally takes on a set value, but engages in
@@ -63,7 +67,7 @@ same view number to complete a round.</p>
 back down to the set timeout value.</p>
 <p>As the protocol exhibits optimistic responsiveness<sup id="fnref2"><a href="#fn2">2</a></sup>, there is little detriment to setting the
 base value for timeouts higher than is strictly necessary.</p>
-<h3 id="sequential" class="section-header"><a href="#sequential">Sequential</a></h3>
+<h3 id="sequential"><a href="#sequential">Sequential</a></h3>
 <p>Sequential PhaseLock does not currently support committee election or dynamically updating the
 membership list, instead using a predefined list of participant nodes with equal weights. Sequential
 PhaseLock is essentially identical to <a href="https://arxiv.org/pdf/1803.05069.pdf">Basic HotStuff</a>.</p>
@@ -71,7 +75,7 @@ PhaseLock is essentially identical to <a href="https://arxiv.org/pdf/1803.05069.
 node is the leader or a replica. Upon either reviving a commit QC in a round, or the round timing
 out, a node will calculate the next leader, and send a NewView message for the next view number to
 it, tagged with the nodes current prepareQC.</p>
-<h4 id="sequential-leader" class="section-header"><a href="#sequential-leader">Sequential Leader</a></h4>
+<h4 id="sequential-leader"><a href="#sequential-leader">Sequential Leader</a></h4>
 <ol>
 <li>
 <p>Prepare</p>
@@ -114,7 +118,7 @@ phase</li>
 </ul>
 </li>
 </ol>
-<h4 id="sequential-replica" class="section-header"><a href="#sequential-replica">Sequential Replica</a></h4>
+<h4 id="sequential-replica"><a href="#sequential-replica">Sequential Replica</a></h4>
 <ol>
 <li>
 <p>Prepare</p>
@@ -158,14 +162,14 @@ phase</li>
 <li>Executes the commands between the previously committed Leaf and the one in the proposal for this
 view</li>
 </ul>
-<h3 id="pipelined" class="section-header"><a href="#pipelined">Pipelined</a></h3><h2 id="appendices" class="section-header"><a href="#appendices">Appendices</a></h2><h3 id="definitions" class="section-header"><a href="#definitions">Definitions</a></h3><h4 id="quorum-certificate" class="section-header"><a href="#quorum-certificate">Quorum Certificate</a></h4>
+<h3 id="pipelined"><a href="#pipelined">Pipelined</a></h3><h2 id="appendices"><a href="#appendices">Appendices</a></h2><h3 id="definitions"><a href="#definitions">Definitions</a></h3><h4 id="quorum-certificate"><a href="#quorum-certificate">Quorum Certificate</a></h4>
 <p>A Quorum Certificate is a threshold signature of a <a href="../data/struct.Leaf.html"><code>Leaf</code></a>, composed of
 signatures from at least <code>2f + 1</code> nodes.</p>
 <p>In the case of sequential phaselock, or pipelined phaselock without committee election, <code>f</code> is
 defined to be the maximum number of faulty nodes the network can tolerate.</p>
 <p>In the case of pipelined phaselock with committee election, <code>f</code> is defined to be the maximum number
 of faulty committee seats the network can tolerate.</p>
-<h4 id="safe-node-predicate" class="section-header"><a href="#safe-node-predicate">Safe Node Predicate</a></h4>
+<h4 id="safe-node-predicate"><a href="#safe-node-predicate">Safe Node Predicate</a></h4>
 <p>The safe node predicate can be defined using the following rust-like psuedo code</p>
 
 <div class='information'><div class='tooltip ignore'>ⓘ</div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore"><code><span class="kw">fn</span> <span class="ident">safe_node</span>(
@@ -182,5 +186,5 @@ justification quorum certificate with a view number higher than that of the node
 locked_qc.</p>
 <div class="footnotes"><hr><ol><li id="fn1"><p>Though, it should be noted, that it technically valid for the election process to specifiy
 arbitrarily many leaders for a round, but at most one of them will be able to make progress&nbsp;<a href="#fnref1">↩</a></p></li><li id="fn2"><p>The network will complete a view and move on to the next one as fast as network conditions,
-irrespective of the timeout value for the round&nbsp;<a href="#fnref2">↩</a></p></li></ol></div></div></details></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
+irrespective of the timeout value for the round&nbsp;<a href="#fnref2">↩</a></p></li></ol></div></div></details></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.60.0 (7737e0b5c 2022-04-04)" ></div>
 </body></html>
