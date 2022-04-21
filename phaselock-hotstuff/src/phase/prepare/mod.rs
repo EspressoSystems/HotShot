@@ -1,29 +1,33 @@
-#![allow(dead_code, unused_imports, unused_variables)]
+//! Prepare implementation
 
 mod leader;
 mod replica;
 
-use super::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx};
+use super::{err, precommit::PreCommitPhase, Progress, UpdateCtx};
 use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
-    data::{Leaf, QuorumCertificate, Stage},
-    error::{FailedToBroadcastSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
+    data::{Leaf, Stage},
+    error::{FailedToBroadcastSnafu, StorageSnafu},
+    message::{ConsensusMessage, Prepare, PrepareVote},
+    traits::{node_implementation::NodeImplementation, storage::Storage},
 };
 use replica::PrepareReplica;
 use snafu::ResultExt;
 use std::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::debug;
 
+/// The prepare phase
 #[derive(Debug)]
 pub(crate) enum PreparePhase<const N: usize> {
+    /// Leader phase
     Leader(PrepareLeader<N>),
+    /// Replica phase
     Replica(PrepareReplica),
 }
 
 impl<const N: usize> PreparePhase<N> {
+    /// Create a new [`PreparePhase`]
     pub(super) fn new(is_leader: bool) -> Self {
         if is_leader {
             Self::Leader(PrepareLeader::new())
@@ -32,6 +36,11 @@ impl<const N: usize> PreparePhase<N> {
         }
     }
 
+    /// Update the current phase, returning the next phase if this phase is done.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if this phase is in an incorrect state or if the underlying [`ConsensusApi`] returns an error.
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
@@ -55,16 +64,28 @@ impl<const N: usize> PreparePhase<N> {
     }
 }
 
+/// The outcome of the current [`PreparePhase`]
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
+    /// A list of added transactions.
     added_transactions: Vec<TransactionState<I, N>>,
+    /// A list of rejected transactions
     rejected_transactions: Vec<TransactionState<I, N>>,
+    /// The new leaf
     new_leaf: Leaf<I::Block, N>,
+    /// The new state
     new_state: I::State,
+    /// The prepare block that we proposed or voted on
     prepare: Prepare<I::Block, I::State, N>,
+    /// The vote that was cast this round. This is only `None` if we were a leader and `leader_acts_as_replica` is `false`.
     vote: Option<PrepareVote<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
+    /// execute the given outcome, returning the next phase
+    ///
+    /// # Errors
+    ///
+    /// will return an error if the underlying `Storage` or `NetworkImplementation` returns an error.
     async fn execute<A: ConsensusApi<I, N>>(
         self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
@@ -78,7 +99,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             vote,
         } = self;
 
-        let was_leader = ctx.api.is_leader(ctx.view_number.0, Stage::Prepare).await;
+        let was_leader = ctx.is_leader;
         let next_leader = ctx
             .api
             .get_leader(ctx.view_number.0, Stage::PreCommit)

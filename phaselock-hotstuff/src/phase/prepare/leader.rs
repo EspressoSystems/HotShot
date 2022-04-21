@@ -1,28 +1,30 @@
+//! Prepare leader implementation
+
 use super::Outcome;
 use crate::{
-    phase::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx},
-    utils, ConsensusApi, Result, TransactionLink, TransactionState, ViewNumber,
+    phase::{err, UpdateCtx},
+    ConsensusApi, Result, TransactionState,
 };
 use phaselock_types::{
-    data::{Leaf, QuorumCertificate, Stage, TransactionHash},
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, PrepareVote, Vote},
-    traits::{
-        node_implementation::NodeImplementation, storage::Storage, BlockContents, State,
-        Transaction,
-    },
+    data::{Leaf, QuorumCertificate, Stage},
+    error::PhaseLockError,
+    message::{NewView, Prepare, PrepareVote, Vote},
+    traits::{node_implementation::NodeImplementation, BlockContents, State},
 };
-use snafu::ResultExt;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
+/// A prepare leader
 #[derive(Debug)]
 pub(crate) struct PrepareLeader<const N: usize> {
+    /// The `high_qc` that was calculated
     high_qc: Option<QuorumCertificate<N>>,
+    /// The timestamp at which this round started. This will be after enough `NewView` messages have been received
     round_start: Option<Instant>,
 }
 
 impl<const N: usize> PrepareLeader<N> {
+    /// Create a new leader
     pub(super) fn new() -> Self {
         Self {
             high_qc: None,
@@ -30,12 +32,24 @@ impl<const N: usize> PrepareLeader<N> {
         }
     }
 
+    /// Update this leader. This will:
+    /// - Wait for [`NewView`] messages until the threshold is reached
+    /// - Calculate a `high_qc`
+    /// - Wait for at least `propose_min_round_time`
+    /// - Wait for at least 1 transaction to show up, or until `propose_max_round_time` has been elapsed
+    /// - Propose a round based on the given transactions, returning [`Outcome`]
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if:
+    /// - The underlying [`ConsensusApi`] encountered an error
+    /// - The proposed block could not have been added to the state
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<super::Outcome<I, N>>> {
+    ) -> Result<Option<Outcome<I, N>>> {
         if self.high_qc.is_none() {
-            let view_messages = ctx.new_view_messages().collect::<Vec<_>>();
+            let view_messages: Vec<&NewView<N>> = ctx.new_view_messages().collect();
             if view_messages.len() as u64 >= ctx.api.threshold().get() {
                 // this `.unwrap()` is fine because `api.threshold()` is a NonZeroU64.
                 // `max_by_key` only returns `None` if there are no entries, but we check above that there is at least 1 entry.
@@ -80,6 +94,11 @@ impl<const N: usize> PrepareLeader<N> {
         Ok(Some(outcome))
     }
 
+    /// Propose a round with the given `transactions`.
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn propose_round<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -94,7 +113,6 @@ impl<const N: usize> PrepareLeader<N> {
         let state = ctx.get_state_by_leaf(&leaf_hash).await?;
         trace!(?state, ?leaf_hash);
         let mut block = state.next_block();
-        let view_number = ctx.view_number;
         let current_view = ctx.view_number.0;
 
         // try to append unclaimed transactions to the block
@@ -127,7 +145,7 @@ impl<const N: usize> PrepareLeader<N> {
         }
 
         // Create new leaf and add it to the store
-        let new_leaf = Leaf::new(block.clone(), high_qc.leaf_hash);
+        let new_leaf = Leaf::new(block, high_qc.leaf_hash);
         // let the_hash = new_leaf.hash();
         let new_state = state.append(&new_leaf.item).map_err(|error| {
             error!(?error, "Failed to append block to existing state");
@@ -145,8 +163,6 @@ impl<const N: usize> PrepareLeader<N> {
         let leaf_hash = new_leaf.hash();
 
         // if the leader can vote like a replica, cast this vote now
-        let next_leader = ctx.api.get_leader(current_view, Stage::PreCommit).await;
-        let is_leader_next_phase = ctx.api.public_key() == &next_leader;
         let vote = if ctx.api.leader_acts_as_replica() {
             let signature =
                 ctx.api

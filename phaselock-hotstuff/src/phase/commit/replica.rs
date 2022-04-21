@@ -12,14 +12,28 @@ use phaselock_types::{
 use snafu::ResultExt;
 use tracing::{error, trace};
 
+/// The replica
 #[derive(Debug)]
 pub struct CommitReplica {}
 
 impl CommitReplica {
+    /// Create a new replica
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Update the replica. This will:
+    /// - Wait for an incoming [`Commit`]
+    /// - Get the leaf from the incoming commit
+    /// - Verify the commit QC is valid
+    /// - Create a new vote and sign it
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if:
+    /// - The leaf could not be loaded
+    /// - The QC is invalid
+    /// - A vote signature could not be made
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -34,6 +48,11 @@ impl CommitReplica {
         Ok(Some(outcome))
     }
 
+    /// Vote on the given [`Commit`]
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

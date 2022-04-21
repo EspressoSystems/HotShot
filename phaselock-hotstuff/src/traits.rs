@@ -1,3 +1,5 @@
+//! Contains the [`ConsensusApi`] trait.
+
 use async_trait::async_trait;
 use phaselock_types::{
     data::Stage,
@@ -10,6 +12,7 @@ use phaselock_types::{
 };
 use std::{num::NonZeroU64, sync::Arc, time::Duration};
 
+/// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `phaselock` crate and passed to all functions on `HotStuff`.
 #[async_trait]
 pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
@@ -39,12 +42,14 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// In production code this should probably always return `true`.
     async fn should_start_round(&self, view_number: u64) -> bool;
 
+    /// Send a direct message to the given recipient
     async fn send_direct_message(
         &mut self,
         recipient: PubKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
+    /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,

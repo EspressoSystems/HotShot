@@ -8,14 +8,17 @@ use phaselock_types::{
 };
 use tracing::debug;
 
+/// a precommit leader
 #[derive(Debug)]
-#[allow(dead_code)]
 pub(crate) struct PreCommitLeader<I: NodeImplementation<N>, const N: usize> {
+    /// The prepare block that was proposed or voted on last stage.
     prepare: Prepare<I::Block, I::State, N>,
+    /// The vote that we might have casted ourselves last stage.
     vote: Option<PrepareVote<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
+    /// Create a new leader
     pub(super) fn new(
         prepare: Prepare<I::Block, I::State, N>,
         vote: Option<PrepareVote<N>>,
@@ -23,6 +26,18 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         Self { prepare, vote }
     }
 
+    /// Update this leader. This will:
+    /// - Get all [`PrepareVote`] messages directed at the given [`Prepare`]
+    /// - Once enough votes have been received:
+    ///   - Combine the signatures
+    ///   - Crate a new [`PreCommit`]
+    ///   - Optionally create a vote
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if:
+    /// - the signatures could not be combined
+    /// - A vote could not be signed
     pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -45,6 +60,11 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         }
     }
 
+    /// Create a commit from the given [`Prepare`] and [`PrepareVote`]s
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn create_commit<A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,

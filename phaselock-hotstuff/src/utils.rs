@@ -1,3 +1,5 @@
+//! Utility functions
+
 use crate::{ConsensusApi, Result};
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate},
@@ -7,6 +9,11 @@ use phaselock_types::{
 use snafu::ResultExt;
 use tracing::{debug, error, trace, warn};
 
+/// Check if the given `new_qc` is considered a "safe node".
+///
+/// `known_qc` is a QC that is known to be good (probably loaded from `api.storage()`)
+///
+/// If any storage-based error occurs, this will return `false`
 pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
     api: &A,
     known_qc: &QuorumCertificate<N>,
@@ -53,6 +60,11 @@ pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, c
     false
 }
 
+/// Walk the given `walk_leaf` up until we reach `old_leaf_hash`. Existing leafs will be loaded from `api.storage().get_leaf(&hash)`.
+///
+/// # Errors
+///
+/// Will return an error if the underlying storage returns an error.
 pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
     api: &A,
     mut walk_leaf: LeafHash<N>,

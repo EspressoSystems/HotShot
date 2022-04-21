@@ -1,3 +1,5 @@
+//! The update context that is used by the different phases.
+
 use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
 use phaselock_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
@@ -13,15 +15,26 @@ use phaselock_types::{
 };
 use snafu::ResultExt;
 
+/// The update context that is used by the different phases.
 pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> {
+    /// A reference to the [`ConsensusApi`] for e.g. loading information, getting config or sending messages.
     pub(super) api: &'a mut A,
+    /// The current view number
     pub(super) view_number: ViewNumber,
+    /// All transactions that have been received. These will also include the transactions that have been proposed.
     pub(super) transactions: &'a [TransactionState<I, N>],
+    /// All messages that have been received this round
     pub(super) messages: &'a [<I as TypeMap<N>>::ConsensusMessage],
+    /// `true` if this phase is leader in this round.
     pub(super) is_leader: bool,
 }
 
 impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> UpdateCtx<'a, I, A, N> {
+    /// Get a leaf by its own [`LeafHash`]
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the underlying storage returns an error
     pub(super) async fn get_leaf(&self, leaf_hash: &LeafHash<N>) -> Result<Leaf<I::Block, N>> {
         self.api
             .storage()
@@ -31,6 +44,11 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .or_not_found(leaf_hash)
     }
 
+    /// Get a leaf by the given [`BlockHash`]
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the underlying storage returns an error
     pub(super) async fn get_leaf_by_block(
         &self,
         block: &BlockHash<N>,
@@ -43,6 +61,11 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .or_not_found(block)
     }
 
+    /// Get a state by the given [`LeafHash`]
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the underlying storage returns an error
     pub(super) async fn get_state_by_leaf(&self, leaf: &LeafHash<N>) -> Result<I::State> {
         self.api
             .storage()
@@ -52,6 +75,11 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .or_not_found(leaf)
     }
 
+    /// Get the newest QC from the storage.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the underlying storage returns an error
     pub(super) async fn get_newest_qc(&self) -> Result<Option<QuorumCertificate<N>>> {
         self.api
             .storage()
@@ -60,6 +88,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .context(StorageSnafu)
     }
 
+    /// Get all messages that match filter `filter`
     fn messages<'this, FN, RET>(&'this self, filter: FN) -> impl Iterator<Item = RET> + 'this
     where
         FN: FnMut(&'this <I as TypeMap<N>>::ConsensusMessage) -> Option<RET> + 'this,
@@ -67,6 +96,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         self.messages.iter().filter_map(filter)
     }
 
+    /// Get all [`NewView`] messages that were received
     pub(super) fn new_view_messages(&self) -> impl Iterator<Item = &NewView<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::NewView(nv) = m {
@@ -77,6 +107,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         })
     }
 
+    /// Get the first [`Prepare`] message that was received.
     pub(super) fn prepare_message(&self) -> Option<&Prepare<I::Block, I::State, N>> {
         self.messages(|m| {
             if let ConsensusMessage::Prepare(prepare) = m {
@@ -88,6 +119,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         .last()
     }
 
+    /// Get all [`PrepareVote`] messages that were received
     pub(super) fn prepare_vote_messages(&self) -> impl Iterator<Item = &PrepareVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::PrepareVote(prepare) = m {
@@ -98,7 +130,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         })
     }
 
-    #[allow(dead_code)] // TODO(vko): cleanup
+    /// Get the first [`PreCommit`] message that was received.
     pub(super) fn pre_commit_message(&self) -> Option<&PreCommit<N>> {
         self.messages(|m| {
             if let ConsensusMessage::PreCommit(prepare) = m {
@@ -110,7 +142,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         .last()
     }
 
-    #[allow(dead_code)] // TODO(vko): cleanup
+    /// Get all [`PreCommitVote`] messages that were received
     pub(super) fn pre_commit_vote_messages(&self) -> impl Iterator<Item = &PreCommitVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::PreCommitVote(prepare) = m {
@@ -121,7 +153,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         })
     }
 
-    #[allow(dead_code)] // TODO(vko): cleanup
+    /// Get the first [`Commit`] message that was received.
     pub(super) fn commit_message(&self) -> Option<&Commit<N>> {
         self.messages(|m| {
             if let ConsensusMessage::Commit(prepare) = m {
@@ -133,7 +165,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         .last()
     }
 
-    #[allow(dead_code)] // TODO(vko): cleanup
+    /// Get all [`CommitVote`] messages that were received
     pub(super) fn commit_vote_messages(&self) -> impl Iterator<Item = &CommitVote<N>> + '_ {
         self.messages(|m| {
             if let ConsensusMessage::CommitVote(prepare) = m {
@@ -144,7 +176,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         })
     }
 
-    #[allow(dead_code)] // TODO(vko): cleanup
+    /// Get the first [`Decide`] message that was received.
     pub(super) fn decide_message(&self) -> Option<&Decide<N>> {
         self.messages(|m| {
             if let ConsensusMessage::Decide(prepare) = m {

@@ -11,14 +11,29 @@ use phaselock_types::{
 };
 use tracing::error;
 
+/// A precommit replica
 #[derive(Debug)]
 pub struct PreCommitReplica {}
 
 impl PreCommitReplica {
+    /// Create a new replica
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Update this replica, returning an `Outcome` when it's done.
+    ///
+    /// This will:
+    /// - Wait for an incoming [`PreCommit`] message.
+    /// - Validate this message
+    /// - Cast a vote on this message.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if:
+    /// - There is no QC in storage.
+    /// - The proposed QC is invalid.
+    /// - The underlying [`ConsensusApi`] returned an error.
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -31,6 +46,11 @@ impl PreCommitReplica {
         }
     }
 
+    /// Validate the given [`PreCommit`] and cast a vote.
+    ///
+    /// # Errors
+    ///
+    /// The possible errors are documented in the `update` method.
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -44,6 +64,7 @@ impl PreCommitReplica {
             None => return err("No QC in storage"),
         };
 
+        // TODO: Both the state and leaf come from our database, shouldn't they always be valid?
         if !state.validate_block(&leaf.item) {
             error!(?leaf, "Leaf failed safe_node predicate");
             return Err(PhaseLockError::BadBlock {

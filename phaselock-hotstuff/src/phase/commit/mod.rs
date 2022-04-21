@@ -1,4 +1,8 @@
+//! Commit phase
+
+/// Leader implementation
 mod leader;
+/// Replica implementation
 mod replica;
 
 use super::{decide::DecidePhase, err, Progress, UpdateCtx};
@@ -14,21 +18,31 @@ use replica::CommitReplica;
 use snafu::ResultExt;
 use tracing::trace;
 
+/// The commit phase
 #[derive(Debug)]
 pub(super) enum CommitPhase<const N: usize> {
+    /// The leader
     Leader(CommitLeader<N>),
+    /// The replica
     Replica(CommitReplica),
 }
 
 impl<const N: usize> CommitPhase<N> {
+    /// Create a new replica
     pub fn replica() -> Self {
         Self::Replica(CommitReplica::new())
     }
 
+    /// Create a new leader
     pub fn leader(pre_commit: PreCommit<N>, vote: Option<PreCommitVote<N>>) -> Self {
         Self::Leader(CommitLeader::new(pre_commit, vote))
     }
 
+    /// Update the current phase, returning the next phase if this phase is done.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if this phase is in an incorrect state or if the underlying [`ConsensusApi`] returns an error.
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
@@ -53,19 +67,33 @@ impl<const N: usize> CommitPhase<N> {
     }
 }
 
+/// The outcome of this [`CommitPhase`]
 struct Outcome<const N: usize> {
+    /// The commit that was created on received
     commit: Commit<N>,
+    /// Optionally the vote we're going to send
     vote: Option<CommitVote<N>>,
 }
 
 impl<const N: usize> Outcome<N> {
+    /// Execute the outcome. This will:
+    /// - Store the QC
+    /// - Send the commit if we are the leader
+    /// - Send the vote if we have one
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if:
+    /// - The QC could not be stored
+    /// - The commit could not be broadcasted
+    /// - The vote could not be send
     async fn execute<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<DecidePhase<N>> {
         let Outcome { commit, vote } = self;
 
-        let was_leader = ctx.api.is_leader(ctx.view_number.0, Stage::Commit).await;
+        let was_leader = ctx.is_leader;
         let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Decide).await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 

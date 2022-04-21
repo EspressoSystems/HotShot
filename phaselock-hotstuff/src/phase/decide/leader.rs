@@ -11,18 +11,34 @@ use phaselock_types::{
 };
 use tracing::debug;
 
+/// The leader
 #[derive(Debug)]
-#[allow(dead_code)] // TODO(vko): cleanup
 pub struct DecideLeader<const N: usize> {
+    /// The commit that was created or voted on last stage
     commit: Commit<N>,
+    /// Optionally the vote that we cast last stage
     vote: Option<CommitVote<N>>,
 }
 
 impl<const N: usize> DecideLeader<N> {
+    /// Create a new leader
     pub fn new(commit: Commit<N>, vote: Option<CommitVote<N>>) -> Self {
         Self { commit, vote }
     }
 
+    /// Update the leader. This will:
+    /// - Get the votes that are targetting the current [`Commit`]
+    /// - If enough votes have been received:
+    ///   - Combine the signatures
+    ///   - Create a new QC
+    ///   - Get the blocks and states that were committed
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if:
+    /// - A signature could not be created
+    /// - There was no QC in storage
+    /// - `utils::walk_leaves` returns an error
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -42,6 +58,11 @@ impl<const N: usize> DecideLeader<N> {
         }
     }
 
+    /// Decide on the given [`Commit`] and list of [`CommitVote`]
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn decide<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

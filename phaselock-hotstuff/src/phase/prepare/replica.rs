@@ -1,25 +1,33 @@
+//! Prepare replica implementation
+
 use super::Outcome;
 use crate::{
-    phase::{err, precommit::PreCommitPhase, Phase, Progress, UpdateCtx},
-    utils, ConsensusApi, Result, TransactionLink, TransactionState,
+    phase::{err, UpdateCtx},
+    utils, ConsensusApi, Result,
 };
 use phaselock_types::{
-    data::{Leaf, LeafHash, QuorumCertificate, Stage},
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
-    message::{ConsensusMessage, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents, State},
+    data::Stage,
+    error::PhaseLockError,
+    message::{Prepare, PrepareVote, Vote},
+    traits::{node_implementation::NodeImplementation, State},
 };
-use snafu::ResultExt;
-use std::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error};
 
+/// A prepare replica
 #[derive(Debug)]
 pub(crate) struct PrepareReplica {}
 
 impl PrepareReplica {
+    /// Create a new replica
     pub(super) fn new() -> Self {
         Self {}
     }
+
+    /// Update the given replica, returning [`Outcome`] if this phase is ready.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors `vote` returns.
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -33,6 +41,15 @@ impl PrepareReplica {
         Ok(Some(outcome))
     }
 
+    /// Cast a vote on the given [`Prepare`]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - There is no `QuorumCertificate` in storage
+    /// - The incoming QC is not a safe node or valid block
+    /// - The given block could not be appended to the current state
+    /// - The underlying [`ConsensusApi`] returned an error
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -58,8 +75,6 @@ impl PrepareReplica {
         }
 
         let current_view = ctx.view_number.0;
-        let leader_next_round = ctx.api.get_leader(current_view, Stage::PreCommit).await;
-        let is_leader_next_round = &leader_next_round == ctx.api.public_key();
 
         let signature =
             ctx.api

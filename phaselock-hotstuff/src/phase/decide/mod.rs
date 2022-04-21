@@ -1,4 +1,8 @@
+//! Decide implementation
+
+/// Leader implementation
 mod leader;
+/// Replica implementation
 mod replica;
 
 use super::{err, Progress, UpdateCtx};
@@ -13,21 +17,31 @@ use phaselock_types::{
 use replica::DecideReplica;
 use snafu::ResultExt;
 
+/// The decide phase
 #[derive(Debug)]
 pub(super) enum DecidePhase<const N: usize> {
+    /// Leader phase
     Leader(DecideLeader<N>),
+    /// Replica phase
     Replica(DecideReplica),
 }
 
 impl<const N: usize> DecidePhase<N> {
+    /// Create a new replica
     pub fn replica() -> Self {
         Self::Replica(DecideReplica::new())
     }
 
+    /// Create a new leader
     pub fn leader(commit: Commit<N>, vote: Option<CommitVote<N>>) -> Self {
         Self::Leader(DecideLeader::new(commit, vote))
     }
 
+    /// Update the decide phase.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors that `leader.update`, `replica.update` and `outcome.execute` can return.
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
@@ -52,13 +66,26 @@ impl<const N: usize> DecidePhase<N> {
     }
 }
 
+/// The outcome of this [`DecidePhase`]
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
+    /// The blocks that were decided on
     blocks: Vec<I::Block>,
+    /// The states that were decided on
     states: Vec<I::State>,
+    /// The decide message that was created or received
     decide: Decide<N>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
+    /// Execute the outcome of this [`DecidePhase`]
+    ///
+    /// This will notify any listeners of the blocks and states that were decided on.
+    ///
+    /// If a new round should be started, this will also send [`NewView`] to the leader of the `prepare` stage of the next round.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if a [`NewView`] could not be send
     async fn execute<A: ConsensusApi<I, N>>(self, ctx: &mut UpdateCtx<'_, I, A, N>) -> Result {
         let Outcome {
             blocks,

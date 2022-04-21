@@ -1,3 +1,9 @@
+//! Contains the 4 phases that hotstuff defines:
+//! - [`PreparePhase`]
+//! - [`PreCommitPhase`]
+//! - [`CommitPhase`]
+//! - [`DecidePhase`]
+
 mod commit;
 mod decide;
 mod precommit;
@@ -17,19 +23,44 @@ use std::future::Future;
 use tracing::{info, trace};
 use update_ctx::UpdateCtx;
 
+/// Contains all the information about a current `view_number`.
+///
+/// Internally this has 4 stages:
+/// - [`PreparePhase`]
+/// - [`PreCommitPhase`]
+/// - [`CommitPhase`]
+/// - [`DecidePhase`]
+///
+/// For more info about these phases, see the hotstuff paper.
+///
+/// Whenever a phase is done, this will progress to a next phase. When `decide` is done an internal `done` boolean is set to `true`.
 #[derive(Debug)]
 pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
+    /// The view number of this phase.
     view_number: ViewNumber,
+
+    /// All messages that have been received on this phase.
+    /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+
+    /// if `true` this phase is done and will not run any more updates
     done: bool,
 
+    /// The prepare phase. This will always be present
     prepare: PreparePhase<N>,
+
+    /// The precommit phase
     precommit: Option<PreCommitPhase<I, N>>,
+
+    /// The commit phase
     commit: Option<CommitPhase<N>>,
+
+    /// The decide phase
     decide: Option<DecidePhase<N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
+    /// Create a new `prepare` phase with the given `view_number`.
     pub fn prepare(view_number: ViewNumber, is_leader: bool) -> Self {
         Self {
             view_number,
@@ -43,6 +74,7 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         }
     }
 
+    /// Returns the current stage of this phase
     pub fn stage(&self) -> Stage {
         if self.done {
             Stage::None
@@ -57,6 +89,11 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         }
     }
 
+    /// Notify this phase that a new message has been received
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
     pub async fn add_consensus_message<A: ConsensusApi<I, N>>(
         &mut self,
         api: &mut A,
@@ -67,6 +104,11 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         self.update(api, transactions).await
     }
 
+    /// Notify this phase that new transactions are available.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
     pub async fn notify_new_transaction<A: ConsensusApi<I, N>>(
         &mut self,
         api: &mut A,
@@ -75,6 +117,11 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         self.update(api, transactions).await
     }
 
+    /// Update the current state with the given transactions.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
     async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         api: &mut A,
@@ -129,11 +176,16 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
         }
     }
 }
+
+/// Determines if a stage is ready to progress to the next stage
 enum Progress<T> {
+    /// This stage is not ready to progress
     NotReady,
+    /// This stage is ready to progress to the next stage
     Next(T),
 }
 
+/// Return an `PhaseLockError::InvalidState` error with the given text.
 pub(self) fn err<T, S>(e: S) -> Result<T>
 where
     S: Into<String>,

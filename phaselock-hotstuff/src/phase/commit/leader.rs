@@ -7,17 +7,33 @@ use phaselock_types::{
     traits::node_implementation::NodeImplementation,
 };
 
+/// The leader
 #[derive(Debug)]
 pub(crate) struct CommitLeader<const N: usize> {
+    /// The precommit that was created or voted on last stage
     pre_commit: PreCommit<N>,
+    /// Optionally the vote that we created last stage
     vote: Option<PreCommitVote<N>>,
 }
 
 impl<const N: usize> CommitLeader<N> {
+    /// Create a new leader
     pub(super) fn new(pre_commit: PreCommit<N>, vote: Option<PreCommitVote<N>>) -> Self {
         Self { pre_commit, vote }
     }
 
+    /// Update this leader. This will:
+    /// - Get a list of [`PreCommitVote`] targetting this [`PreCommit`]
+    /// - If the threshold is reached:
+    ///   - Combine the signatures
+    ///   - Create a new QC and [`Commit`]
+    ///   - Optionally vote on this commit
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The signatures could not be combined
+    /// - The vote could not be signed
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -40,6 +56,11 @@ impl<const N: usize> CommitLeader<N> {
         }
     }
 
+    /// Create a new commit based on the given [`PreCommit`] and [`PreCommitVote`]s
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn create_commit<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

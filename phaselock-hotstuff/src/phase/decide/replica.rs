@@ -6,14 +6,25 @@ use phaselock_types::{message::Decide, traits::node_implementation::NodeImplemen
 
 use super::Outcome;
 
+/// The replica
 #[derive(Debug)]
 pub struct DecideReplica {}
 
 impl DecideReplica {
+    /// Create a new replica
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Update the replica. This will:
+    /// - Wait for a [`Decide`] message
+    /// - Get the blocks and states that were decided on
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if:
+    /// - There was no QC in storage
+    /// - `utils::walk_leaves` returns an error
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -28,6 +39,11 @@ impl DecideReplica {
         Ok(Some(outcome))
     }
 
+    /// Handle an incoming [`Decide`] message
+    ///
+    /// # Errors
+    ///
+    /// Errors are described in the documentation of `update`
     async fn handle_decide<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
