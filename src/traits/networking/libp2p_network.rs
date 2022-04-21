@@ -6,17 +6,22 @@ use async_std::future::timeout;
 use async_std::task::{sleep, spawn};
 use bincode::Options;
 use dashmap::DashMap;
+use flume::Sender;
 use futures::future::{join_all, BoxFuture};
 use futures::FutureExt;
 use libp2p::PeerId;
 use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
-use libp2p_networking::network::{ConnectionData, NetworkNodeConfig, NetworkNodeHandle};
+use libp2p_networking::network::{
+    ConnectionData, NetworkNodeConfig, NetworkNodeHandle, NetworkNodeHandleError,
+};
+use phaselock_types::traits::network::{FailedToSerializeSnafu, TimeoutSnafu};
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
     PubKey,
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
+use snafu::ResultExt;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
@@ -56,45 +61,52 @@ pub struct Libp2pNetwork<
     inner: Arc<Libp2pNetworkInner<M>>,
 }
 
+/// Map [`NetworkNodeHandleError`] to [`NetworkError`]
+fn nw_err<T>(e: Result<T, NetworkNodeHandleError>) -> Result<T, NetworkError> {
+    e.map_err(|e| NetworkError::Other { inner: Box::new(e) })
+}
+
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     Libp2pNetwork<M>
 {
     /// FIXME is there any way to
     #[allow(dead_code)]
-    pub async fn new(config: NetworkNodeConfig, idx: usize, pk: PubKey) -> Libp2pNetwork<M> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-
+    pub async fn new(
+        config: NetworkNodeConfig,
+        idx: usize,
+        pk: PubKey,
+    ) -> Result<Libp2pNetwork<M>, NetworkError> {
         let timeout_duration = Duration::from_secs(5);
 
         // if we care about internal state, we could consider passing something in. We don't,
         // though.
-        let network_handle = Arc::new(NetworkNodeHandle::<()>::new(config, idx).await.unwrap());
+        let network_handle = Arc::new(nw_err(NetworkNodeHandle::<()>::new(config, idx).await)?);
 
         // FIXME error handling. This should really return a error if timeout or failure to connect
-        timeout(
-            timeout_duration,
-            NetworkNodeHandle::wait_to_connect(
-                network_handle.clone(),
-                5,
-                network_handle.recv_network(),
-                idx,
-            ),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-
-        network_handle
-            .put_record(&pk, &network_handle.peer_id())
+        nw_err(
+            timeout(
+                timeout_duration,
+                NetworkNodeHandle::wait_to_connect(
+                    network_handle.clone(),
+                    5,
+                    network_handle.recv_network(),
+                    idx,
+                ),
+            )
             .await
-            .unwrap();
+            .context(TimeoutSnafu)?,
+        )?;
+
+        nw_err(
+            network_handle
+                .put_record(&pk, &network_handle.peer_id())
+                .await,
+        )?;
 
         let pubkey_to_pid = DashMap::new();
         pubkey_to_pid.insert(pk.clone(), network_handle.peer_id());
         let pid_to_pubkey = DashMap::new();
         pid_to_pubkey.insert(network_handle.peer_id(), pk);
-
-        let nw_recv = network_handle.recv_network();
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
@@ -113,19 +125,39 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             }),
         };
 
-        // task to propagate messages to handlers
-        // terminates on shut down of network
+        result.spawn_event_generator(direct_send, broadcast_send);
+        result.spawn_pk_gather();
+
+        Ok(result)
+    }
+
+    /// task to propagate messages to handlers
+    /// terminates on shut down of network
+    fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
+        let handle = self.clone();
         spawn(async move {
+            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+            let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
                     GossipMsg(msg) => {
                         // TODO error handling
-                        let result: M = bincode_options.deserialize(&msg).unwrap();
-                        direct_send.send_async(result).await.unwrap();
+                        let result: M = bincode_options
+                            .deserialize(&msg)
+                            .context(FailedToSerializeSnafu)?;
+                        direct_send
+                            .send_async(result)
+                            .await
+                            .map_err(|_| NetworkError::ChannelSend)?;
                     }
                     DirectRequest(msg, _pid, _) => {
-                        let result: M = bincode_options.deserialize(&msg).unwrap();
-                        broadcast_send.send_async(result).await.unwrap();
+                        let result: M = bincode_options
+                            .deserialize(&msg)
+                            .context(FailedToSerializeSnafu)?;
+                        broadcast_send
+                            .send_async(result)
+                            .await
+                            .map_err(|_| NetworkError::ChannelSend)?;
                     }
                     DirectResponse(_, _) => {
                         // we should never reach this part
@@ -134,34 +166,33 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 }
             }
             error!("Network receiever shut down!");
+            Ok::<(), NetworkError>(())
         });
+    }
 
-        let result_key_task = result.clone();
-
-        // task to periodically look at other public keys
-        // just to have knowledge of who exists
+    /// Task to periodically look at other public keys
+    /// just to have knowledge of who exists
+    fn spawn_pk_gather(&self) {
+        let handle = self.clone();
         spawn(async move {
             let timeout_dur = Duration::new(0, 500);
-            while !result_key_task.inner.handle.is_killed().await {
+            while !handle.inner.handle.is_killed().await {
                 // get peer ids from dashmap
                 // get peer ids from libp2p
-                let known_nodes = result_key_task
+                let known_nodes = handle
                     .inner
                     .pubkey_to_pid
                     .iter()
                     .map(|kv| *kv.pair().1)
                     .collect::<HashSet<_>>();
-                let libp2p_known_nodes = result_key_task.inner.handle.known_peers().await;
+                let libp2p_known_nodes = handle.inner.handle.known_peers().await;
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)
                     .collect::<Vec<_>>();
 
                 let mut futs = vec![];
                 for pid in &unknown_nodes {
-                    let fut = result_key_task
-                        .inner
-                        .handle
-                        .get_record_timeout(pid, timeout_dur);
+                    let fut = handle.inner.handle.get_record_timeout(pid, timeout_dur);
                     futs.push(fut);
                 }
 
@@ -169,14 +200,11 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
                     if let Ok(pk) = maybe_pk {
-                        result_key_task
+                        handle
                             .inner
                             .pubkey_to_pid
                             .insert(pk.clone(), *unknown_nodes[idx]);
-                        result_key_task
-                            .inner
-                            .pid_to_pubkey
-                            .insert(*unknown_nodes[idx], pk);
+                        handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
                     }
                 }
 
@@ -184,27 +212,23 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 sleep(timeout_dur).await;
             }
         });
-
-        result
     }
 }
 
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     NetworkingImplementation<M> for Libp2pNetwork<M>
 {
-    /// Broadcasts a message to the network
-    ///
-    /// Should provide that the message eventually reach all non-faulty nodes
     fn broadcast_message(&self, message: M) -> BoxFuture<'_, Result<(), NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
                 return Err(NetworkError::ShutDown);
             }
-            self.inner
-                .handle
-                .gossip("global".to_string(), &message)
-                .await
-                .unwrap();
+            nw_err(
+                self.inner
+                    .handle
+                    .gossip("global".to_string(), &message)
+                    .await,
+            )?;
             // FIXME types
             Err(NetworkError::ListenerSend)
         }
@@ -212,7 +236,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Sends a direct message to a specific node
     fn message_node(
         &self,
         message: M,
@@ -226,21 +249,14 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
                 *pid
             } else {
-                self.inner.handle.get_record(&recipient).await.unwrap()
+                nw_err(self.inner.handle.get_record(&recipient).await)?
             };
-            self.inner
-                .handle
-                .direct_request(pid, &message)
-                .await
-                .unwrap();
+            nw_err(self.inner.handle.direct_request(pid, &message).await)?;
             Ok(())
         }
         .boxed()
     }
 
-    /// Moves out the entire queue of received broadcast messages, should there be any
-    ///
-    /// Provided as a future to allow the backend to do async locking
     fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
@@ -266,9 +282,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Provides a future for the next received broadcast
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
     fn next_broadcast(&self) -> BoxFuture<'_, Result<M, NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
@@ -288,7 +301,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Moves out the entire queue of received direct messages to this node
     fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
@@ -314,9 +326,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Provides a future for the next received direct message to this node
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
     fn next_direct(&self) -> BoxFuture<'_, Result<M, NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
@@ -336,9 +345,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Node's currently known to the networking implementation
-    ///
-    /// Kludge function to work around leader election
     fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>> {
         async move {
             self.inner
@@ -350,7 +356,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
     fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>> {
         async move {
             if !self.inner.handle.is_killed().await {
@@ -385,9 +390,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         .boxed()
     }
 
-    /// Shut down this network. Afterwards this network should no longer be used.
-    ///
-    /// This should also cause other functions to immediately return with a [`NetworkError`]
     fn shut_down(&self) -> BoxFuture<'_, ()> {
         async move {
             if self.inner.handle.is_killed().await {
@@ -402,21 +404,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         key: impl Serialize + Send + Sync + 'static,
         value: impl Serialize + Send + Sync + 'static,
     ) -> BoxFuture<'_, Result<(), NetworkError>> {
-        async move {
-            self.inner.handle.put_record(&key, &value).await.unwrap();
-            Ok(())
-        }
-        .boxed()
+        async move { nw_err(self.inner.handle.put_record(&key, &value).await) }.boxed()
     }
 
     fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> BoxFuture<'_, Result<V, NetworkError>> {
-        async move {
-            let result = self.inner.handle.get_record(&key).await.unwrap();
-            Ok(result)
-        }
-        .boxed()
+        async move { nw_err(self.inner.handle.get_record(&key).await) }.boxed()
     }
 }

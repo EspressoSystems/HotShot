@@ -3,6 +3,7 @@
 //! Contains types and traits used by `PhaseLock` to abstract over network access
 
 use async_trait::async_trait;
+use async_std::future::TimeoutError;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{Serialize, Deserialize};
 use snafu::Snafu;
@@ -61,6 +62,11 @@ pub enum NetworkError {
     Other {
         /// Originating error
         inner: Box<dyn std::error::Error + Send + Sync>,
+    },
+    /// A timeout occurred
+    Timeout {
+        /// Source of error
+        source: TimeoutError,
     },
     /// Channel error
     ChannelSend,
