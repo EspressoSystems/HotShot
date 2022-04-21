@@ -3067,6 +3067,7 @@ dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-381",
  "async-std",
+ "async-trait",
  "async-tungstenite",
  "atomic_store",
  "bincode",
@@ -3121,6 +3122,7 @@ name = "phaselock-types"
 version = "0.0.6"
 dependencies = [
  "async-std",
+ "async-trait",
  "async-tungstenite",
  "atomic_store",
  "bincode",

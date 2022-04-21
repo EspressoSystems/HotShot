@@ -2,6 +2,7 @@
 //!
 //! Contains types and traits used by `PhaseLock` to abstract over network access
 
+use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
@@ -74,6 +75,7 @@ pub enum NetworkError {
 }
 
 /// Describes, generically, the behaviors a networking implementation must have
+#[async_trait]
 pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
@@ -81,48 +83,44 @@ where
     /// Broadcasts a message to the network
     ///
     /// Should provide that the message eventually reach all non-faulty nodes
-    fn broadcast_message(&self, message: M) -> BoxFuture<'_, Result<(), NetworkError>>;
+    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
-    fn message_node(
-        &self,
-        message: M,
-        recipient: PubKey,
-    ) -> BoxFuture<'_, Result<(), NetworkError>>;
+    async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received broadcast messages, should there be any
     ///
     /// Provided as a future to allow the backend to do async locking
-    fn broadcast_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>>;
+    async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError>;
 
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_broadcast(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
+    async fn next_broadcast(&self) -> Result<M, NetworkError>;
 
     /// Moves out the entire queue of received direct messages to this node
-    fn direct_queue(&self) -> BoxFuture<'_, Result<Vec<M>, NetworkError>>;
+    async fn direct_queue(&self) -> Result<Vec<M>, NetworkError>;
 
     /// Provides a future for the next received direct message to this node
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    fn next_direct(&self) -> BoxFuture<'_, Result<M, NetworkError>>;
+    async fn next_direct(&self) -> Result<M, NetworkError>;
 
     /// Node's currently known to the networking implementation
     ///
     /// Kludge function to work around leader election
-    fn known_nodes(&self) -> BoxFuture<'_, Vec<PubKey>>;
+    async fn known_nodes(&self) -> Vec<PubKey>;
 
     /// Object safe clone
     fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
 
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
-    fn network_changes(&self) -> BoxFuture<'_, Result<Vec<NetworkChange>, NetworkError>>;
+    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError>;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    fn shut_down(&self) -> BoxFuture<'_, ()>;
+    async fn shut_down(&self) -> ();
 }
 
 /// Changes that can occur in the network
