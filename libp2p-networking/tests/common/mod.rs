@@ -1,4 +1,4 @@
-use async_std::{future::timeout, prelude::FutureExt};
+use async_std::prelude::FutureExt;
 use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{Multiaddr, PeerId};
