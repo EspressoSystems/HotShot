@@ -38,28 +38,25 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     Clone + Send + Sync
 {
     /// Retrieves a block from storage, returning `None` if it could not be found in local storage
-    async fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> StorageResult<Option<B>>;
+    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<B>>;
+
     /// Retrieves a Quorum Certificate from storage, by the hash of the block it refers to
-    async fn get_qc<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> StorageResult<Option<QuorumCertificate<N>>>;
+    async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>>;
+
     /// Retrieves the newest Quorum Certificate
     async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
+
     /// Retrieves the Quorum Certificate associated with a particular view number
     async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>>;
+
     /// Retrieves a leaf by its hash
-    async fn get_leaf<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b LeafHash<N>,
-    ) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+
     /// Retrieves a leaf by the hash of its block
-    async fn get_leaf_by_block<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
-    async fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> StorageResult<Option<S>>;
+    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>>;
 
     /// Calls the given `update_fn` for a list of modifications, then stores these.
     ///

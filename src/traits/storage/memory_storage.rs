@@ -80,7 +80,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     Storage<B, S, N> for MemoryStorage<B, S, N>
 {
     #[instrument(name = "MemoryStorage::get_block", skip_all)]
-    async fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> StorageResult<Option<B>> {
+    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<B>> {
         Ok(if let Some(r) = self.inner.blocks.get(hash) {
             trace!("Block found");
             let block = r.value().clone();
@@ -92,10 +92,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_qc", skip_all)]
-    async fn get_qc<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>> {
         // Check to see if we have the qc
         let index = self.inner.hash_to_qc.get(hash);
         Ok(if let Some(index) = index {
@@ -136,10 +133,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
-    async fn get_leaf<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b LeafHash<N>,
-    ) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
         trace!(?self.inner.hash_to_leaf, ?hash);
         // Check to see if we have the leaf
         let index = self.inner.hash_to_leaf.get(hash);
@@ -154,10 +148,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
         // Check to see if we have the leaf
         let index = self.inner.block_to_leaf.get(hash);
         Ok(if let Some(index) = index {
@@ -170,7 +161,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         })
     }
 
-    async fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> StorageResult<Option<S>> {
+    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>> {
         let maybe_state = self.inner.states.get(hash);
         Ok(if let Some(state) = maybe_state {
             let state = state.value().clone();
