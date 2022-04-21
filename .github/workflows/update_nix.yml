@@ -18,3 +18,4 @@ jobs:
         uses: DeterminateSystems/update-flake-lock@v8
         with:
           pr-title: "Weekly PR to bump flake.nix" # Title of PR to be created
+          token: ${{ secrets.ORG_GITHUB_PAT }} # PAT necessary to run CI on opened PR
