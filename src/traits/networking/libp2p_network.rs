@@ -172,8 +172,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         spawn(async move {
             let timeout_dur = Duration::new(0, 500);
             while !handle.inner.handle.is_killed().await {
-                // get peer ids from dashmap
-                // get peer ids from libp2p
                 let known_nodes = handle
                     .inner
                     .pubkey_to_pid
@@ -194,12 +192,21 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 let results: Vec<Result<PubKey, _>> = join_all(futs).await;
 
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
-                    if let Ok(pk) = maybe_pk {
-                        handle
-                            .inner
-                            .pubkey_to_pid
-                            .insert(pk.clone(), *unknown_nodes[idx]);
-                        handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
+                    match maybe_pk {
+                        Ok(pk) => {
+                            handle
+                                .inner
+                                .pubkey_to_pid
+                                .insert(pk.clone(), *unknown_nodes[idx]);
+                            handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
+                        }
+                        Err(e) => {
+                            // hopefully we'll eventually find the key. Try again next time.
+                            error!(
+                                ?e,
+                                "error fetching public key for peer id {:?}", unknown_nodes[idx]
+                            );
+                        }
                     }
                 }
 
@@ -220,7 +227,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         self.inner
@@ -237,7 +244,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         // check local cache. if that fails, initiate search
@@ -264,7 +271,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         debug!("Waiting for messages to show up");
@@ -290,7 +297,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         debug!("Awaiting next broadcast");
@@ -310,7 +317,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         debug!("Waiting for messages to show up");
@@ -336,7 +343,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn next_direct(&self) -> Result<M, NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         debug!("Awaiting next direct");
@@ -369,7 +376,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
-        if !self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         let mut result = vec![];
@@ -405,8 +412,10 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn shut_down(&self) {
-        if self.inner.handle.is_killed().await {
+        if !self.inner.handle.is_killed().await {
             self.inner.handle.shutdown().await.unwrap();
+        } else {
+            error!("Called shut down when already shut down! Noop.");
         }
     }
 
