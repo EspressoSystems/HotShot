@@ -2,10 +2,10 @@
 //!
 //! Contains types and traits used by `PhaseLock` to abstract over network access
 
-use async_trait::async_trait;
 use async_std::future::TimeoutError;
+use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
-use serde::{Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
 
@@ -129,7 +129,7 @@ where
     ) -> Result<(), NetworkError>;
 
     /// Get value stored in shared store under `key`
-    fn get_record<V: for<'a> Deserialize<'a>>(
+    async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError>;

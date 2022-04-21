@@ -978,18 +978,18 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         unimplemented!();
     }
 
-    fn put_record(
+    async fn put_record(
         &self,
         _key: impl Serialize + Send + Sync + 'static,
         _value: impl Serialize + Send + Sync + 'static,
-    ) -> BoxFuture<'_, Result<(), NetworkError>> {
+    ) -> Result<(), NetworkError> {
         todo!()
     }
 
-    fn get_record<V: for<'a> Deserialize<'a>>(
+    async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         _key: impl Serialize + Send + Sync + 'static,
-    ) -> BoxFuture<'_, Result<V, NetworkError>> {
+    ) -> Result<V, NetworkError> {
         todo!()
     }
 }
