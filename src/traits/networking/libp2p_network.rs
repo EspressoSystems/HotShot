@@ -412,10 +412,10 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         skip_all
     )]
     async fn shut_down(&self) {
-        if !self.inner.handle.is_killed().await {
-            self.inner.handle.shutdown().await.unwrap();
-        } else {
+        if self.inner.handle.is_killed().await {
             error!("Called shut down when already shut down! Noop.");
+        } else {
+            self.inner.handle.shutdown().await.unwrap();
         }
     }
 
