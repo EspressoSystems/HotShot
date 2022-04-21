@@ -4,15 +4,11 @@
 
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
-use futures::future::BoxFuture;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
 
 use crate::PubKey;
-
-/// A boxed future trait object with a static lifetime
-pub type BoxedFuture<T> = BoxFuture<'static, T>;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]

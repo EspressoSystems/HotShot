@@ -8,16 +8,14 @@ use crate::{
     QuorumCertificate,
 };
 use async_std::sync::RwLock;
+use async_trait::async_trait;
 use dashmap::DashMap;
-use futures::{
-    future::{BoxFuture, FutureExt},
-    Future,
-};
+use futures::Future;
 use phaselock_types::traits::storage::{
     InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater,
 };
 use std::sync::Arc;
-use tracing::{info_span, trace, Instrument};
+use tracing::{instrument, trace};
 
 /// Internal state for a [`MemoryStorage`]
 struct MemoryStorageInternal<Block, State, const N: usize> {
@@ -77,189 +75,158 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
     }
 }
 
+#[async_trait]
 impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
     Storage<B, S, N> for MemoryStorage<B, S, N>
 {
-    fn get_block<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<B>>> {
-        async move {
-            Ok(if let Some(r) = self.inner.blocks.get(hash) {
-                trace!("Block found");
-                let block = r.value().clone();
-                Some(block)
-            } else {
-                trace!("Block not found");
-                None
-            })
-        }
-        .instrument(info_span!("MemoryStorage::get_block", ?hash))
-        .boxed()
-    }
-    fn get_qc<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<QuorumCertificate<N>>>> {
-        async move {
-            // Check to see if we have the qc
-            let index = self.inner.hash_to_qc.get(hash);
-            Ok(if let Some(index) = index {
-                trace!("Found qc");
-                let qcs = self.inner.qcs.read().await;
-                let qc = qcs[*index.value()].clone();
-                Some(qc)
-            } else {
-                trace!("Did not find qc");
-                None
-            })
-        }
-        .instrument(info_span!("MemoryStorage::get_qc", ?hash))
-        .boxed()
+    #[instrument(name = "MemoryStorage::get_block", skip_all)]
+    async fn get_block<'b, 'a: 'b>(&'a self, hash: &'b BlockHash<N>) -> StorageResult<Option<B>> {
+        Ok(if let Some(r) = self.inner.blocks.get(hash) {
+            trace!("Block found");
+            let block = r.value().clone();
+            Some(block)
+        } else {
+            trace!("Block not found");
+            None
+        })
     }
 
-    fn get_newest_qc(&self) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
-        async move {
-            let iter = self.inner.view_to_qc.iter();
-            let idx = match iter.max_by_key(|pair| *pair.key()) {
-                Some(pair) => *pair.value(),
-                None => return Ok(None),
-            };
+    #[instrument(name = "MemoryStorage::get_qc", skip_all)]
+    async fn get_qc<'b, 'a: 'b>(
+        &'a self,
+        hash: &'b BlockHash<N>,
+    ) -> StorageResult<Option<QuorumCertificate<N>>> {
+        // Check to see if we have the qc
+        let index = self.inner.hash_to_qc.get(hash);
+        Ok(if let Some(index) = index {
+            trace!("Found qc");
             let qcs = self.inner.qcs.read().await;
-            Ok(Some(qcs[idx].clone()))
-        }
-        .instrument(info_span!("MemoryStorage::get_qc"))
-        .boxed()
+            let qc = qcs[*index.value()].clone();
+            Some(qc)
+        } else {
+            trace!("Did not find qc");
+            None
+        })
     }
 
-    fn get_qc_for_view(
-        &self,
-        view: u64,
-    ) -> BoxFuture<'_, StorageResult<Option<QuorumCertificate<N>>>> {
-        async move {
-            // Check to see if we have the qc
-            let index = self.inner.view_to_qc.get(&view);
-            Ok(if let Some(index) = index {
-                trace!("Found qc");
-                let qcs = self.inner.qcs.read().await;
-                let qc = qcs[*index.value()].clone();
-                Some(qc)
-            } else {
-                trace!("Did not find qc");
-                None
-            })
-        }
-        .instrument(info_span!("MemoryStorage::get_qc_for_view", ?view))
-        .boxed()
+    #[instrument(name = "MemoryStorage::get_newest_qc", skip_all)]
+    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
+        let iter = self.inner.view_to_qc.iter();
+        let idx = match iter.max_by_key(|pair| *pair.key()) {
+            Some(pair) => *pair.value(),
+            None => return Ok(None),
+        };
+        let qcs = self.inner.qcs.read().await;
+        Ok(Some(qcs[idx].clone()))
     }
-    fn get_leaf<'b, 'a: 'b>(
+
+    #[instrument(name = "MemoryStorage::get_qc_for_view", skip_all)]
+    async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>> {
+        // Check to see if we have the qc
+        let index = self.inner.view_to_qc.get(&view);
+        Ok(if let Some(index) = index {
+            trace!("Found qc");
+            let qcs = self.inner.qcs.read().await;
+            let qc = qcs[*index.value()].clone();
+            Some(qc)
+        } else {
+            trace!("Did not find qc");
+            None
+        })
+    }
+
+    #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
+    async fn get_leaf<'b, 'a: 'b>(
         &'a self,
         hash: &'b LeafHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
-        async move {
-            trace!(?self.inner.hash_to_leaf, ?hash);
-            // Check to see if we have the leaf
-            let index = self.inner.hash_to_leaf.get(hash);
-            Ok(if let Some(index) = index {
-                trace!("Found leaf");
-                let leaves = self.inner.leaves.read().await;
-                Some(leaves[*index.value()].clone())
-            } else {
-                trace!("Did not find leaf");
-                None
-            })
-        }
-        .instrument(info_span!("MemoryStorage::get_leaf", ?hash))
-        .boxed()
+    ) -> StorageResult<Option<Leaf<B, N>>> {
+        trace!(?self.inner.hash_to_leaf, ?hash);
+        // Check to see if we have the leaf
+        let index = self.inner.hash_to_leaf.get(hash);
+        Ok(if let Some(index) = index {
+            trace!("Found leaf");
+            let leaves = self.inner.leaves.read().await;
+            Some(leaves[*index.value()].clone())
+        } else {
+            trace!("Did not find leaf");
+            None
+        })
     }
 
-    fn get_leaf_by_block<'b, 'a: 'b>(
+    #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
+    async fn get_leaf_by_block<'b, 'a: 'b>(
         &'a self,
         hash: &'b BlockHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<Leaf<B, N>>>> {
-        async move {
-            // Check to see if we have the leaf
-            let index = self.inner.block_to_leaf.get(hash);
-            Ok(if let Some(index) = index {
-                trace!("Found leaf");
-                let leaves = self.inner.leaves.read().await;
-                Some(leaves[*index.value()].clone())
-            } else {
-                trace!("Did not find leaf");
-                None
-            })
-        }
-        .instrument(info_span!("MemoryStorage::get_by_block", ?hash))
-        .boxed()
+    ) -> StorageResult<Option<Leaf<B, N>>> {
+        // Check to see if we have the leaf
+        let index = self.inner.block_to_leaf.get(hash);
+        Ok(if let Some(index) = index {
+            trace!("Found leaf");
+            let leaves = self.inner.leaves.read().await;
+            Some(leaves[*index.value()].clone())
+        } else {
+            trace!("Did not find leaf");
+            None
+        })
     }
 
-    fn get_state<'b, 'a: 'b>(
-        &'a self,
-        hash: &'b LeafHash<N>,
-    ) -> BoxFuture<'b, StorageResult<Option<S>>> {
+    async fn get_state<'b, 'a: 'b>(&'a self, hash: &'b LeafHash<N>) -> StorageResult<Option<S>> {
         let maybe_state = self.inner.states.get(hash);
-        let x = Ok(if let Some(state) = maybe_state {
+        Ok(if let Some(state) = maybe_state {
             let state = state.value().clone();
             Some(state)
         } else {
             None
-        });
-        async move { x }.boxed()
+        })
     }
 
-    fn update<'a, F, FUT>(&'a self, update_fn: F) -> BoxFuture<'_, StorageResult>
+    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
     where
         F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
         FUT: Future<Output = StorageResult> + Send + 'a,
     {
-        async move {
-            let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
-            update_fn(updater).await?;
-            Ok(())
-        }
-        .boxed()
+        let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
+        update_fn(updater).await?;
+        Ok(())
     }
 
-    fn get_internal_state(&self) -> BoxFuture<'_, StorageState<B, S, N>> {
-        async move {
-            let mut blocks: Vec<(BlockHash<N>, B)> = self
-                .inner
-                .blocks
-                .iter()
-                .map(|pair| {
-                    let (hash, block) = pair.pair();
-                    (*hash, block.clone())
-                })
-                .collect();
-            blocks.sort_by_key(|(hash, _)| *hash);
-            let blocks = blocks.into_iter().map(|(_, block)| block).collect();
+    async fn get_internal_state(&self) -> StorageState<B, S, N> {
+        let mut blocks: Vec<(BlockHash<N>, B)> = self
+            .inner
+            .blocks
+            .iter()
+            .map(|pair| {
+                let (hash, block) = pair.pair();
+                (*hash, block.clone())
+            })
+            .collect();
+        blocks.sort_by_key(|(hash, _)| *hash);
+        let blocks = blocks.into_iter().map(|(_, block)| block).collect();
 
-            let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.read().await.clone();
-            leafs.sort_by_cached_key(Leaf::hash);
+        let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.read().await.clone();
+        leafs.sort_by_cached_key(Leaf::hash);
 
-            let mut quorum_certificates = self.inner.qcs.read().await.clone();
-            quorum_certificates.sort_by_key(|qc| qc.view_number);
+        let mut quorum_certificates = self.inner.qcs.read().await.clone();
+        quorum_certificates.sort_by_key(|qc| qc.view_number);
 
-            let mut states: Vec<(LeafHash<N>, S)> = self
-                .inner
-                .states
-                .iter()
-                .map(|pair| {
-                    let (hash, state) = pair.pair();
-                    (*hash, state.clone())
-                })
-                .collect();
-            states.sort_by_key(|(hash, _)| *hash);
-            let states = states.into_iter().map(|(_, state)| state).collect();
+        let mut states: Vec<(LeafHash<N>, S)> = self
+            .inner
+            .states
+            .iter()
+            .map(|pair| {
+                let (hash, state) = pair.pair();
+                (*hash, state.clone())
+            })
+            .collect();
+        states.sort_by_key(|(hash, _)| *hash);
+        let states = states.into_iter().map(|(_, state)| state).collect();
 
-            StorageState {
-                blocks,
-                quorum_certificates,
-                leafs,
-                states,
-            }
+        StorageState {
+            blocks,
+            quorum_certificates,
+            leafs,
+            states,
         }
-        .boxed()
     }
 }
 
@@ -269,89 +236,78 @@ struct MemoryStorageUpdater<'a, B, S, const N: usize> {
     inner: &'a MemoryStorageInternal<B, S, N>,
 }
 
+#[async_trait]
 impl<'a, B, S, const N: usize> StorageUpdater<'a, B, S, N> for MemoryStorageUpdater<'a, B, S, N>
 where
     B: BlockContents<N> + 'static,
     S: State<N, Block = B> + 'static,
 {
-    fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> BoxFuture<'_, StorageResult> {
-        async move {
-            trace!(?block, "inserting block");
-            self.inner.blocks.insert(hash, block);
-            Ok(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_block", ?hash))
-        .boxed()
+    #[instrument(name = "MemoryStorage::insert_block", skip_all)]
+    async fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> StorageResult {
+        trace!(?block, "inserting block");
+        self.inner.blocks.insert(hash, block);
+        Ok(())
     }
 
-    fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            // Insert the qc into the main vec and the add the references
-            let view = qc.view_number;
-            let hash = qc.block_hash;
-            let mut qcs = self.inner.qcs.write().await;
+    #[instrument(name = "MemoryStorage::insert_qc", skip_all)]
+    async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> StorageResult {
+        // Insert the qc into the main vec and the add the references
+        let view = qc.view_number;
+        let hash = qc.block_hash;
+        let mut qcs = self.inner.qcs.write().await;
 
-            match (
-                self.inner.view_to_qc.get(&view),
-                self.inner.hash_to_qc.get(&hash),
-            ) {
-                (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
-                    let index: usize = *view_idx.value() as usize;
-                    trace!(?qc, ?index, "Updating qc");
-                    qcs[index] = qc;
-                    Ok(())
-                }
-                (Some(_), Some(_)) => InconsistencySnafu {
-                    description: String::from("the view_number and block_hash already exists"),
-                }
-                .fail(),
-                (Some(_), None) => InconsistencySnafu {
-                    description: String::from("the view_number already exists"),
-                }
-                .fail(),
-                (None, Some(_)) => InconsistencySnafu {
-                    description: String::from("the block_hash already exists"),
-                }
-                .fail(),
-                (None, None) => {
-                    let index = qcs.len();
-                    trace!(?qc, ?index, "Inserting qc");
-                    qcs.push(qc);
-                    self.inner.view_to_qc.insert(view, index);
-                    self.inner.hash_to_qc.insert(hash, index);
-                    Ok(())
-                }
+        match (
+            self.inner.view_to_qc.get(&view),
+            self.inner.hash_to_qc.get(&hash),
+        ) {
+            (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
+                let index: usize = *view_idx.value() as usize;
+                trace!(?qc, ?index, "Updating qc");
+                qcs[index] = qc;
+                Ok(())
+            }
+            (Some(_), Some(_)) => InconsistencySnafu {
+                description: String::from("the view_number and block_hash already exists"),
+            }
+            .fail(),
+            (Some(_), None) => InconsistencySnafu {
+                description: String::from("the view_number already exists"),
+            }
+            .fail(),
+            (None, Some(_)) => InconsistencySnafu {
+                description: String::from("the block_hash already exists"),
+            }
+            .fail(),
+            (None, None) => {
+                let index = qcs.len();
+                trace!(?qc, ?index, "Inserting qc");
+                qcs.push(qc);
+                self.inner.view_to_qc.insert(view, index);
+                self.inner.hash_to_qc.insert(hash, index);
+                Ok(())
             }
         }
-        .instrument(info_span!("MemoryStorage::insert_qc"))
-        .boxed()
     }
 
-    fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            let hash = leaf.hash();
-            trace!(?leaf, ?hash, "Inserting");
-            let block_hash = BlockContents::hash(&leaf.item);
-            let mut leaves = self.inner.leaves.write().await;
-            let index = leaves.len();
-            trace!(?leaf, ?index, "Inserting leaf");
-            leaves.push(leaf);
-            self.inner.hash_to_leaf.insert(hash, index);
-            self.inner.block_to_leaf.insert(block_hash, index);
-            Ok(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_leaf"))
-        .boxed()
+    #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
+    async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult {
+        let hash = leaf.hash();
+        trace!(?leaf, ?hash, "Inserting");
+        let block_hash = BlockContents::hash(&leaf.item);
+        let mut leaves = self.inner.leaves.write().await;
+        let index = leaves.len();
+        trace!(?leaf, ?index, "Inserting leaf");
+        leaves.push(leaf);
+        self.inner.hash_to_leaf.insert(hash, index);
+        self.inner.block_to_leaf.insert(block_hash, index);
+        Ok(())
     }
 
-    fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> BoxFuture<'_, StorageResult> {
-        async move {
-            trace!(?hash, "Inserting state");
-            self.inner.states.insert(hash, state);
-            Ok(())
-        }
-        .instrument(info_span!("MemoryStorage::insert_state"))
-        .boxed()
+    #[instrument(name = "MemoryStorage::insert_state", skip_all)]
+    async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult {
+        trace!(?hash, "Inserting state");
+        self.inner.states.insert(hash, state);
+        Ok(())
     }
 }
 

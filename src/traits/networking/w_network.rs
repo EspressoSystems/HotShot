@@ -24,6 +24,7 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use flume::{Receiver, Sender};
+use futures::future::BoxFuture;
 use futures::{channel::oneshot, prelude::*};
 use phaselock_types::traits::network::NetworkChange;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -40,7 +41,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{BoxedFuture, NetworkingImplementation};
+use super::NetworkingImplementation;
 use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -605,7 +606,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
-    ) -> Option<Vec<BoxedFuture<Result<(), NetworkError>>>> {
+    ) -> Option<Vec<BoxFuture<'static, Result<(), NetworkError>>>> {
         let generated = self
             .inner
             .tasks_started
