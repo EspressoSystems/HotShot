@@ -2,7 +2,7 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
-use async_std::future::timeout;
+use async_std::prelude::FutureExt;
 use async_std::task::{sleep, spawn};
 use async_trait::async_trait;
 use bincode::Options;
@@ -81,15 +81,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .map_err(Into::<NetworkError>::into)?,
         );
 
-        timeout(
-            timeout_duration,
-            NetworkNodeHandle::wait_to_connect(
-                network_handle.clone(),
-                5,
-                network_handle.recv_network(),
-                idx,
-            ),
+        NetworkNodeHandle::wait_to_connect(
+            network_handle.clone(),
+            5,
+            network_handle.recv_network(),
+            idx,
         )
+        .timeout(timeout_duration)
         .await
         .context(TimeoutSnafu)?
         .map_err(Into::<NetworkError>::into)?;

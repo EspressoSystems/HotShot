@@ -10,6 +10,7 @@ use crate::traits::networking::{
     SocketDecodeSnafu, WebSocketSnafu,
 };
 use crate::traits::NetworkError;
+use async_std::prelude::FutureExt;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -762,7 +763,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         if res.is_ok() {
             debug!("Ping sent to remote");
             let duration = self.inner.keep_alive_duration;
-            if let Ok(Ok(_)) = async_std::future::timeout(duration, recv).await {
+            if let Ok(Ok(_)) = recv.timeout(duration).await {
                 debug!("Received ping from remote");
             } else {
                 error!("Remote did not respond in time! Removing from node map");

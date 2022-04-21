@@ -189,7 +189,8 @@ impl<T> SubscribableMutex<T> {
     where
         F: FnMut(&T) -> bool,
     {
-        async_std::future::timeout(timeout, self.wait_until(f)).await
+        use async_std::prelude::FutureExt;
+        self.wait_until(f).timeout(timeout).await
     }
 }
 

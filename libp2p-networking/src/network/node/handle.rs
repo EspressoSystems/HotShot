@@ -7,6 +7,7 @@ use crate::{
 };
 use async_std::{
     future::TimeoutError,
+    prelude::FutureExt,
     sync::{Condvar, Mutex},
 };
 use bincode::Options;
@@ -218,7 +219,7 @@ impl<S> NetworkNodeHandle<S> {
         key: &impl Serialize,
         timeout: Duration,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = async_std::future::timeout(timeout, self.get_record(key)).await;
+        let result = self.get_record(key).timeout(timeout).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -237,7 +238,7 @@ impl<S> NetworkNodeHandle<S> {
         value: &impl Serialize,
         timeout: Duration,
     ) -> Result<(), NetworkNodeHandleError> {
-        let result = async_std::future::timeout(timeout, self.put_record(key, value)).await;
+        let result = self.put_record(key, value).timeout(timeout).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
