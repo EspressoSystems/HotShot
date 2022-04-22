@@ -21,11 +21,9 @@
   outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
+        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
-        # needed to generate grcov graphs
-        fenixNightly = fenix.packages.${system}.latest.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" ];
         rustOverlay = final: prev:
           {
             rustc = fenixStable;
@@ -39,6 +37,30 @@
             rustOverlay
           ];
         };
+                       cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
+               pname = "cargo-llvm-cov";
+               version = "v0.3.0";
+
+               doCheck = false;
+
+               buildInputs = [ pkgs.libllvm ];
+
+               src = pkgs.fetchFromGitHub {
+                 owner = "DieracDelta";
+                 repo = pname;
+                 rev = "jr/cargo-lock";
+                 sha256 = "sha256-pSM7EI+8xWihs0X8AQItSuj0GRHWW4PG9XS5/thqezI=";
+               };
+
+               cargoSha256 = "sha256-P5lxVidLQmu2PobI5S+PH8ISvFEYpU1JwNfmtLwRtzA=";
+               meta = with pkgs.lib; {
+                 description = "grcov collects and aggregates code coverage information for multiple source files.";
+                 homepage = "https://github.com/mozilla/grcov";
+
+                 license = licenses.mpl20;
+               };
+               };
+
 
         # DON'T FORGET TO PUT YOUR PACKAGE NAME HERE, REMOVING `throw`
         crateName = "phaselock";
@@ -73,9 +95,10 @@
           };
 
 
-        pkgsAndChecksList = pkgs.lib.mapAttrsToList (name: val: { packages.${name} = val.build; checks.${name} = val.build.override { runTests = true; }; }) project.workspaceMembers;
-        # programatically generate output packages based on what exists in the workspace
-        pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
+        # TODO uncomment when fetching dependencies is unborked
+        # pkgsAndChecksList = pkgs.lib.mapAttrsToList (name: val: { packages.${name} = val.build; checks.${name} = val.build.override { runTests = true; }; }) project.workspaceMembers;
+        # # programatically generate output packages based on what exists in the workspace
+        # pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
 
         buildDeps = with pkgs; [
           cargo-audit
@@ -86,6 +109,7 @@
           zlib.dev
           zlib.out
           fenix.packages.${system}.rust-analyzer
+
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
 
       in
@@ -110,17 +134,12 @@
 
           # usage: evaluate performance (grcov + flamegraph)
           perfShell = pkgs.mkShell {
-            buildInputs = with pkgs; [ grcov flamegraph fd fenixNightly ] ++ buildDeps;
-            shellHook = ''
-              ulimit -n 1024
-              export RUSTFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-              export RUSTDOCFLAGS='-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-              export CARGO_INCREMENTAL=0
-            '';
+            buildInputs = with pkgs; [ flamegraph fd cargo-llvm-cov fenixStable ] ++ buildDeps;
           };
         };
-        packages = pkgsAndChecksAttrSet.packages;
-        checks = pkgsAndChecksAttrSet.checks;
+        # TODO uncomment when fetching dependencies is unborked
+        # packages = pkgsAndChecksAttrSet.packages;
+        # checks = pkgsAndChecksAttrSet.checks;
 
         defaultPackage = project.workspaceMembers.phaselock.build;
       }
