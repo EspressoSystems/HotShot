@@ -3,8 +3,8 @@
 use crate::{
     tasks::RoundRunnerState,
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
-    types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
-    PhaseLock,
+    types::{Event, PhaseLockError::NetworkFault},
+    PhaseLock, Result,
 };
 use async_std::{sync::RwLock, task::block_on};
 use phaselock_types::traits::network::NetworkingImplementation;
@@ -57,7 +57,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>, PhaseLockError> {
+    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -71,7 +71,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>, PhaseLockError> {
+    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>> {
         block_on(self.next_event())
     }
     /// Will attempt to immediatly pull an event out of the queue
@@ -79,7 +79,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// # Errors
     ///
     /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>, PhaseLockError> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -90,7 +90,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has been shut
     /// down.
-    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>, PhaseLockError> {
+    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -105,13 +105,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     }
 
     /// Gets the current commited state of the [`PhaseLock`] instance
-    pub async fn get_state(&self) -> Arc<I::State> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying `Storage` returns an error
+    pub async fn get_state(&self) -> Result<Option<I::State>> {
         self.phaselock.get_state().await
-    }
-
-    /// Gets the current commited state of the [`PhaseLock`] instance, blocking on the future
-    pub fn get_state_sync(&self) -> Arc<I::State> {
-        block_on(self.get_state())
     }
 
     /// Submits a transaction to the backing [`PhaseLock`] instance.
@@ -125,7 +124,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub async fn submit_transaction(
         &self,
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<(), PhaseLockError> {
+    ) -> Result<()> {
         self.phaselock.publish_transaction_async(tx).await
     }
 
@@ -137,7 +136,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub fn submit_transaction_sync(
         &self,
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<(), PhaseLockError> {
+    ) -> Result<()> {
         block_on(self.submit_transaction(tx))
     }
 
@@ -205,7 +204,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// Will return an error when the background thread is unable to respond within a second.
     pub async fn get_round_runner_state(
         &self,
-    ) -> Result<RoundRunnerState, Box<dyn std::error::Error>> {
+    ) -> std::result::Result<RoundRunnerState, Box<dyn std::error::Error>> {
         self.phaselock
             .inner
             .background_task_handle

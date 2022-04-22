@@ -1,10 +1,7 @@
 //! Prepare replica implementation
 
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
@@ -63,7 +60,7 @@ impl PrepareReplica {
         let state = ctx.get_state_by_leaf(&leaf.parent).await?;
         let self_highest_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
-            None => return err("No QC in storage"),
+            None => return utils::err("No QC in storage"),
         };
         let is_safe_node =
             utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &high_qc).await;

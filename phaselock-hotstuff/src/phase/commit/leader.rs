@@ -46,7 +46,7 @@ impl<const N: usize> CommitLeader<N> {
             .cloned()
             .collect();
 
-        if valid_votes.len() as u64 >= ctx.api.threshold().get() {
+        if valid_votes.len() >= ctx.api.threshold().get() {
             let outcome: Outcome<N> = self
                 .create_commit(ctx, &self.pre_commit, valid_votes)
                 .await?;

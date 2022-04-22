@@ -1,8 +1,5 @@
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::Stage,
     error::{PhaseLockError, StorageSnafu},
@@ -69,7 +66,7 @@ impl CommitReplica {
             Some(leaf) => leaf,
             None => {
                 // TODO(vko) try the next commit in `ctx` if any?
-                return err(format!("Could not find leaf {:?}", commit.leaf_hash));
+                return utils::err(format!("Could not find leaf {:?}", commit.leaf_hash));
             }
         };
         let leaf_hash = leaf.hash();

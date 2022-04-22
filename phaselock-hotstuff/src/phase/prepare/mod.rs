@@ -3,8 +3,8 @@
 mod leader;
 mod replica;
 
-use super::{err, precommit::PreCommitPhase, Progress, UpdateCtx};
-use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
+use super::{precommit::PreCommitPhase, Progress, UpdateCtx};
+use crate::{utils, ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
     data::{Leaf, Stage},
@@ -49,7 +49,7 @@ impl<const N: usize> PreparePhase<N> {
             (Self::Leader(leader), true) => leader.update(ctx).await?,
             (Self::Replica(replica), false) => replica.update(ctx).await?,
             (this, _) => {
-                return err(format!(
+                return utils::err(format!(
                     "We're in {:?} but is_leader is {}",
                     this, ctx.is_leader
                 ))

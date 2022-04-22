@@ -471,7 +471,9 @@ impl<
 
         // we're assuming all nodes have the same state
         // FIXME it may be good to do an assertion on the state matching
-        let state = self.nodes[0].handle.get_state_sync();
+        let state = async_std::task::block_on(self.nodes[0].handle.get_state())
+            .unwrap()
+            .unwrap();
 
         use rand::{seq::IteratorRandom, thread_rng, Rng};
         let mut rng = thread_rng();

@@ -1,8 +1,5 @@
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
     error::PhaseLockError,
@@ -50,7 +47,7 @@ impl<const N: usize> DecideLeader<N> {
             .filter(|vote| vote.leaf_hash == self.commit.leaf_hash)
             .cloned()
             .collect();
-        if valid_votes.len() as u64 >= ctx.api.threshold().get() {
+        if valid_votes.len() >= ctx.api.threshold().get() {
             let outcome = self.decide(ctx, self.commit.clone(), valid_votes).await?;
             Ok(Some(outcome))
         } else {
@@ -97,7 +94,7 @@ impl<const N: usize> DecideLeader<N> {
         let old_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
             None => {
-                return err("No QC in storage");
+                return utils::err("No QC in storage");
             }
         };
         // Find blocks and states that were commited

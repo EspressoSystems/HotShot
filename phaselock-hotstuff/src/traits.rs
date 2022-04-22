@@ -10,7 +10,7 @@ use phaselock_types::{
     },
     PrivKey, PubKey,
 };
-use std::{num::NonZeroU64, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `phaselock` crate and passed to all functions on `HotStuff`.
 ///
@@ -18,10 +18,10 @@ use std::{num::NonZeroU64, sync::Arc, time::Duration};
 #[async_trait]
 pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
-    fn total_nodes(&self) -> u64;
+    fn total_nodes(&self) -> NonZeroUsize;
 
     /// The amount of nodes that are required to reach a decision. Also known as `n - f`.
-    fn threshold(&self) -> NonZeroU64;
+    fn threshold(&self) -> NonZeroUsize;
 
     /// The minimum amount of time a leader has to wait before sending a propose
     fn propose_min_round_time(&self) -> Duration;

@@ -3078,6 +3078,7 @@ dependencies = [
  "flume",
  "futures",
  "hex_fmt",
+ "phaselock-hotstuff",
  "phaselock-types",
  "phaselock-utils",
  "rand 0.7.3",
@@ -3098,10 +3099,11 @@ dependencies = [
 
 [[package]]
 name = "phaselock-hotstuff"
-version = "0.1.0"
+version = "0.0.6"
 dependencies = [
  "async-std",
  "async-trait",
+ "futures",
  "phaselock-types",
  "snafu",
  "tracing",

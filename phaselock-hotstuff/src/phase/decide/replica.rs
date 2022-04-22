@@ -1,7 +1,4 @@
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{message::Decide, traits::node_implementation::NodeImplementation};
 
 use super::Outcome;
@@ -52,7 +49,7 @@ impl DecideReplica {
         let old_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
             None => {
-                return err("No QC in storage");
+                return utils::err("No QC in storage");
             }
         };
         let (blocks, states) =

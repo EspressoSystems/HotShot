@@ -3,7 +3,7 @@
 use crate::{ConsensusApi, Result};
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate},
-    error::StorageSnafu,
+    error::{PhaseLockError, StorageSnafu},
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
@@ -163,4 +163,12 @@ pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>,
         state.on_commit();
     }
     Ok((blocks, states))
+}
+
+/// Return an `PhaseLockError::InvalidState` error with the given text.
+pub(crate) fn err<T, S>(e: S) -> Result<T>
+where
+    S: Into<String>,
+{
+    Err(PhaseLockError::InvalidState { context: e.into() })
 }

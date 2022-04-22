@@ -1,10 +1,7 @@
 //! Prepare leader implementation
 
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    ConsensusApi, Result, TransactionState,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage},
     error::PhaseLockError,
@@ -50,7 +47,7 @@ impl<const N: usize> PrepareLeader<N> {
     ) -> Result<Option<Outcome<I, N>>> {
         if self.high_qc.is_none() {
             let view_messages: Vec<&NewView<N>> = ctx.new_view_messages().collect();
-            if view_messages.len() as u64 >= ctx.api.threshold().get() {
+            if view_messages.len() >= ctx.api.threshold().get() {
                 // this `.unwrap()` is fine because `api.threshold()` is a NonZeroU64.
                 // `max_by_key` only returns `None` if there are no entries, but we check above that there is at least 1 entry.
                 let high_qc = view_messages
@@ -106,7 +103,7 @@ impl<const N: usize> PrepareLeader<N> {
     ) -> Result<Outcome<I, N>> {
         let high_qc = match self.high_qc.clone() {
             Some(high_qc) => high_qc,
-            None => return err("in propose_round: no high_qc set"),
+            None => return utils::err("in propose_round: no high_qc set"),
         };
         let leaf = ctx.get_leaf_by_block(&high_qc.block_hash).await?;
         let leaf_hash = leaf.hash();

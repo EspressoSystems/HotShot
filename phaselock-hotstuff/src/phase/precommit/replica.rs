@@ -1,8 +1,5 @@
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
@@ -61,7 +58,7 @@ impl PreCommitReplica {
         let state = ctx.get_state_by_leaf(&pre_commit.leaf_hash).await?;
         let self_highest_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
-            None => return err("No QC in storage"),
+            None => return utils::err("No QC in storage"),
         };
 
         // TODO: Both the state and leaf come from our database, shouldn't they always be valid?

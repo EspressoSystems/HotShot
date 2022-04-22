@@ -21,15 +21,22 @@ mod phase;
 mod traits;
 mod utils;
 
-use async_std::sync::RwLock;
 pub use traits::ConsensusApi;
 
 use phase::ViewState;
+use async_std::sync::RwLock;
+use futures::channel::oneshot::Sender;
+use phase::Phase;
 use phaselock_types::{
     data::Stage,
-    error::PhaseLockError,
-    traits::node_implementation::{NodeImplementation, TypeMap},
+    error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
+    message::{ConsensusMessage, NewView},
+    traits::{
+        node_implementation::{NodeImplementation, TypeMap},
+        storage::Storage,
+    },
 };
+use snafu::ResultExt;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
     sync::Arc,
@@ -42,11 +49,24 @@ pub type Result<T = ()> = std::result::Result<T, PhaseLockError>;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct ViewNumber(u64);
+pub struct ViewNumber(u64);
+
+impl From<u64> for ViewNumber {
+    fn from(view_number: u64) -> Self {
+        Self(view_number)
+    }
+}
+
+impl From<ViewNumber> for u64 {
+    fn from(val: ViewNumber) -> Self {
+        val.0
+    }
+}
 
 /// A reference to the hotstuff implementation.
 ///
 /// This will contain the state of all rounds.
+#[derive(Debug)]
 pub struct HotStuff<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO: Allow this to be loaded from `Storage`?
@@ -64,6 +84,21 @@ pub struct HotStuff<I: NodeImplementation<N>, const N: usize> {
     /// - Claimed (`propose` is `Some(...)`)
     /// - Rejected (`rejected` is `Some(...)`)
     transactions: Vec<TransactionState<I, N>>,
+
+    /// Listeners to be called when a round ends
+    round_finished_listeners: HashMap<ViewNumber, Vec<Sender<ViewNumber>>>,
+}
+
+impl<I: NodeImplementation<N>, const N: usize> Default for HotStuff<I, N> {
+    fn default() -> Self {
+        Self {
+            phases: HashMap::new(),
+            active_phases: VecDeque::new(),
+            inactive_phases: VecDeque::new(),
+            transactions: Vec::new(),
+            round_finished_listeners: HashMap::new(),
+        }
+    }
 }
 
 impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
@@ -110,7 +145,16 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
 
         phase
             .add_consensus_message(api, &mut self.transactions, message)
-            .await
+            .await?;
+        if phase.is_done() {
+            if let Some(listeners) = self.round_finished_listeners.remove(&view_number) {
+                for listener in listeners {
+                    let _ = listener.send(view_number);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Add a transaction to the hotstuff implementation.
@@ -160,12 +204,71 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             true
         }
     }
+
+    /// Send out a [`NextView`] message to the leader of the given round.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The phase already exists
+    /// - INTERNAL: Phases are not properly sorted
+    /// - The storage layer returned an error
+    /// - There were no QCs in the storage
+    /// - A broadcast message could not be send
+    pub async fn next_view<A: ConsensusApi<I, N>>(
+        &mut self,
+        view_number: ViewNumber,
+        api: &mut A,
+    ) -> Result {
+        if self.phases.contains_key(&view_number) {
+            return utils::err("View already exists");
+        }
+        let leader = api.get_leader(view_number.0, Stage::Prepare).await;
+        let is_leader = api.public_key() == &leader;
+
+        self.phases
+            .insert(view_number, Phase::prepare(view_number, is_leader));
+        // TODO: Make sure this is inserted at the correct spot
+        self.active_phases.push_back(view_number);
+        if !is_sorted(self.active_phases.iter()) {
+            return utils::err("Internal error; phases aren't properly sorted");
+        }
+
+        if !is_leader {
+            let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
+                Some(qc) => qc,
+                None => return utils::err("No QC in storage"),
+            };
+            api.send_direct_message(
+                leader,
+                ConsensusMessage::NewView(NewView {
+                    current_view: view_number.0,
+                    justify: newest_qc,
+                }),
+            )
+            .await
+            .context(FailedToMessageLeaderSnafu {
+                stage: Stage::Prepare,
+            })?;
+        }
+        Ok(())
+    }
+
+    /// Register a [`Sender`] that will be notified when the given round ends.
+    pub fn register_round_finished_listener(
+        &mut self,
+        view_number: ViewNumber,
+        sender: Sender<ViewNumber>,
+    ) {
+        self.round_finished_listeners
+            .entry(view_number)
+            .or_default()
+            .push(sender);
+    }
 }
 
 /// The state of a [`Transaction`].
-///
-/// [`Transaction`]: phaselock_types::traits::block_contents::Transaction
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TransactionState<I: NodeImplementation<N>, const N: usize> {
     /// The transaction
     transaction: <I as TypeMap<N>>::Transaction,
@@ -198,6 +301,7 @@ impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
 // - persistent storage
 // - cleaning up old transactions out of memory
 #[allow(dead_code)]
+#[derive(Debug)]
 struct TransactionLink {
     /// The time this link was made
     pub timestamp: Instant,

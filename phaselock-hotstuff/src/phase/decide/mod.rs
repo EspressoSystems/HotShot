@@ -5,8 +5,8 @@ mod leader;
 /// Replica implementation
 mod replica;
 
-use super::{err, Progress, UpdateCtx};
-use crate::{ConsensusApi, Result};
+use super::{Progress, UpdateCtx};
+use crate::{utils, ConsensusApi, Result};
 use leader::DecideLeader;
 use phaselock_types::{
     data::Stage,
@@ -50,7 +50,7 @@ impl<const N: usize> DecidePhase<N> {
             (Self::Leader(leader), true) => leader.update(ctx).await?,
             (Self::Replica(replica), false) => replica.update(ctx).await?,
             (this, _) => {
-                return err(format!(
+                return utils::err(format!(
                     "We're in {:?} but is_leader is {}",
                     this, ctx.is_leader
                 ))

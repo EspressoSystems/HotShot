@@ -177,6 +177,11 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
             }
         }
     }
+
+    /// Return true if this phase has run until completion
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
 }
 
 /// Determines if a stage is ready to progress to the next stage
@@ -185,14 +190,6 @@ enum Progress<T> {
     NotReady,
     /// This stage is ready to progress to the next stage
     Next(T),
-}
-
-/// Return an `PhaseLockError::InvalidState` error with the given text.
-pub(self) fn err<T, S>(e: S) -> Result<T>
-where
-    S: Into<String>,
-{
-    Err(PhaseLockError::InvalidState { context: e.into() })
 }
 
 /// Update a given `Option<PHASE>`, calling `FN` with the value and `ctx` if it is not None.

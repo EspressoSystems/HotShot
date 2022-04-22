@@ -30,7 +30,7 @@ pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
-pub mod state_machine;
+// pub mod state_machine;
 /// Contains traits consumed by [`PhaseLock`]
 pub mod traits;
 /// Contains types used by the crate
@@ -41,26 +41,27 @@ mod tasks;
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{Commit, Decide, Event, EventType, NewView, PhaseLockHandle, PreCommit, Prepare, Vote},
+    types::{Event, EventType, PhaseLockHandle},
 };
 use async_std::sync::{Mutex, RwLock};
+use async_trait::async_trait;
+use futures::channel::oneshot;
+use phaselock_hotstuff::HotStuff;
 use phaselock_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{CommitVote, ConsensusMessage, DataMessage, PreCommitVote, PrepareVote},
+    message::{DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
+        stateful_handler::StatefulHandler,
     },
 };
-use phaselock_utils::{
-    broadcast::BroadcastSender,
-    waitqueue::{WaitOnce, WaitQueue},
-};
+use phaselock_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::fmt::Debug;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::{num::NonZeroUsize, sync::Arc};
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
@@ -87,11 +88,11 @@ type Result<T> = std::result::Result<T, PhaseLockError>;
 #[derive(Debug, Clone)]
 pub struct PhaseLockConfig {
     /// Total number of nodes in the network
-    pub total_nodes: u32,
+    pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
-    pub threshold: u32,
+    pub threshold: NonZeroUsize,
     /// Maximum transactions per block
-    pub max_transactions: usize,
+    pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
     pub known_nodes: Vec<PubKey>,
     /// Base duration for next-view timeout, in milliseconds
@@ -102,52 +103,33 @@ pub struct PhaseLockConfig {
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
+
+    /// The minimum amount of time a leader has to wait to start a round
+    pub propose_min_round_time: Duration,
+    /// The maximum amount of time a leader can wait to start a round
+    pub propose_max_round_time: Duration,
 }
 
 /// Holds the state needed to participate in `PhaseLock` consensus
 pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// The public key of this node
     public_key: PubKey,
+
     /// The private key of this node
     private_key: PrivKey,
-    /// The genesis block, used for short-circuiting during bootstrap
-    #[allow(dead_code)]
-    genesis: I::Block,
+
     /// Configuration items for this phaselock instance
     config: PhaseLockConfig,
+
     /// Networking interface for this phaselock instance
     networking: I::Networking,
-    /// Pending transactions
-    transaction_queue:
-        RwLock<Vec<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction>>,
-    /// Current state
-    committed_state: RwLock<Arc<I::State>>,
-    /// Current committed leaf
-    committed_leaf: RwLock<LeafHash<N>>,
-    /// Current locked quorum certificate
-    locked_qc: RwLock<Option<QuorumCertificate<N>>>,
-    /// Current prepare quorum certificate
-    prepare_qc: RwLock<Option<QuorumCertificate<N>>>,
-    /// Unprocessed NextView messages
-    new_view_queue: WaitQueue<NewView<N>>,
-    /// Unprocessed PrepareVote messages
-    prepare_vote_queue: WaitQueue<PrepareVote<N>>,
-    /// Unprocessed PreCommit messages
-    precommit_vote_queue: WaitQueue<PreCommitVote<N>>,
-    /// Unprocessed CommitVote messages
-    commit_vote_queue: WaitQueue<CommitVote<N>>,
-    /// Currently pending Prepare message
-    prepare_waiter: WaitOnce<Prepare<I::Block, I::State, N>>,
-    /// Currently pending precommit message
-    precommit_waiter: WaitOnce<PreCommit<N>>,
-    /// Currently pending Commit message
-    commit_waiter: WaitOnce<Commit<N>>,
-    /// Currently pending decide message
-    decide_waiter: WaitOnce<Decide<N>>,
+
     /// This `PhaseLock` instance's storage backend
     storage: I::Storage,
+
     /// This `PhaseLock` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
+
     /// This `PhaseLock` instance's election backend
     election: PhaseLockElectionState<I::Election, N>,
 
@@ -156,6 +138,9 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
+
+    /// The hotstuff implementation
+    hotstuff: Mutex<HotStuff<I, N>>,
 }
 
 /// Contains the state of the election of the current [`PhaseLock`].
@@ -203,7 +188,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         info!("Creating a new phaselock");
         let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
-        let t = config.threshold as usize;
         let leaf = Leaf {
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
@@ -226,41 +210,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             private_key: PrivKey {
                 node: secret_key_share,
             },
-            genesis: genesis.clone(),
             config,
             networking,
-            transaction_queue: RwLock::new(Vec::new()),
-            committed_state: RwLock::new(Arc::new(starting_state.clone())),
-            committed_leaf: RwLock::new(leaf.hash()),
-            locked_qc: RwLock::new(Some(QuorumCertificate {
-                block_hash: genesis_hash,
-                leaf_hash: leaf.hash(),
-                view_number: 0,
-                stage: Stage::Decide,
-                signature: None,
-                genesis: true,
-            })),
-            prepare_qc: RwLock::new(Some(QuorumCertificate {
-                block_hash: genesis_hash,
-                leaf_hash: leaf.hash(),
-                view_number: 0,
-                stage: Stage::Prepare,
-                signature: None,
-                genesis: true,
-            })),
-            new_view_queue: WaitQueue::new(t),
-            prepare_vote_queue: WaitQueue::new(t),
-            precommit_vote_queue: WaitQueue::new(t),
-            commit_vote_queue: WaitQueue::new(t),
-            prepare_waiter: WaitOnce::new(),
-            precommit_waiter: WaitOnce::new(),
-            commit_waiter: WaitOnce::new(),
-            decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
+            hotstuff: Mutex::default(),
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -319,26 +276,27 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         true
     }
 
-    /// Returns true if a proposed leaf satisfies the safety rule
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    pub async fn safe_node(&self, leaf: &Leaf<I::Block, N>, qc: &QuorumCertificate<N>) -> bool {
-        if qc.genesis {
-            info!("Safe node check bypassed due to genesis flag");
-            return true;
-        }
-        if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
-            let extends_from = self.extends_from(leaf, &locked_qc.leaf_hash).await;
-            let view_number = qc.view_number > locked_qc.view_number;
-            let result = extends_from || view_number;
-            if !result {
-                error!(?locked_qc, ?leaf, ?qc, "Safe node check failed");
-            }
-            result
-        } else {
-            error!("Safe node check failed");
-            false
-        }
-    }
+    // Moved to `phaselock-hotstuff`
+    // /// Returns true if a proposed leaf satisfies the safety rule
+    // #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
+    // pub async fn safe_node(&self, leaf: &Leaf<I::Block, N>, qc: &QuorumCertificate<N>) -> bool {
+    //     if qc.genesis {
+    //         info!("Safe node check bypassed due to genesis flag");
+    //         return true;
+    //     }
+    //     if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
+    //         let extends_from = self.extends_from(leaf, &locked_qc.leaf_hash).await;
+    //         let view_number = qc.view_number > locked_qc.view_number;
+    //         let result = extends_from || view_number;
+    //         if !result {
+    //             error!(?locked_qc, ?leaf, ?qc, "Safe node check failed");
+    //         }
+    //         result
+    //     } else {
+    //         error!("Safe node check failed");
+    //         false
+    //     }
+    // }
 
     /// Sends out the next view message
     ///
@@ -351,43 +309,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Returns an error if an underlying networking error occurs
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
     pub async fn next_view(&self, current_view: u64) -> Result<()> {
-        let new_leader = self.get_leader(current_view + 1);
-        info!(?new_leader, "leader for next view");
-        // If we are the new leader, do nothing
-        #[allow(clippy::if_not_else)]
-        if new_leader != self.inner.public_key {
-            info!("Follower for this round");
-            let view_message = ConsensusMessage::NewView(NewView {
-                current_view,
-                justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
-            });
-            trace!("View message packed");
-            let network_result = self
-                .send_direct_message(view_message, new_leader)
-                .await
-                .context(NetworkFaultSnafu);
-            if let Err(e) = network_result {
-                warn!(?e, "Failed to send new view message to node");
-            };
-            trace!("View change message sent");
-        } else {
-            info!("Leader for this round, sending self new_view");
-            let view_message = NewView {
-                current_view,
-                justify: self.inner.prepare_qc.read().await.as_ref().unwrap().clone(),
-            };
-            trace!("NewView packed");
-            self.inner.new_view_queue.push(view_message).await;
-        }
-        self.send_event(Event {
-            view_number: current_view,
-            stage: Stage::None,
-            event: EventType::NewView {
-                view_number: current_view,
-            },
-        })
-        .await;
-        Ok(())
+        let mut hotstuff = self.inner.hotstuff.lock().await;
+        hotstuff
+            .next_view(
+                current_view.into(),
+                &mut PhaseLockConsensusApi { inner: &self.inner },
+            )
+            .await
     }
 
     /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
@@ -411,17 +339,20 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// # Panics
     ///
     /// Panics if consensus hits a bad round
-    #[allow(clippy::too_many_lines)]
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
     pub async fn run_round(&self, current_view: u64) -> Result<u64> {
-        let state = state_machine::SequentialRound::new(self.clone(), current_view).await;
-        // Do waitup
-        let time = Instant::now();
-        let duration = Duration::from_millis(self.inner.config.round_start_delay);
-        while Instant::now().duration_since(time) < duration {
-            async_std::task::sleep(Duration::from_millis(1)).await;
+        let (sender, receiver) = oneshot::channel();
+        self.inner
+            .hotstuff
+            .lock()
+            .await
+            .register_round_finished_listener(current_view.into(), sender);
+        match receiver.await {
+            Ok(view_number) => Ok(view_number.into()),
+            Err(e) => Err(PhaseLockError::InvalidState {
+                context: format!("Could not wait for round to end: {:?}", e),
+            }),
         }
-        state.await
     }
 
     /// Publishes a transaction to the network
@@ -436,7 +367,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
-        self.inner.transaction_queue.write().await.push(tx.clone());
+        self.inner
+            .hotstuff
+            .lock()
+            .await
+            .add_transaction(
+                tx.clone(),
+                &mut PhaseLockConsensusApi { inner: &self.inner },
+            )
+            .await?;
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(tx);
         let network_result = self
@@ -444,15 +383,38 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .await
             .context(NetworkFaultSnafu);
         if let Err(e) = network_result {
-            warn!(?e, "Failed to publish a transaction");
+            warn!(?e, ?message, "Failed to publish a transaction");
         };
         debug!(?message, "Message broadcasted");
         Ok(())
     }
 
     /// Returns a copy of the state
-    pub async fn get_state(&self) -> Arc<I::State> {
-        self.inner.committed_state.read().await.clone()
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occured with the storage interface, or if there is no QC or valid State in the storage.
+    pub async fn get_state(&self) -> Result<Option<I::State>> {
+        let qc = match self
+            .inner
+            .storage
+            .get_newest_qc()
+            .await
+            .context(StorageSnafu)?
+        {
+            Some(qc) => qc,
+            None => return Ok(None),
+        };
+        match self
+            .inner
+            .storage
+            .get_state(&qc.leaf_hash)
+            .await
+            .context(StorageSnafu)?
+        {
+            Some(state) => Ok(Some(state)),
+            None => Ok(None),
+        }
     }
 
     /// Initializes a new phaselock and does the work of setting up all the background tasks
@@ -533,68 +495,49 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
     async fn handle_broadcast_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
-        match msg {
-            ConsensusMessage::Prepare(p) => {
-                // Insert block into store
-                info!(prepare = ?p, "Inserting block and leaf into store");
-
-                if let Err(e) = self
-                    .inner
-                    .storage
-                    .update(|mut m| {
-                        let leaf = p.leaf.clone();
-                        let state = p.state.clone();
-                        async move {
-                            m.insert_leaf(leaf.clone()).await?;
-                            m.insert_block(BlockContents::hash(&leaf.item), leaf.item.clone())
-                                .await?;
-                            m.insert_state(state.clone(), leaf.hash()).await?;
-                            Ok(())
-                        }
-                    })
-                    .await
-                {
-                    error!(?e, "Error inserting leaf into storage");
-                    return;
-                }
-
-                self.inner.prepare_waiter.put(p).await;
-            }
-            ConsensusMessage::PreCommit(pc) => self.inner.precommit_waiter.put(pc).await,
-            ConsensusMessage::Commit(c) => self.inner.commit_waiter.put(c).await,
-            ConsensusMessage::Decide(d) => self.inner.decide_waiter.put(d).await,
-            _ => {
-                // Log the exceptional situation and proceed
-                warn!(?msg, "Direct message received over broadcast channel");
-            }
+        let mut hotstuff = self.inner.hotstuff.lock().await;
+        let hotstuff = &mut *hotstuff;
+        if let Err(e) = hotstuff
+            .add_consensus_message(
+                msg.clone(),
+                &mut PhaseLockConsensusApi { inner: &self.inner },
+            )
+            .await
+        {
+            error!(?e, ?msg, ?hotstuff, "Could not execute hotstuff");
         }
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
     async fn handle_direct_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
-        match msg {
-            ConsensusMessage::NewView(nv) => self.inner.new_view_queue.push(nv).await,
-            ConsensusMessage::PrepareVote(pv) => {
-                self.inner.prepare_vote_queue.push(pv).await;
-            }
-            ConsensusMessage::PreCommitVote(pcv) => {
-                self.inner.precommit_vote_queue.push(pcv).await;
-            }
-            ConsensusMessage::CommitVote(cv) => {
-                self.inner.commit_vote_queue.push(cv).await;
-            }
-            _ => {
-                // Log exceptional situation and proceed
-                warn!(?msg, "Broadcast message received over direct channel");
-            }
+        let mut hotstuff = self.inner.hotstuff.lock().await;
+        let hotstuff = &mut *hotstuff;
+        if let Err(e) = hotstuff
+            .add_consensus_message(
+                msg.clone(),
+                &mut PhaseLockConsensusApi { inner: &self.inner },
+            )
+            .await
+        {
+            error!(?e, ?msg, ?hotstuff, "Could not handle direct message");
         }
     }
 
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
         match msg {
-            DataMessage::SubmitTransaction(d) => {
-                self.inner.transaction_queue.write().await.push(d);
+            DataMessage::SubmitTransaction(transaction) => {
+                let mut hotstuff = self.inner.hotstuff.lock().await;
+                let hotstuff = &mut *hotstuff;
+                if let Err(e) = hotstuff
+                    .add_transaction(
+                        transaction.clone(),
+                        &mut PhaseLockConsensusApi { inner: &self.inner },
+                    )
+                    .await
+                {
+                    error!(?e, ?transaction, ?hotstuff, "Could not add transaction");
+                }
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -661,7 +604,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     }
 
                     // And make sure to update the phaselock `committed_leaf`
-                    *self.inner.committed_leaf.write().await = leaf_hash;
+                    // *self.inner.committed_leaf.write().await = leaf_hash;
 
                     // Broadcast that we're updated
 
@@ -723,13 +666,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         }
     }
 
-    /// Returns the public key for the leader of this round
-    fn get_leader(&self, view: u64) -> PubKey {
-        self.inner
-            .election
-            .election
-            .get_leader(&self.inner.election.stake_table, view)
-    }
+    // /// Returns the public key for the leader of this round
+    // fn get_leader(&self, view: u64, stage: Stage) -> PubKey {
+    //     self.inner
+    //         .election
+    //         .election
+    //         .get_leader(&self.inner.election.stake_table, view, stage)
+    // }
 
     /// return the timeout for a view for `self`
     pub fn get_next_view_timeout(&self) -> u64 {
@@ -737,13 +680,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 }
 
-/// Attempts to generate a quorum certificate from the provided signatures
-fn generate_qc<'a>(
-    signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
-    key_set: &tc::PublicKeySet,
-) -> std::result::Result<tc::Signature, tc::error::Error> {
-    key_set.combine_signatures(signatures)
-}
+// /// Attempts to generate a quorum certificate from the provided signatures
+// fn generate_qc<'a>(
+//     signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
+//     key_set: &tc::PublicKeySet,
+// ) -> std::result::Result<tc::Signature, tc::error::Error> {
+//     key_set.combine_signatures(signatures)
+// }
 
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`phaselock_types::traits::State`] from the given [`Storage`]
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
@@ -765,4 +708,97 @@ async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
         None => return Ok(None),
     };
     Ok(Some((qc, leaf, state)))
+}
+
+/// A handle that is passed to [`phaselock_hotstuff`] with to expose the interface that hotstuff needs to interact with [`PhaseLock`]
+struct PhaseLockConsensusApi<'a, I: NodeImplementation<N>, const N: usize> {
+    /// Reference to the [`PhaseLockInner`]
+    inner: &'a PhaseLockInner<I, N>,
+}
+
+#[async_trait]
+impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::ConsensusApi<I, N>
+    for PhaseLockConsensusApi<'a, I, N>
+{
+    fn total_nodes(&self) -> NonZeroUsize {
+        self.inner.config.total_nodes
+    }
+
+    fn threshold(&self) -> NonZeroUsize {
+        self.inner.config.threshold
+    }
+
+    fn propose_min_round_time(&self) -> Duration {
+        self.inner.config.propose_min_round_time
+    }
+
+    fn propose_max_round_time(&self) -> Duration {
+        self.inner.config.propose_max_round_time
+    }
+
+    fn storage(&self) -> &I::Storage {
+        &self.inner.storage
+    }
+
+    fn leader_acts_as_replica(&self) -> bool {
+        true
+    }
+
+    async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey {
+        let election = &self.inner.election;
+        election
+            .election
+            .get_leader(&election.stake_table, view_number, stage)
+    }
+
+    async fn should_start_round(&self, _: u64) -> bool {
+        false
+    }
+
+    async fn send_direct_message(
+        &mut self,
+        recipient: PubKey,
+        message: <I as TypeMap<N>>::ConsensusMessage,
+    ) -> std::result::Result<(), NetworkError> {
+        self.inner
+            .networking
+            .message_node(Message::Consensus(message), recipient)
+            .await
+    }
+
+    async fn send_broadcast_message(
+        &mut self,
+        message: <I as TypeMap<N>>::ConsensusMessage,
+    ) -> std::result::Result<(), NetworkError> {
+        self.inner
+            .networking
+            .broadcast_message(Message::Consensus(message))
+            .await
+    }
+
+    async fn send_event(&mut self, event: Event<I::Block, I::State>) {
+        let mut event_sender = self.inner.event_sender.write().await;
+        if let Some(sender) = &*event_sender {
+            if let Err(e) = sender.send_async(event).await {
+                error!(?e, "Could not send event to event_sender");
+                *event_sender = None;
+            }
+        }
+    }
+
+    fn public_key(&self) -> &PubKey {
+        &self.inner.public_key
+    }
+
+    fn private_key(&self) -> &PrivKey {
+        &self.inner.private_key
+    }
+
+    async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>) {
+        self.inner
+            .stateful_handler
+            .lock()
+            .await
+            .notify(blocks, states);
+    }
 }
