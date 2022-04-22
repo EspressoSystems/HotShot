@@ -1,11 +1,12 @@
 use blake3::Hasher;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 // use jf_primitives::vrf;
 use ark_ec::models::TEModelParameters as Parameters;
 use ark_ed_on_bls12_381::EdwardsParameters as Param381;
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{data::StateHash, PrivKey, PubKey, H_256};
 
@@ -83,7 +84,7 @@ impl<S, const N: usize> Vrf<Hasher, Param381> for DynamicCommittee<S, N> {
 }
 
 /// Stake table for `DynamicCommitee`
-type StakeTable = HashMap<PubKey, u64>;
+type StakeTable = BTreeMap<PubKey, u64>;
 
 /// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake being
 /// selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the selection
@@ -258,6 +259,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 mod tests {
     use super::*;
     use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
+    use std::collections::BTreeMap;
 
     type S = ();
     const N: usize = H_256;
@@ -277,12 +279,12 @@ mod tests {
     ];
 
     // Helper function to construct a stake table
-    fn dummy_stake_table(vrf_public_keys: &[PubKey]) -> HashMap<PubKey, u64> {
+    fn dummy_stake_table(vrf_public_keys: &[PubKey]) -> BTreeMap<PubKey, u64> {
         let record_size = vrf_public_keys.len();
         let stake_per_record = TOTAL_STAKE / (record_size as u64);
         let last_stake = TOTAL_STAKE - stake_per_record * (record_size as u64 - 1);
 
-        let mut stake_table = HashMap::new();
+        let mut stake_table = BTreeMap::new();
         #[allow(clippy::needless_range_loop)]
         for i in 0..record_size - 1 {
             stake_table.insert(vrf_public_keys[i].clone(), stake_per_record);
