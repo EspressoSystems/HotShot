@@ -24,6 +24,7 @@
         fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
+
         rustOverlay = final: prev:
           {
             rustc = fenixStable;
@@ -37,29 +38,28 @@
             rustOverlay
           ];
         };
-                       cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
-               pname = "cargo-llvm-cov";
-               version = "v0.3.0";
 
-               doCheck = false;
+        cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
+          pname = "cargo-llvm-cov";
+          version = "0.3.0";
 
-               buildInputs = [ pkgs.libllvm ];
+          doCheck = false;
 
-               src = pkgs.fetchFromGitHub {
-                 owner = "DieracDelta";
-                 repo = pname;
-                 rev = "jr/cargo-lock";
-                 sha256 = "sha256-pSM7EI+8xWihs0X8AQItSuj0GRHWW4PG9XS5/thqezI=";
-               };
+          buildInputs = [ pkgs.libllvm ];
 
-               cargoSha256 = "sha256-P5lxVidLQmu2PobI5S+PH8ISvFEYpU1JwNfmtLwRtzA=";
-               meta = with pkgs.lib; {
-                 description = "grcov collects and aggregates code coverage information for multiple source files.";
-                 homepage = "https://github.com/mozilla/grcov";
+          src = builtins.fetchTarball {
+            url = "https://crates.io/api/v1/crates/${pname}/${version}/download";
+            sha256 = "sha256:0iswa2cdaf2123vfc42yj9l8jx53k5jm2y51d4xqc1672hi4620l";
+          };
 
-                 license = licenses.mpl20;
-               };
-               };
+          cargoSha256 = "sha256-RzIkW/eytU8ZdZ18x0sGriJ2xvjVW+8hB85In12dXMg=";
+          meta = with pkgs.lib; {
+            description = "Cargo llvm cov generates code coverage via llvm.";
+            homepage = "https://github.com/taiki-e/cargo-llvm-cov";
+
+            license = with licenses; [mit asl20 ];
+          };
+        };
 
 
         # DON'T FORGET TO PUT YOUR PACKAGE NAME HERE, REMOVING `throw`
@@ -136,6 +136,7 @@
           perfShell = pkgs.mkShell {
             buildInputs = with pkgs; [ flamegraph fd cargo-llvm-cov fenixStable ] ++ buildDeps;
           };
+
         };
         # TODO uncomment when fetching dependencies is unborked
         # packages = pkgsAndChecksAttrSet.packages;
