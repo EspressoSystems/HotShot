@@ -2,7 +2,7 @@
 
 use async_std::task::block_on;
 use either::Either;
-use phaselock::traits::implementations::MemoryStorage;
+use phaselock::traits::implementations::{Libp2pNetwork, MemoryStorage};
 use phaselock::traits::{BlockContents, NetworkingImplementation, Storage};
 use phaselock::types::Message;
 use phaselock::{
@@ -208,6 +208,29 @@ impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
     }
 }
 
+pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
+
+impl Default for TestDescriptionBuilder<TestLibp2pNetwork, TestStorage> {
+    /// by default, just a single round
+    fn default() -> Self {
+        Self {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 1,
+            failure_threshold: 0,
+            txn_ids: Right(1),
+            next_view_timeout: 1000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            ids_to_shut_down: Vec::new(),
+            network_reliability: None,
+            rounds: None,
+            gen_runner: None,
+        }
+    }
+}
+
 /// given a description of rounds, generates such rounds
 /// args
 /// * `shut_down_ids`: vector of ids to shut down each round
@@ -355,7 +378,9 @@ pub fn gen_runner_default(
         // overwrite network to preserve public key, but use a common master_map
         .with_network({
             let master_map = MasterMap::new();
-            move |pubkey| MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
+            move |_node_id, pubkey| {
+                MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
+            }
         })
         .launch()
 }

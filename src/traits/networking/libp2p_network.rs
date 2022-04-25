@@ -82,15 +82,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    pub async fn generator(
+    pub fn generator(
         expected_node_count: u64,
         num_bootstrap: u64,
-        sks: SecretKeySet,
-    ) -> Box<impl FnMut(u64) -> Libp2pNetwork<M>> {
+    ) -> Box<impl Fn(u64, PubKey) -> Libp2pNetwork<M>> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         Box::new({
-            move |node_id| {
-                let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+            move |node_id, pubkey| {
                 let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
                 let config = if node_id < num_bootstrap {
                     NetworkNodeConfigBuilder::default()
@@ -102,7 +100,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         .unwrap()
                 } else {
                     let min_num_peers = expected_node_count / 4;
-                    let max_num_peers = expected_node_count / 2;
+                    let max_num_peers = expected_node_count;
                     NetworkNodeConfigBuilder::default()
                         .node_type(NetworkNodeType::Regular)
                         .min_num_peers(min_num_peers as usize)
@@ -178,36 +176,40 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
+        result.spawn_connect();
 
         Ok(result)
     }
 
     /// Initiates connection to the outside world
     #[allow(dead_code)]
-    async fn connect(&self) -> Result<(), NetworkError> {
-        self.add_known_peers(self.inner.bootstrap_addrs.read().await.to_vec())
-            .await?;
-
-        let timeout_duration = Duration::from_secs(5);
-        // perform connection
-        NetworkNodeHandle::wait_to_connect(
-            self.inner.handle.clone(),
-            5,
-            self.inner.handle.recv_network(),
-            self.inner.pk.nonce as usize,
-        )
-        .timeout(timeout_duration)
-        .await
-        .context(TimeoutSnafu)?
-        // TODO MATCH ON ERROR
-        .map_err(Into::<NetworkError>::into)?;
-        self.inner
-            .handle
-            .put_record(&self.inner.pk, &self.inner.handle.peer_id())
-            .await
-            .map_err(Into::<NetworkError>::into)?;
+    fn spawn_connect(&self) {
+        let handle = self.inner.handle.clone();
+        let pk = self.inner.pk.clone();
+        block_on(async move {
+            let bs_addrs = self.inner.bootstrap_addrs.read().await.to_vec().clone();
+            self.add_known_peers(bs_addrs.clone()).await.unwrap();
+            error!("added peers! {:?}", bs_addrs);
+        });
+        spawn(async move {
+            let timeout_duration = Duration::from_secs(5);
+            // perform connection
+            let connected = NetworkNodeHandle::wait_to_connect(
+                handle.clone(),
+                1,
+                handle.recv_network(),
+                pk.nonce as usize,
+            )
+            .timeout(timeout_duration)
+            .await;
+            error!("connected status for {} is {:?}", pk.nonce, connected);
+            handle
+                .put_record(&pk, &handle.peer_id())
+                .await
+                .map_err(Into::<NetworkError>::into)?;
+            Ok::<(), NetworkError>(())
+        });
         self.spawn_pk_gather();
-        Ok(())
     }
 
     /// make network aware of known peers
@@ -268,7 +270,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             // time to sleep between getting metadata info
             // should probably implement some sort of implicit message passing to figure out how
             // many nodes in the network so we can do this on-demand
-            let timeout_dur = Duration::new(0, 500);
+            let timeout_dur = Duration::new(5, 0);
             while !handle.inner.handle.is_killed().await {
                 let known_nodes = handle
                     .inner
