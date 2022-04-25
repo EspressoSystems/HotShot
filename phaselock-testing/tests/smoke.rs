@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 mod common;
 use common::*;
 
@@ -9,7 +8,7 @@ use tracing::instrument;
 #[async_std::test]
 #[instrument]
 async fn ten_tx_seven_nodes() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
@@ -23,7 +22,7 @@ async fn ten_tx_seven_nodes() {
 #[async_std::test]
 #[instrument]
 async fn ten_tx_five_nodes() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 5,
         start_nodes: 5,
         num_succeeds: 10,

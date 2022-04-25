@@ -14,7 +14,7 @@ use std::collections::HashSet;
 #[instrument]
 #[ignore]
 async fn single_permanent_failure() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
@@ -35,7 +35,7 @@ async fn single_permanent_failure() {
 #[instrument]
 #[ignore]
 async fn double_permanent_failure() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,

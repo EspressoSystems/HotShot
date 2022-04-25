@@ -3,7 +3,7 @@ mod common;
 use std::sync::Arc;
 
 use common::TestDescriptionBuilder;
-use common::{AppliedTestRunner, TestRoundResult};
+use common::{AppliedTestRunner, TestNetwork, TestRoundResult};
 use either::Either::Right;
 use phaselock_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
@@ -45,7 +45,7 @@ pub fn check_safety(
 #[async_std::test]
 #[instrument]
 async fn test_no_loss_network() {
-    let mut description = TestDescriptionBuilder {
+    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 10,
         start_nodes: 10,
         network_reliability: Some(Arc::new(SynchronousNetwork::default())),
@@ -60,7 +60,7 @@ async fn test_no_loss_network() {
 #[async_std::test]
 #[instrument]
 async fn test_synchronous_network() {
-    let mut description = TestDescriptionBuilder {
+    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 5,
         start_nodes: 5,
         num_succeeds: 2,
@@ -79,7 +79,7 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let mut description = TestDescriptionBuilder {
+    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 5,
         start_nodes: 5,
         num_succeeds: 2,
@@ -102,7 +102,7 @@ async fn test_partially_synchronous_network() {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 5,
         start_nodes: 5,
         num_succeeds: 2,
