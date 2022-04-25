@@ -3124,6 +3124,8 @@ version = "0.0.1"
 dependencies = [
  "async-std",
  "either",
+ "libp2p",
+ "libp2p-networking",
  "phaselock",
  "phaselock-types",
  "phaselock-utils",
