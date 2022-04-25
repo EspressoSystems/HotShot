@@ -3,15 +3,18 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 use async_std::prelude::FutureExt;
+use async_std::sync::RwLock;
 use async_std::task::{sleep, spawn};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use flume::Sender;
 use futures::future::join_all;
-use libp2p::PeerId;
+use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
-use libp2p_networking::network::{ConnectionData, NetworkNodeConfig, NetworkNodeHandle};
+use libp2p_networking::network::{
+    ConnectionData, NetworkNodeConfig, NetworkNodeHandle, NetworkNodeType,
+};
 use phaselock_types::traits::network::{FailedToSerializeSnafu, TimeoutSnafu};
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
@@ -24,6 +27,9 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error, instrument, trace};
+
+/// Type alias for a shared collection of peerid, multiaddrs
+pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
 /// The underlying state of the libp2p network
 struct Libp2pNetworkInner<
@@ -49,6 +55,9 @@ struct Libp2pNetworkInner<
     direct_recv: flume::Receiver<M>,
     /// holds the state of the previously held connections
     last_connection_set: ConnectionData,
+    /// this is really cheating to enable local tests
+    /// hashset of (bootstrap_addr, peer_id)
+    bootstrap_addrs: PeerInfoVec,
 }
 
 /// Networking implementation that uses libp2p
@@ -64,14 +73,21 @@ pub struct Libp2pNetwork<
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     Libp2pNetwork<M>
 {
-    /// constructs new network for a node
+    /// Constructs new network for a node. Note that this network is unconnected.
+    /// One must call `connect` in order to connect.
     /// * `config`: the configuration of the node
     /// * `pk`: public key associated with the node
+    /// # Errors
+    /// Returns error in the event that the underlying libp2p network
+    /// is unable to create a network.
     #[allow(dead_code)]
     pub async fn new(
         config: NetworkNodeConfig,
         pk: PubKey,
+        bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
     ) -> Result<Libp2pNetwork<M>, NetworkError> {
+        // TODO do we want to use pk.nonce? or idx? or are they the same?
+
         // if we care about internal state, we could consider passing something in.
         // We don't, though. AFAICT
         let network_handle = Arc::new(
@@ -79,6 +95,15 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
+
+        if matches!(
+            network_handle.config().node_type,
+            NetworkNodeType::Bootstrap
+        ) {
+            let addr = network_handle.listen_addr();
+            let pid = network_handle.peer_id();
+            bootstrap_addrs.write().await.push((Some(pid), addr));
+        }
 
         let pubkey_to_pid = DashMap::new();
         pubkey_to_pid.insert(pk.clone(), network_handle.peer_id());
@@ -100,6 +125,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 direct_recv,
                 last_connection_set: ConnectionData::default(),
                 pk,
+                bootstrap_addrs,
             }),
         };
 
@@ -108,9 +134,12 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(result)
     }
 
-    /// initiates connection to network
+    /// Initiates connection to the outside world
     #[allow(dead_code)]
     async fn connect(&self) -> Result<(), NetworkError> {
+        self.add_known_peers(self.inner.bootstrap_addrs.read().await.to_vec())
+            .await?;
+
         let timeout_duration = Duration::from_secs(5);
         // perform connection
         NetworkNodeHandle::wait_to_connect(
@@ -131,6 +160,18 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .map_err(Into::<NetworkError>::into)?;
         self.spawn_pk_gather();
         Ok(())
+    }
+
+    /// make network aware of known peers
+    async fn add_known_peers(
+        &self,
+        known_peers: Vec<(Option<PeerId>, Multiaddr)>,
+    ) -> Result<(), NetworkError> {
+        self.inner
+            .handle
+            .add_known_peers(known_peers)
+            .await
+            .map_err(Into::<NetworkError>::into)
     }
 
     /// task to propagate messages to handlers

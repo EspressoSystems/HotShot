@@ -11,6 +11,8 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 phaselock = { path = "../" }
 phaselock-types = { path = "../phaselock-types" }
 phaselock-utils = { path = "../phaselock-utils", features = ["logging-utils"] }
+libp2p-networking = {path = "../libp2p-networking", version = "0.0.6"}
+libp2p = { version = "0.44.0", features = ["serde"] }
 async-std = "1.11.0"
 tracing = "0.1.32"
 rand = "0.7.3"
