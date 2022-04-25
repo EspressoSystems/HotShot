@@ -1,13 +1,11 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use super::{Generator, TestRunner, N};
-use async_std::task::block_on;
-use libp2p_networking::network::{NetworkNodeConfigBuilder, NetworkNodeType};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
     tc::{self},
     traits::{
-        implementations::{Libp2pNetwork, MasterMap, MemoryNetwork, MemoryStorage, PeerInfoVec},
+        implementations::{MasterMap, MemoryNetwork, MemoryStorage},
         NetworkingImplementation, State, Storage,
     },
     types::Message,
@@ -24,81 +22,6 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) state: Generator<STATE>,
     pub(super) config: PhaseLockConfig,
     pub(super) sks: tc::SecretKeySet,
-}
-
-// TODO is this the right place for this impl?
-impl
-    TestLauncher<
-        Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, N>>,
-        MemoryStorage<DEntryBlock, DemoState, N>,
-        DEntryBlock,
-        DemoState,
-    >
-{
-    /// create new libp2p network
-    /// note that in the future we may want to add in the ability to pass in our own node config
-    /// vector
-    pub fn new(expected_node_count: u64, num_bootstrap: u64) -> Self {
-        assert!(expected_node_count >= num_bootstrap);
-        let threshold = ((expected_node_count * 2) / 3) + 1;
-        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
-        let bootstrap_addrs: PeerInfoVec = Arc::default();
-
-        let known_nodes: Vec<PubKey> = (0..expected_node_count)
-            .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
-            .collect();
-        let config = PhaseLockConfig {
-            total_nodes: expected_node_count as u32,
-            threshold: threshold as u32,
-            max_transactions: 100,
-            known_nodes,
-            next_view_timeout: 500,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-        };
-
-        Self {
-            network: Box::new({
-                let sks = sks.clone();
-                move |node_id| {
-                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    let replication_factor =
-                        NonZeroUsize::new(expected_node_count as usize).unwrap();
-                    let config = if node_id < num_bootstrap {
-                        NetworkNodeConfigBuilder::default()
-                            .replication_factor(replication_factor)
-                            .node_type(NetworkNodeType::Bootstrap)
-                            .max_num_peers(0)
-                            .min_num_peers(0)
-                            .build()
-                            .unwrap()
-                    } else {
-                        let min_num_peers = expected_node_count / 4;
-                        let max_num_peers = expected_node_count / 2;
-                        NetworkNodeConfigBuilder::default()
-                            .node_type(NetworkNodeType::Regular)
-                            .min_num_peers(min_num_peers as usize)
-                            .max_num_peers(max_num_peers as usize)
-                            .replication_factor(replication_factor)
-                            .build()
-                            .unwrap()
-                    };
-                    let bootstrap_addrs_ref = bootstrap_addrs.clone();
-                    block_on(async move {
-                        Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref)
-                            .await
-                            .unwrap()
-                    })
-                }
-            }),
-            storage: Box::new(|_| MemoryStorage::default()),
-            block: Box::new(|_| DEntryBlock::default()),
-            state: Box::new(|_| super::get_starting_state()),
-            sks,
-            config,
-        }
-    }
 }
 
 impl

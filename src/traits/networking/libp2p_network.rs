@@ -4,7 +4,7 @@
 
 use async_std::prelude::FutureExt;
 use async_std::sync::RwLock;
-use async_std::task::{sleep, spawn};
+use async_std::task::{block_on, sleep, spawn};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
@@ -13,7 +13,7 @@ use futures::future::join_all;
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
 use libp2p_networking::network::{
-    ConnectionData, NetworkNodeConfig, NetworkNodeHandle, NetworkNodeType,
+    ConnectionData, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
 use phaselock_types::traits::network::{FailedToSerializeSnafu, TimeoutSnafu};
 use phaselock_types::{
@@ -25,7 +25,9 @@ use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
+use threshold_crypto::SecretKeySet;
 use tracing::{debug, error, instrument, trace};
 
 /// Type alias for a shared collection of peerid, multiaddrs
@@ -73,6 +75,52 @@ pub struct Libp2pNetwork<
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     Libp2pNetwork<M>
 {
+    /// Return a generator function (for usage with the launcher)
+    /// TODO fix docstring link to launcher
+    /// # Panics
+    /// Returned function may panic either:
+    /// - An invalid configuration
+    ///   (probably an issue with the defaults of this function)
+    /// - An inability to spin up the replica's network
+    pub async fn generator(
+        expected_node_count: u64,
+        num_bootstrap: u64,
+        sks: SecretKeySet,
+    ) -> Box<impl FnMut(u64) -> Libp2pNetwork<M>> {
+        let bootstrap_addrs: PeerInfoVec = Arc::default();
+        Box::new({
+            move |node_id| {
+                let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
+                let config = if node_id < num_bootstrap {
+                    NetworkNodeConfigBuilder::default()
+                        .replication_factor(replication_factor)
+                        .node_type(NetworkNodeType::Bootstrap)
+                        .max_num_peers(0)
+                        .min_num_peers(0)
+                        .build()
+                        .unwrap()
+                } else {
+                    let min_num_peers = expected_node_count / 4;
+                    let max_num_peers = expected_node_count / 2;
+                    NetworkNodeConfigBuilder::default()
+                        .node_type(NetworkNodeType::Regular)
+                        .min_num_peers(min_num_peers as usize)
+                        .max_num_peers(max_num_peers as usize)
+                        .replication_factor(replication_factor)
+                        .build()
+                        .unwrap()
+                };
+                let bootstrap_addrs_ref = bootstrap_addrs.clone();
+                block_on(async move {
+                    Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref)
+                        .await
+                        .unwrap()
+                })
+            }
+        })
+    }
+
     /// Constructs new network for a node. Note that this network is unconnected.
     /// One must call `connect` in order to connect.
     /// * `config`: the configuration of the node
