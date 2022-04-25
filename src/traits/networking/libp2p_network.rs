@@ -72,8 +72,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         config: NetworkNodeConfig,
         pk: PubKey,
     ) -> Result<Libp2pNetwork<M>, NetworkError> {
-        let timeout_duration = Duration::from_secs(5);
-
         // if we care about internal state, we could consider passing something in.
         // We don't, though. AFAICT
         let network_handle = Arc::new(
@@ -81,22 +79,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
-
-        NetworkNodeHandle::wait_to_connect(
-            network_handle.clone(),
-            5,
-            network_handle.recv_network(),
-            pk.nonce as usize,
-        )
-        .timeout(timeout_duration)
-        .await
-        .context(TimeoutSnafu)?
-        .map_err(Into::<NetworkError>::into)?;
-
-        network_handle
-            .put_record(&pk, &network_handle.peer_id())
-            .await
-            .map_err(Into::<NetworkError>::into)?;
 
         let pubkey_to_pid = DashMap::new();
         pubkey_to_pid.insert(pk.clone(), network_handle.peer_id());
@@ -122,9 +104,33 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-        result.spawn_pk_gather();
 
         Ok(result)
+    }
+
+    /// initiates connection to network
+    #[allow(dead_code)]
+    async fn connect(&self) -> Result<(), NetworkError> {
+        let timeout_duration = Duration::from_secs(5);
+        // perform connection
+        NetworkNodeHandle::wait_to_connect(
+            self.inner.handle.clone(),
+            5,
+            self.inner.handle.recv_network(),
+            self.inner.pk.nonce as usize,
+        )
+        .timeout(timeout_duration)
+        .await
+        .context(TimeoutSnafu)?
+        // TODO MATCH ON ERROR
+        .map_err(Into::<NetworkError>::into)?;
+        self.inner
+            .handle
+            .put_record(&self.inner.pk, &self.inner.handle.peer_id())
+            .await
+            .map_err(Into::<NetworkError>::into)?;
+        self.spawn_pk_gather();
+        Ok(())
     }
 
     /// task to propagate messages to handlers
