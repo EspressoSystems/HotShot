@@ -336,7 +336,7 @@ impl<
 pub fn gen_runner_default(
     desc: &TestDescription<TestNetwork, TestStorage>,
 ) -> TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState> {
-    let launcher = TestLauncher::new(desc.total_nodes);
+    let launcher = TestLauncher::<MemoryNetwork<_>, _, _, _>::new(desc.total_nodes);
 
     // modify runner to recognize timing params
     let set_timing_params = |a: &mut PhaseLockConfig| {
