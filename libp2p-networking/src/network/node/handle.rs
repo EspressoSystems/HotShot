@@ -119,6 +119,10 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     }
 
     /// Wait for a node to connect to other nodes
+    /// * `node`: reference to the node
+    /// * `num_peers`: number of peers required to be connected successfully before returning
+    /// * `chan`: listener for connection events
+    /// * `node_idx`: the node id
     #[instrument]
     pub async fn wait_to_connect(
         node: Arc<NetworkNodeHandle<S>>,

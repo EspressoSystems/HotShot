@@ -64,19 +64,20 @@ pub struct Libp2pNetwork<
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
     Libp2pNetwork<M>
 {
-    /// FIXME is there any way to
+    /// constructs new network for a node
+    /// * `config`: the configuration of the node
+    /// * `pk`: public key associated with the node
     #[allow(dead_code)]
     pub async fn new(
         config: NetworkNodeConfig,
-        idx: usize,
         pk: PubKey,
     ) -> Result<Libp2pNetwork<M>, NetworkError> {
         let timeout_duration = Duration::from_secs(5);
 
         // if we care about internal state, we could consider passing something in.
-        // We don't, though.AFAICT
+        // We don't, though. AFAICT
         let network_handle = Arc::new(
-            NetworkNodeHandle::<()>::new(config, idx)
+            NetworkNodeHandle::<()>::new(config, pk.nonce as usize)
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
@@ -85,7 +86,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             network_handle.clone(),
             5,
             network_handle.recv_network(),
-            idx,
+            pk.nonce as usize,
         )
         .timeout(timeout_duration)
         .await
@@ -136,7 +137,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
                     GossipMsg(msg) => {
-                        // TODO error handling
                         let result: M = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu)?;
@@ -170,6 +170,9 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     fn spawn_pk_gather(&self) {
         let handle = self.clone();
         spawn(async move {
+            // time to sleep between getting metadata info
+            // should probably implement some sort of implicit message passing to figure out how
+            // many nodes in the network so we can do this on-demand
             let timeout_dur = Duration::new(0, 500);
             while !handle.inner.handle.is_killed().await {
                 let known_nodes = handle
