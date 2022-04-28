@@ -35,7 +35,7 @@ use update_ctx::UpdateCtx;
 ///
 /// Whenever a phase is done, this will progress to a next phase. When `decide` is done an internal `done` boolean is set to `true`.
 #[derive(Debug)]
-pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
+pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
     /// The view number of this phase.
     view_number: ViewNumber,
 
@@ -59,7 +59,7 @@ pub(crate) struct Phase<I: NodeImplementation<N>, const N: usize> {
     decide: Option<DecidePhase<N>>,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
+impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
     /// Create a new `prepare` phase with the given `view_number`.
     pub fn prepare(view_number: ViewNumber, is_leader: bool) -> Self {
         Self {

@@ -24,7 +24,7 @@ mod utils;
 use async_std::sync::RwLock;
 pub use traits::ConsensusApi;
 
-use phase::Phase;
+use phase::ViewState;
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
@@ -50,7 +50,7 @@ struct ViewNumber(u64);
 pub struct HotStuff<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO: Allow this to be loaded from `Storage`?
-    phases: HashMap<ViewNumber, Phase<I, N>>,
+    phases: HashMap<ViewNumber, ViewState<I, N>>,
 
     /// Active phases, sorted by lowest -> highest
     active_phases: VecDeque<ViewNumber>,
@@ -87,7 +87,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
                 if can_insert_view {
-                    let phase = v.insert(Phase::prepare(
+                    let phase = v.insert(ViewState::prepare(
                         view_number,
                         api.is_leader(view_number.0, Stage::Prepare).await,
                     ));

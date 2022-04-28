@@ -11,38 +11,56 @@ use tracing::{debug, error, info, trace, warn};
 
 /// Check if the given `new_qc` is considered a "safe node".
 ///
-/// `known_qc` is a QC that is known to be good (probably loaded from `api.storage()`)
+/// `locked_qc` is known to be good (probably loaded from `api.storage()`)
 ///
 /// If any storage-based error occurs, this will return `false`
-pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+pub(crate) async fn validate_against_locked_qc<
+    I: NodeImplementation<N>,
+    A: ConsensusApi<I, N>,
+    const N: usize,
+>(
     api: &A,
-    known_qc: &QuorumCertificate<N>,
-    leaf: &Leaf<I::Block, N>,
-    new_qc: &QuorumCertificate<N>,
+    locked_qc: &QuorumCertificate<N>,
+    new_leaf: &Leaf<I::Block, N>,
+    high_qc: &QuorumCertificate<N>,
 ) -> bool {
     // new nodes can not be a genesis
-    if new_qc.genesis {
+    if high_qc.genesis {
         return false;
     }
-    // safeNode predicate. The safeNode predicate is a core ingredient of the protocol. It examines a proposal message
-    // m carrying a QC justification m.justify, and determines whether m.node is safe to accept. The safety rule to accept
-    // a proposal is the branch of m.node extends from the currently locked node locked QC .node[2]. On the other hand, the
-    // liveness rule is the replica will accept m if m.justify has a higher view than the current locked QC[1] . The predicate is
-    // true as long as either one of two rules holds.
 
-    // [1]: if m[..] has a higher view than the current locked QC
-    let view_number_valid = new_qc.view_number > known_qc.view_number;
+    // Liveness: don't validate the high QC when the view_number is higher
+    let view_number_valid = high_qc.view_number > locked_qc.view_number;
     if view_number_valid {
         return true;
     }
 
-    // [2] the branch of m.node extends from the currently locked node
-    let valid_leaf_hash = known_qc.leaf_hash;
-    let mut parent = leaf.parent;
+    // Check if the high_qc.leaf_hash exists in the storage
+    if api
+        .storage()
+        .get_leaf(&high_qc.leaf_hash)
+        .await
+        .unwrap_or(None)
+        .is_none()
+    {
+        info!(?high_qc.leaf_hash, "Could not get the parent leaf");
+        return false;
+    }
 
-    while parent != LeafHash::from_array([0_u8; N]) {
+    // Check if the incoming leaf has a valid parent
+    let empty_hash = LeafHash::from_array([0_u8; N]);
+    if new_leaf.parent == empty_hash {
+        info!(?new_leaf, "Incoming leaf has an empty parent");
+        return false;
+    }
+
+    let valid_leaf_hash = high_qc.leaf_hash; // parent.leaf_hash
+    let mut parent = new_leaf.parent;
+
+    // keep iterating the parents in our storage until we find one that matches the target
+    while parent != empty_hash {
         if parent == valid_leaf_hash {
-            trace!(?parent, ?leaf, "Leaf extends from");
+            trace!(?parent, ?new_leaf, "Leaf extends from");
             return true;
         }
         let result = api.storage().get_leaf(&parent).await;
@@ -61,7 +79,12 @@ pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, c
     // doesn't descend from anything in history, and there's no way to bootstrap that situation unless the saftey bounds
     // are violated`
     // https://github.com/EspressoSystems/phaselock/pull/121#discussion_r856538610
-    info!(?known_qc, ?leaf, ?new_qc, "new QC has an empty parent");
+    info!(
+        ?locked_qc,
+        ?new_leaf,
+        ?high_qc,
+        "new QC has an empty parent"
+    );
     true
 }
 

@@ -65,7 +65,8 @@ impl PrepareReplica {
             Some(qc) => qc,
             None => return err("No QC in storage"),
         };
-        let is_safe_node = utils::safe_node(ctx.api, &self_highest_qc, &leaf, &high_qc).await;
+        let is_safe_node =
+            utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &high_qc).await;
         if !is_safe_node || !state.validate_block(&leaf.item) {
             error!("is_safe_node: {}", is_safe_node);
             error!(?leaf, "Leaf failed safe_node predicate");

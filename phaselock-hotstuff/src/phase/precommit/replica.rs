@@ -72,7 +72,9 @@ impl PreCommitReplica {
             });
         }
 
-        let is_safe_node = utils::safe_node(ctx.api, &self_highest_qc, &leaf, &pre_commit.qc).await;
+        let is_safe_node =
+            utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &pre_commit.qc)
+                .await;
         if !is_safe_node {
             error!("is_safe_node: {}", is_safe_node);
             error!(?leaf, "Leaf failed safe_node predicate");
