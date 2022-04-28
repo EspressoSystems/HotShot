@@ -130,7 +130,7 @@ pub trait StorageUpdater<
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ViewNumber(u64);
+pub struct ViewNumber(pub u64);
 
 /// State of a single phaselock-hotstuff  view
 #[derive(Serialize, Deserialize, Clone)]

@@ -81,6 +81,12 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         message: <I as TypeMap<N>>::ConsensusMessage,
         api: &mut A,
     ) -> Result {
+        // Validate the incoming QC is valid
+        if !message.validate_qc(&api.public_key().set) {
+            warn!(?message, "Incoming message does not have a valid QC");
+            return Ok(());
+        }
+
         let view_number = ViewNumber(message.view_number());
         let can_insert_view = self.can_insert_view(view_number);
         let phase = match self.phases.entry(view_number) {

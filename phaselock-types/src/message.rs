@@ -3,11 +3,11 @@
 //! This module contains types used to represent the various types of messages that
 //! `PhaseLock` nodes can send among themselves.
 
-use crate::data::{Leaf, LeafHash, QuorumCertificate};
+use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use threshold_crypto::SignatureShare;
+use threshold_crypto::{PublicKeySet, SignatureShare};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Enum representation of any message type
@@ -66,6 +66,29 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
             Self::CommitVote(vote) => vote.current_view,
             Self::Decide(decide) => decide.current_view,
         }
+    }
+
+    /// Validate this message on if the QC is correct, if it has one
+    ///
+    /// If this message has no QC then this will return `true`
+    pub fn validate_qc(&self, public_key: &PublicKeySet) -> bool {
+        let (qc, view_number, stage) = match self {
+            ConsensusMessage::NewView(view) => (&view.justify, view.current_view, Stage::Prepare),
+            ConsensusMessage::Prepare(prepare) => {
+                (&prepare.high_qc, prepare.current_view, Stage::Prepare)
+            }
+            ConsensusMessage::PreCommit(pre_commit) => {
+                (&pre_commit.qc, pre_commit.current_view, Stage::PreCommit)
+            }
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::Commit),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Decide),
+
+            ConsensusMessage::CommitVote(_)
+            | ConsensusMessage::PreCommitVote(_)
+            | ConsensusMessage::PrepareVote(_) => return true,
+        };
+
+        qc.verify(public_key, view_number, stage)
     }
 }
 
