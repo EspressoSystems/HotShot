@@ -132,15 +132,17 @@ impl<I: NodeImplementation<N>, const N: usize> Phase<I, N> {
             return Ok(());
         }
         let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
+        let stage = self.stage();
         let mut ctx = UpdateCtx {
             is_leader,
             api,
-            messages: &self.messages,
+            messages: &mut self.messages,
             transactions,
             view_number: self.view_number,
+            stage,
         };
 
-        match self.stage() {
+        match stage {
             Stage::None => {
                 unreachable!()
             }

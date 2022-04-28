@@ -8,7 +8,7 @@ use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
     data::{Leaf, Stage},
-    error::{FailedToBroadcastSnafu, StorageSnafu},
+    error::StorageSnafu,
     message::{ConsensusMessage, Prepare, PrepareVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
@@ -135,12 +135,8 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
 
         if was_leader {
             // Broadcast out the leaf
-            ctx.api
-                .send_broadcast_message(ConsensusMessage::Prepare(prepare.clone()))
-                .await
-                .context(FailedToBroadcastSnafu {
-                    stage: Stage::Prepare,
-                })?;
+            ctx.send_broadcast_message(ConsensusMessage::Prepare(prepare.clone()))
+                .await?;
         }
         // Notify our listeners
         ctx.api.send_propose(ctx.view_number.0, new_leaf.item).await;

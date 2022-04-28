@@ -10,7 +10,7 @@ use crate::{ConsensusApi, Result};
 use leader::CommitLeader;
 use phaselock_types::{
     data::Stage,
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu, StorageSnafu},
+    error::{FailedToMessageLeaderSnafu, StorageSnafu},
     message::{Commit, CommitVote, ConsensusMessage, PreCommit, PreCommitVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
@@ -110,12 +110,8 @@ impl<const N: usize> Outcome<N> {
         trace!(?commit.qc, "New state written");
 
         if was_leader {
-            ctx.api
-                .send_broadcast_message(ConsensusMessage::Commit(commit.clone()))
-                .await
-                .context(FailedToBroadcastSnafu {
-                    stage: Stage::Commit,
-                })?;
+            ctx.send_broadcast_message(ConsensusMessage::Commit(commit.clone()))
+                .await?;
         }
 
         if is_next_leader {

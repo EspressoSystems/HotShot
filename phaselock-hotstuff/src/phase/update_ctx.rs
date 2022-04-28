@@ -2,8 +2,8 @@
 
 use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
 use phaselock_types::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
-    error::StorageSnafu,
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, Stage},
+    error::{FailedToBroadcastSnafu, StorageSnafu},
     message::{
         Commit, CommitVote, ConsensusMessage, Decide, NewView, PreCommit, PreCommitVote, Prepare,
         PrepareVote,
@@ -24,9 +24,11 @@ pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>,
     /// All transactions that have been received. These will also include the transactions that have been proposed.
     pub(super) transactions: &'a [TransactionState<I, N>],
     /// All messages that have been received this round
-    pub(super) messages: &'a [<I as TypeMap<N>>::ConsensusMessage],
+    pub(super) messages: &'a mut Vec<<I as TypeMap<N>>::ConsensusMessage>,
     /// `true` if this phase is leader in this round.
     pub(super) is_leader: bool,
+    /// The current stage of this phase
+    pub(super) stage: Stage,
 }
 
 impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> UpdateCtx<'a, I, A, N> {
@@ -42,6 +44,25 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .await
             .context(StorageSnafu)?
             .or_not_found(leaf_hash)
+    }
+
+    /// Send a broadcast message to the [`ConsensusApi`] and update the internal message list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying [`ConsensusApi::send_broadcast_message`] returns an error.
+    pub(super) async fn send_broadcast_message(
+        &mut self,
+        message: <I as TypeMap<N>>::ConsensusMessage,
+    ) -> Result {
+        self.api
+            .send_broadcast_message(message.clone())
+            .await
+            .context(FailedToBroadcastSnafu { stage: self.stage })?;
+        // If the networking layer sends this message to ourselves, that means this message will be inserted twice
+        // TODO: Make sure this doesn't happen
+        self.messages.push(message);
+        Ok(())
     }
 
     /// Get a leaf by the given [`BlockHash`]

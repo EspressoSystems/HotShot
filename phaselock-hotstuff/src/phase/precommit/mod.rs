@@ -10,7 +10,7 @@ use crate::{ConsensusApi, Result};
 use leader::PreCommitLeader;
 use phaselock_types::{
     data::Stage,
-    error::{FailedToBroadcastSnafu, FailedToMessageLeaderSnafu},
+    error::FailedToMessageLeaderSnafu,
     message::{ConsensusMessage, PreCommit, PreCommitVote, Prepare, PrepareVote},
     traits::node_implementation::NodeImplementation,
 };
@@ -90,12 +90,8 @@ impl<const N: usize> Outcome<N> {
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
         if was_leader {
-            ctx.api
-                .send_broadcast_message(ConsensusMessage::PreCommit(pre_commit.clone()))
-                .await
-                .context(FailedToBroadcastSnafu {
-                    stage: Stage::PreCommit,
-                })?;
+            ctx.send_broadcast_message(ConsensusMessage::PreCommit(pre_commit.clone()))
+                .await?;
         }
         if is_next_leader {
             Ok(CommitPhase::leader(pre_commit, vote))

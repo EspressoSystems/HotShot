@@ -2,10 +2,12 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
+    message::ConsensusMessage,
     traits::{BlockContents, State},
 };
 use async_trait::async_trait;
 use futures::Future;
+use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
 /// Errors that can occur in the storage layer.
@@ -43,9 +45,6 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     /// Retrieves a Quorum Certificate from storage, by the hash of the block it refers to
     async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>>;
 
-    /// Retrieves the newest Quorum Certificate
-    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
-
     /// Retrieves the Quorum Certificate associated with a particular view number
     async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>>;
 
@@ -70,6 +69,25 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     ///
     /// This function should only be used for testing, never in production code.
     async fn get_internal_state(&self) -> StorageState<B, S, N>;
+
+    /// Retrieves the newest Quorum Certificate
+    #[deprecated(note = "Use `locked_qc` or `prepare_qc` instead")]
+    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
+        self.locked_qc().await
+    }
+
+    /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff prepare phase
+    async fn prepare_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
+
+    /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff commit phase
+    async fn locked_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
+
+    /// Retrieves the active hotstuff phases.
+    async fn active_hotstuff_phases(&self) -> StorageResult<Vec<View<B, S, N>>>;
+
+    /// Get the hotstuff phase by the given [`ViewNumber`]
+    async fn hotstuff_phase(&self, view_number: ViewNumber)
+        -> StorageResult<Option<View<B, S, N>>>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].
@@ -105,4 +123,27 @@ pub trait StorageUpdater<
     async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult;
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it.
     async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult;
+}
+
+/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ViewNumber(u64);
+
+/// State of a single phaselock-hotstuff  view
+#[derive(Serialize, Deserialize, Clone)]
+pub struct View<B, S, const N: usize> {
+    /// The view number of this phase.
+    pub view_number: ViewNumber,
+
+    /// All messages that have been received on this phase.
+    ///
+    /// Some things that can be derived from this and are not stored independently
+    /// - Prepare leader `high_qc`
+    /// - Precommit leader `Prepare` block
+    /// - Commit leader `PreCommit` block
+    /// - Decide leader `Commit` block
+    pub messages: Vec<ConsensusMessage<B, S, N>>,
+
+    /// if `true` this phase is done and will not run any more updates
+    pub done: bool,
 }
