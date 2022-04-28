@@ -71,23 +71,26 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     async fn get_internal_state(&self) -> StorageState<B, S, N>;
 
     /// Retrieves the newest Quorum Certificate
-    #[deprecated(note = "Use `locked_qc` or `prepare_qc` instead")]
-    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
-        self.locked_qc().await
-    }
+    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
 
-    /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff prepare phase
-    async fn prepare_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
+    // /// Retrieves the newest Quorum Certificate
+    // #[deprecated(note = "Use `locked_qc` or `prepare_qc` instead")]
+    // async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
+    //     self.locked_qc().await
+    // }
 
-    /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff commit phase
-    async fn locked_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
+    // /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff prepare phase
+    // async fn prepare_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
 
-    /// Retrieves the active hotstuff phases.
-    async fn active_hotstuff_phases(&self) -> StorageResult<Vec<View<B, S, N>>>;
+    // /// Retrieves the latest Quorum Certificate that was voted on in the hotstuff commit phase
+    // async fn locked_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
 
-    /// Get the hotstuff phase by the given [`ViewNumber`]
-    async fn hotstuff_phase(&self, view_number: ViewNumber)
-        -> StorageResult<Option<View<B, S, N>>>;
+    // /// Retrieves the active hotstuff phases.
+    // async fn active_hotstuff_phases(&self) -> StorageResult<Vec<View<B, S, N>>>;
+
+    // /// Get the hotstuff phase by the given [`ViewNumber`]
+    // async fn hotstuff_phase(&self, view_number: ViewNumber)
+    //     -> StorageResult<Option<View<B, S, N>>>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].

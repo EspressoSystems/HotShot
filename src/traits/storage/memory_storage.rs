@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::Future;
 use phaselock_types::traits::storage::{
-    InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater, View, ViewNumber,
+    InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater,
 };
 use std::sync::Arc;
 use tracing::{instrument, trace};
@@ -106,16 +106,16 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         })
     }
 
-    // #[instrument(name = "MemoryStorage::get_newest_qc", skip_all)]
-    // async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
-    //     let iter = self.inner.view_to_qc.iter();
-    //     let idx = match iter.max_by_key(|pair| *pair.key()) {
-    //         Some(pair) => *pair.value(),
-    //         None => return Ok(None),
-    //     };
-    //     let qcs = self.inner.qcs.read().await;
-    //     Ok(Some(qcs[idx].clone()))
-    // }
+    #[instrument(name = "MemoryStorage::get_newest_qc", skip_all)]
+    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
+        let iter = self.inner.view_to_qc.iter();
+        let idx = match iter.max_by_key(|pair| *pair.key()) {
+            Some(pair) => *pair.value(),
+            None => return Ok(None),
+        };
+        let qcs = self.inner.qcs.read().await;
+        Ok(Some(qcs[idx].clone()))
+    }
 
     #[instrument(name = "MemoryStorage::get_qc_for_view", skip_all)]
     async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>> {
@@ -218,29 +218,6 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
             leafs,
             states,
         }
-    }
-
-    /// Retrieves the latest prepared Quorum Certificat
-    async fn prepare_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
-        todo!()
-    }
-
-    /// Retrieves the latest locked Quorum Certificate
-    async fn locked_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
-        todo!()
-    }
-
-    /// Retrieves the active hotstuff phases.
-    async fn active_hotstuff_phases(&self) -> StorageResult<Vec<View<B, S, N>>> {
-        todo!()
-    }
-
-    /// Get the hotstuff phase by the given [`ViewNumber`]
-    async fn hotstuff_phase(
-        &self,
-        _view_number: ViewNumber,
-    ) -> StorageResult<Option<View<B, S, N>>> {
-        todo!()
     }
 }
 

@@ -90,15 +90,15 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
         self.load_by_key_2_ref(&k).await
     }
 
-    // /// Load the latest inserted entry in this [`DualKeyValueStore`]
-    // pub async fn load_latest<F, V>(&self, cb: F) -> Option<K>
-    // where
-    //     F: FnMut(&&K) -> V,
-    //     V: std::cmp::Ord,
-    // {
-    //     let read = self.inner.read().await;
-    //     read.values.iter().max_by_key::<V, F>(cb).cloned()
-    // }
+    /// Load the latest inserted entry in this [`DualKeyValueStore`]
+    pub async fn load_latest<F, V>(&self, cb: F) -> Option<K>
+    where
+        F: FnMut(&&K) -> V,
+        V: std::cmp::Ord,
+    {
+        let read = self.inner.read().await;
+        read.values.iter().max_by_key::<V, F>(cb).cloned()
+    }
 
     /// Load all entries in this [`DualKeyValueStore`]
     pub async fn load_all(&self) -> Vec<K> {
