@@ -13,6 +13,8 @@ use phaselock_types::{
 use std::{num::NonZeroU64, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `phaselock` crate and passed to all functions on `HotStuff`.
+///
+/// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
 pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.

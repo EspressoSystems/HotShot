@@ -157,6 +157,8 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
 }
 
 /// The state of a [`Transaction`].
+///
+/// [`Transaction`]: phaselock_types::traits::block_contents::Transaction
 #[derive(Clone)]
 struct TransactionState<I: NodeImplementation<N>, const N: usize> {
     /// The transaction
@@ -169,7 +171,7 @@ struct TransactionState<I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
-    /// Create a new [`TransationState`]
+    /// Create a new [`TransactionState`]
     fn new(transaction: <I as TypeMap<N>>::Transaction) -> TransactionState<I, N> {
         Self {
             transaction,
@@ -199,14 +201,21 @@ struct TransactionLink {
 
 /// Check if the given iterator is sorted. Use internally to make sure some assumptions are correct.
 fn is_sorted<'a>(mut iter: impl Iterator<Item = &'a ViewNumber> + 'a) -> bool {
-    let mut previous = iter.next().unwrap();
-    for item in iter {
-        if item <= previous {
-            return false;
+    match iter.next() {
+        // An empty list is always sorted
+        None => true,
+
+        Some(mut previous) => {
+            // iterate through 1..n view numbers
+            for item in iter {
+                if item <= previous {
+                    return false;
+                }
+                previous = item;
+            }
+            true
         }
-        previous = item;
     }
-    true
 }
 
 /// A utility function that will return `PhaseLockError::ItemNotFound` if a value is `None`

@@ -93,13 +93,6 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             decide,
         } = self;
 
-        // TODO(vko): We currently do everything though the storage API, validate that we can indeed drop the `locked_qc` etc
-        // // Update locked qc
-        // let mut locked_qc = pl.inner.locked_qc.write().await;
-        // *locked_qc = Some(pc_qc);
-        // trace!("Locked qc updated");
-        // Send decide event
-
         ctx.api.notify(blocks.clone(), states.clone()).await;
         ctx.api.send_decide(ctx.view_number.0, blocks, states).await;
 

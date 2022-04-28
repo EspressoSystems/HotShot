@@ -52,7 +52,7 @@ impl CommitReplica {
     ///
     /// # Errors
     ///
-    /// Errors are described in the documentation of `update`
+    /// Errors are described in the documentation of [`Self::update`]
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

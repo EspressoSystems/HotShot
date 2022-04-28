@@ -7,7 +7,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 /// Check if the given `new_qc` is considered a "safe node".
 ///
@@ -24,12 +24,19 @@ pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, c
     if new_qc.genesis {
         return false;
     }
+    // safeNode predicate. The safeNode predicate is a core ingredient of the protocol. It examines a proposal message
+    // m carrying a QC justification m.justify, and determines whether m.node is safe to accept. The safety rule to accept
+    // a proposal is the branch of m.node extends from the currently locked node locked QC .node[2]. On the other hand, the
+    // liveness rule is the replica will accept m if m.justify has a higher view than the current locked QC[1] . The predicate is
+    // true as long as either one of two rules holds.
+
+    // [1]: if m[..] has a higher view than the current locked QC
     let view_number_valid = new_qc.view_number > known_qc.view_number;
-    if !view_number_valid {
-        return false;
+    if view_number_valid {
+        return true;
     }
 
-    // check if `new_qc` extends from `known_qc`
+    // [2] the branch of m.node extends from the currently locked node
     let valid_leaf_hash = known_qc.leaf_hash;
     let mut parent = leaf.parent;
 
@@ -47,17 +54,15 @@ pub(crate) async fn safe_node<I: NodeImplementation<N>, A: ConsensusApi<I, N>, c
         }
     }
 
-    // The original implementation claimed that this is `true`
-    // However I feel like someone could construct a `leaf` with a parent of `[0; N]`, and bypass this check
-    // So I changed it to `false`
-    // TODO(vko): validate with nathan or joe if this is correct
-    warn!(
-        ?known_qc,
-        ?leaf,
-        ?new_qc,
-        "Received a leaf but it has an invalid parent"
-    );
-    false
+    // If the node has no parent, then we return `true`:
+    // `the way the protocol prevents the issue you are worried about is that safeNode is actually run against a proposed
+    //  leaf's justify QC, and the leaf's descent from its justify QC is checked before running safeNode, so in order
+    // for this issue to crop up, you would have needed 2/3's of the network to have already voted for a block that
+    // doesn't descend from anything in history, and there's no way to bootstrap that situation unless the saftey bounds
+    // are violated`
+    // https://github.com/EspressoSystems/phaselock/pull/121#discussion_r856538610
+    info!(?known_qc, ?leaf, ?new_qc, "new QC has an empty parent");
+    true
 }
 
 /// Walk the given `walk_leaf` up until we reach `old_leaf_hash`. Existing leafs will be loaded from `api.storage().get_leaf(&hash)`.
