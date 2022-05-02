@@ -7,7 +7,67 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, info, warn};
+
+/// Checks if a leaf descends from another leaf
+pub(crate) async fn leaf_descends_from<
+    I: NodeImplementation<N>,
+    A: ConsensusApi<I, N>,
+    const N: usize,
+>(
+    api: &A,
+    leaf: &Leaf<I::Block, N>,
+    ancestor_hash: LeafHash<N>,
+) -> bool {
+    let leaf_hash = leaf.hash();
+    // Check that the ancestor exists in storage
+    if api
+        .storage()
+        .get_leaf(&ancestor_hash)
+        .await
+        .unwrap_or(None)
+        .is_none()
+    {
+        warn!(
+            ?leaf_hash,
+            ?ancestor_hash,
+            "Ancestor in descent check was not present in storage"
+        );
+        return false;
+    }
+    // Make sure that the leaf under test has a valid parent
+    let empty_hash = LeafHash::from_array([0_u8; N]);
+    if leaf.parent == empty_hash {
+        warn!(?leaf, "Incoming leaf has an empty parent in descent check");
+        return false;
+    }
+    // Walk the parent list until we either hit nothing, a missing leaf
+    let mut parent_hash = leaf.parent;
+    while parent_hash != empty_hash {
+        // Ancestor is, in fact, our ancestor
+        if parent_hash == ancestor_hash {
+            return true;
+        }
+        // get the parent from storage
+        if let Some(parent) = api.storage().get_leaf(&parent_hash).await.unwrap_or(None) {
+            parent_hash = parent.parent;
+        } else {
+            warn!(
+                ?leaf,
+                ?ancestor_hash,
+                ?parent_hash,
+                "Ancestor was not in storage"
+            );
+            return false;
+        }
+    }
+    debug!(
+        ?leaf,
+        ?ancestor_hash,
+        "Leaf implicitly failed descent check"
+    );
+    false
+}
 
 /// Check if the given `new_qc` is considered a "safe node".
 ///
@@ -29,63 +89,34 @@ pub(crate) async fn validate_against_locked_qc<
         return false;
     }
 
-    // Liveness: don't validate the high QC when the view_number is higher
+    // Check to make sure the leaf actually descends from its high_qc
+    if !leaf_descends_from(api, new_leaf, high_qc.leaf_hash).await {
+        warn!(
+            ?new_leaf,
+            ?high_qc,
+            "Leaf does not descend from its high_qc"
+        );
+        return false;
+    }
+
+    // Liveness Rule:
+    //
+    // If the view number of the new_leaf's high_qc is higher than our current
+    // locked_qc, then the leaf is okay to build off of.
     let view_number_valid = high_qc.view_number > locked_qc.view_number;
     if view_number_valid {
+        info!(?new_leaf, ?high_qc, "Leaf being approved on liveness rule");
         return true;
     }
 
-    // Check if the high_qc.leaf_hash exists in the storage
-    if api
-        .storage()
-        .get_leaf(&high_qc.leaf_hash)
-        .await
-        .unwrap_or(None)
-        .is_none()
-    {
-        info!(?high_qc.leaf_hash, "Could not get the parent leaf");
-        return false;
-    }
-
-    // Check if the incoming leaf has a valid parent
-    let empty_hash = LeafHash::from_array([0_u8; N]);
-    if new_leaf.parent == empty_hash {
-        info!(?new_leaf, "Incoming leaf has an empty parent");
-        return false;
-    }
-
-    let valid_leaf_hash = high_qc.leaf_hash; // parent.leaf_hash
-    let mut parent = new_leaf.parent;
-
-    // keep iterating the parents in our storage until we find one that matches the target
-    while parent != empty_hash {
-        if parent == valid_leaf_hash {
-            trace!(?parent, ?new_leaf, "Leaf extends from");
-            return true;
-        }
-        let result = api.storage().get_leaf(&parent).await;
-        if let Ok(Some(next_parent)) = result {
-            parent = next_parent.parent;
-        } else {
-            error!(?result, ?parent, "Parent leaf does not extend from node");
-            return false;
-        }
-    }
-
-    // If the node has no parent, then we return `true`:
-    // `the way the protocol prevents the issue you are worried about is that safeNode is actually run against a proposed
-    //  leaf's justify QC, and the leaf's descent from its justify QC is checked before running safeNode, so in order
-    // for this issue to crop up, you would have needed 2/3's of the network to have already voted for a block that
-    // doesn't descend from anything in history, and there's no way to bootstrap that situation unless the saftey bounds
-    // are violated`
-    // https://github.com/EspressoSystems/phaselock/pull/121#discussion_r856538610
-    info!(
-        ?locked_qc,
-        ?new_leaf,
-        ?high_qc,
-        "new QC has an empty parent"
-    );
-    true
+    // Saftey rule:
+    //
+    // If the leaf descends from the node referenced by our current locked_qc,
+    // then it is safe to build off of
+    //
+    // Directly return the result of the descent check here, as we have also
+    // failed the liveness check by this point
+    leaf_descends_from(api, new_leaf, locked_qc.leaf_hash).await
 }
 
 /// Walk the given `walk_leaf` up until we reach `old_leaf_hash`. Existing leafs will be loaded from `api.storage().get_leaf(&hash)`.
