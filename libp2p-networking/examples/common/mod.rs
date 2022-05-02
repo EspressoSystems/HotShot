@@ -465,11 +465,11 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             let (s, r) = flume::bounded::<bool>(1);
 
-            {
+            spawn({
                 let handle = handle.clone();
                 // the "conductor id"
                 // periodically say "ignore me!"
-                spawn(async move {
+                async move {
                     // must wait for the listener to start
                     let msg = Message::ConductorIdIs(conductor_peerid);
                     while r.is_empty() {
@@ -480,8 +480,8 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                         sleep(Duration::from_secs(1)).await;
                     }
                     Ok::<(), CounterError>(())
-                });
-            }
+                }
+            });
 
             if res_fut.next().await.unwrap().is_err() {
                 panic!("timeout waiting for conductor peerid to propagate!");
