@@ -46,6 +46,7 @@ pub enum PhaseLockError {
         /// The stage the error occurred in
         stage: crate::data::Stage,
         /// The underlying crypto fault
+        // TODO: `threshold_crypto::error::Error` does not implement `StdError` so we can't use it as a source
         #[snafu(source(false))]
         source: threshold_crypto::error::Error,
     },
@@ -69,6 +70,9 @@ pub enum PhaseLockError {
     },
     /// Item was not present in storage
     ItemNotFound {
+        /// Name of the hash type that was not found.
+        /// Can be easily obtained with `std::any::type_name::<T>()`
+        type_name: &'static str,
         /// Hash of the missing item
         hash: Vec<u8>,
     },

@@ -7,8 +7,8 @@ mod storage;
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
 pub use phaselock_types::traits::stateful_handler::StatefulHandler;
-pub use phaselock_types::traits::BlockContents;
 pub use phaselock_types::traits::State;
+pub use phaselock_types::traits::{BlockContents, Transaction};
 pub use storage::{Storage, StorageResult};
 
 /// Module for publicly usable implementations of the traits
