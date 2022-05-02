@@ -1346,6 +1346,7 @@
 <span id="1341">1341</span>
 <span id="1342">1342</span>
 <span id="1343">1343</span>
+<span id="1344">1344</span>
 </pre><pre class="rust"><code><span class="doccomment">//! State machine representation of round logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the logic for completing an individual round of</span>
@@ -1369,8 +1370,10 @@
     <span class="ident">NodeImplementation</span>,
 };
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">future::BoxFuture</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
-<span class="kw">use</span> <span class="ident">phaselock_types::error</span>::{
-    <span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>, <span class="ident">StorageSnafu</span>,
+<span class="kw">use</span> <span class="ident">phaselock_types</span>::{
+    <span class="ident">data::BlockHash</span>,
+    <span class="ident">error</span>::{<span class="ident">FailedToBroadcastSnafu</span>, <span class="ident">FailedToMessageLeaderSnafu</span>, <span class="ident">PhaseLockError</span>, <span class="ident">StorageSnafu</span>},
+    <span class="ident">message</span>::{<span class="ident">CommitVote</span>, <span class="ident">PreCommitVote</span>, <span class="ident">PrepareVote</span>},
 };
 <span class="kw">use</span> <span class="ident">phaselock_utils::broadcast::BroadcastSender</span>;
 <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
@@ -1626,6 +1629,7 @@
                         <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="ident">x</span>,
                         <span class="prelude-val">None</span> =&gt; {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                                <span class="ident">type_name</span>: <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                                 <span class="ident">hash</span>: <span class="ident">high_qc</span>.<span class="ident">block_hash</span>.<span class="ident">to_vec</span>(),
                             });
                         }
@@ -1643,6 +1647,7 @@
                     } <span class="kw">else</span> {
                         <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">leaf_hash</span>, <span class="string">&quot;State not found in storage (by leaf)&quot;</span>);
                         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                            <span class="ident">type_name</span>: <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                             <span class="ident">hash</span>: <span class="ident">leaf_hash</span>.<span class="ident">to_vec</span>(),
                         });
                     };
@@ -1730,13 +1735,12 @@
                         <span class="ident">pl</span>.<span class="ident">inner</span>
                             .<span class="ident">private_key</span>
                             .<span class="ident">partial_sign</span>(<span class="kw-2">&amp;</span><span class="ident">the_hash</span>, <span class="ident">Stage::Prepare</span>, <span class="ident">current_view</span>);
-                    <span class="kw">let</span> <span class="ident">vote</span> <span class="op">=</span> <span class="ident">Vote</span> {
+                    <span class="kw">let</span> <span class="ident">vote</span> <span class="op">=</span> <span class="ident">PrepareVote</span>(<span class="ident">Vote</span> {
                         <span class="ident">signature</span>,
                         <span class="ident">leaf_hash</span>: <span class="ident">the_hash</span>,
                         <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                         <span class="ident">current_view</span>,
-                        <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
-                    };
+                    });
                     <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">prepare_vote_queue</span>.<span class="ident">push</span>(<span class="ident">vote</span>).<span class="kw">await</span>;
                     <span class="prelude-val">Ok</span>((<span class="ident">block</span>, <span class="ident">new_leaf</span>, <span class="ident">new_state</span>))
                 }
@@ -1763,7 +1767,7 @@
                         <span class="kw">let</span> <span class="ident">votes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">vote_queue</span>
                             .<span class="ident">drain</span>(..)
                             .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">leaf_hash</span> <span class="op">==</span> <span class="ident">new_leaf_hash</span>)
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>))
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>.<span class="ident">clone</span>()))
                             .<span class="ident">collect</span>();
                         <span class="comment">// Generate the QC</span>
                         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">generate_qc</span>(
@@ -1817,13 +1821,12 @@
                             <span class="ident">Stage::PreCommit</span>,
                             <span class="ident">current_view</span>,
                         );
-                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">Vote</span> {
+                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">PreCommitVote</span>(<span class="ident">Vote</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
                             <span class="ident">signature</span>,
                             <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                             <span class="ident">current_view</span>,
-                            <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
-                        };
+                        });
                         <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">precommit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">vote_message</span>).<span class="kw">await</span>;
                         <span class="prelude-val">Ok</span>((<span class="ident">block</span>, <span class="ident">new_leaf</span>, <span class="ident">state</span>))
                     }
@@ -1852,7 +1855,7 @@
                         <span class="kw">let</span> <span class="ident">votes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">vote_queue</span>
                             .<span class="ident">drain</span>(..)
                             .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">leaf_hash</span> <span class="op">==</span> <span class="ident">new_leaf_hash</span>)
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>))
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>.<span class="ident">clone</span>()))
                             .<span class="ident">collect</span>();
                         <span class="comment">// Generate a QC</span>
                         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">generate_qc</span>(
@@ -1894,13 +1897,12 @@
                             <span class="ident">Stage::Commit</span>,
                             <span class="ident">current_view</span>,
                         );
-                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">Vote</span> {
+                        <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">CommitVote</span>(<span class="ident">Vote</span> {
                             <span class="ident">leaf_hash</span>: <span class="ident">new_leaf_hash</span>,
                             <span class="ident">signature</span>,
                             <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                             <span class="ident">current_view</span>,
-                            <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,
-                        };
+                        });
                         <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">commit_vote_queue</span>.<span class="ident">push</span>(<span class="ident">vote_message</span>).<span class="kw">await</span>;
 
                         <span class="prelude-val">Ok</span>((<span class="ident">block</span>, <span class="ident">new_leaf</span>, <span class="ident">state</span>))
@@ -1929,7 +1931,7 @@
                         <span class="kw">let</span> <span class="ident">votes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">vote_queue</span>
                             .<span class="ident">drain</span>(..)
                             .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">leaf_hash</span> <span class="op">==</span> <span class="ident">new_leaf_hash</span>)
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>))
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">x</span>.<span class="ident">id</span>, <span class="ident">x</span>.<span class="ident">signature</span>.<span class="ident">clone</span>()))
                             .<span class="ident">collect</span>();
                         <span class="comment">// Generate QC</span>
                         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">generate_qc</span>(
@@ -2159,6 +2161,7 @@
                     {
                         <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
                         <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                            <span class="ident">type_name</span>: <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                             <span class="ident">hash</span>: <span class="ident">leaf</span>.<span class="ident">parent</span>.<span class="ident">to_vec</span>(),
                         }),
                     }<span class="question-mark">?</span>;
@@ -2172,13 +2175,12 @@
                             <span class="ident">Stage::Prepare</span>,
                             <span class="ident">current_view</span>,
                         );
-                        <span class="kw">let</span> <span class="ident">vote</span> <span class="op">=</span> <span class="ident">Vote</span> {
+                        <span class="kw">let</span> <span class="ident">vote</span> <span class="op">=</span> <span class="ident">PrepareVote</span>(<span class="ident">Vote</span> {
                             <span class="ident">signature</span>,
                             <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                             <span class="ident">leaf_hash</span>,
                             <span class="ident">current_view</span>,
-                            <span class="ident">stage</span>: <span class="ident">Stage::Prepare</span>,
-                        };
+                        });
                         <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PrepareVote</span>(<span class="ident">vote</span>);
                         <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
                             .<span class="ident">send_direct_message</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
@@ -2273,13 +2275,12 @@
                         <span class="ident">Stage::PreCommit</span>,
                         <span class="ident">current_view</span>,
                     );
-                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommitVote</span>(<span class="ident">Vote</span> {
+                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::PreCommitVote</span>(<span class="ident">PreCommitVote</span>(<span class="ident">Vote</span> {
                         <span class="ident">leaf_hash</span>,
                         <span class="ident">signature</span>,
                         <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                         <span class="ident">current_view</span>,
-                        <span class="ident">stage</span>: <span class="ident">Stage::PreCommit</span>,
-                    });
+                    }));
                     <span class="comment">// store the prepare qc</span>
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pqc</span> <span class="op">=</span> <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">prepare_qc</span>.<span class="ident">write</span>().<span class="kw">await</span>;
                     <span class="kw-2">*</span><span class="ident">pqc</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">prepare_qc</span>);
@@ -2340,13 +2341,12 @@
                         <span class="ident">pl</span>.<span class="ident">inner</span>
                             .<span class="ident">private_key</span>
                             .<span class="ident">partial_sign</span>(<span class="kw-2">&amp;</span><span class="ident">leaf_hash</span>, <span class="ident">Stage::Commit</span>, <span class="ident">current_view</span>);
-                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::CommitVote</span>(<span class="ident">Vote</span> {
+                    <span class="kw">let</span> <span class="ident">vote_message</span> <span class="op">=</span> <span class="ident">ConsensusMessage::CommitVote</span>(<span class="ident">CommitVote</span>(<span class="ident">Vote</span> {
                         <span class="ident">leaf_hash</span>,
                         <span class="ident">signature</span>,
                         <span class="ident">id</span>: <span class="ident">pl</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>,
                         <span class="ident">current_view</span>,
-                        <span class="ident">stage</span>: <span class="ident">Stage::Commit</span>,
-                    });
+                    }));
                     <span class="macro">trace!</span>(<span class="string">&quot;Commit vote packed&quot;</span>);
                     <span class="kw">let</span> <span class="ident">network_result</span> <span class="op">=</span> <span class="ident">pl</span>
                         .<span class="ident">send_direct_message</span>(<span class="ident">vote_message</span>, <span class="ident">pl</span>.<span class="ident">get_leader</span>(<span class="ident">current_view</span>))
@@ -2404,6 +2404,7 @@
                     {
                         <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
                         <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                            <span class="ident">type_name</span>: <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                             <span class="ident">hash</span>: <span class="ident">new_leaf</span>.<span class="ident">parent</span>.<span class="ident">to_vec</span>(),
                         }),
                     }<span class="question-mark">?</span>;
@@ -2501,6 +2502,7 @@
                     {
                         <span class="prelude-val">Some</span>(<span class="ident">x</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">x</span>),
                         <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ItemNotFound</span> {
+                            <span class="ident">type_name</span>: <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
                             <span class="ident">hash</span>: <span class="ident">leaf_hash</span>.<span class="ident">to_vec</span>(),
                         }),
                     }<span class="question-mark">?</span>;

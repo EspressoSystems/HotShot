@@ -819,7 +819,7 @@
 <span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
-    <span class="ident">message</span>::{<span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>},
+    <span class="ident">message</span>::{<span class="ident">CommitVote</span>, <span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>, <span class="ident">PreCommitVote</span>, <span class="ident">PrepareVote</span>},
     <span class="ident">traits</span>::{
         <span class="ident">election::Election</span>,
         <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>},
@@ -904,11 +904,11 @@
     <span class="doccomment">/// Unprocessed NextView messages</span>
     <span class="ident">new_view_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">NewView</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Unprocessed PrepareVote messages</span>
-    <span class="ident">prepare_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">Vote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">prepare_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">PrepareVote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Unprocessed PreCommit messages</span>
-    <span class="ident">precommit_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">Vote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">precommit_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">PreCommitVote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Unprocessed CommitVote messages</span>
-    <span class="ident">commit_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">Vote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">commit_vote_queue</span>: <span class="ident">WaitQueue</span><span class="op">&lt;</span><span class="ident">CommitVote</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Currently pending Prepare message</span>
     <span class="ident">prepare_waiter</span>: <span class="ident">WaitOnce</span><span class="op">&lt;</span><span class="ident">Prepare</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Currently pending precommit message</span>

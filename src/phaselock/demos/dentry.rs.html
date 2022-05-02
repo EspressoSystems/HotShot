@@ -430,6 +430,20 @@
 <span id="425">425</span>
 <span id="426">426</span>
 <span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the `PhaseLock` suite of traits that implements a</span>
@@ -514,6 +528,20 @@
     <span class="kw">pub</span> <span class="ident">sub</span>: <span class="ident">Subtraction</span>,
     <span class="doccomment">/// The nonce for a transaction, no two transactions can have the same nonce</span>
     <span class="kw">pub</span> <span class="ident">nonce</span>: <span class="ident">u64</span>,
+}
+
+<span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::traits::Transaction</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Transaction</span> {
+    <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
+        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="self">self</span>.<span class="ident">add</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
+        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">add</span>.<span class="ident">amount</span>.<span class="ident">to_be_bytes</span>());
+        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="self">self</span>.<span class="ident">sub</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
+        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">sub</span>.<span class="ident">amount</span>.<span class="ident">to_be_bytes</span>());
+        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">nonce</span>.<span class="ident">to_be_bytes</span>());
+
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">hasher</span>.<span class="ident">finalize</span>().<span class="ident">as_bytes</span>();
+        <span class="ident">x</span>.<span class="ident">into</span>()
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Transaction</span> {

@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["phaselock"] = [{"text":"impl <a class=\"trait\" href=\"phaselock/traits/trait.Transaction.html\" title=\"trait phaselock::traits::Transaction\">Transaction</a>&lt;H_256&gt; for <a class=\"struct\" href=\"phaselock/demos/dentry/struct.Transaction.html\" title=\"struct phaselock::demos::dentry::Transaction\">Transaction</a>","synthetic":false,"types":["phaselock::demos::dentry::Transaction"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
