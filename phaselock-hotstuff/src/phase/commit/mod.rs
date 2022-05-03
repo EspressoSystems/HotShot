@@ -16,7 +16,7 @@ use phaselock_types::{
 };
 use replica::CommitReplica;
 use snafu::ResultExt;
-use tracing::trace;
+use tracing::{debug, trace};
 
 /// The commit phase
 #[derive(Debug)]
@@ -57,6 +57,7 @@ impl<const N: usize> CommitPhase<N> {
                 ))
             }
         };
+        debug!(?outcome);
 
         if let Some(outcome) = outcome {
             let decide = outcome.execute(ctx).await?;
@@ -68,6 +69,7 @@ impl<const N: usize> CommitPhase<N> {
 }
 
 /// The outcome of this [`CommitPhase`]
+#[derive(Debug)]
 struct Outcome<const N: usize> {
     /// The commit that was created on received
     commit: Commit<N>,
@@ -99,6 +101,7 @@ impl<const N: usize> Outcome<N> {
 
         // Importantly, a replica becomes locked on the precommitQC at this point by setting its locked QC to
         // precommitQC
+        debug!(?commit.qc, "Inserting QC");
         ctx.api
             .storage()
             .update(|mut m| {

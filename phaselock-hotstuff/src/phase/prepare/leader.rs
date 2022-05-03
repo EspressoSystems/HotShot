@@ -9,7 +9,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, BlockContents, State},
 };
 use std::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 /// A prepare leader
 #[derive(Debug)]
@@ -41,6 +41,7 @@ impl<const N: usize> PrepareLeader<N> {
     /// Will return an error if:
     /// - The underlying [`ConsensusApi`] encountered an error
     /// - The proposed block could not have been added to the state
+    #[instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,

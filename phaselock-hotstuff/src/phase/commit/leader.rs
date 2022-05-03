@@ -34,6 +34,7 @@ impl<const N: usize> CommitLeader<N> {
     /// Returns an error if:
     /// - The signatures could not be combined
     /// - The vote could not be signed
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

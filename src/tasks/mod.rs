@@ -424,7 +424,7 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
                 // Received a signal to start a round
 
                 // Send the next view
-                let next_view_res = phaselock.next_view(state.view).await;
+                let next_view_res = phaselock.next_view(state.view + 1).await;
                 // If we fail to send the next view, broadcast the error and pause
                 if let Err(e) = next_view_res {
                     if !phaselock

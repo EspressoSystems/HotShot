@@ -8,7 +8,7 @@ use crate::{utils, ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
     data::{Leaf, Stage},
-    error::StorageSnafu,
+    error::{FailedToMessageLeaderSnafu, StorageSnafu},
     message::{ConsensusMessage, Prepare, PrepareVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
@@ -55,6 +55,7 @@ impl<const N: usize> PreparePhase<N> {
                 ))
             }
         };
+        debug!(?outcome);
         if let Some(outcome) = outcome {
             let pre_commit = outcome.execute(ctx).await?;
             Ok(Progress::Next(pre_commit))
@@ -65,6 +66,7 @@ impl<const N: usize> PreparePhase<N> {
 }
 
 /// The outcome of the current [`PreparePhase`]
+#[derive(Debug)]
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
     /// A list of added transactions.
     added_transactions: Vec<TransactionState<I, N>>,
@@ -138,12 +140,21 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             ctx.send_broadcast_message(ConsensusMessage::Prepare(prepare.clone()))
                 .await?;
         }
+
         // Notify our listeners
         ctx.api.send_propose(ctx.view_number.0, new_leaf.item).await;
 
         let next_phase = if is_next_leader {
             PreCommitPhase::leader(prepare, vote)
         } else {
+            if let Some(vote) = vote {
+                ctx.api
+                    .send_direct_message(next_leader, ConsensusMessage::PrepareVote(vote))
+                    .await
+                    .context(FailedToMessageLeaderSnafu {
+                        stage: Stage::Prepare,
+                    })?;
+            }
             PreCommitPhase::replica()
         };
         Ok(next_phase)

@@ -38,6 +38,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     /// This will return an error if:
     /// - the signatures could not be combined
     /// - A vote could not be signed
+    #[tracing::instrument]
     pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -105,7 +106,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             let signature =
                 ctx.api
                     .private_key()
-                    .partial_sign(&leaf_hash, Stage::Commit, current_view);
+                    .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
             Some(PreCommitVote(Vote {
                 leaf_hash,
                 signature,

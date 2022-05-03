@@ -84,11 +84,6 @@ pub(crate) async fn validate_against_locked_qc<
     new_leaf: &Leaf<I::Block, N>,
     high_qc: &QuorumCertificate<N>,
 ) -> bool {
-    // new nodes can not be a genesis
-    if high_qc.genesis {
-        return false;
-    }
-
     // Check to make sure the leaf actually descends from its high_qc
     if !leaf_descends_from(api, new_leaf, high_qc.leaf_hash).await {
         warn!(

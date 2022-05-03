@@ -16,6 +16,7 @@ use phaselock_types::{
 };
 use replica::PreCommitReplica;
 use snafu::ResultExt;
+use tracing::debug;
 
 /// The pre commit phase.
 #[derive(Debug)]
@@ -56,6 +57,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
                 ))
             }
         };
+        debug!(?outcome);
         if let Some(outcome) = outcome {
             let commit = outcome.execute(ctx).await?;
             Ok(Progress::Next(commit))
@@ -66,6 +68,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
 }
 
 /// The outcome of this [`PreCommitPhase`]
+#[derive(Debug)]
 struct Outcome<const N: usize> {
     /// The pre commit that we created or voted on
     pre_commit: PreCommit<N>,

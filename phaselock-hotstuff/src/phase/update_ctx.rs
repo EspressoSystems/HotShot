@@ -16,8 +16,10 @@ use phaselock_types::{
 use snafu::ResultExt;
 
 /// The update context that is used by the different phases.
+#[derive(custom_debug::Debug)]
 pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> {
     /// A reference to the [`ConsensusApi`] for e.g. loading information, getting config or sending messages.
+    #[debug(skip)]
     pub(super) api: &'a mut A,
     /// The current view number
     pub(super) view_number: ViewNumber,

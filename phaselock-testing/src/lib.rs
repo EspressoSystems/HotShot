@@ -256,7 +256,7 @@ impl<
                 .await
                 .context(TimeoutSnafu)??;
             timeout = Duration::from_millis(node.handle.get_next_view_timeout());
-            error!(?id, ?event);
+            info!(?id, ?event, "Node event");
             match event.event {
                 EventType::ViewTimeout { view_number } => {
                     if view_number >= cur_view {

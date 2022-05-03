@@ -25,6 +25,7 @@ impl PrepareReplica {
     /// # Errors
     ///
     /// Will return any errors `vote` returns.
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,

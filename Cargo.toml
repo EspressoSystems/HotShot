@@ -20,7 +20,6 @@ name = "dentry-simulator"
 required-features = ["demo"]
 
 [dependencies]
-async-trait = "0.1.53"
 ark-ec = { version = "0.3.0", default-features = false }
 ark-ed-on-bls12-381 = { version = "0.3.0", default-features = false }
 async-std = { version = "1.11.0", features = ["unstable"] }

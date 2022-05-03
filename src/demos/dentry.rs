@@ -185,6 +185,7 @@ impl crate::traits::State<H_256> for State {
             }
             // Check to make sure the nonce isn't used
             if state.nonces.contains(&tx.nonce) {
+                error!(?state, ?tx, "State nonce is used for transaction");
                 return false;
             }
         }

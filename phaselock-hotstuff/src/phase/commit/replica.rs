@@ -31,6 +31,7 @@ impl CommitReplica {
     /// - The leaf could not be loaded
     /// - The QC is invalid
     /// - A vote signature could not be made
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

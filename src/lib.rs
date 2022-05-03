@@ -760,6 +760,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         recipient: PubKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, ?recipient, "send_direct_message");
         self.inner
             .networking
             .message_node(Message::Consensus(message), recipient)
@@ -770,6 +771,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
         self.inner
             .networking
             .broadcast_message(Message::Consensus(message))
@@ -777,6 +779,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
     }
 
     async fn send_event(&mut self, event: Event<I::Block, I::State>) {
+        debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
             if let Err(e) = sender.send_async(event).await {
@@ -795,6 +798,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
     }
 
     async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>) {
+        debug!(?blocks, ?states, "notify");
         self.inner
             .stateful_handler
             .lock()

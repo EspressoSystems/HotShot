@@ -20,7 +20,7 @@ use phaselock_types::{
     traits::node_implementation::{NodeImplementation, TypeMap},
 };
 use std::future::Future;
-use tracing::{info, trace};
+use tracing::{debug, info, instrument, warn};
 use update_ctx::UpdateCtx;
 
 /// Contains all the information about a current `view_number`.
@@ -100,6 +100,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         transactions: &mut [TransactionState<I, N>],
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> Result {
+        debug!(?message, "Incoming message");
         self.messages.push(message.clone());
         self.update(api, transactions).await
     }
@@ -114,6 +115,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
+        debug!("New transactions available");
         self.update(api, transactions).await
     }
 
@@ -122,13 +124,14 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
     /// # Errors
     ///
     /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
+    #[instrument(skip(api))]
     async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
         if self.done {
-            trace!(?self, "Phase is done, no updates will be run");
+            warn!(?self, "Phase is done, no updates will be run");
             return Ok(());
         }
         let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
@@ -148,6 +151,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
             }
             Stage::Prepare => {
                 if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
+                    debug!(?precommit, "Transitioning from prepare to precommit");
                     self.precommit = Some(precommit);
                 }
                 Ok(())
@@ -156,6 +160,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
                 if let Some(commit) =
                     update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
                 {
+                    debug!(?commit, "Transitioning from precommit to commit");
                     self.commit = Some(commit);
                 }
                 Ok(())
@@ -164,6 +169,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
                 if let Some(decide) =
                     update(&mut self.commit, CommitPhase::update, &mut ctx).await?
                 {
+                    debug!(?decide, "Transitioning from commit to decide");
                     self.decide = Some(decide);
                 }
                 Ok(())

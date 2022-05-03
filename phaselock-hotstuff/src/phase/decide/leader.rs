@@ -36,6 +36,7 @@ impl<const N: usize> DecideLeader<N> {
     /// - A signature could not be created
     /// - There was no QC in storage
     /// - `utils::walk_leaves` returns an error
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,

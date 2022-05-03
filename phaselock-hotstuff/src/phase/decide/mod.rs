@@ -16,6 +16,7 @@ use phaselock_types::{
 };
 use replica::DecideReplica;
 use snafu::ResultExt;
+use tracing::debug;
 
 /// The decide phase
 #[derive(Debug)]
@@ -56,6 +57,7 @@ impl<const N: usize> DecidePhase<N> {
                 ))
             }
         };
+        debug!(?outcome);
 
         if let Some(outcome) = outcome {
             outcome.execute(ctx).await?;
@@ -67,6 +69,7 @@ impl<const N: usize> DecidePhase<N> {
 }
 
 /// The outcome of this [`DecidePhase`]
+#[derive(Debug)]
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
     /// The blocks that were decided on
     blocks: Vec<I::Block>,

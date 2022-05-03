@@ -23,10 +23,9 @@ mod utils;
 
 pub use traits::ConsensusApi;
 
-use phase::ViewState;
 use async_std::sync::RwLock;
 use futures::channel::oneshot::Sender;
-use phase::Phase;
+use phase::ViewState;
 use phaselock_types::{
     data::Stage,
     error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
@@ -227,7 +226,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         let is_leader = api.public_key() == &leader;
 
         self.phases
-            .insert(view_number, Phase::prepare(view_number, is_leader));
+            .insert(view_number, ViewState::prepare(view_number, is_leader));
         // TODO: Make sure this is inserted at the correct spot
         self.active_phases.push_back(view_number);
         if !is_sorted(self.active_phases.iter()) {

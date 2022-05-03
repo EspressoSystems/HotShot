@@ -41,6 +41,7 @@ impl DecideReplica {
     /// # Errors
     ///
     /// Errors are described in the documentation of `update`
+    #[tracing::instrument]
     async fn handle_decide<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,

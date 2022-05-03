@@ -31,6 +31,7 @@ impl PreCommitReplica {
     /// - There is no QC in storage.
     /// - The proposed QC is invalid.
     /// - The underlying [`ConsensusApi`] returned an error.
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -56,11 +57,8 @@ impl PreCommitReplica {
         // TODO: We can probably get these from `PreparePhase`
         let leaf = ctx.get_leaf(&pre_commit.leaf_hash).await?;
         let state = ctx.get_state_by_leaf(&pre_commit.leaf_hash).await?;
-        let self_highest_qc = match ctx.get_newest_qc().await? {
-            Some(qc) => qc,
-            None => return utils::err("No QC in storage"),
-        };
 
+        // TODO(vko): This check seems to always fail
         // TODO: Both the state and leaf come from our database, shouldn't they always be valid?
         if !state.validate_block(&leaf.item) {
             error!(?leaf, "Leaf failed safe_node predicate");
@@ -68,6 +66,11 @@ impl PreCommitReplica {
                 stage: Stage::Prepare,
             });
         }
+
+        let self_highest_qc = match ctx.get_newest_qc().await? {
+            Some(qc) => qc,
+            None => return utils::err("No QC in storage"),
+        };
 
         let is_safe_node =
             utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &pre_commit.qc)
@@ -85,7 +88,7 @@ impl PreCommitReplica {
         let signature =
             ctx.api
                 .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+                .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
         let vote = PreCommitVote(Vote {
             signature,
             id: ctx.api.public_key().nonce,

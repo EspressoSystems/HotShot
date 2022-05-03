@@ -125,15 +125,15 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
                 Ok(())
             }
             (Some(_), Some(_)) => InconsistencySnafu {
-                description: String::from("the view_number and block_hash already exists"),
+                description: format!("Could not insert {}, both {} and {} already exist, but point at different records", std::any::type_name::<K>(), K::KEY_1_NAME, K::KEY_2_NAME),
             }
             .fail(),
             (Some(_), None) => InconsistencySnafu {
-                description: String::from("the view_number already exists"),
+                description: format!("Could not insert {}, {} already exists but {} does not", std::any::type_name::<K>(), K::KEY_1_NAME, K::KEY_2_NAME),
             }
             .fail(),
             (None, Some(_)) => InconsistencySnafu {
-                description: String::from("the block_hash already exists"),
+                description: format!("Could not insert {}, {} already exists but {} does not", std::any::type_name::<K>(), K::KEY_2_NAME, K::KEY_1_NAME),
             }
             .fail(),
             (None, None) => {
@@ -164,13 +164,17 @@ impl<K: DualKeyValue> DualKeyValueStore<K> {
 
 /// A dual key value. Used for [`DualKeyValueStore`]
 pub trait DualKeyValue: Serialize + DeserializeOwned + Clone {
+    /// The name of the first key
+    const KEY_1_NAME: &'static str;
     /// The first key type
     type Key1: Serialize + DeserializeOwned + Hash + Eq;
-    /// The second key type
-    type Key2: Serialize + DeserializeOwned + Hash + Eq;
-
     /// Get a copy of the first key
     fn key_1(&self) -> Self::Key1;
+
+    /// The name of the second key
+    const KEY_2_NAME: &'static str;
+    /// The second key type
+    type Key2: Serialize + DeserializeOwned + Hash + Eq;
     /// Get a clone of the second key
     fn key_2(&self) -> Self::Key2;
 }
@@ -178,6 +182,10 @@ pub trait DualKeyValue: Serialize + DeserializeOwned + Clone {
 impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
     type Key1 = BlockHash<N>;
     type Key2 = u64;
+
+    const KEY_1_NAME: &'static str = "block_hash";
+    const KEY_2_NAME: &'static str = "view_number";
+
     fn key_1(&self) -> Self::Key1 {
         self.block_hash
     }
@@ -192,6 +200,9 @@ where
 {
     type Key1 = LeafHash<N>;
     type Key2 = BlockHash<N>;
+
+    const KEY_1_NAME: &'static str = "leaf_hash";
+    const KEY_2_NAME: &'static str = "block_hash";
 
     fn key_1(&self) -> Self::Key1 {
         self.hash()
