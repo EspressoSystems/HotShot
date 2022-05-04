@@ -77,21 +77,11 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
             ConsensusMessage::Prepare(prepare) => {
                 (&prepare.high_qc, prepare.current_view, Stage::Prepare)
             }
-            ConsensusMessage::PreCommit(_pre_commit) => {
-                // TODO(vko): This seems to always fail
-                // (&pre_commit.qc, pre_commit.current_view, Stage::PreCommit)
-                return true;
+            ConsensusMessage::PreCommit(pre_commit) => {
+                (&pre_commit.qc, pre_commit.current_view, Stage::PreCommit)
             }
-            ConsensusMessage::Commit(_commit) => {
-                // TODO(vko): This seems to always fail
-                // (&commit.qc, commit.current_view, Stage::Commit)
-                return true;
-            }
-            ConsensusMessage::Decide(_decide) => {
-                // TODO(vko): This seems to always fail
-                // (&decide.qc, decide.current_view, Stage::Decide)
-                return true;
-            }
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::Commit),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Decide),
 
             ConsensusMessage::CommitVote(_)
             | ConsensusMessage::PreCommitVote(_)

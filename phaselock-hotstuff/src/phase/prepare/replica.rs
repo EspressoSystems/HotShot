@@ -74,18 +74,6 @@ impl PrepareReplica {
         }
 
         let current_view = ctx.view_number.0;
-
-        let signature =
-            ctx.api
-                .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
-        let vote = PrepareVote(Vote {
-            signature,
-            id: ctx.api.public_key().nonce,
-            leaf_hash,
-            current_view,
-        });
-
         // Add resulting state to storage
         let new_state = state.append(&leaf.item).map_err(|error| {
             error!(?error, "Failed to append block to existing state");
@@ -93,6 +81,7 @@ impl PrepareReplica {
                 stage: Stage::Prepare,
             }
         })?;
+
         // Insert new state into storage
         debug!(?new_state, "New state inserted");
         if suggested_state != new_state {
@@ -106,6 +95,17 @@ impl PrepareReplica {
                 stage: Stage::Prepare,
             });
         }
+
+        let signature =
+            ctx.api
+                .private_key()
+                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+        let vote = PrepareVote(Vote {
+            signature,
+            id: ctx.api.public_key().nonce,
+            leaf_hash,
+            current_view,
+        });
 
         Ok(Outcome {
             new_state,

@@ -4,7 +4,7 @@ use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
     message::{PreCommit, PreCommitVote, Vote},
-    traits::{node_implementation::NodeImplementation, State},
+    traits::node_implementation::NodeImplementation,
 };
 use tracing::error;
 
@@ -56,16 +56,6 @@ impl PreCommitReplica {
     ) -> Result<Outcome<N>> {
         // TODO: We can probably get these from `PreparePhase`
         let leaf = ctx.get_leaf(&pre_commit.leaf_hash).await?;
-        let state = ctx.get_state_by_leaf(&pre_commit.leaf_hash).await?;
-
-        // TODO(vko): This check seems to always fail
-        // TODO: Both the state and leaf come from our database, shouldn't they always be valid?
-        if !state.validate_block(&leaf.item) {
-            error!(?leaf, "Leaf failed safe_node predicate");
-            return Err(PhaseLockError::BadBlock {
-                stage: Stage::Prepare,
-            });
-        }
 
         let self_highest_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
