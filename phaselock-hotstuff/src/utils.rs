@@ -7,7 +7,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, trace};
 
 /// Checks if a leaf descends from another leaf
 pub(crate) async fn leaf_descends_from<
@@ -20,6 +20,10 @@ pub(crate) async fn leaf_descends_from<
     ancestor_hash: LeafHash<N>,
 ) -> bool {
     let leaf_hash = leaf.hash();
+    // Check if the leaf is the ancestor
+    if leaf_hash == ancestor_hash {
+        return true;
+    }
     // Check that the ancestor exists in storage
     if api
         .storage()
@@ -44,6 +48,7 @@ pub(crate) async fn leaf_descends_from<
     // Walk the parent list until we either hit nothing, a missing leaf
     let mut parent_hash = leaf.parent;
     while parent_hash != empty_hash {
+        trace!(?parent_hash);
         // Ancestor is, in fact, our ancestor
         if parent_hash == ancestor_hash {
             return true;

@@ -222,7 +222,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         api: &mut A,
     ) -> Result {
         if self.phases.contains_key(&view_number) {
-            return utils::err("View already exists");
+            return utils::err(format!("View {:?} already exists", view_number));
         }
         let leader = api.get_leader(view_number.0, Stage::Prepare).await;
         let is_leader = api.public_key() == &leader;

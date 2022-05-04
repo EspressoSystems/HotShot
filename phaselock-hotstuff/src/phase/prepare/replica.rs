@@ -8,7 +8,7 @@ use phaselock_types::{
     message::{Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, State},
 };
-use tracing::{debug, error};
+use tracing::error;
 
 /// A prepare replica
 #[derive(Debug)]
@@ -82,8 +82,6 @@ impl PrepareReplica {
             }
         })?;
 
-        // Insert new state into storage
-        debug!(?new_state, "New state inserted");
         if suggested_state != new_state {
             // the state that the leader send does not match with what we calculated
             error!(
