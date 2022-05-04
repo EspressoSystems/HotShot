@@ -125,7 +125,7 @@ async fn init_state_and_phaselock(
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
-        propose_min_round_time: Duration::from_millis(100),
+        propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
