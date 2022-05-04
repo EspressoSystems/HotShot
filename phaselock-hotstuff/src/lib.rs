@@ -41,7 +41,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// The result used in this crate
 pub type Result<T = ()> = std::result::Result<T, PhaseLockError>;
@@ -148,7 +148,12 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             .add_consensus_message(api, &mut self.transactions, message)
             .await?;
         if phase.is_done() {
-            if let Some(listeners) = self.round_finished_listeners.remove(&view_number) {
+            let listeners = self.round_finished_listeners.remove(&view_number);
+            debug!(
+                "Phase is done, notifying {} listeners",
+                listeners.as_ref().map(Vec::len).unwrap_or_default()
+            );
+            if let Some(listeners) = listeners {
                 for listener in listeners {
                     let _ = listener.send(view_number);
                 }
@@ -221,18 +226,17 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         view_number: ViewNumber,
         api: &mut A,
     ) -> Result {
-        if self.phases.contains_key(&view_number) {
-            return utils::err(format!("View {:?} already exists", view_number));
-        }
         let leader = api.get_leader(view_number.0, Stage::Prepare).await;
         let is_leader = api.public_key() == &leader;
 
-        self.phases
-            .insert(view_number, ViewState::prepare(view_number, is_leader));
-        // TODO: Make sure this is inserted at the correct spot
-        self.active_phases.push_back(view_number);
-        if !is_sorted(self.active_phases.iter()) {
-            return utils::err("Internal error; phases aren't properly sorted");
+        // If we don't have this phase in our phases, insert it
+        if let Entry::Vacant(v) = self.phases.entry(view_number) {
+            v.insert(ViewState::prepare(view_number, is_leader));
+            // TODO: Make sure this is inserted at the correct spot
+            self.active_phases.push_back(view_number);
+            if !is_sorted(self.active_phases.iter()) {
+                return utils::err("Internal error; phases aren't properly sorted");
+            }
         }
 
         if !is_leader {
@@ -261,6 +265,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         view_number: ViewNumber,
         sender: Sender<ViewNumber>,
     ) {
+        debug!(?view_number, "Attaching listener to round");
         self.round_finished_listeners
             .entry(view_number)
             .or_default()
