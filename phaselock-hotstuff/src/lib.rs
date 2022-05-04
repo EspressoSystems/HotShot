@@ -230,31 +230,34 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         let is_leader = api.public_key() == &leader;
 
         // If we don't have this phase in our phases, insert it
-        if let Entry::Vacant(v) = self.phases.entry(view_number) {
-            v.insert(ViewState::prepare(view_number, is_leader));
-            // TODO: Make sure this is inserted at the correct spot
-            self.active_phases.push_back(view_number);
-            if !is_sorted(self.active_phases.iter()) {
-                return utils::err("Internal error; phases aren't properly sorted");
+        let phase = match self.phases.entry(view_number) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => {
+                self.active_phases.push_back(view_number);
+                if !is_sorted(self.active_phases.iter()) {
+                    return utils::err("Internal error; phases aren't properly sorted");
+                }
+                v.insert(ViewState::prepare(view_number, is_leader))
             }
-        }
+        };
 
-        if !is_leader {
-            let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
-                Some(qc) => qc,
-                None => return utils::err("No QC in storage"),
-            };
-            api.send_direct_message(
-                leader,
-                ConsensusMessage::NewView(NewView {
-                    current_view: view_number.0,
-                    justify: newest_qc,
-                }),
-            )
-            .await
-            .context(FailedToMessageLeaderSnafu {
-                stage: Stage::Prepare,
-            })?;
+        let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
+            Some(qc) => qc,
+            None => return utils::err("No QC in storage"),
+        };
+        let new_view = ConsensusMessage::NewView(NewView {
+            current_view: view_number.0,
+            justify: newest_qc,
+        });
+
+        if is_leader {
+            phase.add_consensus_message(api, &mut [], new_view).await?;
+        } else {
+            api.send_direct_message(leader, new_view).await.context(
+                FailedToMessageLeaderSnafu {
+                    stage: Stage::Prepare,
+                },
+            )?;
         }
         Ok(())
     }
