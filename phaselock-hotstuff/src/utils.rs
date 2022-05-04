@@ -7,7 +7,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
-use tracing::{debug, info, warn, trace};
+use tracing::{debug, info, trace, warn};
 
 /// Checks if a leaf descends from another leaf
 pub(crate) async fn leaf_descends_from<

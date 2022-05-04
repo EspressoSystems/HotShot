@@ -134,52 +134,57 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
             warn!(?self, "Phase is done, no updates will be run");
             return Ok(());
         }
-        let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
-        let stage = self.stage();
-        let mut ctx = UpdateCtx {
-            is_leader,
-            api,
-            messages: &mut self.messages,
-            transactions,
-            view_number: self.view_number,
-            stage,
-        };
-
-        match stage {
-            Stage::None => {
-                unreachable!()
-            }
-            Stage::Prepare => {
-                if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
-                    debug!(?precommit, "Transitioning from prepare to precommit");
-                    self.precommit = Some(precommit);
+        // This loop will make sure that when a stage transition happens, the next stage will execute immediately
+        loop {
+            let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
+            let stage = self.stage();
+            let mut ctx = UpdateCtx {
+                is_leader,
+                api,
+                messages: &mut self.messages,
+                transactions,
+                view_number: self.view_number,
+                stage,
+            };
+            match stage {
+                Stage::None => unreachable!(),
+                Stage::Prepare => {
+                    if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
+                        debug!(?precommit, "Transitioning from prepare to precommit");
+                        self.precommit = Some(precommit);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::PreCommit => {
-                if let Some(commit) =
-                    update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
-                {
-                    debug!(?commit, "Transitioning from precommit to commit");
-                    self.commit = Some(commit);
+                Stage::PreCommit => {
+                    if let Some(commit) =
+                        update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
+                    {
+                        debug!(?commit, "Transitioning from precommit to commit");
+                        self.commit = Some(commit);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::Commit => {
-                if let Some(decide) =
-                    update(&mut self.commit, CommitPhase::update, &mut ctx).await?
-                {
-                    debug!(?decide, "Transitioning from commit to decide");
-                    self.decide = Some(decide);
+                Stage::Commit => {
+                    if let Some(decide) =
+                        update(&mut self.commit, CommitPhase::update, &mut ctx).await?
+                    {
+                        debug!(?decide, "Transitioning from commit to decide");
+                        self.decide = Some(decide);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::Decide => {
-                if let Some(()) = update(&mut self.decide, DecidePhase::update, &mut ctx).await? {
-                    self.done = true;
-                    info!(?self, "Phase completed");
+                Stage::Decide => {
+                    if let Some(()) =
+                        update(&mut self.decide, DecidePhase::update, &mut ctx).await?
+                    {
+                        self.done = true;
+                        info!(?self, "Phase completed");
+                    }
+                    break Ok(());
                 }
-                Ok(())
             }
         }
     }

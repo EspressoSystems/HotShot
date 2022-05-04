@@ -47,7 +47,7 @@ impl<const N: usize> DecidePhase<N> {
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<Progress<()>> {
-        let outcome: Option<Outcome<I, N>> = match (self, ctx.is_leader) {
+        let outcome: Option<Outcome<I, N>> = match (&mut *self, ctx.is_leader) {
             (Self::Leader(leader), true) => leader.update(ctx).await?,
             (Self::Replica(replica), false) => replica.update(ctx).await?,
             (this, _) => {
@@ -57,7 +57,7 @@ impl<const N: usize> DecidePhase<N> {
                 ))
             }
         };
-        debug!(?outcome);
+        debug!(?outcome, ?self);
 
         if let Some(outcome) = outcome {
             outcome.execute(ctx).await?;
@@ -82,13 +82,15 @@ struct Outcome<I: NodeImplementation<N>, const N: usize> {
 impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
     /// Execute the outcome of this [`DecidePhase`]
     ///
-    /// This will notify any listeners of the blocks and states that were decided on.
+    /// This will notify any listeners of the blocks and states that were decided on. If this node was a leader this round, it will broadcast the [`Decide`] message.
     ///
     /// If a new round should be started, this will also send [`NewView`] to the leader of the `prepare` stage of the next round.
     ///
     /// # Errors
     ///
-    /// Will return an error if a [`NewView`] could not be send
+    /// Will return an error if:
+    /// - The leader could not broadcast the [`Decide`]
+    /// - a [`NewView`] could not be send
     async fn execute<A: ConsensusApi<I, N>>(self, ctx: &mut UpdateCtx<'_, I, A, N>) -> Result {
         let Outcome {
             blocks,
@@ -98,6 +100,10 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
 
         ctx.api.notify(blocks.clone(), states.clone()).await;
         ctx.api.send_decide(ctx.view_number.0, blocks, states).await;
+        if ctx.is_leader {
+            ctx.send_broadcast_message(ConsensusMessage::Decide(decide.clone()))
+                .await?;
+        }
 
         if ctx.api.should_start_round(ctx.view_number.0 + 1).await {
             let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Prepare).await;
