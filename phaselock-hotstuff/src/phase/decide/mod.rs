@@ -9,7 +9,7 @@ use super::{Progress, UpdateCtx};
 use crate::{utils, ConsensusApi, Result};
 use leader::DecideLeader;
 use phaselock_types::{
-    data::Stage,
+    data::{QuorumCertificate, Stage},
     error::FailedToMessageLeaderSnafu,
     message::{Commit, CommitVote, ConsensusMessage, Decide, NewView},
     traits::node_implementation::NodeImplementation,
@@ -24,18 +24,22 @@ pub(super) enum DecidePhase<const N: usize> {
     /// Leader phase
     Leader(DecideLeader<N>),
     /// Replica phase
-    Replica(DecideReplica),
+    Replica(DecideReplica<N>),
 }
 
 impl<const N: usize> DecidePhase<N> {
     /// Create a new replica
-    pub fn replica() -> Self {
-        Self::Replica(DecideReplica::new())
+    pub fn replica(starting_qc: QuorumCertificate<N>) -> Self {
+        Self::Replica(DecideReplica::new(starting_qc))
     }
 
     /// Create a new leader
-    pub fn leader(commit: Commit<N>, vote: Option<CommitVote<N>>) -> Self {
-        Self::Leader(DecideLeader::new(commit, vote))
+    pub fn leader(
+        starting_qc: QuorumCertificate<N>,
+        commit: Commit<N>,
+        vote: Option<CommitVote<N>>,
+    ) -> Self {
+        Self::Leader(DecideLeader::new(starting_qc, commit, vote))
     }
 
     /// Update the decide phase.

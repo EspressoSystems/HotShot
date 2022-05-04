@@ -9,7 +9,7 @@ use super::{commit::CommitPhase, Progress, UpdateCtx};
 use crate::{utils, ConsensusApi, Result};
 use leader::PreCommitLeader;
 use phaselock_types::{
-    data::Stage,
+    data::{QuorumCertificate, Stage},
     error::FailedToMessageLeaderSnafu,
     message::{ConsensusMessage, PreCommit, PreCommitVote, Prepare, PrepareVote},
     traits::node_implementation::NodeImplementation,
@@ -24,18 +24,22 @@ pub(super) enum PreCommitPhase<I: NodeImplementation<N>, const N: usize> {
     /// Leader phase
     Leader(PreCommitLeader<I, N>),
     /// Replica phase
-    Replica(PreCommitReplica),
+    Replica(PreCommitReplica<N>),
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
     /// Create a new replica
-    pub fn replica() -> Self {
-        Self::Replica(PreCommitReplica::new())
+    pub fn replica(starting_qc: QuorumCertificate<N>) -> Self {
+        Self::Replica(PreCommitReplica::new(starting_qc))
     }
 
     /// Create a new leader
-    pub fn leader(prepare: Prepare<I::Block, I::State, N>, vote: Option<PrepareVote<N>>) -> Self {
-        Self::Leader(PreCommitLeader::new(prepare, vote))
+    pub fn leader(
+        starting_qc: QuorumCertificate<N>,
+        prepare: Prepare<I::Block, I::State, N>,
+        vote: Option<PrepareVote<N>>,
+    ) -> Self {
+        Self::Leader(PreCommitLeader::new(starting_qc, prepare, vote))
     }
 
     /// Update this precommit. This will either call `leader.update` or `replica.update`.
@@ -74,6 +78,8 @@ struct Outcome<const N: usize> {
     pre_commit: PreCommit<N>,
     /// The vote that we created
     vote: Option<PreCommitVote<N>>,
+    /// The newest QC this round started with. This should be replaced by `prepare_qc` and `locked_qc` in the future.
+    starting_qc: QuorumCertificate<N>,
 }
 
 impl<const N: usize> Outcome<N> {
@@ -86,7 +92,11 @@ impl<const N: usize> Outcome<N> {
         self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
     ) -> Result<CommitPhase<N>> {
-        let Outcome { pre_commit, vote } = self;
+        let Outcome {
+            pre_commit,
+            vote,
+            starting_qc,
+        } = self;
 
         let was_leader = ctx.is_leader;
         let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Commit).await;
@@ -97,7 +107,7 @@ impl<const N: usize> Outcome<N> {
                 .await?;
         }
         if is_next_leader {
-            Ok(CommitPhase::leader(pre_commit, vote))
+            Ok(CommitPhase::leader(starting_qc, pre_commit, vote))
         } else {
             if let Some(vote) = vote {
                 ctx.api
@@ -107,7 +117,7 @@ impl<const N: usize> Outcome<N> {
                         stage: Stage::PreCommit,
                     })?;
             }
-            Ok(CommitPhase::replica())
+            Ok(CommitPhase::replica(starting_qc))
         }
     }
 }

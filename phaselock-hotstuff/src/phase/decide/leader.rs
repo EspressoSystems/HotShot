@@ -15,12 +15,22 @@ pub struct DecideLeader<const N: usize> {
     commit: Commit<N>,
     /// Optionally the vote that we cast last stage
     vote: Option<CommitVote<N>>,
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
 }
 
 impl<const N: usize> DecideLeader<N> {
     /// Create a new leader
-    pub fn new(commit: Commit<N>, vote: Option<CommitVote<N>>) -> Self {
-        Self { commit, vote }
+    pub fn new(
+        starting_qc: QuorumCertificate<N>,
+        commit: Commit<N>,
+        vote: Option<CommitVote<N>>,
+    ) -> Self {
+        Self {
+            commit,
+            vote,
+            starting_qc,
+        }
     }
 
     /// Update the leader. This will:
@@ -92,15 +102,10 @@ impl<const N: usize> DecideLeader<N> {
         };
         debug!(?decide.qc, "decide qc generated");
 
-        let old_qc = match ctx.get_newest_qc().await? {
-            Some(qc) => qc,
-            None => {
-                return utils::err("No QC in storage");
-            }
-        };
         // Find blocks and states that were commited
+        // TODO: Walk from `storage().locked_qc()` instead
         let walk_leaf = decide.leaf_hash;
-        let old_leaf_hash = old_qc.leaf_hash;
+        let old_leaf_hash = self.starting_qc.leaf_hash;
 
         let (blocks, states) = utils::walk_leaves(ctx.api, walk_leaf, old_leaf_hash).await?;
 

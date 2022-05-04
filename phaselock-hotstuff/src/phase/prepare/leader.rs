@@ -182,6 +182,7 @@ impl<const N: usize> PrepareLeader<N> {
             new_state,
             prepare,
             vote,
+            newest_qc: high_qc,
         })
     }
 }

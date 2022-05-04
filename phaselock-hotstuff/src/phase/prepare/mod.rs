@@ -7,7 +7,7 @@ use super::{precommit::PreCommitPhase, Progress, UpdateCtx};
 use crate::{utils, ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
-    data::{Leaf, Stage},
+    data::{Leaf, QuorumCertificate, Stage},
     error::{FailedToMessageLeaderSnafu, StorageSnafu},
     message::{ConsensusMessage, Prepare, PrepareVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
@@ -80,6 +80,8 @@ struct Outcome<I: NodeImplementation<N>, const N: usize> {
     prepare: Prepare<I::Block, I::State, N>,
     /// The vote that was cast this round. This is only `None` if we were a leader and `leader_acts_as_replica` is `false`.
     vote: Option<PrepareVote<N>>,
+    /// The current newest QC. This should be replaced by `prepare_qc` and `locked_qc` in the future.
+    newest_qc: QuorumCertificate<N>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
@@ -99,6 +101,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             new_state,
             prepare,
             vote,
+            newest_qc,
         } = self;
 
         let was_leader = ctx.is_leader;
@@ -145,7 +148,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         ctx.api.send_propose(ctx.view_number.0, new_leaf.item).await;
 
         let next_phase = if is_next_leader {
-            PreCommitPhase::leader(prepare, vote)
+            PreCommitPhase::leader(newest_qc, prepare, vote)
         } else {
             if let Some(vote) = vote {
                 ctx.api
@@ -155,7 +158,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
                         stage: Stage::Prepare,
                     })?;
             }
-            PreCommitPhase::replica()
+            PreCommitPhase::replica(newest_qc)
         };
         Ok(next_phase)
     }

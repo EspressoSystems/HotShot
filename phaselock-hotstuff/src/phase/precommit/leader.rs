@@ -15,15 +15,22 @@ pub(crate) struct PreCommitLeader<I: NodeImplementation<N>, const N: usize> {
     prepare: Prepare<I::Block, I::State, N>,
     /// The vote that we might have casted ourselves last stage.
     vote: Option<PrepareVote<N>>,
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     /// Create a new leader
     pub(super) fn new(
+        starting_qc: QuorumCertificate<N>,
         prepare: Prepare<I::Block, I::State, N>,
         vote: Option<PrepareVote<N>>,
     ) -> Self {
-        Self { prepare, vote }
+        Self {
+            prepare,
+            vote,
+            starting_qc,
+        }
     }
 
     /// Update this leader. This will:
@@ -117,6 +124,10 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             None
         };
 
-        Ok(Outcome { pre_commit, vote })
+        Ok(Outcome {
+            pre_commit,
+            vote,
+            starting_qc: self.starting_qc.clone(),
+        })
     }
 }

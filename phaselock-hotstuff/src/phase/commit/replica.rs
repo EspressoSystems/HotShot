@@ -1,7 +1,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
-    data::Stage,
+    data::{QuorumCertificate, Stage},
     error::{PhaseLockError, StorageSnafu},
     message::{Commit, CommitVote, Vote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
@@ -11,12 +11,15 @@ use tracing::{error, trace};
 
 /// The replica
 #[derive(Debug)]
-pub struct CommitReplica {}
+pub struct CommitReplica<const N: usize> {
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
+}
 
-impl CommitReplica {
+impl<const N: usize> CommitReplica<N> {
     /// Create a new replica
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(starting_qc: QuorumCertificate<N>) -> Self {
+        Self { starting_qc }
     }
 
     /// Update the replica. This will:
@@ -32,7 +35,7 @@ impl CommitReplica {
     /// - The QC is invalid
     /// - A vote signature could not be made
     #[tracing::instrument]
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
     ) -> Result<Option<Outcome<N>>> {
@@ -51,7 +54,7 @@ impl CommitReplica {
     /// # Errors
     ///
     /// Errors are described in the documentation of [`Self::update`]
-    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
         commit: Commit<N>,
@@ -100,6 +103,7 @@ impl CommitReplica {
         Ok(Outcome {
             commit,
             vote: Some(vote),
+            starting_qc: self.starting_qc.clone(),
         })
     }
 }

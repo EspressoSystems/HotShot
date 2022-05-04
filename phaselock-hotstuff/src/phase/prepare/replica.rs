@@ -113,6 +113,7 @@ impl PrepareReplica {
             added_transactions: Vec::new(),
             rejected_transactions: Vec::new(),
             vote: Some(vote),
+            newest_qc: high_qc,
         })
     }
 }

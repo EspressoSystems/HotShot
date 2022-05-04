@@ -1,7 +1,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
-    data::Stage,
+    data::{QuorumCertificate, Stage},
     error::PhaseLockError,
     message::{PreCommit, PreCommitVote, Vote},
     traits::node_implementation::NodeImplementation,
@@ -10,12 +10,15 @@ use tracing::error;
 
 /// A precommit replica
 #[derive(Debug)]
-pub struct PreCommitReplica {}
+pub struct PreCommitReplica<const N: usize> {
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
+}
 
-impl PreCommitReplica {
+impl<const N: usize> PreCommitReplica<N> {
     /// Create a new replica
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(starting_qc: QuorumCertificate<N>) -> Self {
+        Self { starting_qc }
     }
 
     /// Update this replica, returning an `Outcome` when it's done.
@@ -32,7 +35,7 @@ impl PreCommitReplica {
     /// - The proposed QC is invalid.
     /// - The underlying [`ConsensusApi`] returned an error.
     #[tracing::instrument]
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
     ) -> Result<Option<Outcome<N>>> {
@@ -49,7 +52,7 @@ impl PreCommitReplica {
     /// # Errors
     ///
     /// The possible errors are documented in the `update` method.
-    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
         pre_commit: PreCommit<N>,
@@ -88,6 +91,7 @@ impl PreCommitReplica {
         Ok(Outcome {
             vote: Some(vote),
             pre_commit,
+            starting_qc: self.starting_qc.clone(),
         })
     }
 }
