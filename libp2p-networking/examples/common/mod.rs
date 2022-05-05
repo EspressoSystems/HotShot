@@ -454,7 +454,6 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .await;
             handle.notify_webui().await;
 
-            let handle_dup = handle.clone();
             let conductor_peerid = handle.peer_id();
 
             let mut res_fut = handle.state_wait_timeout_until_with_trigger(TIMEOUT, |state| {
@@ -466,19 +465,22 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             let (s, r) = flume::bounded::<bool>(1);
 
-            // the "conductor id"
-            // periodically say "ignore me!"
-            spawn(async move {
-                // must wait for the listener to start
-                let msg = Message::ConductorIdIs(conductor_peerid);
-                while r.is_empty() {
-                    handle_dup
-                        .gossip("global".to_string(), &msg)
-                        .await
-                        .context(HandleSnafu)?;
-                    sleep(Duration::from_secs(1)).await;
+            spawn({
+                let handle = handle.clone();
+                // the "conductor id"
+                // periodically say "ignore me!"
+                async move {
+                    // must wait for the listener to start
+                    let msg = Message::ConductorIdIs(conductor_peerid);
+                    while r.is_empty() {
+                        handle
+                            .gossip("global".to_string(), &msg)
+                            .await
+                            .context(HandleSnafu)?;
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    Ok::<(), CounterError>(())
                 }
-                Ok::<(), CounterError>(())
             });
 
             if res_fut.next().await.unwrap().is_err() {
@@ -581,20 +583,14 @@ pub async fn conductor_direct_message(
 
     // FIXME wrapper error
     let chosen_peer = *known_peers.iter().choose(&mut thread_rng()).unwrap();
-    let chosen_peer_dup = chosen_peer;
 
     // step 1: increment counter on the chosen/"leader" node
 
-    let handle_dup = handle.clone();
+    let handle = handle.clone();
 
     // set up listener before any state has the chance to change
     let mut res_fut = handle.state_wait_timeout_until_with_trigger(timeout, |state| {
-        *state
-            .current_epoch
-            .node_states
-            .get(&chosen_peer_dup)
-            .unwrap()
-            >= new_state
+        *state.current_epoch.node_states.get(&chosen_peer).unwrap() >= new_state
     });
 
     res_fut.next().await.unwrap().unwrap();
@@ -603,8 +599,8 @@ pub async fn conductor_direct_message(
     let msg = Message::Normal(NormalMessage {
         sent_ts: SystemTime::now(),
         relay_to_conductor: true,
-        req: CounterRequest::StateResponse(handle_dup.state().await.current_epoch.epoch_idx.1),
-        epoch: handle_dup.state().await.current_epoch.epoch_idx,
+        req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
+        epoch: handle.state().await.current_epoch.epoch_idx,
         padding: vec![0; PADDING_SIZE],
     });
     handle.direct_request(chosen_peer, &msg).await?;
@@ -615,7 +611,6 @@ pub async fn conductor_direct_message(
 
     // step 2: iterate through remaining nodes, message them "request state from chosen node"
 
-    let handle_dup = handle.clone();
     let res_fut = handle.state_wait_timeout_until(timeout, |state| {
         state
             .current_epoch
@@ -634,7 +629,7 @@ pub async fn conductor_direct_message(
             req: CounterRequest::StateRequest,
             broadcast_type: ConductorMessageMethod::DirectMessage(chosen_peer),
         });
-        handle_dup.direct_request(*peer, &msg_increment).await?;
+        handle.direct_request(*peer, &msg_increment).await?;
     }
 
     if res_fut.await.is_err() {
@@ -664,8 +659,6 @@ pub async fn conductor_broadcast(
         broadcast_type: ConductorMessageMethod::Broadcast,
     });
 
-    let handle_dup = handle.clone();
-
     let mut res_fut = handle.state_wait_timeout_until_with_trigger(timeout, |state| {
         state
             .current_epoch
@@ -681,18 +674,18 @@ pub async fn conductor_broadcast(
     let increment_leader_msg = Message::Normal(NormalMessage {
         sent_ts: SystemTime::now(),
         relay_to_conductor: true,
-        req: CounterRequest::StateResponse(handle_dup.state().await.current_epoch.epoch_idx.1),
-        epoch: handle_dup.state().await.current_epoch.epoch_idx,
+        req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
+        epoch: handle.state().await.current_epoch.epoch_idx,
         padding: vec![0; PADDING_SIZE],
     });
     // send direct message from conductor to leader to do broadcast
-    handle_dup
+    handle
         .direct_request(chosen_peer, &msg)
         .await
         .context(HandleSnafu)
         .unwrap();
 
-    handle_dup
+    handle
         .direct_request(chosen_peer, &increment_leader_msg)
         .await
         .context(HandleSnafu)

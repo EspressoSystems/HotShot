@@ -114,18 +114,15 @@ async fn run_request_response_increment<'a>(
     async move {
         let new_state = requestee_handle.state().await;
 
-        let requester_handle_dup = requester_handle.clone();
         // set up state change listener
         let mut stream = requester_handle
             .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-
-        let requester_handle = requester_handle_dup.clone();
 
         let requestee_pid = requestee_handle.peer_id();
 
         // TODO fix error handling
         stream.next().await.unwrap().unwrap();
-        requester_handle_dup
+        requester_handle
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)
             .await
             .context(HandleSnafu)?;
