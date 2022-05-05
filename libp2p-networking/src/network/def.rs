@@ -308,6 +308,7 @@ impl NetworkDef {
         // send here
         let res = self.gossipsub.publish(topic.clone(), contents.clone());
         if res.is_err() {
+            error!("error publishing gossip message {:?}", res);
             self.in_progress_gossip.push((topic, contents));
         }
     }
@@ -316,6 +317,8 @@ impl NetworkDef {
     pub fn subscribe_gossip(&mut self, t: &str) {
         if self.gossipsub.subscribe(&Topic::new(t)).is_err() {
             error!("error subscribing to topic {}", t);
+        } else {
+            error!("subscribed to {:?}", t);
         }
     }
 
@@ -332,6 +335,7 @@ impl NetworkDef {
         for (topic, contents) in self.in_progress_gossip.as_slice() {
             let res = self.gossipsub.publish(topic.clone(), contents.clone());
             if res.is_err() {
+                println!("ANOTHER ERROR !!");
                 break;
             }
             num_sent += 1;

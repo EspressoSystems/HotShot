@@ -152,7 +152,7 @@ impl NetworkNode {
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
             let identify = Identify::new(IdentifyConfig::new(
-                "Spectrum validation gossip 0.1".to_string(),
+                "Phaselock validation gossip 0.1".to_string(),
                 identity.public(),
             ));
 

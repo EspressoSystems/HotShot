@@ -18,6 +18,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]
@@ -294,6 +295,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn broadcast_message(&self, message: T) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
+        error!("broadcasting msg: {:?} ", message);
         // Bincode the message
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let vec = bincode_options
@@ -316,10 +318,20 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 
     #[instrument(
+        name="MemoryNetwork::ready",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn ready(&self) -> bool {
+        async_std::task::sleep(Duration::new(2, 0)).await;
+        true
+    }
+
+    #[instrument(
         name="MemoryNetwork::message_node",
         fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
     )]
     async fn message_node(&self, message: T, recipient: PubKey) -> Result<(), NetworkError> {
+        error!("dming msg: {:?}", message);
         debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
