@@ -158,7 +158,6 @@ struct TaskHandleInner {
 pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     phaselock: &PhaseLock<I, N>,
 ) -> PhaseLockHandle<I, N> {
-    // TODO: This should probably be a `SubscribableRwLock` so we don't have to spin on this.
     let shut_down = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
