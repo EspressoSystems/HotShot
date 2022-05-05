@@ -187,10 +187,8 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
         sender_handle: Arc::new(broadcast_sender.clone()),
         phaselock: phaselock.clone(),
         stream_output: broadcast_receiver,
-        // pause: pause.clone(),
-        // run_once: run_once.clone(),
-        // shut_down: shut_down.clone(),
         storage: phaselock.inner.storage.clone(),
+        shut_down,
     };
     *phaselock.inner.event_sender.write().await = Some(broadcast_sender);
 
