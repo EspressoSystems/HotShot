@@ -6,10 +6,13 @@ use crate::{
     types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
     PhaseLock,
 };
-use async_std::{sync::RwLock, task::block_on};
+use async_std::task::block_on;
 use phaselock_types::traits::network::NetworkingImplementation;
 use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background
 ///
@@ -26,13 +29,8 @@ pub struct PhaseLockHandle<I: NodeImplementation<N> + Send + Sync + 'static, con
     pub(crate) phaselock: PhaseLock<I, N>,
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State>>,
-    /// Global control to pause the underlying [`PhaseLock`]
-    pub(crate) pause: Arc<RwLock<bool>>,
-    /// Override for the `pause` value that allows the [`PhaseLock`] to run one round, before being
-    /// repaused
-    pub(crate) run_once: Arc<RwLock<bool>>,
     /// Global to signify the `PhaseLock` should be closed after completing the next round
-    pub(crate) shut_down: Arc<RwLock<bool>>,
+    pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a phaselock
     pub(crate) storage: I::Storage,
 }
@@ -43,8 +41,6 @@ impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for PhaseLockHand
             sender_handle: self.sender_handle.clone(),
             stream_output: self.sender_handle.handle_sync(),
             phaselock: self.phaselock.clone(),
-            pause: self.pause.clone(),
-            run_once: self.run_once.clone(),
             shut_down: self.shut_down.clone(),
             storage: self.storage.clone(),
         }
@@ -145,7 +141,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// This will cause the background task to start running consensus again.
     pub async fn start(&self) {
-        *self.pause.write().await = false;
+        self.phaselock.inner.background_task_handle.start().await;
     }
 
     /// Synchronously signals the underlying [`PhaseLock`] to unpause
@@ -158,7 +154,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// This will cause the background task to stop driving consensus after the completion of the
     /// current view.
     pub async fn pause(&self) {
-        *self.pause.write().await = true;
+        self.phaselock.inner.background_task_handle.pause().await;
     }
 
     /// Synchronously signals the underlying `PhaseLock` to pause
@@ -170,10 +166,11 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// Do not call this function if [`PhaseLock`] has been unpaused by [`PhaseLockHandle::start`].
     pub async fn run_one_round(&self) {
-        let paused = self.pause.read().await;
-        if *paused {
-            *self.run_once.write().await = true;
-        }
+        self.phaselock
+            .inner
+            .background_task_handle
+            .run_one_round()
+            .await;
     }
 
     /// Synchronously signals the underlying [`PhaseLock`] to run one round, if paused
@@ -189,7 +186,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
 
     /// Shut down the the inner phaselock and wait until all background threads are closed.
     pub async fn shut_down(self) {
-        *self.shut_down.write().await = true;
+        self.shut_down.store(true, Ordering::Relaxed);
         self.phaselock.inner.networking.shut_down().await;
         self.phaselock
             .inner
