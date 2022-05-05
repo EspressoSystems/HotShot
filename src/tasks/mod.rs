@@ -446,7 +446,9 @@ pub async fn round_runner_task<I: NodeImplementation<N>, const N: usize>(
                 state.view += 1;
                 // run the next block, with a timeout
                 let t = Duration::from_millis(state.int_duration);
+                debug!("run_round: Waiting for {:?}", t);
                 let round_res = async_std::future::timeout(t, phaselock.run_round(state.view)).await;
+                debug!(?round_res);
                 match round_res {
                     // If it succeded, simply reset the timeout
                     Ok(Ok(x)) => {

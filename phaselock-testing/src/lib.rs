@@ -241,7 +241,12 @@ impl<
     ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
 
-        let cur_view = node.handle.get_round_runner_state().await.unwrap().view;
+        let cur_view = node
+            .handle
+            .get_round_runner_state()
+            .await
+            .unwrap_or_else(|e| panic!("Could not get round runner state of node {}: {:?}", id, e))
+            .view;
 
         // timeout for first event is longer in case
         // there is a delta before other nodes are spun up
