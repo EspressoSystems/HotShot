@@ -63,6 +63,20 @@ where
     Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,
     State: DeserializeOwned + Serialize + Clone,
 {
+    /// Creates an atomic storage at a given path. If files exist, will back up existing directory before creating.
+    ///
+    /// # Errors
+    ///
+    /// Returns the underlying errors that the following types can throw:
+    /// - [`atomic_store::AtomicStoreLoader`]
+    /// - [`atomic_store::AtomicStore`]
+    /// - [`atomic_store::RollingLog`]
+    /// - [`atomic_store::AppendLog`]
+    pub fn create(path: &Path) -> atomic_store::Result<Self> {
+        let loader = AtomicStoreLoader::create(path, "phaselock")?;
+        Self::init_from_loader(loader)
+    }
+
     /// Open an atomic storage at a given path.
     ///
     /// # Errors
@@ -73,8 +87,19 @@ where
     /// - [`atomic_store::RollingLog`]
     /// - [`atomic_store::AppendLog`]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
-        let mut loader = AtomicStoreLoader::load(path, "phaselock")?;
+        let loader = AtomicStoreLoader::load(path, "phaselock")?;
+        Self::init_from_loader(loader)
+    }
 
+    /// Open an atomic storage with a given [`AtomicStoreLoader`]
+    ///
+    /// # Errors
+    ///
+    /// Returns the underlying errors that the following types can throw:
+    /// - [`atomic_store::AtomicStore`]
+    /// - [`atomic_store::RollingLog`]
+    /// - [`atomic_store::AppendLog`]
+    pub fn init_from_loader(mut loader: AtomicStoreLoader) -> atomic_store::Result<Self> {
         let blocks = HashMapStore::load(&mut loader, "phaselock_blocks")?;
         let qcs = DualKeyValueStore::open(&mut loader, "phaselock_qcs")?;
         let leaves = DualKeyValueStore::open(&mut loader, "phaselock_leaves")?;
