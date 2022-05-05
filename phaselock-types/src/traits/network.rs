@@ -82,6 +82,12 @@ pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
 {
+    /// Returns true when node is successfully initialized
+    /// into the network
+    ///
+    /// Blocks until node is ready
+    async fn ready(&self) -> bool;
+
     /// Broadcasts a message to the network
     ///
     /// Should provide that the message eventually reach all non-faulty nodes

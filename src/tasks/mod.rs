@@ -69,7 +69,7 @@ impl TaskHandle {
         let (sender, receiver) = oneshot_channel();
         self.send_to_round_runner(ToRoundRunner::GetState(sender))
             .await?;
-        let state = receiver.timeout(Duration::from_millis(200)).await??;
+        let state = receiver.timeout(Duration::from_millis(5000)).await??;
         Ok(state)
     }
 
@@ -161,24 +161,25 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 ) -> PhaseLockHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
 
-    let network_broadcast_task_handle = spawn(
+    let network_broadcast_task_handle = spawn( {
         network_broadcast_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Broadcast Task",
             id = phaselock.inner.public_key.nonce
-        )),
+        ))
+    }
     );
-    let network_direct_task_handle = spawn(
+    let network_direct_task_handle = spawn({
         network_direct_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Direct Task",
             id = phaselock.inner.public_key.nonce
-        )),
-    );
-    let network_change_task_handle = spawn(
+        ))
+    });
+    let network_change_task_handle = spawn({
         network_change_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock network change listener task",
             id = phaselock.inner.public_key.nonce
-        )),
-    );
+        ))
+    });
 
     let (broadcast_sender, broadcast_receiver) = channel();
 
@@ -216,6 +217,7 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
+    phaselock.inner.networking.ready().await;
     info!("Launching broadcast processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
@@ -261,6 +263,7 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
+    phaselock.inner.networking.ready().await;
     info!("Launching direct processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
@@ -304,6 +307,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
+    phaselock.inner.networking.ready().await;
     info!("Launching network change handler task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;

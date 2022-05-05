@@ -19,9 +19,11 @@ use phaselock_testing::{
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use snafu::ResultExt;
+use tracing::error;
 use std::collections::HashSet;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use Either::{Left, Right};
 
@@ -88,17 +90,21 @@ impl<
         setup_backtrace();
 
         let mut runner = (self.gen_runner.clone().unwrap())(self);
+        error!("CREATED RUNNER");
 
         // configure nodes/timing
 
         runner.add_nodes(self.start_nodes).await;
+        error!("ADDED NODES");
         let len = self.rounds.len() as u64;
         runner.with_rounds(self.rounds.clone());
+        error!("STARTING THE THING!!!");
 
         runner
             .execute_rounds(len, self.failure_threshold as u64)
             .await
             .unwrap();
+        error!("WE ARE ALL DONE!!");
 
         Ok(())
     }
@@ -297,6 +303,7 @@ pub fn default_randomized_ids_to_round<
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
         let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>| {
             if let Some(to_shut_down) = to_kill.clone() {
+                error!("SHUTTING THE THIGN DOWN");
                 for idx in to_shut_down {
                     block_on(runner.shutdown(idx)).unwrap();
                 }

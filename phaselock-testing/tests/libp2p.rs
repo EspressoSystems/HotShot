@@ -1,5 +1,5 @@
 mod common;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use common::*;
 
@@ -11,12 +11,13 @@ use phaselock::{
     types::Message, PhaseLockConfig,
 };
 use phaselock_testing::TestLauncher;
-use tracing::instrument;
+use tracing::{instrument, error};
 
 #[async_std::test]
 #[instrument]
 async fn libp2p() {
     let gen_runner = Arc::new(|desc: &TestDescription<TestLibp2pNetwork, TestStorage>| {
+        error!("STARTING TO GEN RUNNER");
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut PhaseLockConfig| {
             a.next_view_timeout = desc.timing_config.next_view_timeout;
@@ -25,25 +26,29 @@ async fn libp2p() {
             a.start_delay = desc.timing_config.start_delay;
         };
 
-        // one bootstrap
+        error!("GENNING RUNNER");
         let launcher = TestLauncher::new(desc.total_nodes);
 
 
         // one bootstrap
+        error!("GENERATOR_ING");
         let generator = TestLibp2pNetwork::generator(desc.total_nodes as u64, 1);
 
-        launcher
+        error!("LAUNCHIGN");
+        let launcher = launcher
             .modify_default_config(set_timing_params)
-            .with_network(generator).launch()
+            .with_network(generator).launch();
+        launcher
     });
 
     let description = TestDescriptionBuilder {
-        next_view_timeout: 60000,
-        // TODO we may need to rethink this to make it event driven.
-        start_delay: 60000,
+        next_view_timeout: 6000,
+        // round_start_delay: 0,
+        // timeout_ratio: (1,1),
+        // start_delay: 25,
         total_nodes: 5,
         start_nodes: 5,
-        num_succeeds: 10,
+        num_succeeds: 1,
         txn_ids: Right(1),
         gen_runner: Some(gen_runner),
         ..TestDescriptionBuilder::<TestLibp2pNetwork, _>::default()
@@ -51,3 +56,55 @@ async fn libp2p() {
 
     description.build().execute().await.unwrap();
 }
+
+// #[async_std::test]
+// #[instrument]
+// async fn libp2p() {
+//     let gen_runner = Arc::new(|desc: &TestDescription<MemoryNetwork<_>, TestStorage>| {
+//         error!("STARTING TO GEN RUNNER");
+//         // modify runner to recognize timing params
+//         let set_timing_params = |a: &mut PhaseLockConfig| {
+//             a.next_view_timeout = desc.timing_config.next_view_timeout;
+//             a.timeout_ratio = desc.timing_config.timeout_ratio;
+//             a.round_start_delay = desc.timing_config.round_start_delay;
+//             a.start_delay = desc.timing_config.start_delay;
+//         };
+//
+//         error!("GENNING RUNNER");
+//         let launcher = TestLauncher::new(desc.total_nodes);
+//
+//
+//         // one bootstrap
+//         error!("GENERATOR_ING");
+//         // let generator = TestLibp2pNetwork::generator(desc.total_nodes as u64, 1);
+//
+//         error!("LAUNCHING");
+//         let launcher = launcher
+//             .modify_default_config(set_timing_params)
+//             // .with_network(generator)
+//         .with_network({
+//             let master_map = MasterMap::new();
+//             let tmp = desc.network_reliability.clone();
+//             move |_node_id, pubkey| {
+//                 MemoryNetwork::new(pubkey, master_map.clone(), tmp.clone())
+//             }
+//         })
+//             .launch();
+//         launcher
+//     });
+//
+//     let description = TestDescriptionBuilder {
+//         next_view_timeout: 60000,
+//         round_start_delay: 25,
+//         timeout_ratio: (1,1),
+//         start_delay: 25,
+//         total_nodes: 5,
+//         start_nodes: 5,
+//         num_succeeds: 1,
+//         txn_ids: Right(1),
+//         gen_runner: Some(gen_runner),
+//         ..TestDescriptionBuilder::<MemoryNetwork<_>, _>::default()
+//     };
+//
+//     description.build().execute().await.unwrap();
+// }

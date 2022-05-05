@@ -791,6 +791,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
     NetworkingImplementation<T> for WNetwork<T>
 {
     #[instrument(
+        name="WNetwork::ready",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn ready(&self) -> bool {
+        true
+    }
+
+    #[instrument(
         name="WNetwork::broadcast_message",
         fields(node_id = ?self.inner.pub_key.nonce)
     )]

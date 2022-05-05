@@ -177,6 +177,19 @@ impl<
                 .await;
             results.push(node_id);
         }
+        //
+        // // wait on networking to become ready
+        // for (_, handle) in &results {
+        //     handle.is_ready().await;
+        // }
+        //
+        // for (_, handle) in &results {
+        //     handle.;
+        //     let handle = tasks::spawn_all(&phaselock).await;
+        // }
+
+        // spawn tasks
+
         results
     }
 
@@ -204,6 +217,7 @@ impl<
         state: STATE,
         config: PhaseLockConfig,
     ) -> u64 {
+
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let known_nodes = config.known_nodes.clone();
@@ -221,7 +235,7 @@ impl<
         )
         .await
         .expect("Could not init phaselock");
-        self.nodes.push(Node { handle, node_id });
+        self.nodes.push(Node { handle: handle.clone(), node_id });
         node_id
     }
 
@@ -294,6 +308,7 @@ impl<
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
         for i in 0..(num_success + fail_threshold) {
+            error!("EXECUTING ROUND {:?}", i);
             if let Err(e) = self.execute_round().await {
                 num_fails += 1;
                 error!("failed {:?} round of consensus with error: {:?}", i, e);
@@ -425,6 +440,7 @@ impl<
     /// - already shut down
     /// - does not exist
     pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
+        error!("THIS IS SHUTTING DOWN!!");
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
