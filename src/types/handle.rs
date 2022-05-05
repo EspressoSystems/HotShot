@@ -6,10 +6,13 @@ use crate::{
     types::{Event, PhaseLockError, PhaseLockError::NetworkFault},
     PhaseLock,
 };
-use async_std::{sync::RwLock, task::block_on};
+use async_std::task::block_on;
 use phaselock_types::traits::network::NetworkingImplementation;
 use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background
 ///
@@ -27,7 +30,7 @@ pub struct PhaseLockHandle<I: NodeImplementation<N> + Send + Sync + 'static, con
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State>>,
     /// Global to signify the `PhaseLock` should be closed after completing the next round
-    pub(crate) shut_down: Arc<RwLock<bool>>,
+    pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a phaselock
     pub(crate) storage: I::Storage,
 }
@@ -183,7 +186,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
 
     /// Shut down the the inner phaselock and wait until all background threads are closed.
     pub async fn shut_down(self) {
-        *self.shut_down.write().await = true;
+        self.shut_down.store(true, Ordering::Relaxed);
         self.phaselock.inner.networking.shut_down().await;
         self.phaselock
             .inner

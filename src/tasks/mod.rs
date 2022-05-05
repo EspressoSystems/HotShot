@@ -18,7 +18,13 @@ use phaselock_types::{
 };
 use phaselock_utils::broadcast::channel;
 use round_runner::ToRoundRunner;
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tracing::{error, info, info_span, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
@@ -153,7 +159,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     phaselock: &PhaseLock<I, N>,
 ) -> PhaseLockHandle<I, N> {
     // TODO: This should probably be a `SubscribableRwLock` so we don't have to spin on this.
-    let shut_down = Arc::new(RwLock::new(false));
+    let shut_down = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
         network_broadcast_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
@@ -208,16 +214,16 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 /// Continually processes the incoming broadcast messages received on `phaselock.inner.networking`, redirecting them to `phaselock.handle_broadcast_*_message`.
 pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
-    shut_down: Arc<RwLock<bool>>,
+    shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching broadcast processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
-    while !*shut_down.read().await {
+    while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.broadcast_queue().await {
             Ok(queue) => queue,
             Err(e) => {
-                if !*shut_down.read().await {
+                if !shut_down.load(Ordering::Relaxed) {
                     error!(?e, "did not shut down gracefully.");
                 }
                 return;
@@ -249,16 +255,16 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
 /// Continually processes the incoming direct messages received on `phaselock.inner.networking`, redirecting them to `phaselock.handle_direct_*_message`.
 pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
-    shut_down: Arc<RwLock<bool>>,
+    shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching direct processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
-    while !*shut_down.read().await {
+    while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.direct_queue().await {
             Ok(queue) => queue,
             Err(e) => {
-                if !*shut_down.read().await {
+                if !shut_down.load(Ordering::Relaxed) {
                     error!(?e, "did not shut down gracefully.");
                 }
                 return;
@@ -290,16 +296,16 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
 /// Runs a task that will call `phaselock.handle_network_change` whenever a change in the network is detected.
 pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
-    shut_down: Arc<RwLock<bool>>,
+    shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network change handler task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
-    while !*shut_down.read().await {
+    while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.network_changes().await {
             Ok(queue) => queue,
             Err(e) => {
-                if !*shut_down.read().await {
+                if !shut_down.load(Ordering::Relaxed) {
                     error!(?e, "did not shut down gracefully.");
                 }
                 return;
