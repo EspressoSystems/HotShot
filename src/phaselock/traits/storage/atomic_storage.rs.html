@@ -250,6 +250,31 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
 </pre><pre class="rust"><code><span class="doccomment">//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).</span>
 
 <span class="kw">mod</span> <span class="ident">dual_key_value_store</span>;
@@ -315,6 +340,20 @@
     <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
     <span class="ident">State</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
 {
+    <span class="doccomment">/// Creates an atomic storage at a given path. If files exist, will back up existing directory before creating.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns the underlying errors that the following types can throw:</span>
+    <span class="doccomment">/// - [`atomic_store::AtomicStoreLoader`]</span>
+    <span class="doccomment">/// - [`atomic_store::AtomicStore`]</span>
+    <span class="doccomment">/// - [`atomic_store::RollingLog`]</span>
+    <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::create</span>(<span class="ident">path</span>, <span class="string">&quot;phaselock&quot;</span>)<span class="question-mark">?</span>;
+        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>)
+    }
+
     <span class="doccomment">/// Open an atomic storage at a given path.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
@@ -325,8 +364,19 @@
     <span class="doccomment">/// - [`atomic_store::RollingLog`]</span>
     <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">open</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::load</span>(<span class="ident">path</span>, <span class="string">&quot;phaselock&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::load</span>(<span class="ident">path</span>, <span class="string">&quot;phaselock&quot;</span>)<span class="question-mark">?</span>;
+        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>)
+    }
 
+    <span class="doccomment">/// Open an atomic storage with a given [`AtomicStoreLoader`]</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns the underlying errors that the following types can throw:</span>
+    <span class="doccomment">/// - [`atomic_store::AtomicStore`]</span>
+    <span class="doccomment">/// - [`atomic_store::RollingLog`]</span>
+    <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init_from_loader</span>(<span class="kw-2">mut</span> <span class="ident">loader</span>: <span class="ident">AtomicStoreLoader</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> <span class="ident">HashMapStore::load</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_blocks&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="ident">DualKeyValueStore::open</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_qcs&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">leaves</span> <span class="op">=</span> <span class="ident">DualKeyValueStore::open</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_leaves&quot;</span>)<span class="question-mark">?</span>;
