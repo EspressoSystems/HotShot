@@ -40,9 +40,10 @@ pub trait State<const N: usize>:
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 
-    /// Return a list of transaction ids that are included in this state.
-    fn transaction_ids(
+    /// Return a list of transaction ids that are included in this state but not the previous one
+    fn new_transaction_ids(
         &self,
+        previous: &Self,
     ) -> Vec<<<Self::Block as BlockContents<N>>::Transaction as Transaction<N>>::Id>;
 }
 
@@ -88,7 +89,7 @@ pub mod dummy {
 
         fn on_commit(&self) {}
 
-        fn transaction_ids(&self) -> Vec<()> {
+        fn new_transaction_ids(&self, _: &DummyState) -> Vec<()> {
             vec![]
         }
     }

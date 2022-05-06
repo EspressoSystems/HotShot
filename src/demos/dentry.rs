@@ -263,8 +263,8 @@ impl crate::traits::State<H_256> for State {
         // Does nothing in this implementation
     }
 
-    fn transaction_ids(&self) -> Vec<u64> {
-        self.nonces.iter().copied().collect()
+    fn new_transaction_ids(&self, old_state: &Self) -> Vec<u64> {
+        self.nonces.difference(&old_state.nonces).copied().collect()
     }
 }
 
