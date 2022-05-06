@@ -30,7 +30,6 @@ pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
-// pub mod state_machine;
 /// Contains traits consumed by [`PhaseLock`]
 pub mod traits;
 /// Contains types used by the crate
@@ -276,37 +275,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         true
     }
 
-    // Moved to `phaselock-hotstuff`
-    // /// Returns true if a proposed leaf satisfies the safety rule
-    // #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
-    // pub async fn safe_node(&self, leaf: &Leaf<I::Block, N>, qc: &QuorumCertificate<N>) -> bool {
-    //     if qc.genesis {
-    //         info!("Safe node check bypassed due to genesis flag");
-    //         return true;
-    //     }
-    //     if let Some(locked_qc) = self.inner.locked_qc.read().await.as_ref() {
-    //         let extends_from = self.extends_from(leaf, &locked_qc.leaf_hash).await;
-    //         let view_number = qc.view_number > locked_qc.view_number;
-    //         let result = extends_from || view_number;
-    //         if !result {
-    //             error!(?locked_qc, ?leaf, ?qc, "Safe node check failed");
-    //         }
-    //         result
-    //     } else {
-    //         error!("Safe node check failed");
-    //         false
-    //     }
-    // }
-
     /// Sends out the next view message
-    ///
-    /// # Panics
-    ///
-    /// Panics if we there is no `prepare_qc`
     ///
     /// # Errors
     ///
-    /// Returns an error if an underlying networking error occurs
+    /// Returns an error if:
+    /// - The phase already exists
+    /// - INTERNAL: Phases are not properly sorted
+    /// - The storage layer returned an error
+    /// - There were no QCs in the storage
+    /// - A broadcast message could not be send
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
     pub async fn next_view(&self, current_view: u64) -> Result<()> {
         let mut hotstuff = self.inner.hotstuff.lock().await;
@@ -603,11 +581,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                         );
                     }
 
-                    // And make sure to update the phaselock `committed_leaf`
-                    // *self.inner.committed_leaf.write().await = leaf_hash;
-
                     // Broadcast that we're updated
-
                     self.send_event(Event {
                         view_number: new_view_number,
                         stage: Stage::None,
@@ -666,27 +640,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         }
     }
 
-    // /// Returns the public key for the leader of this round
-    // fn get_leader(&self, view: u64, stage: Stage) -> PubKey {
-    //     self.inner
-    //         .election
-    //         .election
-    //         .get_leader(&self.inner.election.stake_table, view, stage)
-    // }
-
     /// return the timeout for a view for `self`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
 }
-
-// /// Attempts to generate a quorum certificate from the provided signatures
-// fn generate_qc<'a>(
-//     signatures: impl IntoIterator<Item = (u64, &'a tc::SignatureShare)>,
-//     key_set: &tc::PublicKeySet,
-// ) -> std::result::Result<tc::Signature, tc::error::Error> {
-//     key_set.combine_signatures(signatures)
-// }
 
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`phaselock_types::traits::State`] from the given [`Storage`]
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
