@@ -1,14 +1,14 @@
 //! Prepare replica implementation
 
 use super::Outcome;
-use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
     message::{Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, State},
+    traits::{node_implementation::NodeImplementation, State, Transaction as _},
 };
-use tracing::error;
+use tracing::{error, info};
 
 /// A prepare replica
 #[derive(Debug)]
@@ -35,7 +35,22 @@ impl PrepareReplica {
         } else {
             return Ok(None);
         };
-        let outcome = self.vote(ctx, prepare.clone()).await?;
+        let mut added_transactions = Vec::new();
+        for id in prepare.state.transaction_ids() {
+            if let Some(transaction_state) =
+                ctx.transactions.iter().find(|t| t.transaction.id() == id)
+            {
+                added_transactions.push(transaction_state.clone());
+            } else {
+                info!(
+                    ?id,
+                    "Could not find transaction to mark, will sit out until we receive it"
+                );
+                return Ok(None);
+            }
+        }
+
+        let outcome = self.vote(ctx, prepare.clone(), added_transactions).await?;
         Ok(Some(outcome))
     }
 
@@ -52,6 +67,7 @@ impl PrepareReplica {
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
         prepare: Prepare<I::Block, I::State, N>,
+        added_transactions: Vec<TransactionState<I, N>>,
     ) -> Result<Outcome<I, N>> {
         let leaf = prepare.leaf.clone();
         let leaf_hash = leaf.hash();
@@ -109,8 +125,7 @@ impl PrepareReplica {
             new_state,
             new_leaf: leaf,
             prepare,
-            // TODO: We should validate that the incoming transactions are correct
-            added_transactions: Vec::new(),
+            added_transactions,
             rejected_transactions: Vec::new(),
             vote: Some(vote),
             newest_qc: high_qc,

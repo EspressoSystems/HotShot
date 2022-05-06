@@ -53,14 +53,16 @@ pub trait BlockContents<const N: usize>:
 pub trait Transaction<const N: usize>:
     Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq + Sync + Send
 {
-    /// Generate a [`TransactionHash`] from this `Transaction`.
-    fn hash(&self) -> TransactionHash<N>;
+    /// The unique identifier type that this transaction uses. Will most likely be [`TransactionHash`]
+    type Id: PartialEq + Eq + Debug;
+    /// Get this `Transaction`'s ID.
+    fn id(&self) -> Self::Id;
 }
 
 impl<const N: usize> Transaction<N> for () {
-    fn hash(&self) -> TransactionHash<N> {
-        TransactionHash::default()
-    }
+    type Id = ();
+
+    fn id(&self) {}
 }
 
 /// Dummy implementation of `BlockContents` for unit tests

@@ -229,11 +229,6 @@ pub fn default_check(results: TestRoundResult) -> Result<(), ConsensusRoundError
             });
         }
     }
-    if b_test[0].transactions.is_empty() {
-        return Err(ConsensusRoundError::SafetyFailed {
-            description: "No txns submitted this round".to_string(),
-        });
-    }
     if b_test[0].transactions != results.txns {
         return Err(ConsensusRoundError::SafetyFailed {
             description: "Committed doesn't match what submitted.".to_string(),

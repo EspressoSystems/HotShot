@@ -85,16 +85,10 @@ pub struct Transaction {
 }
 
 impl crate::traits::Transaction<H_256> for Transaction {
-    fn hash(&self) -> TransactionHash<H_256> {
-        let mut hasher = Hasher::new();
-        hasher.update(self.add.account.as_bytes());
-        hasher.update(&self.add.amount.to_be_bytes());
-        hasher.update(self.sub.account.as_bytes());
-        hasher.update(&self.sub.amount.to_be_bytes());
-        hasher.update(&self.nonce.to_be_bytes());
+    type Id = u64;
 
-        let x = *hasher.finalize().as_bytes();
-        x.into()
+    fn id(&self) -> u64 {
+        self.nonce
     }
 }
 
@@ -267,6 +261,10 @@ impl crate::traits::State<H_256> for State {
 
     fn on_commit(&self) {
         // Does nothing in this implementation
+    }
+
+    fn transaction_ids(&self) -> Vec<u64> {
+        self.nonces.iter().copied().collect()
     }
 }
 
