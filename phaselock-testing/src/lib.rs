@@ -46,6 +46,7 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 pub const N: usize = H_256;
 
 /// Result of running a round of consensus
+#[derive(Debug)]
 pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     /// Transactions that were submitted
     pub txns: Vec<BLOCK::Transaction>,
