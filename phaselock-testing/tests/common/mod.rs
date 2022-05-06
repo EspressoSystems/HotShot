@@ -304,11 +304,11 @@ impl<
         let safety_check_post =
             move |runner: &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
                   results: TestRoundResult|
-                  -> Result<(), ConsensusRoundError> { 
-                      tracing::info!(?results);
-                      async_std::task::block_on(runner.validate_node_states());
-                      Ok(())
-                   };
+                  -> Result<(), ConsensusRoundError> {
+                tracing::info!(?results);
+                async_std::task::block_on(runner.validate_node_states());
+                Ok(())
+            };
 
         let setups = match self.txn_ids.clone() {
             Left(l) => {
