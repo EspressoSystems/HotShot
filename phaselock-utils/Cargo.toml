@@ -4,7 +4,7 @@ description = "Accompanying utilities used by phaselock."
 edition = "2021"
 name = "phaselock-utils"
 readme = "../README.md"
-version = "0.0.6"
+version = "0.0.7"
 
 [dependencies]
 flume = "0.10.12"

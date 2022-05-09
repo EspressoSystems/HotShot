@@ -1,6 +1,6 @@
 [package]
 name = "networking-demo"
-version = "0.0.0"
+version = "0.0.7"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -27,8 +27,8 @@ rand = "0.8.5"
 async-trait = "0.1.53"
 derive_builder = "0.11.1"
 custom_debug = "0.5"
-phaselock-utils = { path = "../phaselock-utils", version = "0.0.6", features = ["logging-utils"] }
-phaselock-types = { path = "../phaselock-types", version = "0.0.6"}
+phaselock-utils = { path = "../phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
+phaselock-types = { path = "../phaselock-types", version = "0.0.7"}
 
 # Feature dependencies
 

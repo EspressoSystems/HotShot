@@ -4,7 +4,7 @@ description = "PhaseLock consesus module"
 edition = "2021"
 name = "phaselock"
 readme = "README.md"
-version = "0.0.6"
+version = "0.0.7"
 
 [features]
 default = ["demo", "docs"]
@@ -34,9 +34,9 @@ dashmap = "5.2.0"
 flume = "0.10.12"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
-phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.6" }
-phaselock-types = { path = "./phaselock-types", version = "0.0.6" }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.6" }
+phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.7" }
+phaselock-types = { path = "./phaselock-types", version = "0.0.7"}
+phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
@@ -50,12 +50,11 @@ tracing-unwrap = "0.9.2"
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.6", features = ["logging-utils"] }
+phaselock-utils = { path = "./phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
 rand_xoshiro = "0.4.0"
 structopt = "0.3.26"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
-
 ### Profiles
 ###
 ### Note: these only apply to example executables or tests built from within this crate. They have
