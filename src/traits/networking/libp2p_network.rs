@@ -58,13 +58,14 @@ struct Libp2pNetworkInner<
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
     /// holds the state of the previously held connections
-    last_connection_set: ConnectionData,
+    last_connection_set: RwLock<ConnectionData>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
     /// whether or not the network is ready to send
     is_ready: Arc<SubscribableRwLock<bool>>,
     is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
+    recently_updated_peers: RwLock<HashSet<PeerId>>,
 }
 
 /// Networking implementation that uses libp2p
@@ -116,8 +117,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         .build()
                         .unwrap()
                 } else {
-                    let min_num_peers = expected_node_count / 4;
-                    let max_num_peers = expected_node_count - 1;
+                    let min_num_peers = expected_node_count / 2;
+                    let max_num_peers = expected_node_count;
                     NetworkNodeConfigBuilder::default()
                         .node_type(NetworkNodeType::Regular)
                         .min_num_peers(min_num_peers as usize)
@@ -187,11 +188,12 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 pid_to_pubkey,
                 broadcast_recv,
                 direct_recv,
-                last_connection_set: ConnectionData::default(),
+                last_connection_set: RwLock::default(),
                 pk,
                 bootstrap_addrs,
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
+                recently_updated_peers: Default::default()
             }),
         };
 
@@ -214,12 +216,12 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
-            let timeout_duration = Duration::from_secs(5);
+            let timeout_duration = Duration::from_secs(20);
             // perform connection
             let connected = NetworkNodeHandle::wait_to_connect(
                 handle.clone(),
                 // this is a safe lower bet on the number of nodes in the network.
-                3,
+                2,
                 handle.recv_network(),
                 pk.nonce as usize,
             )
@@ -239,6 +241,22 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             Ok(_) => {
                                 error!("node {:?} successfully published to peers!", pk.nonce);
                                 break 'a;
+                            },
+                            Err(_) => {
+                                // error!("failed to publish to dht! trying again...");
+                                continue
+                            },
+                        }
+            }
+            'b: loop {
+                match
+                    handle
+                        .put_record(&handle.peer_id(), &pk)
+                        .await
+                        .map_err(Into::<NetworkError>::into) {
+                            Ok(_) => {
+                                error!("node {:?} successfully published to peers!", pk.nonce);
+                                break 'b;
                             },
                             Err(_) => {
                                 // error!("failed to publish to dht! trying again...");
@@ -560,32 +578,73 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
         if self.inner.handle.is_killed().await {
+            error!("THE THING WAS KILLED!");
             return Err(NetworkError::ShutDown);
         }
         let mut result = vec![];
 
+        let old_connected = self.inner.recently_updated_peers.read().await.clone();
+
         // get peer ids that are new
-        let old_connected = self.inner.last_connection_set.connected_peers.clone();
+        // let old_connected = self.inner.last_connection_set.read().await.connected_peers.clone();
 
         // get peer ids that are old
-        let cur_connected = self.inner.handle.connected_peers().await;
+        let cur_connected : HashSet<_> = self.inner.handle.connected_peers().await;
 
         // new - old -> added peers
         let added_peers = cur_connected.difference(&old_connected);
 
-        for pid in added_peers {
-            if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
+        for pid in added_peers.clone() {
+            let pk : PubKey = loop {
+                match self.inner
+                    .handle
+                    .get_record(&pid)
+                    .await
+                    .map_err(Into::<NetworkError>::into) {
+                        Ok(r) => {
+                            error!("found it!");
+                            break r
+                        },
+                        Err(_e) => {
+                            // error!("ERROR retrieving from DHT")
+                        },
+                    }
+            };
+            // if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
                 result.push(NetworkChange::NodeConnected(pk.clone()));
-            }
+            // }
         }
+        *self.inner.recently_updated_peers.write().await = cur_connected.clone();
+        // *self.inner.last_connection_set.write().await = self;
+        // let old_connected = 
 
-        let removed_peers = old_connected.difference(&cur_connected);
+        // let tmp = cur_connected.clone();
 
-        for pid in removed_peers {
-            if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
-                result.push(NetworkChange::NodeDisconnected(pk.clone()));
-            }
-        }
+        // let removed_peers = old_connected.difference(&tmp);
+
+        // for pid in removed_peers.clone() {
+        //     let pk : PubKey = loop {
+        //         match self.inner
+        //             .handle
+        //             .get_record(&pid)
+        //             .await
+        //             .map_err(Into::<NetworkError>::into) {
+        //                 Ok(r) => {
+        //                     error!("found it!");
+        //                     break r
+        //                 },
+        //                 Err(_e) => {
+        //                     // error!("ERROR retrieving from DHT")
+        //                 },
+        //             }
+        //     };
+        //     // if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
+        //         result.push(NetworkChange::NodeDisconnected(pk.clone()));
+        //     // }
+        // }
+
+        // error!(?result, ?cur_connected, ?added_peers, "NETWORK CHANGES: ");
+
         Ok(result)
     }
 

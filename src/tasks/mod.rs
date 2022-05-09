@@ -217,7 +217,6 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
-    phaselock.inner.networking.ready().await;
     info!("Launching broadcast processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
@@ -263,7 +262,6 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
-    phaselock.inner.networking.ready().await;
     info!("Launching direct processing task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
@@ -307,8 +305,8 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
-    phaselock.inner.networking.ready().await;
-    info!("Launching network change handler task");
+    // phaselock.inner.networking.ready().await;
+    error!("Launching network change handler task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
@@ -322,7 +320,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
             }
         };
         if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+            error!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
@@ -330,7 +328,9 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
 
+        error!("HANDLING NETWORK CHANGE TASK IS NOW RUNNING!");
         for node in queue {
+            error!("HANDLING NETWORK CHANGE TASK IS NOW RUNNING!");
             phaselock.handle_network_change(node).await;
         }
     }
