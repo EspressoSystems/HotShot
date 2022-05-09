@@ -95,6 +95,11 @@ impl<
         // configure nodes/timing
 
         runner.add_nodes(self.start_nodes).await;
+
+        for node in runner.nodes() {
+            node.is_ready().await;
+        }
+
         error!("ADDED NODES");
         let len = self.rounds.len() as u64;
         runner.with_rounds(self.rounds.clone());

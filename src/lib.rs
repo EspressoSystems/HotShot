@@ -610,13 +610,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 match load_latest_state::<I, N>(&self.inner.storage).await {
                     Ok(Some((quorum_certificate, leaf, state))) => {
                         let phaselock = self.clone();
-                        if let Err(e) = phaselock
-                            .send_direct_message(
-                                DataMessage::NewestQuorumCertificate {
+                        let msg = DataMessage::NewestQuorumCertificate {
                                     quorum_certificate,
                                     state,
                                     block: leaf.item,
-                                },
+                                };
+                        // println!("SENDING MESSAGE: {:?}", msg);
+
+                        if let Err(e) = phaselock
+                            .send_direct_message(
+                                msg,
                                 peer.clone(),
                             )
                             .await
@@ -628,7 +631,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                         }
                     }
                     Ok(None) => {
-                        info!("Node connected but we have no QC yet");
+                        error!("Node connected but we have no QC yet");
                     }
                     Err(e) => {
                         error!(?e, "Could not retrieve newest QC");
