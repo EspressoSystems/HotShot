@@ -4,7 +4,7 @@ use tracing::instrument;
 
 pub mod common;
 
-#[cfg(feature = "lossy_network")]
+#[cfg(all(feature = "lossy_network", target_os = "linux"))]
 use common::{
     lossy_network::{IsolationConfig, LossyNetworkBuilder},
     ExecutionEnvironment,
@@ -17,7 +17,7 @@ use common::{start_main, CliOpt};
 async fn main() -> Result<()> {
     let args = CliOpt::from_args();
 
-    #[cfg(feature = "lossy_network")]
+    #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     let network = {
         use crate::common::lossy_network::LOSSY_QDISC;
         let mut builder = LossyNetworkBuilder::default();
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
         builder.build()
     }?;
 
-    #[cfg(feature = "lossy_network")]
+    #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     {
         network.isolate().await?;
         network.create_qdisc().await?;
@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
 
     start_main(args).await?;
 
-    #[cfg(feature = "lossy_network")]
+    #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     {
         // implicitly deletes qdisc in the case of metal run
         // leaves qdisc alive in docker run with expectation docker does cleanup
