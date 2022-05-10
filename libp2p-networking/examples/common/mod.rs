@@ -1,7 +1,7 @@
 #[cfg(feature = "webui")]
 pub mod web;
 
-#[cfg(feature = "lossy_network")]
+#[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub mod lossy_network;
 
 use async_std::{
@@ -368,14 +368,14 @@ pub struct CliOpt {
     #[structopt(long = "webui")]
     pub webui_addr: Option<SocketAddr>,
     /// type of environment
-    #[cfg(feature = "lossy_network")]
+    #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     #[structopt(long = "env")]
     pub env_type: ExecutionEnvironment,
 }
 
 /// The execution environemnt type
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
-#[cfg(feature = "lossy_network")]
+#[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub enum ExecutionEnvironment {
     /// execution environment is within docker
     Docker,
@@ -383,7 +383,7 @@ pub enum ExecutionEnvironment {
     Metal,
 }
 
-#[cfg(feature = "lossy_network")]
+#[cfg(all(feature = "lossy_network", target_os = "linux"))]
 impl FromStr for ExecutionEnvironment {
     type Err = String;
 

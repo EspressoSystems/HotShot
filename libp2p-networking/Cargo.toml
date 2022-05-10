@@ -35,7 +35,8 @@ phaselock-types = { path = "../phaselock-types", version = "0.0.7"}
 ## webui
 tide = { version = "0.16", optional = true, default-features = false, features = ["h1-server"] }
 
-## lossy_network
+[target.'cfg(unix)'.dependencies]
+## lossy_network dependencies
 nix = { version = "0.23.1", optional = true } 
 rtnetlink = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.1", features = ["smol_socket"], default-features = false, optional = true}
 netlink-packet-route = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.11.0", optional = true}
@@ -47,4 +48,5 @@ netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.g
 
 [features]
 webui = ["tide"]
+# this only has effect on linux
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
