@@ -61,7 +61,7 @@
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">common</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">common</span>::{
     <span class="ident">lossy_network</span>::{<span class="ident">IsolationConfig</span>, <span class="ident">LossyNetworkBuilder</span>},
     <span class="ident">ExecutionEnvironment</span>,
@@ -74,7 +74,7 @@
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">CliOpt::from_args</span>();
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
     <span class="kw">let</span> <span class="ident">network</span> <span class="op">=</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::lossy_network::LOSSY_QDISC</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">LossyNetworkBuilder::default</span>();
@@ -90,7 +90,7 @@
         <span class="ident">builder</span>.<span class="ident">build</span>()
     }<span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
     {
         <span class="ident">network</span>.<span class="ident">isolate</span>().<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="ident">network</span>.<span class="ident">create_qdisc</span>().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -98,7 +98,7 @@
 
     <span class="ident">start_main</span>(<span class="ident">args</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
     {
         <span class="comment">// implicitly deletes qdisc in the case of metal run</span>
         <span class="comment">// leaves qdisc alive in docker run with expectation docker does cleanup</span>
