@@ -3062,7 +3062,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "ark-ec",
  "ark-ed-on-bls12-381",
@@ -3130,7 +3130,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-types"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3151,7 +3151,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-utils"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "async-std",
  "async-trait",
