@@ -303,7 +303,6 @@ pub fn default_randomized_ids_to_round<
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
         let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>| {
             if let Some(to_shut_down) = to_kill.clone() {
-                error!("SHUTTING THE THIGN DOWN");
                 for idx in to_shut_down {
                     block_on(runner.shutdown(idx)).unwrap();
                 }

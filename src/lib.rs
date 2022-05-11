@@ -615,7 +615,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                             state,
                             block: leaf.item,
                         };
-                        // println!("SENDING MESSAGE: {:?}", msg);
 
                         if let Err(e) = phaselock.send_direct_message(msg, peer.clone()).await {
                             error!(

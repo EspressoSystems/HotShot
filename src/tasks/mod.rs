@@ -161,24 +161,24 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 ) -> PhaseLockHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
 
-    let network_broadcast_task_handle = spawn({
+    let network_broadcast_task_handle = spawn(
         network_broadcast_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Broadcast Task",
             id = phaselock.inner.public_key.nonce
-        ))
-    });
-    let network_direct_task_handle = spawn({
+        )),
+    );
+    let network_direct_task_handle = spawn(
         network_direct_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Direct Task",
             id = phaselock.inner.public_key.nonce
-        ))
-    });
-    let network_change_task_handle = spawn({
+        )),
+    );
+    let network_change_task_handle = spawn(
         network_change_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock network change listener task",
             id = phaselock.inner.public_key.nonce
-        ))
-    });
+        )),
+    );
 
     let (broadcast_sender, broadcast_receiver) = channel();
 
@@ -312,6 +312,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
             }
         };
         if queue.is_empty() {
+            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;

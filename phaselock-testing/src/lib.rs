@@ -177,18 +177,6 @@ impl<
                 .await;
             results.push(node_id);
         }
-        //
-        // // wait on networking to become ready
-        // for (_, handle) in &results {
-        //     handle.is_ready().await;
-        // }
-        //
-        // for (_, handle) in &results {
-        //     handle.;
-        //     let handle = tasks::spawn_all(&phaselock).await;
-        // }
-
-        // spawn tasks
 
         results
     }
@@ -388,7 +376,6 @@ impl<
 
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
-        error!("VALIDATING NODE STATE!");
         let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
 
         let runner_state = first
@@ -439,7 +426,6 @@ impl<
     /// - already shut down
     /// - does not exist
     pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
-        error!("THIS IS SHUTTING DOWN!!");
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
