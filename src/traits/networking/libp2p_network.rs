@@ -13,9 +13,9 @@ use futures::future::join_all;
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
 use libp2p_networking::network::{
-    ConnectionData, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
-use phaselock_types::traits::network::{FailedToSerializeSnafu, TimeoutSnafu};
+use phaselock_types::traits::network::FailedToSerializeSnafu;
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
     PubKey,
@@ -27,10 +27,10 @@ use snafu::ResultExt;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
-use std::thread::sleep_ms;
+
 use std::{sync::Arc, time::Duration};
-use threshold_crypto::SecretKeySet;
-use tracing::{debug, error, instrument, trace};
+
+use tracing::{error, info, instrument};
 
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
@@ -59,41 +59,60 @@ struct Libp2pNetworkInner<
     broadcast_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
-    /// holds the state of the previously held connections
-    last_connection_set: RwLock<ConnectionData>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
     /// whether or not the network is ready to send
     is_ready: Arc<SubscribableRwLock<bool>>,
+    /// listener for when network is ready
     is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
+    /// set of recently seen peers
+    /// TODO jr make this LRU eventually
     recently_updated_peers: RwLock<HashSet<PeerId>>,
-    seen_msgs: Arc<RwLock<HashSet<M>>>
+    /// hashset of already seen messages
+    /// here for debugging purposes
+    /// TODO jr delete this
+    seen_msgs: Arc<RwLock<HashSet<M>>>,
 }
 
 /// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 #[derive(Clone)]
 pub struct Libp2pNetwork<
-    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash,
+    M: Clone
+        + Serialize
+        + DeserializeOwned
+        + Send
+        + Sync
+        + std::fmt::Debug
+        + 'static
+        + Eq
+        + std::hash::Hash,
 > {
     /// holds the state of the libp2p network
     inner: Arc<Libp2pNetworkInner<M>>,
 }
 
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash>
-    Libp2pNetwork<M>
+impl<
+        M: Clone
+            + Serialize
+            + DeserializeOwned
+            + Send
+            + Sync
+            + std::fmt::Debug
+            + 'static
+            + Eq
+            + std::hash::Hash,
+    > Libp2pNetwork<M>
 {
     /// returns when network is ready
     async fn wait_for_ready(&self) {
         let recv_chan = self.inner.is_ready_listener.subscribe().await;
         if !self.inner.is_ready_listener.cloned_async().await {
-            while !recv_chan.recv_async().await.unwrap_or(true) {
-            }
+            while !recv_chan.recv_async().await.unwrap_or(true) {}
             // a oneshot
         }
     }
-
 
     /// Return a generator function (for usage with the [`launcher`])
     /// TODO fix docstring link to launcher
@@ -111,7 +130,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             move |node_id, pubkey| {
                 let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
                 let config = if node_id < num_bootstrap {
-                    error!("CREATING BOOTSTRAP!");
                     NetworkNodeConfigBuilder::default()
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Bootstrap)
@@ -191,20 +209,18 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 pid_to_pubkey,
                 broadcast_recv,
                 direct_recv,
-                last_connection_set: RwLock::default(),
                 pk,
                 broadcast_send: broadcast_send.clone(),
                 bootstrap_addrs,
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
-                recently_updated_peers: Default::default(),
-                seen_msgs: Default::default()
+                recently_updated_peers: RwLock::default(),
+                seen_msgs: Arc::default(),
             }),
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
         result.spawn_connect();
-        error!("DONE getting ready to spawn!!!");
 
         Ok(result)
     }
@@ -216,65 +232,66 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         block_on(async move {
             let bs_addrs = self.inner.bootstrap_addrs.read().await.to_vec().clone();
             self.add_known_peers(bs_addrs.clone()).await.unwrap();
-            error!("added peers! {:?}", bs_addrs);
+            info!("added peers! {:?}", bs_addrs);
         });
         spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
-            let timeout_duration = Duration::from_secs(20);
-            // perform connection
-            let connected = NetworkNodeHandle::wait_to_connect(
-                handle.clone(),
-                // this is a safe lower bet on the number of nodes in the network.
-                2,
-                handle.recv_network(),
-                pk.nonce as usize,
-            )
-            .timeout(timeout_duration)
-            .await;
-            // FIXME should this be parametrized?
-            // do we care?
-            handle.subscribe("global".to_string()).await.unwrap();
-            error!("connected status for {} is {:?}", pk.nonce, connected);
+                let timeout_duration = Duration::from_secs(20);
+                // perform connection
+                let connected = NetworkNodeHandle::wait_to_connect(
+                    handle.clone(),
+                    // this is a safe lower bet on the number of nodes in the network.
+                    2,
+                    handle.recv_network(),
+                    pk.nonce as usize,
+                )
+                .timeout(timeout_duration)
+                .await;
+                // FIXME should this be parametrized?
+                // do we care?
+                handle.subscribe("global".to_string()).await.unwrap();
+                info!("connected status for {} is {:?}", pk.nonce, connected);
 
-            'a: loop {
-                match
-                    handle
+                'a: loop {
+                    match handle
                         .put_record(&pk, &handle.peer_id())
                         .await
-                        .map_err(Into::<NetworkError>::into) {
-                            Ok(_) => {
-                                error!("node {:?} successfully published to peers!", pk.nonce);
-                                break 'a;
-                            },
-                            Err(_) => {
-                                // error!("failed to publish to dht! trying again...");
-                                continue
-                            },
+                        .map_err(Into::<NetworkError>::into)
+                    {
+                        Ok(_) => {
+                            info!("node {:?} successfully published to peers!", pk.nonce);
+                            break 'a;
                         }
-            }
-            'b: loop {
-                match
-                    handle
+                        Err(_) => {
+                            continue;
+                        }
+                    }
+                }
+                'b: loop {
+                    match handle
                         .put_record(&handle.peer_id(), &pk)
                         .await
-                        .map_err(Into::<NetworkError>::into) {
-                            Ok(_) => {
-                                error!("node {:?} successfully published to peers!", pk.nonce);
-                                break 'b;
-                            },
-                            Err(_) => {
-                                // error!("failed to publish to dht! trying again...");
-                                continue
-                            },
+                        .map_err(Into::<NetworkError>::into)
+                    {
+                        Ok(_) => {
+                            info!("node {:?} successfully published to peers!", pk.nonce);
+                            break 'b;
                         }
-            }
-            // async_std::task::sleep(Duration::new(2, 0)).await;
-            // println!("connection data: {:?}", handle.connection_state().await);
+                        Err(_) => {
+                            continue;
+                        }
+                    }
+                }
 
-            is_ready.modify_async(|s| {*s = true;}).await;
-            Ok::<(), NetworkError>(())
-        }});
+                is_ready
+                    .modify_async(|s| {
+                        *s = true;
+                    })
+                    .await;
+                Ok::<(), NetworkError>(())
+            }
+        });
         self.spawn_pk_gather();
     }
 
@@ -301,25 +318,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
                     GossipMsg(msg) => {
-                        let result: Result<M, _> = bincode_options
-                            .deserialize(&msg);
-                        if let Ok(result) = result {
-                            let mut seen = seen.write().await;
-                            if seen.contains(&result) {
-                                seen.insert(result.clone());
-                                drop(seen);
-                                direct_send
-                                    .send_async(result)
-                                    .await
-                                    .map_err(|_| NetworkError::ChannelSend)?;
-                            }
-                        }
-                    }
-                    DirectRequest(msg, _pid, _) => {
-                        let result: Result<M, _> = bincode_options
-                            .deserialize(&msg)
-                            .context(FailedToSerializeSnafu);
-                        // error!("recv-ed DIRECT MESSAGE {:?}!!!", result);
+                        let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
                             let mut seen = seen.write().await;
                             if seen.contains(&result) {
@@ -332,12 +331,26 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             }
                         }
                     }
-                    DirectResponse(msg, _) => {
+                    DirectRequest(msg, _pid, _) => {
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
-                        // error!("recv-ed RESPONSE SOMEHOW {:?}!!!", result);
-                        // we should never reach this part
+                        if let Ok(result) = result {
+                            let mut seen = seen.write().await;
+                            if seen.contains(&result) {
+                                seen.insert(result.clone());
+                                drop(seen);
+                                direct_send
+                                    .send_async(result)
+                                    .await
+                                    .map_err(|_| NetworkError::ChannelSend)?;
+                            }
+                        }
+                    }
+                    DirectResponse(msg, _) => {
+                        let _result: Result<M, _> = bincode_options
+                            .deserialize(&msg)
+                            .context(FailedToSerializeSnafu);
                     }
                 }
             }
@@ -379,21 +392,15 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
                     match maybe_pk {
                         Ok(pk) => {
-                            error!(
-                                "got pk for peer id {:?}", unknown_nodes[idx]
-                            );
+                            info!("found pk for peer id {:?}", unknown_nodes[idx]);
                             handle
                                 .inner
                                 .pubkey_to_pid
                                 .insert(pk.clone(), *unknown_nodes[idx]);
                             handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
                         }
-                        Err(e) => {
-                            // hopefully we'll eventually find the key. Try again next time.
-                            // error!(
-                            //     ?e,
-                            //     "error fetching public key for peer id {:?}", unknown_nodes[idx]
-                            // );
+                        Err(_e) => {
+                            // hopefully we'll eventually find the key. Try again
                         }
                     }
                 }
@@ -406,8 +413,17 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 }
 
 #[async_trait]
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash>
-    NetworkingImplementation<M> for Libp2pNetwork<M>
+impl<
+        M: Clone
+            + Serialize
+            + DeserializeOwned
+            + Send
+            + Sync
+            + std::fmt::Debug
+            + 'static
+            + Eq
+            + std::hash::Hash,
+    > NetworkingImplementation<M> for Libp2pNetwork<M>
 {
     #[instrument(
         name="Libp2pNetwork::ready",
@@ -429,9 +445,18 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             return Err(NetworkError::ShutDown);
         }
         self.wait_for_ready().await;
-        error!("broadcasting msg: {:?} on node {:?} with nodes: {:?} connected", message, self.inner.pk.nonce, self.inner.handle.connected_peers().await);
+        info!(
+            "broadcasting msg: {:?} on node {:?} with nodes: {:?} connected",
+            message,
+            self.inner.pk.nonce,
+            self.inner.handle.connected_peers().await
+        );
         // send to self?
-        self.inner.broadcast_send.send_async(message.clone()).await.unwrap();
+        self.inner
+            .broadcast_send
+            .send_async(message.clone())
+            .await
+            .unwrap();
         self.inner
             .handle
             .gossip("global".to_string(), &message)
@@ -456,19 +481,20 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         } else {
             loop {
                 // error!("searching!");
-                match self.inner
+                match self
+                    .inner
                     .handle
                     .get_record(&recipient)
                     .await
-                    .map_err(Into::<NetworkError>::into) {
-                        Ok(r) => {
-                            error!("found it!");
-                            break r
-                        },
-                        Err(_e) => {
-                            // error!("ERROR retrieving from DHT")
-                        },
+                    .map_err(Into::<NetworkError>::into)
+                {
+                    Ok(r) => {
+                        break r;
                     }
+                    Err(_e) => {
+                        // error!("ERROR retrieving from DHT")
+                    }
+                }
             }
         };
         self.inner
@@ -590,72 +616,35 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
         if self.inner.handle.is_killed().await {
-            error!("THE THING WAS KILLED!");
             return Err(NetworkError::ShutDown);
         }
         let mut result = vec![];
 
         let old_connected = self.inner.recently_updated_peers.read().await.clone();
 
-        // get peer ids that are new
-        // let old_connected = self.inner.last_connection_set.read().await.connected_peers.clone();
-
-        // get peer ids that are old
-        let cur_connected : HashSet<_> = self.inner.handle.connected_peers().await;
+        let cur_connected: HashSet<_> = self.inner.handle.connected_peers().await;
 
         // new - old -> added peers
         let added_peers = cur_connected.difference(&old_connected);
 
         for pid in added_peers.clone() {
-            let pk : PubKey = loop {
-                match self.inner
+            let pk: PubKey = loop {
+                match self
+                    .inner
                     .handle
                     .get_record(&pid)
                     .await
-                    .map_err(Into::<NetworkError>::into) {
-                        Ok(r) => {
-                            error!("found it!");
-                            break r
-                        },
-                        Err(_e) => {
-                            // error!("ERROR retrieving from DHT")
-                        },
+                    .map_err(Into::<NetworkError>::into)
+                {
+                    Ok(r) => {
+                        break r;
                     }
+                    Err(_e) => {}
+                }
             };
-            // if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
-                result.push(NetworkChange::NodeConnected(pk.clone()));
-            // }
+            result.push(NetworkChange::NodeConnected(pk.clone()));
         }
         *self.inner.recently_updated_peers.write().await = cur_connected.clone();
-        // *self.inner.last_connection_set.write().await = self;
-        // let old_connected =
-
-        // let tmp = cur_connected.clone();
-
-        // let removed_peers = old_connected.difference(&tmp);
-
-        // for pid in removed_peers.clone() {
-        //     let pk : PubKey = loop {
-        //         match self.inner
-        //             .handle
-        //             .get_record(&pid)
-        //             .await
-        //             .map_err(Into::<NetworkError>::into) {
-        //                 Ok(r) => {
-        //                     error!("found it!");
-        //                     break r
-        //                 },
-        //                 Err(_e) => {
-        //                     // error!("ERROR retrieving from DHT")
-        //                 },
-        //             }
-        //     };
-        //     // if let Some(pk) = self.inner.pid_to_pubkey.get(pid) {
-        //         result.push(NetworkChange::NodeDisconnected(pk.clone()));
-        //     // }
-        // }
-
-        // error!(?result, ?cur_connected, ?added_peers, "NETWORK CHANGES: ");
 
         Ok(result)
     }

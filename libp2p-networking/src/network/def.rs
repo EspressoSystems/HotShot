@@ -318,7 +318,7 @@ impl NetworkDef {
         if self.gossipsub.subscribe(&Topic::new(t)).is_err() {
             error!("error subscribing to topic {}", t);
         } else {
-            error!("subscribed to {:?}", t);
+            info!("subscribed to {:?}", t);
         }
     }
 

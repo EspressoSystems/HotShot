@@ -641,19 +641,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     Ok(Some((quorum_certificate, leaf, state))) => {
                         let phaselock = self.clone();
                         let msg = DataMessage::NewestQuorumCertificate {
-                                    quorum_certificate,
-                                    state,
-                                    block: leaf.item,
-                                };
+                            quorum_certificate,
+                            state,
+                            block: leaf.item,
+                        };
                         // println!("SENDING MESSAGE: {:?}", msg);
 
-                        if let Err(e) = phaselock
-                            .send_direct_message(
-                                msg,
-                                peer.clone(),
-                            )
-                            .await
-                        {
+                        if let Err(e) = phaselock.send_direct_message(msg, peer.clone()).await {
                             error!(
                                 ?e,
                                 "Could not send newest quorumcertificate to node {:?}", peer
