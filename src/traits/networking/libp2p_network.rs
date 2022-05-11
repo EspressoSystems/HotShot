@@ -67,12 +67,8 @@ struct Libp2pNetworkInner<
     /// listener for when network is ready
     is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
     /// set of recently seen peers
-    /// TODO jr make this LRU eventually
+    /// TODO jr make this LRU eventually/less jank
     recently_updated_peers: RwLock<HashSet<PeerId>>,
-    /// hashset of already seen messages
-    /// here for debugging purposes
-    /// TODO jr delete this
-    seen_msgs: Arc<RwLock<HashSet<M>>>,
 }
 
 /// Networking implementation that uses libp2p
@@ -218,7 +214,6 @@ impl<
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
                 recently_updated_peers: RwLock::default(),
-                seen_msgs: Arc::default(),
             }),
         };
 
@@ -314,7 +309,6 @@ impl<
     /// terminates on shut down of network
     fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
         let handle = self.clone();
-        let seen = self.inner.seen_msgs.clone();
         spawn(async move {
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let nw_recv = handle.inner.handle.recv_network();
@@ -323,15 +317,10 @@ impl<
                     GossipMsg(msg) => {
                         let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
-                            let mut seen = seen.write().await;
-                            if !seen.contains(&result) {
-                                seen.insert(result.clone());
-                                drop(seen);
-                                broadcast_send
-                                    .send_async(result)
-                                    .await
-                                    .map_err(|_| NetworkError::ChannelSend)?;
-                            }
+                            broadcast_send
+                                .send_async(result)
+                                .await
+                                .map_err(|_| NetworkError::ChannelSend)?;
                         }
                     }
                     DirectRequest(msg, _pid, _) => {
@@ -339,15 +328,10 @@ impl<
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                         if let Ok(result) = result {
-                            let mut seen = seen.write().await;
-                            if !seen.contains(&result) {
-                                seen.insert(result.clone());
-                                drop(seen);
-                                direct_send
-                                    .send_async(result)
-                                    .await
-                                    .map_err(|_| NetworkError::ChannelSend)?;
-                            }
+                            direct_send
+                                .send_async(result)
+                                .await
+                                .map_err(|_| NetworkError::ChannelSend)?;
                         }
                     }
                     DirectResponse(msg, _) => {
@@ -465,7 +449,7 @@ impl<
             .gossip("global".to_string(), &message)
             .await
             .map_err(Into::<NetworkError>::into)?;
-        Err(NetworkError::ListenerSend)
+        Ok(())
     }
 
     #[instrument(
@@ -518,10 +502,8 @@ impl<
         // Wait for the first message to come up
         let first = self.inner.broadcast_recv.recv_async().await;
         if let Ok(first) = first {
-            error!(?first, "recv-ing broadcast");
             ret.push(first);
             while let Ok(x) = self.inner.broadcast_recv.try_recv() {
-                error!(?x, "recv-ing broadcast");
                 ret.push(x);
             }
             Ok(ret)
@@ -542,7 +524,6 @@ impl<
         }
         let x = self.inner.broadcast_recv.recv_async().await;
         if let Ok(x) = x {
-            error!(?x, "recv-ing broadcast");
             Ok(x)
         } else {
             error!("The underlying Libp2pNetwork has shutdown");
@@ -563,10 +544,8 @@ impl<
         // Wait for the first message to come up
         let first = self.inner.direct_recv.recv_async().await;
         if let Ok(first) = first {
-            error!(?first, "recv-ing dm");
             ret.push(first);
             while let Ok(x) = self.inner.direct_recv.try_recv() {
-                error!(?x, "recv-ing dm");
                 ret.push(x);
             }
             Ok(ret)
@@ -585,13 +564,10 @@ impl<
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
-        error!("Awaiting next direct");
         let x = self.inner.direct_recv.recv_async().await;
         if let Ok(x) = x {
-            error!(?x, "recv-ing dm");
             Ok(x)
         } else {
-            error!("The underlying Libp2pNetwork has shutdown");
             Err(NetworkError::ShutDown)
         }
     }
