@@ -321,7 +321,7 @@ impl<
                         let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
                             let mut seen = seen.write().await;
-                            if seen.contains(&result) {
+                            if !seen.contains(&result) {
                                 seen.insert(result.clone());
                                 drop(seen);
                                 broadcast_send
@@ -337,7 +337,7 @@ impl<
                             .context(FailedToSerializeSnafu);
                         if let Ok(result) = result {
                             let mut seen = seen.write().await;
-                            if seen.contains(&result) {
+                            if !seen.contains(&result) {
                                 seen.insert(result.clone());
                                 drop(seen);
                                 direct_send
@@ -480,7 +480,6 @@ impl<
             *pid
         } else {
             loop {
-                // error!("searching!");
                 match self
                     .inner
                     .handle
@@ -491,9 +490,7 @@ impl<
                     Ok(r) => {
                         break r;
                     }
-                    Err(_e) => {
-                        // error!("ERROR retrieving from DHT")
-                    }
+                    Err(_e) => {}
                 }
             }
         };
