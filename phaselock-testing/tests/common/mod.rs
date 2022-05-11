@@ -20,7 +20,6 @@ use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use snafu::ResultExt;
 use std::collections::HashSet;
-use tracing::error;
 
 use std::sync::Arc;
 
