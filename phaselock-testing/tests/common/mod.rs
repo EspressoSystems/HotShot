@@ -90,7 +90,6 @@ impl<
         setup_backtrace();
 
         let mut runner = (self.gen_runner.clone().unwrap())(self);
-        error!("CREATED RUNNER");
 
         // configure nodes/timing
 
@@ -100,16 +99,13 @@ impl<
             node.is_ready().await;
         }
 
-        error!("ADDED NODES");
         let len = self.rounds.len() as u64;
         runner.with_rounds(self.rounds.clone());
-        error!("STARTING THE THING!!!");
 
         runner
             .execute_rounds(len, self.failure_threshold as u64)
             .await
             .unwrap();
-        error!("WE ARE ALL DONE!!");
 
         Ok(())
     }
@@ -341,7 +337,11 @@ impl<
                   results: TestRoundResult|
                   -> Result<(), ConsensusRoundError> {
                 tracing::info!(?results);
+                // this check is rather strict:
+                // 1) all nodes have the SAME state
+                // 2) no nodes failed
                 async_std::task::block_on(runner.validate_node_states());
+                assert!(results.failures.is_empty());
                 Ok(())
             };
 
