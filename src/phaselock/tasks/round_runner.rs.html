@@ -368,13 +368,13 @@
     <span class="doccomment">/// Will return `true` if the round was successfully spawned. If this returns `false`, the caller should shut down.</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spawn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="comment">// Send the next view</span>
-        <span class="kw">let</span> <span class="ident">next_view_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">next_view</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">next_view_res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">next_view</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> <span class="op">+</span> <span class="number">1</span>).<span class="kw">await</span>;
         <span class="comment">// If we fail to send the next view, broadcast the error and pause</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">next_view_res</span> {
             <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>
                 .<span class="ident">phaselock</span>
                 .<span class="ident">send_event</span>(<span class="ident">Event</span> {
-                    <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
+                    <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> <span class="op">+</span> <span class="number">1</span>,
                     <span class="ident">stage</span>: <span class="ident">e</span>.<span class="ident">get_stage</span>().<span class="ident">unwrap_or</span>(<span class="ident">Stage::None</span>),
 
                     <span class="ident">event</span>: <span class="ident">EventType::Error</span> { <span class="ident">error</span>: <span class="ident">Arc::new</span>(<span class="ident">e</span>) },

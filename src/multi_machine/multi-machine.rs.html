@@ -286,6 +286,12 @@
 <span id="281">281</span>
 <span id="282">282</span>
 <span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">phaselock</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">tc</span>,
@@ -299,10 +305,14 @@
 <span class="kw">use</span> <span class="ident">phaselock_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">BTreeSet</span>};
 <span class="kw">use</span> <span class="ident">std::fs::File</span>;
 <span class="kw">use</span> <span class="ident">std::io::Read</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">BTreeSet</span>},
+    <span class="ident">num::NonZeroUsize</span>,
+    <span class="ident">time::Duration</span>,
+};
 <span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">toml::Value</span>;
 <span class="kw">use</span> <span class="ident">tracing::debug</span>;
@@ -374,8 +384,8 @@
     <span class="ident">keys</span>: <span class="kw-2">&amp;</span><span class="ident">tc::SecretKeySet</span>,
     <span class="ident">public_keys</span>: <span class="ident">tc::PublicKeySet</span>,
     <span class="ident">secret_key_share</span>: <span class="ident">tc::SecretKeyShare</span>,
-    <span class="ident">nodes</span>: <span class="ident">u64</span>,
-    <span class="ident">threshold</span>: <span class="ident">u64</span>,
+    <span class="ident">nodes</span>: <span class="ident">usize</span>,
+    <span class="ident">threshold</span>: <span class="ident">usize</span>,
     <span class="ident">node_id</span>: <span class="ident">u64</span>,
     <span class="ident">networking</span>: <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">Transaction</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 ) -&gt; (<span class="ident">State</span>, <span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">H_256</span><span class="op">&gt;</span>) {
@@ -396,19 +406,21 @@
     };
 
     <span class="comment">// Create the initial phaselock</span>
-    <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span>)
+    <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u64</span>)
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">PubKey::from_secret_key_set_escape_hatch</span>(<span class="ident">keys</span>, <span class="ident">x</span>))
         .<span class="ident">collect</span>();
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PhaseLockConfig</span> {
-        <span class="ident">total_nodes</span>: <span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u32</span>,
-        <span class="ident">threshold</span>: <span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">u32</span>,
-        <span class="ident">max_transactions</span>: <span class="number">100</span>,
+        <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
         <span class="ident">known_nodes</span>: <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
         <span class="ident">next_view_timeout</span>: <span class="number">10000</span>,
         <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
         <span class="ident">round_start_delay</span>: <span class="number">1</span>,
         <span class="ident">start_delay</span>: <span class="number">1</span>,
+        <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
+        <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
     };
     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
     <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">DEntryBlock::default</span>();
@@ -461,7 +473,7 @@
     <span class="kw">let</span> <span class="ident">nodes</span> <span class="op">=</span> <span class="ident">node_config</span>[<span class="string">&quot;nodes&quot;</span>]
         .<span class="ident">as_table</span>()
         .<span class="ident">expect</span>(<span class="string">&quot;Missing nodes info&quot;</span>)
-        .<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>;
+        .<span class="ident">len</span>();
     <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span> ((<span class="ident">nodes</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">Xoshiro256StarStar::seed_from_u64</span>(<span class="ident">seed</span>);
     <span class="kw">let</span> <span class="ident">secret_keys</span> <span class="op">=</span> <span class="ident">tc::SecretKeySet::random</span>(<span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">1</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
@@ -478,7 +490,7 @@
     .<span class="kw">await</span>;
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">other_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">u64</span>, <span class="ident">PubKey</span>, <span class="ident">String</span>, <span class="ident">u16</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">for</span> <span class="ident">id</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">nodes</span> {
+    <span class="kw">for</span> <span class="ident">id</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u64</span> {
         <span class="kw">if</span> <span class="ident">id</span> <span class="op">!</span><span class="op">=</span> <span class="ident">own_id</span> {
             <span class="kw">let</span> (<span class="ident">ip</span>, <span class="ident">port</span>) <span class="op">=</span> <span class="ident">get_host</span>(<span class="ident">node_config</span>.<span class="ident">clone</span>(), <span class="ident">id</span>);
             <span class="kw">let</span> <span class="ident">pub_key</span> <span class="op">=</span> <span class="ident">PubKey::from_secret_key_set_escape_hatch</span>(<span class="kw-2">&amp;</span><span class="ident">secret_keys</span>, <span class="ident">id</span>);
@@ -499,7 +511,7 @@
     }
 
     <span class="comment">// Wait for the networking implementations to connect</span>
-    <span class="kw">while</span> (<span class="ident">own_network</span>.<span class="ident">connection_table_size</span>().<span class="kw">await</span> <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">&lt;</span> <span class="ident">nodes</span> <span class="op">-</span> <span class="number">1</span> {
+    <span class="kw">while</span> <span class="ident">own_network</span>.<span class="ident">connection_table_size</span>().<span class="kw">await</span> <span class="op">&lt;</span> <span class="ident">nodes</span> <span class="op">-</span> <span class="number">1</span> {
         <span class="ident">async_std::task::sleep</span>(<span class="ident">std::time::Duration::from_millis</span>(<span class="number">10</span>)).<span class="kw">await</span>;
     }
     <span class="macro">println!</span>(<span class="string">&quot;All nodes connected to network&quot;</span>);
