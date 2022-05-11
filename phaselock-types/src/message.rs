@@ -168,7 +168,7 @@ pub struct Vote<const N: usize> {
 macro_rules! vote_wrapper {
     ($name:ident) => {
         /// Wrapper around [`Vote`], used for type safety.
-        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, std::hash::Hash)]
         pub struct $name<const N: usize>(pub Vote<N>);
         impl<const N: usize> std::ops::Deref for $name<N> {
             type Target = Vote<N>;

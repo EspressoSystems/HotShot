@@ -307,6 +307,7 @@ impl<
         fail_threshold: u64,
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
+        error!("fail threshold is: {}", fail_threshold);
         for i in 0..(num_success + fail_threshold) {
             error!("EXECUTING ROUND {:?}", i);
             if let Err(e) = self.execute_round().await {
@@ -390,6 +391,7 @@ impl<
 
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
+        error!("VALIDATING NODE STATE!");
         let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
 
         let runner_state = first
