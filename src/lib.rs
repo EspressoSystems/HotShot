@@ -47,6 +47,7 @@ use async_trait::async_trait;
 use futures::channel::oneshot;
 use phaselock_hotstuff::HotStuff;
 use phaselock_types::{
+    data::ViewNumber,
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{DataMessage, Message},
     traits::{
@@ -227,7 +228,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 m.insert_qc(QuorumCertificate {
                     block_hash: genesis_hash,
                     leaf_hash,
-                    view_number: 0,
+                    view_number: ViewNumber::genesis(),
                     stage: Stage::Decide,
                     signature: None,
                     genesis: true,
@@ -286,11 +287,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// - There were no QCs in the storage
     /// - A broadcast message could not be send
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn next_view(&self, current_view: u64) -> Result<()> {
+    pub async fn next_view(&self, current_view: ViewNumber) -> Result<()> {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         hotstuff
             .next_view(
-                current_view.into(),
+                current_view,
                 &mut PhaseLockConsensusApi { inner: &self.inner },
             )
             .await
@@ -318,15 +319,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ///
     /// Panics if consensus hits a bad round
     #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
-    pub async fn run_round(&self, current_view: u64) -> Result<u64> {
+    pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
         let (sender, receiver) = oneshot::channel();
         self.inner
             .hotstuff
             .lock()
             .await
-            .register_round_finished_listener(current_view.into(), sender);
+            .register_round_finished_listener(current_view, sender);
         match receiver.await {
-            Ok(view_number) => Ok(view_number.into()),
+            Ok(view_number) => Ok(view_number),
             Err(e) => Err(PhaseLockError::InvalidState {
                 context: format!("Could not wait for round to end: {:?}", e),
             }),
@@ -732,14 +733,14 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         true
     }
 
-    async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey {
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey {
         let election = &self.inner.election;
         election
             .election
             .get_leader(&election.stake_table, view_number, stage)
     }
 
-    async fn should_start_round(&self, _: u64) -> bool {
+    async fn should_start_round(&self, _: ViewNumber) -> bool {
         false
     }
 

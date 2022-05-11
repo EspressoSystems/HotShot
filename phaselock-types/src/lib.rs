@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use std::fmt::Debug;
 
-use data::{create_verify_hash, LeafHash, Stage};
+use data::{create_verify_hash, LeafHash, Stage, ViewNumber};
 
 /// Public key type
 ///
@@ -94,7 +94,7 @@ impl PrivKey {
         &self,
         hash: &LeafHash<N>,
         stage: Stage,
-        view: u64,
+        view: ViewNumber,
     ) -> tc::SignatureShare {
         let blockhash = create_verify_hash(hash, view, stage);
         self.node.sign(blockhash)

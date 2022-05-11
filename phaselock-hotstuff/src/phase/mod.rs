@@ -136,7 +136,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         }
         // This loop will make sure that when a stage transition happens, the next stage will execute immediately
         loop {
-            let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
+            let is_leader = api.is_leader(self.view_number, self.stage()).await;
             let stage = self.stage();
             let mut ctx = UpdateCtx {
                 is_leader,

@@ -10,6 +10,44 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto as tc;
 
+/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ViewNumber(u64);
+
+impl ViewNumber {
+    /// Create a genesis view number (0)
+    pub const fn genesis() -> Self {
+        Self(0)
+    }
+
+    /// Create a new `ViewNumber` with the given value.
+    pub const fn new(n: u64) -> Self {
+        Self(n)
+    }
+}
+
+impl std::ops::Add<u64> for ViewNumber {
+    type Output = ViewNumber;
+
+    fn add(self, rhs: u64) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl std::ops::AddAssign<u64> for ViewNumber {
+    fn add_assign(&mut self, rhs: u64) {
+        self.0 += rhs;
+    }
+}
+
+impl std::ops::Deref for ViewNumber {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// generates boilerplate code for any wrapper types
 /// around `InternalHash`
 macro_rules! gen_hash_wrapper_type {
@@ -196,7 +234,7 @@ pub struct QuorumCertificate<const N: usize> {
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
-    pub view_number: u64,
+    pub view_number: ViewNumber,
     /// The [`Stage`] of consensus that this Quorum Certificate was generated during
     ///
     /// This value is covered by the threshold signature.
@@ -224,7 +262,7 @@ impl<const N: usize> QuorumCertificate<N> {
     /// If the `genesis` value is set, this disables the normal checking, and instead performs
     /// bootstrap checking.
     #[must_use]
-    pub fn verify(&self, key: &tc::PublicKeySet, view: u64, stage: Stage) -> bool {
+    pub fn verify(&self, key: &tc::PublicKeySet, view: ViewNumber, stage: Stage) -> bool {
         if let Some(signature) = &self.signature {
             let concatenated_hash = create_verify_hash(&self.leaf_hash, view, stage);
             key.public_key().verify(signature, &concatenated_hash)
@@ -262,7 +300,7 @@ pub struct VecQuorumCertificate {
     #[debug(with = "fmt_vec")]
     pub hash: Vec<u8>,
     /// The view we were on when we made this certificate
-    pub view_number: u64,
+    pub view_number: ViewNumber,
     /// The stage of consensus we were on when we made this certificate
     pub stage: Stage,
     /// The signature portion of this QC
@@ -275,7 +313,7 @@ pub struct VecQuorumCertificate {
 /// that order, and hashes the result.
 pub fn create_verify_hash<const N: usize>(
     leaf_hash: &LeafHash<N>,
-    view: u64,
+    view: ViewNumber,
     stage: Stage,
 ) -> VerifyHash<32> {
     let mut hasher = Hasher::new();
@@ -363,7 +401,7 @@ fn test_validate_qc() {
 
     let sks = SecretKeySet::random(4, &mut rand::thread_rng());
     let public_key = PubKey::from_secret_key_set_escape_hatch(&sks, 0);
-    let view = 5;
+    let view = ViewNumber::new(5);
 
     for stage in [
         Stage::Prepare,

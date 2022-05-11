@@ -146,12 +146,12 @@ impl PrepareReplica {
         let signature =
             ctx.api
                 .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, ctx.view_number.0);
+                .partial_sign(&leaf_hash, Stage::Prepare, ctx.view_number);
         let vote = PrepareVote(Vote {
             signature,
             id: ctx.api.public_key().nonce,
             leaf_hash,
-            current_view: ctx.view_number.0,
+            current_view: ctx.view_number,
         });
 
         let new_leaf = prepare.leaf.clone();
