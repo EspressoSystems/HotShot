@@ -2,7 +2,7 @@ use phaselock::{
     data::{Stage, StateHash},
     PubKey,
 };
-use phaselock_types::traits::election::Election;
+use phaselock_types::{data::ViewNumber, traits::election::Election};
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
@@ -21,14 +21,14 @@ impl<const N: usize> Election<N> for TestElection {
 
     fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: u64, _: Stage) -> PubKey {
-        match self.leaders.get(view_number as usize) {
+    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber, _: Stage) -> PubKey {
+        match self.leaders.get(*view_number as usize) {
             Some(leader) => {
-                info!("Round {} has leader {:?}", view_number, leader);
+                info!("Round {:?} has leader {:?}", view_number, leader);
                 leader.clone()
             }
             None => {
-                panic!("Round {} has no leader", view_number);
+                panic!("Round {:?} has no leader", view_number);
             }
         }
     }
@@ -38,7 +38,7 @@ impl<const N: usize> Election<N> for TestElection {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         pub_key: PubKey,
         token: Self::VoteToken,
         next_state: StateHash<N>,
@@ -56,7 +56,7 @@ impl<const N: usize> Election<N> for TestElection {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         private_key: &phaselock::PrivKey,
         next_state: phaselock::data::StateHash<N>,
     ) -> Option<Self::VoteToken> {

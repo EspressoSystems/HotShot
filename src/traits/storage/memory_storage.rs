@@ -11,8 +11,9 @@ use async_std::sync::RwLock;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::Future;
-use phaselock_types::traits::storage::{
-    InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater,
+use phaselock_types::{
+    data::ViewNumber,
+    traits::storage::{InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater},
 };
 use std::sync::Arc;
 use tracing::{instrument, trace};
@@ -29,7 +30,7 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     /// Index of the [`QuorumCertificate`]s by hash
     hash_to_qc: DashMap<BlockHash<N>, usize>,
     /// Index of the [`QuorumCertificate`]s by view number
-    view_to_qc: DashMap<u64, usize>,
+    view_to_qc: DashMap<ViewNumber, usize>,
     /// The [`Leaf`s stored by this [`MemoryStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
@@ -118,7 +119,10 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_qc_for_view", skip_all)]
-    async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_qc_for_view(
+        &self,
+        view: ViewNumber,
+    ) -> StorageResult<Option<QuorumCertificate<N>>> {
         // Check to see if we have the qc
         let index = self.inner.view_to_qc.get(&view);
         Ok(if let Some(index) = index {
@@ -314,7 +318,7 @@ mod test {
     fn dummy_qc(
         hash_block: BlockHash<32>,
         hash_leaf: LeafHash<32>,
-        view: u64,
+        view: ViewNumber,
         valid: bool,
     ) -> QuorumCertificate<32> {
         QuorumCertificate {
@@ -372,13 +376,16 @@ mod test {
     async fn qcs() {
         setup_logging();
         let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
+        let view_1 = ViewNumber::new(1);
+        let view_2 = ViewNumber::new(2);
+        let view_3 = ViewNumber::new(3);
         // Create a few dummy qcs
         let qc_1_hash_block = BlockHash::<32>::random();
         let qc_1_hash_leaf = LeafHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, 1, true);
+        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1, true);
         let qc_2_hash_block = BlockHash::<32>::random();
         let qc_2_hash_leaf = LeafHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, 2, true);
+        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2, true);
         // Attempt to insert them
         storage
             .update(|mut m| {
@@ -399,15 +406,15 @@ mod test {
         assert_eq!(h_qc_1, qc_1);
         assert_eq!(h_qc_2, qc_2);
         // Attempt to get them back by view number
-        let v_qc_1 = storage.get_qc_for_view(1).await.unwrap().unwrap();
-        let v_qc_2 = storage.get_qc_for_view(2).await.unwrap().unwrap();
+        let v_qc_1 = storage.get_qc_for_view(view_1).await.unwrap().unwrap();
+        let v_qc_2 = storage.get_qc_for_view(view_2).await.unwrap().unwrap();
         // Check to make sure we got the right QCs back
         assert_eq!(v_qc_1, qc_1);
         assert_eq!(v_qc_2, qc_2);
         // Make sure trying to get bunk QCs fails
         let bunk_hash = BlockHash::<32>::random();
         assert!(storage.get_qc(&bunk_hash).await.unwrap().is_none());
-        assert!(storage.get_qc_for_view(3).await.unwrap().is_none());
+        assert!(storage.get_qc_for_view(view_3).await.unwrap().is_none());
         // Make sure inserting a bunk QC fails
         //let bad_qc = dummy_qc(bunk_hash, 3, false);
         //assert!(!storage.insert_qc(bad_qc).await.is_some());

@@ -92,7 +92,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         // TODO: Should we `safe_node` the incoming `Prepare`?
         let block_hash = prepare.leaf.item.hash();
         let leaf_hash = prepare.leaf.hash();
-        let current_view = ctx.view_number.0;
+        let current_view = ctx.view_number;
         let qc = QuorumCertificate {
             block_hash,
             leaf_hash,

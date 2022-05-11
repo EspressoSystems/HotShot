@@ -14,8 +14,9 @@ use async_std::sync::Mutex;
 use async_trait::async_trait;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
 use futures::Future;
-use phaselock_types::traits::storage::{
-    AtomicStoreSnafu, Storage, StorageResult, StorageState, StorageUpdater,
+use phaselock_types::{
+    data::ViewNumber,
+    traits::storage::{AtomicStoreSnafu, Storage, StorageResult, StorageState, StorageUpdater},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
@@ -139,7 +140,10 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "AtomicStorage::get_qc_for_view", skip_all)]
-    async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_qc_for_view(
+        &self,
+        view: ViewNumber,
+    ) -> StorageResult<Option<QuorumCertificate<N>>> {
         Ok(self.inner.qcs.load_by_key_2(view).await)
     }
 

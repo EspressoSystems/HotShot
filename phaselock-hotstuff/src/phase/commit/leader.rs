@@ -99,20 +99,20 @@ impl<const N: usize> CommitLeader<N> {
         let commit = Commit {
             leaf_hash: qc.leaf_hash,
             qc,
-            current_view: ctx.view_number.0,
+            current_view: ctx.view_number,
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
             let signature = ctx.api.private_key().partial_sign(
                 &commit.leaf_hash,
                 Stage::Commit,
-                ctx.view_number.0,
+                ctx.view_number,
             );
             Some(CommitVote(Vote {
                 leaf_hash: commit.leaf_hash,
                 signature,
                 id: ctx.api.public_key().nonce,
-                current_view: ctx.view_number.0,
+                current_view: ctx.view_number,
             }))
         } else {
             None

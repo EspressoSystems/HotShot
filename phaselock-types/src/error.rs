@@ -2,10 +2,10 @@
 //!
 //! This module provides [`PhaseLockError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
+
+use crate::{data::ViewNumber, traits::storage::StorageError};
 use async_std::future::TimeoutError;
 use snafu::Snafu;
-
-use crate::traits::storage::StorageError;
 
 /// Error type for `PhaseLock`
 #[derive(Debug, Snafu)]
@@ -95,7 +95,7 @@ pub enum PhaseLockError {
     /// Phaselock timed out during round
     ViewTimeoutError {
         /// view number
-        view_number: u64,
+        view_number: ViewNumber,
     },
     /// Internal value used to drive the state machine
     Continue,

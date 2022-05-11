@@ -111,7 +111,7 @@ impl<const N: usize> PrepareLeader<N> {
         let state = ctx.get_state_by_leaf(&leaf_hash).await?;
         trace!(?state, ?leaf_hash);
         let mut block = state.next_block();
-        let current_view = ctx.view_number.0;
+        let current_view = ctx.view_number;
 
         // try to append unclaimed transactions to the block
         let mut added_transactions = Vec::new();

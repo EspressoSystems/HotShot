@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use phaselock_types::{
-    data::Stage,
+    data::{Stage, ViewNumber},
     event::{Event, EventType},
     traits::{
         network::NetworkError,
@@ -37,12 +37,12 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn leader_acts_as_replica(&self) -> bool;
 
     /// Returns the `PubKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: u64, stage: Stage) -> PubKey;
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
     /// In production code this should probably always return `true`.
-    async fn should_start_round(&self, view_number: u64) -> bool;
+    async fn should_start_round(&self, view_number: ViewNumber) -> bool;
 
     /// Send a direct message to the given recipient
     async fn send_direct_message(
@@ -76,12 +76,12 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     // Utility functions
 
     /// returns `true` if the current node is a leader for the given `view_number` and `stage`
-    async fn is_leader(&self, view_number: u64, stage: Stage) -> bool {
+    async fn is_leader(&self, view_number: ViewNumber, stage: Stage) -> bool {
         &self.get_leader(view_number, stage).await == self.public_key()
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&mut self, view_number: u64, block: I::Block) {
+    async fn send_propose(&mut self, view_number: ViewNumber, block: I::Block) {
         self.send_event(Event {
             view_number,
             stage: Stage::Prepare,
@@ -95,7 +95,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// sends a decide event down the channel
     async fn send_decide(
         &mut self,
-        view_number: u64,
+        view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
     ) {

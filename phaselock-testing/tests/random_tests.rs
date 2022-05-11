@@ -6,6 +6,7 @@ use async_std::task::block_on;
 use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction};
 use phaselock::traits::Storage;
 use phaselock_testing::{ConsensusRoundError, Round};
+use phaselock_types::data::ViewNumber;
 use proptest::prelude::*;
 use tracing::instrument;
 
@@ -268,7 +269,7 @@ pub async fn test_harness() {
         block_on(async move {
             for node in runner.nodes() {
                 let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
-                assert_eq!(qc.view_number, 0);
+                assert_eq!(qc.view_number, ViewNumber::new(0));
             }
         });
         Ok(())
@@ -278,7 +279,7 @@ pub async fn test_harness() {
         block_on(async move {
             for node in runner.nodes() {
                 let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
-                assert_eq!(qc.view_number, 1);
+                assert_eq!(qc.view_number, ViewNumber::new(1));
             }
         });
         Ok(())

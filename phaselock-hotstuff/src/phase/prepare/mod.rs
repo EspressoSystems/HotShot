@@ -105,10 +105,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         } = self;
 
         let was_leader = ctx.is_leader;
-        let next_leader = ctx
-            .api
-            .get_leader(ctx.view_number.0, Stage::PreCommit)
-            .await;
+        let next_leader = ctx.api.get_leader(ctx.view_number, Stage::PreCommit).await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
         for transaction in added_transactions {
@@ -145,7 +142,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         }
 
         // Notify our listeners
-        ctx.api.send_propose(ctx.view_number.0, new_leaf.item).await;
+        ctx.api.send_propose(ctx.view_number, new_leaf.item).await;
 
         let next_phase = if is_next_leader {
             PreCommitPhase::leader(newest_qc, prepare, vote)

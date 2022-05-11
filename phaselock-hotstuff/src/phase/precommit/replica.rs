@@ -77,7 +77,7 @@ impl<const N: usize> PreCommitReplica<N> {
         }
 
         let leaf_hash = leaf.hash();
-        let current_view = ctx.view_number.0;
+        let current_view = ctx.view_number;
         let signature =
             ctx.api
                 .private_key()

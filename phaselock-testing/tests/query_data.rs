@@ -12,6 +12,7 @@ use phaselock::{
     types::{EventType, PhaseLockHandle},
     PhaseLockError,
 };
+use phaselock_types::data::ViewNumber;
 use phaselock_types::traits::storage::Storage;
 
 use snafu::Snafu;
@@ -34,13 +35,17 @@ async fn sync_newest_quorom() {
     for i in 0..2 {
         let safety_check_pre =
             move |runner: &AppliedTestRunner| -> Result<(), ConsensusRoundError> {
-                block_on(async move { validate_qc_numbers(runner.nodes(), i).await });
+                block_on(
+                    async move { validate_qc_numbers(runner.nodes(), ViewNumber::new(i)).await },
+                );
                 Ok(())
             };
         let safety_check_post = move |runner: &AppliedTestRunner,
                                       _results: TestRoundResult|
               -> Result<(), ConsensusRoundError> {
-            block_on(async move { validate_qc_numbers(runner.nodes(), i + 1).await });
+            block_on(
+                async move { validate_qc_numbers(runner.nodes(), ViewNumber::new(i + 1)).await },
+            );
             Ok(())
         };
         rounds[i as usize].safety_check_pre = Some(Arc::new(safety_check_pre));
@@ -66,7 +71,7 @@ async fn sync_newest_quorom() {
                 }
             }
             // All nodes should now have QC 1
-            validate_qc_numbers(runner.nodes(), 1).await;
+            validate_qc_numbers(runner.nodes(), ViewNumber::new(1)).await;
             runner
                 .add_random_transactions(2)
                 .expect("Could not add a random transaction")
@@ -93,7 +98,7 @@ async fn sync_newest_quorom() {
 
 async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
     phaselocks: impl Iterator<Item = &PhaseLockHandle<I, N>>,
-    expected: u64,
+    expected: ViewNumber,
 ) {
     error!("RUNNING VALIDATE QC NUMBERS");
     for (index, phaselock) in phaselocks.enumerate() {
@@ -105,7 +110,7 @@ async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
             .unwrap()
             .view_number;
         info!(
-            "{} is at view number {} (expected {})",
+            "{} is at {:?} (expected {:?})",
             index, newest_view_number, expected
         );
         assert_eq!(newest_view_number, expected);

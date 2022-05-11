@@ -13,6 +13,7 @@ use async_std::{
 use flume::Sender;
 use futures::channel::oneshot::channel as oneshot_channel;
 use phaselock_types::{
+    data::ViewNumber,
     message::Message,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
@@ -53,7 +54,7 @@ impl TaskHandle {
     /// Send a message to the [`round_runner_task`].
     pub async fn set_round_runner_view_number(
         &self,
-        view_number: u64,
+        view_number: ViewNumber,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.send_to_round_runner(ToRoundRunner::NewViewNumber(view_number))
             .await

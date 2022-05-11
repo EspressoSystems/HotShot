@@ -1,7 +1,7 @@
 //! Abstraction over on-disk storage of node state
 
 use crate::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
     traits::{BlockContents, State},
 };
@@ -46,7 +46,10 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>>;
 
     /// Retrieves the Quorum Certificate associated with a particular view number
-    async fn get_qc_for_view(&self, view: u64) -> StorageResult<Option<QuorumCertificate<N>>>;
+    async fn get_qc_for_view(
+        &self,
+        view: ViewNumber,
+    ) -> StorageResult<Option<QuorumCertificate<N>>>;
 
     /// Retrieves a leaf by its hash
     async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
@@ -127,10 +130,6 @@ pub trait StorageUpdater<
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it.
     async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult;
 }
-
-/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ViewNumber(pub u64);
 
 /// State of a single phaselock-hotstuff  view
 #[derive(Serialize, Deserialize, Clone)]
