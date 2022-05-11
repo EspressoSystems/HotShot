@@ -34,6 +34,7 @@ use phaselock_types::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
     },
+    PubKey,
 };
 use snafu::ResultExt;
 use std::{
@@ -114,6 +115,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
         api: &mut A,
+        _sender: PubKey,
     ) -> Result {
         // TODO https://github.com/EspressoSystems/phaselock/issues/158
         // We need the `PubKey` associated with the sender, not our own

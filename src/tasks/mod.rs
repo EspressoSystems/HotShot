@@ -13,7 +13,7 @@ use async_std::{
 use flume::Sender;
 use futures::channel::oneshot::channel as oneshot_channel;
 use phaselock_types::{
-    message::Message,
+    message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
 use phaselock_utils::broadcast::channel;
@@ -238,12 +238,16 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
         incremental_backoff_ms = 10;
         for item in queue {
             trace!(?item, "Processing item");
-            match item {
-                Message::Consensus(msg) => {
-                    phaselock.handle_broadcast_consensus_message(msg).await;
+            match item.kind {
+                MessageKind::Consensus(msg) => {
+                    phaselock
+                        .handle_broadcast_consensus_message(msg, item.sender)
+                        .await;
                 }
-                Message::Data(msg) => {
-                    phaselock.handle_broadcast_data_message(msg).await;
+                MessageKind::Data(msg) => {
+                    phaselock
+                        .handle_broadcast_data_message(msg, item.sender)
+                        .await;
                 }
             }
         }
@@ -279,12 +283,14 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
         incremental_backoff_ms = 10;
         for item in queue {
             trace!(?item, "Processing item");
-            match item {
-                Message::Consensus(msg) => {
-                    phaselock.handle_direct_consensus_message(msg).await;
+            match item.kind {
+                MessageKind::Consensus(msg) => {
+                    phaselock
+                        .handle_direct_consensus_message(msg, item.sender)
+                        .await;
                 }
-                Message::Data(msg) => {
-                    phaselock.handle_direct_data_message(msg).await;
+                MessageKind::Data(msg) => {
+                    phaselock.handle_direct_data_message(msg, item.sender).await;
                 }
             }
         }

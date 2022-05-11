@@ -4,7 +4,7 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 use crate::{
-    message::{ConsensusMessage, DataMessage, Message},
+    message::{ConsensusMessage, DataMessage, Message, MessageKind},
     traits::{
         election::Election, network::NetworkingImplementation, stateful_handler::StatefulHandler,
         storage::Storage, BlockContents,
@@ -55,8 +55,8 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
 /// <I as TypeMap<N>>::Message
 /// ```
 pub trait TypeMap<const N: usize> {
-    /// Type alias for the [`Message`] enum.
-    type Message;
+    /// Type alias for the [`MessageKind`] enum.
+    type MessageKind;
     /// Type alias for the [`ConsensusMessage`] enum.
     type ConsensusMessage;
     /// Type alias for the [`DataMessage`] enum.
@@ -69,7 +69,7 @@ impl<I, const N: usize> TypeMap<N> for I
 where
     I: NodeImplementation<N>,
 {
-    type Message = Message<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
+    type MessageKind = MessageKind<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
     type DataMessage = DataMessage<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type Transaction = <I::Block as BlockContents<N>>::Transaction;

@@ -448,9 +448,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        msg: impl Into<<I as TypeMap<N>>::Message>,
+        kind: impl Into<<I as TypeMap<N>>::MessageKind>,
     ) -> std::result::Result<(), NetworkError> {
-        self.inner.networking.broadcast_message(msg.into()).await
+        self.inner
+            .networking
+            .broadcast_message(Message {
+                sender: self.inner.public_key.clone(),
+                kind: kind.into(),
+            })
+            .await
     }
 
     /// Send a direct message to a given recipient.
@@ -462,23 +468,34 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        msg: impl Into<<I as TypeMap<N>>::Message>,
+        kind: impl Into<<I as TypeMap<N>>::MessageKind>,
         recipient: PubKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
-            .message_node(msg.into(), recipient)
+            .message_node(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: kind.into(),
+                },
+                recipient,
+            )
             .await
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
-    async fn handle_broadcast_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
+    async fn handle_broadcast_consensus_message(
+        &self,
+        msg: <I as TypeMap<N>>::ConsensusMessage,
+        sender: PubKey,
+    ) {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         let hotstuff = &mut *hotstuff;
         if let Err(e) = hotstuff
             .add_consensus_message(
                 msg.clone(),
                 &mut PhaseLockConsensusApi { inner: &self.inner },
+                sender,
             )
             .await
         {
@@ -487,13 +504,18 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
-    async fn handle_direct_consensus_message(&self, msg: <I as TypeMap<N>>::ConsensusMessage) {
+    async fn handle_direct_consensus_message(
+        &self,
+        msg: <I as TypeMap<N>>::ConsensusMessage,
+        sender: PubKey,
+    ) {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         let hotstuff = &mut *hotstuff;
         if let Err(e) = hotstuff
             .add_consensus_message(
                 msg.clone(),
                 &mut PhaseLockConsensusApi { inner: &self.inner },
+                sender,
             )
             .await
         {
@@ -502,7 +524,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
-    async fn handle_broadcast_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+    async fn handle_broadcast_data_message(
+        &self,
+        msg: <I as TypeMap<N>>::DataMessage,
+        _sender: PubKey,
+    ) {
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
                 let mut hotstuff = self.inner.hotstuff.lock().await;
@@ -525,7 +551,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
-    async fn handle_direct_data_message(&self, msg: <I as TypeMap<N>>::DataMessage) {
+    async fn handle_direct_data_message(
+        &self,
+        msg: <I as TypeMap<N>>::DataMessage,
+        _sender: PubKey,
+    ) {
         debug!(?msg, "Incoming direct data message");
         match msg {
             DataMessage::NewestQuorumCertificate {
@@ -721,7 +751,13 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         debug!(?message, ?recipient, "send_direct_message");
         self.inner
             .networking
-            .message_node(Message::Consensus(message), recipient)
+            .message_node(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                recipient,
+            )
             .await
     }
 
@@ -732,7 +768,10 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         debug!(?message, "send_broadcast_message");
         self.inner
             .networking
-            .broadcast_message(Message::Consensus(message))
+            .broadcast_message(Message {
+                sender: self.inner.public_key.clone(),
+                kind: message.into(),
+            })
             .await
     }
 

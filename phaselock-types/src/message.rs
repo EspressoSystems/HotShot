@@ -3,28 +3,41 @@
 //! This module contains types used to represent the various types of messages that
 //! `PhaseLock` nodes can send among themselves.
 
-use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage};
+use crate::{
+    data::{Leaf, LeafHash, QuorumCertificate, Stage},
+    PubKey,
+};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto::{PublicKeySet, SignatureShare};
 
+/// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Message<B, T, S, const N: usize> {
+    /// The sender of this message
+    pub sender: PubKey,
+
+    /// The message kind
+    pub kind: MessageKind<B, T, S, N>,
+}
+
 /// Enum representation of any message type
-pub enum Message<B, T, S, const N: usize> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum MessageKind<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<B, S, N>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<B, T, S, N>),
 }
 
-impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for Message<B, T, S, N> {
+impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: ConsensusMessage<B, S, N>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for Message<B, T, S, N> {
+impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: DataMessage<B, T, S, N>) -> Self {
         Self::Data(m)
     }
