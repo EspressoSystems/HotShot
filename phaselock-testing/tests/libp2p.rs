@@ -27,11 +27,10 @@ async fn libp2p_network() {
         // one bootstrap
         let generator = TestLibp2pNetwork::generator(desc.total_nodes as u64, 3);
 
-        let runner = launcher
+        launcher
             .modify_default_config(set_timing_params)
             .with_network(generator)
-            .launch();
-        runner
+            .launch()
     });
 
     let description = TestDescriptionBuilder {
