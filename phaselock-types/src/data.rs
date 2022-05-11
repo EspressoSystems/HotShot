@@ -198,7 +198,7 @@ mod serde_bytes_array {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
 /// Represents the stages of consensus
 pub enum Stage {
     /// Between rounds
@@ -217,7 +217,7 @@ pub enum Stage {
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
 pub struct QuorumCertificate<const N: usize> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
@@ -328,7 +328,7 @@ pub fn create_verify_hash<const N: usize>(
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
 pub struct Leaf<T, const N: usize> {
     /// The hash of the parent `Leaf`
     #[debug(with = "fmt_leaf_hash")]
