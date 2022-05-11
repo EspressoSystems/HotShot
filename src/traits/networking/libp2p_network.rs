@@ -55,6 +55,8 @@ struct Libp2pNetworkInner<
     msg_type: PhantomData<M>,
     /// Receiver for broadcast messages
     broadcast_recv: flume::Receiver<M>,
+    /// Sender for broadcast messages
+    broadcast_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
     /// holds the state of the previously held connections
@@ -66,19 +68,20 @@ struct Libp2pNetworkInner<
     is_ready: Arc<SubscribableRwLock<bool>>,
     is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
     recently_updated_peers: RwLock<HashSet<PeerId>>,
+    seen_msgs: Arc<RwLock<HashSet<M>>>
 }
 
 /// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 #[derive(Clone)]
 pub struct Libp2pNetwork<
-    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash,
 > {
     /// holds the state of the libp2p network
     inner: Arc<Libp2pNetworkInner<M>>,
 }
 
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash>
     Libp2pNetwork<M>
 {
     /// returns when network is ready
@@ -87,7 +90,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         if !self.inner.is_ready_listener.cloned_async().await {
             while !recv_chan.recv_async().await.unwrap_or(true) {
             }
-            // a oneshot 
+            // a oneshot
         }
     }
 
@@ -190,10 +193,12 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 direct_recv,
                 last_connection_set: RwLock::default(),
                 pk,
+                broadcast_send: broadcast_send.clone(),
                 bootstrap_addrs,
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
-                recently_updated_peers: Default::default()
+                recently_updated_peers: Default::default(),
+                seen_msgs: Default::default()
             }),
         };
 
@@ -289,40 +294,49 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// terminates on shut down of network
     fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
         let handle = self.clone();
+        let seen = self.inner.seen_msgs.clone();
         spawn(async move {
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
                     GossipMsg(msg) => {
-                        error!("recv-ed BROADCAST MESSAGE!!!");
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg);
                         if let Ok(result) = result {
-                            error!("recv-ed BROADCAST MESSAGE {:?}!!!", result);
-                            direct_send
-                                .send_async(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
+                            let mut seen = seen.write().await;
+                            if seen.contains(&result) {
+                                seen.insert(result.clone());
+                                drop(seen);
+                                direct_send
+                                    .send_async(result)
+                                    .await
+                                    .map_err(|_| NetworkError::ChannelSend)?;
+                            }
                         }
                     }
                     DirectRequest(msg, _pid, _) => {
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
-                        error!("recv-ed DIRECT MESSAGE {:?}!!!", result);
+                        // error!("recv-ed DIRECT MESSAGE {:?}!!!", result);
                         if let Ok(result) = result {
-                            broadcast_send
-                                .send_async(result)
-                                .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
+                            let mut seen = seen.write().await;
+                            if seen.contains(&result) {
+                                seen.insert(result.clone());
+                                drop(seen);
+                                broadcast_send
+                                    .send_async(result)
+                                    .await
+                                    .map_err(|_| NetworkError::ChannelSend)?;
+                            }
                         }
                     }
                     DirectResponse(msg, _) => {
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
-                        error!("recv-ed RESPONSE SOMEHOW {:?}!!!", result);
+                        // error!("recv-ed RESPONSE SOMEHOW {:?}!!!", result);
                         // we should never reach this part
                     }
                 }
@@ -392,7 +406,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 }
 
 #[async_trait]
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static + Eq + std::hash::Hash>
     NetworkingImplementation<M> for Libp2pNetwork<M>
 {
     #[instrument(
@@ -416,9 +430,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
         self.wait_for_ready().await;
         error!("broadcasting msg: {:?} on node {:?} with nodes: {:?} connected", message, self.inner.pk.nonce, self.inner.handle.connected_peers().await);
-        if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
-        }
+        // send to self?
+        self.inner.broadcast_send.send_async(message.clone()).await.unwrap();
         self.inner
             .handle
             .gossip("global".to_string(), &message)
@@ -437,7 +450,6 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             return Err(NetworkError::ShutDown);
         }
         self.wait_for_ready().await;
-        error!("dming msg: {:?}", message);
         // check local cache. if that fails, initiate search
         let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
             *pid
@@ -480,9 +492,10 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         // Wait for the first message to come up
         let first = self.inner.broadcast_recv.recv_async().await;
         if let Ok(first) = first {
-            error!(?first, "First message in broadcast queue found");
+            error!(?first, "recv-ing broadcast");
             ret.push(first);
             while let Ok(x) = self.inner.broadcast_recv.try_recv() {
+                error!(?x, "recv-ing broadcast");
                 ret.push(x);
             }
             Ok(ret)
@@ -501,10 +514,9 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
-        error!("Awaiting next broadcast");
         let x = self.inner.broadcast_recv.recv_async().await;
         if let Ok(x) = x {
-            error!(?x, "Found broadcast");
+            error!(?x, "recv-ing broadcast");
             Ok(x)
         } else {
             error!("The underlying Libp2pNetwork has shutdown");
@@ -521,14 +533,14 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
-        error!("Waiting for messages to show up");
         let mut ret = Vec::new();
         // Wait for the first message to come up
         let first = self.inner.direct_recv.recv_async().await;
         if let Ok(first) = first {
-            error!(?first, "First message in direct queue found");
+            error!(?first, "recv-ing dm");
             ret.push(first);
             while let Ok(x) = self.inner.direct_recv.try_recv() {
+                error!(?x, "recv-ing dm");
                 ret.push(x);
             }
             Ok(ret)
@@ -550,7 +562,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         error!("Awaiting next direct");
         let x = self.inner.direct_recv.recv_async().await;
         if let Ok(x) = x {
-            error!(?x, "Found direct");
+            error!(?x, "recv-ing dm");
             Ok(x)
         } else {
             error!("The underlying Libp2pNetwork has shutdown");
@@ -616,7 +628,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
         *self.inner.recently_updated_peers.write().await = cur_connected.clone();
         // *self.inner.last_connection_set.write().await = self;
-        // let old_connected = 
+        // let old_connected =
 
         // let tmp = cur_connected.clone();
 

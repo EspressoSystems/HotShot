@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto::{PublicKeySet, SignatureShare};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, Eq, PartialEq)]
 /// Enum representation of any message type
 pub enum Message<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
@@ -30,7 +30,7 @@ impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for Message<B, T, S,
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
     /// Signals start of a new view
@@ -92,7 +92,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to sending data between nodes
 pub enum DataMessage<B, T, S, const N: usize> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
@@ -112,7 +112,7 @@ pub enum DataMessage<B, T, S, const N: usize> {
     SubmitTransaction(T),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Signals the start of a new view
 pub struct NewView<const N: usize> {
     /// The current view
@@ -121,7 +121,7 @@ pub struct NewView<const N: usize> {
     pub justify: QuorumCertificate<N>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
 pub struct Prepare<B, S, const N: usize> {
     /// The current view
@@ -134,10 +134,11 @@ pub struct Prepare<B, S, const N: usize> {
     pub high_qc: QuorumCertificate<N>,
 }
 
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
 /// A nodes vote on the prepare field.
 ///
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
+/// A nodes vote on the prepare field
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
     pub signature: SignatureShare,
@@ -181,7 +182,7 @@ vote_wrapper!(PrepareVote);
 vote_wrapper!(PreCommitVote);
 vote_wrapper!(CommitVote);
 
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
 /// Pre-commit qc from the leader
 pub struct PreCommit<const N: usize> {
     /// Hash of the item being worked on
@@ -193,7 +194,7 @@ pub struct PreCommit<const N: usize> {
     pub current_view: ViewNumber,
 }
 
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
 /// `Commit` qc from the leader
 pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
@@ -205,7 +206,7 @@ pub struct Commit<const N: usize> {
     pub current_view: ViewNumber,
 }
 
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
+#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
 /// Final decision
 pub struct Decide<const N: usize> {
     /// Hash of the thing we just decided on
