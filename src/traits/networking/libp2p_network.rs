@@ -114,8 +114,11 @@ impl<
         }
     }
 
-    /// Return a generator function (for usage with the [`launcher`])
-    /// TODO fix docstring link to launcher
+    /// Return a generator function (for usage with the [`Launcher`])
+    /// returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
+    /// with the purpose of generating libp2p networks.
+    /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
+    /// nodes with sane defaults.
     /// # Panics
     /// Returned function may panic either:
     /// - An invalid configuration
