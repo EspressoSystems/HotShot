@@ -19,11 +19,10 @@ use phaselock_testing::{
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use snafu::ResultExt;
-use tracing::error;
 use std::collections::HashSet;
+use tracing::error;
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use Either::{Left, Right};
 

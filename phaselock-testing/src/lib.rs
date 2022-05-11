@@ -217,7 +217,6 @@ impl<
         state: STATE,
         config: PhaseLockConfig,
     ) -> u64 {
-
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let known_nodes = config.known_nodes.clone();
@@ -235,7 +234,10 @@ impl<
         )
         .await
         .expect("Could not init phaselock");
-        self.nodes.push(Node { handle: handle.clone(), node_id });
+        self.nodes.push(Node {
+            handle: handle.clone(),
+            node_id,
+        });
         node_id
     }
 
@@ -307,9 +309,7 @@ impl<
         fail_threshold: u64,
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
-        error!("fail threshold is: {}", fail_threshold);
         for i in 0..(num_success + fail_threshold) {
-            error!("EXECUTING ROUND {:?}", i);
             if let Err(e) = self.execute_round().await {
                 num_fails += 1;
                 error!("failed {:?} round of consensus with error: {:?}", i, e);

@@ -161,13 +161,12 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 ) -> PhaseLockHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
 
-    let network_broadcast_task_handle = spawn( {
+    let network_broadcast_task_handle = spawn({
         network_broadcast_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Broadcast Task",
             id = phaselock.inner.public_key.nonce
         ))
-    }
-    );
+    });
     let network_direct_task_handle = spawn({
         network_direct_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
             "PhaseLock Direct Task",
@@ -299,8 +298,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
     phaselock: PhaseLock<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
-    // phaselock.inner.networking.ready().await;
-    error!("Launching network change handler task");
+    info!("Launching network change handler task");
     let networking = &phaselock.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
@@ -314,7 +312,6 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
             }
         };
         if queue.is_empty() {
-            error!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
@@ -322,9 +319,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
 
-        error!("HANDLING NETWORK CHANGE TASK IS NOW RUNNING!");
         for node in queue {
-            error!("HANDLING NETWORK CHANGE TASK IS NOW RUNNING!");
             phaselock.handle_network_change(node).await;
         }
     }

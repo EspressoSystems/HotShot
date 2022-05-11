@@ -3,7 +3,7 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use super::{Generator, TestRunner, N};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    tc::{self, SecretKeySet},
+    tc::{self},
     traits::{
         implementations::{MasterMap, MemoryNetwork, MemoryStorage},
         NetworkingImplementation, State, Storage,
@@ -32,28 +32,17 @@ impl
         DemoState,
     >
 {
-    pub fn gen_threshold(expected_node_count: usize) -> usize {
-        ((expected_node_count * 2) / 3) + 1
-    }
-    pub fn create_sks(expected_node_count: usize) -> SecretKeySet {
-        let threshold = Self::gen_threshold(expected_node_count);
-        tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng())
-    }
-
-    pub fn known_nodes(sks: &SecretKeySet, expected_node_count: usize) -> Vec<PubKey> {
-        (0..expected_node_count)
-            .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
-            .collect()
-    }
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(expected_node_count: usize) -> Self {
         let master: Arc<_> = MasterMap::new();
 
-        let threshold = Self::gen_threshold(expected_node_count);
-        let sks = Self::create_sks(expected_node_count);
+        let threshold = ((expected_node_count * 2) / 3) + 1;
+        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
 
-        let known_nodes = Self::known_nodes(&sks, expected_node_count);
+        let known_nodes = (0..expected_node_count)
+            .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
+            .collect();
         let config = PhaseLockConfig {
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             threshold: NonZeroUsize::new(threshold).unwrap(),
