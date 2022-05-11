@@ -187,61 +187,6 @@ pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, D
 /// type alias for the result of a test round
 pub type TestRoundResult = RoundResult<DEntryBlock, DemoState>;
 
-/// the default safety check that asserts node blocks and states
-/// match after a round of consensus
-/// FIXME Once <https://github.com/EspressoSystems/phaselock/pull/108> is merged
-/// replace this with that
-pub fn default_check(results: TestRoundResult) -> Result<(), ConsensusRoundError> {
-    // Check that we were successful on all nodes
-    if results.failures.keys().len() != 0 {
-        return Err(ConsensusRoundError::SafetyFailed {
-            description: format!(
-                "Not all nodes reached a decision. Decided: {:?}, failed: {:?}",
-                results.results.keys().len(),
-                results.failures.keys().len()
-            ),
-        });
-    }
-
-    // probably redundant sanity check. We can't do consensus with less than 5 nodes
-    if results.results.keys().len() < 5 {
-        return Err(ConsensusRoundError::SafetyFailed {
-            description: "No nodes in consensus. Can't run round without at least 5 nodes."
-                .to_string(),
-        });
-    }
-    let mut result_iter = results.results.iter();
-
-    // prior asserts would have failed if there were no keys
-    // so unwrap will not fail
-    let (_id, (s_test, b_test)) = result_iter.next().unwrap();
-
-    for (_, (state, block)) in result_iter {
-        if state[0] != s_test[0] {
-            return Err(ConsensusRoundError::SafetyFailed {
-                description: "State doesn't match".to_string(),
-            });
-        }
-
-        if block[0] != b_test[0] {
-            return Err(ConsensusRoundError::SafetyFailed {
-                description: "State doesn't match".to_string(),
-            });
-        }
-    }
-    if b_test[0].transactions.is_empty() {
-        return Err(ConsensusRoundError::SafetyFailed {
-            description: "No txns submitted this round".to_string(),
-        });
-    }
-    if b_test[0].transactions != results.txns {
-        return Err(ConsensusRoundError::SafetyFailed {
-            description: "Committed doesn't match what submitted.".to_string(),
-        });
-    }
-    Ok(())
-}
-
 impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
     /// by default, just a single round
     fn default() -> Self {
@@ -357,9 +302,13 @@ impl<
         let total_rounds = self.num_succeeds + self.failure_threshold;
 
         let safety_check_post =
-            move |_runner: &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
+            move |runner: &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
                   results: TestRoundResult|
-                  -> Result<(), ConsensusRoundError> { default_check(results) };
+                  -> Result<(), ConsensusRoundError> {
+                tracing::info!(?results);
+                async_std::task::block_on(runner.validate_node_states());
+                Ok(())
+            };
 
         let setups = match self.txn_ids.clone() {
             Left(l) => {

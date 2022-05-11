@@ -14,12 +14,22 @@ pub(crate) struct CommitLeader<const N: usize> {
     pre_commit: PreCommit<N>,
     /// Optionally the vote that we created last stage
     vote: Option<PreCommitVote<N>>,
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
 }
 
 impl<const N: usize> CommitLeader<N> {
     /// Create a new leader
-    pub(super) fn new(pre_commit: PreCommit<N>, vote: Option<PreCommitVote<N>>) -> Self {
-        Self { pre_commit, vote }
+    pub(super) fn new(
+        starting_qc: QuorumCertificate<N>,
+        pre_commit: PreCommit<N>,
+        vote: Option<PreCommitVote<N>>,
+    ) -> Self {
+        Self {
+            pre_commit,
+            vote,
+            starting_qc,
+        }
     }
 
     /// Update this leader. This will:
@@ -34,6 +44,7 @@ impl<const N: usize> CommitLeader<N> {
     /// Returns an error if:
     /// - The signatures could not be combined
     /// - The vote could not be signed
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -46,7 +57,7 @@ impl<const N: usize> CommitLeader<N> {
             .cloned()
             .collect();
 
-        if valid_votes.len() as u64 >= ctx.api.threshold().get() {
+        if valid_votes.len() >= ctx.api.threshold().get() {
             let outcome: Outcome<N> = self
                 .create_commit(ctx, &self.pre_commit, valid_votes)
                 .await?;
@@ -107,6 +118,10 @@ impl<const N: usize> CommitLeader<N> {
             None
         };
 
-        Ok(Outcome { commit, vote })
+        Ok(Outcome {
+            commit,
+            vote,
+            starting_qc: self.starting_qc.clone(),
+        })
     }
 }

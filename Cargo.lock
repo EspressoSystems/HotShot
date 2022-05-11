@@ -3084,6 +3084,7 @@ dependencies = [
  "flume",
  "futures",
  "hex_fmt",
+ "phaselock-hotstuff",
  "phaselock-types",
  "phaselock-utils",
  "rand 0.7.3",
@@ -3108,6 +3109,8 @@ version = "0.0.7"
 dependencies = [
  "async-std",
  "async-trait",
+ "custom_debug",
+ "futures",
  "phaselock-types",
  "snafu",
  "tracing",

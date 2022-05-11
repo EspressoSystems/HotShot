@@ -3,12 +3,12 @@
 mod leader;
 mod replica;
 
-use super::{err, precommit::PreCommitPhase, Progress, UpdateCtx};
-use crate::{ConsensusApi, Result, TransactionLink, TransactionState};
+use super::{precommit::PreCommitPhase, Progress, UpdateCtx};
+use crate::{utils, ConsensusApi, Result, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
-    data::{Leaf, Stage},
-    error::StorageSnafu,
+    data::{Leaf, QuorumCertificate, Stage},
+    error::{FailedToMessageLeaderSnafu, StorageSnafu},
     message::{ConsensusMessage, Prepare, PrepareVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
@@ -49,12 +49,13 @@ impl<const N: usize> PreparePhase<N> {
             (Self::Leader(leader), true) => leader.update(ctx).await?,
             (Self::Replica(replica), false) => replica.update(ctx).await?,
             (this, _) => {
-                return err(format!(
+                return utils::err(format!(
                     "We're in {:?} but is_leader is {}",
                     this, ctx.is_leader
                 ))
             }
         };
+        debug!(?outcome);
         if let Some(outcome) = outcome {
             let pre_commit = outcome.execute(ctx).await?;
             Ok(Progress::Next(pre_commit))
@@ -65,6 +66,7 @@ impl<const N: usize> PreparePhase<N> {
 }
 
 /// The outcome of the current [`PreparePhase`]
+#[derive(Debug)]
 struct Outcome<I: NodeImplementation<N>, const N: usize> {
     /// A list of added transactions.
     added_transactions: Vec<TransactionState<I, N>>,
@@ -78,6 +80,8 @@ struct Outcome<I: NodeImplementation<N>, const N: usize> {
     prepare: Prepare<I::Block, I::State, N>,
     /// The vote that was cast this round. This is only `None` if we were a leader and `leader_acts_as_replica` is `false`.
     vote: Option<PrepareVote<N>>,
+    /// The current newest QC. This should be replaced by `prepare_qc` and `locked_qc` in the future.
+    newest_qc: QuorumCertificate<N>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
@@ -97,6 +101,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             new_state,
             prepare,
             vote,
+            newest_qc,
         } = self;
 
         let was_leader = ctx.is_leader;
@@ -138,13 +143,22 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             ctx.send_broadcast_message(ConsensusMessage::Prepare(prepare.clone()))
                 .await?;
         }
+
         // Notify our listeners
         ctx.api.send_propose(ctx.view_number.0, new_leaf.item).await;
 
         let next_phase = if is_next_leader {
-            PreCommitPhase::leader(prepare, vote)
+            PreCommitPhase::leader(newest_qc, prepare, vote)
         } else {
-            PreCommitPhase::replica()
+            if let Some(vote) = vote {
+                ctx.api
+                    .send_direct_message(next_leader, ConsensusMessage::PrepareVote(vote))
+                    .await
+                    .context(FailedToMessageLeaderSnafu {
+                        stage: Stage::Prepare,
+                    })?;
+            }
+            PreCommitPhase::replica(newest_qc)
         };
         Ok(next_phase)
     }

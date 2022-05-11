@@ -3,14 +3,12 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `PhaseLock`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
+use crate::traits::BlockContents;
 use blake3::Hasher;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
-use threshold_crypto as tc;
-
 use std::fmt::Debug;
-
-use crate::traits::BlockContents;
+use threshold_crypto as tc;
 
 /// generates boilerplate code for any wrapper types
 /// around `InternalHash`
@@ -348,4 +346,108 @@ fn fmt_leaf_hash<const N: usize>(
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
     write!(f, "{:12}", HexFmt(n))
+}
+
+#[test]
+fn test_validate_qc() {
+    // Validate that `qc.verify` and `ConsensusMessage::validate_qc` both validate correctly.
+    use crate::{
+        message::{Commit, ConsensusMessage, Decide, NewView, PreCommit, Prepare, Vote},
+        traits::{block_contents::dummy::DummyBlock, state::dummy::DummyState},
+        PrivKey, PubKey,
+    };
+    use tc::SecretKeySet;
+
+    let block_hash = BlockHash::<32>::random();
+    let leaf_hash = LeafHash::<32>::random();
+
+    let sks = SecretKeySet::random(4, &mut rand::thread_rng());
+    let public_key = PubKey::from_secret_key_set_escape_hatch(&sks, 0);
+    let view = 5;
+
+    for stage in [
+        Stage::Prepare,
+        Stage::PreCommit,
+        Stage::Commit,
+        Stage::Decide,
+    ] {
+        let votes = (1..=5)
+            .map(|id| {
+                let privkey = PrivKey {
+                    node: sks.secret_key_share(id),
+                };
+                Vote {
+                    current_view: view,
+                    id,
+                    leaf_hash,
+                    signature: privkey.partial_sign(&leaf_hash, stage, view),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let signature = public_key
+            .set
+            .combine_signatures(votes.iter().map(|v| (v.id, &v.signature)))
+            .unwrap();
+        let qc = QuorumCertificate {
+            block_hash,
+            leaf_hash,
+            view_number: view,
+            stage,
+            signature: Some(signature),
+            genesis: false,
+        };
+
+        assert!(qc.verify(&public_key.set, view, stage));
+
+        match stage {
+            Stage::Prepare => {
+                assert!(
+                    ConsensusMessage::<DummyBlock, DummyState, 32>::NewView(NewView {
+                        current_view: view,
+                        justify: qc.clone()
+                    })
+                    .validate_qc(&public_key.set)
+                );
+                assert!(ConsensusMessage::Prepare(Prepare {
+                    current_view: view,
+                    leaf: Leaf::new(DummyBlock::random(), leaf_hash),
+                    state: DummyState::random(),
+                    high_qc: qc
+                })
+                .validate_qc(&public_key.set));
+            }
+            Stage::PreCommit => {
+                assert!(
+                    ConsensusMessage::<DummyBlock, DummyState, 32>::PreCommit(PreCommit {
+                        current_view: view,
+                        leaf_hash,
+                        qc
+                    })
+                    .validate_qc(&public_key.set)
+                );
+            }
+            Stage::Commit => {
+                assert!(
+                    ConsensusMessage::<DummyBlock, DummyState, 32>::Commit(Commit {
+                        current_view: view,
+                        leaf_hash,
+                        qc
+                    })
+                    .validate_qc(&public_key.set)
+                );
+            }
+            Stage::Decide => {
+                assert!(
+                    ConsensusMessage::<DummyBlock, DummyState, 32>::Decide(Decide {
+                        current_view: view,
+                        leaf_hash,
+                        qc
+                    })
+                    .validate_qc(&public_key.set)
+                );
+            }
+            Stage::None => unreachable!(),
+        }
+    }
 }

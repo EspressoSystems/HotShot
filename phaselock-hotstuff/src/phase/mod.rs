@@ -20,7 +20,7 @@ use phaselock_types::{
     traits::node_implementation::{NodeImplementation, TypeMap},
 };
 use std::future::Future;
-use tracing::{info, trace};
+use tracing::{debug, info, instrument, warn};
 use update_ctx::UpdateCtx;
 
 /// Contains all the information about a current `view_number`.
@@ -100,6 +100,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         transactions: &mut [TransactionState<I, N>],
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> Result {
+        debug!(?message, "Incoming message");
         self.messages.push(message.clone());
         self.update(api, transactions).await
     }
@@ -114,6 +115,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
+        debug!("New transactions available");
         self.update(api, transactions).await
     }
 
@@ -122,60 +124,74 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
     /// # Errors
     ///
     /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
+    #[instrument(skip(api))]
     async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
         if self.done {
-            trace!(?self, "Phase is done, no updates will be run");
+            warn!(?self, "Phase is done, no updates will be run");
             return Ok(());
         }
-        let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
-        let stage = self.stage();
-        let mut ctx = UpdateCtx {
-            is_leader,
-            api,
-            messages: &mut self.messages,
-            transactions,
-            view_number: self.view_number,
-            stage,
-        };
-
-        match stage {
-            Stage::None => {
-                unreachable!()
-            }
-            Stage::Prepare => {
-                if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
-                    self.precommit = Some(precommit);
+        // This loop will make sure that when a stage transition happens, the next stage will execute immediately
+        loop {
+            let is_leader = api.is_leader(self.view_number.0, self.stage()).await;
+            let stage = self.stage();
+            let mut ctx = UpdateCtx {
+                is_leader,
+                api,
+                messages: &mut self.messages,
+                transactions,
+                view_number: self.view_number,
+                stage,
+            };
+            match stage {
+                Stage::None => unreachable!(),
+                Stage::Prepare => {
+                    if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
+                        debug!(?precommit, "Transitioning from prepare to precommit");
+                        self.precommit = Some(precommit);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::PreCommit => {
-                if let Some(commit) =
-                    update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
-                {
-                    self.commit = Some(commit);
+                Stage::PreCommit => {
+                    if let Some(commit) =
+                        update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
+                    {
+                        debug!(?commit, "Transitioning from precommit to commit");
+                        self.commit = Some(commit);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::Commit => {
-                if let Some(decide) =
-                    update(&mut self.commit, CommitPhase::update, &mut ctx).await?
-                {
-                    self.decide = Some(decide);
+                Stage::Commit => {
+                    if let Some(decide) =
+                        update(&mut self.commit, CommitPhase::update, &mut ctx).await?
+                    {
+                        debug!(?decide, "Transitioning from commit to decide");
+                        self.decide = Some(decide);
+                    } else {
+                        break Ok(());
+                    }
                 }
-                Ok(())
-            }
-            Stage::Decide => {
-                if let Some(()) = update(&mut self.decide, DecidePhase::update, &mut ctx).await? {
-                    self.done = true;
-                    info!(?self, "Phase completed");
+                Stage::Decide => {
+                    if let Some(()) =
+                        update(&mut self.decide, DecidePhase::update, &mut ctx).await?
+                    {
+                        self.done = true;
+                        info!(?self, "Phase completed");
+                    }
+                    break Ok(());
                 }
-                Ok(())
             }
         }
+    }
+
+    /// Return true if this phase has run until completion
+    pub fn is_done(&self) -> bool {
+        self.done
     }
 }
 
@@ -185,14 +201,6 @@ enum Progress<T> {
     NotReady,
     /// This stage is ready to progress to the next stage
     Next(T),
-}
-
-/// Return an `PhaseLockError::InvalidState` error with the given text.
-pub(self) fn err<T, S>(e: S) -> Result<T>
-where
-    S: Into<String>,
-{
-    Err(PhaseLockError::InvalidState { context: e.into() })
 }
 
 /// Update a given `Option<PHASE>`, calling `FN` with the value and `ctx` if it is not None.

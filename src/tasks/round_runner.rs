@@ -142,13 +142,13 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
     /// Will return `true` if the round was successfully spawned. If this returns `false`, the caller should shut down.
     async fn spawn(&mut self) -> bool {
         // Send the next view
-        let next_view_res = self.phaselock.next_view(self.state.view).await;
+        let next_view_res = self.phaselock.next_view(self.state.view + 1).await;
         // If we fail to send the next view, broadcast the error and pause
         if let Err(e) = next_view_res {
             if !self
                 .phaselock
                 .send_event(Event {
-                    view_number: self.state.view,
+                    view_number: self.state.view + 1,
                     stage: e.get_stage().unwrap_or(Stage::None),
 
                     event: EventType::Error { error: Arc::new(e) },

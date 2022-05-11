@@ -3,11 +3,10 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use serde::{de::DeserializeOwned, Serialize};
-
-use std::{error::Error, fmt::Debug, hash::Hash};
-
+use super::Transaction;
 use crate::traits::BlockContents;
+use serde::{de::DeserializeOwned, Serialize};
+use std::{error::Error, fmt::Debug, hash::Hash};
 
 /// Abstraction over the state that blocks modify
 ///
@@ -40,6 +39,12 @@ pub trait State<const N: usize>:
     fn append(&self, block: &Self::Block) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
+
+    /// Return a list of transaction ids that are included in this state but not the previous one
+    fn new_transaction_ids(
+        &self,
+        previous: &Self,
+    ) -> Vec<<<Self::Block as BlockContents<N>>::Transaction as Transaction<N>>::Id>;
 }
 
 /// Dummy implementation of `State` for unit tests
@@ -83,5 +88,9 @@ pub mod dummy {
         }
 
         fn on_commit(&self) {}
+
+        fn new_transaction_ids(&self, _: &DummyState) -> Vec<()> {
+            vec![]
+        }
     }
 }

@@ -1,4 +1,7 @@
-use phaselock::{data::StateHash, PubKey};
+use phaselock::{
+    data::{Stage, StateHash},
+    PubKey,
+};
 use phaselock_types::traits::election::Election;
 use tracing::{info, instrument};
 
@@ -18,7 +21,7 @@ impl<const N: usize> Election<N> for TestElection {
 
     fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: u64) -> PubKey {
+    fn get_leader(&self, _: &Self::StakeTable, view_number: u64, _: Stage) -> PubKey {
         match self.leaders.get(view_number as usize) {
             Some(leader) => {
                 info!("Round {} has leader {:?}", view_number, leader);

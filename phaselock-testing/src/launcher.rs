@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use super::{Generator, TestRunner, N};
 use phaselock::{
@@ -43,14 +43,16 @@ impl
             .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
             .collect();
         let config = PhaseLockConfig {
-            total_nodes: expected_node_count as u32,
-            threshold: threshold as u32,
-            max_transactions: 100,
+            total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
+            threshold: NonZeroUsize::new(threshold).unwrap(),
+            max_transactions: NonZeroUsize::new(100).unwrap(),
             known_nodes,
             next_view_timeout: 500,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
+            propose_min_round_time: Duration::from_millis(0),
+            propose_max_round_time: Duration::from_millis(1000),
         };
 
         Self {

@@ -15,15 +15,22 @@ pub(crate) struct PreCommitLeader<I: NodeImplementation<N>, const N: usize> {
     prepare: Prepare<I::Block, I::State, N>,
     /// The vote that we might have casted ourselves last stage.
     vote: Option<PrepareVote<N>>,
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     /// Create a new leader
     pub(super) fn new(
+        starting_qc: QuorumCertificate<N>,
         prepare: Prepare<I::Block, I::State, N>,
         vote: Option<PrepareVote<N>>,
     ) -> Self {
-        Self { prepare, vote }
+        Self {
+            prepare,
+            vote,
+            starting_qc,
+        }
     }
 
     /// Update this leader. This will:
@@ -38,6 +45,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
     /// This will return an error if:
     /// - the signatures could not be combined
     /// - A vote could not be signed
+    #[tracing::instrument]
     pub(super) async fn update<A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -51,7 +59,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .filter(|vote| vote.leaf_hash == new_leaf_hash)
             .cloned()
             .collect();
-        if valid_votes.len() as u64 >= ctx.api.threshold().get() {
+        if valid_votes.len() >= ctx.api.threshold().get() {
             let prepare = self.prepare.clone();
             let outcome = self.create_commit(ctx, prepare, valid_votes).await?;
             Ok(Some(outcome))
@@ -105,7 +113,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             let signature =
                 ctx.api
                     .private_key()
-                    .partial_sign(&leaf_hash, Stage::Commit, current_view);
+                    .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
             Some(PreCommitVote(Vote {
                 leaf_hash,
                 signature,
@@ -116,6 +124,10 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             None
         };
 
-        Ok(Outcome { pre_commit, vote })
+        Ok(Outcome {
+            pre_commit,
+            vote,
+            starting_qc: self.starting_qc.clone(),
+        })
     }
 }

@@ -1,24 +1,24 @@
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
-    data::Stage,
+    data::{QuorumCertificate, Stage},
     error::PhaseLockError,
     message::{PreCommit, PreCommitVote, Vote},
-    traits::{node_implementation::NodeImplementation, State},
+    traits::node_implementation::NodeImplementation,
 };
 use tracing::error;
 
 /// A precommit replica
 #[derive(Debug)]
-pub struct PreCommitReplica {}
+pub struct PreCommitReplica<const N: usize> {
+    /// The QC that this round started with
+    starting_qc: QuorumCertificate<N>,
+}
 
-impl PreCommitReplica {
+impl<const N: usize> PreCommitReplica<N> {
     /// Create a new replica
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(starting_qc: QuorumCertificate<N>) -> Self {
+        Self { starting_qc }
     }
 
     /// Update this replica, returning an `Outcome` when it's done.
@@ -34,7 +34,8 @@ impl PreCommitReplica {
     /// - There is no QC in storage.
     /// - The proposed QC is invalid.
     /// - The underlying [`ConsensusApi`] returned an error.
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    #[tracing::instrument]
+    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
     ) -> Result<Option<Outcome<N>>> {
@@ -51,26 +52,18 @@ impl PreCommitReplica {
     /// # Errors
     ///
     /// The possible errors are documented in the `update` method.
-    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
         pre_commit: PreCommit<N>,
     ) -> Result<Outcome<N>> {
         // TODO: We can probably get these from `PreparePhase`
         let leaf = ctx.get_leaf(&pre_commit.leaf_hash).await?;
-        let state = ctx.get_state_by_leaf(&pre_commit.leaf_hash).await?;
+
         let self_highest_qc = match ctx.get_newest_qc().await? {
             Some(qc) => qc,
-            None => return err("No QC in storage"),
+            None => return utils::err("No QC in storage"),
         };
-
-        // TODO: Both the state and leaf come from our database, shouldn't they always be valid?
-        if !state.validate_block(&leaf.item) {
-            error!(?leaf, "Leaf failed safe_node predicate");
-            return Err(PhaseLockError::BadBlock {
-                stage: Stage::Prepare,
-            });
-        }
 
         let is_safe_node =
             utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &pre_commit.qc)
@@ -88,7 +81,7 @@ impl PreCommitReplica {
         let signature =
             ctx.api
                 .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+                .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
         let vote = PreCommitVote(Vote {
             signature,
             id: ctx.api.public_key().nonce,
@@ -98,6 +91,7 @@ impl PreCommitReplica {
         Ok(Outcome {
             vote: Some(vote),
             pre_commit,
+            starting_qc: self.starting_qc.clone(),
         })
     }
 }

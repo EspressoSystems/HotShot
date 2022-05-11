@@ -4,7 +4,8 @@ use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    time::Instant,
+    num::NonZeroUsize,
+    time::{Duration, Instant},
 };
 use structopt::StructOpt;
 use tracing::{debug, error, instrument};
@@ -30,10 +31,10 @@ type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>>
 struct Opt {
     /// Number of nodes to run
     #[structopt(short = "n", default_value = "7")]
-    nodes: u64,
+    nodes: usize,
     /// Number of transactions to simulate
     #[structopt(short = "t", default_value = "10")]
-    transactions: u64,
+    transactions: usize,
 }
 /// Prebaked list of transactions
 fn prebaked_transactions() -> Vec<Transaction> {
@@ -91,7 +92,7 @@ async fn main() {
         u16,
         PubKey,
     )> = Vec::new();
-    for node_id in 0..nodes {
+    for node_id in 0..nodes as u64 {
         networkings.push(get_networking(&sks, "0.0.0.0", node_id, &mut rng).await);
     }
     // Connect the networking implementations
@@ -107,7 +108,7 @@ async fn main() {
     }
     // Wait for the networking implementations to connect
     for (n, _, _) in &networkings {
-        while (n.connection_table_size().await as u64) < nodes - 1 {
+        while n.connection_table_size().await < nodes - 1 {
             async_std::task::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
@@ -171,8 +172,8 @@ async fn main() {
             }
         }
         debug!("All nodes reached decision");
-        assert!(states.len() as u64 == nodes);
-        assert!(blocks.len() as u64 == nodes);
+        assert!(states.len() == nodes);
+        assert!(blocks.len() == nodes);
         let b_test = &blocks[0];
         for b in &blocks[1..] {
             assert!(b == b_test);
@@ -191,7 +192,7 @@ async fn main() {
 
     println!("Running random transactions");
     debug!("Running random transactions");
-    for round in prebaked_count..opt.transactions {
+    for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
         let tx = random_transaction(&state.as_ref().unwrap()[0], &mut rng);
         println!("Round {}:", round);
@@ -237,8 +238,8 @@ async fn main() {
             }
         }
         debug!("All nodes reached decision");
-        assert!(states.len() as u64 == nodes);
-        assert!(blocks.len() as u64 == nodes);
+        assert!(states.len() == nodes);
+        assert!(blocks.len() == nodes);
         let b_test = &blocks[0];
         for b in &blocks[1..] {
             assert!(b == b_test);
@@ -330,24 +331,26 @@ async fn get_networking<
 #[instrument(skip(keys, networking, state))]
 async fn get_phaselock(
     keys: &tc::SecretKeySet,
-    nodes: u64,
-    threshold: u64,
+    nodes: usize,
+    threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
     state: &State,
 ) -> PhaseLockHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
-        .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
+        .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x.try_into().unwrap()))
         .collect();
     let config = PhaseLockConfig {
-        total_nodes: nodes as u32,
-        threshold: threshold as u32,
-        max_transactions: 100,
+        total_nodes: NonZeroUsize::new(nodes).unwrap(),
+        threshold: NonZeroUsize::new(threshold).unwrap(),
+        max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
         next_view_timeout: 100000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
+        propose_min_round_time: Duration::from_millis(0),
+        propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
     let genesis = DEntryBlock::default();

@@ -1,10 +1,7 @@
 //! Prepare leader implementation
 
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    ConsensusApi, Result, TransactionState,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage},
     error::PhaseLockError,
@@ -12,7 +9,7 @@ use phaselock_types::{
     traits::{node_implementation::NodeImplementation, BlockContents, State},
 };
 use std::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 /// A prepare leader
 #[derive(Debug)]
@@ -44,13 +41,14 @@ impl<const N: usize> PrepareLeader<N> {
     /// Will return an error if:
     /// - The underlying [`ConsensusApi`] encountered an error
     /// - The proposed block could not have been added to the state
+    #[instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
     ) -> Result<Option<Outcome<I, N>>> {
         if self.high_qc.is_none() {
             let view_messages: Vec<&NewView<N>> = ctx.new_view_messages().collect();
-            if view_messages.len() as u64 >= ctx.api.threshold().get() {
+            if view_messages.len() >= ctx.api.threshold().get() {
                 // this `.unwrap()` is fine because `api.threshold()` is a NonZeroU64.
                 // `max_by_key` only returns `None` if there are no entries, but we check above that there is at least 1 entry.
                 let high_qc = view_messages
@@ -106,7 +104,7 @@ impl<const N: usize> PrepareLeader<N> {
     ) -> Result<Outcome<I, N>> {
         let high_qc = match self.high_qc.clone() {
             Some(high_qc) => high_qc,
-            None => return err("in propose_round: no high_qc set"),
+            None => return utils::err("in propose_round: no high_qc set"),
         };
         let leaf = ctx.get_leaf_by_block(&high_qc.block_hash).await?;
         let leaf_hash = leaf.hash();
@@ -184,6 +182,7 @@ impl<const N: usize> PrepareLeader<N> {
             new_state,
             prepare,
             vote,
+            newest_qc: high_qc,
         })
     }
 }

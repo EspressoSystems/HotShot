@@ -46,6 +46,7 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 pub const N: usize = H_256;
 
 /// Result of running a round of consensus
+#[derive(Debug)]
 pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     /// Transactions that were submitted
     pub txns: Vec<BLOCK::Transaction>,
@@ -241,7 +242,12 @@ impl<
     ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
         let id = node.node_id;
 
-        let cur_view = node.handle.get_round_runner_state().await.unwrap().view;
+        let cur_view = node
+            .handle
+            .get_round_runner_state()
+            .await
+            .unwrap_or_else(|e| panic!("Could not get round runner state of node {}: {:?}", id, e))
+            .view;
 
         // timeout for first event is longer in case
         // there is a delta before other nodes are spun up
@@ -256,7 +262,7 @@ impl<
                 .await
                 .context(TimeoutSnafu)??;
             timeout = Duration::from_millis(node.handle.get_next_view_timeout());
-            error!(?id, ?event);
+            info!(?id, ?event, "Node event");
             match event.event {
                 EventType::ViewTimeout { view_number } => {
                     if view_number >= cur_view {
@@ -471,7 +477,9 @@ impl<
 
         // we're assuming all nodes have the same state
         // FIXME it may be good to do an assertion on the state matching
-        let state = self.nodes[0].handle.get_state_sync();
+        let state = async_std::task::block_on(self.nodes[0].handle.get_state())
+            .unwrap()
+            .unwrap();
 
         use rand::{seq::IteratorRandom, thread_rng, Rng};
         let mut rng = thread_rng();

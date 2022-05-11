@@ -1,17 +1,14 @@
 //! Prepare replica implementation
 
 use super::Outcome;
-use crate::{
-    phase::{err, UpdateCtx},
-    utils, ConsensusApi, Result,
-};
+use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use phaselock_types::{
-    data::Stage,
+    data::{LeafHash, Stage},
     error::PhaseLockError,
     message::{Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, State},
+    traits::{node_implementation::NodeImplementation, State, Transaction as _},
 };
-use tracing::{debug, error};
+use tracing::{error, info};
 
 /// A prepare replica
 #[derive(Debug)]
@@ -28,6 +25,7 @@ impl PrepareReplica {
     /// # Errors
     ///
     /// Will return any errors `vote` returns.
+    #[tracing::instrument]
     pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
@@ -37,8 +35,91 @@ impl PrepareReplica {
         } else {
             return Ok(None);
         };
-        let outcome = self.vote(ctx, prepare.clone()).await?;
-        Ok(Some(outcome))
+        if let Some(validation_result) = self.validate_prepare(prepare, ctx).await? {
+            let outcome = self.vote(ctx, validation_result).await?;
+            Ok(Some(outcome))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Validate an incoming prepare. If this validation succeeds, `Some(ValidationResult)` is returned. This can then be used for [`Replica::vote`].
+    ///
+    /// If `Ok(None)` is returned, then the incoming `prepare` has a transaction we don't have, and we cannot vote on this prepare round.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the underlying `Storage` returns an error.
+    /// - The `state` could not be reconstructed with the given information
+    async fn validate_prepare<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+        &self,
+        prepare: &Prepare<I::Block, I::State, N>,
+        ctx: &UpdateCtx<'_, I, A, N>,
+    ) -> Result<Option<ValidationResult<I, N>>> {
+        let leaf_hash = prepare.leaf.hash();
+
+        let state = ctx.get_state_by_leaf(&prepare.leaf.parent).await?;
+        let self_highest_qc = match ctx.get_newest_qc().await? {
+            Some(qc) => qc,
+            None => return utils::err("No QC in storage"),
+        };
+        let is_safe_node = utils::validate_against_locked_qc(
+            ctx.api,
+            &self_highest_qc,
+            &prepare.leaf,
+            &prepare.high_qc,
+        )
+        .await;
+        if !is_safe_node || !state.validate_block(&prepare.leaf.item) {
+            error!("is_safe_node: {}", is_safe_node);
+            error!(?prepare.leaf, "Leaf failed safe_node predicate");
+            return Err(PhaseLockError::BadBlock {
+                stage: Stage::Prepare,
+            });
+        }
+
+        // Add resulting state to storage
+        let new_state = state.append(&prepare.leaf.item).map_err(|error| {
+            error!(?error, "Failed to append block to existing state");
+            PhaseLockError::InconsistentBlock {
+                stage: Stage::Prepare,
+            }
+        })?;
+
+        if prepare.state != new_state {
+            // the state that the leader send does not match with what we calculated
+            error!(
+                ?new_state,
+                ?prepare.state,
+                "Suggested state does not match actual state."
+            );
+            return Err(PhaseLockError::InconsistentBlock {
+                stage: Stage::Prepare,
+            });
+        }
+
+        let mut added_transactions = Vec::new();
+        for id in prepare.state.new_transaction_ids(&state) {
+            if let Some(transaction_state) =
+                ctx.transactions.iter().find(|t| t.transaction.id() == id)
+            {
+                added_transactions.push(transaction_state.clone());
+            } else {
+                info!(
+                    ?id,
+                    "Could not find transaction to mark, will sit out until we receive it"
+                );
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(ValidationResult {
+            added_transactions,
+            prepare: prepare.clone(),
+            new_state,
+            leaf_hash,
+        }))
     }
 
     /// Cast a vote on the given [`Prepare`]
@@ -53,70 +134,49 @@ impl PrepareReplica {
     async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
-        prepare: Prepare<I::Block, I::State, N>,
+        validation_result: ValidationResult<I, N>,
     ) -> Result<Outcome<I, N>> {
-        let leaf = prepare.leaf.clone();
-        let leaf_hash = leaf.hash();
-        let high_qc = prepare.high_qc.clone();
-        let suggested_state = prepare.state.clone();
-
-        let state = ctx.get_state_by_leaf(&leaf.parent).await?;
-        let self_highest_qc = match ctx.get_newest_qc().await? {
-            Some(qc) => qc,
-            None => return err("No QC in storage"),
-        };
-        let is_safe_node =
-            utils::validate_against_locked_qc(ctx.api, &self_highest_qc, &leaf, &high_qc).await;
-        if !is_safe_node || !state.validate_block(&leaf.item) {
-            error!("is_safe_node: {}", is_safe_node);
-            error!(?leaf, "Leaf failed safe_node predicate");
-            return Err(PhaseLockError::BadBlock {
-                stage: Stage::Prepare,
-            });
-        }
-
-        let current_view = ctx.view_number.0;
+        let ValidationResult {
+            added_transactions,
+            prepare,
+            leaf_hash,
+            new_state,
+        } = validation_result;
 
         let signature =
             ctx.api
                 .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+                .partial_sign(&leaf_hash, Stage::Prepare, ctx.view_number.0);
         let vote = PrepareVote(Vote {
             signature,
             id: ctx.api.public_key().nonce,
             leaf_hash,
-            current_view,
+            current_view: ctx.view_number.0,
         });
 
-        // Add resulting state to storage
-        let new_state = state.append(&leaf.item).map_err(|error| {
-            error!(?error, "Failed to append block to existing state");
-            PhaseLockError::InconsistentBlock {
-                stage: Stage::Prepare,
-            }
-        })?;
-        // Insert new state into storage
-        debug!(?new_state, "New state inserted");
-        if suggested_state != new_state {
-            // the state that the leader send does not match with what we calculated
-            error!(
-                ?new_state,
-                ?suggested_state,
-                "Suggested state does not match actual state."
-            );
-            return Err(PhaseLockError::InconsistentBlock {
-                stage: Stage::Prepare,
-            });
-        }
+        let new_leaf = prepare.leaf.clone();
+        let newest_qc = prepare.high_qc.clone();
 
         Ok(Outcome {
             new_state,
-            new_leaf: leaf,
+            new_leaf,
             prepare,
-            // TODO: We should validate that the incoming transactions are correct
-            added_transactions: Vec::new(),
+            added_transactions,
             rejected_transactions: Vec::new(),
             vote: Some(vote),
+            newest_qc,
         })
     }
+}
+
+/// A result from [`Replica::validate`] that contains the nessecary information to vote.
+struct ValidationResult<I: NodeImplementation<N>, const N: usize> {
+    /// The transactions that are being added in this vote.
+    added_transactions: Vec<TransactionState<I, N>>,
+    /// The original prepare message.
+    prepare: Prepare<I::Block, I::State, N>,
+    /// The leaf hash that was calculated for `prepare.leaf`
+    leaf_hash: LeafHash<N>,
+    /// The new state, reconstruted from our own state with the given data in `prepare`
+    new_state: I::State,
 }

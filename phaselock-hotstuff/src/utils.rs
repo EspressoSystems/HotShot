@@ -3,11 +3,11 @@
 use crate::{ConsensusApi, Result};
 use phaselock_types::{
     data::{Leaf, LeafHash, QuorumCertificate},
-    error::StorageSnafu,
+    error::{PhaseLockError, StorageSnafu},
     traits::{node_implementation::NodeImplementation, storage::Storage, State},
 };
 use snafu::ResultExt;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 /// Checks if a leaf descends from another leaf
 pub(crate) async fn leaf_descends_from<
@@ -20,6 +20,10 @@ pub(crate) async fn leaf_descends_from<
     ancestor_hash: LeafHash<N>,
 ) -> bool {
     let leaf_hash = leaf.hash();
+    // Check if the leaf is the ancestor
+    if leaf_hash == ancestor_hash {
+        return true;
+    }
     // Check that the ancestor exists in storage
     if api
         .storage()
@@ -44,6 +48,7 @@ pub(crate) async fn leaf_descends_from<
     // Walk the parent list until we either hit nothing, a missing leaf
     let mut parent_hash = leaf.parent;
     while parent_hash != empty_hash {
+        trace!(?parent_hash);
         // Ancestor is, in fact, our ancestor
         if parent_hash == ancestor_hash {
             return true;
@@ -84,11 +89,6 @@ pub(crate) async fn validate_against_locked_qc<
     new_leaf: &Leaf<I::Block, N>,
     high_qc: &QuorumCertificate<N>,
 ) -> bool {
-    // new nodes can not be a genesis
-    if high_qc.genesis {
-        return false;
-    }
-
     // Check to make sure the leaf actually descends from its high_qc
     if !leaf_descends_from(api, new_leaf, high_qc.leaf_hash).await {
         warn!(
@@ -163,4 +163,12 @@ pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>,
         state.on_commit();
     }
     Ok((blocks, states))
+}
+
+/// Return an `PhaseLockError::InvalidState` error with the given text.
+pub(crate) fn err<T, S>(e: S) -> Result<T>
+where
+    S: Into<String>,
+{
+    Err(PhaseLockError::InvalidState { context: e.into() })
 }

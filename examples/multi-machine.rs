@@ -11,10 +11,14 @@ use phaselock::{
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
+    time::Duration,
+};
 use structopt::StructOpt;
 use toml::Value;
 use tracing::debug;
@@ -86,8 +90,8 @@ async fn init_state_and_phaselock(
     keys: &tc::SecretKeySet,
     public_keys: tc::PublicKeySet,
     secret_key_share: tc::SecretKeyShare,
-    nodes: u64,
-    threshold: u64,
+    nodes: usize,
+    threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
 ) -> (State, PhaseLockHandle<Node, H_256>) {
@@ -108,19 +112,21 @@ async fn init_state_and_phaselock(
     };
 
     // Create the initial phaselock
-    let known_nodes: Vec<_> = (0..nodes)
+    let known_nodes: Vec<_> = (0..nodes as u64)
         .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
         .collect();
 
     let config = PhaseLockConfig {
-        total_nodes: nodes as u32,
-        threshold: threshold as u32,
-        max_transactions: 100,
+        total_nodes: NonZeroUsize::new(nodes).unwrap(),
+        threshold: NonZeroUsize::new(threshold).unwrap(),
+        max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
+        propose_min_round_time: Duration::from_millis(0),
+        propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
@@ -173,7 +179,7 @@ async fn main() {
     let nodes = node_config["nodes"]
         .as_table()
         .expect("Missing nodes info")
-        .len() as u64;
+        .len();
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     let secret_keys = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
@@ -190,7 +196,7 @@ async fn main() {
     .await;
     #[allow(clippy::type_complexity)]
     let mut other_nodes: Vec<(u64, PubKey, String, u16)> = Vec::new();
-    for id in 0..nodes {
+    for id in 0..nodes as u64 {
         if id != own_id {
             let (ip, port) = get_host(node_config.clone(), id);
             let pub_key = PubKey::from_secret_key_set_escape_hatch(&secret_keys, id);
@@ -211,7 +217,7 @@ async fn main() {
     }
 
     // Wait for the networking implementations to connect
-    while (own_network.connection_table_size().await as u64) < nodes - 1 {
+    while own_network.connection_table_size().await < nodes - 1 {
         async_std::task::sleep(std::time::Duration::from_millis(10)).await;
     }
     println!("All nodes connected to network");

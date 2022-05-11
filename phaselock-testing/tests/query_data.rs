@@ -26,6 +26,7 @@ enum RoundError {
     PhaseLock { source: PhaseLockError },
 }
 
+#[ignore]
 #[async_std::test]
 async fn sync_newest_quorom() {
     let mut rounds = vec![Round::default(); 2];
