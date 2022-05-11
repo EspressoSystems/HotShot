@@ -6,17 +6,20 @@ mod storage;
 
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
-pub use phaselock_types::traits::stateful_handler::StatefulHandler;
-pub use phaselock_types::traits::State;
-pub use phaselock_types::traits::{BlockContents, Transaction};
+pub use phaselock_types::traits::{
+    stateful_handler::StatefulHandler, BlockContents, State, Transaction,
+};
 pub use storage::{Storage, StorageResult};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
-    pub use super::networking::memory_network::{DummyReliability, MasterMap, MemoryNetwork};
-    pub use super::networking::w_network::WNetwork;
-    pub use super::storage::atomic_storage::AtomicStorage;
-    pub use super::storage::memory_storage::MemoryStorage;
+    pub use super::{
+        networking::{
+            memory_network::{DummyReliability, MasterMap, MemoryNetwork},
+            w_network::WNetwork,
+        },
+        storage::{atomic_storage::AtomicStorage, memory_storage::MemoryStorage},
+    };
     pub use phaselock_types::traits::stateful_handler::Stateless;
 }
 

@@ -77,8 +77,8 @@ impl<const N: usize> CommitReplica<N> {
         // Verify QC
         if !(commit.qc.verify(
             ctx.api.cluster_public_keys(),
-            ctx.api.threshold().get(),
-            ctx.view_number.0,
+            ctx.api.threshold().get() as u64,
+            ctx.view_number,
             Stage::PreCommit,
         ) && commit.leaf_hash == leaf_hash)
         {
@@ -91,7 +91,7 @@ impl<const N: usize> CommitReplica<N> {
 
         let signature = ctx
             .api
-            .sign_vote(&leaf_hash, Stage::Commit, ctx.view_number.0);
+            .sign_vote(&leaf_hash, Stage::Commit, *ctx.view_number);
         let vote = CommitVote(Vote {
             leaf_hash,
             signature,

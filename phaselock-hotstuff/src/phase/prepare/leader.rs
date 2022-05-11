@@ -3,7 +3,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use phaselock_types::{
-    data::{Leaf, QuorumCertificate, Stage},
+    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
     error::PhaseLockError,
     message::{NewView, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, BlockContents, State},
@@ -162,7 +162,7 @@ impl<const N: usize> PrepareLeader<N> {
 
         // if the leader can vote like a replica, cast this vote now
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, *current_view);
             Some(PrepareVote(Vote {
                 signature,
                 leaf_hash,

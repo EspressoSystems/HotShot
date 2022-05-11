@@ -2,15 +2,13 @@
 
 use async_std::task::block_on;
 use either::Either;
-use phaselock::traits::implementations::MemoryStorage;
-use phaselock::traits::{BlockContents, NetworkingImplementation, Storage};
-use phaselock::types::Message;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
     traits::{
-        implementations::{MasterMap, MemoryNetwork},
-        NetworkReliability,
+        implementations::{MasterMap, MemoryNetwork, MemoryStorage},
+        BlockContents, NetworkReliability, NetworkingImplementation, Storage,
     },
+    types::Message,
     PhaseLockConfig,
 };
 use phaselock_testing::{

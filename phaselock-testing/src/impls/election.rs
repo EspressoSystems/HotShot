@@ -1,6 +1,8 @@
-use phaselock::{data::StateHash, PubKey, Stage};
-use phaselock_types::traits::{election::Election, signature_key::SignatureKey};
-use phaselock_types::{data::ViewNumber, traits::election::Election};
+use phaselock::{data::StateHash, PubKey};
+use phaselock_types::{
+    data::{Stage, ViewNumber},
+    traits::{election::Election, signature_key::SignatureKey},
+};
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.

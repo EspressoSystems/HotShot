@@ -103,7 +103,7 @@ impl<const N: usize> CommitLeader<N> {
         let vote = if ctx.api.leader_acts_as_replica() {
             let signature = ctx
                 .api
-                .sign_vote(&commit.leaf_hash, Stage::Commit, ctx.view_number.0);
+                .sign_vote(&commit.leaf_hash, Stage::Commit, *ctx.view_number);
             Some(CommitVote(Vote {
                 leaf_hash: commit.leaf_hash,
                 signature,

@@ -1,7 +1,10 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use crate::data::{Stage, StateHash, ViewNumber};
-use crate::{traits::signature_key::SignatureKey, PrivKey, PubKey};
+use crate::{
+    data::{Stage, StateHash, ViewNumber},
+    traits::signature_key::SignatureKey,
+    PubKey,
+};
 
 /// Describes how `PhaseLock` chooses committees and leaders
 pub trait Election<S: SignatureKey, const N: usize>: Send + Sync {
@@ -19,7 +22,12 @@ pub trait Election<S: SignatureKey, const N: usize>: Send + Sync {
     /// Returns the table from the current committed state
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> PubKey<S>;
+    fn get_leader(
+        &self,
+        table: &Self::StakeTable,
+        view_number: ViewNumber,
+        stage: Stage,
+    ) -> PubKey<S>;
     /// Validates a vote token and returns the number of seats that it has
     ///
     /// Salt: Hash of the leaf that is being proposed

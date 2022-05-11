@@ -3,8 +3,7 @@
 mod common;
 
 use async_std::task::block_on;
-use common::TestDescriptionBuilder;
-use common::{AppliedTestRunner, TestRoundResult, TestTransaction};
+use common::{AppliedTestRunner, TestDescriptionBuilder, TestRoundResult, TestTransaction};
 use phaselock_testing::{ConsensusRoundError, Round};
 
 use phaselock::{
@@ -12,8 +11,7 @@ use phaselock::{
     types::{EventType, PhaseLockHandle},
     PhaseLockError,
 };
-use phaselock_types::data::ViewNumber;
-use phaselock_types::traits::storage::Storage;
+use phaselock_types::{data::ViewNumber, traits::storage::Storage};
 
 use snafu::Snafu;
 use std::sync::Arc;

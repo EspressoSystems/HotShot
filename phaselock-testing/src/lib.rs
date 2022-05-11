@@ -13,8 +13,7 @@ mod launcher;
 /// implementations of various networking models
 pub mod network_reliability;
 
-pub use self::impls::TestElection;
-pub use self::launcher::TestLauncher;
+pub use self::{impls::TestElection, launcher::TestLauncher};
 
 use async_std::prelude::FutureExt;
 use phaselock::{
@@ -39,9 +38,10 @@ use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
+    marker::PhantomData,
     sync::Arc,
+    time::Duration,
 };
-use std::{marker::PhantomData, time::Duration};
 use tracing::{debug, error, info, info_span, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.

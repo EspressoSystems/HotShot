@@ -3,8 +3,7 @@
 mod dual_key_value_store;
 mod hash_map_store;
 
-use self::dual_key_value_store::DualKeyValueStore;
-use self::hash_map_store::HashMapStore;
+use self::{dual_key_value_store::DualKeyValueStore, hash_map_store::HashMapStore};
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
     traits::{BlockContents, State},

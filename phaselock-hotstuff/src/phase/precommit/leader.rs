@@ -108,7 +108,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
 
         let vote = if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
-            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Commit, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Commit, *current_view);
             Some(PreCommitVote(Vote {
                 leaf_hash,
                 signature,

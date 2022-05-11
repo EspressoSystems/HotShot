@@ -14,12 +14,12 @@ use phaselock_types::traits::signature_key::{
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fs::File,
+    io::Read,
     num::NonZeroUsize,
+    path::Path,
     time::Duration,
 };
 use structopt::StructOpt;

@@ -18,8 +18,7 @@ use phaselock::{
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::{get_starting_state, TestLauncher};
-use phaselock_types::data::ViewNumber;
-use phaselock_types::traits::signature_key::ed25519::Ed25519Pub;
+use phaselock_types::{data::ViewNumber, traits::signature_key::ed25519::Ed25519Pub};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;

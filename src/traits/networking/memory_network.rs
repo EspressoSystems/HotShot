@@ -5,8 +5,7 @@
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
 use crate::PubKey;
-use async_std::sync::RwLock;
-use async_std::task::spawn;
+use async_std::{sync::RwLock, task::spawn};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
@@ -15,8 +14,7 @@ use phaselock_types::traits::{network::NetworkChange, signature_key::SignatureKe
 use rand::Rng;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]

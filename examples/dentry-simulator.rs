@@ -372,8 +372,8 @@ async fn get_phaselock(
         .map(|(i, key)| PubKey::new(i as u64, key))
         .collect();
     let config = PhaseLockConfig {
-        total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        threshold: NonZeroUsize::new(threshold).unwrap(),
+        total_nodes: NonZeroUsize::new(nodes as usize).unwrap(),
+        threshold: NonZeroUsize::new(threshold as usize).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
         next_view_timeout: 100000,

@@ -18,8 +18,7 @@ use self::{
 use crate::direct_message::DirectMessageResponse;
 use async_std::{future::timeout, task::spawn};
 use bincode::Options;
-use futures::channel::oneshot::Sender;
-use futures::{select, Future, FutureExt};
+use futures::{channel::oneshot::Sender, select, Future, FutureExt};
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},

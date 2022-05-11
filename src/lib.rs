@@ -46,7 +46,7 @@ use phaselock_hotstuff::HotStuff;
 use phaselock_types::{
     data::{create_verify_hash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{DataMessage, Message},
+    message::{DataMessage, Message, Vote},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -55,12 +55,19 @@ use phaselock_types::{
         stateful_handler::StatefulHandler,
     },
 };
-use phaselock_utils::broadcast::BroadcastSender;
+use phaselock_utils::{
+    broadcast::BroadcastSender,
+    waitqueue::{WaitOnce, WaitQueue},
+};
 use snafu::ResultExt;
 
-use std::time::{Duration, Instant};
-use std::{collections::HashSet, fmt::Debug};
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    collections::HashSet,
+    fmt::Debug,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use tracing::{debug, error, info, instrument, trace, warn};
 
@@ -211,33 +218,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             },
             config,
             networking,
-            transaction_queue: RwLock::new(Vec::new()),
-            committed_state: RwLock::new(Arc::new(starting_state.clone())),
-            committed_leaf: RwLock::new(leaf.hash()),
-            locked_qc: RwLock::new(Some(QuorumCertificate {
-                block_hash: genesis_hash,
-                leaf_hash: leaf.hash(),
-                view_number: 0,
-                stage: Stage::Decide,
-                signatures: Vec::new(),
-                genesis: true,
-            })),
-            prepare_qc: RwLock::new(Some(QuorumCertificate {
-                block_hash: genesis_hash,
-                leaf_hash: leaf.hash(),
-                view_number: 0,
-                stage: Stage::Prepare,
-                signatures: Vec::new(),
-                genesis: true,
-            })),
-            new_view_queue: WaitQueue::new(t),
-            prepare_vote_queue: WaitQueue::new(t),
-            precommit_vote_queue: WaitQueue::new(t),
-            commit_vote_queue: WaitQueue::new(t),
-            prepare_waiter: WaitOnce::new(),
-            precommit_waiter: WaitOnce::new(),
-            commit_waiter: WaitOnce::new(),
-            decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
             election,
@@ -249,6 +229,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 signing_private_key,
             ),
             cluster_public_keys,
+            genesis: genesis.clone(),
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -673,11 +654,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Returns the public key for the leader of this round
-    fn get_leader(&self, view: u64) -> PubKey<I::SigningKey> {
+    fn get_leader(&self, view: ViewNumber, stage: Stage) -> PubKey<I::SigningKey> {
         self.inner
             .election
             .election
-            .get_leader(&self.inner.election.stake_table, view)
+            .get_leader(&self.inner.election.stake_table, view, stage)
     }
 
     /// return the timeout for a view for `self`
@@ -693,7 +674,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// Creates a vote signature using this node's signing key
     ///
     /// TODO(#170): Move this functionality into election trait
-    pub fn sign_vote(&self, leaf: &LeafHash<N>, stage: Stage, current_view: u64) -> Vec<u8> {
+    pub fn sign_vote(&self, leaf: &LeafHash<N>, stage: Stage, current_view: ViewNumber) -> Vec<u8> {
         let hash = create_verify_hash(leaf, current_view, stage);
         I::SigningKey::sign(&self.inner.signing_key.1, hash.as_ref())
     }
@@ -764,7 +745,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         true
     }
 
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey {
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey<I::SigningKey> {
         let election = &self.inner.election;
         election
             .election
@@ -777,7 +758,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
 
     async fn send_direct_message(
         &mut self,
-        recipient: PubKey,
+        recipient: PubKey<I::SigningKey>,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, ?recipient, "send_direct_message");
@@ -809,12 +790,8 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         }
     }
 
-    fn public_key(&self) -> &PubKey {
+    fn public_key(&self) -> &PubKey<I::SigningKey> {
         &self.inner.public_key
-    }
-
-    fn private_key(&self) -> &PrivKey {
-        &self.inner.private_key
     }
 
     async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>) {
@@ -824,5 +801,21 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
             .lock()
             .await
             .notify(blocks, states);
+    }
+
+    fn private_key(&self) -> &<I::SigningKey as SignatureKey>::PrivateKey {
+        todo!()
+    }
+
+    fn combine_signatures(&self, votes: &[Vote<N>]) -> Option<Vec<Vec<u8>>> {
+        todo!()
+    }
+
+    fn cluster_public_keys(&self) -> &HashSet<I::SigningKey> {
+        &self.inner.cluster_public_keys
+    }
+
+    fn sign_vote(&self, leaf_hash: &LeafHash<N>, stage: Stage, view_number: u64) -> Vec<u8> {
+        todo!()
     }
 }

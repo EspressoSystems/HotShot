@@ -5,11 +5,13 @@
 //!
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
-use crate::traits::networking::{
-    CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
-    SocketDecodeSnafu, WebSocketSnafu,
+use crate::traits::{
+    networking::{
+        CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
+        SocketDecodeSnafu, WebSocketSnafu,
+    },
+    NetworkError,
 };
-use crate::traits::NetworkError;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -24,8 +26,7 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use flume::{Receiver, Sender};
-use futures::future::BoxFuture;
-use futures::{channel::oneshot, prelude::*};
+use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use phaselock_types::traits::{network::NetworkChange, signature_key::SignatureKey};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
