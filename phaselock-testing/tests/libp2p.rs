@@ -13,7 +13,7 @@ use phaselock_testing::TestLauncher;
 use tracing::instrument;
 
 /// libp2p network test
-// #[ignore]
+#[ignore]
 #[async_std::test]
 #[instrument]
 async fn libp2p_network() {
