@@ -224,7 +224,7 @@
 <span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">atomic_store</span>::{<span class="ident">load_store::BincodeLoadStore</span>, <span class="ident">AppendLog</span>, <span class="ident">AtomicStoreLoader</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
-    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>},
+    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">traits</span>::{
         <span class="ident">storage</span>::{<span class="ident">AtomicStoreSnafu</span>, <span class="ident">InconsistencySnafu</span>, <span class="ident">StorageError</span>},
         <span class="ident">BlockContents</span>,
@@ -400,7 +400,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">DualKeyValue</span> <span class="kw">for</span> <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
     <span class="kw">type</span> <span class="ident">Key1</span> <span class="op">=</span> <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">Key2</span> <span class="op">=</span> <span class="ident">u64</span>;
+    <span class="kw">type</span> <span class="ident">Key2</span> <span class="op">=</span> <span class="ident">ViewNumber</span>;
 
     <span class="kw">const</span> <span class="ident">KEY_1_NAME</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;block_hash&quot;</span>;
     <span class="kw">const</span> <span class="ident">KEY_2_NAME</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;view_number&quot;</span>;

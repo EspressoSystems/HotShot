@@ -769,6 +769,7 @@
 <span id="764">764</span>
 <span id="765">765</span>
 <span id="766">766</span>
+<span id="767">767</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -818,6 +819,7 @@
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot</span>;
 <span class="kw">use</span> <span class="ident">phaselock_hotstuff::HotStuff</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
+    <span class="ident">data::ViewNumber</span>,
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
     <span class="ident">message</span>::{<span class="ident">DataMessage</span>, <span class="ident">Message</span>},
     <span class="ident">traits</span>::{
@@ -998,7 +1000,7 @@
                 <span class="ident">m</span>.<span class="ident">insert_qc</span>(<span class="ident">QuorumCertificate</span> {
                     <span class="ident">block_hash</span>: <span class="ident">genesis_hash</span>,
                     <span class="ident">leaf_hash</span>,
-                    <span class="ident">view_number</span>: <span class="number">0</span>,
+                    <span class="ident">view_number</span>: <span class="ident">ViewNumber::genesis</span>(),
                     <span class="ident">stage</span>: <span class="ident">Stage::Decide</span>,
                     <span class="ident">signature</span>: <span class="prelude-val">None</span>,
                     <span class="ident">genesis</span>: <span class="bool-val">true</span>,
@@ -1057,11 +1059,11 @@
     <span class="doccomment">/// - There were no QCs in the storage</span>
     <span class="doccomment">/// - A broadcast message could not be send</span>
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="ident">hotstuff</span>
             .<span class="ident">next_view</span>(
-                <span class="ident">current_view</span>.<span class="ident">into</span>(),
+                <span class="ident">current_view</span>,
                 <span class="kw-2">&amp;mut</span> <span class="ident">PhaseLockConsensusApi</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> },
             )
             .<span class="kw">await</span>
@@ -1089,15 +1091,15 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Panics if consensus hits a bad round</span>
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ViewNumber</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">hotstuff</span>
             .<span class="ident">lock</span>()
             .<span class="kw">await</span>
-            .<span class="ident">register_round_finished_listener</span>(<span class="ident">current_view</span>.<span class="ident">into</span>(), <span class="ident">sender</span>);
+            .<span class="ident">register_round_finished_listener</span>(<span class="ident">current_view</span>, <span class="ident">sender</span>);
         <span class="kw">match</span> <span class="ident">receiver</span>.<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>.<span class="ident">into</span>()),
+            <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>),
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::InvalidState</span> {
                 <span class="ident">context</span>: <span class="macro">format!</span>(<span class="string">&quot;Could not wait for round to end: {:?}&quot;</span>, <span class="ident">e</span>),
             }),
@@ -1473,14 +1475,14 @@
         <span class="bool-val">true</span>
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">u64</span>, <span class="ident">stage</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">PubKey</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>, <span class="ident">stage</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">PubKey</span> {
         <span class="kw">let</span> <span class="ident">election</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>;
         <span class="ident">election</span>
             .<span class="ident">election</span>
             .<span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="ident">election</span>.<span class="ident">stake_table</span>, <span class="ident">view_number</span>, <span class="ident">stage</span>)
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">should_start_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">u64</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">should_start_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">bool</span> {
         <span class="bool-val">false</span>
     }
 

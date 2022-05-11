@@ -489,6 +489,13 @@
 <span id="484">484</span>
 <span id="485">485</span>
 <span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
@@ -502,8 +509,9 @@
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
-<span class="kw">use</span> <span class="ident">phaselock_types::traits::storage</span>::{
-    <span class="ident">InconsistencySnafu</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>, <span class="ident">StorageState</span>, <span class="ident">StorageUpdater</span>,
+<span class="kw">use</span> <span class="ident">phaselock_types</span>::{
+    <span class="ident">data::ViewNumber</span>,
+    <span class="ident">traits::storage</span>::{<span class="ident">InconsistencySnafu</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>, <span class="ident">StorageState</span>, <span class="ident">StorageUpdater</span>},
 };
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">instrument</span>, <span class="ident">trace</span>};
@@ -520,7 +528,7 @@
     <span class="doccomment">/// Index of the [`QuorumCertificate`]s by hash</span>
     <span class="ident">hash_to_qc</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Index of the [`QuorumCertificate`]s by view number</span>
-    <span class="ident">view_to_qc</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
+    <span class="ident">view_to_qc</span>: <span class="ident">DashMap</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The [`Leaf`s stored by this [`MemoryStorage`]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// In order to maintain the struct constraints, this list must be append only. Once a QC is</span>
@@ -609,7 +617,10 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;MemoryStorage::get_qc_for_view&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_qc_for_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view</span>: <span class="ident">u64</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_qc_for_view</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">view</span>: <span class="ident">ViewNumber</span>,
+    ) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// Check to see if we have the qc</span>
         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">view_to_qc</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>);
         <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">index</span>) <span class="op">=</span> <span class="ident">index</span> {
@@ -805,7 +816,7 @@
     <span class="kw">fn</span> <span class="ident">dummy_qc</span>(
         <span class="ident">hash_block</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>,
         <span class="ident">hash_leaf</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span>,
-        <span class="ident">view</span>: <span class="ident">u64</span>,
+        <span class="ident">view</span>: <span class="ident">ViewNumber</span>,
         <span class="ident">valid</span>: <span class="ident">bool</span>,
     ) -&gt; <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span> {
         <span class="ident">QuorumCertificate</span> {
@@ -863,13 +874,16 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">qcs</span>() {
         <span class="ident">setup_logging</span>();
         <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span> <span class="ident">MemoryStorage</span>::<span class="op">&lt;</span><span class="ident">DummyBlock</span>, <span class="ident">DummyState</span>, <span class="number">32</span><span class="op">&gt;</span><span class="ident">::default</span>();
+        <span class="kw">let</span> <span class="ident">view_1</span> <span class="op">=</span> <span class="ident">ViewNumber::new</span>(<span class="number">1</span>);
+        <span class="kw">let</span> <span class="ident">view_2</span> <span class="op">=</span> <span class="ident">ViewNumber::new</span>(<span class="number">2</span>);
+        <span class="kw">let</span> <span class="ident">view_3</span> <span class="op">=</span> <span class="ident">ViewNumber::new</span>(<span class="number">3</span>);
         <span class="comment">// Create a few dummy qcs</span>
         <span class="kw">let</span> <span class="ident">qc_1_hash_block</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
         <span class="kw">let</span> <span class="ident">qc_1_hash_leaf</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">qc_1</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_1_hash_block</span>, <span class="ident">qc_1_hash_leaf</span>, <span class="number">1</span>, <span class="bool-val">true</span>);
+        <span class="kw">let</span> <span class="ident">qc_1</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_1_hash_block</span>, <span class="ident">qc_1_hash_leaf</span>, <span class="ident">view_1</span>, <span class="bool-val">true</span>);
         <span class="kw">let</span> <span class="ident">qc_2_hash_block</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
         <span class="kw">let</span> <span class="ident">qc_2_hash_leaf</span> <span class="op">=</span> <span class="ident">LeafHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
-        <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_2_hash_block</span>, <span class="ident">qc_2_hash_leaf</span>, <span class="number">2</span>, <span class="bool-val">true</span>);
+        <span class="kw">let</span> <span class="ident">qc_2</span> <span class="op">=</span> <span class="ident">dummy_qc</span>(<span class="ident">qc_2_hash_block</span>, <span class="ident">qc_2_hash_leaf</span>, <span class="ident">view_2</span>, <span class="bool-val">true</span>);
         <span class="comment">// Attempt to insert them</span>
         <span class="ident">storage</span>
             .<span class="ident">update</span>(<span class="op">|</span><span class="kw-2">mut</span> <span class="ident">m</span><span class="op">|</span> {
@@ -890,15 +904,15 @@
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_1</span>, <span class="ident">qc_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">h_qc_2</span>, <span class="ident">qc_2</span>);
         <span class="comment">// Attempt to get them back by view number</span>
-        <span class="kw">let</span> <span class="ident">v_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">v_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">v_qc_1</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="ident">view_1</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">v_qc_2</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="ident">view_2</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
         <span class="comment">// Check to make sure we got the right QCs back</span>
         <span class="macro">assert_eq!</span>(<span class="ident">v_qc_1</span>, <span class="ident">qc_1</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">v_qc_2</span>, <span class="ident">qc_2</span>);
         <span class="comment">// Make sure trying to get bunk QCs fails</span>
         <span class="kw">let</span> <span class="ident">bunk_hash</span> <span class="op">=</span> <span class="ident">BlockHash</span>::<span class="op">&lt;</span><span class="number">32</span><span class="op">&gt;</span><span class="ident">::random</span>();
         <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc</span>(<span class="kw-2">&amp;</span><span class="ident">bunk_hash</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_none</span>());
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="number">3</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_qc_for_view</span>(<span class="ident">view_3</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_none</span>());
         <span class="comment">// Make sure inserting a bunk QC fails</span>
         <span class="comment">//let bad_qc = dummy_qc(bunk_hash, 3, false);</span>
         <span class="comment">//assert!(!storage.insert_qc(bad_qc).await.is_some());</span>

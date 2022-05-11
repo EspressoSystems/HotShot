@@ -443,6 +443,7 @@
 <span id="438">438</span>
 <span id="439">439</span>
 <span id="440">440</span>
+<span id="441">441</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the `PhaseLock` suite of traits that implements a</span>
@@ -452,7 +453,7 @@
 <span class="doccomment">//! production use.</span>
 
 <span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
-<span class="kw">use</span> <span class="ident">phaselock_types::data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">Stage</span>};
+<span class="kw">use</span> <span class="ident">phaselock_types::data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">Stage</span>, <span class="ident">ViewNumber</span>};
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">thread_rng</span>, <span class="ident">Rng</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ensure</span>, <span class="ident">Snafu</span>};
@@ -867,6 +868,7 @@
         <span class="number">4</span> =&gt; <span class="ident">Stage::Decide</span>,
         <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(),
     };
+
     <span class="comment">// TODO: Generate a tc::Signature</span>
     <span class="ident">QuorumCertificate</span> {
         <span class="ident">block_hash</span>: <span class="ident">BlockHash::random</span>(),
@@ -874,7 +876,7 @@
         <span class="ident">leaf_hash</span>: <span class="ident">LeafHash::random</span>(),
         <span class="ident">signature</span>: <span class="prelude-val">None</span>,
         <span class="ident">stage</span>,
-        <span class="ident">view_number</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber::new</span>(<span class="ident">rng</span>.<span class="ident">gen</span>()),
     }
 }
 

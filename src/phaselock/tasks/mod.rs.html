@@ -329,6 +329,7 @@
 <span id="324">324</span>
 <span id="325">325</span>
 <span id="326">326</span>
+<span id="327">327</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`PhaseLock`]</span>
 
 <span class="kw">mod</span> <span class="ident">round_runner</span>;
@@ -344,6 +345,7 @@
 <span class="kw">use</span> <span class="ident">flume::Sender</span>;
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot::channel</span> <span class="kw">as</span> <span class="ident">oneshot_channel</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
+    <span class="ident">data::ViewNumber</span>,
     <span class="ident">message::Message</span>,
     <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">node_implementation::NodeImplementation</span>},
 };
@@ -384,7 +386,7 @@
     <span class="doccomment">/// Send a message to the [`round_runner_task`].</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">set_round_runner_view_number</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">view_number</span>: <span class="ident">u64</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">send_to_round_runner</span>(<span class="ident">ToRoundRunner::NewViewNumber</span>(<span class="ident">view_number</span>))
             .<span class="kw">await</span>

@@ -233,7 +233,7 @@
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">unbounded</span>, <span class="ident">Receiver</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span> <span class="kw">as</span> <span class="ident">OneShotSender</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
-    <span class="ident">data::Stage</span>,
+    <span class="ident">data</span>::{<span class="ident">Stage</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">error::PhaseLockError</span>,
     <span class="ident">event</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>},
     <span class="ident">traits</span>::{<span class="ident">node_implementation::NodeImplementation</span>, <span class="ident">storage::Storage</span>},
@@ -263,10 +263,10 @@
         <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">unbounded</span>();
         <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_newest_qc</span>().<span class="kw">await</span> {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">qc</span>)) =&gt; <span class="ident">qc</span>.<span class="ident">view_number</span>,
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="number">0</span>,
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="ident">ViewNumber::genesis</span>(),
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                 <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not load the newest QC from the storage. Assuming there are no QC in the system.&quot;</span>);
-                <span class="number">0</span>
+                <span class="ident">ViewNumber::genesis</span>()
             }
         };
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">RoundRunnerState</span> {
@@ -345,7 +345,7 @@
                     }
                     <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">result</span> {
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">new_view</span>)) =&gt; {
-                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {}&quot;</span>, <span class="ident">new_view</span>);
+                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?}&quot;</span>, <span class="ident">new_view</span>);
                             <span class="kw">if</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
                                 <span class="kw">break</span>;
                             }
@@ -413,7 +413,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RoundRunnerState</span> {
     <span class="doccomment">/// The view number of the next `QuorumCertificate`</span>
-    <span class="kw">pub</span> <span class="ident">view</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">view</span>: <span class="ident">ViewNumber</span>,
 
     <span class="doccomment">/// The timeout of the next round.</span>
     <span class="kw">pub</span> <span class="ident">int_duration</span>: <span class="ident">u64</span>,
@@ -425,7 +425,7 @@
 <span class="doccomment">/// Events going to the round runner.</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ToRoundRunner</span> {
     <span class="doccomment">/// Notify the round runner that there is a new view number inserted externally that it should use from now on.</span>
-    <span class="ident">NewViewNumber</span>(<span class="ident">u64</span>),
+    <span class="ident">NewViewNumber</span>(<span class="ident">ViewNumber</span>),
 
     <span class="doccomment">/// Request the current state of the round runner.</span>
     <span class="ident">GetState</span>(<span class="ident">OneShotSender</span><span class="op">&lt;</span><span class="ident">RoundRunnerState</span><span class="op">&gt;</span>),
@@ -443,7 +443,7 @@
     <span class="ident">ShutDown</span>,
 
     <span class="doccomment">/// Will be triggered once a round is done</span>
-    <span class="ident">RoundFinished</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span>, <span class="ident">TimeoutError</span><span class="op">&gt;</span><span class="op">&gt;</span>),
+    <span class="ident">RoundFinished</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span>, <span class="ident">TimeoutError</span><span class="op">&gt;</span><span class="op">&gt;</span>),
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.60.0 (7737e0b5c 2022-04-04)" ></div>

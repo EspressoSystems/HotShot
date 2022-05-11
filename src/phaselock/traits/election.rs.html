@@ -91,7 +91,7 @@
 <span id="86">86</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::data::StateHash</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">PrivKey</span>, <span class="ident">PubKey</span>};
-<span class="kw">use</span> <span class="ident">phaselock_types::data::Stage</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::data</span>::{<span class="ident">Stage</span>, <span class="ident">ViewNumber</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types::traits::election::Election</span>;
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
 
@@ -132,8 +132,8 @@
         <span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">clone</span>()
     }
     <span class="doccomment">/// Index the vector of public keys with the current view number</span>
-    <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::StakeTable</span>, <span class="ident">view_number</span>: <span class="ident">u64</span>, <span class="kw">_</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">PubKey</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> (<span class="ident">view_number</span> <span class="op">%</span> <span class="ident">table</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+    <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::StakeTable</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>, <span class="kw">_</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">PubKey</span> {
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">view_number</span> <span class="op">%</span> <span class="ident">table</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="ident">table</span>[<span class="ident">index</span>].<span class="ident">clone</span>()
     }
     <span class="doccomment">/// Simply verify the signature and check the membership list</span>
@@ -141,7 +141,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::StakeTable</span>,
         <span class="ident">_selection_threshold</span>: <span class="ident"><span class="self">Self</span>::SelectionThreshold</span>,
-        <span class="ident">view_number</span>: <span class="ident">u64</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
         <span class="ident">pub_key</span>: <span class="ident">PubKey</span>,
         <span class="ident">token</span>: <span class="ident"><span class="self">Self</span>::VoteToken</span>,
         <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
@@ -160,7 +160,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">_table</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::StakeTable</span>,
         <span class="ident">_selection_threshold</span>: <span class="ident"><span class="self">Self</span>::SelectionThreshold</span>,
-        <span class="ident">view_number</span>: <span class="ident">u64</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
         <span class="ident">private_key</span>: <span class="kw-2">&amp;</span><span class="ident">PrivKey</span>,
         <span class="ident">next_state</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteToken</span><span class="op">&gt;</span> {
