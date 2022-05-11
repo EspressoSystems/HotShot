@@ -1,8 +1,10 @@
 //! Events that a `PhaseLock` instance can emit
 
+use crate::{
+    data::{Stage, ViewNumber},
+    error::PhaseLockError,
+};
 use std::sync::Arc;
-
-use crate::{data::Stage, error::PhaseLockError};
 
 /// A status event emitted by a `PhaseLock` instance
 ///
@@ -11,7 +13,7 @@ use crate::{data::Stage, error::PhaseLockError};
 #[derive(Clone, Debug)]
 pub struct Event<B: Send + Sync, S: Send + Sync> {
     /// The view number that this event originates from
-    pub view_number: u64,
+    pub view_number: ViewNumber,
     /// The stage that this event originates from
     pub stage: Stage,
     /// The underlying event
@@ -55,27 +57,27 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
     /// A new view was started by this node
     NewView {
         /// The view being started
-        view_number: u64,
+        view_number: ViewNumber,
     },
     /// A view was canceled by a timeout interrupt
     ViewTimeout {
         /// The view that timed out
-        view_number: u64,
+        view_number: ViewNumber,
     },
     /// This node is the leader for this view
     Leader {
         /// The current view number
-        view_number: u64,
+        view_number: ViewNumber,
     },
     /// This node is a follower for this view
     Follower {
         /// The current view number
-        view_number: u64,
+        view_number: ViewNumber,
     },
 
     /// The node has been synced with the network
     Synced {
         /// The current view number
-        view_number: u64,
+        view_number: ViewNumber,
     },
 }

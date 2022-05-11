@@ -27,7 +27,7 @@ use async_std::sync::RwLock;
 use futures::channel::oneshot::Sender;
 use phase::ViewState;
 use phaselock_types::{
-    data::Stage,
+    data::{Stage, ViewNumber},
     error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
     message::{ConsensusMessage, NewView},
     traits::{
@@ -45,22 +45,6 @@ use tracing::{debug, warn};
 
 /// The result used in this crate
 pub type Result<T = ()> = std::result::Result<T, PhaseLockError>;
-
-/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ViewNumber(u64);
-
-impl From<u64> for ViewNumber {
-    fn from(view_number: u64) -> Self {
-        Self(view_number)
-    }
-}
-
-impl From<ViewNumber> for u64 {
-    fn from(val: ViewNumber) -> Self {
-        val.0
-    }
-}
 
 /// A reference to the hotstuff implementation.
 ///
@@ -123,7 +107,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         //     return Ok(());
         // }
 
-        let view_number = ViewNumber(message.view_number());
+        let view_number = message.view_number();
         let can_insert_view = self.can_insert_view(view_number);
         let phase = match self.phases.entry(view_number) {
             Entry::Occupied(o) => o.into_mut(),
@@ -131,7 +115,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
                 if can_insert_view {
                     let phase = v.insert(ViewState::prepare(
                         view_number,
-                        api.is_leader(view_number.0, Stage::Prepare).await,
+                        api.is_leader(view_number, Stage::Prepare).await,
                     ));
                     self.active_phases.push_back(view_number);
                     debug_assert!(is_sorted(self.active_phases.iter()));
@@ -226,7 +210,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         view_number: ViewNumber,
         api: &mut A,
     ) -> Result {
-        let leader = api.get_leader(view_number.0, Stage::Prepare).await;
+        let leader = api.get_leader(view_number, Stage::Prepare).await;
         let is_leader = api.public_key() == &leader;
 
         // If we don't have this phase in our phases, insert it
@@ -246,7 +230,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             None => return utils::err("No QC in storage"),
         };
         let new_view = ConsensusMessage::NewView(NewView {
-            current_view: view_number.0,
+            current_view: view_number,
             justify: newest_qc,
         });
 

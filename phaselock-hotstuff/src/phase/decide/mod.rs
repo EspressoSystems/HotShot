@@ -103,19 +103,19 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         } = self;
 
         ctx.api.notify(blocks.clone(), states.clone()).await;
-        ctx.api.send_decide(ctx.view_number.0, blocks, states).await;
+        ctx.api.send_decide(ctx.view_number, blocks, states).await;
         if ctx.is_leader {
             ctx.send_broadcast_message(ConsensusMessage::Decide(decide.clone()))
                 .await?;
         }
 
-        if ctx.api.should_start_round(ctx.view_number.0 + 1).await {
-            let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Prepare).await;
+        if ctx.api.should_start_round(ctx.view_number + 1).await {
+            let next_leader = ctx.api.get_leader(ctx.view_number, Stage::Prepare).await;
             ctx.api
                 .send_direct_message(
                     next_leader,
                     ConsensusMessage::NewView(NewView {
-                        current_view: ctx.view_number.0 + 1,
+                        current_view: ctx.view_number + 1,
                         justify: decide.qc,
                     }),
                 )

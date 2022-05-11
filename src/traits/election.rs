@@ -1,6 +1,6 @@
 use crate::data::StateHash;
 use crate::{PrivKey, PubKey};
-use phaselock_types::data::Stage;
+use phaselock_types::data::{Stage, ViewNumber};
 use phaselock_types::traits::election::Election;
 use std::marker::PhantomData;
 
@@ -41,8 +41,8 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, table: &Self::StakeTable, view_number: u64, _: Stage) -> PubKey {
-        let index = (view_number % table.len() as u64) as usize;
+    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber, _: Stage) -> PubKey {
+        let index = (*view_number % table.len() as u64) as usize;
         table[index].clone()
     }
     /// Simply verify the signature and check the membership list
@@ -50,7 +50,7 @@ where
         &self,
         table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         pub_key: PubKey,
         token: Self::VoteToken,
         next_state: StateHash<N>,
@@ -69,7 +69,7 @@ where
         &self,
         _table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         private_key: &PrivKey,
         next_state: StateHash<N>,
     ) -> Option<Self::VoteToken> {

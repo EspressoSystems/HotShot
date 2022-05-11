@@ -7,7 +7,7 @@
 //! production use.
 
 use blake3::Hasher;
-use phaselock_types::data::{Leaf, QuorumCertificate, Stage};
+use phaselock_types::data::{Leaf, QuorumCertificate, Stage, ViewNumber};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -422,6 +422,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         4 => Stage::Decide,
         _ => unreachable!(),
     };
+
     // TODO: Generate a tc::Signature
     QuorumCertificate {
         block_hash: BlockHash::random(),
@@ -429,7 +430,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         leaf_hash: LeafHash::random(),
         signature: None,
         stage,
-        view_number: rng.gen(),
+        view_number: ViewNumber::new(rng.gen()),
     }
 }
 

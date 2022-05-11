@@ -99,7 +99,7 @@ impl<const N: usize> Outcome<N> {
         } = self;
 
         let was_leader = ctx.is_leader;
-        let next_leader = ctx.api.get_leader(ctx.view_number.0, Stage::Commit).await;
+        let next_leader = ctx.api.get_leader(ctx.view_number, Stage::Commit).await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
         if was_leader {

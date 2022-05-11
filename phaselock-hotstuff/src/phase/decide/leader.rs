@@ -98,7 +98,7 @@ impl<const N: usize> DecideLeader<N> {
         let decide = Decide {
             leaf_hash: qc.leaf_hash,
             qc,
-            current_view: ctx.view_number.0,
+            current_view: ctx.view_number,
         };
         debug!(?decide.qc, "decide qc generated");
 

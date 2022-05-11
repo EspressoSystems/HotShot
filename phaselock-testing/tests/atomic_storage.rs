@@ -18,6 +18,7 @@ use phaselock::{
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::{get_starting_state, TestLauncher};
+use phaselock_types::data::ViewNumber;
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;
@@ -103,7 +104,7 @@ async fn test_happy_path_qcs() {
     let mut certs = Vec::<QuorumCertificate<H_256>>::new();
     for i in 0..10 {
         let cert = QuorumCertificate {
-            view_number: i,
+            view_number: ViewNumber::new(i),
             ..random_quorom_certificate()
         };
         println!("Inserting {:?}", cert);
@@ -136,10 +137,7 @@ async fn test_happy_path_qcs() {
                     println!("read {:?}", c);
                     assert_eq!(&c, cert);
                 }
-                None => panic!(
-                    "Could not read view_number {}: {:?}",
-                    cert.view_number, cert
-                ),
+                None => panic!("Could not read {:?}: {:?}", cert.view_number, cert),
             }
             match store
                 .get_qc(&cert.block_hash)
@@ -253,7 +251,7 @@ async fn restart() {
                         .unwrap()
                         .unwrap()
                         .view_number,
-                    0
+                    ViewNumber::new(0)
                 );
             }
         });
@@ -286,7 +284,7 @@ async fn restart() {
                             .unwrap()
                             .unwrap()
                             .view_number,
-                        1
+                        ViewNumber::new(1)
                     );
                 }
             });
@@ -348,7 +346,7 @@ async fn restart() {
      -> Result<(), ConsensusRoundError> {
         block_on(async move {
             runner.validate_node_states().await;
-            // nodes should start at view_number 0
+            // nodes should start at view_number 1
             for node in runner.nodes() {
                 assert_eq!(
                     node.storage()
@@ -357,7 +355,7 @@ async fn restart() {
                         .unwrap()
                         .unwrap()
                         .view_number,
-                    1
+                    ViewNumber::new(1)
                 );
             }
         });
@@ -381,7 +379,7 @@ async fn restart() {
             block_on(async move {
                 runner.validate_node_states().await;
 
-                // nodes should now be at view_number 1
+                // nodes should now be at view_number 2
                 for node in runner.nodes() {
                     assert_eq!(
                         node.storage()
@@ -390,7 +388,7 @@ async fn restart() {
                             .unwrap()
                             .unwrap()
                             .view_number,
-                        2
+                        ViewNumber::new(2)
                     );
                 }
             });

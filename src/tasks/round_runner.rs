@@ -7,7 +7,7 @@ use async_std::{future::TimeoutError, task::JoinHandle};
 use flume::{unbounded, Receiver, Sender};
 use futures::channel::oneshot::Sender as OneShotSender;
 use phaselock_types::{
-    data::Stage,
+    data::{Stage, ViewNumber},
     error::PhaseLockError,
     event::{Event, EventType},
     traits::{node_implementation::NodeImplementation, storage::Storage},
@@ -37,10 +37,10 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         let (sender, receiver) = unbounded();
         let view = match phaselock.inner.storage.get_newest_qc().await {
             Ok(Some(qc)) => qc.view_number,
-            Ok(None) => 0,
+            Ok(None) => ViewNumber::genesis(),
             Err(e) => {
                 error!(?e, "Could not load the newest QC from the storage. Assuming there are no QC in the system.");
-                0
+                ViewNumber::genesis()
             }
         };
         let state = RoundRunnerState {
@@ -119,7 +119,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     }
                     match *result {
                         Ok(Ok(new_view)) => {
-                            info!("Round finished, new view number is {}", new_view);
+                            info!("Round finished, new view number is {:?}", new_view);
                             if self.state.is_running && !self.spawn().await {
                                 break;
                             }
@@ -187,7 +187,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct RoundRunnerState {
     /// The view number of the next `QuorumCertificate`
-    pub view: u64,
+    pub view: ViewNumber,
 
     /// The timeout of the next round.
     pub int_duration: u64,
@@ -199,7 +199,7 @@ pub struct RoundRunnerState {
 /// Events going to the round runner.
 pub enum ToRoundRunner {
     /// Notify the round runner that there is a new view number inserted externally that it should use from now on.
-    NewViewNumber(u64),
+    NewViewNumber(ViewNumber),
 
     /// Request the current state of the round runner.
     GetState(OneShotSender<RoundRunnerState>),
@@ -217,5 +217,5 @@ pub enum ToRoundRunner {
     ShutDown,
 
     /// Will be triggered once a round is done
-    RoundFinished(Box<Result<Result<u64, PhaseLockError>, TimeoutError>>),
+    RoundFinished(Box<Result<Result<ViewNumber, PhaseLockError>, TimeoutError>>),
 }

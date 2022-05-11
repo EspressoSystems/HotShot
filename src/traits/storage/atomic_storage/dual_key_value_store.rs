@@ -5,7 +5,7 @@
 use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
 use phaselock_types::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::{
         storage::{AtomicStoreSnafu, InconsistencySnafu, StorageError},
         BlockContents,
@@ -181,7 +181,7 @@ pub trait DualKeyValue: Serialize + DeserializeOwned + Clone {
 
 impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
     type Key1 = BlockHash<N>;
-    type Key2 = u64;
+    type Key2 = ViewNumber;
 
     const KEY_1_NAME: &'static str = "block_hash";
     const KEY_2_NAME: &'static str = "view_number";

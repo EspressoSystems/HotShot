@@ -1,4 +1,5 @@
 use blake3::Hasher;
+use phaselock_types::data::ViewNumber;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 // use jf_primitives::vrf;
@@ -115,7 +116,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     /// Hashes the view number and the next hash as the committee seed for vote token generation
     /// and verification.
-    fn hash_commitee_seed(view_number: u64, next_state: StateHash<N>) -> [u8; H_256] {
+    fn hash_commitee_seed(view_number: ViewNumber, next_state: StateHash<N>) -> [u8; H_256] {
         let mut hasher = Hasher::new();
         hasher.update("Vote token".as_bytes());
         hasher.update(&view_number.to_be_bytes());
@@ -163,7 +164,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     /// Determines the leader.
     /// Note: A leader doesn't necessarily have to be a commitee member.
-    pub fn get_leader(table: &StakeTable, view_number: u64) -> PubKey {
+    pub fn get_leader(table: &StakeTable, view_number: ViewNumber) -> PubKey {
         let mut total_stake = 0;
         for record in table.iter() {
             total_stake += record.1;
@@ -205,7 +206,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     pub fn get_votes(
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         pub_key: PubKey,
         token: VoteToken,
         next_state: StateHash<N>,
@@ -236,7 +237,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     pub fn make_vote_token(
         table: &StakeTable,
         selection_threshold: SelectionThreshold,
-        view_number: u64,
+        view_number: ViewNumber,
         private_key: &PrivKey,
         next_state: StateHash<N>,
     ) -> Option<VoteToken> {
@@ -264,8 +265,8 @@ mod tests {
     type S = ();
     const N: usize = H_256;
     const SECRET_KEYS_SEED: u64 = 1234;
-    const VIEW_NUMBER: u64 = 10;
-    const INCORRECT_VIEW_NUMBER: u64 = 11;
+    const VIEW_NUMBER: ViewNumber = ViewNumber::new(10);
+    const INCORRECT_VIEW_NUMBER: ViewNumber = ViewNumber::new(11);
     const NEXT_STATE: [u8; H_256] = [20; H_256];
     const INCORRECT_NEXT_STATE: [u8; H_256] = [22; H_256];
     const THRESHOLD: u64 = 1000;

@@ -3,7 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! `PhaseLock` nodes can send among themselves.
 
-use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage};
+use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -55,7 +55,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// Get the current view number from this message.
     /// If this message is `SubmitTransaction` the returned value will be `None`.
     /// Otherwise the return value will be the `current_view` of the inner struct.
-    pub fn view_number(&self) -> u64 {
+    pub fn view_number(&self) -> ViewNumber {
         match self {
             Self::NewView(view) => view.current_view,
             Self::Prepare(prepare) => prepare.current_view,
@@ -116,7 +116,7 @@ pub enum DataMessage<B, T, S, const N: usize> {
 /// Signals the start of a new view
 pub struct NewView<const N: usize> {
     /// The current view
-    pub current_view: u64,
+    pub current_view: ViewNumber,
     /// The justification qc for this view
     pub justify: QuorumCertificate<N>,
 }
@@ -125,7 +125,7 @@ pub struct NewView<const N: usize> {
 /// Prepare qc from the leader
 pub struct Prepare<B, S, const N: usize> {
     /// The current view
-    pub current_view: u64,
+    pub current_view: ViewNumber,
     /// The item being proposed
     pub leaf: Leaf<B, N>,
     /// The state this proposal results in
@@ -147,7 +147,7 @@ pub struct Vote<const N: usize> {
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The view this vote was cast for
-    pub current_view: u64,
+    pub current_view: ViewNumber,
 }
 
 /// Generate a wrapper for [`Vote`] for type safety.
@@ -190,7 +190,7 @@ pub struct PreCommit<const N: usize> {
     /// The pre commit qc
     pub qc: QuorumCertificate<N>,
     /// The current view
-    pub current_view: u64,
+    pub current_view: ViewNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
@@ -202,7 +202,7 @@ pub struct Commit<const N: usize> {
     /// The `Commit` qc
     pub qc: QuorumCertificate<N>,
     /// The current view
-    pub current_view: u64,
+    pub current_view: ViewNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug)]
@@ -214,7 +214,7 @@ pub struct Decide<const N: usize> {
     /// final qc for the round
     pub qc: QuorumCertificate<N>,
     /// the current view
-    pub current_view: u64,
+    pub current_view: ViewNumber,
 }
 
 /// Format a [`LeafHash`] with [`HexFmt`]
