@@ -235,7 +235,7 @@ impl<
         .await
         .expect("Could not init phaselock");
         self.nodes.push(Node {
-            handle: handle.clone(),
+            handle,
             node_id,
         });
         node_id
