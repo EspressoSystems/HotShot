@@ -16,6 +16,7 @@ use phaselock::{
 use phaselock_testing::{
     ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner, TransactionSnafu,
 };
+use phaselock_types::traits::signature_key::ed25519::Ed25519Pub;
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use snafu::ResultExt;
@@ -40,7 +41,9 @@ pub struct TimingData {
 
 /// Description of a consensus test
 pub struct TestDescriptionBuilder<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
 > {
     /// Total number of nodes in the test
@@ -75,7 +78,9 @@ pub struct TestDescriptionBuilder<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
     > TestDescription<NETWORK, STORAGE>
 {
@@ -105,7 +110,9 @@ impl<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
     > TestDescriptionBuilder<NETWORK, STORAGE>
 {
@@ -137,7 +144,9 @@ impl<
 
 /// Description of a test. Contains all metadata necessary to execute test
 pub struct TestDescription<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
 > {
     /// the ronds to run for the test
@@ -177,7 +186,7 @@ pub type TestSetup<NETWORK, STORAGE> = Vec<
 >;
 
 /// type alias for the typical network we use
-pub type TestNetwork = MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
+pub type TestNetwork = MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>;
 /// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryBlock, DemoState, N>;
 /// type alias for the test transaction type
@@ -214,7 +223,9 @@ impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
 pub fn default_submitter_id_to_round<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
@@ -261,7 +272,9 @@ pub fn default_submitter_id_to_round<
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
@@ -292,7 +305,9 @@ pub fn default_randomized_ids_to_round<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
     > TestDescriptionBuilder<NETWORK, STORAGE>
 {
@@ -339,7 +354,7 @@ pub fn gen_runner_default(
     let launcher = TestLauncher::new(desc.total_nodes);
 
     // modify runner to recognize timing params
-    let set_timing_params = |a: &mut PhaseLockConfig| {
+    let set_timing_params = |a: &mut PhaseLockConfig<Ed25519Pub>| {
         a.next_view_timeout = desc.timing_config.next_view_timeout;
         a.timeout_ratio = desc.timing_config.timeout_ratio;
         a.round_start_delay = desc.timing_config.round_start_delay;

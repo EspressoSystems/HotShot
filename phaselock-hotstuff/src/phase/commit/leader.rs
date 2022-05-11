@@ -78,20 +78,18 @@ impl<const N: usize> CommitLeader<N> {
         pre_commit: &PreCommit<N>,
         votes: Vec<PreCommitVote<N>>,
     ) -> Result<Outcome<N>> {
+        let votes: Vec<Vote<N>> = votes.into_iter().map(|x| x.into()).collect();
         // Generate QC
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|vote| (vote.id, &vote.signature)))
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::Decide,
-                source: e,
-            })?;
+        let signatures =
+            ctx.api
+                .combine_signatures(&votes)
+                .ok_or(PhaseLockError::FailedToAssembleQC {
+                    stage: Stage::Decide,
+                })?;
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
             ..pre_commit.qc
         };
@@ -103,11 +101,9 @@ impl<const N: usize> CommitLeader<N> {
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature = ctx.api.private_key().partial_sign(
-                &commit.leaf_hash,
-                Stage::Commit,
-                ctx.view_number,
-            );
+            let signature = ctx
+                .api
+                .sign_vote(&commit.leaf_hash, Stage::Commit, ctx.view_number.0);
             Some(CommitVote(Vote {
                 leaf_hash: commit.leaf_hash,
                 signature,

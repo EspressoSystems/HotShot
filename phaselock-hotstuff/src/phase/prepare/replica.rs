@@ -79,6 +79,16 @@ impl PrepareReplica {
             });
         }
 
+        let current_view = ctx.view_number.0;
+
+        let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, current_view);
+        let vote = PrepareVote(Vote {
+            signature,
+            id: ctx.api.public_key().nonce,
+            leaf_hash,
+            current_view,
+        });
+
         // Add resulting state to storage
         let new_state = state.append(&prepare.leaf.item).map_err(|error| {
             error!(?error, "Failed to append block to existing state");

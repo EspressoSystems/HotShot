@@ -3,7 +3,7 @@ use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
     error::PhaseLockError,
-    message::{Commit, CommitVote, Decide},
+    message::{Commit, CommitVote, Decide, Vote},
     traits::node_implementation::NodeImplementation,
 };
 use tracing::debug;
@@ -77,20 +77,19 @@ impl<const N: usize> DecideLeader<N> {
         commit: Commit<N>,
         votes: Vec<CommitVote<N>>,
     ) -> Result<Outcome<I, N>> {
+        // Combine votes into a signature
+        // FIXME(#170)
+        let processed_votes: Vec<Vote<N>> = votes.into_iter().map(|x| x.into()).collect();
         // Generate QC
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|vote| (vote.id, &vote.signature)))
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
+        let signatures = ctx.api.combine_signatures(&processed_votes).ok_or(
+            PhaseLockError::FailedToAssembleQC {
                 stage: Stage::Decide,
-                source: e,
-            })?;
+            },
+        )?;
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
             ..commit.qc
         };

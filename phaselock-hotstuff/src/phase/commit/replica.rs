@@ -75,10 +75,12 @@ impl<const N: usize> CommitReplica<N> {
         };
         let leaf_hash = leaf.hash();
         // Verify QC
-        if !(commit
-            .qc
-            .verify(&ctx.api.public_key().set, ctx.view_number, Stage::PreCommit)
-            && commit.leaf_hash == leaf_hash)
+        if !(commit.qc.verify(
+            ctx.api.cluster_public_keys(),
+            ctx.api.threshold().get(),
+            ctx.view_number.0,
+            Stage::PreCommit,
+        ) && commit.leaf_hash == leaf_hash)
         {
             error!(?commit.qc, "Bad or forged precommit qc");
             return Err(PhaseLockError::BadOrForgedQC {
@@ -87,10 +89,9 @@ impl<const N: usize> CommitReplica<N> {
             });
         }
 
-        let signature =
-            ctx.api
-                .private_key()
-                .partial_sign(&leaf_hash, Stage::Commit, ctx.view_number);
+        let signature = ctx
+            .api
+            .sign_vote(&leaf_hash, Stage::Commit, ctx.view_number.0);
         let vote = CommitVote(Vote {
             leaf_hash,
             signature,

@@ -3,7 +3,6 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use super::{Generator, TestRunner, N};
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    tc::{self},
     traits::{
         implementations::{MasterMap, MemoryNetwork, MemoryStorage},
         NetworkingImplementation, State, Storage,
@@ -11,36 +10,48 @@ use phaselock::{
     types::Message,
     PhaseLockConfig, PubKey,
 };
-use phaselock_types::traits::BlockContents;
-use rand::thread_rng;
+use phaselock_types::traits::{
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
+    },
+    BlockContents,
+};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
+pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE, KEY> {
     pub(super) network: Generator<NETWORK>,
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
-    pub(super) config: PhaseLockConfig,
-    pub(super) sks: tc::SecretKeySet,
+    pub(super) config: PhaseLockConfig<KEY>,
 }
 
 impl
     TestLauncher<
-        MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>,
+        MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>,
         MemoryStorage<DEntryBlock, DemoState, N>,
         DEntryBlock,
         DemoState,
+        Ed25519Pub,
     >
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(expected_node_count: usize) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
-        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
         let master: Arc<_> = MasterMap::new();
 
-        let known_nodes: Vec<PubKey> = (0..expected_node_count)
-            .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
+        let known_nodes: Vec<PubKey<Ed25519Pub>> = (0..expected_node_count)
+            .map(|node_id| {
+                PubKey::new(
+                    node_id as u64,
+                    Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
+                        [0_u8; 32],
+                        node_id as u64,
+                    )),
+                )
+            })
             .collect();
         let config = PhaseLockConfig {
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
@@ -57,35 +68,42 @@ impl
 
         Self {
             network: Box::new({
-                let sks = sks.clone();
                 move |node_id| {
-                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                    let pubkey = PubKey::new(
+                        node_id,
+                        Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
+                            [0_u8; 32], node_id,
+                        )),
+                    );
                     MemoryNetwork::new(pubkey, master.clone(), None)
                 }
             }),
             storage: Box::new(|_| MemoryStorage::default()),
             block: Box::new(|_| DEntryBlock::default()),
             state: Box::new(|_| super::get_starting_state()),
-            sks,
             config,
         }
     }
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
+impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(PubKey) -> NewNetwork + 'static,
-    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
+        network: impl Fn(PubKey<Ed25519Pub>) -> NewNetwork + 'static,
+    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE, Ed25519Pub> {
         TestLauncher {
             network: Box::new({
-                let sks = self.sks.clone();
                 move |node_id| {
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                    let pubkey = PubKey::new(
+                        node_id,
+                        Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
+                            [0_u8; 32], node_id,
+                        )),
+                    );
                     network(pubkey)
                 }
             }),
@@ -93,7 +111,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             block: self.block,
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -101,14 +118,13 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_storage<NewStorage>(
         self,
         storage: impl Fn(u64) -> NewStorage + 'static,
-    ) -> TestLauncher<NETWORK, NewStorage, BLOCK, STATE> {
+    ) -> TestLauncher<NETWORK, NewStorage, BLOCK, STATE, Ed25519Pub> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
             block: self.block,
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -116,14 +132,13 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_block<NewBlock>(
         self,
         block: impl Fn(u64) -> NewBlock + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, NewBlock, STATE> {
+    ) -> TestLauncher<NETWORK, STORAGE, NewBlock, STATE, Ed25519Pub> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
             block: Box::new(block),
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -131,36 +146,40 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_state<NewState>(
         self,
         state: impl Fn(u64) -> NewState + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, BLOCK, NewState> {
+    ) -> TestLauncher<NETWORK, STORAGE, BLOCK, NewState, Ed25519Pub> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
             block: self.block,
             state: Box::new(state),
             config: self.config,
-            sks: self.sks,
         }
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_default_config(mut self, config: PhaseLockConfig) -> Self {
+    pub fn with_default_config(mut self, config: PhaseLockConfig<Ed25519Pub>) -> Self {
         self.config = config;
         self
     }
 
     /// Modifies the config used when generating nodes with `f`
-    pub fn modify_default_config(mut self, mut f: impl FnMut(&mut PhaseLockConfig)) -> Self {
+    pub fn modify_default_config(
+        mut self,
+        mut f: impl FnMut(&mut PhaseLockConfig<Ed25519Pub>),
+    ) -> Self {
         f(&mut self.config);
         self
     }
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

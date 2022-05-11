@@ -75,9 +75,7 @@
           })
           {
             inherit pkgs;
-            # need to force threshold_crypto/use-insuecure-test-only-mock-crypto
-            # otherwise a subset of tests hang
-            rootFeatures = [ "demo" "docs" "blake3" "threshold_crypto/use-insecure-test-only-mock-crypto" ];
+            rootFeatures = [ "demo" "docs" "blake3" ];
             defaultCrateOverrides = pkgs.defaultCrateOverrides // {
               # Crate dependency overrides go here
               # pass in protobuf

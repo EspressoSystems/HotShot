@@ -326,7 +326,7 @@ mod test {
             leaf_hash: hash_leaf,
             view_number: view,
             stage: if valid { Stage::Decide } else { Stage::None },
-            signature: None,
+            signatures: Vec::new(),
             genesis: true,
         }
     }

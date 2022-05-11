@@ -7,7 +7,10 @@
 //! production use.
 
 use blake3::Hasher;
-use phaselock_types::data::{Leaf, QuorumCertificate, Stage, ViewNumber};
+use phaselock_types::{
+    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
+    traits::signature_key::ed25519::Ed25519Pub,
+};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -363,7 +366,7 @@ impl<NET> Default for DEntryNode<NET> {
 
 impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<Message<DEntryBlock, Transaction, State, H_256>>
+    NET: NetworkingImplementation<Message<DEntryBlock, Transaction, State, H_256>, Ed25519Pub>
         + Clone
         + Debug
         + 'static,
@@ -373,7 +376,8 @@ where
     type Storage = MemoryStorage<DEntryBlock, State, H_256>;
     type Networking = NET;
     type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
-    type Election = StaticCommittee<Self::State, H_256>;
+    type Election = StaticCommittee<Self::State, Self::SigningKey, H_256>;
+    type SigningKey = Ed25519Pub;
 }
 
 /// Provides a random valid transaction from the current state
@@ -428,7 +432,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         block_hash: BlockHash::random(),
         genesis: rng.gen(),
         leaf_hash: LeafHash::random(),
-        signature: None,
+        signatures: Vec::new(),
         stage,
         view_number: ViewNumber::new(rng.gen()),
     }

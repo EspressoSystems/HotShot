@@ -10,6 +10,8 @@ use std::time::Duration;
 
 use crate::PubKey;
 
+use super::signature_key::SignatureKey;
+
 /// Error type for networking
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -72,9 +74,10 @@ pub enum NetworkError {
 
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
-pub trait NetworkingImplementation<M>: Send + Sync
+pub trait NetworkingImplementation<M, K>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    K: SignatureKey + 'static,
 {
     /// Broadcasts a message to the network
     ///
@@ -82,7 +85,7 @@ where
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
-    async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError>;
+    async fn message_node(&self, message: M, recipient: PubKey<K>) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received broadcast messages, should there be any
     ///
@@ -105,13 +108,13 @@ where
     /// Node's currently known to the networking implementation
     ///
     /// Kludge function to work around leader election
-    async fn known_nodes(&self) -> Vec<PubKey>;
+    async fn known_nodes(&self) -> Vec<PubKey<K>>;
 
     /// Object safe clone
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
+    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M, K> + 'static>;
 
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
-    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError>;
+    async fn network_changes(&self) -> Result<Vec<NetworkChange<K>>, NetworkError>;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
@@ -121,12 +124,12 @@ where
 
 /// Changes that can occur in the network
 #[derive(Debug)]
-pub enum NetworkChange {
+pub enum NetworkChange<K: SignatureKey> {
     /// A node is connected
-    NodeConnected(PubKey),
+    NodeConnected(PubKey<K>),
 
     /// A node is disconnected
-    NodeDisconnected(PubKey),
+    NodeDisconnected(PubKey<K>),
 }
 
 /// interface describing how reliable the network is

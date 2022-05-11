@@ -2,15 +2,23 @@
 
 use async_trait::async_trait;
 use phaselock_types::{
-    data::{Stage, ViewNumber},
+    data::{LeafHash, Stage, ViewNumber},
     event::{Event, EventType},
+    message::Vote,
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
+        signature_key::SignatureKey,
     },
-    PrivKey, PubKey,
+    PubKey,
 };
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+
+use std::{
+    collections::HashSet,
+    num::{NonZeroU64, NonZeroUsize},
+    sync::Arc,
+    time::Duration,
+};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `phaselock` crate and passed to all functions on `HotStuff`.
 ///
@@ -37,7 +45,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn leader_acts_as_replica(&self) -> bool;
 
     /// Returns the `PubKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey;
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey<I::SigningKey>;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
@@ -47,7 +55,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Send a direct message to the given recipient
     async fn send_direct_message(
         &mut self,
-        recipient: PubKey,
+        recipient: PubKey<I::SigningKey>,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
@@ -61,10 +69,10 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn send_event(&mut self, event: Event<I::Block, I::State>);
 
     /// Get a reference to the public key.
-    fn public_key(&self) -> &PubKey;
+    fn public_key(&self) -> &PubKey<I::SigningKey>;
 
     /// Get a reference to the private key.
-    fn private_key(&self) -> &PrivKey;
+    fn private_key(&self) -> &<I::SigningKey as SignatureKey>::PrivateKey;
 
     /// The `phaselock-hotstuff` implementation will call this method, with the series of blocks and states
     /// that are being committed, whenever a commit action takes place.
@@ -109,4 +117,18 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         })
         .await;
     }
+
+    /// Combines the signatures
+    fn combine_signatures(&self, votes: &[Vote<N>]) -> Option<Vec<Vec<u8>>>;
+
+    /// Validate a QC for the current round
+    ///
+    /// TODO(#170): Integrate this with the election trait to provide support
+    /// for committe election
+    fn cluster_public_keys(&self) -> &HashSet<I::SigningKey>;
+
+    /// Signs a vote using the node's signing key
+    ///
+    /// TODO(#170): Push this functionality into the election trait
+    fn sign_vote(&self, leaf_hash: &LeafHash<N>, stage: Stage, view_number: u64) -> Vec<u8>;
 }

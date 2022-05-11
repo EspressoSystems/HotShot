@@ -3,11 +3,13 @@
 //! This module contains types used to represent the various types of messages that
 //! `PhaseLock` nodes can send among themselves.
 
-use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber};
+use crate::{
+    data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber},
+    traits::signature_key::SignatureKey,
+};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use threshold_crypto::{PublicKeySet, SignatureShare};
+use std::{collections::HashSet, fmt::Debug};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// Enum representation of any message type
@@ -71,7 +73,9 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// Validate this message on if the QC is correct, if it has one
     ///
     /// If this message has no QC then this will return `true`
-    pub fn validate_qc(&self, public_key: &PublicKeySet) -> bool {
+    ///
+    /// FIXME(#170): Integrate this with the election trait, see comment on `QC::verify`
+    pub fn validate_qc<G: SignatureKey>(&self, keys: &HashSet<G>, threshold: u64) -> bool {
         let (qc, view_number, stage) = match self {
             ConsensusMessage::NewView(view) => (&view.justify, view.current_view, Stage::Prepare),
             ConsensusMessage::Prepare(prepare) => {
@@ -88,7 +92,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
             | ConsensusMessage::PrepareVote(_) => return true,
         };
 
-        qc.verify(public_key, view_number, stage)
+        qc.verify(keys, threshold, view_number, stage)
     }
 }
 
@@ -140,7 +144,7 @@ pub struct Prepare<B, S, const N: usize> {
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
-    pub signature: SignatureShare,
+    pub signature: Vec<u8>,
     /// Id of the voting nodes
     pub id: u64,
     /// Hash of the item being voted on

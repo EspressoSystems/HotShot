@@ -44,34 +44,35 @@ use async_trait::async_trait;
 use futures::channel::oneshot;
 use phaselock_hotstuff::HotStuff;
 use phaselock_types::{
-    data::ViewNumber,
+    data::{create_verify_hash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
+        signature_key::SignatureKey,
         stateful_handler::StatefulHandler,
     },
 };
 use phaselock_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
-use std::fmt::Debug;
-use std::time::Duration;
+
+use std::time::{Duration, Instant};
+use std::{collections::HashSet, fmt::Debug};
 use std::{num::NonZeroUsize, sync::Arc};
+
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
 // External
 /// Reexport rand crate
 pub use rand;
-/// Reexport threshold crypto crate
-pub use threshold_crypto as tc;
 // Internal
 /// Reexport error type
 pub use phaselock_types::error::PhaseLockError;
 /// Reexport key types
-pub use phaselock_types::{PrivKey, PubKey};
+pub use phaselock_types::PubKey;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -83,7 +84,7 @@ type Result<T> = std::result::Result<T, PhaseLockError>;
 
 /// Holds configuration for a `PhaseLock`
 #[derive(Debug, Clone)]
-pub struct PhaseLockConfig {
+pub struct PhaseLockConfig<K> {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
@@ -91,7 +92,7 @@ pub struct PhaseLockConfig {
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
-    pub known_nodes: Vec<PubKey>,
+    pub known_nodes: Vec<PubKey<K>>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -110,14 +111,12 @@ pub struct PhaseLockConfig {
 /// Holds the state needed to participate in `PhaseLock` consensus
 pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// The public key of this node
-    public_key: PubKey,
-
-    /// The private key of this node
-    private_key: PrivKey,
-
+    public_key: PubKey<I::SigningKey>,
+    /// The genesis block, used for short-circuiting during bootstrap
+    #[allow(dead_code)]
+    genesis: I::Block,
     /// Configuration items for this phaselock instance
-    config: PhaseLockConfig,
-
+    config: PhaseLockConfig<I::SigningKey>,
     /// Networking interface for this phaselock instance
     networking: I::Networking,
 
@@ -128,8 +127,15 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     stateful_handler: Mutex<I::StatefulHandler>,
 
     /// This `PhaseLock` instance's election backend
-    election: PhaseLockElectionState<I::Election, N>,
-
+    election: PhaseLockElectionState<I::Election, I::SigningKey, N>,
+    /// This `PhaseLock` instance's signing key pair
+    signing_key: (
+        I::SigningKey,
+        <<I as NodeImplementation<N>>::SigningKey as SignatureKey>::PrivateKey,
+    ),
+    /// The list of public keys for the cluster
+    /// TODO: Rip this out, and use the `Election` trait instead
+    cluster_public_keys: HashSet<I::SigningKey>,
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
 
@@ -141,7 +147,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
 }
 
 /// Contains the state of the election of the current [`PhaseLock`].
-struct PhaseLockElectionState<E: Election<N>, const N: usize> {
+struct PhaseLockElectionState<E: Election<K, N>, K: SignatureKey, const N: usize> {
     /// An instance of the election
     election: E,
     /// The inner state of the election
@@ -164,33 +170,33 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     #[instrument(skip(
         genesis,
-        secret_key_share,
         starting_state,
         networking,
         storage,
-        election
+        election,
+        signing_private_key
     ))]
     pub async fn new(
         genesis: I::Block,
-        public_keys: tc::PublicKeySet,
-        secret_key_share: tc::SecretKeyShare,
         nonce: u64,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<I::SigningKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
+        signing_private_key: <<I as NodeImplementation<N>>::SigningKey as SignatureKey>::PrivateKey,
+        cluster_public_keys: HashSet<I::SigningKey>,
     ) -> Result<Self> {
         info!("Creating a new phaselock");
-        let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
         let leaf = Leaf {
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
         };
         let election = {
-            let state = <<I as NodeImplementation<N>>::Election as Election<N>>::State::default();
+            let state =
+                <<I as NodeImplementation<N>>::Election as Election<I::SigningKey, N>>::State::default();
             let stake_table = election.get_stake_table(&state);
             PhaseLockElectionState {
                 election,
@@ -200,21 +206,49 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         };
         let inner: PhaseLockInner<I, N> = PhaseLockInner {
             public_key: PubKey {
-                set: public_keys,
-                node: node_pub_key,
                 nonce,
-            },
-            private_key: PrivKey {
-                node: secret_key_share,
+                key: I::SigningKey::from_private(&signing_private_key),
             },
             config,
             networking,
+            transaction_queue: RwLock::new(Vec::new()),
+            committed_state: RwLock::new(Arc::new(starting_state.clone())),
+            committed_leaf: RwLock::new(leaf.hash()),
+            locked_qc: RwLock::new(Some(QuorumCertificate {
+                block_hash: genesis_hash,
+                leaf_hash: leaf.hash(),
+                view_number: 0,
+                stage: Stage::Decide,
+                signatures: Vec::new(),
+                genesis: true,
+            })),
+            prepare_qc: RwLock::new(Some(QuorumCertificate {
+                block_hash: genesis_hash,
+                leaf_hash: leaf.hash(),
+                view_number: 0,
+                stage: Stage::Prepare,
+                signatures: Vec::new(),
+                genesis: true,
+            })),
+            new_view_queue: WaitQueue::new(t),
+            prepare_vote_queue: WaitQueue::new(t),
+            precommit_vote_queue: WaitQueue::new(t),
+            commit_vote_queue: WaitQueue::new(t),
+            prepare_waiter: WaitOnce::new(),
+            precommit_waiter: WaitOnce::new(),
+            commit_waiter: WaitOnce::new(),
+            decide_waiter: WaitOnce::new(),
             storage,
             stateful_handler: Mutex::new(handler),
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             hotstuff: Mutex::default(),
+            signing_key: (
+                SignatureKey::from_private(&signing_private_key),
+                signing_private_key,
+            ),
+            cluster_public_keys,
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -227,7 +261,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     leaf_hash,
                     view_number: ViewNumber::genesis(),
                     stage: Stage::Decide,
-                    signature: None,
+                    signatures: Vec::new(),
                     genesis: true,
                 })
                 .await?;
@@ -408,21 +442,19 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
         genesis: I::Block,
-        public_keys: tc::PublicKeySet,
-        secret_key_share: tc::SecretKeyShare,
         node_id: u64,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<I::SigningKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
+        signing_private_key: <<I as NodeImplementation<N>>::SigningKey as SignatureKey>::PrivateKey,
+        cluster_public_keys: HashSet<I::SigningKey>,
     ) -> Result<PhaseLockHandle<I, N>> {
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
-            public_keys,
-            secret_key_share,
             node_id,
             config,
             starting_state,
@@ -430,6 +462,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             storage,
             handler,
             election,
+            signing_private_key,
+            cluster_public_keys,
         )
         .await?;
         let handle = tasks::spawn_all(&phaselock).await;
@@ -461,7 +495,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     pub async fn send_direct_message(
         &self,
         msg: impl Into<<I as TypeMap<N>>::Message>,
-        recipient: PubKey,
+        recipient: PubKey<I::SigningKey>,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
@@ -599,7 +633,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Handle a change in the network
-    async fn handle_network_change(&self, node: NetworkChange) {
+    async fn handle_network_change(&self, node: NetworkChange<I::SigningKey>) {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
@@ -638,10 +672,40 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         }
     }
 
+    /// Returns the public key for the leader of this round
+    fn get_leader(&self, view: u64) -> PubKey<I::SigningKey> {
+        self.inner
+            .election
+            .election
+            .get_leader(&self.inner.election.stake_table, view)
+    }
+
     /// return the timeout for a view for `self`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
+
+    /// Returns a copy of the public key of this node
+    pub fn public_signing_key(&self) -> I::SigningKey {
+        self.inner.signing_key.0.clone()
+    }
+
+    /// Creates a vote signature using this node's signing key
+    ///
+    /// TODO(#170): Move this functionality into election trait
+    pub fn sign_vote(&self, leaf: &LeafHash<N>, stage: Stage, current_view: u64) -> Vec<u8> {
+        let hash = create_verify_hash(leaf, current_view, stage);
+        I::SigningKey::sign(&self.inner.signing_key.1, hash.as_ref())
+    }
+}
+
+/// Attempts to generate a quorum certificate from the provided signatures
+fn generate_qc<'a, S: SignatureKey>(
+    signatures: impl IntoIterator<Item = (u64, &'a Vec<u8>)>,
+    _key_set: &HashSet<S>,
+) -> std::result::Result<Vec<Vec<u8>>, PhaseLockError> {
+    // FIXME(#170): Verify signatures first
+    Ok(signatures.into_iter().map(|(_, x)| x.clone()).collect())
 }
 
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`phaselock_types::traits::State`] from the given [`Storage`]

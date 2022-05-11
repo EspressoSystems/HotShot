@@ -3,12 +3,12 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `PhaseLock`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
-use crate::traits::BlockContents;
+use crate::traits::{signature_key::SignatureKey, BlockContents};
 use blake3::Hasher;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use threshold_crypto as tc;
+use std::{collections::HashSet, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -239,11 +239,12 @@ pub struct QuorumCertificate<const N: usize> {
     ///
     /// This value is covered by the threshold signature.
     pub stage: Stage,
-    /// The threshold signature associated with this Quorum Certificate.
+    /// The list of signatures establishing the vailidity of this Quorum
+    /// Certificate.
     ///
-    /// This is nullable as part of a temporary mechanism to support bootstrapping from a genesis
-    /// block, as the genesis block can not be produced through the normal means.
-    pub signature: Option<tc::Signature>,
+    /// These are binary encoded signatures made by the `NodeImplementation`
+    /// specified singature type
+    pub signatures: Vec<Vec<u8>>,
     /// Temporary bypass for boostrapping
     ///
     /// This value indicates that this is a dummy certificate for the genesis block, and thus does
@@ -255,17 +256,45 @@ pub struct QuorumCertificate<const N: usize> {
 impl<const N: usize> QuorumCertificate<N> {
     /// Verifies a quorum certificate
     ///
-    /// This concatenates the encoding of the [`Leaf`] hash, the `view_number`, and the `stage`, in
-    /// that order, and makes sure that the associated signature validates against the resulting
-    /// byte string.
+    /// This concatenates the encoding of the [`Leaf`] hash, the `view_number`,
+    /// and the `stage`, in that order, and makes sure that at least the
+    /// threshold number of the included signatures both:
+    ///  - Are made by keys in the allowed key set
+    ///  - Validate against the hash
     ///
-    /// If the `genesis` value is set, this disables the normal checking, and instead performs
-    /// bootstrap checking.
+    /// If the `genesis` value is set, this disables the normal checking, and
+    /// instead performs bootstrap checking.
+    ///
+    /// FIXME(#170): This needs to be hooked into the election trait to allow
+    /// it to verify the signatures, rather than relying on a set list, as the
+    /// list of particpiants in a given view number is, strictly speaking,
+    /// unknowable with committee election
     #[must_use]
-    pub fn verify(&self, key: &tc::PublicKeySet, view: ViewNumber, stage: Stage) -> bool {
-        if let Some(signature) = &self.signature {
+    #[allow(clippy::if_not_else)] // This one is more readable this way
+    pub fn verify<S: SignatureKey>(
+        &self,
+        keys: &HashSet<S>,
+        threshold: u64,
+        view: ViewNumber,
+        stage: Stage,
+    ) -> bool {
+        if !self.signatures.is_empty() {
             let concatenated_hash = create_verify_hash(&self.leaf_hash, view, stage);
-            key.public_key().verify(signature, &concatenated_hash)
+            // FIXME(#170): This is a really in efficent method, we should
+            // include the public key in the signature
+            let valid_signatures = self
+                .signatures
+                .iter()
+                .filter(|signature| {
+                    for key in keys {
+                        if key.validate(signature, concatenated_hash.as_ref()) {
+                            return true;
+                        }
+                    }
+                    false
+                })
+                .count();
+            valid_signatures as u64 >= threshold
         } else {
             self.genesis
         }
@@ -281,7 +310,7 @@ impl<const N: usize> QuorumCertificate<N> {
             hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
             stage: self.stage,
-            signature: self.signature.clone(),
+            signatures: self.signatures.clone(),
             genesis: self.genesis,
         }
     }
@@ -304,7 +333,7 @@ pub struct VecQuorumCertificate {
     /// The stage of consensus we were on when we made this certificate
     pub stage: Stage,
     /// The signature portion of this QC
-    pub signature: Option<tc::Signature>,
+    pub signatures: Vec<Vec<u8>>,
     /// Temporary bypass for boostrapping
     pub genesis: bool,
 }

@@ -79,15 +79,13 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         prepare: Prepare<I::Block, I::State, N>,
         votes: Vec<PrepareVote<N>>,
     ) -> Result<Outcome<N>> {
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|v| (v.id, &v.signature)))
-            .map_err(|source| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::PreCommit,
-                source,
-            })?;
+        let votes: Vec<Vote<N>> = votes.into_iter().map(|x| x.into()).collect();
+        let signatures =
+            ctx.api
+                .combine_signatures(&votes)
+                .ok_or(PhaseLockError::FailedToAssembleQC {
+                    stage: Stage::PreCommit,
+                })?;
 
         // TODO: Should we `safe_node` the incoming `Prepare`?
         let block_hash = prepare.leaf.item.hash();
@@ -98,7 +96,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             leaf_hash,
             view_number: current_view,
             stage: Stage::PreCommit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
         };
         debug!(?qc, "commit qc generated");
@@ -110,10 +108,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
 
         let vote = if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
-            let signature =
-                ctx.api
-                    .private_key()
-                    .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Commit, current_view);
             Some(PreCommitVote(Vote {
                 leaf_hash,
                 signature,

@@ -1,12 +1,15 @@
 use phaselock::{
     demos::dentry::*,
-    tc,
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PubKey, H_256,
+};
+use phaselock_types::traits::signature_key::{
+    ed25519::{Ed25519Priv, Ed25519Pub},
+    SignatureKey,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -25,7 +28,7 @@ use tracing::debug;
 
 const TRANSACTION_COUNT: u64 = 10;
 
-type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>>>;
+type Node = DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, H_256>, Ed25519Pub>>;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -60,10 +63,10 @@ fn get_host(node_config: Value, node_id: u64) -> (String, u16) {
 async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 >(
-    pub_key: PubKey,
+    pub_key: PubKey<Ed25519Pub>,
     listen_addr: &str,
     port: u16,
-) -> (WNetwork<T>, PubKey) {
+) -> (WNetwork<T, Ed25519Pub>, PubKey<Ed25519Pub>) {
     debug!(?pub_key);
     let network = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
     if let Ok(n) = network {
@@ -86,14 +89,15 @@ async fn get_networking<
 
 /// Creates the initial state and phaselock for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
+#[allow(clippy::too_many_arguments)] // TODO(#171)
 async fn init_state_and_phaselock(
-    keys: &tc::SecretKeySet,
-    public_keys: tc::PublicKeySet,
-    secret_key_share: tc::SecretKeyShare,
-    nodes: usize,
-    threshold: usize,
+    nodes: u64,
+    threshold: u64,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>>,
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, H_256>, Ed25519Pub>,
+    // TODO(#170): Remove when election trait is integrated
+    cluster_private_keys: &[Ed25519Priv],
+    cluster_public_keys: &[Ed25519Pub],
 ) -> (State, PhaseLockHandle<Node, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
@@ -112,8 +116,11 @@ async fn init_state_and_phaselock(
     };
 
     // Create the initial phaselock
-    let known_nodes: Vec<_> = (0..nodes as u64)
-        .map(|x| PubKey::from_secret_key_set_escape_hatch(keys, x))
+    let known_nodes: Vec<_> = cluster_public_keys
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(nonce, key)| PubKey::new(nonce as u64, key))
         .collect();
 
     let config = PhaseLockConfig {
@@ -130,10 +137,11 @@ async fn init_state_and_phaselock(
     };
     debug!(?config);
     let genesis = DEntryBlock::default();
+    // TODO: Do something with the keys
+    let priv_key = cluster_private_keys[node_id as usize].clone();
+    let cluster_public_keys = cluster_public_keys.iter().cloned().collect();
     let phaselock = PhaseLock::init(
         genesis,
-        public_keys,
-        secret_key_share,
         node_id,
         config,
         state.clone(),
@@ -141,6 +149,8 @@ async fn init_state_and_phaselock(
         MemoryStorage::default(),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
+        priv_key,
+        cluster_public_keys,
     )
     .await
     .expect("Could not init phaselock");
@@ -182,24 +192,31 @@ async fn main() {
         .len();
     let threshold = ((nodes * 2) / 3) + 1;
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
-    let secret_keys = tc::SecretKeySet::random(threshold as usize - 1, &mut rng);
-    let public_keys = secret_keys.public_keys();
-    let secret_key_share = secret_keys.secret_key_share(own_id);
+    // FIXME(#170): This generates the same set of keys across all nodes, this
+    // method is less than ideal, as it generates the same key set every time,
+    // and all nodes know each others private keys
+    let cluster_private_keys: Vec<Ed25519Priv> = (0..nodes)
+        .map(|x| Ed25519Priv::generated_from_seed_indexed([0_u8; 32], x))
+        .collect();
+    let cluster_public_keys: Vec<Ed25519Pub> = cluster_private_keys
+        .iter()
+        .map(Ed25519Pub::from_private)
+        .collect();
 
     // Get networking information
     // TODO: read `PubKey`s from files.
     let (own_network, _) = get_networking(
-        PubKey::from_secret_key_set_escape_hatch(&secret_keys, own_id),
+        PubKey::new(own_id, cluster_public_keys[own_id as usize].clone()),
         "0.0.0.0",
         get_host(node_config.clone(), own_id).1,
     )
     .await;
     #[allow(clippy::type_complexity)]
-    let mut other_nodes: Vec<(u64, PubKey, String, u16)> = Vec::new();
-    for id in 0..nodes as u64 {
+    let mut other_nodes: Vec<(u64, PubKey<Ed25519Pub>, String, u16)> = Vec::new();
+    for id in 0..nodes {
         if id != own_id {
             let (ip, port) = get_host(node_config.clone(), id);
-            let pub_key = PubKey::from_secret_key_set_escape_hatch(&secret_keys, id);
+            let pub_key = PubKey::new(id, cluster_public_keys[id as usize].clone());
             other_nodes.push((id, pub_key, ip, port));
         }
     }
@@ -225,13 +242,12 @@ async fn main() {
 
     // Initialize the state and phaselock
     let (mut own_state, mut phaselock) = init_state_and_phaselock(
-        &secret_keys,
-        public_keys,
-        secret_key_share,
         nodes,
         threshold,
         own_id,
         own_network,
+        &cluster_private_keys,
+        &cluster_public_keys,
     )
     .await;
     phaselock.start().await;

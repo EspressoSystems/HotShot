@@ -21,7 +21,6 @@ use phaselock::{
     demos::dentry::{
         Account, Addition, Balance, DEntryBlock, State as DemoState, Subtraction, Transaction,
     },
-    tc,
     traits::{
         election::StaticCommittee, implementations::Stateless, BlockContents,
         NetworkingImplementation, NodeImplementation, State, Storage,
@@ -29,7 +28,13 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::error::TimeoutSnafu;
+use phaselock_types::{
+    error::TimeoutSnafu,
+    traits::signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
+    },
+};
 use snafu::{ResultExt, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -59,7 +64,9 @@ pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
 /// functions to run a round of consensus
 #[derive(Clone)]
 pub struct Round<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
@@ -90,7 +97,9 @@ pub struct Round<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + 'static,
@@ -107,7 +116,9 @@ impl<
 
 /// The runner of a test network
 pub struct TestRunner<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
@@ -116,8 +127,7 @@ pub struct TestRunner<
     storage_generator: Generator<STORAGE>,
     block_generator: Generator<BLOCK>,
     state_generator: Generator<STATE>,
-    default_node_config: PhaseLockConfig,
-    sks: tc::SecretKeySet,
+    default_node_config: PhaseLockConfig<Ed25519Pub>,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
     rounds: Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>,
@@ -125,30 +135,33 @@ pub struct TestRunner<
 
 #[allow(dead_code)]
 struct Node<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+        + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
 > {
     pub node_id: u64,
-    pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
+    pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>, N>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N>,
         STATE: State<N, Block = BLOCK> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
-    pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
+    pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>) -> Self {
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
             block_generator: launcher.block,
             state_generator: launcher.state,
             default_node_config: launcher.config,
-            sks: launcher.sks,
             nodes: Vec::new(),
             next_node_id: 0,
             rounds: vec![],
@@ -164,6 +177,12 @@ impl<
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
+        // TODO(#170): Remove once election trait is integrated
+        let private_keys: Vec<Ed25519Priv> = std::iter::repeat_with(Ed25519Priv::generate)
+            .take(count)
+            .collect();
+        let public_keys: Vec<Ed25519Pub> =
+            private_keys.iter().map(Ed25519Pub::from_private).collect();
         let mut results = vec![];
         for _ in 0..count {
             let node_id = self.next_node_id;
@@ -173,7 +192,15 @@ impl<
             let state = (self.state_generator)(node_id);
             let config = self.default_node_config.clone();
             let node_id = self
-                .add_node_with_config(network, storage, block, state, config)
+                .add_node_with_config(
+                    network,
+                    storage,
+                    block,
+                    state,
+                    config,
+                    &private_keys,
+                    &public_keys,
+                )
                 .await;
             results.push(node_id);
         }
@@ -196,21 +223,26 @@ impl<
     /// Add a node with the given config. This can be used to fine tweak the settings of this particular node. The internal `next_node_id` will be incremented after calling this function.
     ///
     /// For a simpler way to add nodes to this runner, see `add_nodes`
+    #[allow(clippy::too_many_arguments)] // TODO: Remove when election trait is integrated
     pub async fn add_node_with_config(
         &mut self,
         network: NETWORK,
         storage: STORAGE,
         block: BLOCK,
         state: STATE,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<Ed25519Pub>,
+        cluster_private_keys: &[Ed25519Priv],
+        cluster_public_keys: &[Ed25519Pub],
     ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
         let known_nodes = config.known_nodes.clone();
+        // TODO(#170): Do something with the keys
+        // TODO(#170): Refactor this once we have the Election trait integrated
+        let priv_key = cluster_private_keys[node_id as usize].clone();
+        let cluster_public_keys = cluster_public_keys.iter().cloned().collect();
         let handle = PhaseLock::init(
             block,
-            self.sks.public_keys(),
-            self.sks.secret_key_share(node_id),
             node_id,
             config,
             state,
@@ -218,6 +250,8 @@ impl<
             storage,
             Stateless::default(),
             StaticCommittee::new(known_nodes),
+            priv_key,
+            cluster_public_keys,
         )
         .await
         .expect("Could not init phaselock");
@@ -228,8 +262,9 @@ impl<
     /// Iterate over the [`PhaseLockHandle`] nodes in this runner.
     pub fn nodes(
         &self,
-    ) -> impl Iterator<Item = &PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> + '_
-    {
+    ) -> impl Iterator<
+        Item = &PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>, N>,
+    > + '_ {
         self.nodes.iter().map(|node| &node.handle)
     }
 
@@ -443,7 +478,7 @@ impl<
     pub fn get_handle(
         &self,
         id: u64,
-    ) -> Option<PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> {
+    ) -> Option<PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>, N>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())
@@ -460,7 +495,9 @@ impl<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
     > TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>
 {
@@ -599,29 +636,35 @@ pub enum ConsensusTestError {
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
 #[derive(Clone)]
-pub struct TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {
+pub struct TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, KEY> {
     network: PhantomData<NETWORK>,
     storage: PhantomData<STORAGE>,
     state: PhantomData<STATE>,
     block: PhantomData<BLOCK>,
+    key: PhantomData<KEY>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>, Ed25519Pub>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + 'static,
-    > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
+    > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, Ed25519Pub>
 {
     type Block = BLOCK;
     type State = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
     type StatefulHandler = Stateless<BLOCK, STATE, N>;
-    type Election = StaticCommittee<STATE, N>;
+    type Election = StaticCommittee<STATE, Ed25519Pub, N>;
+    type SigningKey = Ed25519Pub;
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {
+impl<NETWORK, STORAGE, BLOCK, STATE, KEY> fmt::Debug
+    for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE, KEY>
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
             .field("network", &std::any::type_name::<NETWORK>())

@@ -37,18 +37,10 @@ pub enum PhaseLockError {
         bad_qc: crate::data::VecQuorumCertificate,
     },
     /// Failed to assemble a quorum certificate
-    #[snafu(display(
-        "Failed to assemble quorum certificate in stage {:?}: {}",
-        stage,
-        source
-    ))]
+    #[snafu(display("Failed to assemble quorum certificate in stage {:?}", stage,))]
     FailedToAssembleQC {
         /// The stage the error occurred in
         stage: crate::data::Stage,
-        /// The underlying crypto fault
-        // TODO: `threshold_crypto::error::Error` does not implement `StdError` so we can't use it as a source
-        #[snafu(source(false))]
-        source: threshold_crypto::error::Error,
     },
     /// A block failed verification
     #[snafu(display("Bad block in stage: {:?}", stage))]

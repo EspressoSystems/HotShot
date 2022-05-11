@@ -106,6 +106,11 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         //     warn!(?message, "Incoming message does not have a valid QC");
         //     return Ok(());
         // }
+        // Validate the incoming QC is valid
+        // if !message.validate_qc(api.cluster_public_keys(), api.threshold().get()) {
+        //    warn!(?message, "Incoming message does not have a valid QC");
+        //    return Ok(());
+        // }
 
         let view_number = message.view_number();
         let can_insert_view = self.can_insert_view(view_number);
