@@ -22,14 +22,11 @@
 //! See the [protocol documentation](documentation) for a protocol description.
 
 // Documentation module
-#[cfg(feature = "docs")]
-pub mod documentation;
-
-/// Contains structures and functions for committee election
-pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
+#[cfg(feature = "docs")]
+pub mod documentation;
 /// Contains traits consumed by [`PhaseLock`]
 pub mod traits;
 /// Contains types used by the crate
