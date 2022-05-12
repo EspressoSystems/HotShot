@@ -15,7 +15,7 @@ use phaselock::{
 use phaselock_types::data::ViewNumber;
 use phaselock_types::traits::storage::Storage;
 
-use snafu::Snafu;
+use snafu::{Snafu, Backtrace};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -24,7 +24,7 @@ const DEFAULT_TIMEOUT_RATIO: (u64, u64) = (15, 10);
 
 #[derive(Debug, Snafu)]
 enum RoundError {
-    PhaseLock { source: PhaseLockError },
+    PhaseLock { source: PhaseLockError, backtrace: Backtrace},
 }
 
 #[ignore]

@@ -43,7 +43,7 @@ rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
 serde_bytes = "0.11"
-snafu = { version = "0.7.0", features = ["backtraces"] }
+snafu = { version = "0.7.0", features = ["backtraces-impl-backtrace-crate"] }
 threshold_crypto = "0.4.0"
 tracing = "0.1.32"
 tracing-error = "0.2.0"
@@ -57,6 +57,9 @@ rand_xoshiro = "0.4.0"
 structopt = "0.3.26"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
+# color-eyre = "0.6.1"
+color-backtrace = "0.5.1"
+
 ### Profiles
 ###
 ### Note: these only apply to example executables or tests built from within this crate. They have
@@ -75,6 +78,11 @@ opt-level = 3
 ## Enable LTO for release profile
 [profile.release]
 lto = "thin"
+
+## Release symbols. Good for debugging b/c backtrace
+[profile.release-symbols]
+inherits = "release"
+debug = true
 
 ### Workspace
 # The phaselock-types crate needs to be a seperate crate, as to not create a circular dependency

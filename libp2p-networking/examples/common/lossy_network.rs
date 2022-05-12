@@ -575,7 +575,9 @@ impl IsolationConfig {
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum LossyNetworkError {
-    RtNetlink { source: rtnetlink::Error },
+    RtNetlink {
+        source: rtnetlink::Error,
+    },
     Io { source: std::io::Error },
     SetNs { source: Errno },
     InvalidConfig,

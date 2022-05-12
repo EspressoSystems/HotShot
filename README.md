@@ -7,6 +7,20 @@ VRF committee elections.
 
 Please see the rustdoc for API documentation, and the examples directory for usage.
 
+# Tests
+
+To run all tests:
+
+```
+cargo test --release --workspace -- --nocapture
+```
+
+To run all tests with backtrace debugging:
+
+```
+cargo test --profele=release-symbols --workspace
+```
+
 # Workflow
 
 See [here](./WORKFLOW.md)

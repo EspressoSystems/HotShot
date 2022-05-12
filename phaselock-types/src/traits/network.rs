@@ -6,8 +6,10 @@ use async_std::future::TimeoutError;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use snafu::Snafu;
-use std::time::Duration;
+use snafu::{Snafu, Backtrace};
+// use backtrace::Backtrace;
+// use color_eyre::eyre::Report;
+use std::{time::Duration, fmt::Display};
 
 use crate::PubKey;
 
@@ -16,64 +18,115 @@ use crate::PubKey;
 #[snafu(visibility(pub))]
 pub enum NetworkError {
     /// A Listener failed to send a message
-    ListenerSend,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    ListenerSend {
+        /// backtrace
+        backtrace: Backtrace,
+    },
     /// Could not deliver a message to a specified recipient
-    CouldNotDeliver,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    CouldNotDeliver {
+        /// backtrace
+        backtrace: Backtrace,
+    },
     /// Attempted to deliver a message to an unknown node
-    NoSuchNode,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    NoSuchNode {
+        /// backtrace
+        backtrace: Backtrace,
+    },
     /// Failed to serialize a message
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     FailedToSerialize {
         /// Originating bincode error
         source: bincode::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Failed to deserealize a message
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     FailedToDeserialize {
         /// originating bincode error
         source: bincode::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// WebSockets specific error
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     WebSocket {
         /// Originating websockets error
         source: werror::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Error orginiating from within the executor
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     ExecutorError {
         /// Originating async_std error
         source: async_std::io::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Failed to decode a socket specification
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     SocketDecodeError {
         /// Input that was given
         input: String,
         /// Originating io error
         source: std::io::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Failed to bind a listener socket
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     FailedToBindListener {
         /// originating io error
         source: std::io::Error,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// No sockets were open
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     NoSocketsError {
         /// Input that was given
         input: String,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Generic error type for compatibility if needed
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     Other {
         /// Originating error
         inner: Box<dyn std::error::Error + Send + Sync>,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// A timeout occurred
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
     Timeout {
         /// Source of error
         source: TimeoutError,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// Channel error
-    ChannelSend,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    ChannelSend {
+        /// backtrace
+        backtrace: Backtrace,
+    },
     /// Could not complete handshake
-    IdentityHandshake,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    IdentityHandshake {
+        /// backtrace
+        backtrace: Backtrace,
+    },
     /// The underlying connection has been shut down
-    ShutDown,
+    #[snafu(display("DISPLAYING THE THING!! {}",  color_backtrace::BacktracePrinter::new().format_trace_to_string(backtrace).unwrap()))]
+    ShutDown {
+        /// backtrace
+        backtrace: Backtrace,
+    },
 }
 
 /// Describes, generically, the behaviors a networking implementation must have

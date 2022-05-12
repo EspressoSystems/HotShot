@@ -224,7 +224,7 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
+                    error!("did not shut down gracefully. {}", e);
                 }
                 return;
             }
@@ -265,7 +265,7 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
+                    error!("did not shut down gracefully. {}", e);
                 }
                 return;
             }
@@ -306,7 +306,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
+                    error!("did not shut down gracefully. {}", e);
                 }
                 return;
             }

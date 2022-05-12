@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use phaselock_types::traits::network::NetworkChange;
+use phaselock_types::traits::network::{NetworkChange, ShutDownSnafu, CouldNotDeliverSnafu, NoSuchNodeSnafu};
 use rand::Rng;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -309,7 +309,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 Ok(_) => trace!(?key, "Delivered message to remote"),
                 Err(e) => {
                     error!(?e, ?key, "Error sending broadcast message to node");
-                    return Err(NetworkError::CouldNotDeliver);
+                    return Err(CouldNotDeliverSnafu.build());
                 }
             }
         }
@@ -346,12 +346,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 }
                 Err(e) => {
                     error!(?e, ?recipient, "Error delivering direct message");
-                    Err(NetworkError::CouldNotDeliver)
+                    Err(CouldNotDeliverSnafu.build())
                 }
             }
         } else {
             error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
-            Err(NetworkError::NoSuchNode)
+            Err(NoSuchNodeSnafu.build())
         }
     }
 
@@ -373,7 +373,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok(ret)
         } else {
             error!("The underlying MemoryNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -389,7 +389,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok(x)
         } else {
             error!("The underlying MemoryNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -411,7 +411,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok(ret)
         } else {
             error!("The underlying MemoryNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -427,7 +427,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok(x)
         } else {
             error!("The underlying MemoryNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -458,7 +458,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Ok(ret)
         } else {
             error!("The underlying MemoryNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 

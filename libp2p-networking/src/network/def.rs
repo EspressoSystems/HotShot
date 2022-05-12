@@ -24,6 +24,7 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
 use snafu::ResultExt;
+use super::error::NoKnownPeersSnafu;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -159,7 +160,7 @@ impl NetworkDef {
     pub fn bootstrap(&mut self) -> Result<(), NetworkError> {
         match self.kadem.bootstrap() {
             Ok(_) => Ok(()),
-            Err(_) => Err(NetworkError::NoKnownPeers),
+            Err(_) => Err(NoKnownPeersSnafu.build()),
         }
     }
 
@@ -384,7 +385,7 @@ impl NetworkDef {
     /// If we receive a get query, either send response/error to client,
     /// or initiate new get query to more nodes
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
-        use crate::network::error::GetRecordSnafu;
+        use crate::network::error::{GetRecordSnafu, NotFoundSnafu, DisagreementSnafu};
         if let Some(KadGetQuery {
             notify,
             num_replicas,
@@ -414,11 +415,12 @@ impl NetworkDef {
                     }
                     // lack of replication => error
                     else if records.len() < NUM_REPLICATED_TO_TRUST {
-                        Err(DHTError::NotFound)
+                        Err(NotFoundSnafu.build())
                     }
                     // many records that don't match => disagreement
                     else if records.len() > MAX_DHT_QUERY_SIZE {
-                        Err(DHTError::Disagreement)
+                        Err(DisagreementSnafu.build())
+                        // Err(DHTError::Disagreement)
                     }
                     // disagreement => query more nodes
                     else {

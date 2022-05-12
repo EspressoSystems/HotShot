@@ -15,7 +15,7 @@ use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, Go
 use libp2p_networking::network::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
-use phaselock_types::traits::network::FailedToSerializeSnafu;
+use phaselock_types::traits::network::{FailedToSerializeSnafu, ShutDownSnafu, ChannelSendSnafu, NoSuchNodeSnafu};
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
     PubKey,
@@ -320,7 +320,7 @@ impl<
                             broadcast_send
                                 .send_async(result)
                                 .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
+                                .map_err(|_| ChannelSendSnafu.build())?;
                         }
                     }
                     DirectRequest(msg, _pid, _) => {
@@ -331,7 +331,7 @@ impl<
                             direct_send
                                 .send_async(result)
                                 .await
-                                .map_err(|_| NetworkError::ChannelSend)?;
+                                .map_err(|_| ChannelSendSnafu.build())?;
                         }
                     }
                     DirectResponse(msg, _) => {
@@ -429,7 +429,7 @@ impl<
     )]
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         self.wait_for_ready().await;
         info!(
@@ -459,7 +459,7 @@ impl<
     )]
     async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         self.wait_for_ready().await;
         // check local cache. if that fails, initiate search
@@ -496,7 +496,7 @@ impl<
     )]
     async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         let mut ret = Vec::new();
         // Wait for the first message to come up
@@ -509,7 +509,7 @@ impl<
             Ok(ret)
         } else {
             error!("The underlying Libp2pNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -520,14 +520,14 @@ impl<
     )]
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         let x = self.inner.broadcast_recv.recv_async().await;
         if let Ok(x) = x {
             Ok(x)
         } else {
             error!("The underlying Libp2pNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -538,7 +538,7 @@ impl<
     )]
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         let mut ret = Vec::new();
         // Wait for the first message to come up
@@ -551,7 +551,7 @@ impl<
             Ok(ret)
         } else {
             error!("The underlying Libp2pNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -562,13 +562,13 @@ impl<
     )]
     async fn next_direct(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         let x = self.inner.direct_recv.recv_async().await;
         if let Ok(x) = x {
             Ok(x)
         } else {
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -591,8 +591,9 @@ impl<
         skip_all
     )]
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+        return Err(ShutDownSnafu.build());
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
+            return Err(ShutDownSnafu.build());
         }
         let mut result = vec![];
 
@@ -621,8 +622,9 @@ impl<
             result.push(NetworkChange::NodeConnected(pk.clone()));
         }
         *self.inner.recently_updated_peers.write().await = cur_connected.clone();
+        Err(NoSuchNodeSnafu.build())
 
-        Ok(result)
+        // Ok(result)
     }
 
     #[instrument(

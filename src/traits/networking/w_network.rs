@@ -9,7 +9,7 @@ use crate::traits::networking::{
     CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
     SocketDecodeSnafu, WebSocketSnafu,
 };
-use crate::traits::NetworkError;
+use crate::traits::{NetworkError};
 use async_std::prelude::FutureExt;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
@@ -27,7 +27,7 @@ use dashmap::DashMap;
 use flume::{Receiver, Sender};
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, prelude::*};
-use phaselock_types::traits::network::NetworkChange;
+use phaselock_types::traits::network::{NetworkChange, NoSuchNodeSnafu, ShutDownSnafu, IdentityHandshakeSnafu, ChannelSendSnafu};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -214,7 +214,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 let res = inputs.broadcast.send_async(inner).await;
                 match res {
                     Ok(_) => Ok(None),
-                    Err(_) => Err(NetworkError::ChannelSend),
+                    Err(_) => Err(ChannelSendSnafu.build()),
                 }
             }
             Command::Direct { inner, .. } => {
@@ -222,7 +222,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 let res = inputs.direct.send_async(inner).await;
                 match res {
                     Ok(_) => Ok(None),
-                    Err(_) => Err(NetworkError::ChannelSend),
+                    Err(_) => Err(ChannelSendSnafu.build()),
                 }
             }
             Command::Ack { ack_id, .. } => {
@@ -302,7 +302,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             if res.is_err() {
                 error!("Failed to ident, closing stream");
                 *shutdown.write().await = true;
-                return Err(NetworkError::IdentityHandshake);
+                return Err(IdentityHandshakeSnafu.build());
             }
             trace!("Ident successful");
             Some(r)
@@ -470,7 +470,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             }
             Ok((pk, handle))
         } else {
-            let pk = pk_r.await.map_err(|_| NetworkError::IdentityHandshake)?;
+            let pk = pk_r.await.map_err(|_| IdentityHandshakeSnafu.build())?;
             Ok((pk, handle))
         }
     }
@@ -525,10 +525,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let res = handle.outbound.send_async(message).await;
             match res {
                 Ok(_) => Ok(()),
-                Err(_) => Err(NetworkError::CouldNotDeliver),
+                Err(_) => Err(CouldNotDeliverSnafu.build()),
             }
         } else {
-            Err(NetworkError::NoSuchNode)
+            Err(NoSuchNodeSnafu.build())
         }
     }
 
@@ -552,9 +552,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let s_addr = match s_string.to_socket_addrs().await {
             Ok(mut x) => x.next().context(NoSocketsSnafu { input: s_string })?,
             Err(e) => {
-                return Err(NetworkError::SocketDecodeError {
+                return Err(e).context(SocketDecodeSnafu {
                     input: s_string,
-                    source: e,
                 })
             }
         };
@@ -816,7 +815,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             // Flag an error if this handle has shut down
             if *handle.shutdown.read().await {
                 warn!(?key, "Handle to remote node shut down");
-                errors.push(NetworkError::CouldNotDeliver);
+                errors.push(CouldNotDeliverSnafu.build());
             }
             // Pack up the message into a command
             let id = self.get_next_message_id();
@@ -855,7 +854,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             // Flag an error if this handle was shut down
             if *handle.shutdown.read().await {
                 error!(?recipient, "Handle to remote node shut down");
-                return Err(NetworkError::CouldNotDeliver);
+                return Err(CouldNotDeliverSnafu.build());
             }
             // Pack up the message into a command
             let id = self.get_next_message_id();
@@ -877,7 +876,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(())
         } else {
             error!(?message, ?recipient, "Node did not exist");
-            Err(NetworkError::NoSuchNode)
+            Err(NoSuchNodeSnafu.build())
         }
     }
 
@@ -898,7 +897,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(ret)
         } else {
             error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -914,7 +913,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(x)
         } else {
             error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -935,7 +934,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(ret)
         } else {
             error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -951,7 +950,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(x)
         } else {
             error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 
@@ -977,7 +976,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             Ok(ret)
         } else {
             error!("The underlying WNetwork has shut down");
-            Err(NetworkError::ShutDown)
+            Err(ShutDownSnafu.build())
         }
     }
 

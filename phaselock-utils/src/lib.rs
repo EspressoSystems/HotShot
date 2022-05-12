@@ -50,7 +50,12 @@ pub mod test_util {
     /// enable backtraces exactly once
     pub fn setup_backtrace() {
         INIT_2.call_once(|| {
-            color_eyre::install().unwrap();
+            let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default().into_hooks();
+            eyre_hook.install().unwrap();
+
+            std::panic::set_hook(Box::new(move |pi| {
+                tracing::error!("{}", panic_hook.panic_report(pi));
+            }));
         });
     }
 

@@ -10,5 +10,5 @@ async-trait = "0.1.53"
 custom_debug = "0.5"
 futures = "0.3.21"
 phaselock-types = { path = "../phaselock-types" }
-snafu = "0.7.0"
+snafu = { version = "0.7.0", features = ["backtraces-impl-backtrace-crate"] }
 tracing = "0.1.33"

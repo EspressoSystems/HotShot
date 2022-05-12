@@ -6,7 +6,7 @@ pub use self::{
     handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use super::{
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu, NoKnownPeersSnafu, StreamClosedSnafu},
     gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
 };
 use crate::{
@@ -384,7 +384,7 @@ impl NetworkNode {
                 if behaviour.should_bootstrap() {
                     behaviour
                         .bootstrap()
-                        .map_err(|_e| NetworkError::NoKnownPeers)?;
+                        .map_err(|_e| NoKnownPeersSnafu.build())?;
                 }
             }
             ConnectionClosed {
@@ -412,7 +412,7 @@ impl NetworkNode {
                 send_to_client
                     .send_async(b)
                     .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
+                    .map_err(|_e| StreamClosedSnafu.build())?;
             }
             OutgoingConnectionError { peer_id, error } => {
                 warn!(?error);

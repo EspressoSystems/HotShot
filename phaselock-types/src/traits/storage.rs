@@ -8,7 +8,7 @@ use crate::{
 use async_trait::async_trait;
 use futures::Future;
 use serde::{Deserialize, Serialize};
-use snafu::Snafu;
+use snafu::{Snafu, Backtrace};
 
 /// Errors that can occur in the storage layer.
 #[derive(Snafu, Debug)]
@@ -18,11 +18,15 @@ pub enum StorageError {
     AtomicStore {
         /// The inner error
         source: atomic_store::error::PersistenceError,
+        /// backtrace
+        backtrace: Backtrace,
     },
     /// An inconsistency was found in the data.
     InconsistencyError {
         /// The description of the inconsistency
         description: String,
+        /// backtrace
+        backtrace: Backtrace,
     },
 }
 

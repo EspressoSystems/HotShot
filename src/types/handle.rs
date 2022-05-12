@@ -2,12 +2,12 @@
 
 use crate::{
     tasks::RoundRunnerState,
-    traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
+    traits::{BlockContents, NodeImplementation},
     types::{Event, PhaseLockError::NetworkFault},
     PhaseLock, Result,
 };
 use async_std::task::block_on;
-use phaselock_types::traits::network::NetworkingImplementation;
+use phaselock_types::traits::network::{NetworkingImplementation, ShutDownSnafu};
 use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -57,7 +57,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
-            Err(_) => Err(NetworkFault { source: ShutDown }),
+            Err(_) => Err(NetworkFault { source: ShutDownSnafu.build() }),
         }
     }
     /// Syncronous version of `next_event`
