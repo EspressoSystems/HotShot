@@ -93,6 +93,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let block_hash = prepare.leaf.item.hash();
         let leaf_hash = prepare.leaf.hash();
         let current_view = ctx.view_number;
+
         let qc = QuorumCertificate {
             block_hash,
             leaf_hash,

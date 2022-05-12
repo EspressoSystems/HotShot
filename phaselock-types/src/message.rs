@@ -86,17 +86,17 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// If this message has no QC then this will return `true`
     pub fn validate_qc(&self, public_key: &PublicKeySet) -> bool {
         let (qc, view_number, stage) = match self {
-            ConsensusMessage::NewView(view) => (&view.justify, view.current_view, Stage::Prepare),
-            ConsensusMessage::Prepare(prepare) => {
-                (&prepare.high_qc, prepare.current_view, Stage::Prepare)
-            }
             ConsensusMessage::PreCommit(pre_commit) => {
-                (&pre_commit.qc, pre_commit.current_view, Stage::PreCommit)
+                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
+                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
             }
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::Commit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Decide),
+            // Same as PreCommit, we compare with 1 stage earlier
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
 
-            ConsensusMessage::CommitVote(_)
+            ConsensusMessage::NewView(_)
+            | ConsensusMessage::Prepare(_)
+            | ConsensusMessage::CommitVote(_)
             | ConsensusMessage::PreCommitVote(_)
             | ConsensusMessage::PrepareVote(_) => return true,
         };
