@@ -335,7 +335,6 @@ impl NetworkDef {
         for (topic, contents) in self.in_progress_gossip.as_slice() {
             let res = self.gossipsub.publish(topic.clone(), contents.clone());
             if res.is_err() {
-                println!("ANOTHER ERROR !!");
                 break;
             }
             num_sent += 1;

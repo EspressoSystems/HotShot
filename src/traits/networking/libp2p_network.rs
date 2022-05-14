@@ -7,7 +7,7 @@ use async_std::sync::RwLock;
 use async_std::task::{block_on, sleep, spawn};
 use async_trait::async_trait;
 use bincode::Options;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use flume::Sender;
 use futures::future::join_all;
 use libp2p::{Multiaddr, PeerId};
@@ -25,7 +25,6 @@ use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 
 use std::{sync::Arc, time::Duration};
@@ -51,8 +50,6 @@ struct Libp2pNetworkInner<
     pubkey_to_pid: DashMap<PubKey, PeerId>,
     /// map of known replica peer ids to public keys
     pid_to_pubkey: DashMap<PeerId, PubKey>,
-    /// type of the message
-    msg_type: PhantomData<M>,
     /// Receiver for broadcast messages
     broadcast_recv: flume::Receiver<M>,
     /// Sender for broadcast messages
@@ -68,7 +65,7 @@ struct Libp2pNetworkInner<
     is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
     /// set of recently seen peers
     /// TODO jr make this LRU eventually/less jank
-    recently_updated_peers: RwLock<HashSet<PeerId>>,
+    recently_updated_peers: DashSet<PeerId>,
 }
 
 /// Networking implementation that uses libp2p
@@ -203,7 +200,6 @@ impl<
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: network_handle,
-                msg_type: PhantomData::<M>,
                 pubkey_to_pid,
                 pid_to_pubkey,
                 broadcast_recv,
@@ -213,7 +209,7 @@ impl<
                 bootstrap_addrs,
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
-                recently_updated_peers: RwLock::default(),
+                recently_updated_peers: DashSet::default(),
             }),
         };
 
@@ -250,6 +246,9 @@ impl<
                 // do we care?
                 handle.subscribe("global".to_string()).await.unwrap();
                 info!("connected status for {} is {:?}", pk.nonce, connected);
+
+                // TODO fix me with less aggressive logic and a timeout
+                // TODO union type over records so no hashmap collsion
 
                 'a: loop {
                     match handle
@@ -360,8 +359,10 @@ impl<
                 let known_nodes = handle
                     .inner
                     .pubkey_to_pid
-                    .iter()
-                    .map(|kv| *kv.pair().1)
+                    .clone()
+                    .into_read_only()
+                    .values()
+                    .copied()
                     .collect::<HashSet<_>>();
                 let libp2p_known_nodes = handle.inner.handle.known_peers().await;
                 let unknown_nodes = libp2p_known_nodes
@@ -596,7 +597,12 @@ impl<
         }
         let mut result = vec![];
 
-        let old_connected = self.inner.recently_updated_peers.read().await.clone();
+        let old_connected = self
+            .inner
+            .recently_updated_peers
+            .clone()
+            .into_iter()
+            .collect();
 
         let cur_connected: HashSet<_> = self.inner.handle.connected_peers().await;
 
@@ -620,7 +626,10 @@ impl<
             };
             result.push(NetworkChange::NodeConnected(pk.clone()));
         }
-        *self.inner.recently_updated_peers.write().await = cur_connected.clone();
+        self.inner.recently_updated_peers.clear();
+        for pid in cur_connected {
+            self.inner.recently_updated_peers.insert(pid);
+        }
 
         Ok(result)
     }

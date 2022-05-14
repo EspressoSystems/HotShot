@@ -294,7 +294,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn broadcast_message(&self, message: T) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
-        error!("broadcasting msg: {:?} ", message);
         // Bincode the message
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let vec = bincode_options

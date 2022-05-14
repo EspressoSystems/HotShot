@@ -338,7 +338,11 @@ impl<
                 // 1) all nodes have the SAME state
                 // 2) no nodes failed
                 async_std::task::block_on(runner.validate_node_states());
-                assert!(results.failures.is_empty());
+                assert!(
+                    results.failures.is_empty(),
+                    "Failing nodes: {:?}",
+                    results.failures
+                );
                 Ok(())
             };
 
