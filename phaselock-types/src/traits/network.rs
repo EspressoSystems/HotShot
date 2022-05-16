@@ -15,6 +15,8 @@ use crate::PubKey;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum NetworkError {
+    /// DHT error
+    DHTError,
     /// A Listener failed to send a message
     ListenerSend,
     /// Could not deliver a message to a specified recipient

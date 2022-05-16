@@ -1,10 +1,8 @@
 use crate::{
     direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
-    network::{
-        error::{DHTError, GetRecordWrapperError},
-        NetworkError, NetworkEvent,
-    },
+    network::{NetworkError, NetworkEvent},
 };
+use either::Either;
 use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic as Topic},
@@ -23,7 +21,6 @@ use libp2p::{
 };
 use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
-use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -97,7 +94,9 @@ pub struct NetworkDef {
     in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
     /// query_id -> (notify_channel to client)
     #[behaviour(ignore)]
-    in_progress_put_record_queries: HashMap<QueryId, Sender<Result<(), DHTError>>>,
+    in_progress_put_record_queries: HashMap<Either<usize, QueryId>, KadPutQuery>,
+    #[behaviour(ignore)]
+    in_progress_put_record_uid: usize,
 }
 
 impl NetworkDef {
@@ -124,6 +123,7 @@ impl NetworkDef {
             unknown_addrs: HashSet::new(),
             in_progress_get_record_queries: HashMap::new(),
             in_progress_put_record_queries: HashMap::new(),
+            in_progress_put_record_uid: 0,
             // currently only functionality is to "not prune" these nodes
             ignored_peers,
         }
@@ -341,6 +341,21 @@ impl NetworkDef {
         }
         self.in_progress_gossip = self.in_progress_gossip[num_sent..].into();
     }
+
+    /// attempt to put all unstarted put querys to DHT
+    pub fn retry_put_dht(&mut self) {
+        // must collect and then iterate otherwise multiple
+        // mutable reeferences to self
+        let records: Vec<_> = self.in_progress_put_record_queries.drain().collect();
+        for (k, v) in records {
+            if v.progress == DHTProgress::NotStarted {
+                // TODO optimization, if one attempt fails, short circuit out
+                self.put_record(v);
+            } else {
+                self.in_progress_put_record_queries.insert(k, v);
+            }
+        }
+    }
 }
 
 /// DHT functions
@@ -349,30 +364,41 @@ impl NetworkDef {
     /// Once replicated upon all nodes, the caller is notified over
     /// `chan`. If there is an error, a [`DHTError`] is
     /// sent instead.
-    pub fn put_record(&mut self, key: Vec<u8>, value: Vec<u8>, chan: Sender<Result<(), DHTError>>) {
-        let record = Record::new(key, value);
+    pub fn put_record(&mut self, query: KadPutQuery) {
+        let record = Record::new(query.key.clone(), query.value.clone());
+        let uid = self.new_put_uid();
 
         match self.kadem.put_record(record, Quorum::Majority) {
             Err(e) => {
-                error!("Error publishing to DHT: {e:?}");
+                warn!("Error publishing to DHT: {e:?}");
+                self.in_progress_put_record_queries
+                    .insert(Either::Left(uid), query);
             }
             Ok(qid) => {
-                self.in_progress_put_record_queries.insert(qid, chan);
+                let query = KadPutQuery {
+                    progress: DHTProgress::InProgress(qid),
+                    ..query
+                };
+                self.in_progress_put_record_queries
+                    .insert(Either::Right(qid), query);
             }
         }
+    }
+
+    /// generates new uid for put record query
+    pub fn new_put_uid(&mut self) -> usize {
+        let uid = self.in_progress_put_record_uid;
+        self.in_progress_put_record_uid += 1;
+        uid
     }
 
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`DHTError`] is sent instead.
-    pub fn get_record(
-        &mut self,
-        key: Vec<u8>,
-        chan: Sender<Result<Vec<u8>, DHTError>>,
-        factor: NonZeroUsize,
-    ) {
+    pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize) {
         let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
         let query = KadGetQuery {
+            progress: DHTProgress::InProgress(qid),
             notify: chan,
             num_replicas: factor,
             key,
@@ -383,14 +409,19 @@ impl NetworkDef {
     /// If we receive a get query, either send response/error to client,
     /// or initiate new get query to more nodes
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
-        use crate::network::error::GetRecordSnafu;
         if let Some(KadGetQuery {
+            progress,
             notify,
             num_replicas,
             key,
         }) = self.in_progress_get_record_queries.remove(&id)
         {
-            let value_to_send = match record_results {
+            // if channel has been dropped, cancel request
+            if notify.is_canceled() {
+                return;
+            }
+
+            match record_results {
                 Ok(GetRecordOk {
                     records,
                     cache_candidates: _,
@@ -409,15 +440,22 @@ impl NetworkDef {
                     // NOTE case where multiple nodes agree on different
                     // values is not handles
                     if let Some((r, _)) = results.into_iter().find(|(_, v)| *v >= 2) {
-                        Ok(r)
+                        if notify.send(r).is_err() {
+                            warn!("channel closed before get record request result could be sent");
+                        }
                     }
                     // lack of replication => error
                     else if records.len() < NUM_REPLICATED_TO_TRUST {
-                        Err(DHTError::NotFound)
+                        warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                        self.get_record(key, notify, num_replicas);
                     }
                     // many records that don't match => disagreement
                     else if records.len() > MAX_DHT_QUERY_SIZE {
-                        Err(DHTError::Disagreement)
+                        warn!(
+                            "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
+                            progress
+                        );
+                        self.get_record(key, notify, num_replicas);
                     }
                     // disagreement => query more nodes
                     else {
@@ -427,17 +465,14 @@ impl NetworkDef {
                             NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
 
                         self.get_record(key, notify, new_factor);
-                        return;
+                        warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
                     }
                 }
                 Err(e) => {
-                    Err(GetRecordWrapperError::GetRecordError { source: e }).context(GetRecordSnafu)
+                    warn!("Get DHT: Internal error {:?}. Requerying {:?}", e, progress);
+                    self.get_record(key, notify, num_replicas);
                 }
             };
-            if notify.send(value_to_send).is_err() {
-                error!("channel closed before get record request could be sent");
-            }
-            self.in_progress_get_record_queries.remove(&id);
         } else {
             warn!("completed DHT query that is no longer tracked.");
         }
@@ -524,15 +559,27 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 id,
                 ..
             } => {
-                use crate::network::error::PutRecordSnafu;
-                if let Some(chan) = self.in_progress_put_record_queries.remove(&id) {
-                    let value_to_send = r.map(|_| {}).context(PutRecordSnafu);
-                    if chan.send(value_to_send).is_err() {
-                        error!("client channel closed before get record request could be sent");
+                if let Some(query) = self
+                    .in_progress_put_record_queries
+                    .remove(&Either::Right(id))
+                {
+                    if query.notify.is_canceled() {
+                        return;
                     }
-                    self.in_progress_put_record_queries.remove(&id);
+
+                    match r {
+                        Ok(_) => {
+                            if query.notify.send(()).is_err() {
+                                warn!("Put DHT: client channel closed before put record request could be sent");
+                            }
+                        }
+                        Err(e) => {
+                            self.put_record(query);
+                            warn!("Put DHT: error performing put: {:?}. Retrying.", e);
+                        }
+                    }
                 } else {
-                    warn!("completed DHT query that is no longer tracked.");
+                    warn!("Put DHT: completed DHT query that is no longer tracked.");
                 }
             }
             _ => {
@@ -614,13 +661,35 @@ enum BootstrapState {
     Finished,
 }
 
+/// represents progress through DHT
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
+pub enum DHTProgress {
+    InProgress(QueryId),
+    NotStarted,
+}
+
 /// Metadata holder for get query
 #[derive(Debug)]
-struct KadGetQuery {
+pub(crate) struct KadGetQuery {
+    /// progress through DHT query
+    pub(crate) progress: DHTProgress,
     /// notify client of result
-    notify: Sender<Result<Vec<u8>, DHTError>>,
+    pub(crate) notify: Sender<Vec<u8>>,
     /// number of replicas required to replicate over
-    num_replicas: NonZeroUsize,
+    pub(crate) num_replicas: NonZeroUsize,
     /// the key to look up
-    key: Vec<u8>,
+    pub(crate) key: Vec<u8>,
+}
+
+/// Metadata holder for get query
+#[derive(Debug)]
+pub struct KadPutQuery {
+    /// progress through DHT query
+    pub(crate) progress: DHTProgress,
+    /// notify client of result
+    pub(crate) notify: Sender<()>,
+    /// the key to put
+    pub(crate) key: Vec<u8>,
+    /// the value to put
+    pub(crate) value: Vec<u8>,
 }

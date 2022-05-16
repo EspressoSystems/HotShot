@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{
     direct_message::{DirectMessageCodec, DirectMessageProtocol},
-    network::def::NUM_REPLICATED_TO_TRUST,
+    network::def::{DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
 };
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
@@ -299,7 +299,13 @@ impl NetworkNode {
                 use ClientRequest::*;
                 match msg {
                     PutDHT { key, value, notify } => {
-                        self.swarm.behaviour_mut().put_record(key, value, notify);
+                        let query = KadPutQuery {
+                            progress: DHTProgress::NotStarted,
+                            notify,
+                            key,
+                            value,
+                        };
+                        self.swarm.behaviour_mut().put_record(query);
                     }
                     GetDHT { key, notify } => {
                         self.swarm.behaviour_mut().get_record(
@@ -431,6 +437,13 @@ impl NetworkNode {
         self.swarm.behaviour_mut().drain_publish_gossips();
     }
 
+    /// periodically retry put requests to dht if they've failed
+    #[allow(clippy::panic)]
+    #[instrument(skip(self))]
+    pub fn retry_put_dht(&mut self) {
+        self.swarm.behaviour_mut().drain_publish_gossips();
+    }
+
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
     #[allow(clippy::panic)]
@@ -454,6 +467,9 @@ impl NetworkNode {
                         },
                         _ = sleep(Duration::from_millis(25)).fuse() => {
                             self.handle_num_connections();
+                        }
+                        _ = sleep(Duration::from_millis(25)).fuse() => {
+                            self.retry_put_dht();
                         }
                         _ = sleep(Duration::from_secs(5)).fuse() => {
                             self.prune_num_connections();

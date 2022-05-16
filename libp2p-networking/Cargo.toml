@@ -31,6 +31,8 @@ derive_builder = "0.11.1"
 custom_debug = "0.5"
 phaselock-utils = { path = "../phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
 phaselock-types = { path = "../phaselock-types", version = "0.0.7"}
+either = { version = "1.6.1" }
+
 
 # Feature dependencies
 

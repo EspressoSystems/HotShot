@@ -66,6 +66,8 @@ struct Libp2pNetworkInner<
     /// set of recently seen peers
     /// TODO jr make this LRU eventually/less jank
     recently_updated_peers: DashSet<PeerId>,
+    /// max time before dropping message due to DHT error
+    dht_timeout: Duration,
 }
 
 /// Networking implementation that uses libp2p
@@ -210,6 +212,7 @@ impl<
                 is_ready: is_ready.clone(),
                 is_ready_listener: is_ready,
                 recently_updated_peers: DashSet::default(),
+                dht_timeout: Duration::from_secs(2),
             }),
         };
 
@@ -247,39 +250,17 @@ impl<
                 handle.subscribe("global".to_string()).await.unwrap();
                 info!("connected status for {} is {:?}", pk.nonce, connected);
 
-                // TODO fix me with less aggressive logic and a timeout
-                // TODO union type over records so no hashmap collsion
-
-                'a: loop {
-                    match handle
-                        .put_record(&pk, &handle.peer_id())
-                        .await
-                        .map_err(Into::<NetworkError>::into)
-                    {
-                        Ok(_) => {
-                            info!("node {:?} successfully published to peers!", pk.nonce);
-                            break 'a;
-                        }
-                        Err(_) => {
-                            continue;
-                        }
-                    }
-                }
-                'b: loop {
-                    match handle
-                        .put_record(&handle.peer_id(), &pk)
-                        .await
-                        .map_err(Into::<NetworkError>::into)
-                    {
-                        Ok(_) => {
-                            info!("node {:?} successfully published to peers!", pk.nonce);
-                            break 'b;
-                        }
-                        Err(_) => {
-                            continue;
-                        }
-                    }
-                }
+                // these will spin indefinitely but since this is async, that's okay.
+                // we want our records published before
+                // we begin participating in consensus
+                handle
+                    .put_record(&pk, &handle.peer_id())
+                    .await
+                    .map_err(Into::<NetworkError>::into)?;
+                handle
+                    .put_record(&handle.peer_id(), &pk)
+                    .await
+                    .map_err(Into::<NetworkError>::into)?;
 
                 is_ready
                     .modify_async(|s| {
@@ -467,20 +448,20 @@ impl<
         let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
             *pid
         } else {
-            loop {
-                match self
-                    .inner
-                    .handle
-                    .get_record(&recipient)
-                    .await
-                    .map_err(Into::<NetworkError>::into)
-                {
-                    Ok(r) => {
-                        break r;
-                    }
-                    Err(_e) => {}
+            // TODO separate out into separate function
+            match self
+                .inner
+                .handle
+                .get_record_timeout(&recipient, self.inner.dht_timeout)
+                .await
+                .map_err(Into::<NetworkError>::into)
+            {
+                Ok(r) => r,
+                Err(_e) => {
+                    unreachable!();
                 }
             }
+            // TODO insert
         };
         self.inner
             .handle
@@ -610,18 +591,16 @@ impl<
         let added_peers = cur_connected.difference(&old_connected);
 
         for pid in added_peers.clone() {
-            let pk: PubKey = loop {
-                match self
-                    .inner
-                    .handle
-                    .get_record(&pid)
-                    .await
-                    .map_err(Into::<NetworkError>::into)
-                {
-                    Ok(r) => {
-                        break r;
-                    }
-                    Err(_e) => {}
+            let pk: PubKey = match self
+                .inner
+                .handle
+                .get_record_timeout(&pid, self.inner.dht_timeout)
+                .await
+                .map_err(Into::<NetworkError>::into)
+            {
+                Ok(r) => r,
+                Err(_e) => {
+                    unreachable!()
                 }
             };
             result.push(NetworkChange::NodeConnected(pk.clone()));
@@ -677,7 +656,7 @@ impl<
         self.wait_for_ready().await;
         self.inner
             .handle
-            .get_record(&key)
+            .get_record_timeout(&key, self.inner.dht_timeout)
             .await
             .map_err(Into::<NetworkError>::into)
     }

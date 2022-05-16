@@ -175,10 +175,7 @@ impl<S> NetworkNodeHandle<S> {
 
         self.send_request(req).await?;
 
-        match r.await.context(CancelledRequestSnafu) {
-            Ok(r) => r.context(DHTSnafu),
-            Err(e) => Err(e).context(DHTSnafu),
-        }
+        r.await.context(CancelledRequestSnafu).context(DHTSnafu)
     }
 
     /// Receive a record from the kademlia DHT if it exists.
@@ -202,12 +199,9 @@ impl<S> NetworkNodeHandle<S> {
         self.send_request(req).await?;
 
         match r.await.context(CancelledRequestSnafu) {
-            Ok(result) => match result {
-                Ok(r) => bincode_options
-                    .deserialize(&r)
-                    .context(DeserializationSnafu),
-                Err(e) => Err(e).context(DHTSnafu),
-            },
+            Ok(result) => bincode_options
+                .deserialize(&*result)
+                .context(DeserializationSnafu),
             Err(e) => Err(e).context(DHTSnafu),
         }
     }

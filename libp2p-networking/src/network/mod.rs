@@ -11,10 +11,7 @@ pub use self::{
     },
 };
 
-use self::{
-    error::{DHTError, TransportLaunchSnafu},
-    node::network_node_handle_error::TimeoutSnafu,
-};
+use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu};
 use crate::direct_message::DirectMessageResponse;
 use async_std::prelude::FutureExt as _;
 use async_std::task::spawn;
@@ -132,14 +129,14 @@ pub enum ClientRequest {
         /// Value to publish under
         value: Vec<u8>,
         /// Channel to notify caller of result of publishing
-        notify: Sender<Result<(), DHTError>>,
+        notify: Sender<()>,
     },
     /// Get(Key, Chan)
     GetDHT {
         /// Key to search for
         key: Vec<u8>,
         /// Channel to notify caller of value (or failure to find value)
-        notify: Sender<Result<Vec<u8>, DHTError>>,
+        notify: Sender<Vec<u8>>,
     },
 }
 
