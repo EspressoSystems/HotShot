@@ -34,6 +34,7 @@ use phaselock_types::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
     },
+    PubKey,
 };
 use snafu::ResultExt;
 use std::{
@@ -98,14 +99,13 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
         api: &mut A,
+        sender: PubKey,
     ) -> Result {
-        // TODO https://github.com/EspressoSystems/phaselock/issues/158
-        // We need the `PubKey` associated with the sender, not our own
-        // // Validate the incoming QC is valid
-        // if !message.validate_qc(&api.public_key().set) {
-        //     warn!(?message, "Incoming message does not have a valid QC");
-        //     return Ok(());
-        // }
+        // Validate the incoming QC is valid
+        if !message.validate_qc(&sender.set) {
+            warn!(?message, "Incoming message does not have a valid QC");
+            return Ok(());
+        }
 
         let view_number = message.view_number();
         let can_insert_view = self.can_insert_view(view_number);

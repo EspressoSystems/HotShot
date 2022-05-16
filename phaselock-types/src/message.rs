@@ -3,28 +3,41 @@
 //! This module contains types used to represent the various types of messages that
 //! `PhaseLock` nodes can send among themselves.
 
-use crate::data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber};
+use crate::{
+    data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber},
+    PubKey,
+};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use threshold_crypto::{PublicKeySet, SignatureShare};
 
+/// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Message<B, T, S, const N: usize> {
+    /// The sender of this message
+    pub sender: PubKey,
+
+    /// The message kind
+    pub kind: MessageKind<B, T, S, N>,
+}
+
 /// Enum representation of any message type
-pub enum Message<B, T, S, const N: usize> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum MessageKind<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<B, S, N>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<B, T, S, N>),
 }
 
-impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for Message<B, T, S, N> {
+impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: ConsensusMessage<B, S, N>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for Message<B, T, S, N> {
+impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: DataMessage<B, T, S, N>) -> Self {
         Self::Data(m)
     }
@@ -73,17 +86,17 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// If this message has no QC then this will return `true`
     pub fn validate_qc(&self, public_key: &PublicKeySet) -> bool {
         let (qc, view_number, stage) = match self {
-            ConsensusMessage::NewView(view) => (&view.justify, view.current_view, Stage::Prepare),
-            ConsensusMessage::Prepare(prepare) => {
-                (&prepare.high_qc, prepare.current_view, Stage::Prepare)
-            }
             ConsensusMessage::PreCommit(pre_commit) => {
-                (&pre_commit.qc, pre_commit.current_view, Stage::PreCommit)
+                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
+                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
             }
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::Commit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Decide),
+            // Same as PreCommit, we compare with 1 stage earlier
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
 
-            ConsensusMessage::CommitVote(_)
+            ConsensusMessage::NewView(_)
+            | ConsensusMessage::Prepare(_)
+            | ConsensusMessage::CommitVote(_)
             | ConsensusMessage::PreCommitVote(_)
             | ConsensusMessage::PrepareVote(_) => return true,
         };

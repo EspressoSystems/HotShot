@@ -390,7 +390,7 @@ fn fmt_leaf_hash<const N: usize>(
 fn test_validate_qc() {
     // Validate that `qc.verify` and `ConsensusMessage::validate_qc` both validate correctly.
     use crate::{
-        message::{Commit, ConsensusMessage, Decide, NewView, PreCommit, Prepare, Vote},
+        message::{Commit, ConsensusMessage, Decide, PreCommit, Vote},
         traits::{block_contents::dummy::DummyBlock, state::dummy::DummyState},
         PrivKey, PubKey,
     };
@@ -438,24 +438,10 @@ fn test_validate_qc() {
 
         assert!(qc.verify(&public_key.set, view, stage));
 
+        // Each stage creates a vote for the next stage
+        // So `Prepare` is being validated in `PreCommit`
         match stage {
             Stage::Prepare => {
-                assert!(
-                    ConsensusMessage::<DummyBlock, DummyState, 32>::NewView(NewView {
-                        current_view: view,
-                        justify: qc.clone()
-                    })
-                    .validate_qc(&public_key.set)
-                );
-                assert!(ConsensusMessage::Prepare(Prepare {
-                    current_view: view,
-                    leaf: Leaf::new(DummyBlock::random(), leaf_hash),
-                    state: DummyState::random(),
-                    high_qc: qc
-                })
-                .validate_qc(&public_key.set));
-            }
-            Stage::PreCommit => {
                 assert!(
                     ConsensusMessage::<DummyBlock, DummyState, 32>::PreCommit(PreCommit {
                         current_view: view,
@@ -465,7 +451,7 @@ fn test_validate_qc() {
                     .validate_qc(&public_key.set)
                 );
             }
-            Stage::Commit => {
+            Stage::PreCommit => {
                 assert!(
                     ConsensusMessage::<DummyBlock, DummyState, 32>::Commit(Commit {
                         current_view: view,
@@ -475,7 +461,7 @@ fn test_validate_qc() {
                     .validate_qc(&public_key.set)
                 );
             }
-            Stage::Decide => {
+            Stage::Commit => {
                 assert!(
                     ConsensusMessage::<DummyBlock, DummyState, 32>::Decide(Decide {
                         current_view: view,
@@ -485,6 +471,7 @@ fn test_validate_qc() {
                     .validate_qc(&public_key.set)
                 );
             }
+            Stage::Decide => {}
             Stage::None => unreachable!(),
         }
     }
