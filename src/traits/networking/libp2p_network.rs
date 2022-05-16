@@ -74,31 +74,14 @@ struct Libp2pNetworkInner<
 /// generic over `M` which is the message type
 #[derive(Clone)]
 pub struct Libp2pNetwork<
-    M: Clone
-        + Serialize
-        + DeserializeOwned
-        + Send
-        + Sync
-        + std::fmt::Debug
-        + 'static
-        + Eq
-        + std::hash::Hash,
+    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
 > {
     /// holds the state of the libp2p network
     inner: Arc<Libp2pNetworkInner<M>>,
 }
 
-impl<
-        M: Clone
-            + Serialize
-            + DeserializeOwned
-            + Send
-            + Sync
-            + std::fmt::Debug
-            + 'static
-            + Eq
-            + std::hash::Hash,
-    > Libp2pNetwork<M>
+impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    Libp2pNetwork<M>
 {
     /// returns when network is ready
     async fn wait_for_ready(&self) {
@@ -382,17 +365,8 @@ impl<
 }
 
 #[async_trait]
-impl<
-        M: Clone
-            + Serialize
-            + DeserializeOwned
-            + Send
-            + Sync
-            + std::fmt::Debug
-            + 'static
-            + Eq
-            + std::hash::Hash,
-    > NetworkingImplementation<M> for Libp2pNetwork<M>
+impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    NetworkingImplementation<M> for Libp2pNetwork<M>
 {
     #[instrument(
         name="Libp2pNetwork::ready",
