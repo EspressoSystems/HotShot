@@ -770,6 +770,45 @@
 <span id="765">765</span>
 <span id="766">766</span>
 <span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -1221,9 +1260,15 @@
     <span class="doccomment">/// Will return any errors that the underlying `broadcast_message` can return.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Message</span><span class="op">&gt;</span>,
+        <span class="ident">kind</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::MessageKind</span><span class="op">&gt;</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">networking</span>.<span class="ident">broadcast_message</span>(<span class="ident">msg</span>.<span class="ident">into</span>()).<span class="kw">await</span>
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">networking</span>
+            .<span class="ident">broadcast_message</span>(<span class="ident">Message</span> {
+                <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
+                <span class="ident">kind</span>: <span class="ident">kind</span>.<span class="ident">into</span>(),
+            })
+            .<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Send a direct message to a given recipient.</span>
@@ -1235,23 +1280,34 @@
     <span class="doccomment">/// Will return any errors that the underlying `message_node` can return.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Message</span><span class="op">&gt;</span>,
+        <span class="ident">kind</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::MessageKind</span><span class="op">&gt;</span>,
         <span class="ident">recipient</span>: <span class="ident">PubKey</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">networking</span>
-            .<span class="ident">message_node</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">recipient</span>)
+            .<span class="ident">message_node</span>(
+                <span class="ident">Message</span> {
+                    <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
+                    <span class="ident">kind</span>: <span class="ident">kind</span>.<span class="ident">into</span>(),
+                },
+                <span class="ident">recipient</span>,
+            )
             .<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
+        <span class="ident">sender</span>: <span class="ident">PubKey</span>,
+    ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">hotstuff</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">hotstuff</span>
             .<span class="ident">add_consensus_message</span>(
                 <span class="ident">msg</span>.<span class="ident">clone</span>(),
                 <span class="kw-2">&amp;mut</span> <span class="ident">PhaseLockConsensusApi</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> },
+                <span class="ident">sender</span>,
             )
             .<span class="kw">await</span>
         {
@@ -1260,13 +1316,18 @@
     }
 
     <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] directed at this node.</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_consensus_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
+        <span class="ident">sender</span>: <span class="ident">PubKey</span>,
+    ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">hotstuff</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">hotstuff</span>
             .<span class="ident">add_consensus_message</span>(
                 <span class="ident">msg</span>.<span class="ident">clone</span>(),
                 <span class="kw-2">&amp;mut</span> <span class="ident">PhaseLockConsensusApi</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> },
+                <span class="ident">sender</span>,
             )
             .<span class="kw">await</span>
         {
@@ -1275,7 +1336,11 @@
     }
 
     <span class="doccomment">/// Handle an incoming [`DataMessage`] that was broadcasted on the network</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_data_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_data_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
+        <span class="ident">_sender</span>: <span class="ident">PubKey</span>,
+    ) {
         <span class="kw">match</span> <span class="ident">msg</span> {
             <span class="ident">DataMessage::SubmitTransaction</span>(<span class="ident">transaction</span>) =&gt; {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
@@ -1298,7 +1363,11 @@
     }
 
     <span class="doccomment">/// Handle an incoming [`DataMessage`] that directed at this node</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_data_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_data_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
+        <span class="ident">_sender</span>: <span class="ident">PubKey</span>,
+    ) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Incoming direct data message&quot;</span>);
         <span class="kw">match</span> <span class="ident">msg</span> {
             <span class="ident">DataMessage::NewestQuorumCertificate</span> {
@@ -1494,7 +1563,13 @@
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;send_direct_message&quot;</span>);
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">networking</span>
-            .<span class="ident">message_node</span>(<span class="ident">Message::Consensus</span>(<span class="ident">message</span>), <span class="ident">recipient</span>)
+            .<span class="ident">message_node</span>(
+                <span class="ident">Message</span> {
+                    <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
+                    <span class="ident">kind</span>: <span class="ident">message</span>.<span class="ident">into</span>(),
+                },
+                <span class="ident">recipient</span>,
+            )
             .<span class="kw">await</span>
     }
 
@@ -1505,7 +1580,10 @@
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="string">&quot;send_broadcast_message&quot;</span>);
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">networking</span>
-            .<span class="ident">broadcast_message</span>(<span class="ident">Message::Consensus</span>(<span class="ident">message</span>))
+            .<span class="ident">broadcast_message</span>(<span class="ident">Message</span> {
+                <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
+                <span class="ident">kind</span>: <span class="ident">message</span>.<span class="ident">into</span>(),
+            })
             .<span class="kw">await</span>
     }
 
