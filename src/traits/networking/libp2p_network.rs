@@ -248,7 +248,6 @@ impl<
                 // FIXME should this be parametrized?
                 // do we care?
                 handle.subscribe("global".to_string()).await.unwrap();
-                info!("connected status for {} is {:?}", pk.nonce, connected);
 
                 // these will spin indefinitely but since this is async, that's okay.
                 // we want our records published before
@@ -261,6 +260,7 @@ impl<
                     .put_record(&handle.peer_id(), &pk)
                     .await
                     .map_err(Into::<NetworkError>::into)?;
+                info!("connected status for {} is {:?}", pk.nonce, connected);
 
                 is_ready
                     .modify_async(|s| {
