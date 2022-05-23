@@ -124,25 +124,59 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                         error!("Could not wait for the handle to join after it reportedly finished. This is a bug.");
                         break;
                     }
+
+                    let default_interrupt_duration = self.phaselock.inner.config.next_view_timeout;
+                    let (int_mul, int_div) = self.phaselock.inner.config.timeout_ratio;
+
+                    let mut event_to_send = None;
                     match *result {
                         Ok(Ok(new_view)) => {
-                            info!("Round finished, new view number is {:?} (run_once_counter: {}, is_running: {})", new_view, self.run_once_counter, self.state.is_running);
-                            let should_run_next = if self.run_once_counter > 0 {
-                                self.run_once_counter -= 1;
-                                true
-                            } else {
-                                self.state.is_running
-                            };
-                            if should_run_next && !self.spawn().await {
-                                break;
-                            }
+                            // If it succeded, simply reset the timeout
+                            self.state.int_duration = default_interrupt_duration;
+
+                            info!("Round finished, new view number is {:?}", new_view);
                         }
                         Err(_) => {
+                            // if we timed out, log it, send the event, and increase the timeout
                             warn!("Round timed out");
+                            event_to_send = Some(Event {
+                                view_number: self.state.view,
+                                stage: Stage::None,
+                                event: EventType::ViewTimeout {
+                                    view_number: self.state.view,
+                                },
+                            });
+
+                            self.state.int_duration = (self.state.int_duration * int_mul) / int_div;
                         }
                         Ok(Err(e)) => {
-                            warn!(?e, "Could not finish round");
+                            // If it errored, broadcast the error, reset the timeout, and continue
+                            warn!(?e, "Round encountered an error");
+                            event_to_send = Some(Event {
+                                view_number: self.state.view,
+                                stage: e.get_stage().unwrap_or(Stage::None),
+                                event: EventType::Error { error: Arc::new(e) },
+                            });
+                            self.state.int_duration = default_interrupt_duration;
                         }
+                    }
+
+                    if let Some(event_to_send) = event_to_send {
+                        if !self.phaselock.send_event(event_to_send).await {
+                            error!("All event streams closed! Shutting down.");
+                            break;
+                        }
+                    }
+
+                    let should_start_new_round = if self.run_once_counter > 0 {
+                        self.run_once_counter -= 1;
+                        true
+                    } else {
+                        self.state.is_running
+                    };
+
+                    if should_start_new_round && !self.spawn().await {
+                        break;
                     }
                 }
             }
