@@ -29,6 +29,9 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
     state: RoundRunnerState,
     /// A reference to the current running phaselock implementation.
     phaselock: PhaseLock<I, N>,
+
+    /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
+    run_once_counter: usize,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
@@ -54,6 +57,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             receiver,
             state,
             phaselock,
+            run_once_counter: 0,
         }
     }
 
@@ -74,6 +78,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 
             match message {
                 ToRoundRunner::GetState(sender) => {
+                    tracing::debug!(?self.state, "Current state");
                     if let Err(e) = sender.send(self.state.clone()) {
                         error!(?e, "Could not notify parent of state");
                     }
@@ -99,7 +104,8 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                             break;
                         }
                     } else {
-                        warn!("Received `RunOnce` command but a round is already running. The command is ignored.");
+                        info!("Received `RunOnce` command but a round is already running. Will schedule `run_once_counter`");
+                        self.run_once_counter += 1;
                     }
                 }
                 ToRoundRunner::ShutDown => {
@@ -107,6 +113,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     return;
                 }
                 ToRoundRunner::RoundFinished(result) => {
+                    tracing::debug!(?result, "Round finished");
                     if async_std::future::timeout(
                         Duration::from_millis(100),
                         self.join_handle.take().unwrap(),
@@ -119,8 +126,14 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     }
                     match *result {
                         Ok(Ok(new_view)) => {
-                            info!("Round finished, new view number is {:?}", new_view);
-                            if self.state.is_running && !self.spawn().await {
+                            info!("Round finished, new view number is {:?} (run_once_counter: {}, is_running: {})", new_view, self.run_once_counter, self.state.is_running);
+                            let should_run_next = if self.run_once_counter > 0 {
+                                self.run_once_counter -= 1;
+                                true
+                            } else {
+                                self.state.is_running
+                            };
+                            if should_run_next && !self.spawn().await {
                                 break;
                             }
                         }
@@ -164,6 +177,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         }
         // Increment the view counter
         self.state.view += 1;
+        tracing::debug!("New view number is now {:?}", self.state.view);
         // run the next block, with a timeout
         let t = Duration::from_millis(self.state.int_duration);
 
