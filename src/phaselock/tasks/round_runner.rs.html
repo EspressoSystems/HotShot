@@ -224,6 +224,20 @@
 <span id="219">219</span>
 <span id="220">220</span>
 <span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Round runner logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This will wait for one of several events, and will run one or multiple rounds</span>
@@ -255,6 +269,9 @@
     <span class="ident">state</span>: <span class="ident">RoundRunnerState</span>,
     <span class="doccomment">/// A reference to the current running phaselock implementation.</span>
     <span class="ident">phaselock</span>: <span class="ident">PhaseLock</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.</span>
+    <span class="ident">run_once_counter</span>: <span class="ident">usize</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">RoundRunner</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span> {
@@ -280,6 +297,7 @@
             <span class="ident">receiver</span>,
             <span class="ident">state</span>,
             <span class="ident">phaselock</span>,
+            <span class="ident">run_once_counter</span>: <span class="number">0</span>,
         }
     }
 
@@ -300,6 +318,7 @@
 
             <span class="kw">match</span> <span class="ident">message</span> {
                 <span class="ident">ToRoundRunner::GetState</span>(<span class="ident">sender</span>) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="question-mark">?</span><span class="self">self</span>.<span class="ident">state</span>, <span class="string">&quot;Current state&quot;</span>);
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">sender</span>.<span class="ident">send</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">clone</span>()) {
                         <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not notify parent of state&quot;</span>);
                     }
@@ -325,7 +344,8 @@
                             <span class="kw">break</span>;
                         }
                     } <span class="kw">else</span> {
-                        <span class="macro">warn!</span>(<span class="string">&quot;Received `RunOnce` command but a round is already running. The command is ignored.&quot;</span>);
+                        <span class="macro">info!</span>(<span class="string">&quot;Received `RunOnce` command but a round is already running. Will schedule `run_once_counter`&quot;</span>);
+                        <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                     }
                 }
                 <span class="ident">ToRoundRunner::ShutDown</span> =&gt; {
@@ -333,6 +353,7 @@
                     <span class="kw">return</span>;
                 }
                 <span class="ident">ToRoundRunner::RoundFinished</span>(<span class="ident">result</span>) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="question-mark">?</span><span class="ident">result</span>, <span class="string">&quot;Round finished&quot;</span>);
                     <span class="kw">if</span> <span class="ident">async_std::future::timeout</span>(
                         <span class="ident">Duration::from_millis</span>(<span class="number">100</span>),
                         <span class="self">self</span>.<span class="ident">join_handle</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>(),
@@ -345,8 +366,14 @@
                     }
                     <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">result</span> {
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">new_view</span>)) =&gt; {
-                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?}&quot;</span>, <span class="ident">new_view</span>);
-                            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
+                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?} (run_once_counter: {}, is_running: {})&quot;</span>, <span class="ident">new_view</span>, <span class="self">self</span>.<span class="ident">run_once_counter</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span>);
+                            <span class="kw">let</span> <span class="ident">should_run_next</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">&gt;</span> <span class="number">0</span> {
+                                <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                                <span class="bool-val">true</span>
+                            } <span class="kw">else</span> {
+                                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span>
+                            };
+                            <span class="kw">if</span> <span class="ident">should_run_next</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
                                 <span class="kw">break</span>;
                             }
                         }
@@ -390,6 +417,7 @@
         }
         <span class="comment">// Increment the view counter</span>
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;New view number is now {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>);
         <span class="comment">// run the next block, with a timeout</span>
         <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">int_duration</span>);
 
