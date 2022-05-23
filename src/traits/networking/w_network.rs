@@ -10,6 +10,7 @@ use crate::traits::networking::{
     SocketDecodeSnafu, WebSocketSnafu,
 };
 use crate::traits::NetworkError;
+use async_std::prelude::FutureExt;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -762,7 +763,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         if res.is_ok() {
             debug!("Ping sent to remote");
             let duration = self.inner.keep_alive_duration;
-            if let Ok(Ok(_)) = async_std::future::timeout(duration, recv).await {
+            if let Ok(Ok(_)) = recv.timeout(duration).await {
                 debug!("Received ping from remote");
             } else {
                 error!("Remote did not respond in time! Removing from node map");
@@ -789,6 +790,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
     NetworkingImplementation<T> for WNetwork<T>
 {
+    #[instrument(
+        name="WNetwork::ready",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn ready(&self) -> bool {
+        true
+    }
+
     #[instrument(
         name="WNetwork::broadcast_message",
         fields(node_id = ?self.inner.pub_key.nonce)
@@ -950,10 +959,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         self.inner.handles.iter().map(|x| x.key().clone()).collect()
     }
 
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
-        Box::new(self.clone())
-    }
-
     #[instrument(
         name="WNetwork::direct_queue",
         fields(node_id = ?self.inner.pub_key.nonce)
@@ -980,6 +985,21 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         // TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I'm not sure
         // I'll need some proper test cases
         unimplemented!();
+    }
+
+    async fn put_record(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+        _value: impl Serialize + Send + Sync + 'static,
+    ) -> Result<(), NetworkError> {
+        todo!()
+    }
+
+    async fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+    ) -> Result<V, NetworkError> {
+        todo!()
     }
 }
 

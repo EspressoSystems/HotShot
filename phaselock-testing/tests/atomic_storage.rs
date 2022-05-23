@@ -14,7 +14,7 @@ use phaselock::{
     demos::dentry::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
     },
-    traits::{BlockContents, Storage},
+    traits::{implementations::MemoryNetwork, BlockContents, Storage},
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::{get_starting_state, TestLauncher};
@@ -291,8 +291,8 @@ async fn restart() {
             Ok(())
         };
 
-    let gen_runner /* : Arc<dyn Fn(&TestDescription<TestNetwork, AtomicStorage>) -> TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>> */ = Arc::new(|desc: &TestDescription<TestNetwork, AtomicStorage>| {
-        let launcher = TestLauncher::new(desc.total_nodes);
+    let gen_runner = Arc::new(|desc: &TestDescription<TestNetwork, AtomicStorage>| {
+        let launcher = TestLauncher::<MemoryNetwork<_>, _, _, _>::new(desc.total_nodes);
 
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut PhaseLockConfig| {
@@ -312,7 +312,7 @@ async fn restart() {
                 let path = format!("{}/{}", PATH, idx);
                 AtomicStorage::open(Path::new(&path)).unwrap()
             })
-        .launch()
+            .launch()
     });
 
     let desc = TestDescriptionBuilder::<TestNetwork, AtomicStorage> {

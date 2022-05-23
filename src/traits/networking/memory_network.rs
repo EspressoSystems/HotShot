@@ -13,6 +13,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use phaselock_types::traits::network::NetworkChange;
 use rand::Rng;
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::fmt::Debug;
@@ -315,6 +316,14 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 
     #[instrument(
+        name="MemoryNetwork::ready",
+        fields(node_id = ?self.inner.pub_key.nonce)
+    )]
+    async fn ready(&self) -> bool {
+        true
+    }
+
+    #[instrument(
         name="MemoryNetwork::message_node",
         fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
     )]
@@ -430,10 +439,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .collect()
     }
 
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<T> + 'static> {
-        Box::new(self.clone())
-    }
-
     #[instrument(
         name="MemoryNetwork::network_changes",
         fields(node_id = ?self.inner.pub_key.nonce)
@@ -460,6 +465,21 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         *self.inner.broadcast_input.write().await = None;
         *self.inner.direct_input.write().await = None;
         *self.inner.network_changes_input.write().await = None;
+    }
+
+    async fn put_record(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+        _value: impl Serialize + Send + Sync + 'static,
+    ) -> Result<(), NetworkError> {
+        unimplemented!()
+    }
+
+    async fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        _key: impl Serialize + Send + Sync + 'static,
+    ) -> Result<V, NetworkError> {
+        unimplemented!()
     }
 }
 

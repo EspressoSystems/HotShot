@@ -69,7 +69,7 @@ impl TaskHandle {
         let (sender, receiver) = oneshot_channel();
         self.send_to_round_runner(ToRoundRunner::GetState(sender))
             .await?;
-        let state = receiver.timeout(Duration::from_millis(200)).await??;
+        let state = receiver.timeout(Duration::from_millis(5000)).await??;
         Ok(state)
     }
 

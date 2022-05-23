@@ -13,6 +13,7 @@ pub use storage::{Storage, StorageResult};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
+    pub use super::networking::libp2p_network::{Libp2pNetwork, PeerInfoVec};
     pub use super::networking::memory_network::{DummyReliability, MasterMap, MemoryNetwork};
     pub use super::networking::w_network::WNetwork;
     pub use super::storage::atomic_storage::AtomicStorage;

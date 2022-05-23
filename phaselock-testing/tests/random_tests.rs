@@ -3,7 +3,7 @@
 mod common;
 
 use async_std::task::block_on;
-use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction};
+use common::{get_tolerance, AppliedTestRunner, TestNetwork, TestRoundResult, TestTransaction};
 use phaselock::traits::Storage;
 use phaselock_testing::{ConsensusRoundError, Round};
 use phaselock_types::data::ViewNumber;
@@ -21,13 +21,13 @@ use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 #[async_std::test]
 #[instrument]
 async fn test_large_num_nodes_regression() {
-    let description_1 = TestDescriptionBuilder {
+    let description_1 = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 50,
         start_nodes: 50,
         ..TestDescriptionBuilder::default()
     };
     description_1.build().execute().await.unwrap();
-    let description_2 = TestDescriptionBuilder {
+    let description_2 = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 90,
         ..TestDescriptionBuilder::default()
     };
@@ -37,7 +37,7 @@ async fn test_large_num_nodes_regression() {
 #[async_std::test]
 #[instrument]
 async fn test_large_num_txns_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 10,
         start_nodes: 10,
         num_succeeds: 11,
@@ -53,7 +53,7 @@ async fn test_large_num_txns_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_last_node_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 53,
         start_nodes: 53,
         next_view_timeout: 1000,
@@ -68,7 +68,7 @@ async fn test_fail_last_node_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_first_node_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 76,
         start_nodes: 76,
         ids_to_shut_down: vec![vec![0].into_iter().collect::<HashSet<_>>()],
@@ -84,7 +84,7 @@ async fn test_fail_first_node_regression() {
 #[async_std::test]
 #[instrument]
 async fn test_fail_last_f_nodes_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 75,
         start_nodes: 75,
         next_view_timeout: 1000,
@@ -101,7 +101,7 @@ async fn test_fail_last_f_nodes_regression() {
 #[instrument]
 #[ignore]
 async fn test_fail_last_f_plus_one_nodes_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 15,
         start_nodes: 15,
         next_view_timeout: 1000,
@@ -118,7 +118,7 @@ async fn test_fail_last_f_plus_one_nodes_regression() {
 #[async_std::test]
 #[instrument]
 async fn test_mul_txns_regression() {
-    let description = TestDescriptionBuilder {
+    let description = TestDescriptionBuilder::<TestNetwork, _> {
         total_nodes: 30,
         start_nodes: 30,
         ..TestDescriptionBuilder::default()
@@ -136,7 +136,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_nodes_random(num_nodes in 50..100usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ..TestDescriptionBuilder::default()
@@ -152,7 +152,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_txns_random(num_nodes in 5..30usize, num_txns in 10..30usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             num_succeeds: num_txns,
@@ -171,7 +171,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_node_random(num_nodes in 30..100usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![(num_nodes - 1) as u64].into_iter().collect()],
@@ -188,7 +188,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_node_random(num_nodes in 30..100usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![0].into_iter().collect()],
@@ -205,7 +205,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_f_nodes_random(num_nodes in 30..100usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
@@ -224,7 +224,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_f_nodes_random(num_nodes in 30..100usize) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
@@ -243,7 +243,7 @@ proptest! {
     #[ignore]
     #[test]
     fn test_mul_txns_random(txn_proposer_1 in 0..15u64, txn_proposer_2 in 15..30u64) {
-        let description = TestDescriptionBuilder {
+        let description = TestDescriptionBuilder::<TestNetwork, _> {
             total_nodes: 30,
             start_nodes: 30,
             txn_ids: Left(vec![vec![txn_proposer_1, txn_proposer_2]]),

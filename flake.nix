@@ -132,6 +132,14 @@
               with pkgs; [ fenixMusl ] ++ buildDeps;
           };
 
+          moldShell = pkgs.mkShell {
+            LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
+            buildInputs = with pkgs; [ zlib.out grcov flamegraph fd fenixNightly ] ++ buildDeps;
+            shellHook = ''
+            export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
+            '';
+          };
+
           # usage: evaluate performance (grcov + flamegraph)
           perfShell = pkgs.mkShell {
             buildInputs = with pkgs; [ flamegraph fd cargo-llvm-cov fenixStable ] ++ buildDeps;

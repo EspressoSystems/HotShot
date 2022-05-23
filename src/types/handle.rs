@@ -183,6 +183,11 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         &self.storage
     }
 
+    /// Blocks until network is ready to be used (e.g. connected to other nodes)
+    pub async fn is_ready(&self) -> bool {
+        self.phaselock.inner.networking.ready().await
+    }
+
     /// Shut down the the inner phaselock and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);

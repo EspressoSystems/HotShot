@@ -177,6 +177,7 @@ impl<
                 .await;
             results.push(node_id);
         }
+
         results
     }
 

@@ -11,12 +11,10 @@ pub use self::{
     },
 };
 
-use self::{
-    error::{DHTError, TransportLaunchSnafu},
-    node::network_node_handle_error::TimeoutSnafu,
-};
+use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu};
 use crate::direct_message::DirectMessageResponse;
-use async_std::{future::timeout, task::spawn};
+use async_std::prelude::FutureExt as _;
+use async_std::task::spawn;
 use bincode::Options;
 use futures::channel::oneshot::Sender;
 use futures::{select, Future, FutureExt};
@@ -131,14 +129,14 @@ pub enum ClientRequest {
         /// Value to publish under
         value: Vec<u8>,
         /// Channel to notify caller of result of publishing
-        notify: Sender<Result<(), DHTError>>,
+        notify: Sender<()>,
     },
     /// Get(Key, Chan)
     GetDHT {
         /// Key to search for
         key: Vec<u8>,
         /// Channel to notify caller of value (or failure to find value)
-        notify: Sender<Result<Vec<u8>, DHTError>>,
+        notify: Sender<Vec<u8>>,
     },
 }
 
@@ -245,15 +243,13 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle.add_known_peers(known_nodes).await?;
-    timeout(
-        timeout_len,
-        NetworkNodeHandle::wait_to_connect(
-            handle.clone(),
-            config.max_num_peers,
-            handle.recv_network(),
-            idx,
-        ),
+    NetworkNodeHandle::wait_to_connect(
+        handle.clone(),
+        config.max_num_peers,
+        handle.recv_network(),
+        idx,
     )
+    .timeout(timeout_len)
     .await
     .context(TimeoutSnafu)??;
     handle.subscribe("global".to_string()).await?;

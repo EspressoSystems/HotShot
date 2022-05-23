@@ -35,11 +35,12 @@ impl
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(expected_node_count: usize) -> Self {
-        let threshold = ((expected_node_count * 2) / 3) + 1;
-        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
         let master: Arc<_> = MasterMap::new();
 
-        let known_nodes: Vec<PubKey> = (0..expected_node_count)
+        let threshold = ((expected_node_count * 2) / 3) + 1;
+        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
+
+        let known_nodes = (0..expected_node_count)
             .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
             .collect();
         let config = PhaseLockConfig {
@@ -57,6 +58,7 @@ impl
 
         Self {
             network: Box::new({
+                // TODO publick this so we can regen it
                 let sks = sks.clone();
                 move |node_id| {
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
@@ -76,7 +78,7 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(PubKey) -> NewNetwork + 'static,
+        network: impl Fn(u64, PubKey) -> NewNetwork + 'static,
     ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
             network: Box::new({
@@ -86,7 +88,7 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
                     // to add as an input
                     // that way we don't rely on threshold crypto
                     let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    network(pubkey)
+                    network(node_id, pubkey)
                 }
             }),
             storage: self.storage,

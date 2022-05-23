@@ -18,7 +18,7 @@ use std::{
 };
 
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
-use networking_demo::{
+use libp2p_networking::{
     direct_message::DirectMessageResponse,
     network::{
         deserialize_msg, network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm,

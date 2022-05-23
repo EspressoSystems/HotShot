@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use libp2p::Multiaddr;
-use networking_demo::{
+use libp2p_networking::{
     message::Message,
     network::{gen_multiaddr, ClientRequest, NetworkNode, NetworkNodeConfigBuilder},
     ui::{run_app, TableApp},

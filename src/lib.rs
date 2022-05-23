@@ -19,7 +19,7 @@
 #![allow(clippy::type_complexity)]
 //! Provides a generic rust implementation of the `PhaseLock` BFT protocol
 //!
-//! See the [protocol documentation](documentation) for a protocol description.
+//! See the [protocol documentation](https://github.com/EspressoSystems/phaselock-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]
@@ -640,17 +640,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 match load_latest_state::<I, N>(&self.inner.storage).await {
                     Ok(Some((quorum_certificate, leaf, state))) => {
                         let phaselock = self.clone();
-                        if let Err(e) = phaselock
-                            .send_direct_message(
-                                DataMessage::NewestQuorumCertificate {
-                                    quorum_certificate,
-                                    state,
-                                    block: leaf.item,
-                                },
-                                peer.clone(),
-                            )
-                            .await
-                        {
+                        let msg = DataMessage::NewestQuorumCertificate {
+                            quorum_certificate,
+                            state,
+                            block: leaf.item,
+                        };
+
+                        if let Err(e) = phaselock.send_direct_message(msg, peer.clone()).await {
                             error!(
                                 ?e,
                                 "Could not send newest quorumcertificate to node {:?}", peer
@@ -658,7 +654,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                         }
                     }
                     Ok(None) => {
-                        info!("Node connected but we have no QC yet");
+                        error!("Node connected but we have no QC yet");
                     }
                     Err(e) => {
                         error!(?e, "Could not retrieve newest QC");

@@ -7,12 +7,14 @@ use crate::{
 };
 use async_std::{
     future::TimeoutError,
+    prelude::FutureExt,
     sync::{Condvar, Mutex},
 };
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
+use phaselock_types::traits::network::NetworkError as PhaselockNetworkError;
 use phaselock_utils::{
     subscribable_mutex::SubscribableMutex, subscribable_rwlock::ThreadedReadView,
 };
@@ -117,6 +119,10 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     }
 
     /// Wait for a node to connect to other nodes
+    /// * `node`: reference to the node
+    /// * `num_peers`: number of peers required to be connected successfully before returning
+    /// * `chan`: listener for connection events
+    /// * `node_idx`: the node id
     #[instrument]
     pub async fn wait_to_connect(
         node: Arc<NetworkNodeHandle<S>>,
@@ -169,10 +175,7 @@ impl<S> NetworkNodeHandle<S> {
 
         self.send_request(req).await?;
 
-        match r.await.context(CancelledRequestSnafu) {
-            Ok(r) => r.context(DHTSnafu),
-            Err(e) => Err(e).context(DHTSnafu),
-        }
+        r.await.context(CancelledRequestSnafu).context(DHTSnafu)
     }
 
     /// Receive a record from the kademlia DHT if it exists.
@@ -196,12 +199,9 @@ impl<S> NetworkNodeHandle<S> {
         self.send_request(req).await?;
 
         match r.await.context(CancelledRequestSnafu) {
-            Ok(result) => match result {
-                Ok(r) => bincode_options
-                    .deserialize(&r)
-                    .context(DeserializationSnafu),
-                Err(e) => Err(e).context(DHTSnafu),
-            },
+            Ok(result) => bincode_options
+                .deserialize(&*result)
+                .context(DeserializationSnafu),
             Err(e) => Err(e).context(DHTSnafu),
         }
     }
@@ -217,7 +217,7 @@ impl<S> NetworkNodeHandle<S> {
         key: &impl Serialize,
         timeout: Duration,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = async_std::future::timeout(timeout, self.get_record(key)).await;
+        let result = self.get_record(key).timeout(timeout).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -236,7 +236,7 @@ impl<S> NetworkNodeHandle<S> {
         value: &impl Serialize,
         timeout: Duration,
     ) -> Result<(), NetworkNodeHandleError> {
-        let result = async_std::future::timeout(timeout, self.put_record(key, value)).await;
+        let result = self.put_record(key, value).timeout(timeout).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -513,6 +513,14 @@ impl<S: Clone> NetworkNodeHandle<S> {
     /// Get a clone of the internal state
     pub async fn state(&self) -> S {
         self.state.cloned().await
+    }
+}
+
+impl From<NetworkNodeHandleError> for PhaselockNetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        PhaselockNetworkError::Other {
+            inner: Box::new(error),
+        }
     }
 }
 

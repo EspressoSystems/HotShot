@@ -2,9 +2,10 @@
 //!
 //! Contains types and traits used by `PhaseLock` to abstract over network access
 
+use async_std::future::TimeoutError;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
 
@@ -14,6 +15,8 @@ use crate::PubKey;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum NetworkError {
+    /// DHT error
+    DHTError,
     /// A Listener failed to send a message
     ListenerSend,
     /// Could not deliver a message to a specified recipient
@@ -62,6 +65,11 @@ pub enum NetworkError {
         /// Originating error
         inner: Box<dyn std::error::Error + Send + Sync>,
     },
+    /// A timeout occurred
+    Timeout {
+        /// Source of error
+        source: TimeoutError,
+    },
     /// Channel error
     ChannelSend,
     /// Could not complete handshake
@@ -76,6 +84,12 @@ pub trait NetworkingImplementation<M>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
 {
+    /// Returns true when node is successfully initialized
+    /// into the network
+    ///
+    /// Blocks until node is ready
+    async fn ready(&self) -> bool;
+
     /// Broadcasts a message to the network
     ///
     /// Should provide that the message eventually reach all non-faulty nodes
@@ -107,9 +121,6 @@ where
     /// Kludge function to work around leader election
     async fn known_nodes(&self) -> Vec<PubKey>;
 
-    /// Object safe clone
-    fn obj_clone(&self) -> Box<dyn NetworkingImplementation<M> + 'static>;
-
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError>;
 
@@ -117,6 +128,19 @@ where
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> ();
+
+    /// Insert `value` into the shared store under `key`.
+    async fn put_record(
+        &self,
+        key: impl Serialize + Send + Sync + 'static,
+        value: impl Serialize + Send + Sync + 'static,
+    ) -> Result<(), NetworkError>;
+
+    /// Get value stored in shared store under `key`
+    async fn get_record<V: for<'a> Deserialize<'a>>(
+        &self,
+        key: impl Serialize + Send + Sync + 'static,
+    ) -> Result<V, NetworkError>;
 }
 
 /// Changes that can occur in the network
