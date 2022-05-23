@@ -1283,6 +1283,26 @@
 <span id="1278">1278</span>
 <span id="1279">1279</span>
 <span id="1280">1280</span>
+<span id="1281">1281</span>
+<span id="1282">1282</span>
+<span id="1283">1283</span>
+<span id="1284">1284</span>
+<span id="1285">1285</span>
+<span id="1286">1286</span>
+<span id="1287">1287</span>
+<span id="1288">1288</span>
+<span id="1289">1289</span>
+<span id="1290">1290</span>
+<span id="1291">1291</span>
+<span id="1292">1292</span>
+<span id="1293">1293</span>
+<span id="1294">1294</span>
+<span id="1295">1295</span>
+<span id="1296">1296</span>
+<span id="1297">1297</span>
+<span id="1298">1298</span>
+<span id="1299">1299</span>
+<span id="1300">1300</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -1295,6 +1315,7 @@
     <span class="ident">SocketDecodeSnafu</span>, <span class="ident">WebSocketSnafu</span>,
 };
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::NetworkError</span>;
+<span class="kw">use</span> <span class="ident">async_std::prelude::FutureExt</span>;
 <span class="kw">use</span> <span class="ident">async_std</span>::{
     <span class="ident">net</span>::{<span class="ident">SocketAddr</span>, <span class="ident">TcpListener</span>, <span class="ident">TcpStream</span>, <span class="ident">ToSocketAddrs</span>},
     <span class="ident">sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>},
@@ -2047,7 +2068,7 @@
         <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_ok</span>() {
             <span class="macro">debug!</span>(<span class="string">&quot;Ping sent to remote&quot;</span>);
             <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">keep_alive_duration</span>;
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">async_std::future::timeout</span>(<span class="ident">duration</span>, <span class="ident">recv</span>).<span class="kw">await</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) <span class="op">=</span> <span class="ident">recv</span>.<span class="ident">timeout</span>(<span class="ident">duration</span>).<span class="kw">await</span> {
                 <span class="macro">debug!</span>(<span class="string">&quot;Received ping from remote&quot;</span>);
             } <span class="kw">else</span> {
                 <span class="macro">error!</span>(<span class="string">&quot;Remote did not respond in time! Removing from node map&quot;</span>);
@@ -2074,6 +2095,14 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
     <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
 {
+    <span class="attribute">#[<span class="ident">instrument</span>(
+        <span class="ident">name</span><span class="op">=</span><span class="string">&quot;WNetwork::ready&quot;</span>,
+        <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
+    )]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="bool-val">true</span>
+    }
+
     <span class="attribute">#[<span class="ident">instrument</span>(
         <span class="ident">name</span><span class="op">=</span><span class="string">&quot;WNetwork::broadcast_message&quot;</span>,
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
@@ -2235,10 +2264,6 @@
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handles</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">key</span>().<span class="ident">clone</span>()).<span class="ident">collect</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-        <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
-    }
-
     <span class="attribute">#[<span class="ident">instrument</span>(
         <span class="ident">name</span><span class="op">=</span><span class="string">&quot;WNetwork::direct_queue&quot;</span>,
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
@@ -2265,6 +2290,21 @@
         <span class="comment">// TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I&#39;m not sure</span>
         <span class="comment">// I&#39;ll need some proper test cases</span>
         <span class="macro">unimplemented!</span>();
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">put_record</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">_value</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="macro">todo!</span>()
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_record</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="macro">todo!</span>()
     }
 }
 

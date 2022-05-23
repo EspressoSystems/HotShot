@@ -1,3 +1,4 @@
 (function() {var implementors = {};
+implementors["libp2p_networking"] = [{"text":"impl RequestResponseCodec for <a class=\"struct\" href=\"libp2p_networking/direct_message/struct.DirectMessageCodec.html\" title=\"struct libp2p_networking::direct_message::DirectMessageCodec\">DirectMessageCodec</a>","synthetic":false,"types":["libp2p_networking::direct_message::DirectMessageCodec"]}];
 implementors["networking_demo"] = [{"text":"impl RequestResponseCodec for <a class=\"struct\" href=\"networking_demo/direct_message/struct.DirectMessageCodec.html\" title=\"struct networking_demo::direct_message::DirectMessageCodec\">DirectMessageCodec</a>","synthetic":false,"types":["networking_demo::direct_message::DirectMessageCodec"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

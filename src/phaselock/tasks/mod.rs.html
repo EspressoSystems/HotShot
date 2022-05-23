@@ -407,7 +407,7 @@
         <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">oneshot_channel</span>();
         <span class="self">self</span>.<span class="ident">send_to_round_runner</span>(<span class="ident">ToRoundRunner::GetState</span>(<span class="ident">sender</span>))
             .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">timeout</span>(<span class="ident">Duration::from_millis</span>(<span class="number">200</span>)).<span class="kw">await</span><span class="question-mark">?</span><span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">timeout</span>(<span class="ident">Duration::from_millis</span>(<span class="number">5000</span>)).<span class="kw">await</span><span class="question-mark">?</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">state</span>)
     }
 

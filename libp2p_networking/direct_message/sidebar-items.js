@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["DirectMessageCodec","the codec for direct messages"],["DirectMessageProtocol","the protocol for direct messages"],["DirectMessageRequest","wrapper type describing a serialized direct message"],["DirectMessageResponse","wrapper type describing the response to direct message"]]});

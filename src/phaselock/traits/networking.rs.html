@@ -21,17 +21,15 @@
 <span id="16">16</span>
 <span id="17">17</span>
 <span id="18">18</span>
-<span id="19">19</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access abstraction</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module contains a trait abstracting over network access, as well as implementations of that</span>
-<span class="doccomment">//! trait. Currently this includes [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory</span>
-<span class="doccomment">//! testing-only implementation, and [`WNetwork`](w_network::WNetwork), a prototype/testing</span>
-<span class="doccomment">//! websockets implementation.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! In future, this module will contain a production ready networking implementation, very probably</span>
-<span class="doccomment">//! one libp2p based.</span>
+<span class="doccomment">//! trait. Currently this includes</span>
+<span class="doccomment">//! - [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory testing-only implementation</span>
+<span class="doccomment">//! - [`WNetwork`](w_network::WNetwork), a prototype/testing websockets implementation.</span>
+<span class="doccomment">//! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.</span>
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">libp2p_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">w_network</span>;
 

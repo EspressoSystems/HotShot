@@ -619,6 +619,26 @@
 <span id="614">614</span>
 <span id="615">615</span>
 <span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
@@ -634,6 +654,7 @@
 <span class="kw">use</span> <span class="ident">futures::StreamExt</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkChange</span>;
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
+<span class="kw">use</span> <span class="ident">serde::Deserialize</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -936,6 +957,14 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(
+        <span class="ident">name</span><span class="op">=</span><span class="string">&quot;MemoryNetwork::ready&quot;</span>,
+        <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
+    )]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="bool-val">true</span>
+    }
+
+    <span class="attribute">#[<span class="ident">instrument</span>(
         <span class="ident">name</span><span class="op">=</span><span class="string">&quot;MemoryNetwork::message_node&quot;</span>,
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>, <span class="ident">other</span> <span class="op">=</span> <span class="ident">recipient</span>.<span class="ident">nonce</span>)
     )]</span>
@@ -1051,10 +1080,6 @@
             .<span class="ident">collect</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">obj_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-        <span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
-    }
-
     <span class="attribute">#[<span class="ident">instrument</span>(
         <span class="ident">name</span><span class="op">=</span><span class="string">&quot;MemoryNetwork::network_changes&quot;</span>,
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
@@ -1081,6 +1106,21 @@
         <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
         <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
         <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_input</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">put_record</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">_value</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented!</span>()
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_record</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented!</span>()
     }
 }
 

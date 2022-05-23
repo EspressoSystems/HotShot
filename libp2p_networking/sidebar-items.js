@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["direct_message","Direct Messages between two nodes"],["message","Example message used by the UI library"],["network","Network logic"],["ui","UI library for clichat example"]]});

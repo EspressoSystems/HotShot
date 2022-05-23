@@ -219,6 +219,11 @@
 <span id="214">214</span>
 <span id="215">215</span>
 <span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`PhaseLock`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -402,6 +407,11 @@
     <span class="doccomment">/// historical data</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">storage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::Storage</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">storage</span>
+    }
+
+    <span class="doccomment">/// Blocks until network is ready to be used (e.g. connected to other nodes)</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">is_ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">networking</span>.<span class="ident">ready</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Shut down the the inner phaselock and wait until all background threads are closed.</span>

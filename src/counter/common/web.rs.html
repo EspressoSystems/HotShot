@@ -137,7 +137,7 @@
 <span id="132">132</span>
 <span id="133">133</span>
 <span id="134">134</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">networking_demo::network::NetworkNodeHandle</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">libp2p_networking::network::NetworkNodeHandle</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">net::SocketAddr</span>, <span class="ident">sync::Arc</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>};
 
@@ -197,7 +197,7 @@
     <span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
 
     <span class="kw">use</span> <span class="ident">libp2p::PeerId</span>;
-    <span class="kw">use</span> <span class="ident">networking_demo::network</span>::{<span class="ident">ConnectionData</span>, <span class="ident">NetworkNodeConfig</span>, <span class="ident">NetworkNodeHandle</span>};
+    <span class="kw">use</span> <span class="ident">libp2p_networking::network</span>::{<span class="ident">ConnectionData</span>, <span class="ident">NetworkNodeConfig</span>, <span class="ident">NetworkNodeHandle</span>};
 
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">serde::Serialize</span>)]</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">State</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">serde::Serialize</span><span class="op">&gt;</span> {
