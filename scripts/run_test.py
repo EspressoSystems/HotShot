@@ -15,6 +15,7 @@ import os
 import sys
 import re
 import subprocess
+import split_test_output
 
 test = ""
 if len(sys.argv) >= 2:
@@ -27,40 +28,11 @@ env["RUST_LOG_FMT"] = "compact"
 env["RUST_LOG"] = "debug"
 env["RUST_BACKTRACE"] = "1"
 result = subprocess.run(
-    "cargo test --all-features --release --workspace -- " + test + " --test-threads=1 --nocapture",
+    "cargo test --all-features --release -- " + test + " --test-threads=1 --nocapture",
     shell=True,
     executable='bash',
     stdout=subprocess.PIPE,
     env=env
 )
 
-id_regex = re.compile("id: (\d+)")
-ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
-
-files = []
-files.append(open("out.txt", "w"))
-
-block = ""
-for line in result.stdout.decode("utf-8").split("\n"):
-    block += ansi_escape.sub('', line) + "\n"
-    if len(line) == 0:
-        files[0].write(block)
-        match = id_regex.findall(block)
-
-        if match:
-            id = -1
-            # Find the last valid id in `match`
-            for new_id in match:
-                new_id = int(new_id)
-                if new_id < 100:
-                    id = new_id
-
-            if id >= 0 and id < 100:
-                file_idx = id + 1
-                while len(files) <= file_idx:
-                    files.append(open("out_" + str(len(files) - 1) + ".txt", "w"))
-                files[file_idx].write(block)
-
-        block = ""
-if block:
-    files[0].write(block)
+split_test_output.split_input(result.stdout.decode("utf-8").split('\n'))

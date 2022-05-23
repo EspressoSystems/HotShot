@@ -134,6 +134,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         if phase.is_done() {
             let listeners = self.round_finished_listeners.remove(&view_number);
             debug!(
+                ?view_number,
                 "Phase is done, notifying {} listeners",
                 listeners.as_ref().map(Vec::len).unwrap_or_default()
             );
