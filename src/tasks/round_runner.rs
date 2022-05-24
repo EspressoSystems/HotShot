@@ -32,6 +32,9 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
 
     /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
     run_once_counter: usize,
+
+    /// The timeout of the next round.
+    int_duration: u64,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
@@ -48,15 +51,16 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         };
         let state = RoundRunnerState {
             view,
-            int_duration: phaselock.inner.config.next_view_timeout,
             is_running: false,
         };
+        let int_duration = phaselock.inner.config.next_view_timeout;
         Self {
             join_handle: None,
             sender,
             receiver,
             state,
             phaselock,
+            int_duration,
             run_once_counter: 0,
         }
     }
@@ -132,7 +136,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     match *result {
                         Ok(Ok(new_view)) => {
                             // If it succeded, simply reset the timeout
-                            self.state.int_duration = default_interrupt_duration;
+                            self.int_duration = default_interrupt_duration;
 
                             info!("Round finished, new view number is {:?}", new_view);
                         }
@@ -147,7 +151,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                                 },
                             });
 
-                            self.state.int_duration = (self.state.int_duration * int_mul) / int_div;
+                            self.int_duration = (self.int_duration * int_mul) / int_div;
                         }
                         Ok(Err(e)) => {
                             // If it errored, broadcast the error, reset the timeout, and continue
@@ -157,7 +161,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                                 stage: e.get_stage().unwrap_or(Stage::None),
                                 event: EventType::Error { error: Arc::new(e) },
                             });
-                            self.state.int_duration = default_interrupt_duration;
+                            self.int_duration = default_interrupt_duration;
                         }
                     }
 
@@ -213,7 +217,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         self.state.view += 1;
         tracing::debug!("New view number is now {:?}", self.state.view);
         // run the next block, with a timeout
-        let t = Duration::from_millis(self.state.int_duration);
+        let t = Duration::from_millis(self.int_duration);
 
         assert!(self.join_handle.is_none());
         self.join_handle = Some(async_std::task::spawn({
@@ -236,9 +240,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 pub struct RoundRunnerState {
     /// The view number of the next `QuorumCertificate`
     pub view: ViewNumber,
-
-    /// The timeout of the next round.
-    pub int_duration: u64,
 
     /// `true` if the background runner is running constantly
     pub is_running: bool,
