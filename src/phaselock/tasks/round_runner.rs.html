@@ -238,6 +238,41 @@
 <span id="233">233</span>
 <span id="234">234</span>
 <span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Round runner logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This will wait for one of several events, and will run one or multiple rounds</span>
@@ -272,6 +307,9 @@
 
     <span class="doccomment">/// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.</span>
     <span class="ident">run_once_counter</span>: <span class="ident">usize</span>,
+
+    <span class="doccomment">/// The timeout of the next round.</span>
+    <span class="ident">int_duration</span>: <span class="ident">u64</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">RoundRunner</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span> {
@@ -288,15 +326,16 @@
         };
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">RoundRunnerState</span> {
             <span class="ident">view</span>,
-            <span class="ident">int_duration</span>: <span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>,
             <span class="ident">is_running</span>: <span class="bool-val">false</span>,
         };
+        <span class="kw">let</span> <span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>;
         <span class="self">Self</span> {
             <span class="ident">join_handle</span>: <span class="prelude-val">None</span>,
             <span class="ident">sender</span>,
             <span class="ident">receiver</span>,
             <span class="ident">state</span>,
             <span class="ident">phaselock</span>,
+            <span class="ident">int_duration</span>,
             <span class="ident">run_once_counter</span>: <span class="number">0</span>,
         }
     }
@@ -364,25 +403,59 @@
                         <span class="macro">error!</span>(<span class="string">&quot;Could not wait for the handle to join after it reportedly finished. This is a bug.&quot;</span>);
                         <span class="kw">break</span>;
                     }
+
+                    <span class="kw">let</span> <span class="ident">default_interrupt_duration</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>;
+                    <span class="kw">let</span> (<span class="ident">int_mul</span>, <span class="ident">int_div</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">timeout_ratio</span>;
+
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                     <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">result</span> {
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">new_view</span>)) =&gt; {
-                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?} (run_once_counter: {}, is_running: {})&quot;</span>, <span class="ident">new_view</span>, <span class="self">self</span>.<span class="ident">run_once_counter</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span>);
-                            <span class="kw">let</span> <span class="ident">should_run_next</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                                <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                                <span class="bool-val">true</span>
-                            } <span class="kw">else</span> {
-                                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span>
-                            };
-                            <span class="kw">if</span> <span class="ident">should_run_next</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
-                                <span class="kw">break</span>;
-                            }
+                            <span class="comment">// If it succeded, simply reset the timeout</span>
+                            <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
+
+                            <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?}&quot;</span>, <span class="ident">new_view</span>);
                         }
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                            <span class="comment">// if we timed out, log it, send the event, and increase the timeout</span>
                             <span class="macro">warn!</span>(<span class="string">&quot;Round timed out&quot;</span>);
+                            <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
+                                <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
+                                <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
+                                <span class="ident">event</span>: <span class="ident">EventType::ViewTimeout</span> {
+                                    <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
+                                },
+                            });
+
+                            <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">*</span> <span class="ident">int_mul</span>) <span class="op">/</span> <span class="ident">int_div</span>;
                         }
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)) =&gt; {
-                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not finish round&quot;</span>);
+                            <span class="comment">// If it errored, broadcast the error, reset the timeout, and continue</span>
+                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Round encountered an error&quot;</span>);
+                            <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
+                                <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
+                                <span class="ident">stage</span>: <span class="ident">e</span>.<span class="ident">get_stage</span>().<span class="ident">unwrap_or</span>(<span class="ident">Stage::None</span>),
+                                <span class="ident">event</span>: <span class="ident">EventType::Error</span> { <span class="ident">error</span>: <span class="ident">Arc::new</span>(<span class="ident">e</span>) },
+                            });
+                            <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
                         }
+                    }
+
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event_to_send</span>) <span class="op">=</span> <span class="ident">event_to_send</span> {
+                        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">send_event</span>(<span class="ident">event_to_send</span>).<span class="kw">await</span> {
+                            <span class="macro">error!</span>(<span class="string">&quot;All event streams closed! Shutting down.&quot;</span>);
+                            <span class="kw">break</span>;
+                        }
+                    }
+
+                    <span class="kw">let</span> <span class="ident">should_start_new_round</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">&gt;</span> <span class="number">0</span> {
+                        <span class="self">self</span>.<span class="ident">run_once_counter</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+                        <span class="bool-val">true</span>
+                    } <span class="kw">else</span> {
+                        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_running</span>
+                    };
+
+                    <span class="kw">if</span> <span class="ident">should_start_new_round</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
+                        <span class="kw">break</span>;
                     }
                 }
             }
@@ -419,7 +492,7 @@
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;New view number is now {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>);
         <span class="comment">// run the next block, with a timeout</span>
-        <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">int_duration</span>);
+        <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">int_duration</span>);
 
         <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">join_handle</span>.<span class="ident">is_none</span>());
         <span class="self">self</span>.<span class="ident">join_handle</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">async_std::task::spawn</span>({
@@ -442,9 +515,6 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RoundRunnerState</span> {
     <span class="doccomment">/// The view number of the next `QuorumCertificate`</span>
     <span class="kw">pub</span> <span class="ident">view</span>: <span class="ident">ViewNumber</span>,
-
-    <span class="doccomment">/// The timeout of the next round.</span>
-    <span class="kw">pub</span> <span class="ident">int_duration</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// `true` if the background runner is running constantly</span>
     <span class="kw">pub</span> <span class="ident">is_running</span>: <span class="ident">bool</span>,
