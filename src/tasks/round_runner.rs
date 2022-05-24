@@ -32,6 +32,9 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
 
     /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
     run_once_counter: usize,
+
+    /// The timeout of the next round.
+    int_duration: u64,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
@@ -48,15 +51,16 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         };
         let state = RoundRunnerState {
             view,
-            int_duration: phaselock.inner.config.next_view_timeout,
             is_running: false,
         };
+        let int_duration = phaselock.inner.config.next_view_timeout;
         Self {
             join_handle: None,
             sender,
             receiver,
             state,
             phaselock,
+            int_duration,
             run_once_counter: 0,
         }
     }
@@ -124,25 +128,59 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                         error!("Could not wait for the handle to join after it reportedly finished. This is a bug.");
                         break;
                     }
+
+                    let default_interrupt_duration = self.phaselock.inner.config.next_view_timeout;
+                    let (int_mul, int_div) = self.phaselock.inner.config.timeout_ratio;
+
+                    let mut event_to_send = None;
                     match *result {
                         Ok(Ok(new_view)) => {
-                            info!("Round finished, new view number is {:?} (run_once_counter: {}, is_running: {})", new_view, self.run_once_counter, self.state.is_running);
-                            let should_run_next = if self.run_once_counter > 0 {
-                                self.run_once_counter -= 1;
-                                true
-                            } else {
-                                self.state.is_running
-                            };
-                            if should_run_next && !self.spawn().await {
-                                break;
-                            }
+                            // If it succeded, simply reset the timeout
+                            self.int_duration = default_interrupt_duration;
+
+                            info!("Round finished, new view number is {:?}", new_view);
                         }
                         Err(_) => {
+                            // if we timed out, log it, send the event, and increase the timeout
                             warn!("Round timed out");
+                            event_to_send = Some(Event {
+                                view_number: self.state.view,
+                                stage: Stage::None,
+                                event: EventType::ViewTimeout {
+                                    view_number: self.state.view,
+                                },
+                            });
+
+                            self.int_duration = (self.int_duration * int_mul) / int_div;
                         }
                         Ok(Err(e)) => {
-                            warn!(?e, "Could not finish round");
+                            // If it errored, broadcast the error, reset the timeout, and continue
+                            warn!(?e, "Round encountered an error");
+                            event_to_send = Some(Event {
+                                view_number: self.state.view,
+                                stage: e.get_stage().unwrap_or(Stage::None),
+                                event: EventType::Error { error: Arc::new(e) },
+                            });
+                            self.int_duration = default_interrupt_duration;
                         }
+                    }
+
+                    if let Some(event_to_send) = event_to_send {
+                        if !self.phaselock.send_event(event_to_send).await {
+                            error!("All event streams closed! Shutting down.");
+                            break;
+                        }
+                    }
+
+                    let should_start_new_round = if self.run_once_counter > 0 {
+                        self.run_once_counter -= 1;
+                        true
+                    } else {
+                        self.state.is_running
+                    };
+
+                    if should_start_new_round && !self.spawn().await {
+                        break;
                     }
                 }
             }
@@ -179,7 +217,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         self.state.view += 1;
         tracing::debug!("New view number is now {:?}", self.state.view);
         // run the next block, with a timeout
-        let t = Duration::from_millis(self.state.int_duration);
+        let t = Duration::from_millis(self.int_duration);
 
         assert!(self.join_handle.is_none());
         self.join_handle = Some(async_std::task::spawn({
@@ -202,9 +240,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 pub struct RoundRunnerState {
     /// The view number of the next `QuorumCertificate`
     pub view: ViewNumber,
-
-    /// The timeout of the next round.
-    pub int_duration: u64,
 
     /// `true` if the background runner is running constantly
     pub is_running: bool,
