@@ -43,6 +43,7 @@ async fn test_large_num_txns_regression() {
         num_succeeds: 11,
         txn_ids: Right(1),
         timeout_ratio: (25, 10),
+        next_view_timeout: 1500,
         ..TestDescriptionBuilder::default()
     };
     description.build().execute().await.unwrap();
