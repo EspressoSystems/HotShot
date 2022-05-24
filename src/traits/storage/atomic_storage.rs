@@ -59,6 +59,21 @@ where
     inner: Arc<AtomicStorageInner<Block, State, N>>,
 }
 
+impl<Block, State, const N: usize> Default for AtomicStorage<Block, State, N>
+where
+    Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,
+    State: DeserializeOwned + Serialize + Clone,
+{
+    fn default() -> Self {
+        // TODO use result
+        // let tempfile = NamedTempFile::new().unwrap();
+        let file = tempfile::tempdir().unwrap();
+        let path = file.path();
+        println!("Using store in {:?}", path);
+        Self::open(path).unwrap()
+    }
+}
+
 impl<Block, State, const N: usize> AtomicStorage<Block, State, N>
 where
     Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,

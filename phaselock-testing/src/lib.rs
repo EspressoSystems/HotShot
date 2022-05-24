@@ -18,9 +18,6 @@ pub use self::launcher::TestLauncher;
 
 use async_std::prelude::FutureExt;
 use phaselock::{
-    demos::dentry::{
-        Account, Addition, Balance, DEntryBlock, State as DemoState, Subtraction, Transaction,
-    },
     tc,
     traits::{
         election::StaticCommittee, implementations::Stateless, BlockContents,
@@ -29,13 +26,9 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::error::TimeoutSnafu;
+use phaselock_types::{error::TimeoutSnafu, traits::state::TestState};
 use snafu::{ResultExt, Snafu};
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    fmt,
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt, sync::Arc};
 use std::{marker::PhantomData, time::Duration};
 use tracing::{debug, error, info, info_span, warn};
 
@@ -62,7 +55,7 @@ pub struct Round<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -93,7 +86,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
     > Default for Round<NETWORK, STORAGE, BLOCK, STATE>
 {
     fn default() -> Self {
@@ -106,11 +99,12 @@ impl<
 }
 
 /// The runner of a test network
+/// spin up and down nodes, execute rounds
 pub struct TestRunner<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
@@ -128,7 +122,7 @@ struct Node<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 > {
     pub node_id: u64,
     pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
@@ -138,7 +132,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N>,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
@@ -460,21 +454,22 @@ impl<
     }
 }
 
+// FIXME make these return some sort of generic error.
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-    > TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static + TestState<N>,
+    > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
-    ///
-    /// Note that this function is only available if `STATE` is [`phaselock::demos::dentry::State`].
-    pub fn add_random_transaction(
-        &self,
-        node_id: Option<usize>,
-    ) -> Result<Transaction, TransactionError> {
+    pub fn add_random_transaction(&self, node_id: Option<usize>) -> Option<BLOCK::Transaction> {
         if self.nodes.is_empty() {
-            return Err(TransactionError::NoNodes);
+            return None;
         }
+
+        use rand::{seq::IteratorRandom, thread_rng};
+        let mut rng = thread_rng();
 
         // we're assuming all nodes have the same state
         // FIXME it may be good to do an assertion on the state matching
@@ -482,68 +477,29 @@ impl<
             .unwrap()
             .unwrap();
 
-        use rand::{seq::IteratorRandom, thread_rng, Rng};
-        let mut rng = thread_rng();
-
-        // Only get the balances that have an actual value
-        let non_zero_balances = state
-            .balances
-            .iter()
-            .filter(|b| *b.1 > 0)
-            .collect::<Vec<_>>();
-        if non_zero_balances.is_empty() {
-            return Err(TransactionError::NoValidBalance);
-        }
-
-        let input_account = non_zero_balances
-            .iter()
-            .choose(&mut rng)
-            .ok_or(TransactionError::NoValidBalance)?
-            .0;
-        let output_account = state
-            .balances
-            .keys()
-            .choose(&mut rng)
-            .ok_or(TransactionError::NoValidBalance)?;
-        let amount = rng.gen_range(0, state.balances[input_account]);
-        let transaction = Transaction {
-            add: Addition {
-                account: output_account.to_string(),
-                amount,
-            },
-            sub: Subtraction {
-                account: input_account.to_string(),
-                amount,
-            },
-            nonce: rng.gen(),
-        };
+        let txn = <STATE as TestState<N>>::create_random_transaction(&state).unwrap();
 
         let node = if let Some(node_id) = node_id {
-            self.nodes
-                .get(node_id)
-                .ok_or(TransactionError::InvalidNode)?
+            self.nodes.get(node_id)?
         } else {
             // find a random handle to send this transaction from
-            self.nodes
-                .iter()
-                .choose(&mut rng)
-                .ok_or(TransactionError::NoNodes)?
+            self.nodes.iter().choose(&mut rng)?
         };
 
         node.handle
-            .submit_transaction_sync(transaction.clone())
+            .submit_transaction_sync(txn.clone())
             .expect("Could not send transaction");
-        Ok(transaction)
+        Some(txn)
     }
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub fn add_random_transactions(&self, n: usize) -> Result<Vec<Transaction>, TransactionError> {
+    pub fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
             result.push(self.add_random_transaction(None)?);
         }
-        Ok(result)
+        Some(result)
     }
 }
 
@@ -611,7 +567,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
     > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
     type Block = BLOCK;
@@ -630,23 +586,5 @@ impl<NETWORK, STORAGE, BLOCK, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAG
             .field("block", &std::any::type_name::<BLOCK>())
             .field("state", &std::any::type_name::<STATE>())
             .finish_non_exhaustive()
-    }
-}
-
-/// Provides a common starting state
-pub fn get_starting_state() -> DemoState {
-    let balances: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 0),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    DemoState {
-        balances,
-        nonces: BTreeSet::default(),
     }
 }

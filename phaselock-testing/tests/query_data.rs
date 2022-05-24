@@ -3,8 +3,8 @@
 mod common;
 
 use async_std::task::block_on;
-use common::TestDescriptionBuilder;
 use common::{AppliedTestRunner, TestRoundResult, TestTransaction};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescription};
 use phaselock_testing::{ConsensusRoundError, Round};
 
 use phaselock::{
@@ -81,16 +81,19 @@ async fn sync_newest_quorom() {
     rounds[0].setup_round = Some(Arc::new(setup_round_one));
     rounds[1].setup_round = Some(Arc::new(setup_round_two));
 
-    let test_description = TestDescriptionBuilder {
-        total_nodes: 5,
-        start_nodes: 4,
-        num_succeeds: 2,
-        failure_threshold: 0,
-        next_view_timeout: NEXT_VIEW_TIMEOUT,
-        timeout_ratio: DEFAULT_TIMEOUT_RATIO,
-        network_reliability: None,
+    let test_description = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescription {
+            total_nodes: 5,
+            start_nodes: 4,
+            num_succeeds: 2,
+            failure_threshold: 0,
+            next_view_timeout: NEXT_VIEW_TIMEOUT,
+            timeout_ratio: DEFAULT_TIMEOUT_RATIO,
+            network_reliability: None,
+            ..Default::default()
+        },
         rounds: Some(rounds),
-        ..TestDescriptionBuilder::default()
+        gen_runner: None,
     };
 
     test_description.build().execute().await.unwrap();

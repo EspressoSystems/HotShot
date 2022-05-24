@@ -1,17 +1,15 @@
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner, N};
 use phaselock::{
-    demos::dentry::{DEntryBlock, State as DemoState, Transaction},
     tc::{self},
-    traits::{
-        implementations::{MasterMap, MemoryNetwork, MemoryStorage},
-        NetworkingImplementation, State, Storage,
-    },
+    traits::{NetworkingImplementation, State, Storage},
     types::Message,
     PhaseLockConfig, PubKey,
 };
-use phaselock_types::traits::BlockContents;
+use phaselock_types::traits::{
+    network::TestNetworkingImplementation, state::TestState, BlockContents,
+};
 use rand::thread_rng;
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -24,13 +22,14 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) sks: tc::SecretKeySet,
 }
 
-impl
-    TestLauncher<
-        MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>,
-        MemoryStorage<DEntryBlock, DemoState, N>,
-        DEntryBlock,
-        DemoState,
-    >
+impl<
+        NETWORK: TestNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + Default + 'static,
+        BLOCK: BlockContents<N> + Default + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -57,17 +56,12 @@ impl
         };
 
         Self {
-            network: Box::new({
-                // TODO publick this so we can regen it
-                let sks = sks.clone();
-                move |node_id| {
-                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-                    MemoryNetwork::new(pubkey, master.clone(), None)
-                }
-            }),
-            storage: Box::new(|_| MemoryStorage::default()),
-            block: Box::new(|_| DEntryBlock::default()),
-            state: Box::new(|_| super::get_starting_state()),
+            // FIXME pass in number of bootstrap nodes from config
+            // instead of just assuming they're 1
+            network: NETWORK::generator(expected_node_count, 1, sks.clone()),
+            storage: Box::new(|_| <STORAGE as Default>::default()),
+            block: Box::new(|_| <BLOCK as Default>::default()),
+            state: Box::new(|_| <STATE as TestState<N>>::get_starting_state()),
             sks,
             config,
         }
@@ -161,7 +155,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
     > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:

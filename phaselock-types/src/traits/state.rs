@@ -40,6 +40,15 @@ pub trait State<const N: usize>:
     fn on_commit(&self);
 }
 
+/// extra functions required on state to be usable by phaselock-testing
+pub trait TestState<const N: usize>: State<N> {
+    /// Creates random transaction if possible
+    /// otherwise returns `None`
+    fn create_random_transaction(&self) -> Option<<Self::Block as BlockContents<N>>::Transaction>;
+    /// Provides a common starting state
+    fn get_starting_state() -> Self;
+}
+
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use phaselock_types::traits::network::NetworkChange;
+use phaselock_types::traits::network::{NetworkChange, TestNetworkingImplementation};
 use rand::Rng;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -281,6 +281,22 @@ where
         } else {
             Err(flume::SendError(message))
         }
+    }
+}
+
+impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    TestNetworkingImplementation<T> for MemoryNetwork<T>
+{
+    fn generator(
+        _expected_node_count: usize,
+        _num_bootstrap: usize,
+        sks: threshold_crypto::SecretKeySet,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let master: Arc<_> = MasterMap::new();
+        Box::new(move |node_id| {
+            let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+            MemoryNetwork::new(pubkey, master.clone(), None)
+        })
     }
 }
 

@@ -3,22 +3,18 @@
 use async_std::task::block_on;
 use either::Either;
 use phaselock::traits::implementations::{Libp2pNetwork, MemoryStorage};
-use phaselock::traits::{BlockContents, NetworkingImplementation, Storage};
+use phaselock::traits::{BlockContents, NetworkingImplementation, State, Storage};
 use phaselock::types::Message;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    traits::{
-        implementations::{MasterMap, MemoryNetwork},
-        NetworkReliability,
-    },
+    traits::{implementations::MemoryNetwork, NetworkReliability},
     PhaseLockConfig,
 };
-use phaselock_testing::{
-    ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner, TransactionSnafu,
-};
+use phaselock_testing::{ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner};
+use phaselock_types::traits::network::TestNetworkingImplementation;
+use phaselock_types::traits::state::TestState;
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
-use snafu::ResultExt;
 use std::collections::HashSet;
 
 use std::sync::Arc;
@@ -38,11 +34,7 @@ pub struct TimingData {
     pub start_delay: u64,
 }
 
-/// Description of a consensus test
-pub struct TestDescriptionBuilder<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-    STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-> {
+pub struct GeneralTestDescription {
     /// Total number of nodes in the test
     pub total_nodes: usize,
     /// nodes available at start
@@ -69,16 +61,52 @@ pub struct TestDescriptionBuilder<
     pub ids_to_shut_down: Vec<HashSet<u64>>,
     /// Description of the network reliability
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
-    pub rounds: Option<Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>>>,
+}
+
+pub struct DetailedTestDescriptionBuilder<
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+> {
+    pub general_info: GeneralTestDescription,
+
+    /// list of rounds
+    pub rounds: Option<Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>>,
+
     /// function to generate the runner
-    pub gen_runner: GenRunner<NETWORK, STORAGE>,
+    pub gen_runner: GenRunner<NETWORK, STORAGE, BLOCK, STATE>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-    > TestDescription<NETWORK, STORAGE>
+        NETWORK: TestNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + Default + 'static,
+        BLOCK: BlockContents<N> + Default + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    > TestDescription<NETWORK, STORAGE, BLOCK, STATE>
 {
+    /// default implementation of generate runner
+    pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
+        let launcher = TestLauncher::new(self.total_nodes);
+        // modify runner to recognize timing params
+        let set_timing_params = |a: &mut PhaseLockConfig| {
+            a.next_view_timeout = self.timing_config.next_view_timeout;
+            a.timeout_ratio = self.timing_config.timeout_ratio;
+            a.round_start_delay = self.timing_config.round_start_delay;
+            a.start_delay = self.timing_config.start_delay;
+        };
+
+        // create reliability to pass into runner
+        let _reliability = self.network_reliability.clone();
+
+        // create runner from launcher
+        launcher
+            // insert timing parameters
+            .modify_default_config(set_timing_params)
+            .launch()
+    }
     /// execute a consensus test based on
     /// `Self`
     /// total_nodes: num nodes to run with
@@ -87,7 +115,10 @@ impl<
         setup_logging();
         setup_backtrace();
 
-        let mut runner = (self.gen_runner.clone().unwrap())(self);
+        let mut runner = match self.gen_runner {
+            Some(ref gen_runner) => (gen_runner.clone())(self),
+            None => self.gen_runner(),
+        };
 
         // configure nodes/timing
 
@@ -109,17 +140,37 @@ impl<
     }
 }
 
+impl GeneralTestDescription {
+    pub fn build<
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    >(
+        self,
+    ) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
+        DetailedTestDescriptionBuilder {
+            general_info: self,
+            rounds: None,
+            gen_runner: None,
+        }
+        .build()
+    }
+}
+
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-    > TestDescriptionBuilder<NETWORK, STORAGE>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
-    pub fn build(self) -> TestDescription<NETWORK, STORAGE> {
+    pub fn build(self) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
         let timing_config = TimingData {
-            next_view_timeout: self.next_view_timeout,
-            timeout_ratio: self.timeout_ratio,
-            round_start_delay: self.round_start_delay,
-            start_delay: self.start_delay,
+            next_view_timeout: self.general_info.next_view_timeout,
+            timeout_ratio: self.general_info.timeout_ratio,
+            round_start_delay: self.general_info.round_start_delay,
+            start_delay: self.general_info.start_delay,
         };
 
         let rounds = if let Some(rounds) = self.rounds {
@@ -128,29 +179,36 @@ impl<
             self.default_populate_rounds()
         };
 
+        // let gen_runner =
+
         TestDescription {
             rounds,
             gen_runner: self.gen_runner,
             timing_config,
-            network_reliability: self.network_reliability,
-            total_nodes: self.total_nodes,
-            start_nodes: self.start_nodes,
-            failure_threshold: self.failure_threshold,
+            network_reliability: self.general_info.network_reliability,
+            total_nodes: self.general_info.total_nodes,
+            start_nodes: self.general_info.start_nodes,
+            failure_threshold: self.general_info.failure_threshold,
         }
     }
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
 pub struct TestDescription<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-    STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 > {
+    /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
-    pub rounds: Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>>,
+    pub rounds: Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>,
     /// function to create a [`TestRunner`]
-    pub gen_runner: GenRunner<NETWORK, STORAGE>,
+    pub gen_runner: GenRunner<NETWORK, STORAGE, BLOCK, STATE>,
     /// timing information applied to phaselocks
     pub timing_config: TimingData,
+    /// TODO this should be implementation detail of network (perhaps fed into
+    /// constructor/generator).
     /// Description of the network reliability (dropped/mutated packets etc)
     /// if `None`, good networking conditions are assumed
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
@@ -164,20 +222,20 @@ pub struct TestDescription<
 }
 
 /// type alias for generating a [`TestRunner`]
-pub type GenRunner<NETWORK, STORAGE> = Option<
+pub type GenRunner<NETWORK, STORAGE, BLOCK, STATE> = Option<
     Arc<
         dyn Fn(
-            &TestDescription<NETWORK, STORAGE>,
-        ) -> TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
+            &TestDescription<NETWORK, STORAGE, BLOCK, STATE>,
+        ) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
     >,
 >;
 
 /// type alias for doing setup for a consensus round
-pub type TestSetup<NETWORK, STORAGE> = Vec<
+pub type TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec<
     Arc<
         dyn Fn(
-            &mut TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
-        ) -> Vec<<DEntryBlock as BlockContents<N>>::Transaction>,
+            &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+        ) -> Vec<<BLOCK as BlockContents<N>>::Transaction>,
     >,
 >;
 
@@ -192,7 +250,8 @@ pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, D
 /// type alias for the result of a test round
 pub type TestRoundResult = RoundResult<DEntryBlock, DemoState>;
 
-impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
+// FIXME THIS is why we need to split up metadat and anonymous functions
+impl Default for GeneralTestDescription {
     /// by default, just a single round
     fn default() -> Self {
         Self {
@@ -207,8 +266,6 @@ impl Default for TestDescriptionBuilder<TestNetwork, TestStorage> {
             start_delay: 1,
             ids_to_shut_down: Vec::new(),
             network_reliability: None,
-            rounds: None,
-            gen_runner: Some(Arc::new(gen_runner_default)),
         }
     }
 }
@@ -242,13 +299,15 @@ impl Default for TestDescriptionBuilder<TestLibp2pNetwork, TestStorage> {
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
 pub fn default_submitter_id_to_round<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-    STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
-) -> TestSetup<NETWORK, STORAGE> {
+) -> TestSetup<NETWORK, STORAGE, BLOCK, STATE> {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
         shut_down_ids.append(&mut vec![
@@ -257,9 +316,9 @@ pub fn default_submitter_id_to_round<
         ])
     }
 
-    let mut rounds: TestSetup<NETWORK, STORAGE> = Vec::new();
+    let mut rounds: TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec::new();
     for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
-        let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>| -> Vec<<DEntryBlock as BlockContents<N>>::Transaction> {
+        let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| -> Vec<BLOCK::Transaction> {
             for id in shutdown_ids.clone() {
                 block_on(runner.shutdown(id)).unwrap();
             }
@@ -289,18 +348,20 @@ pub fn default_submitter_id_to_round<
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
-    NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-    STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
+    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
-) -> TestSetup<NETWORK, STORAGE> {
-    let mut rounds: TestSetup<NETWORK, STORAGE> = Vec::new();
+) -> TestSetup<NETWORK, STORAGE, BLOCK, STATE> {
+    let mut rounds: TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec::new();
 
     for round_idx in 0..num_rounds {
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
-        let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>| {
+        let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| {
             if let Some(to_shut_down) = to_kill.clone() {
                 for idx in to_shut_down {
                     block_on(runner.shutdown(idx)).unwrap();
@@ -309,7 +370,6 @@ pub fn default_randomized_ids_to_round<
 
             runner
                 .add_random_transactions(txns_per_round as usize)
-                .context(TransactionSnafu)
                 .unwrap()
         };
 
@@ -320,38 +380,41 @@ pub fn default_randomized_ids_to_round<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<DEntryBlock, Transaction, DemoState, N>> + Clone + 'static,
-        STORAGE: Storage<DEntryBlock, DemoState, N> + 'static,
-    > TestDescriptionBuilder<NETWORK, STORAGE>
+        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// create rounds of consensus based on the data in `self`
-    pub fn default_populate_rounds(&self) -> Vec<Round<NETWORK, STORAGE, DEntryBlock, DemoState>> {
+    pub fn default_populate_rounds(&self) -> Vec<Round<NETWORK, STORAGE, BLOCK, STATE>> {
         // total number of rounds to be prepared to run assuming there may be failures
-        let total_rounds = self.num_succeeds + self.failure_threshold;
+        let total_rounds = self.general_info.num_succeeds + self.general_info.failure_threshold;
 
-        let safety_check_post =
-            move |runner: &TestRunner<NETWORK, STORAGE, DEntryBlock, DemoState>,
-                  results: TestRoundResult|
-                  -> Result<(), ConsensusRoundError> {
-                tracing::info!(?results);
-                // this check is rather strict:
-                // 1) all nodes have the SAME state
-                // 2) no nodes failed
-                async_std::task::block_on(runner.validate_node_states());
-                assert!(
-                    results.failures.is_empty(),
-                    "Failing nodes: {:?}",
-                    results.failures
-                );
-                Ok(())
-            };
+        let safety_check_post = move |runner: &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+                                      results: RoundResult<BLOCK, STATE>|
+              -> Result<(), ConsensusRoundError> {
+            tracing::info!(?results);
+            // this check is rather strict:
+            // 1) all nodes have the SAME state
+            // 2) no nodes failed
+            async_std::task::block_on(runner.validate_node_states());
+            assert!(
+                results.failures.is_empty(),
+                "Failing nodes: {:?}",
+                results.failures
+            );
+            Ok(())
+        };
 
-        let setups = match self.txn_ids.clone() {
-            Left(l) => {
-                default_submitter_id_to_round(self.ids_to_shut_down.clone(), l, total_rounds as u64)
-            }
+        let setups = match self.general_info.txn_ids.clone() {
+            Left(l) => default_submitter_id_to_round(
+                self.general_info.ids_to_shut_down.clone(),
+                l,
+                total_rounds as u64,
+            ),
             Right(tx_per_round) => default_randomized_ids_to_round(
-                self.ids_to_shut_down.clone(),
+                self.general_info.ids_to_shut_down.clone(),
                 total_rounds as u64,
                 tx_per_round as u64,
             ),
@@ -368,36 +431,6 @@ impl<
     }
 }
 
-/// runner creation function with a bunch of sane defaults
-pub fn gen_runner_default(
-    desc: &TestDescription<TestNetwork, TestStorage>,
-) -> TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState> {
-    let launcher = TestLauncher::<MemoryNetwork<_>, _, _, _>::new(desc.total_nodes);
-
-    // modify runner to recognize timing params
-    let set_timing_params = |a: &mut PhaseLockConfig| {
-        a.next_view_timeout = desc.timing_config.next_view_timeout;
-        a.timeout_ratio = desc.timing_config.timeout_ratio;
-        a.round_start_delay = desc.timing_config.round_start_delay;
-        a.start_delay = desc.timing_config.start_delay;
-    };
-
-    // create reliability to pass into runner
-    let reliability = desc.network_reliability.clone();
-    // create runner from launcher
-    launcher
-        // insert timing parameters
-        .modify_default_config(set_timing_params)
-        // overwrite network to preserve public key, but use a common master_map
-        .with_network({
-            let master_map = MasterMap::new();
-            move |_node_id, pubkey| {
-                MemoryNetwork::new(pubkey, master_map.clone(), reliability.clone())
-            }
-        })
-        .launch()
-}
-
 /// given `num_nodes`, calculate min number of honest nodes
 /// for consensus to function properly
 pub fn get_threshold(num_nodes: u64) -> u64 {
@@ -407,4 +440,144 @@ pub fn get_threshold(num_nodes: u64) -> u64 {
 /// given `num_nodes`, calculate max number of byzantine nodes
 pub fn get_tolerance(num_nodes: u64) -> u64 {
     num_nodes - get_threshold(num_nodes)
+}
+
+#[macro_export]
+macro_rules! cross_test_ignored {
+    // base case
+    ($NETWORK:ty, $STORAGE:ty, $BLOCK:ty, $STATE:ty, $fn_name:ident, $e:expr) => {
+        paste::paste! {
+            #[async_std::test]
+            #[instrument]
+            #[ignore]
+            async fn [<$fn_name:lower _ $NETWORK:snake:lower _ $STORAGE:snake:lower _ $BLOCK:snake:lower _ $STATE:snake:lower>]() {
+                let description : $crate::GeneralTestDescription = $e;
+                description.build::<
+                    $NETWORK<
+                        phaselock::types::Message<
+                            $BLOCK,
+                            <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 }>>::Transaction,
+                            $STATE,
+                            { phaselock::H_256 }
+                        >
+                    >,
+                    $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
+                    $BLOCK,
+                    $STATE
+                >()
+                .execute()
+                .await
+                .unwrap();
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! cross_test {
+    // base case
+    ($NETWORK:ty, $STORAGE:ty, $BLOCK:ty, $STATE:ty, $fn_name:ident, $e:expr) => {
+        paste::paste! {
+            #[async_std::test]
+            #[instrument]
+            async fn [<$fn_name:lower _ $NETWORK:snake:lower _ $STORAGE:snake:lower _ $BLOCK:snake:lower _ $STATE:snake:lower>]() {
+                let description : $crate::GeneralTestDescription = $e;
+                description.build::<
+                    $NETWORK<
+                        phaselock::types::Message<
+                            $BLOCK,
+                            <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 }>>::Transaction,
+                            $STATE,
+                            { phaselock::H_256 }
+                        >
+                    >,
+                    $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
+                    $BLOCK,
+                    $STATE
+                >()
+                .execute()
+                .await
+                .unwrap();
+            }
+        }
+    };
+}
+
+// TODO replace with path
+#[macro_export]
+macro_rules! cross_tests {
+    // base case
+    ([$NETWORK:ty], [$STORAGE:ty], [$BLOCK:ty], [$STATE:ty], $fn_name:ident, $e:expr) => {
+        cross_test!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e);
+    };
+    // reductions
+    ([$NETWORK:ty, $($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$STORAGE:ty, $($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$BLOCK:ty, $($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e);
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$STATE:ty, $($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e);
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+}
+
+#[macro_export]
+macro_rules! cross_tests_ignored {
+    // base case
+    ([$NETWORK:ty], [$STORAGE:ty], [$BLOCK:ty], [$STATE:ty], $fn_name:ident, $e:expr) => {
+        cross_test_ignored!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e);
+    };
+    // reductions
+    ([$NETWORK:ty, $($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests_ignored!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$STORAGE:ty, $($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests_ignored!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$BLOCK:ty, $($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests_ignored!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e);
+        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$STATE:ty, $($STATES:ty),+], $fn_name:ident, $e:expr) => {
+        cross_tests_ignored!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e);
+        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    };
+}
+
+#[macro_export]
+macro_rules! cross_all_types {
+    ($fn_name:ident, $e:expr) => {
+        cross_tests!(
+            [MemoryNetwork],
+            [MemoryStorage, AtomicStorage],
+            [DEntryBlock],
+            [State],
+            $fn_name,
+            $e
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! cross_all_types_ignored {
+    ($fn_name:ident, $e:expr) => {
+        cross_tests_ignored!(
+            [WNetwork, MemoryNetwork],
+            [MemoryStorage, AtomicStorage],
+            [DEntryBlock],
+            [State],
+            $fn_name,
+            $e
+        );
+    };
 }
