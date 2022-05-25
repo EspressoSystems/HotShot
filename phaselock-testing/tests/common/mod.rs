@@ -272,27 +272,6 @@ impl Default for GeneralTestDescription {
 
 pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
 
-impl Default for TestDescriptionBuilder<TestLibp2pNetwork, TestStorage> {
-    /// by default, just a single round
-    fn default() -> Self {
-        Self {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 1,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            next_view_timeout: 1000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            ids_to_shut_down: Vec::new(),
-            network_reliability: None,
-            rounds: None,
-            gen_runner: None,
-        }
-    }
-}
-
 /// given a description of rounds, generates such rounds
 /// args
 /// * `shut_down_ids`: vector of ids to shut down each round
@@ -558,7 +537,7 @@ macro_rules! cross_tests_ignored {
 macro_rules! cross_all_types {
     ($fn_name:ident, $e:expr) => {
         cross_tests!(
-            [MemoryNetwork],
+            [MemoryNetwork, Libp2pNetwork],
             [MemoryStorage, AtomicStorage],
             [DEntryBlock],
             [State],
@@ -572,7 +551,7 @@ macro_rules! cross_all_types {
 macro_rules! cross_all_types_ignored {
     ($fn_name:ident, $e:expr) => {
         cross_tests_ignored!(
-            [WNetwork, MemoryNetwork],
+            [MemoryNetwork, Libp2pNetwork],
             [MemoryStorage, AtomicStorage],
             [DEntryBlock],
             [State],

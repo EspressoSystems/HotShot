@@ -15,7 +15,7 @@ use phaselock::{
     demos::dentry::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
     },
-    traits::{implementations::MemoryNetwork, BlockContents, Storage},
+    traits::{BlockContents, Storage},
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::TestLauncher;

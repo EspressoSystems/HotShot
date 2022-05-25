@@ -15,7 +15,7 @@ use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, Go
 use libp2p_networking::network::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
-use phaselock_types::traits::network::FailedToSerializeSnafu;
+use phaselock_types::traits::network::{FailedToSerializeSnafu, TestNetworkingImplementation};
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
     PubKey,
@@ -80,20 +80,10 @@ pub struct Libp2pNetwork<
     inner: Arc<Libp2pNetworkInner<M>>,
 }
 
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    Libp2pNetwork<M>
+impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    TestNetworkingImplementation<T> for Libp2pNetwork<T>
 {
-    /// returns when network is ready
-    async fn wait_for_ready(&self) {
-        let recv_chan = self.inner.is_ready_listener.subscribe().await;
-        if !self.inner.is_ready_listener.cloned_async().await {
-            while !recv_chan.recv_async().await.unwrap_or(true) {}
-            // a oneshot
-        }
-    }
-
-    /// Return a generator function (for usage with the [`Launcher`])
-    /// returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
+    /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
     /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
     /// nodes with sane defaults.
@@ -102,15 +92,18 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    pub fn generator(
-        expected_node_count: u64,
-        num_bootstrap: u64,
-    ) -> Box<impl Fn(u64, PubKey) -> Libp2pNetwork<M>> {
+    /// TODO error handling!! unwraps is bad
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        sks: threshold_crypto::SecretKeySet,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         Box::new({
-            move |node_id, pubkey| {
+            move |node_id| {
+                let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
                 let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
-                let config = if node_id < num_bootstrap {
+                let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Bootstrap)
@@ -137,6 +130,19 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 })
             }
         })
+    }
+}
+
+impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    Libp2pNetwork<M>
+{
+    /// returns when network is ready
+    async fn wait_for_ready(&self) {
+        let recv_chan = self.inner.is_ready_listener.subscribe().await;
+        if !self.inner.is_ready_listener.cloned_async().await {
+            while !recv_chan.recv_async().await.unwrap_or(true) {}
+            // a oneshot
+        }
     }
 
     /// Constructs new network for a node. Note that this network is unconnected.

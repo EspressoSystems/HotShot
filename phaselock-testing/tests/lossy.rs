@@ -128,5 +128,7 @@ async fn test_partially_synchronous_network() {
         gen_runner: None,
     };
     let mut test = description.build();
+    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
     test.execute().await.unwrap();
 }

@@ -3,7 +3,7 @@ mod common;
 use common::*;
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::implementations::{AtomicStorage, MemoryNetwork, MemoryStorage, WNetwork},
+    traits::implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
 };
 
 use either::Either::Right;

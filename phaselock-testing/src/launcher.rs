@@ -34,8 +34,6 @@ impl<
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(expected_node_count: usize) -> Self {
-        let master: Arc<_> = MasterMap::new();
-
         let threshold = ((expected_node_count * 2) / 3) + 1;
         let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
 
