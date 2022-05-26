@@ -3160,7 +3160,6 @@ dependencies = [
  "either",
  "libp2p",
  "libp2p-networking",
- "paste",
  "phaselock",
  "phaselock-types",
  "phaselock-utils",

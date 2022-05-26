@@ -17,7 +17,8 @@ cross_all_types!(
         num_succeeds: 10,
         txn_ids: Right(1),
         ..GeneralTestDescription::default()
-    }
+    },
+    true
 );
 
 cross_all_types!(
@@ -28,5 +29,6 @@ cross_all_types!(
         num_succeeds: 10,
         txn_ids: Right(1),
         ..GeneralTestDescription::default()
-    }
+    },
+    true
 );

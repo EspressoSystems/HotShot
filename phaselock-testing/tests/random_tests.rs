@@ -19,32 +19,34 @@ use phaselock_types::data::ViewNumber;
 use proptest::prelude::*;
 use tracing::instrument;
 
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescription};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescription, TestDescription};
 use either::Either::{Left, Right};
 use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 
 // Notes: Tests with #[ignore] are skipped because they fail nondeterministically due to timeout or config setting.
 
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-cross_all_types_ignored!(
+cross_all_types!(
     test_fifty_nodes_regression,
     GeneralTestDescription {
         total_nodes: 50,
         start_nodes: 50,
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-cross_all_types_ignored!(
+cross_all_types!(
     test_ninety_nodes_regression,
     GeneralTestDescription {
         total_nodes: 90,
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
-cross_all_types_ignored!(
+cross_all_types!(
     test_large_num_txns_regression,
     GeneralTestDescription {
         total_nodes: 10,
@@ -54,11 +56,12 @@ cross_all_types_ignored!(
         timeout_ratio: (25, 10),
         next_view_timeout: 1500,
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO jr: fix failure
-cross_all_types_ignored!(
+cross_all_types!(
     test_fail_last_node_regression,
     GeneralTestDescription {
         total_nodes: 53,
@@ -66,11 +69,12 @@ cross_all_types_ignored!(
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![52].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO jr: fix failure
-cross_all_types_ignored!(
+cross_all_types!(
     test_fail_first_node_regression,
     GeneralTestDescription {
         total_nodes: 76,
@@ -79,11 +83,12 @@ cross_all_types_ignored!(
         next_view_timeout: 1000,
         timeout_ratio: (25, 10),
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO (issue): https://github.com/EspressoSystems/phaselock/issues/15
-cross_all_types_ignored!(
+cross_all_types!(
     test_fail_last_f_nodes_regression,
     GeneralTestDescription {
         total_nodes: 75,
@@ -93,11 +98,12 @@ cross_all_types_ignored!(
             (0..get_tolerance(75)).map(|x| 74 - x),
         )],
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO jr: fix failure
-cross_all_types_ignored!(
+cross_all_types!(
     test_fail_last_f_plus_one_nodes_regression,
     GeneralTestDescription {
         total_nodes: 15,
@@ -107,17 +113,19 @@ cross_all_types_ignored!(
             (0..get_tolerance(15) + 1).map(|x| 14 - x),
         )],
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO (vko): these tests seem to fail in CI
-cross_all_types_ignored!(
+cross_all_types!(
     test_mul_txns_regression,
     GeneralTestDescription {
         total_nodes: 30,
         start_nodes: 30,
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO this needs to be generalized over all implementations.

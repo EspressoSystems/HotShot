@@ -14,7 +14,7 @@ use std::collections::HashSet;
 
 // TODO jr: fix test
 // This test simulates a single permanent failed node
-cross_all_types_ignored!(
+cross_all_types!(
     single_permanent_failure,
     GeneralTestDescription {
         total_nodes: 7,
@@ -24,14 +24,15 @@ cross_all_types_ignored!(
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![6].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );
 
 // TODO jr: fix test
 // This test simulates two permanent failed nodes
 //
 // With n=7, this is the maximum failures that the network can tolerate
-cross_all_types_ignored!(
+cross_all_types!(
     double_permanent_failure,
     GeneralTestDescription {
         total_nodes: 7,
@@ -41,5 +42,6 @@ cross_all_types_ignored!(
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescription::default()
-    }
+    },
+    false
 );

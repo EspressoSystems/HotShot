@@ -422,141 +422,106 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 }
 
 #[macro_export]
-macro_rules! cross_test_ignored {
-    // base case
-    ($NETWORK:ty, $STORAGE:ty, $BLOCK:ty, $STATE:ty, $fn_name:ident, $e:expr) => {
-        paste::paste! {
-            #[async_std::test]
-            #[instrument]
-            #[ignore]
-            async fn [<$fn_name:lower _ $NETWORK:snake:lower _ $STORAGE:snake:lower _ $BLOCK:snake:lower _ $STATE:snake:lower>]() {
-                let description : $crate::GeneralTestDescription = $e;
-                description.build::<
-                    $NETWORK<
-                        phaselock::types::Message<
-                            $BLOCK,
-                            <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 }>>::Transaction,
-                            $STATE,
-                            { phaselock::H_256 }
-                        >
-                    >,
-                    $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
-                    $BLOCK,
-                    $STATE
-                >()
-                .execute()
-                .await
-                .unwrap();
-            }
-        }
+macro_rules! gen_inner_fn {
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr) => {
+        let description: $crate::GeneralTestDescription = $e;
+        let built: $TEST_TYPE = description.build();
+        built.execute().await.unwrap()
     };
 }
 
 #[macro_export]
 macro_rules! cross_test {
     // base case
-    ($NETWORK:ty, $STORAGE:ty, $BLOCK:ty, $STATE:ty, $fn_name:ident, $e:expr) => {
-        paste::paste! {
-            #[async_std::test]
-            #[instrument]
-            async fn [<$fn_name:lower _ $NETWORK:snake:lower _ $STORAGE:snake:lower _ $BLOCK:snake:lower _ $STATE:snake:lower>]() {
-                let description : $crate::GeneralTestDescription = $e;
-                description.build::<
-                    $NETWORK<
-                        phaselock::types::Message<
-                            $BLOCK,
-                            <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 }>>::Transaction,
-                            $STATE,
-                            { phaselock::H_256 }
-                        >
-                    >,
-                    $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
-                    $BLOCK,
-                    $STATE
-                >()
-                .execute()
-                .await
-                .unwrap();
-            }
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, true) => {
+        #[async_std::test]
+        #[instrument]
+        async fn test() {
+            gen_inner_fn!($TEST_TYPE, $fn_name, $e);
+        }
+    };
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, false) => {
+        #[async_std::test]
+        #[instrument]
+        #[ignore]
+        async fn test() {
+            gen_inner_fn!($TEST_TYPE, $fn_name, $e);
         }
     };
 }
 
-// TODO replace with path
 #[macro_export]
 macro_rules! cross_tests {
     // base case
-    ([$NETWORK:ty], [$STORAGE:ty], [$BLOCK:ty], [$STATE:ty], $fn_name:ident, $e:expr) => {
-        cross_test!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e);
+    ([$NETWORK:tt], [$STORAGE:tt], [$BLOCK:tt], [$STATE:tt], $fn_name:ident, $e:expr, $keep:tt) => {
+        type TestType = $crate::TestDescription<
+            $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, { phaselock::H_256 } >>,
+            $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
+            $BLOCK,
+            $STATE
+        >;
+        cross_test!(TestType, $fn_name, $e, $keep);
     };
     // reductions
-    ([$NETWORK:ty, $($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    ([$NETWORK:tt, $($NETWORKS:tt),+], [$($STORAGES:tt),+], [$($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[cfg(test)]
+        #[macro_use]
+        #[allow(non_snake_case)]
+        pub mod $NETWORK {
+            use crate::*;
+            cross_tests!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
+        }
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
     };
-    ([$($NETWORKS:ty),+], [$STORAGE:ty, $($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    ([$($NETWORKS:tt),+], [$STORAGE:tt, $($STORAGES:tt),+], [$($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[cfg(test)]
+        #[macro_use]
+        #[allow(non_snake_case)]
+        pub mod $STORAGE {
+            use crate::*;
+            cross_tests!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
+        }
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
     };
-    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$BLOCK:ty, $($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e);
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    ([$($NETWORKS:tt),+], [$($STORAGES:tt),+], [$BLOCK:tt, $($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[cfg(test)]
+        #[macro_use]
+        #[allow(non_snake_case)]
+        pub mod $BLOCK {
+            use crate::*;
+            cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e, $keep);
+        }
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
     };
-    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$STATE:ty, $($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e);
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-    };
-}
-
-#[macro_export]
-macro_rules! cross_tests_ignored {
-    // base case
-    ([$NETWORK:ty], [$STORAGE:ty], [$BLOCK:ty], [$STATE:ty], $fn_name:ident, $e:expr) => {
-        cross_test_ignored!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e);
-    };
-    // reductions
-    ([$NETWORK:ty, $($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests_ignored!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-    };
-    ([$($NETWORKS:ty),+], [$STORAGE:ty, $($STORAGES:ty),+], [$($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests_ignored!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-    };
-    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$BLOCK:ty, $($BLOCKS:ty),+], [$($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests_ignored!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e);
-        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
-    };
-    ([$($NETWORKS:ty),+], [$($STORAGES:ty),+], [$($BLOCKS:ty),+], [$STATE:ty, $($STATES:ty),+], $fn_name:ident, $e:expr) => {
-        cross_tests_ignored!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e);
-        cross_tests_ignored!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e);
+    ([$($NETWORKS:tt),+], [$($STORAGES:tt),+], [$($BLOCKS:tt),+], [$STATE:tt, $($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[cfg(test)]
+        #[macro_use]
+        #[allow(non_snake_case)]
+        pub mod $STATE {
+            use crate::*;
+            cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e, $keep);
+        }
+        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
     };
 }
 
 #[macro_export]
 macro_rules! cross_all_types {
-    ($fn_name:ident, $e:expr) => {
-        cross_tests!(
-            [MemoryNetwork, Libp2pNetwork],
-            [MemoryStorage, AtomicStorage],
-            [DEntryBlock],
-            [State],
-            $fn_name,
-            $e
-        );
-    };
-}
+    ($fn_name:ident, $e:expr, $keep:tt) => {
+        #[cfg(test)]
+        #[macro_use]
+        pub mod $fn_name {
+            use crate::*;
 
-#[macro_export]
-macro_rules! cross_all_types_ignored {
-    ($fn_name:ident, $e:expr) => {
-        cross_tests_ignored!(
-            [MemoryNetwork, Libp2pNetwork],
-            [MemoryStorage, AtomicStorage],
-            [DEntryBlock],
-            [State],
-            $fn_name,
-            $e
-        );
+            cross_tests!(
+                [MemoryNetwork, Libp2pNetwork],
+                [MemoryStorage, AtomicStorage],
+                [DEntryBlock],
+                [State],
+                $fn_name,
+                $e,
+                $keep
+            );
+        }
     };
 }
