@@ -21,6 +21,7 @@ use phaselock_types::{
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{path::Path, sync::Arc};
+use tempfile::{tempdir, TempDir};
 use tracing::{instrument, trace};
 
 /// Inner state of an atomic storage
@@ -29,6 +30,9 @@ where
     Block: BlockContents<N> + DeserializeOwned + Serialize,
     State: DeserializeOwned + Serialize,
 {
+    /// Temporary directory storage might live in
+    /// (we want to delete the temporary directory when storage is droppped)
+    _temp_dir: Option<TempDir>,
     /// The atomic store loader
     atomic_store: Mutex<AtomicStore>,
 
@@ -65,12 +69,9 @@ where
     State: DeserializeOwned + Serialize + Clone,
 {
     fn default() -> Self {
-        // TODO use result
-        // let tempfile = NamedTempFile::new().unwrap();
-        let file = tempfile::tempdir().unwrap();
-        let path = file.path();
-        println!("Using store in {:?}", path);
-        Self::open(path).unwrap()
+        let tempdir = tempdir().unwrap();
+        let loader = AtomicStoreLoader::create(tempdir.path(), "phaselock").unwrap();
+        Self::init_from_loader(loader, Some(tempdir)).unwrap()
     }
 }
 
@@ -90,7 +91,7 @@ where
     /// - [`atomic_store::AppendLog`]
     pub fn create(path: &Path) -> atomic_store::Result<Self> {
         let loader = AtomicStoreLoader::create(path, "phaselock")?;
-        Self::init_from_loader(loader)
+        Self::init_from_loader(loader, None)
     }
 
     /// Open an atomic storage at a given path.
@@ -104,7 +105,7 @@ where
     /// - [`atomic_store::AppendLog`]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
         let loader = AtomicStoreLoader::load(path, "phaselock")?;
-        Self::init_from_loader(loader)
+        Self::init_from_loader(loader, None)
     }
 
     /// Open an atomic storage with a given [`AtomicStoreLoader`]
@@ -115,7 +116,10 @@ where
     /// - [`atomic_store::AtomicStore`]
     /// - [`atomic_store::RollingLog`]
     /// - [`atomic_store::AppendLog`]
-    pub fn init_from_loader(mut loader: AtomicStoreLoader) -> atomic_store::Result<Self> {
+    pub fn init_from_loader(
+        mut loader: AtomicStoreLoader,
+        dir: Option<TempDir>,
+    ) -> atomic_store::Result<Self> {
         let blocks = HashMapStore::load(&mut loader, "phaselock_blocks")?;
         let qcs = DualKeyValueStore::open(&mut loader, "phaselock_qcs")?;
         let leaves = DualKeyValueStore::open(&mut loader, "phaselock_leaves")?;
@@ -125,6 +129,7 @@ where
 
         Ok(Self {
             inner: Arc::new(AtomicStorageInner {
+                _temp_dir: dir,
                 atomic_store: Mutex::new(atomic_store),
                 blocks,
                 qcs,
