@@ -450,61 +450,82 @@ macro_rules! cross_test {
     };
 }
 
+/// Macro to generate tests for all types based on a description
+/// Arguments:
+/// - $NETWORKS: a space delimited list of Network implementations
+/// - $STORAGES: a space delimited list of Storage implementations
+/// - $BLOCKS: a space delimited list of Block implementations
+/// - $STATES: a space delimited list of State implementations
+/// - $fn_name: a identifier for the outermost test module
+/// - $expr: a TestDescription for the test
+/// - $keep:
+///   - true is a noop
+///   - false forces test to be ignored
 #[macro_export]
 macro_rules! cross_tests {
+    // reductions
+    ([ $NETWORK:tt $($NETWORKS:tt)* ], [ $($STORAGES:tt )+ ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[ macro_use ]
+        #[ allow(non_snake_case) ]
+        mod $NETWORK {
+            use crate::*;
+            cross_tests!($NETWORK, [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, $keep);
+        }
+        cross_tests!([ $($NETWORKS)*  ], [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, $keep);
+    };
+    ([  ], [ $($STORAGE:tt)+ ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
+    };
+    ($NETWORK:tt, [ $STORAGE:tt $($STORAGES:tt)* ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[ macro_use ]
+        #[ allow(non_snake_case) ]
+        mod $STORAGE {
+            use crate::*;
+            cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, $keep);
+        }
+        cross_tests!($NETWORK, [ $($STORAGES),* ], [ $($BLOCKS),+ ], [ $($STATES),+ ], $fn_name, $e, $keep);
+    };
+    ($NETWORK:tt, [  ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
+    };
+    ($NETWORK:tt, $STORAGE:tt, [ $BLOCK:tt $($BLOCKS:tt)* ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[ macro_use ]
+        #[ allow(non_snake_case) ]
+        mod $BLOCK {
+            use crate::*;
+            cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)+ ], $fn_name, $e, $keep);
+        }
+        cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS),* ], [ $($STATES),+ ], $fn_name, $e, $keep);
+    };
+    ($NETWORK:tt, $STORAGE:tt, [  ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
+    };
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [ $STATE:tt $( $STATES:tt)* ], $fn_name:ident, $e:expr, $keep:tt) => {
+        #[ macro_use ]
+        #[ allow(non_snake_case) ]
+        mod $STATE {
+            use crate::*;
+            cross_tests!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e, $keep);
+        }
+        cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)* ], $fn_name, $e, $keep);
+    };
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [  ], $fn_name:ident, $e:expr, $keep:tt) => {
+    };
     // base case
-    ([$NETWORK:tt], [$STORAGE:tt], [$BLOCK:tt], [$STATE:tt], $fn_name:ident, $e:expr, $keep:tt) => {
-        type TestType = $crate::TestDescription<
-            $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, { phaselock::H_256 } >>,
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, $keep:tt) => {
+        type TestType = $crate::TestDescription< $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, { phaselock::H_256 } >>,
             $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
             $BLOCK,
             $STATE
         >;
         cross_test!(TestType, $fn_name, $e, $keep);
     };
-    // reductions
-    ([$NETWORK:tt, $($NETWORKS:tt),+], [$($STORAGES:tt),+], [$($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
-        #[cfg(test)]
-        #[macro_use]
-        #[allow(non_snake_case)]
-        pub mod $NETWORK {
-            use crate::*;
-            cross_tests!([$NETWORK], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-        }
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-    };
-    ([$($NETWORKS:tt),+], [$STORAGE:tt, $($STORAGES:tt),+], [$($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
-        #[cfg(test)]
-        #[macro_use]
-        #[allow(non_snake_case)]
-        pub mod $STORAGE {
-            use crate::*;
-            cross_tests!([$($NETWORKS),+], [$STORAGE], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-        }
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-    };
-    ([$($NETWORKS:tt),+], [$($STORAGES:tt),+], [$BLOCK:tt, $($BLOCKS:tt),+], [$($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
-        #[cfg(test)]
-        #[macro_use]
-        #[allow(non_snake_case)]
-        pub mod $BLOCK {
-            use crate::*;
-            cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$BLOCK], [$($STATES),+], $fn_name, $e, $keep);
-        }
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-    };
-    ([$($NETWORKS:tt),+], [$($STORAGES:tt),+], [$($BLOCKS:tt),+], [$STATE:tt, $($STATES:tt),+], $fn_name:ident, $e:expr, $keep:tt) => {
-        #[cfg(test)]
-        #[macro_use]
-        #[allow(non_snake_case)]
-        pub mod $STATE {
-            use crate::*;
-            cross_tests!([$($NETWORKS),+], [$($STORAGES),+], [$($BLOCKS),+], [$STATE], $fn_name, $e, $keep);
-        }
-        cross_tests!([$($NETWORKS),+ ], [$($STORAGES),+], [$($BLOCKS),+], [$($STATES),+], $fn_name, $e, $keep);
-    };
 }
 
+/// Macro to generate tests for all types based on a description
+/// Arguments:
+/// - $fn_name: a identifier for the outermost test module
+/// - $expr: a TestDescription for the test
+/// - $keep:
+///   - true is a noop
+///   - false forces test to be ignored
 #[macro_export]
 macro_rules! cross_all_types {
     ($fn_name:ident, $e:expr, $keep:tt) => {
@@ -514,10 +535,10 @@ macro_rules! cross_all_types {
             use crate::*;
 
             cross_tests!(
-                [MemoryNetwork, Libp2pNetwork],
-                [MemoryStorage, AtomicStorage],
-                [DEntryBlock],
-                [State],
+                [ MemoryNetwork Libp2pNetwork ],
+                [ MemoryStorage AtomicStorage ],
+                [ DEntryBlock  ],
+                [ State ],
                 $fn_name,
                 $e,
                 $keep
