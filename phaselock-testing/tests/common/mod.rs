@@ -422,31 +422,39 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
     num_nodes - get_threshold(num_nodes)
 }
 
+/// Generate the inside of a test.
+/// Only for internal usage.
 #[macro_export]
 macro_rules! gen_inner_fn {
-    ($TEST_TYPE:ty, $fn_name:ident, $e:expr) => {
+    ($TEST_TYPE:ty, $e:expr) => {
         let description: $crate::GeneralTestDescriptionBuilder = $e;
         let built: $TEST_TYPE = description.build();
         built.execute().await.unwrap()
     };
 }
 
+/// Generate a test.
+/// Args:
+/// - $TEST_TYPE: TestDescription type
+/// - $fn_name: name of test
+/// - $e: The test description
+/// - $keep: whether or not to ignore the test
 #[macro_export]
 macro_rules! cross_test {
     // base case
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, true) => {
         #[async_std::test]
         #[instrument]
-        async fn test() {
-            gen_inner_fn!($TEST_TYPE, $fn_name, $e);
+        async fn $fn_name() {
+            gen_inner_fn!($TEST_TYPE, $e);
         }
     };
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, false) => {
         #[async_std::test]
         #[instrument]
         #[ignore]
-        async fn test() {
-            gen_inner_fn!($TEST_TYPE, $fn_name, $e);
+        async fn $fn_name() {
+            gen_inner_fn!($TEST_TYPE, $e);
         }
     };
 }
