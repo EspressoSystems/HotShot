@@ -19,7 +19,7 @@ use phaselock_types::data::ViewNumber;
 use proptest::prelude::*;
 use tracing::instrument;
 
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescription, TestDescription};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestDescription};
 use either::Either::{Left, Right};
 use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 
@@ -28,10 +28,10 @@ use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
 cross_all_types!(
     test_fifty_nodes_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 50,
         start_nodes: 50,
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -39,23 +39,23 @@ cross_all_types!(
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
 cross_all_types!(
     test_ninety_nodes_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 90,
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
 
 cross_all_types!(
     test_large_num_txns_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 10,
         start_nodes: 10,
         num_succeeds: 11,
         txn_ids: Right(1),
         timeout_ratio: (25, 10),
         next_view_timeout: 1500,
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -63,12 +63,12 @@ cross_all_types!(
 // TODO jr: fix failure
 cross_all_types!(
     test_fail_last_node_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 53,
         start_nodes: 53,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![52].into_iter().collect::<HashSet<_>>()],
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -76,13 +76,13 @@ cross_all_types!(
 // TODO jr: fix failure
 cross_all_types!(
     test_fail_first_node_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 76,
         start_nodes: 76,
         ids_to_shut_down: vec![vec![0].into_iter().collect::<HashSet<_>>()],
         next_view_timeout: 1000,
         timeout_ratio: (25, 10),
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -90,14 +90,14 @@ cross_all_types!(
 // TODO (issue): https://github.com/EspressoSystems/phaselock/issues/15
 cross_all_types!(
     test_fail_last_f_nodes_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 75,
         start_nodes: 75,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![HashSet::<u64>::from_iter(
             (0..get_tolerance(75)).map(|x| 74 - x),
         )],
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -105,14 +105,14 @@ cross_all_types!(
 // TODO jr: fix failure
 cross_all_types!(
     test_fail_last_f_plus_one_nodes_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 15,
         start_nodes: 15,
         next_view_timeout: 1000,
         ids_to_shut_down: vec![HashSet::<u64>::from_iter(
             (0..get_tolerance(15) + 1).map(|x| 14 - x),
         )],
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -120,10 +120,10 @@ cross_all_types!(
 // TODO (vko): these tests seem to fail in CI
 cross_all_types!(
     test_mul_txns_regression,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 30,
         start_nodes: 30,
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -139,10 +139,10 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_nodes_random(num_nodes in 50..100usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -165,13 +165,13 @@ proptest! {
     #[ignore]
     #[test]
     fn test_large_num_txns_random(num_nodes in 5..30usize, num_txns in 10..30usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             num_succeeds: num_txns,
             txn_ids: Right(1),
             timeout_ratio: (25, 10),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -194,11 +194,11 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_node_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![(num_nodes - 1) as u64].into_iter().collect()],
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -221,11 +221,11 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_node_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![vec![0].into_iter().collect()],
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -248,13 +248,13 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_last_f_nodes_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
             num_succeeds: 5,
             txn_ids: Right(1),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -277,13 +277,13 @@ proptest! {
     #[ignore]
     #[test]
     fn test_fail_first_f_nodes_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: num_nodes,
             start_nodes: num_nodes,
             ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
             num_succeeds: 5,
             txn_ids: Right(1),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -306,11 +306,11 @@ proptest! {
     #[ignore]
     #[test]
     fn test_mul_txns_random(txn_proposer_1 in 0..15u64, txn_proposer_2 in 15..30u64) {
-        let description = GeneralTestDescription {
+        let description = GeneralTestDescriptionBuilder {
             total_nodes: 30,
             start_nodes: 30,
             txn_ids: Left(vec![vec![txn_proposer_1, txn_proposer_2]]),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         };
         async_std::task::block_on(
             async {
@@ -364,10 +364,10 @@ pub async fn test_harness() {
             setup_round: Some(Arc::new(run_round)),
             safety_check_pre: Some(Arc::new(safety_check_pre)),
         }]),
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 30,
             start_nodes: 30,
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         },
         gen_runner: None,
     };

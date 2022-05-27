@@ -16,14 +16,14 @@ use std::collections::HashSet;
 // This test simulates a single permanent failed node
 cross_all_types!(
     single_permanent_failure,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
         txn_ids: Right(1),
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![6].into_iter().collect::<HashSet<_>>()],
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );
@@ -34,14 +34,14 @@ cross_all_types!(
 // With n=7, this is the maximum failures that the network can tolerate
 cross_all_types!(
     double_permanent_failure,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
         txn_ids: Right(1),
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     false
 );

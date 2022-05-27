@@ -4,7 +4,7 @@ mod common;
 use std::sync::Arc;
 
 use common::{AppliedTestRunner, TestRoundResult};
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescription};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder};
 use either::Either::Right;
 use phaselock_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
@@ -47,11 +47,11 @@ pub fn check_safety(
 #[instrument]
 async fn test_no_loss_network() {
     let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 10,
             start_nodes: 10,
             network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         },
         rounds: None,
         gen_runner: None,
@@ -66,12 +66,12 @@ async fn test_no_loss_network() {
 #[instrument]
 async fn test_synchronous_network() {
     let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 2,
             txn_ids: Right(1),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         },
         rounds: None,
         gen_runner: None,
@@ -88,14 +88,14 @@ async fn test_synchronous_network() {
 #[ignore]
 async fn test_asynchronous_network() {
     let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 2,
             txn_ids: Right(1),
             failure_threshold: 5,
             network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         },
         rounds: None,
         gen_runner: None,
@@ -116,13 +116,13 @@ async fn test_partially_synchronous_network() {
     let gst = std::time::Duration::new(10, 0);
 
     let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 2,
             txn_ids: Right(1),
             network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-            ..GeneralTestDescription::default()
+            ..GeneralTestDescriptionBuilder::default()
         },
         rounds: None,
         gen_runner: None,

@@ -35,7 +35,7 @@ pub struct TimingData {
     pub start_delay: u64,
 }
 
-pub struct GeneralTestDescription {
+pub struct GeneralTestDescriptionBuilder {
     /// Total number of nodes in the test
     pub total_nodes: usize,
     /// nodes available at start
@@ -70,7 +70,7 @@ pub struct DetailedTestDescriptionBuilder<
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
-    pub general_info: GeneralTestDescription,
+    pub general_info: GeneralTestDescriptionBuilder,
 
     /// list of rounds
     pub rounds: Option<Vec<Round<NETWORK, STORAGE, BLOCK, STATE>>>,
@@ -141,7 +141,7 @@ impl<
     }
 }
 
-impl GeneralTestDescription {
+impl GeneralTestDescriptionBuilder {
     pub fn build<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
@@ -252,7 +252,7 @@ pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, D
 pub type TestRoundResult = RoundResult<DEntryBlock, DemoState>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
-impl Default for GeneralTestDescription {
+impl Default for GeneralTestDescriptionBuilder {
     /// by default, just a single round
     fn default() -> Self {
         Self {
@@ -425,7 +425,7 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 #[macro_export]
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr) => {
-        let description: $crate::GeneralTestDescription = $e;
+        let description: $crate::GeneralTestDescriptionBuilder = $e;
         let built: $TEST_TYPE = description.build();
         built.execute().await.unwrap()
     };

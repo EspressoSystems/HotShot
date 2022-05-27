@@ -19,7 +19,7 @@ use tracing::instrument;
 #[async_std::test]
 #[instrument]
 async fn libp2p_network() {
-    let description = GeneralTestDescription {
+    let description = GeneralTestDescriptionBuilder {
         next_view_timeout: 600,
         round_start_delay: 25,
         timeout_ratio: (1, 1),
@@ -28,7 +28,7 @@ async fn libp2p_network() {
         start_nodes: 10,
         num_succeeds: 1,
         txn_ids: Right(1),
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     };
 
     description

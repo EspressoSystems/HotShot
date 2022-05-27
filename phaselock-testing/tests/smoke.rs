@@ -11,24 +11,24 @@ use tracing::instrument;
 
 cross_all_types!(
     ten_tx_five_nodes,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 5,
         start_nodes: 5,
         num_succeeds: 10,
         txn_ids: Right(1),
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     true
 );
 
 cross_all_types!(
     ten_tx_seven_nodes,
-    GeneralTestDescription {
+    GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
         txn_ids: Right(1),
-        ..GeneralTestDescription::default()
+        ..GeneralTestDescriptionBuilder::default()
     },
     true
 );

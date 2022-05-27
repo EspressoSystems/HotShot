@@ -4,7 +4,7 @@ mod common;
 
 use async_std::task::block_on;
 use common::{AppliedTestRunner, TestRoundResult, TestTransaction};
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescription};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder};
 use phaselock_testing::{ConsensusRoundError, Round};
 
 use phaselock::{
@@ -82,7 +82,7 @@ async fn sync_newest_quorom() {
     rounds[1].setup_round = Some(Arc::new(setup_round_two));
 
     let test_description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 4,
             num_succeeds: 2,

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_std::task::block_on;
 use common::{
-    DetailedTestDescriptionBuilder, GeneralTestDescription, TestDescription, TestNetwork,
+    DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestDescription, TestNetwork,
     TestRoundResult, TestTransaction,
 };
 use either::Either::Right;
@@ -321,7 +321,7 @@ async fn restart() {
     );
 
     let desc = DetailedTestDescriptionBuilder::<TestNetwork, AtomicStorage, DEntryBlock, DemoState> {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 1,
@@ -403,7 +403,7 @@ async fn restart() {
         };
 
     let desc = DetailedTestDescriptionBuilder::<TestNetwork, AtomicStorage, DEntryBlock, DemoState> {
-        general_info: GeneralTestDescription {
+        general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 1,
