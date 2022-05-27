@@ -8,7 +8,8 @@ use phaselock::{
     PhaseLockConfig, PubKey,
 };
 use phaselock_types::traits::{
-    network::TestNetworkingImplementation, state::TestState, BlockContents,
+    network::TestableNetworkingImplementation, state::TestableState, storage::TestableStorage,
+    BlockContents,
 };
 use rand::thread_rng;
 
@@ -23,12 +24,12 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
 }
 
 impl<
-        NETWORK: TestNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
             + Clone
             + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + Default + 'static,
+        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + Default + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: TestableState<N, Block = BLOCK> + 'static,
     > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Create a new launcher.
@@ -57,9 +58,11 @@ impl<
             // FIXME pass in number of bootstrap nodes from config
             // instead of just assuming they're 1
             network: NETWORK::generator(expected_node_count, 1, sks.clone()),
-            storage: Box::new(|_| <STORAGE as Default>::default()),
+            storage: Box::new(|_| {
+                <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
+            }),
             block: Box::new(|_| <BLOCK as Default>::default()),
-            state: Box::new(|_| <STATE as TestState<N>>::get_starting_state()),
+            state: Box::new(|_| <STATE as TestableState<N>>::get_starting_state()),
             sks,
             config,
         }
@@ -153,7 +156,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:

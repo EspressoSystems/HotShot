@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use phaselock_types::traits::network::{NetworkChange, TestNetworkingImplementation};
+use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
 use rand::Rng;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -285,7 +285,7 @@ where
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestNetworkingImplementation<T> for MemoryNetwork<T>
+    TestableNetworkingImplementation<T> for MemoryNetwork<T>
 {
     fn generator(
         _expected_node_count: usize,

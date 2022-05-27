@@ -41,7 +41,7 @@ pub trait State<const N: usize>:
 }
 
 /// extra functions required on state to be usable by phaselock-testing
-pub trait TestState<const N: usize>: State<N> {
+pub trait TestableState<const N: usize>: State<N> {
     /// Creates random transaction if possible
     /// otherwise returns `None`
     fn create_random_transaction(&self) -> Option<<Self::Block as BlockContents<N>>::Transaction>;

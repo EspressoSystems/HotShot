@@ -16,7 +16,10 @@ use atomic_store::{AtomicStore, AtomicStoreLoader};
 use futures::Future;
 use phaselock_types::{
     data::ViewNumber,
-    traits::storage::{AtomicStoreSnafu, Storage, StorageResult, StorageState, StorageUpdater},
+    traits::storage::{
+        AtomicStoreSnafu, Storage, StorageError, StorageResult, StorageState, StorageUpdater,
+        TestableStorage,
+    },
 };
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
@@ -63,15 +66,20 @@ where
     inner: Arc<AtomicStorageInner<Block, State, N>>,
 }
 
-impl<Block, State, const N: usize> Default for AtomicStorage<Block, State, N>
-where
-    Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,
-    State: DeserializeOwned + Serialize + Clone,
+impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+    TestableStorage<B, S, N> for AtomicStorage<B, S, N>
 {
-    fn default() -> Self {
-        let tempdir = tempdir().unwrap();
-        let loader = AtomicStoreLoader::create(tempdir.path(), "phaselock").unwrap();
-        Self::init_from_loader(loader, Some(tempdir)).unwrap()
+    fn construct_tmp_storage() -> StorageResult<Self> {
+        let tempdir = tempdir().map_err(|e| StorageError::InconsistencyError {
+            description: e.to_string(),
+        })?;
+        let loader = AtomicStoreLoader::create(tempdir.path(), "phaselock").map_err(|e| {
+            StorageError::InconsistencyError {
+                description: e.to_string(),
+            }
+        })?;
+        Self::init_from_loader(loader, Some(tempdir))
+            .map_err(|e| StorageError::AtomicStore { source: e })
     }
 }
 

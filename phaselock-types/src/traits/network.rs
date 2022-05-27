@@ -145,7 +145,7 @@ where
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestNetworkingImplementation<M>: NetworkingImplementation<M>
+pub trait TestableNetworkingImplementation<M>: NetworkingImplementation<M>
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
 {

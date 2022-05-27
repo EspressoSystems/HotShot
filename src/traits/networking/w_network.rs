@@ -28,7 +28,7 @@ use dashmap::DashMap;
 use flume::{Receiver, Sender};
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, prelude::*};
-use phaselock_types::traits::network::{NetworkChange, TestNetworkingImplementation};
+use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -195,7 +195,7 @@ impl<T> Debug for WNetwork<T> {
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestNetworkingImplementation<T> for WNetwork<T>
+    TestableNetworkingImplementation<T> for WNetwork<T>
 {
     fn generator(
         _expected_node_count: usize,

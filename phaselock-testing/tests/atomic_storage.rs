@@ -19,7 +19,7 @@ use phaselock::{
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::TestLauncher;
-use phaselock_types::{data::ViewNumber, traits::state::TestState};
+use phaselock_types::{data::ViewNumber, traits::state::TestableState};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;
@@ -55,7 +55,7 @@ async fn test_happy_path_blocks() {
 
     // Add some transactions
     let mut rng = thread_rng();
-    let state = <DemoState as TestState<H_256>>::get_starting_state();
+    let state = <DemoState as TestableState<H_256>>::get_starting_state();
     let mut hashes = Vec::new();
     let mut block = block;
     for _ in 0..10 {

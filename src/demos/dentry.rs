@@ -9,7 +9,7 @@
 use blake3::Hasher;
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage, ViewNumber},
-    traits::state::TestState,
+    traits::state::TestableState,
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -132,7 +132,7 @@ impl State {
     }
 }
 
-impl TestState<H_256> for State {
+impl TestableState<H_256> for State {
     fn create_random_transaction(
         &self,
     ) -> Option<<Self::Block as BlockContents<H_256>>::Transaction> {

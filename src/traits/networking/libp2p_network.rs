@@ -15,7 +15,7 @@ use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, Go
 use libp2p_networking::network::{
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
-use phaselock_types::traits::network::{FailedToSerializeSnafu, TestNetworkingImplementation};
+use phaselock_types::traits::network::{FailedToSerializeSnafu, TestableNetworkingImplementation};
 use phaselock_types::{
     traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
     PubKey,
@@ -81,7 +81,7 @@ pub struct Libp2pNetwork<
 }
 
 impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestNetworkingImplementation<T> for Libp2pNetwork<T>
+    TestableNetworkingImplementation<T> for Libp2pNetwork<T>
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.

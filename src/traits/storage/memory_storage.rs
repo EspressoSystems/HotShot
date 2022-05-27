@@ -13,7 +13,9 @@ use dashmap::DashMap;
 use futures::Future;
 use phaselock_types::{
     data::ViewNumber,
-    traits::storage::{InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater},
+    traits::storage::{
+        InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater, TestableStorage,
+    },
 };
 use std::sync::Arc;
 use tracing::{instrument, trace};
@@ -54,6 +56,14 @@ pub struct MemoryStorage<Block, State, const N: usize> {
 impl<Block, State, const N: usize> Default for MemoryStorage<Block, State, N> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+    TestableStorage<B, S, N> for MemoryStorage<B, S, N>
+{
+    fn construct_tmp_storage() -> StorageResult<Self> {
+        Ok(Self::new())
     }
 }
 

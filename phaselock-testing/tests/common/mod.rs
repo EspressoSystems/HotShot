@@ -2,17 +2,18 @@
 
 use async_std::task::block_on;
 use either::Either;
-use phaselock::traits::implementations::{Libp2pNetwork, MemoryStorage};
+use phaselock::traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage};
 use phaselock::traits::{BlockContents, NetworkingImplementation, State, Storage};
 use phaselock::types::Message;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    traits::{implementations::MemoryNetwork, NetworkReliability},
+    traits::NetworkReliability,
     PhaseLockConfig,
 };
 use phaselock_testing::{ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner};
-use phaselock_types::traits::network::TestNetworkingImplementation;
-use phaselock_types::traits::state::TestState;
+use phaselock_types::traits::network::TestableNetworkingImplementation;
+use phaselock_types::traits::state::TestableState;
+use phaselock_types::traits::storage::TestableStorage;
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use std::collections::HashSet;
@@ -67,7 +68,7 @@ pub struct DetailedTestDescriptionBuilder<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     pub general_info: GeneralTestDescription,
 
@@ -79,12 +80,12 @@ pub struct DetailedTestDescriptionBuilder<
 }
 
 impl<
-        NETWORK: TestNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
             + Clone
             + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + Default + 'static,
+        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + Default + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestDescription<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// default implementation of generate runner
@@ -145,7 +146,7 @@ impl GeneralTestDescription {
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     >(
         self,
     ) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -162,7 +163,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub fn build(self) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -198,7 +199,7 @@ pub struct TestDescription<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -281,7 +282,7 @@ pub fn default_submitter_id_to_round<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
@@ -330,7 +331,7 @@ pub fn default_randomized_ids_to_round<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
@@ -362,7 +363,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// create rounds of consensus based on the data in `self`
@@ -463,7 +464,7 @@ macro_rules! cross_test {
 ///   - false forces test to be ignored
 #[macro_export]
 macro_rules! cross_tests {
-    // reductions
+    // reduce networks -> individual network modules
     ([ $NETWORK:tt $($NETWORKS:tt)* ], [ $($STORAGES:tt )+ ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
@@ -473,8 +474,10 @@ macro_rules! cross_tests {
         }
         cross_tests!([ $($NETWORKS)*  ], [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, $keep);
     };
+    // catchall for empty network list (base case)
     ([  ], [ $($STORAGE:tt)+ ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
     };
+    // reduce storages -> individual storage modules
     ($NETWORK:tt, [ $STORAGE:tt $($STORAGES:tt)* ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
@@ -484,8 +487,10 @@ macro_rules! cross_tests {
         }
         cross_tests!($NETWORK, [ $($STORAGES),* ], [ $($BLOCKS),+ ], [ $($STATES),+ ], $fn_name, $e, $keep);
     };
+    // catchall for empty storage list (base case)
     ($NETWORK:tt, [  ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
     };
+    // reduce blocks -> individual block modules
     ($NETWORK:tt, $STORAGE:tt, [ $BLOCK:tt $($BLOCKS:tt)* ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, $keep:tt) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
@@ -495,8 +500,10 @@ macro_rules! cross_tests {
         }
         cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS),* ], [ $($STATES),+ ], $fn_name, $e, $keep);
     };
+    // catchall for empty block list (base case)
     ($NETWORK:tt, $STORAGE:tt, [  ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, $keep:tt) => {
     };
+    // reduce states -> individual state modules
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [ $STATE:tt $( $STATES:tt)* ], $fn_name:ident, $e:expr, $keep:tt) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
@@ -506,9 +513,11 @@ macro_rules! cross_tests {
         }
         cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)* ], $fn_name, $e, $keep);
     };
+    // catchall for empty state list (base case)
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [  ], $fn_name:ident, $e:expr, $keep:tt) => {
     };
-    // base case
+    // base reduction
+    // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, $keep:tt) => {
         type TestType = $crate::TestDescription< $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, { phaselock::H_256 } >>,
             $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,

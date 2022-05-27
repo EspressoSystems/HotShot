@@ -26,7 +26,7 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::{error::TimeoutSnafu, traits::state::TestState};
+use phaselock_types::{error::TimeoutSnafu, traits::state::TestableState};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashMap, fmt, sync::Arc};
 use std::{marker::PhantomData, time::Duration};
@@ -55,7 +55,7 @@ pub struct Round<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -86,7 +86,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > Default for Round<NETWORK, STORAGE, BLOCK, STATE>
 {
     fn default() -> Self {
@@ -104,7 +104,7 @@ pub struct TestRunner<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
@@ -122,7 +122,7 @@ struct Node<
     NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     pub node_id: u64,
     pub handle: PhaseLockHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
@@ -132,7 +132,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N>,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
@@ -459,7 +459,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static + TestState<N>,
+        STATE: State<N, Block = BLOCK> + 'static + TestableState<N>,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
@@ -477,7 +477,7 @@ impl<
             .unwrap()
             .unwrap();
 
-        let txn = <STATE as TestState<N>>::create_random_transaction(&state).unwrap();
+        let txn = <STATE as TestableState<N>>::create_random_transaction(&state).unwrap();
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id)?
@@ -567,7 +567,7 @@ impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestState<N> + 'static,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
     type Block = BLOCK;
