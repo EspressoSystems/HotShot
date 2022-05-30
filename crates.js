@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["clichat","counter","dentry_simulator","libp2p_networking","multi_machine","networking_demo","phaselock"];
+window.ALL_CRATES = ["clichat","counter","dentry_simulator","libp2p_networking","multi_machine","phaselock"];
