@@ -269,6 +269,9 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">def</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="kw">mod</span> <span class="ident">node</span>;
@@ -438,11 +441,14 @@
     <span class="ident">identity</span>: <span class="ident">Keypair</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Boxed</span><span class="op">&lt;</span>(<span class="ident">PeerId</span>, <span class="ident">StreamMuxerBox</span>)<span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">tcp</span> <span class="op">=</span> <span class="ident">tcp::TcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>);
-        <span class="kw">let</span> <span class="ident">dns_tcp</span> <span class="op">=</span> <span class="ident">dns::DnsConfig::system</span>(<span class="ident">tcp</span>)
+        <span class="kw">let</span> <span class="ident">dns_tcp</span> <span class="op">=</span> <span class="ident">dns::DnsConfig::system</span>(<span class="ident">tcp::TcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>))
             .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">TransportLaunchSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ws_dns_tcp</span> <span class="op">=</span> <span class="ident">websocket::WsConfig::new</span>(<span class="ident">dns_tcp</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="ident">ws_dns_tcp</span> <span class="op">=</span> <span class="ident">websocket::WsConfig::new</span>(
+            <span class="ident">dns::DnsConfig::system</span>(<span class="ident">tcp::TcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>))
+                .<span class="kw">await</span>
+                .<span class="ident">context</span>(<span class="ident">TransportLaunchSnafu</span>)<span class="question-mark">?</span>,
+        );
         <span class="ident">dns_tcp</span>.<span class="ident">or_transport</span>(<span class="ident">ws_dns_tcp</span>)
     };
 
