@@ -11,6 +11,7 @@ use crate::traits::networking::{
 };
 use crate::traits::NetworkError;
 use async_std::prelude::FutureExt;
+use async_std::task::block_on;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
     sync::{Mutex, RwLock},
@@ -27,7 +28,7 @@ use dashmap::DashMap;
 use flume::{Receiver, Sender};
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, prelude::*};
-use phaselock_types::traits::network::NetworkChange;
+use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -190,6 +191,26 @@ pub struct WNetwork<T> {
 impl<T> Debug for WNetwork<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WNetwork").field("inner", &"inner").finish()
+    }
+}
+
+impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
+    TestableNetworkingImplementation<T> for WNetwork<T>
+{
+    fn generator(
+        _expected_node_count: usize,
+        _num_bootstrap: usize,
+        sks: threshold_crypto::SecretKeySet,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        // FIXME this doesn't work
+        let port = 12000;
+        Box::new(move |node_id| {
+            let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+            block_on(async move {
+                WNetwork::new(pubkey, "localhost", port + (node_id as u16), None).await
+            })
+            .unwrap()
+        })
     }
 }
 

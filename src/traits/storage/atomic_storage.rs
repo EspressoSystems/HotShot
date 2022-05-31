@@ -16,11 +16,15 @@ use atomic_store::{AtomicStore, AtomicStoreLoader};
 use futures::Future;
 use phaselock_types::{
     data::ViewNumber,
-    traits::storage::{AtomicStoreSnafu, Storage, StorageResult, StorageState, StorageUpdater},
+    traits::storage::{
+        AtomicStoreSnafu, Storage, StorageError, StorageResult, StorageState, StorageUpdater,
+        TestableStorage,
+    },
 };
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{path::Path, sync::Arc};
+use tempfile::{tempdir, TempDir};
 use tracing::{instrument, trace};
 
 /// Inner state of an atomic storage
@@ -29,6 +33,9 @@ where
     Block: BlockContents<N> + DeserializeOwned + Serialize,
     State: DeserializeOwned + Serialize,
 {
+    /// Temporary directory storage might live in
+    /// (we want to delete the temporary directory when storage is droppped)
+    _temp_dir: Option<TempDir>,
     /// The atomic store loader
     atomic_store: Mutex<AtomicStore>,
 
@@ -59,6 +66,23 @@ where
     inner: Arc<AtomicStorageInner<Block, State, N>>,
 }
 
+impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+    TestableStorage<B, S, N> for AtomicStorage<B, S, N>
+{
+    fn construct_tmp_storage() -> StorageResult<Self> {
+        let tempdir = tempdir().map_err(|e| StorageError::InconsistencyError {
+            description: e.to_string(),
+        })?;
+        let loader = AtomicStoreLoader::create(tempdir.path(), "phaselock").map_err(|e| {
+            StorageError::InconsistencyError {
+                description: e.to_string(),
+            }
+        })?;
+        Self::init_from_loader(loader, Some(tempdir))
+            .map_err(|e| StorageError::AtomicStore { source: e })
+    }
+}
+
 impl<Block, State, const N: usize> AtomicStorage<Block, State, N>
 where
     Block: BlockContents<N> + DeserializeOwned + Serialize + Clone,
@@ -75,7 +99,7 @@ where
     /// - [`atomic_store::AppendLog`]
     pub fn create(path: &Path) -> atomic_store::Result<Self> {
         let loader = AtomicStoreLoader::create(path, "phaselock")?;
-        Self::init_from_loader(loader)
+        Self::init_from_loader(loader, None)
     }
 
     /// Open an atomic storage at a given path.
@@ -89,7 +113,7 @@ where
     /// - [`atomic_store::AppendLog`]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
         let loader = AtomicStoreLoader::load(path, "phaselock")?;
-        Self::init_from_loader(loader)
+        Self::init_from_loader(loader, None)
     }
 
     /// Open an atomic storage with a given [`AtomicStoreLoader`]
@@ -100,7 +124,10 @@ where
     /// - [`atomic_store::AtomicStore`]
     /// - [`atomic_store::RollingLog`]
     /// - [`atomic_store::AppendLog`]
-    pub fn init_from_loader(mut loader: AtomicStoreLoader) -> atomic_store::Result<Self> {
+    pub fn init_from_loader(
+        mut loader: AtomicStoreLoader,
+        dir: Option<TempDir>,
+    ) -> atomic_store::Result<Self> {
         let blocks = HashMapStore::load(&mut loader, "phaselock_blocks")?;
         let qcs = DualKeyValueStore::open(&mut loader, "phaselock_qcs")?;
         let leaves = DualKeyValueStore::open(&mut loader, "phaselock_leaves")?;
@@ -110,6 +137,7 @@ where
 
         Ok(Self {
             inner: Arc::new(AtomicStorageInner {
+                _temp_dir: dir,
                 atomic_store: Mutex::new(atomic_store),
                 blocks,
                 qcs,

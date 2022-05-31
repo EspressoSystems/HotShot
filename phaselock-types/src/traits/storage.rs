@@ -96,6 +96,20 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     //     -> StorageResult<Option<View<B, S, N>>>;
 }
 
+/// Extra requirements on Storage implementations required for testing
+pub trait TestableStorage<
+    B: BlockContents<N> + 'static,
+    S: State<N, Block = B> + 'static,
+    const N: usize,
+>: Clone + Send + Sync + Storage<B, S, N>
+{
+    /// Create ephemeral storage
+    /// Will be deleted/lost immediately after storage is dropped
+    /// # Errors
+    /// Errors if it is not possible to construct temporary storage.
+    fn construct_tmp_storage() -> StorageResult<Self>;
+}
+
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.

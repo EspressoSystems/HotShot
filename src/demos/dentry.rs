@@ -7,7 +7,10 @@
 //! production use.
 
 use blake3::Hasher;
-use phaselock_types::data::{Leaf, QuorumCertificate, Stage, ViewNumber};
+use phaselock_types::{
+    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
+    traits::state::TestableState,
+};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -121,6 +124,57 @@ impl State {
         }
         let x = *hasher.finalize().as_bytes();
         x.into()
+    }
+}
+
+impl TestableState<H_256> for State {
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents<H_256>>::Transaction {
+        use rand::seq::IteratorRandom;
+        let mut rng = thread_rng();
+
+        let non_zero_balances = self
+            .balances
+            .iter()
+            .filter(|b| *b.1 > 0)
+            .collect::<Vec<_>>();
+
+        assert!(
+            !non_zero_balances.is_empty(),
+            "No nonzero balances were available! Unable to generate transaction."
+        );
+
+        let input_account = non_zero_balances.iter().choose(&mut rng).unwrap().0;
+        let output_account = self.balances.keys().choose(&mut rng).unwrap();
+        let amount = rng.gen_range(0, self.balances[input_account]);
+
+        Transaction {
+            add: Addition {
+                account: output_account.to_string(),
+                amount,
+            },
+            sub: Subtraction {
+                account: input_account.to_string(),
+                amount,
+            },
+            nonce: rng.gen(),
+        }
+    }
+    /// Provides a common starting state
+    fn get_starting_state() -> Self {
+        let balances: BTreeMap<Account, Balance> = vec![
+            ("Joe", 1_000_000),
+            ("Nathan M", 500_000),
+            ("John", 400_000),
+            ("Nathan Y", 600_000),
+            ("Ian", 0),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        Self {
+            balances,
+            nonces: BTreeSet::default(),
+        }
     }
 }
 

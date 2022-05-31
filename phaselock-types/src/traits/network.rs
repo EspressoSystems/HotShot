@@ -8,6 +8,7 @@ use async_tungstenite::tungstenite::error as werror;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
+use threshold_crypto::SecretKeySet;
 
 use crate::PubKey;
 
@@ -141,6 +142,19 @@ where
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError>;
+}
+
+/// Describes additional functionality needed by the test network implementation
+pub trait TestableNetworkingImplementation<M>: NetworkingImplementation<M>
+where
+    M: Serialize + DeserializeOwned + Send + Clone + 'static,
+{
+    /// generates a network given an expected node count
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        sks: SecretKeySet,
+    ) -> Box<dyn Fn(u64) -> Self + 'static>;
 }
 
 /// Changes that can occur in the network

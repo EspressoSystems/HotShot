@@ -1,9 +1,10 @@
 #![allow(clippy::type_complexity)]
 mod common;
+
 use std::sync::Arc;
 
-use common::TestDescriptionBuilder;
-use common::{AppliedTestRunner, TestNetwork, TestRoundResult};
+use common::{AppliedTestRunner, TestRoundResult};
+use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder};
 use either::Either::Right;
 use phaselock_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
@@ -45,33 +46,40 @@ pub fn check_safety(
 #[async_std::test]
 #[instrument]
 async fn test_no_loss_network() {
-    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
-        total_nodes: 10,
-        start_nodes: 10,
-        network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-        ..TestDescriptionBuilder::default()
-    }
-    .build();
-    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    description.execute().await.unwrap();
+    let description = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescriptionBuilder {
+            total_nodes: 10,
+            start_nodes: 10,
+            network_reliability: Some(Arc::new(SynchronousNetwork::default())),
+            ..GeneralTestDescriptionBuilder::default()
+        },
+        rounds: None,
+        gen_runner: None,
+    };
+    let mut test = description.build();
+    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.execute().await.unwrap();
 }
 
-// tests network with forced packet delay
+// // tests network with forced packet delay
 #[async_std::test]
 #[instrument]
 async fn test_synchronous_network() {
-    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
-        total_nodes: 5,
-        start_nodes: 5,
-        num_succeeds: 2,
-        txn_ids: Right(1),
-        network_reliability: Some(Arc::new(SynchronousNetwork::new(10, 5))),
-        ..TestDescriptionBuilder::default()
-    }
-    .build();
-    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    description.rounds[1].safety_check_post = Some(Arc::new(check_safety));
-    description.execute().await.unwrap();
+    let description = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescriptionBuilder {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            ..GeneralTestDescriptionBuilder::default()
+        },
+        rounds: None,
+        gen_runner: None,
+    };
+    let mut test = description.build();
+    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.execute().await.unwrap();
 }
 
 // tests network with small packet delay and dropped packets
@@ -79,19 +87,23 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let mut description = TestDescriptionBuilder::<TestNetwork, _> {
-        total_nodes: 5,
-        start_nodes: 5,
-        num_succeeds: 2,
-        txn_ids: Right(1),
-        failure_threshold: 5,
-        network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-        ..TestDescriptionBuilder::default()
-    }
-    .build();
-    description.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    description.rounds[1].safety_check_post = Some(Arc::new(check_safety));
-    description.execute().await.unwrap();
+    let description = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescriptionBuilder {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            failure_threshold: 5,
+            network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
+            ..GeneralTestDescriptionBuilder::default()
+        },
+        rounds: None,
+        gen_runner: None,
+    };
+    let mut test = description.build();
+    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.execute().await.unwrap();
 }
 
 /// tests network with asynchronous patch that eventually becomes synchronous
@@ -102,14 +114,21 @@ async fn test_partially_synchronous_network() {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
-    let description = TestDescriptionBuilder::<TestNetwork, _> {
-        total_nodes: 5,
-        start_nodes: 5,
-        num_succeeds: 2,
-        txn_ids: Right(1),
-        network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-        ..TestDescriptionBuilder::default()
-    }
-    .build();
-    description.execute().await.unwrap();
+
+    let description = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescriptionBuilder {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
+            ..GeneralTestDescriptionBuilder::default()
+        },
+        rounds: None,
+        gen_runner: None,
+    };
+    let mut test = description.build();
+    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.execute().await.unwrap();
 }
