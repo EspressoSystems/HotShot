@@ -640,6 +640,12 @@
 <span id="635">635</span>
 <span id="636">636</span>
 <span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -657,7 +663,7 @@
 <span class="kw">use</span> <span class="ident">libp2p_networking::network</span>::{
     <span class="ident">NetworkNodeConfig</span>, <span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeHandle</span>, <span class="ident">NetworkNodeType</span>,
 };
-<span class="kw">use</span> <span class="ident">phaselock_types::traits::network::FailedToSerializeSnafu</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::network</span>::{<span class="ident">FailedToSerializeSnafu</span>, <span class="ident">TestableNetworkingImplementation</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">traits::network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkingImplementation</span>},
     <span class="ident">PubKey</span>,
@@ -722,20 +728,10 @@
     <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Libp2pNetworkInner</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
-    <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
+    <span class="ident">TestableNetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
 {
-    <span class="doccomment">/// returns when network is ready</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">wait_for_ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">recv_chan</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">is_ready_listener</span>.<span class="ident">subscribe</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">is_ready_listener</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span> {
-            <span class="kw">while</span> <span class="op">!</span><span class="ident">recv_chan</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>.<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>) {}
-            <span class="comment">// a oneshot</span>
-        }
-    }
-
-    <span class="doccomment">/// Return a generator function (for usage with the [`Launcher`])</span>
-    <span class="doccomment">/// returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`</span>
+    <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`</span>
     <span class="doccomment">/// with the purpose of generating libp2p networks.</span>
     <span class="doccomment">/// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal</span>
     <span class="doccomment">/// nodes with sane defaults.</span>
@@ -744,15 +740,18 @@
     <span class="doccomment">/// - An invalid configuration</span>
     <span class="doccomment">///   (probably an issue with the defaults of this function)</span>
     <span class="doccomment">/// - An inability to spin up the replica&#39;s network</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generator</span>(
-        <span class="ident">expected_node_count</span>: <span class="ident">u64</span>,
-        <span class="ident">num_bootstrap</span>: <span class="ident">u64</span>,
-    ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Fn</span>(<span class="ident">u64</span>, <span class="ident">PubKey</span>) -&gt; <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// TODO error handling!! unwraps is bad</span>
+    <span class="kw">fn</span> <span class="ident">generator</span>(
+        <span class="ident">expected_node_count</span>: <span class="ident">usize</span>,
+        <span class="ident">num_bootstrap</span>: <span class="ident">usize</span>,
+        <span class="ident">sks</span>: <span class="ident">threshold_crypto::SecretKeySet</span>,
+    ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">u64</span>) -&gt; <span class="self">Self</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">bootstrap_addrs</span>: <span class="ident">PeerInfoVec</span> <span class="op">=</span> <span class="ident">Arc::default</span>();
         <span class="ident">Box::new</span>({
-            <span class="kw">move</span> <span class="op">|</span><span class="ident">node_id</span>, <span class="ident">pubkey</span><span class="op">|</span> {
+            <span class="kw">move</span> <span class="op">|</span><span class="ident">node_id</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">pubkey</span> <span class="op">=</span> <span class="ident">PubKey::from_secret_key_set_escape_hatch</span>(<span class="kw-2">&amp;</span><span class="ident">sks</span>, <span class="ident">node_id</span>);
                 <span class="kw">let</span> <span class="ident">replication_factor</span> <span class="op">=</span> <span class="ident">NonZeroUsize::new</span>(<span class="ident">expected_node_count</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">node_id</span> <span class="op">&lt;</span> <span class="ident">num_bootstrap</span> {
+                <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">node_id</span> <span class="op">&lt;</span> <span class="ident">num_bootstrap</span> <span class="kw">as</span> <span class="ident">u64</span> {
                     <span class="ident">NetworkNodeConfigBuilder::default</span>()
                         .<span class="ident">replication_factor</span>(<span class="ident">replication_factor</span>)
                         .<span class="ident">node_type</span>(<span class="ident">NetworkNodeType::Bootstrap</span>)
@@ -779,6 +778,19 @@
                 })
             }
         })
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
+    <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>
+{
+    <span class="doccomment">/// returns when network is ready</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">wait_for_ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let</span> <span class="ident">recv_chan</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">is_ready_listener</span>.<span class="ident">subscribe</span>().<span class="kw">await</span>;
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">is_ready_listener</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span> {
+            <span class="kw">while</span> <span class="op">!</span><span class="ident">recv_chan</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>.<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>) {}
+            <span class="comment">// a oneshot</span>
+        }
     }
 
     <span class="doccomment">/// Constructs new network for a node. Note that this network is unconnected.</span>

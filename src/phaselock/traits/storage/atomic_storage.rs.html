@@ -279,6 +279,34 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
 </pre><pre class="rust"><code><span class="doccomment">//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).</span>
 
 <span class="kw">mod</span> <span class="ident">dual_key_value_store</span>;
@@ -297,11 +325,15 @@
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">data::ViewNumber</span>,
-    <span class="ident">traits::storage</span>::{<span class="ident">AtomicStoreSnafu</span>, <span class="ident">Storage</span>, <span class="ident">StorageResult</span>, <span class="ident">StorageState</span>, <span class="ident">StorageUpdater</span>},
+    <span class="ident">traits::storage</span>::{
+        <span class="ident">AtomicStoreSnafu</span>, <span class="ident">Storage</span>, <span class="ident">StorageError</span>, <span class="ident">StorageResult</span>, <span class="ident">StorageState</span>, <span class="ident">StorageUpdater</span>,
+        <span class="ident">TestableStorage</span>,
+    },
 };
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::Path</span>, <span class="ident">sync::Arc</span>};
+<span class="kw">use</span> <span class="ident">tempfile</span>::{<span class="ident">tempdir</span>, <span class="ident">TempDir</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">instrument</span>, <span class="ident">trace</span>};
 
 <span class="doccomment">/// Inner state of an atomic storage</span>
@@ -310,6 +342,9 @@
     <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
     <span class="ident">State</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
 {
+    <span class="doccomment">/// Temporary directory storage might live in</span>
+    <span class="doccomment">/// (we want to delete the temporary directory when storage is droppped)</span>
+    <span class="ident">_temp_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TempDir</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The atomic store loader</span>
     <span class="ident">atomic_store</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">AtomicStore</span><span class="op">&gt;</span>,
 
@@ -340,6 +375,23 @@
     <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
+    <span class="ident">TestableStorage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
+{
+    <span class="kw">fn</span> <span class="ident">construct_tmp_storage</span>() -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempdir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">StorageError::InconsistencyError</span> {
+            <span class="ident">description</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
+        })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::create</span>(<span class="ident">tempdir</span>.<span class="ident">path</span>(), <span class="string">&quot;phaselock&quot;</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="ident">StorageError::InconsistencyError</span> {
+                <span class="ident">description</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
+            }
+        })<span class="question-mark">?</span>;
+        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>, <span class="prelude-val">Some</span>(<span class="ident">tempdir</span>))
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">StorageError::AtomicStore</span> { <span class="ident">source</span>: <span class="ident">e</span> })
+    }
+}
+
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="ident">N</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
@@ -356,7 +408,7 @@
     <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::create</span>(<span class="ident">path</span>, <span class="string">&quot;phaselock&quot;</span>)<span class="question-mark">?</span>;
-        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>)
+        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>, <span class="prelude-val">None</span>)
     }
 
     <span class="doccomment">/// Open an atomic storage at a given path.</span>
@@ -370,7 +422,7 @@
     <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">open</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">loader</span> <span class="op">=</span> <span class="ident">AtomicStoreLoader::load</span>(<span class="ident">path</span>, <span class="string">&quot;phaselock&quot;</span>)<span class="question-mark">?</span>;
-        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>)
+        <span class="ident"><span class="self">Self</span>::init_from_loader</span>(<span class="ident">loader</span>, <span class="prelude-val">None</span>)
     }
 
     <span class="doccomment">/// Open an atomic storage with a given [`AtomicStoreLoader`]</span>
@@ -381,7 +433,10 @@
     <span class="doccomment">/// - [`atomic_store::AtomicStore`]</span>
     <span class="doccomment">/// - [`atomic_store::RollingLog`]</span>
     <span class="doccomment">/// - [`atomic_store::AppendLog`]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init_from_loader</span>(<span class="kw-2">mut</span> <span class="ident">loader</span>: <span class="ident">AtomicStoreLoader</span>) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init_from_loader</span>(
+        <span class="kw-2">mut</span> <span class="ident">loader</span>: <span class="ident">AtomicStoreLoader</span>,
+        <span class="ident">dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TempDir</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">atomic_store::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> <span class="ident">HashMapStore::load</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_blocks&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">qcs</span> <span class="op">=</span> <span class="ident">DualKeyValueStore::open</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_qcs&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">leaves</span> <span class="op">=</span> <span class="ident">DualKeyValueStore::open</span>(<span class="kw-2">&amp;mut</span> <span class="ident">loader</span>, <span class="string">&quot;phaselock_leaves&quot;</span>)<span class="question-mark">?</span>;
@@ -391,6 +446,7 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">AtomicStorageInner</span> {
+                <span class="ident">_temp_dir</span>: <span class="ident">dir</span>,
                 <span class="ident">atomic_store</span>: <span class="ident">Mutex::new</span>(<span class="ident">atomic_store</span>),
                 <span class="ident">blocks</span>,
                 <span class="ident">qcs</span>,

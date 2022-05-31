@@ -639,6 +639,22 @@
 <span id="634">634</span>
 <span id="635">635</span>
 <span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
@@ -652,7 +668,7 @@
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
 <span class="kw">use</span> <span class="ident">futures::StreamExt</span>;
-<span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkChange</span>;
+<span class="kw">use</span> <span class="ident">phaselock_types::traits::network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">TestableNetworkingImplementation</span>};
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
 <span class="kw">use</span> <span class="ident">serde::Deserialize</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
@@ -922,6 +938,22 @@
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
         }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
+    <span class="ident">TestableNetworkingImplementation</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryNetwork</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
+{
+    <span class="kw">fn</span> <span class="ident">generator</span>(
+        <span class="ident">_expected_node_count</span>: <span class="ident">usize</span>,
+        <span class="ident">_num_bootstrap</span>: <span class="ident">usize</span>,
+        <span class="ident">sks</span>: <span class="ident">threshold_crypto::SecretKeySet</span>,
+    ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">u64</span>) -&gt; <span class="self">Self</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">master</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MasterMap::new</span>();
+        <span class="ident">Box::new</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">node_id</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">pubkey</span> <span class="op">=</span> <span class="ident">PubKey::from_secret_key_set_escape_hatch</span>(<span class="kw-2">&amp;</span><span class="ident">sks</span>, <span class="ident">node_id</span>);
+            <span class="ident">MemoryNetwork::new</span>(<span class="ident">pubkey</span>, <span class="ident">master</span>.<span class="ident">clone</span>(), <span class="prelude-val">None</span>)
+        })
     }
 }
 
