@@ -84,13 +84,7 @@ pub struct Transaction {
     pub nonce: u64,
 }
 
-impl crate::traits::Transaction<H_256> for Transaction {
-    type Id = u64;
-
-    fn id(&self) -> u64 {
-        self.nonce
-    }
-}
+impl crate::traits::Transaction<H_256> for Transaction {}
 
 impl Transaction {
     /// Ensures that this transaction is at least consistent with itself
@@ -261,10 +255,6 @@ impl crate::traits::State<H_256> for State {
 
     fn on_commit(&self) {
         // Does nothing in this implementation
-    }
-
-    fn new_transaction_ids(&self, old_state: &Self) -> Vec<u64> {
-        self.nonces.difference(&old_state.nonces).copied().collect()
     }
 }
 

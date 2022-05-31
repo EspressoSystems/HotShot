@@ -6,9 +6,9 @@ use phaselock_types::{
     data::{LeafHash, Stage},
     error::PhaseLockError,
     message::{Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, State, Transaction as _},
+    traits::{node_implementation::NodeImplementation, State},
 };
-use tracing::{error, info};
+use tracing::error;
 
 /// A prepare replica
 #[derive(Debug)]
@@ -99,20 +99,23 @@ impl PrepareReplica {
             });
         }
 
-        let mut added_transactions = Vec::new();
-        for id in prepare.state.new_transaction_ids(&state) {
-            if let Some(transaction_state) =
-                ctx.transactions.iter().find(|t| t.transaction.id() == id)
-            {
-                added_transactions.push(transaction_state.clone());
-            } else {
-                info!(
-                    ?id,
-                    "Could not find transaction to mark, will sit out until we receive it"
-                );
-                return Ok(None);
-            }
-        }
+        let added_transactions = Vec::new();
+        // TODO: rework how transactions are stored and processed
+        // https://github.com/EspressoSystems/phaselock/issues/136
+        //
+        // for id in prepare.state.new_transaction_ids(&state) {
+        //     if let Some(transaction_state) =
+        //         ctx.transactions.iter().find(|t| t.transaction.id() == id)
+        //     {
+        //         added_transactions.push(transaction_state.clone());
+        //     } else {
+        //         info!(
+        //             ?id,
+        //             "Could not find transaction to mark, will sit out until we receive it"
+        //         );
+        //         return Ok(None);
+        //     }
+        // }
 
         Ok(Some(ValidationResult {
             added_transactions,
