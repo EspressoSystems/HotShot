@@ -167,11 +167,14 @@ pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
     let transport = {
-        let tcp = tcp::TcpConfig::new().nodelay(true);
-        let dns_tcp = dns::DnsConfig::system(tcp)
+        let dns_tcp = dns::DnsConfig::system(tcp::TcpConfig::new().nodelay(true))
             .await
             .context(TransportLaunchSnafu)?;
-        let ws_dns_tcp = websocket::WsConfig::new(dns_tcp.clone());
+        let ws_dns_tcp = websocket::WsConfig::new(
+            dns::DnsConfig::system(tcp::TcpConfig::new().nodelay(true))
+                .await
+                .context(TransportLaunchSnafu)?,
+        );
         dns_tcp.or_transport(ws_dns_tcp)
     };
 

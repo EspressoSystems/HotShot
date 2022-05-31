@@ -38,7 +38,7 @@ phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.7" }
 phaselock-types = { path = "./phaselock-types", version = "0.0.7"}
 phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.0.7"}
-libp2p = { version = "0.44.0", features = ["serde"] }
+libp2p = { version = "0.45.0", features = ["serde"] }
 rand = "0.7.3"
 rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
