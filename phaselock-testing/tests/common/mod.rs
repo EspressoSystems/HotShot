@@ -99,30 +99,26 @@ impl<
             a.start_delay = self.timing_config.start_delay;
         };
 
-        // create reliability to pass into runner
-        let _reliability = self.network_reliability.clone();
-
         // create runner from launcher
         launcher
             // insert timing parameters
             .modify_default_config(set_timing_params)
             .launch()
     }
-    /// execute a consensus test based on
-    /// `Self`
+    /// execute a consensus test based on `Self`
     /// total_nodes: num nodes to run with
     /// txn_ids: vec of vec of transaction ids to send each round
     pub async fn execute(&self) -> Result<(), ConsensusRoundError> {
         setup_logging();
         setup_backtrace();
 
-        let mut runner = match self.gen_runner {
-            Some(ref gen_runner) => (gen_runner.clone())(self),
-            None => self.gen_runner(),
+        let mut runner = if let Some(ref generator) = self.gen_runner {
+            generator(self)
+        } else {
+            self.gen_runner()
         };
 
         // configure nodes/timing
-
         runner.add_nodes(self.start_nodes).await;
 
         for node in runner.nodes() {
@@ -304,7 +300,7 @@ pub fn default_submitter_id_to_round<
             }
             let mut txns = Vec::new();
             for id in round_ids.clone() {
-                let new_txn = runner.add_random_transaction(Some(id as usize)).unwrap();
+                let new_txn = runner.add_random_transaction(Some(id as usize));
                 txns.push(new_txn);
             }
             txns
@@ -545,7 +541,7 @@ macro_rules! cross_tests {
 ///   - false forces test to be ignored
 #[macro_export]
 macro_rules! cross_all_types {
-    ($fn_name:ident, $e:expr, $keep:tt) => {
+    ($fn_name:ident, $e:expr, keep: $keep:tt) => {
         #[cfg(test)]
         #[macro_use]
         pub mod $fn_name {

@@ -18,7 +18,7 @@ cross_all_types!(
         txn_ids: Right(1),
         ..GeneralTestDescriptionBuilder::default()
     },
-    true
+    keep: true
 );
 
 cross_all_types!(
@@ -30,5 +30,5 @@ cross_all_types!(
         txn_ids: Right(1),
         ..GeneralTestDescriptionBuilder::default()
     },
-    true
+    keep: true
 );

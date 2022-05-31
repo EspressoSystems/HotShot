@@ -98,11 +98,6 @@ impl Transaction {
     }
 }
 
-// impl TestTransaction<H_256> for Transaction {
-//     fn create_random_transaction(state: &impl phaselock_types::traits::State<N>) -> Option<Self> {
-//     }
-// }
-
 /// The state for the dentry demo
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct State {
@@ -133,9 +128,7 @@ impl State {
 }
 
 impl TestableState<H_256> for State {
-    fn create_random_transaction(
-        &self,
-    ) -> Option<<Self::Block as BlockContents<H_256>>::Transaction> {
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents<H_256>>::Transaction {
         use rand::seq::IteratorRandom;
         let mut rng = thread_rng();
 
@@ -145,16 +138,16 @@ impl TestableState<H_256> for State {
             .filter(|b| *b.1 > 0)
             .collect::<Vec<_>>();
 
-        if non_zero_balances.is_empty() {
-            // return Err(TransactionError::NoValidBalance);
-            return None;
-        }
+        assert!(
+            non_zero_balances.is_empty(),
+            "No nonzero balances were available! Unable to generate transaction."
+        );
 
         let input_account = non_zero_balances.iter().choose(&mut rng).unwrap().0;
         let output_account = self.balances.keys().choose(&mut rng).unwrap();
         let amount = rng.gen_range(0, self.balances[input_account]);
 
-        let transaction = Transaction {
+        Transaction {
             add: Addition {
                 account: output_account.to_string(),
                 amount,
@@ -164,9 +157,7 @@ impl TestableState<H_256> for State {
                 amount,
             },
             nonce: rng.gen(),
-        };
-
-        Some(transaction)
+        }
     }
     /// Provides a common starting state
     fn get_starting_state() -> Self {

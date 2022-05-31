@@ -455,6 +455,7 @@ impl<
 }
 
 // FIXME make these return some sort of generic error.
+// corresponding issue: <https://github.com/EspressoSystems/phaselock/issues/181>
 impl<
         NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
@@ -463,33 +464,34 @@ impl<
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
-    pub fn add_random_transaction(&self, node_id: Option<usize>) -> Option<BLOCK::Transaction> {
+    pub fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
         if self.nodes.is_empty() {
-            return None;
+            panic!("Tried to add transaction, but no nodes have been added!");
         }
 
         use rand::{seq::IteratorRandom, thread_rng};
         let mut rng = thread_rng();
 
-        // we're assuming all nodes have the same state
-        // FIXME it may be good to do an assertion on the state matching
+        // we're assuming all nodes have the same state.
+        // If they don't match, this is probably fine since
+        // it should be caught by an assertion (and the txn will be rejected anyway)
         let state = async_std::task::block_on(self.nodes[0].handle.get_state())
             .unwrap()
             .unwrap();
 
-        let txn = <STATE as TestableState<N>>::create_random_transaction(&state).unwrap();
+        let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
 
         let node = if let Some(node_id) = node_id {
-            self.nodes.get(node_id)?
+            self.nodes.get(node_id).unwrap()
         } else {
             // find a random handle to send this transaction from
-            self.nodes.iter().choose(&mut rng)?
+            self.nodes.iter().choose(&mut rng).unwrap()
         };
 
         node.handle
             .submit_transaction_sync(txn.clone())
             .expect("Could not send transaction");
-        Some(txn)
+        txn
     }
 
     /// add `n` transactions
@@ -497,7 +499,7 @@ impl<
     pub fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.push(self.add_random_transaction(None)?);
+            result.push(self.add_random_transaction(None));
         }
         Some(result)
     }

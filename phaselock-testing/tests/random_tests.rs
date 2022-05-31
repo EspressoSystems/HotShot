@@ -33,7 +33,7 @@ cross_all_types!(
         start_nodes: 50,
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
@@ -43,7 +43,7 @@ cross_all_types!(
         total_nodes: 90,
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 cross_all_types!(
@@ -57,7 +57,7 @@ cross_all_types!(
         next_view_timeout: 1500,
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO jr: fix failure
@@ -70,7 +70,7 @@ cross_all_types!(
         ids_to_shut_down: vec![vec![52].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO jr: fix failure
@@ -84,7 +84,7 @@ cross_all_types!(
         timeout_ratio: (25, 10),
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO (issue): https://github.com/EspressoSystems/phaselock/issues/15
@@ -99,7 +99,7 @@ cross_all_types!(
         )],
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO jr: fix failure
@@ -114,7 +114,7 @@ cross_all_types!(
         )],
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO (vko): these tests seem to fail in CI
@@ -125,7 +125,7 @@ cross_all_types!(
         start_nodes: 30,
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO this needs to be generalized over all implementations.

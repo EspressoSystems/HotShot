@@ -25,7 +25,7 @@ cross_all_types!(
         ids_to_shut_down: vec![vec![6].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
 
 // TODO jr: fix test
@@ -43,5 +43,5 @@ cross_all_types!(
         ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],
         ..GeneralTestDescriptionBuilder::default()
     },
-    false
+    keep: false
 );
