@@ -139,7 +139,7 @@ impl TestableState<H_256> for State {
             .collect::<Vec<_>>();
 
         assert!(
-            non_zero_balances.is_empty(),
+            !non_zero_balances.is_empty(),
             "No nonzero balances were available! Unable to generate transaction."
         );
 
