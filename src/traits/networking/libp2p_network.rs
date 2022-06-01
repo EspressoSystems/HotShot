@@ -571,19 +571,15 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let added_peers = cur_connected.difference(&old_connected);
 
         for pid in added_peers.clone() {
-            let pk: PubKey = match self
+            let pk: Result<PubKey, _> = self
                 .inner
                 .handle
                 .get_record_timeout(&pid, self.inner.dht_timeout)
                 .await
-                .map_err(Into::<NetworkError>::into)
-            {
-                Ok(r) => r,
-                Err(_e) => {
-                    unreachable!()
-                }
+                .map_err(Into::<NetworkError>::into);
+            if let Ok(pk) = pk {
+                result.push(NetworkChange::NodeConnected(pk.clone()));
             };
-            result.push(NetworkChange::NodeConnected(pk.clone()));
         }
         self.inner.recently_updated_peers.clear();
         for pid in cur_connected {

@@ -5,7 +5,9 @@ use either::Either::Right;
 
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
+    traits::implementations::{
+        AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork,
+    },
 };
 use tracing::instrument;
 
