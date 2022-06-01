@@ -7,7 +7,6 @@ use phaselock::{
     demos::dentry::{DEntryBlock, State},
     traits::implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
 };
-use tracing::instrument;
 
 cross_all_types!(
     ten_tx_five_nodes,

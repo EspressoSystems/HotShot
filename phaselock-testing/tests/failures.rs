@@ -8,8 +8,6 @@ use phaselock::{
 
 use either::Either::Right;
 
-use tracing::{instrument, warn};
-
 use std::collections::HashSet;
 
 // TODO jr: fix test
