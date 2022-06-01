@@ -120,6 +120,8 @@ struct Handle<T> {
 
 /// The inner shared state of a [`WNetwork`] instance
 struct WNetworkInner<T> {
+    /// Whether or not the network is connected
+    is_ready: Arc<AtomicBool>,
     /// The handles for each known `PubKey`
     handles: DashMap<PubKey, Handle<T>>,
     /// The `PubKey` of this node
@@ -140,7 +142,6 @@ struct WNetworkInner<T> {
     socket_holder: Mutex<Option<TcpListener>>,
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
-
     /// Sender for changes in the network
     network_change_input: Sender<NetworkChange>,
     /// Receiver for changes in the network
@@ -214,17 +215,17 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     get_networking::<T, ThreadRng>(&sks, "0.0.0.0", node_id, &mut rng).await
                 })
             };
+
+            network.inner.is_ready.swap(false, Ordering::Relaxed);
+
             map.insert(node_id, port);
 
-            {
+            spawn({
                 let sks = sks.clone();
                 let n = network.clone();
                 let map = map.clone();
-                spawn(async move {
+                async move {
                     for i in node_id + 1..(expected_node_count as u64) {
-                        let sks = sks.clone();
-                        let n = n.clone();
-                        let map = map.clone();
                         let key2 = PubKey::from_secret_key_set_escape_hatch(&sks, i);
                         let port: u16 = loop {
                             let port = map.get(&i).map(|x| *x);
@@ -239,13 +240,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             .await
                             .expect("Failed to connect nodes");
                     }
-                });
-            };
-            // HACK: sleep a small amount extra on the last node
-            // this gives the rest of the nodes a chance to connect
-            if node_id == expected_node_count as u64 - 1 {
-                block_on(async { sleep(Duration::from_secs(2)).await });
-            }
+                    n.inner.is_ready.swap(true, Ordering::Relaxed);
+                }
+            });
             network
         })
     }
@@ -625,6 +622,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (network_change_input, network_change_output) = flume::unbounded();
 
         let inner = WNetworkInner {
+            is_ready: Arc::new(AtomicBool::new(true)),
             handles: DashMap::new(),
             pub_key: own_key,
             counter: Arc::new(AtomicU64::new(0)),
@@ -853,6 +851,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn ready(&self) -> bool {
+        while !self.inner.is_ready.load(Ordering::Relaxed) {
+            sleep(Duration::from_millis(1)).await;
+        }
         true
     }
 
