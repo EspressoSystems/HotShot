@@ -581,7 +581,7 @@ macro_rules! cross_all_types {
             use crate::*;
 
             cross_tests!(
-                [ MemoryNetwork Libp2pNetwork ],
+                [ MemoryNetwork Libp2pNetwork WNetwork],
                 [ MemoryStorage AtomicStorage ],
                 [ DEntryBlock  ],
                 [ State ],
