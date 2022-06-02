@@ -29,7 +29,7 @@ use std::num::NonZeroUsize;
 
 use std::{sync::Arc, time::Duration};
 
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
@@ -571,19 +571,20 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let added_peers = cur_connected.difference(&old_connected);
 
         for pid in added_peers.clone() {
-            let pk: PubKey = match self
+            let pk: Result<PubKey, _> = self
                 .inner
                 .handle
                 .get_record_timeout(&pid, self.inner.dht_timeout)
                 .await
-                .map_err(Into::<NetworkError>::into)
-            {
-                Ok(r) => r,
-                Err(_e) => {
-                    unreachable!()
-                }
-            };
-            result.push(NetworkChange::NodeConnected(pk.clone()));
+                .map_err(Into::<NetworkError>::into);
+            if let Ok(pk) = pk {
+                result.push(NetworkChange::NodeConnected(pk.clone()));
+            } else {
+                warn!(
+                    "Couldn't get pk from DHT on peer {:?} for peer {:?}!",
+                    self.inner.pk, pid
+                );
+            }
         }
         self.inner.recently_updated_peers.clear();
         for pid in cur_connected {

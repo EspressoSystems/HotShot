@@ -8,7 +8,7 @@ use phaselock::traits::Storage;
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
     traits::{
-        implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
+        implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork},
         BlockContents,
     },
     types::Message,

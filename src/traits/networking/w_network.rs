@@ -29,8 +29,10 @@ use flume::{Receiver, Sender};
 use futures::future::BoxFuture;
 use futures::{channel::oneshot, prelude::*};
 use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
+use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
+use threshold_crypto::SecretKeySet;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
 
@@ -118,6 +120,8 @@ struct Handle<T> {
 
 /// The inner shared state of a [`WNetwork`] instance
 struct WNetworkInner<T> {
+    /// Whether or not the network is connected
+    is_ready: Arc<AtomicBool>,
     /// The handles for each known `PubKey`
     handles: DashMap<PubKey, Handle<T>>,
     /// The `PubKey` of this node
@@ -138,7 +142,6 @@ struct WNetworkInner<T> {
     socket_holder: Mutex<Option<TcpListener>>,
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
-
     /// Sender for changes in the network
     network_change_input: Sender<NetworkChange>,
     /// Receiver for changes in the network
@@ -198,18 +201,49 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     TestableNetworkingImplementation<T> for WNetwork<T>
 {
     fn generator(
-        _expected_node_count: usize,
+        expected_node_count: usize,
         _num_bootstrap: usize,
         sks: threshold_crypto::SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        // FIXME this doesn't work
-        let port = 12000;
+        let map = Arc::new(DashMap::<u64, u16>::new());
+
         Box::new(move |node_id| {
-            let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
-            block_on(async move {
-                WNetwork::new(pubkey, "localhost", port + (node_id as u16), None).await
-            })
-            .unwrap()
+            let mut rng = rand::thread_rng();
+            let (network, port, _) = {
+                let sks = sks.clone();
+                block_on(async move {
+                    get_networking::<T, ThreadRng>(&sks, "0.0.0.0", node_id, &mut rng).await
+                })
+            };
+
+            network.inner.is_ready.swap(false, Ordering::Relaxed);
+
+            map.insert(node_id, port);
+
+            spawn({
+                let sks = sks.clone();
+                let n = network.clone();
+                let map = map.clone();
+                async move {
+                    for i in node_id + 1..(expected_node_count as u64) {
+                        let key2 = PubKey::from_secret_key_set_escape_hatch(&sks, i);
+                        let port: u16 = loop {
+                            let port = map.get(&i).map(|x| *x);
+                            if let Some(port_a) = port {
+                                break port_a;
+                            }
+                            // periodically check if we have enough information to connect
+                            sleep(Duration::from_millis(2)).await;
+                        };
+                        let addr = format!("localhost:{}", port);
+                        n.connect_to(key2.clone(), &addr)
+                            .await
+                            .expect("Failed to connect nodes");
+                    }
+                    n.inner.is_ready.swap(true, Ordering::Relaxed);
+                }
+            });
+            network
         })
     }
 }
@@ -588,6 +622,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let (network_change_input, network_change_output) = flume::unbounded();
 
         let inner = WNetworkInner {
+            is_ready: Arc::new(AtomicBool::new(true)),
             handles: DashMap::new(),
             pub_key: own_key,
             counter: Arc::new(AtomicU64::new(0)),
@@ -816,6 +851,9 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn ready(&self) -> bool {
+        while !self.inner.is_ready.load(Ordering::Relaxed) {
+            sleep(Duration::from_millis(1)).await;
+        }
         true
     }
 
@@ -1022,6 +1060,46 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
     ) -> Result<V, NetworkError> {
         todo!()
     }
+}
+
+/// Tries to get a networking implementation with the given id
+///
+/// also starts the background task
+/// # Panics
+/// panics if unable to generate tasks
+#[allow(clippy::panic)]
+#[instrument(skip(rng, sks))]
+async fn get_networking<
+    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    R: rand::Rng,
+>(
+    sks: &SecretKeySet,
+    listen_addr: &str,
+    node_id: u64,
+    rng: &mut R,
+) -> (WNetwork<T>, u16, PubKey) {
+    let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
+    debug!(?pub_key);
+    for _attempt in 0..50 {
+        let port: u16 = rng.gen_range(10_000, 50_000);
+        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+        if let Ok(x) = x {
+            let (c, sync) = futures::channel::oneshot::channel();
+            match x.generate_task(c) {
+                Some(task) => {
+                    for task in task {
+                        async_std::task::spawn(task);
+                    }
+                    sync.await.expect("sync.await failed");
+                }
+                None => {
+                    panic!("Failed to launch networking task");
+                }
+            }
+            return (x, port, pub_key);
+        }
+    }
+    panic!("Failed to open a port");
 }
 
 #[cfg(test)]
