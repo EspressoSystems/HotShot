@@ -646,6 +646,7 @@
 <span id="641">641</span>
 <span id="642">642</span>
 <span id="643">643</span>
+<span id="644">644</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -677,7 +678,7 @@
 
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
 
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">warn</span>};
 
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">PeerInfoVec</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
@@ -1219,19 +1220,20 @@
         <span class="kw">let</span> <span class="ident">added_peers</span> <span class="op">=</span> <span class="ident">cur_connected</span>.<span class="ident">difference</span>(<span class="kw-2">&amp;</span><span class="ident">old_connected</span>);
 
         <span class="kw">for</span> <span class="ident">pid</span> <span class="kw">in</span> <span class="ident">added_peers</span>.<span class="ident">clone</span>() {
-            <span class="kw">let</span> <span class="ident">pk</span>: <span class="ident">PubKey</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>
+            <span class="kw">let</span> <span class="ident">pk</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PubKey</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">inner</span>
                 .<span class="ident">handle</span>
                 .<span class="ident">get_record_timeout</span>(<span class="kw-2">&amp;</span><span class="ident">pid</span>, <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">dht_timeout</span>)
                 .<span class="kw">await</span>
-                .<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">NetworkError</span><span class="op">&gt;</span><span class="ident">::into</span>)
-            {
-                <span class="prelude-val">Ok</span>(<span class="ident">r</span>) =&gt; <span class="ident">r</span>,
-                <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; {
-                    <span class="macro">unreachable!</span>()
-                }
-            };
-            <span class="ident">result</span>.<span class="ident">push</span>(<span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">pk</span>.<span class="ident">clone</span>()));
+                .<span class="ident">map_err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">NetworkError</span><span class="op">&gt;</span><span class="ident">::into</span>);
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pk</span>) <span class="op">=</span> <span class="ident">pk</span> {
+                <span class="ident">result</span>.<span class="ident">push</span>(<span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">pk</span>.<span class="ident">clone</span>()));
+            } <span class="kw">else</span> {
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;Couldn&#39;t get pk from DHT on peer {:?} for peer {:?}!&quot;</span>,
+                    <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pk</span>, <span class="ident">pid</span>
+                );
+            }
         }
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">recently_updated_peers</span>.<span class="ident">clear</span>();
         <span class="kw">for</span> <span class="ident">pid</span> <span class="kw">in</span> <span class="ident">cur_connected</span> {
