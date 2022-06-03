@@ -15,7 +15,6 @@ on:
 jobs:
   code-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     steps:
       - name: Install Nix
         uses: cachix/install-nix-action@v17
@@ -36,6 +35,7 @@ jobs:
       - name: Generate coverage reports
         run: |
           nix develop .#perfShell -c cargo-llvm-cov llvm-cov --lib --bins --tests --benches --release --workspace --all-features --lcov --output-path lcov.info
+        timeout-minutes: 45
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
