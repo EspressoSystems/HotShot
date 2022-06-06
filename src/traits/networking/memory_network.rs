@@ -85,7 +85,7 @@ struct MemoryNetworkInner<T> {
     network_changes_output: flume::Receiver<NetworkChange>,
 
     /// Count of messages that are in-flight (send but not processed yet)
-    in_flight_message_count: Arc<AtomicUsize>,
+    in_flight_message_count: AtomicUsize,
 }
 
 /// In memory only network simulator.
@@ -126,7 +126,7 @@ where
         let (broadcast_task_send, broadcast_output) = flume::bounded(128);
         let (direct_task_send, direct_output) = flume::bounded(128);
         let (network_changes_input, network_changes_output) = flume::bounded(128);
-        let in_flight_message_count = Arc::new(AtomicUsize::new(0));
+        let in_flight_message_count = AtomicUsize::new(0);
         trace!("Channels open, spawning background task");
 
         spawn(
