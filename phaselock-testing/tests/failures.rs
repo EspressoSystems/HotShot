@@ -3,14 +3,10 @@ mod common;
 use common::*;
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::implementations::{
-        AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork,
-    },
+    traits::implementations::{MemoryNetwork, MemoryStorage},
 };
 
 use either::Either::Right;
-
-use tracing::{instrument, warn};
 
 use std::collections::HashSet;
 

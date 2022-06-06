@@ -7,23 +7,16 @@ use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction}
 use phaselock::traits::Storage;
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::{
-        implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork},
-        BlockContents,
-    },
-    types::Message,
-    H_256,
+    traits::implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
 };
 use phaselock_testing::{ConsensusRoundError, Round};
 use phaselock_types::data::ViewNumber;
-use proptest::prelude::*;
-use tracing::instrument;
 
 use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestDescription};
 use either::Either::{Left, Right};
 use std::{collections::HashSet, iter::FromIterator, sync::Arc};
 
-// Notes: Tests with #[ignore] are skipped because they fail nondeterministically due to timeout or config setting.
+// Notes: Tests with `keep: false` are skipped because they fail nondeterministically due to timeout or config setting.
 
 // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
 cross_all_types!(
@@ -128,207 +121,85 @@ cross_all_types!(
     keep: false
 );
 
-// TODO this needs to be generalized over all implementations.
-proptest! {
-    #![proptest_config(ProptestConfig {
-        timeout: 300000,
-        cases: 10,
-        .. ProptestConfig::default()
-    })]
-    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_large_num_nodes_random(num_nodes in 50..100usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
+cross_all_types_proptest!(
+    test_large_num_nodes_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: num_nodes,
+        start_nodes: num_nodes,
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: num_nodes in 50..100usize
+);
 
-    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_large_num_txns_random(num_nodes in 5..30usize, num_txns in 10..30usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            num_succeeds: num_txns,
-            txn_ids: Right(1),
-            timeout_ratio: (25, 10),
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
+cross_all_types_proptest!(
+    test_fail_last_node_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: num_nodes,
+        start_nodes: num_nodes,
+        ids_to_shut_down: vec![vec![(num_nodes - 1) as u64].into_iter().collect()],
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: num_nodes in 30..100usize
+);
 
-    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_fail_last_node_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            ids_to_shut_down: vec![vec![(num_nodes - 1) as u64].into_iter().collect()],
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
+cross_all_types_proptest!(
+    test_fail_first_node_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: num_nodes,
+        start_nodes: num_nodes,
+        ids_to_shut_down: vec![vec![0].into_iter().collect()],
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: num_nodes in 30..100usize
+);
 
-    // TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_fail_first_node_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            ids_to_shut_down: vec![vec![0].into_iter().collect()],
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
+cross_all_types_proptest!(
+    test_fail_last_f_nodes_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: num_nodes,
+        start_nodes: num_nodes,
+        ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
+        txn_ids: Right(1),
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: num_nodes in 30..100usize
+);
 
-    // TODO: Consensus times out with f failing nodes (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_fail_last_f_nodes_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            ids_to_shut_down: vec![HashSet::<u64>::from_iter((0..get_tolerance(num_nodes as u64)).map(|x| (num_nodes as u64) - x - 1))],
-            num_succeeds: 5,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
+// TODO: Consensus behaves nondeterministically (https://github.com/EspressoSystems/phaselock/issues/15)
+cross_all_types_proptest!(
+    test_fail_first_f_nodes_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: num_nodes,
+        start_nodes: num_nodes,
+        ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
+        num_succeeds: 5,
+        txn_ids: Right(1),
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: num_nodes in 30..100usize
+);
 
-    // TODO: Consensus times out with f failing nodes (https://github.com/EspressoSystems/phaselock/issues/15)
-    #[ignore]
-    #[test]
-    fn test_fail_first_f_nodes_random(num_nodes in 30..100usize) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: num_nodes,
-            start_nodes: num_nodes,
-            ids_to_shut_down: vec![HashSet::<u64>::from_iter(0..get_tolerance(num_nodes as u64))],
-            num_succeeds: 5,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
-
-    // TODO (vko): these tests seem to fail in CI
-    #[ignore]
-    #[test]
-    fn test_mul_txns_random(txn_proposer_1 in 0..15u64, txn_proposer_2 in 15..30u64) {
-        let description = GeneralTestDescriptionBuilder {
-            total_nodes: 30,
-            start_nodes: 30,
-            txn_ids: Left(vec![vec![txn_proposer_1, txn_proposer_2]]),
-            ..GeneralTestDescriptionBuilder::default()
-        };
-        async_std::task::block_on(
-            async {
-                description.build::<
-                    MemoryNetwork<Message<
-                    DEntryBlock,
-                    <DEntryBlock as BlockContents<H_256>>::Transaction,
-                    State,
-                    H_256
-                    >>,
-                    MemoryStorage<DEntryBlock, State, H_256>,
-                    DEntryBlock,
-                    State
-                >().execute().await.unwrap();
-            }
-        );
-    }
-}
+// TODO (vko): these tests seem to fail in CI
+cross_all_types_proptest!(
+    test_mul_txns_random,
+    GeneralTestDescriptionBuilder {
+        total_nodes: 30,
+        start_nodes: 30,
+        txn_ids: Left(vec![vec![txn_proposer_1, txn_proposer_2]]),
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: false,
+    args: txn_proposer_1 in 0..15u64, txn_proposer_2 in 15..30u64
+);
 
 #[async_std::test]
 pub async fn test_harness() {
