@@ -268,7 +268,7 @@ async fn main() {
         }
         println!("Node {} reached decision", own_id);
         debug!(?own_id, "Decision emitted");
-        if let EventType::Decide { block: _, state } = event.event {
+        if let EventType::Decide { state, .. } = event.event {
             println!("  - Balances:");
             for (account, balance) in &state[0].balances {
                 println!("    - {}: {}", account, balance);
