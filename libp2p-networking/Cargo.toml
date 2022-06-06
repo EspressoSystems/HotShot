@@ -26,7 +26,7 @@ tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
 tui = { version = "0.17.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
-async-trait = "0.1.53"
+async-trait = "0.1.56"
 derive_builder = "0.11.1"
 custom_debug = "0.5"
 phaselock-utils = { path = "../phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
