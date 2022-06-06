@@ -5,9 +5,7 @@ use either::Either::Right;
 
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::implementations::{
-        AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork,
-    },
+    traits::implementations::{MemoryNetwork, MemoryStorage},
 };
 
 cross_all_types!(

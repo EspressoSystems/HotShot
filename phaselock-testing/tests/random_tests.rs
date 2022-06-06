@@ -7,9 +7,7 @@ use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction}
 use phaselock::traits::Storage;
 use phaselock::{
     demos::dentry::{DEntryBlock, State},
-    traits::implementations::{
-        AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage, WNetwork,
-    },
+    traits::implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
 };
 use phaselock_testing::{ConsensusRoundError, Round};
 use phaselock_types::data::ViewNumber;
