@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 
 /// Utility functions implemented on `Receiver` types used in the codebase.
-/// 
+///
 /// Currently this is only implemented on [`flume::Receiver`] but this should be usable for any `Receiver` type.
 #[async_trait]
 pub trait ReceiverExt<T> {
