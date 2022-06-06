@@ -638,19 +638,6 @@
 <span id="633">633</span>
 <span id="634">634</span>
 <span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
-<span id="648">648</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -683,6 +670,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
 
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">warn</span>};
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::ReceiverExt</span>;
 
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">PeerInfoVec</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
@@ -1115,20 +1104,13 @@
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handle</span>.<span class="ident">is_killed</span>().<span class="kw">await</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>);
-        }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="comment">// Wait for the first message to come up</span>
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_recv</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_recv</span>.<span class="ident">try_recv</span>() {
-                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying Libp2pNetwork has shut down&quot;</span>);
             <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>
+                .<span class="ident">broadcast_recv</span>
+                .<span class="ident">recv_async_drain</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
         }
     }
 
@@ -1139,14 +1121,13 @@
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">M</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handle</span>.<span class="ident">is_killed</span>().<span class="kw">await</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>);
-        }
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_recv</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">x</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying Libp2pNetwork has shutdown&quot;</span>);
             <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>
+                .<span class="ident">broadcast_recv</span>
+                .<span class="ident">recv_async</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)
         }
     }
 
@@ -1157,20 +1138,13 @@
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handle</span>.<span class="ident">is_killed</span>().<span class="kw">await</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>);
-        }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="comment">// Wait for the first message to come up</span>
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_recv</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_recv</span>.<span class="ident">try_recv</span>() {
-                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying Libp2pNetwork has shut down&quot;</span>);
             <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>
+                .<span class="ident">direct_recv</span>
+                .<span class="ident">recv_async_drain</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
         }
     }
 
@@ -1181,13 +1155,13 @@
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_direct</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">M</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">handle</span>.<span class="ident">is_killed</span>().<span class="kw">await</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>);
-        }
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_recv</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">x</span>)
-        } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">inner</span>
+                .<span class="ident">direct_recv</span>
+                .<span class="ident">recv_async</span>()
+                .<span class="kw">await</span>
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)
         }
     }
 

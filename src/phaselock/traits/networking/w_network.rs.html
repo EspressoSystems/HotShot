@@ -1375,37 +1375,6 @@
 <span id="1370">1370</span>
 <span id="1371">1371</span>
 <span id="1372">1372</span>
-<span id="1373">1373</span>
-<span id="1374">1374</span>
-<span id="1375">1375</span>
-<span id="1376">1376</span>
-<span id="1377">1377</span>
-<span id="1378">1378</span>
-<span id="1379">1379</span>
-<span id="1380">1380</span>
-<span id="1381">1381</span>
-<span id="1382">1382</span>
-<span id="1383">1383</span>
-<span id="1384">1384</span>
-<span id="1385">1385</span>
-<span id="1386">1386</span>
-<span id="1387">1387</span>
-<span id="1388">1388</span>
-<span id="1389">1389</span>
-<span id="1390">1390</span>
-<span id="1391">1391</span>
-<span id="1392">1392</span>
-<span id="1393">1393</span>
-<span id="1394">1394</span>
-<span id="1395">1395</span>
-<span id="1396">1396</span>
-<span id="1397">1397</span>
-<span id="1398">1398</span>
-<span id="1399">1399</span>
-<span id="1400">1400</span>
-<span id="1401">1401</span>
-<span id="1402">1402</span>
-<span id="1403">1403</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -1418,6 +1387,7 @@
     <span class="ident">SocketDecodeSnafu</span>, <span class="ident">WebSocketSnafu</span>,
 };
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::NetworkError</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::ReceiverExt</span>;
 <span class="kw">use</span> <span class="ident">async_std::prelude::FutureExt</span>;
 <span class="kw">use</span> <span class="ident">async_std::task::block_on</span>;
 <span class="kw">use</span> <span class="ident">async_std</span>::{
@@ -2357,20 +2327,12 @@
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="comment">// Wait for the first message to come up</span>
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">broadcast</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">first</span>, <span class="string">&quot;First message in broadcast queue found&quot;</span>);
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">broadcast</span>.<span class="ident">try_recv</span>() {
-                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying WNetwork has shutdown&quot;</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
-        }
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">outputs</span>
+            .<span class="ident">broadcast</span>
+            .<span class="ident">recv_async_drain</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(
@@ -2378,15 +2340,12 @@
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;Awaiting next broadcast&quot;</span>);
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">broadcast</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">x</span>, <span class="string">&quot;Found Broadcast&quot;</span>);
-            <span class="prelude-val">Ok</span>(<span class="ident">x</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying WNetwork has shutdown&quot;</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
-        }
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">outputs</span>
+            .<span class="ident">broadcast</span>
+            .<span class="ident">recv_async</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(
@@ -2394,20 +2353,12 @@
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_queue</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="comment">// Wait for the first message to come up</span>
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">direct</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">first</span>, <span class="string">&quot;First message in direct queue found&quot;</span>);
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">direct</span>.<span class="ident">try_recv</span>() {
-                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying WNetwork has shutdown&quot;</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
-        }
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">outputs</span>
+            .<span class="ident">direct</span>
+            .<span class="ident">recv_async_drain</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(
@@ -2415,15 +2366,12 @@
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_direct</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="kw">super</span>::NetworkError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;Awaiting next direct message&quot;</span>);
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">outputs</span>.<span class="ident">direct</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">x</span>, <span class="string">&quot;Found direct message&quot;</span>);
-            <span class="prelude-val">Ok</span>(<span class="ident">x</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying WNetwork has shutdown&quot;</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
-        }
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">outputs</span>
+            .<span class="ident">direct</span>
+            .<span class="ident">recv_async</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">known_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span> {
@@ -2435,21 +2383,11 @@
         <span class="ident">fields</span>(<span class="ident">node_id</span> <span class="op">=</span> <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">pub_key</span>.<span class="ident">nonce</span>)
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">network_changes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;Waiting for network changes to show up&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="comment">// Wait for the first message to come up</span>
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_change_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">first</span>) <span class="op">=</span> <span class="ident">first</span> {
-            <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">first</span>, <span class="string">&quot;First message in network changes queue found&quot;</span>);
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">first</span>);
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_change_output</span>.<span class="ident">try_recv</span>() {
-                <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">x</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;The underlying WNetwork has shut down&quot;</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">NetworkError::ShutDown</span>)
-        }
+        <span class="self">self</span>.<span class="ident">inner</span>
+            .<span class="ident">network_change_output</span>
+            .<span class="ident">recv_async_drain</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">shut_down</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
