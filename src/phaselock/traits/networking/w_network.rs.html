@@ -1402,6 +1402,10 @@
 <span id="1397">1397</span>
 <span id="1398">1398</span>
 <span id="1399">1399</span>
+<span id="1400">1400</span>
+<span id="1401">1401</span>
+<span id="1402">1402</span>
+<span id="1403">1403</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -1649,6 +1653,10 @@
             });
             <span class="ident">network</span>
         })
+    }
+
+    <span class="kw">fn</span> <span class="ident">in_flight_message_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="prelude-val">None</span>
     }
 }
 
