@@ -31,6 +31,8 @@ use std::{sync::Arc, time::Duration};
 
 use tracing::{error, info, instrument, warn};
 
+use crate::utils::ReceiverExt;
+
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
@@ -462,20 +464,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
-        }
-        let mut ret = Vec::new();
-        // Wait for the first message to come up
-        let first = self.inner.broadcast_recv.recv_async().await;
-        if let Ok(first) = first {
-            ret.push(first);
-            while let Ok(x) = self.inner.broadcast_recv.try_recv() {
-                ret.push(x);
-            }
-            Ok(ret)
-        } else {
-            error!("The underlying Libp2pNetwork has shut down");
             Err(NetworkError::ShutDown)
+        } else {
+            self.inner
+                .broadcast_recv
+                .recv_async_drain()
+                .await
+                .ok_or(NetworkError::ShutDown)
         }
     }
 
@@ -486,14 +481,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
-        }
-        let x = self.inner.broadcast_recv.recv_async().await;
-        if let Ok(x) = x {
-            Ok(x)
-        } else {
-            error!("The underlying Libp2pNetwork has shutdown");
             Err(NetworkError::ShutDown)
+        } else {
+            self.inner
+                .broadcast_recv
+                .recv_async()
+                .await
+                .map_err(|_| NetworkError::ShutDown)
         }
     }
 
@@ -504,20 +498,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
-        }
-        let mut ret = Vec::new();
-        // Wait for the first message to come up
-        let first = self.inner.direct_recv.recv_async().await;
-        if let Ok(first) = first {
-            ret.push(first);
-            while let Ok(x) = self.inner.direct_recv.try_recv() {
-                ret.push(x);
-            }
-            Ok(ret)
-        } else {
-            error!("The underlying Libp2pNetwork has shut down");
             Err(NetworkError::ShutDown)
+        } else {
+            self.inner
+                .direct_recv
+                .recv_async_drain()
+                .await
+                .ok_or(NetworkError::ShutDown)
         }
     }
 
@@ -528,13 +515,13 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     )]
     async fn next_direct(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
-            return Err(NetworkError::ShutDown);
-        }
-        let x = self.inner.direct_recv.recv_async().await;
-        if let Ok(x) = x {
-            Ok(x)
-        } else {
             Err(NetworkError::ShutDown)
+        } else {
+            self.inner
+                .direct_recv
+                .recv_async()
+                .await
+                .map_err(|_| NetworkError::ShutDown)
         }
     }
 
