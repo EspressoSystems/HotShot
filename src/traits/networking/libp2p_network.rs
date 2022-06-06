@@ -133,6 +133,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             }
         })
     }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
 }
 
 impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>

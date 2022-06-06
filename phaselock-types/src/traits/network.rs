@@ -155,6 +155,11 @@ where
         num_bootstrap: usize,
         sks: SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static>;
+
+    /// Get the number of messages in-flight.
+    ///
+    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
+    fn in_flight_message_count(&self) -> Option<usize>;
 }
 
 /// Changes that can occur in the network

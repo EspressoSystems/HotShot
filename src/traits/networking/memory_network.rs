@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
@@ -83,6 +84,9 @@ struct MemoryNetworkInner<T> {
     network_changes_input: RwLock<Option<flume::Sender<NetworkChange>>>,
     /// Output for network change messages
     network_changes_output: flume::Receiver<NetworkChange>,
+
+    /// Count of messages that are in-flight (send but not processed yet)
+    in_flight_message_count: AtomicUsize,
 }
 
 /// In memory only network simulator.
@@ -123,6 +127,7 @@ where
         let (broadcast_task_send, broadcast_output) = flume::bounded(128);
         let (direct_task_send, direct_output) = flume::bounded(128);
         let (network_changes_input, network_changes_output) = flume::bounded(128);
+        let in_flight_message_count = AtomicUsize::new(0);
         trace!("Channels open, spawning background task");
 
         spawn(
@@ -243,6 +248,7 @@ where
                 master_map: master_map.clone(),
                 network_changes_input: RwLock::new(Some(network_changes_input)),
                 network_changes_output,
+                in_flight_message_count,
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -253,6 +259,9 @@ where
 
     /// Send a [`Vec<u8>`] message to the inner `broadcast_input`
     async fn broadcast_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+        self.inner
+            .in_flight_message_count
+            .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.broadcast_input.read().await;
         if let Some(input) = &*input {
             input.send_async(message).await
@@ -263,6 +272,9 @@ where
 
     /// Send a [`Vec<u8>`] message to the inner `direct_input`
     async fn direct_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+        self.inner
+            .in_flight_message_count
+            .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.direct_input.read().await;
         if let Some(input) = &*input {
             input.send_async(message).await
@@ -298,6 +310,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
             MemoryNetwork::new(pubkey, master.clone(), None)
         })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        Some(self.inner.in_flight_message_count.load(Ordering::Relaxed))
     }
 }
 
@@ -376,11 +392,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn broadcast_queue(&self) -> Result<Vec<T>, NetworkError> {
-        self.inner
+        let ret = self
+            .inner
             .broadcast_output
             .recv_async_drain()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .ok_or(NetworkError::ShutDown)?;
+        self.inner
+            .in_flight_message_count
+            .fetch_sub(ret.len(), Ordering::Relaxed);
+        Ok(ret)
     }
 
     #[instrument(
@@ -388,11 +409,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn next_broadcast(&self) -> Result<T, NetworkError> {
-        self.inner
+        let ret = self
+            .inner
             .broadcast_output
             .recv_async()
             .await
-            .map_err(|_| NetworkError::ShutDown)
+            .map_err(|_| NetworkError::ShutDown)?;
+        self.inner
+            .in_flight_message_count
+            .fetch_sub(1, Ordering::Relaxed);
+        Ok(ret)
     }
 
     #[instrument(
@@ -400,11 +426,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn direct_queue(&self) -> Result<Vec<T>, NetworkError> {
-        self.inner
+        let ret = self
+            .inner
             .direct_output
             .recv_async_drain()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .ok_or(NetworkError::ShutDown)?;
+        self.inner
+            .in_flight_message_count
+            .fetch_sub(ret.len(), Ordering::Relaxed);
+        Ok(ret)
     }
 
     #[instrument(
@@ -412,11 +443,16 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn next_direct(&self) -> Result<T, NetworkError> {
-        self.inner
+        let ret = self
+            .inner
             .direct_output
             .recv_async()
             .await
-            .map_err(|_| NetworkError::ShutDown)
+            .map_err(|_| NetworkError::ShutDown)?;
+        self.inner
+            .in_flight_message_count
+            .fetch_sub(1, Ordering::Relaxed);
+        Ok(ret)
     }
 
     async fn known_nodes(&self) -> Vec<PubKey> {
@@ -611,5 +647,49 @@ mod tests {
         output.sort();
         // Check for equality
         assert_eq!(output, messages);
+    }
+
+    #[async_std::test]
+    async fn test_in_flight_message_count() {
+        setup_logging();
+        // Create some dummy messages
+        let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
+        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+
+        assert_eq!(network1.in_flight_message_count(), Some(0));
+        assert_eq!(network2.in_flight_message_count(), Some(0));
+
+        for (count, message) in messages.iter().enumerate() {
+            network1
+                .message_node(message.clone(), pub_key_2.clone())
+                .await
+                .unwrap();
+            // network 2 has received `count` broadcast messages and `count + 1` direct messages
+            assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
+
+            network2.broadcast_message(message.clone()).await.unwrap();
+            // network 1 has received `count` broadcast messages
+            assert_eq!(network1.in_flight_message_count(), Some(count + 1));
+
+            // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
+            assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
+        }
+
+        for count in (0..messages.len()).rev() {
+            network1.next_broadcast().await.unwrap();
+            assert_eq!(network1.in_flight_message_count(), Some(count));
+
+            network2.next_broadcast().await.unwrap();
+            network2.next_direct().await.unwrap();
+            assert_eq!(network2.in_flight_message_count(), Some(count * 2));
+        }
+
+        assert_eq!(network1.in_flight_message_count(), Some(0));
+        assert_eq!(network2.in_flight_message_count(), Some(0));
     }
 }
