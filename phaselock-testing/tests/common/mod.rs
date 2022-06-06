@@ -139,7 +139,9 @@ impl<
 
 impl GeneralTestDescriptionBuilder {
     pub fn build<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -156,7 +158,9 @@ impl GeneralTestDescriptionBuilder {
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -356,7 +360,9 @@ pub fn default_randomized_ids_to_round<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,

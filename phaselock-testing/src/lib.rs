@@ -26,7 +26,10 @@ use phaselock::{
     types::{EventType, Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::{error::TimeoutSnafu, traits::state::TestableState};
+use phaselock_types::{
+    error::TimeoutSnafu,
+    traits::{network::TestableNetworkingImplementation, state::TestableState},
+};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashMap, fmt, sync::Arc};
 use std::{marker::PhantomData, time::Duration};
@@ -368,52 +371,6 @@ impl<
         debug!("All nodes should be shut down now.");
     }
 
-    /// Will validate that all nodes are on exactly the same state.
-    pub async fn validate_node_states(&self) {
-        let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
-
-        let runner_state = first
-            .handle
-            .get_round_runner_state()
-            .await
-            .expect("Could not get the first node's runner state");
-        let storage_state = first.handle.storage().get_internal_state().await;
-        // TODO: Should we add this?
-        // let network_state = first.handle.networking().get_internal_state().await.expect("Could not get the networking system's internal state");
-
-        info!("Validating node state, comparing with:");
-        info!(?runner_state);
-        info!(?storage_state);
-
-        let mut is_valid = true;
-
-        for (idx, node) in remaining.iter().enumerate() {
-            let idx = idx + 1;
-            let span = info_span!("Node {}", idx);
-            let _guard = span.enter();
-            let comparison_runner_state = node
-                .handle
-                .get_round_runner_state()
-                .await
-                .expect("Could not get the node's runner state");
-            let comparison_storage_state = node.handle.storage().get_internal_state().await;
-            if comparison_runner_state != runner_state {
-                eprintln!("Node {} runner state does not match the first node", idx);
-                eprintln!("  expected: {:#?}", runner_state);
-                eprintln!("  got:      {:#?}", comparison_runner_state);
-                is_valid = false;
-            }
-            if comparison_storage_state != storage_state {
-                eprintln!("Node {} storage state does not match the first node", idx);
-                eprintln!("  expected: {:#?}", storage_state);
-                eprintln!("  got:      {:#?}", comparison_storage_state);
-                is_valid = false;
-            }
-        }
-        assert!(is_valid, "Nodes had a different state");
-        info!("All nodes are on the same state.");
-    }
-
     /// In-place shut down an individual node with id `node_id`
     /// # Errors
     /// returns [`ConsensusRoundError::NoSuchNode`] if the node idx is either
@@ -451,6 +408,75 @@ impl<
     /// return curent node ids
     pub fn ids(&self) -> Vec<u64> {
         self.nodes.iter().map(|n| n.node_id).collect()
+    }
+}
+
+impl<
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
+        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        BLOCK: BlockContents<N>,
+        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
+{
+    /// Will validate that all nodes are on exactly the same state.
+    pub async fn validate_node_states(&self) {
+        let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
+
+        let runner_state = first
+            .handle
+            .get_round_runner_state()
+            .await
+            .expect("Could not get the first node's runner state");
+        let storage_state = first.handle.storage().get_internal_state().await;
+        // TODO: Should we add this?
+        // let network_state = first.handle.networking().get_internal_state().await.expect("Could not get the networking system's internal state");
+
+        if let Some(message_count) = first.handle.networking().in_flight_message_count() {
+            if message_count > 0 {
+                warn!(?message_count, "Node 0 has unprocessed messages");
+            }
+        }
+
+        info!("Validating node state, comparing with:");
+        info!(?runner_state);
+        info!(?storage_state);
+
+        let mut is_valid = true;
+
+        for (idx, node) in remaining.iter().enumerate() {
+            let idx = idx + 1;
+            let span = info_span!("Node {}", idx);
+            let _guard = span.enter();
+
+            if let Some(message_count) = node.handle.networking().in_flight_message_count() {
+                if message_count > 0 {
+                    warn!(?message_count, "Node {} has unprocessed messages", idx);
+                }
+            }
+
+            let comparison_runner_state = node
+                .handle
+                .get_round_runner_state()
+                .await
+                .expect("Could not get the node's runner state");
+            let comparison_storage_state = node.handle.storage().get_internal_state().await;
+            if comparison_runner_state != runner_state {
+                eprintln!("Node {} runner state does not match the first node", idx);
+                eprintln!("  expected: {:#?}", runner_state);
+                eprintln!("  got:      {:#?}", comparison_runner_state);
+                is_valid = false;
+            }
+            if comparison_storage_state != storage_state {
+                eprintln!("Node {} storage state does not match the first node", idx);
+                eprintln!("  expected: {:#?}", storage_state);
+                eprintln!("  got:      {:#?}", comparison_storage_state);
+                is_valid = false;
+            }
+        }
+        assert!(is_valid, "Nodes had a different state");
+        info!("All nodes are on the same state.");
     }
 }
 

@@ -183,6 +183,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         &self.storage
     }
 
+    /// Provides a reference to the underlying networking interface for this [`PhaseLock`], allowing access to
+    /// networking stats.
+    pub fn networking(&self) -> &I::Networking {
+        &self.phaselock.inner.networking
+    }
+
     /// Blocks until network is ready to be used (e.g. connected to other nodes)
     pub async fn is_ready(&self) -> bool {
         self.phaselock.inner.networking.ready().await
