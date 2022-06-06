@@ -3,7 +3,7 @@ use std::{num::NonZeroUsize, time::Duration};
 use super::{Generator, TestRunner, N};
 use phaselock::{
     tc::{self},
-    traits::{NetworkingImplementation, State, Storage},
+    traits::{State, Storage},
     types::Message,
     PhaseLockConfig, PubKey,
 };
@@ -153,7 +153,9 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
+            + Clone
+            + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -161,10 +163,10 @@ impl<
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
-    /// - `NETWORK` implements [`NetworkingImplementation`]
+    /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
     /// - `BLOCK` implements [`BlockContents`]
-    /// - `STATE` implements [`State`]
+    /// - `STATE` implements [`State`] and [`TestableState`]
     pub fn launch(self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
         TestRunner::new(self)
     }
