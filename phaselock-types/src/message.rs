@@ -4,19 +4,18 @@
 //! `PhaseLock` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, Stage, ViewNumber},
-    PubKey,
+    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use threshold_crypto::{PublicKeySet, SignatureShare};
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Message<B, T, S, const N: usize> {
+pub struct Message<B, T, S, K, const N: usize> {
     /// The sender of this message
-    pub sender: PubKey,
+    pub sender: K,
 
     /// The message kind
     pub kind: MessageKind<B, T, S, N>,
@@ -80,29 +79,6 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
             Self::Decide(decide) => decide.current_view,
         }
     }
-
-    /// Validate this message on if the QC is correct, if it has one
-    ///
-    /// If this message has no QC then this will return `true`
-    pub fn validate_qc(&self, public_key: &PublicKeySet) -> bool {
-        let (qc, view_number, stage) = match self {
-            ConsensusMessage::PreCommit(pre_commit) => {
-                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
-            }
-            // Same as PreCommit, we compare with 1 stage earlier
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
-
-            ConsensusMessage::NewView(_)
-            | ConsensusMessage::Prepare(_)
-            | ConsensusMessage::CommitVote(_)
-            | ConsensusMessage::PreCommitVote(_)
-            | ConsensusMessage::PrepareVote(_) => return true,
-        };
-
-        qc.verify(public_key, view_number, stage)
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
@@ -154,9 +130,7 @@ pub struct Prepare<B, S, const N: usize> {
 /// A nodes vote on the prepare field
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
-    pub signature: SignatureShare,
-    /// Id of the voting nodes
-    pub id: u64,
+    pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,

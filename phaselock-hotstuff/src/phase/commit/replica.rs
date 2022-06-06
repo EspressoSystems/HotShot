@@ -75,9 +75,10 @@ impl<const N: usize> CommitReplica<N> {
         };
         let leaf_hash = leaf.hash();
         // Verify QC
-        if !(commit
-            .qc
-            .verify(&ctx.api.public_key().set, ctx.view_number, Stage::PreCommit)
+
+        if !(ctx
+            .api
+            .validate_qc(&commit.qc, ctx.view_number, Stage::PreCommit)
             && commit.leaf_hash == leaf_hash)
         {
             error!(?commit.qc, "Bad or forged precommit qc");
@@ -87,14 +88,12 @@ impl<const N: usize> CommitReplica<N> {
             });
         }
 
-        let signature =
-            ctx.api
-                .private_key()
-                .partial_sign(&leaf_hash, Stage::Commit, ctx.view_number);
+        let signature = ctx
+            .api
+            .sign_vote(&leaf_hash, Stage::Commit, ctx.view_number);
         let vote = CommitVote(Vote {
             leaf_hash,
             signature,
-            id: ctx.api.public_key().nonce,
             current_view: ctx.view_number,
         });
         trace!("Commit vote packed");

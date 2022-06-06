@@ -8,9 +8,10 @@ use async_tungstenite::tungstenite::error as werror;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 use std::time::Duration;
-use threshold_crypto::SecretKeySet;
 
-use crate::PubKey;
+use crate::traits::signature_key::SignatureKey;
+
+use super::signature_key::TestableSignatureKey;
 
 /// Error type for networking
 #[derive(Debug, Snafu)]
@@ -81,9 +82,10 @@ pub enum NetworkError {
 
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
-pub trait NetworkingImplementation<M>: Send + Sync
+pub trait NetworkingImplementation<M, P>: Send + Sync
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    P: SignatureKey + 'static,
 {
     /// Returns true when node is successfully initialized
     /// into the network
@@ -97,7 +99,7 @@ where
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
-    async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError>;
+    async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received broadcast messages, should there be any
     ///
@@ -120,10 +122,10 @@ where
     /// Node's currently known to the networking implementation
     ///
     /// Kludge function to work around leader election
-    async fn known_nodes(&self) -> Vec<PubKey>;
+    async fn known_nodes(&self) -> Vec<P>;
 
     /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
-    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError>;
+    async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError>;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
@@ -145,15 +147,15 @@ where
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<M>: NetworkingImplementation<M>
+pub trait TestableNetworkingImplementation<M, P>: NetworkingImplementation<M, P>
 where
     M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    P: TestableSignatureKey + 'static,
 {
     /// generates a network given an expected node count
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        sks: SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static>;
 
     /// Get the number of messages in-flight.
@@ -164,12 +166,12 @@ where
 
 /// Changes that can occur in the network
 #[derive(Debug)]
-pub enum NetworkChange {
+pub enum NetworkChange<P: SignatureKey> {
     /// A node is connected
-    NodeConnected(PubKey),
+    NodeConnected(P),
 
     /// A node is disconnected
-    NodeDisconnected(PubKey),
+    NodeDisconnected(P),
 }
 
 /// interface describing how reliable the network is

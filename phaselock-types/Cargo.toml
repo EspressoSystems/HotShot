@@ -8,7 +8,8 @@ version = "0.0.7"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto"]
+default = ["demo"]
+demo = ["ed25519-compact"]
 
 [dependencies]
 async-std = "1.11.0"
@@ -23,6 +24,7 @@ rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_bytes = "0.11.5"
 snafu = "0.7.0"
-threshold_crypto = "0.4.0"
 custom_debug = "0.5"
 async-trait = "0.1.56"
+ed25519-compact = { version = "1.0.11", optional = true }
+tracing = "0.1.34"

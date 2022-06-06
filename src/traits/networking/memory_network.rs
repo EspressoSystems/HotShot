@@ -5,21 +5,25 @@
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
 use crate::utils::ReceiverExt;
-use crate::PubKey;
-use async_std::sync::RwLock;
-use async_std::task::spawn;
+use async_std::{sync::RwLock, task::spawn};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
+use phaselock_types::traits::{
+    network::{NetworkChange, TestableNetworkingImplementation},
+    signature_key::{SignatureKey, TestableSignatureKey},
+};
 use rand::Rng;
-use serde::Deserialize;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::fmt::Debug;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::{
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 #[derive(Debug, Clone, Copy)]
@@ -39,17 +43,17 @@ impl NetworkReliability for DummyReliability {
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
 #[derive(custom_debug::Debug)]
-pub struct MasterMap<T> {
+pub struct MasterMap<T, P: SignatureKey + 'static> {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]
-    map: DashMap<PubKey, MemoryNetwork<T>>,
+    map: DashMap<P, MemoryNetwork<T, P>>,
     /// The id of this `MemoryNetwork` cluster
     id: u64,
 }
 
-impl<T> MasterMap<T> {
+impl<T, P: SignatureKey + 'static> MasterMap<T, P> {
     /// Create a new, empty, `MasterMap`
-    pub fn new() -> Arc<MasterMap<T>> {
+    pub fn new() -> Arc<MasterMap<T, P>> {
         Arc::new(MasterMap {
             map: DashMap::new(),
             id: rand::thread_rng().gen(),
@@ -66,9 +70,10 @@ enum Combo<T> {
 }
 
 /// Internal state for a `MemoryNetwork` instance
-struct MemoryNetworkInner<T> {
+struct MemoryNetworkInner<T, P: SignatureKey + 'static> {
     /// The public key of this node
-    pub_key: PubKey,
+    #[allow(dead_code)]
+    pub_key: P,
     /// Input for broadcast messages
     broadcast_input: RwLock<Option<flume::Sender<Vec<u8>>>>,
     /// Input for direct messages
@@ -78,12 +83,12 @@ struct MemoryNetworkInner<T> {
     /// Output for direct messages
     direct_output: flume::Receiver<T>,
     /// The master map
-    master_map: Arc<MasterMap<T>>,
+    master_map: Arc<MasterMap<T, P>>,
 
     /// Input for network change messages
-    network_changes_input: RwLock<Option<flume::Sender<NetworkChange>>>,
+    network_changes_input: RwLock<Option<flume::Sender<NetworkChange<P>>>>,
     /// Output for network change messages
-    network_changes_output: flume::Receiver<NetworkChange>,
+    network_changes_output: flume::Receiver<NetworkChange<P>>,
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
@@ -97,12 +102,12 @@ struct MemoryNetworkInner<T> {
 /// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
 /// same group.
 #[derive(Clone)]
-pub struct MemoryNetwork<T> {
+pub struct MemoryNetwork<T, P: SignatureKey + 'static> {
     /// The actual internal state
-    inner: Arc<MemoryNetworkInner<T>>,
+    inner: Arc<MemoryNetworkInner<T, P>>,
 }
 
-impl<T> Debug for MemoryNetwork<T> {
+impl<T, P: SignatureKey + 'static> Debug for MemoryNetwork<T, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryNetwork")
             .field("inner", &"inner")
@@ -110,17 +115,18 @@ impl<T> Debug for MemoryNetwork<T> {
     }
 }
 
-impl<T> MemoryNetwork<T>
+impl<T, P> MemoryNetwork<T, P>
 where
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    P: SignatureKey + 'static,
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument]
     pub fn new(
-        pub_key: PubKey,
-        master_map: Arc<MasterMap<T>>,
+        pub_key: P,
+        master_map: Arc<MasterMap<T, P>>,
         reliability_config: Option<Arc<dyn 'static + NetworkReliability>>,
-    ) -> MemoryNetwork<T> {
+    ) -> MemoryNetwork<T, P> {
         info!("Attaching new MemoryNetwork");
         let (broadcast_input, broadcast_task_recv) = flume::bounded(128);
         let (direct_input, direct_task_recv) = flume::bounded(128);
@@ -224,9 +230,7 @@ where
                 }
                 error!("Stream shutdown");
             }
-            .instrument(
-                info_span!("MemoryNetwork Background task", id = ?pub_key.nonce, map = ?master_map),
-            ),
+            .instrument(info_span!("MemoryNetwork Background task", map = ?master_map)),
         );
         trace!("Notifying other networks of the new connected peer");
         for other in master_map.map.iter() {
@@ -286,8 +290,8 @@ where
     /// Send a [`NetworkChange`] message to the inner `network_changes_input`
     async fn network_changes_input(
         &self,
-        message: NetworkChange,
-    ) -> Result<(), flume::SendError<NetworkChange>> {
+        message: NetworkChange<P>,
+    ) -> Result<(), flume::SendError<NetworkChange<P>>> {
         let input = self.inner.network_changes_input.read().await;
         if let Some(input) = &*input {
             input.send_async(message).await
@@ -297,17 +301,19 @@ where
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestableNetworkingImplementation<T> for MemoryNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: TestableSignatureKey + 'static,
+    > TestableNetworkingImplementation<T, P> for MemoryNetwork<T, P>
 {
     fn generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
-        sks: threshold_crypto::SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let master: Arc<_> = MasterMap::new();
         Box::new(move |node_id| {
-            let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+            let privkey = P::generate_test_key(node_id);
+            let pubkey = P::from_private(&privkey);
             MemoryNetwork::new(pubkey, master.clone(), None)
         })
     }
@@ -318,13 +324,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 }
 
 #[async_trait]
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    NetworkingImplementation<T> for MemoryNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > NetworkingImplementation<T, P> for MemoryNetwork<T, P>
 {
-    #[instrument(
-        name="MemoryNetwork::broadcast_message",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::broadcast_message")]
     async fn broadcast_message(&self, message: T) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
@@ -348,19 +353,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(())
     }
 
-    #[instrument(
-        name="MemoryNetwork::ready",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::ready")]
     async fn ready(&self) -> bool {
         true
     }
 
-    #[instrument(
-        name="MemoryNetwork::message_node",
-        fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
-    )]
-    async fn message_node(&self, message: T, recipient: PubKey) -> Result<(), NetworkError> {
+    #[instrument(name = "MemoryNetwork::message_node")]
+    async fn message_node(&self, message: T, recipient: P) -> Result<(), NetworkError> {
         debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
         let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
@@ -387,10 +386,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="MemoryNetwork::broadcast_queue",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::broadcast_queue")]
     async fn broadcast_queue(&self) -> Result<Vec<T>, NetworkError> {
         let ret = self
             .inner
@@ -404,10 +400,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(ret)
     }
 
-    #[instrument(
-        name="MemoryNetwork::next_broadcast",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::next_broadcast")]
     async fn next_broadcast(&self) -> Result<T, NetworkError> {
         let ret = self
             .inner
@@ -421,10 +414,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(ret)
     }
 
-    #[instrument(
-        name="MemoryNetwork::direct_queue",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::direct_queue")]
     async fn direct_queue(&self) -> Result<Vec<T>, NetworkError> {
         let ret = self
             .inner
@@ -438,10 +428,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(ret)
     }
 
-    #[instrument(
-        name="MemoryNetwork::next_direct",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "MemoryNetwork::next_direct")]
     async fn next_direct(&self) -> Result<T, NetworkError> {
         let ret = self
             .inner
@@ -455,7 +442,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(ret)
     }
 
-    async fn known_nodes(&self) -> Vec<PubKey> {
+    async fn known_nodes(&self) -> Vec<P> {
         self.inner
             .master_map
             .map
@@ -464,11 +451,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .collect()
     }
 
-    #[instrument(
-        name="MemoryNetwork::network_changes",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
-    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+    #[instrument(name = "MemoryNetwork::network_changes")]
+    async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         self.inner
             .network_changes_output
             .recv_async_drain()
@@ -501,6 +485,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 #[cfg(test)]
 mod tests {
     use super::*;
+    use phaselock_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
     use phaselock_utils::test_util::setup_logging;
     use serde::Deserialize;
 
@@ -509,8 +494,9 @@ mod tests {
         message: u64,
     }
 
-    fn get_pubkey() -> PubKey {
-        PubKey::random(rand::thread_rng().gen())
+    fn get_pubkey() -> Ed25519Pub {
+        let priv_key = Ed25519Priv::generate();
+        Ed25519Pub::from_private(&priv_key)
     }
 
     // Spawning a single MemoryNetwork should produce no errors
@@ -518,7 +504,7 @@ mod tests {
     #[instrument]
     fn spawn_single() {
         setup_logging();
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
         let _network = MemoryNetwork::new(pub_key, group, Option::None);
@@ -529,7 +515,7 @@ mod tests {
     #[instrument]
     fn spawn_double() {
         setup_logging();
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let _network_1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
@@ -545,7 +531,7 @@ mod tests {
         // Create some dummy messages
         let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
         // Make and connect the networking instances
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
@@ -601,7 +587,7 @@ mod tests {
         // Create some dummy messages
         let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
         // Make and connect the networking instances
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
@@ -654,7 +640,7 @@ mod tests {
         setup_logging();
         // Create some dummy messages
         let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);

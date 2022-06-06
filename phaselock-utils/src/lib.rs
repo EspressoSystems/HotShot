@@ -30,8 +30,10 @@ pub mod test_util {
         clippy::redundant_closure_for_method_calls,
         clippy::missing_panics_doc
     )]
-    use std::env::{var, VarError};
-    use std::sync::Once;
+    use std::{
+        env::{var, VarError},
+        sync::Once,
+    };
     use tracing_error::ErrorLayer;
     use tracing_subscriber::{
         fmt::{self, format::FmtSpan},

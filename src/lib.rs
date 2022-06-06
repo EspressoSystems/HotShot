@@ -26,7 +26,6 @@
 pub mod documentation;
 
 /// Contains structures and functions for committee election
-pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
@@ -48,34 +47,35 @@ use async_trait::async_trait;
 use futures::channel::oneshot;
 use phaselock_hotstuff::{HotStuff, RoundFinishedEventState};
 use phaselock_types::{
-    data::ViewNumber,
+    data::{create_verify_hash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         stateful_handler::StatefulHandler,
     },
 };
 use phaselock_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
-use std::fmt::Debug;
-use std::time::Duration;
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Debug,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
 // External
 /// Reexport rand crate
 pub use rand;
-/// Reexport threshold crypto crate
-pub use threshold_crypto as tc;
 // Internal
 /// Reexport error type
 pub use phaselock_types::error::PhaseLockError;
-/// Reexport key types
-pub use phaselock_types::{PrivKey, PubKey};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -87,7 +87,7 @@ type Result<T> = std::result::Result<T, PhaseLockError>;
 
 /// Holds configuration for a `PhaseLock`
 #[derive(Debug, Clone)]
-pub struct PhaseLockConfig {
+pub struct PhaseLockConfig<P: SignatureKey> {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
@@ -95,7 +95,7 @@ pub struct PhaseLockConfig {
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
-    pub known_nodes: Vec<PubKey>,
+    pub known_nodes: Vec<P>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -114,13 +114,17 @@ pub struct PhaseLockConfig {
 /// Holds the state needed to participate in `PhaseLock` consensus
 pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// The public key of this node
-    public_key: PubKey,
+    public_key: I::SignatureKey,
 
     /// The private key of this node
-    private_key: PrivKey,
+    private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
+
+    /// The public keys for the cluster
+    /// TODO: Move the functionality this expresses into the election trait
+    cluster_public_keys: HashSet<I::SignatureKey>,
 
     /// Configuration items for this phaselock instance
-    config: PhaseLockConfig,
+    config: PhaseLockConfig<I::SignatureKey>,
 
     /// Networking interface for this phaselock instance
     networking: I::Networking,
@@ -132,7 +136,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     stateful_handler: Mutex<I::StatefulHandler>,
 
     /// This `PhaseLock` instance's election backend
-    election: PhaseLockElectionState<I::Election, N>,
+    election: PhaseLockElectionState<I::SignatureKey, I::Election, N>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
@@ -145,7 +149,7 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
 }
 
 /// Contains the state of the election of the current [`PhaseLock`].
-struct PhaseLockElectionState<E: Election<N>, const N: usize> {
+struct PhaseLockElectionState<P: SignatureKey, E: Election<P, N>, const N: usize> {
     /// An instance of the election
     election: E,
     /// The inner state of the election
@@ -168,7 +172,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     #[instrument(skip(
         genesis,
-        secret_key_share,
+        private_key,
+        cluster_public_keys,
         starting_state,
         networking,
         storage,
@@ -176,10 +181,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     ))]
     pub async fn new(
         genesis: I::Block,
-        public_keys: tc::PublicKeySet,
-        secret_key_share: tc::SecretKeyShare,
+        cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
+        public_key: I::SignatureKey,
+        private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<I::SignatureKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
@@ -187,14 +193,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         election: I::Election,
     ) -> Result<Self> {
         info!("Creating a new phaselock");
-        let node_pub_key = secret_key_share.public_key_share();
         let genesis_hash = BlockContents::hash(&genesis);
         let leaf = Leaf {
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
         };
         let election = {
-            let state = <<I as NodeImplementation<N>>::Election as Election<N>>::State::default();
+            let state =
+                <<I as NodeImplementation<N>>::Election as Election<I::SignatureKey, N>>::State::default();
             let stake_table = election.get_stake_table(&state);
             PhaseLockElectionState {
                 election,
@@ -203,14 +209,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             }
         };
         let inner: PhaseLockInner<I, N> = PhaseLockInner {
-            public_key: PubKey {
-                set: public_keys,
-                node: node_pub_key,
-                nonce,
-            },
-            private_key: PrivKey {
-                node: secret_key_share,
-            },
+            public_key,
+            private_key,
             config,
             networking,
             storage,
@@ -219,6 +219,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             hotstuff: Mutex::default(),
+            cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -231,7 +232,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                     leaf_hash,
                     view_number: ViewNumber::genesis(),
                     stage: Stage::Decide,
-                    signature: None,
+                    signatures: BTreeMap::new(),
                     genesis: true,
                 })
                 .await?;
@@ -252,7 +253,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Returns true if the proposed leaf extends from the given block
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce))]
+    #[instrument(skip(self))]
     pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &LeafHash<N>) -> bool {
         let mut parent = leaf.parent;
         // Short circuit to enable blocks that don't have parents
@@ -287,7 +288,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// - The storage layer returned an error
     /// - There were no QCs in the storage
     /// - A broadcast message could not be send
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    #[instrument(skip(self), err)]
     pub async fn next_view(&self, current_view: ViewNumber) -> Result<()> {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         hotstuff
@@ -319,7 +320,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     /// # Panics
     ///
     /// Panics if consensus hits a bad round
-    #[instrument(skip(self),fields(id = self.inner.public_key.nonce),err)]
+    #[instrument(skip(self), err)]
     pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
         let (sender, receiver) = oneshot::channel();
         self.inner
@@ -427,10 +428,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
         genesis: I::Block,
-        public_keys: tc::PublicKeySet,
-        secret_key_share: tc::SecretKeyShare,
+        cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
+        public_key: I::SignatureKey,
+        private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: PhaseLockConfig,
+        config: PhaseLockConfig<I::SignatureKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
@@ -440,8 +442,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
-            public_keys,
-            secret_key_share,
+            cluster_public_keys,
+            public_key,
+            private_key,
             node_id,
             config,
             starting_state,
@@ -486,7 +489,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     pub async fn send_direct_message(
         &self,
         kind: impl Into<<I as TypeMap<N>>::MessageKind>,
-        recipient: PubKey,
+        recipient: I::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
@@ -504,7 +507,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: PubKey,
+        sender: I::SignatureKey,
     ) {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         let hotstuff = &mut *hotstuff;
@@ -524,7 +527,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     async fn handle_direct_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: PubKey,
+        sender: I::SignatureKey,
     ) {
         let mut hotstuff = self.inner.hotstuff.lock().await;
         let hotstuff = &mut *hotstuff;
@@ -536,7 +539,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             )
             .await
         {
-            error!(?e, ?msg, ?hotstuff, "Could not handle direct message");
+            warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
         }
     }
 
@@ -544,7 +547,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     async fn handle_broadcast_data_message(
         &self,
         msg: <I as TypeMap<N>>::DataMessage,
-        _sender: PubKey,
+        _sender: I::SignatureKey,
     ) {
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
@@ -571,7 +574,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     async fn handle_direct_data_message(
         &self,
         msg: <I as TypeMap<N>>::DataMessage,
-        _sender: PubKey,
+        _sender: I::SignatureKey,
     ) {
         debug!(?msg, "Incoming direct data message");
         match msg {
@@ -648,7 +651,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 
     /// Handle a change in the network
-    async fn handle_network_change(&self, node: NetworkChange) {
+    async fn handle_network_change(&self, node: NetworkChange<I::SignatureKey>) {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
@@ -745,7 +748,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         true
     }
 
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey {
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey {
         let election = &self.inner.election;
         election
             .election
@@ -758,7 +761,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
 
     async fn send_direct_message(
         &mut self,
-        recipient: PubKey,
+        recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, ?recipient, "send_direct_message");
@@ -799,11 +802,11 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
         }
     }
 
-    fn public_key(&self) -> &PubKey {
+    fn public_key(&self) -> &I::SignatureKey {
         &self.inner.public_key
     }
 
-    fn private_key(&self) -> &PrivKey {
+    fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey {
         &self.inner.private_key
     }
 
@@ -814,5 +817,49 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
             .lock()
             .await
             .notify(blocks, states);
+    }
+
+    fn sign_vote(
+        &self,
+        leaf_hash: &LeafHash<N>,
+        stage: Stage,
+        view_number: ViewNumber,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let hash = create_verify_hash(leaf_hash, view_number, stage);
+        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        (self.public_key().to_bytes(), signature)
+    }
+
+    #[instrument(skip(self))]
+    fn validate_qc(
+        &self,
+        qc: &QuorumCertificate<N>,
+        view_number: ViewNumber,
+        stage: Stage,
+    ) -> bool {
+        if qc.view_number != view_number || qc.stage != stage {
+            warn!(
+                ?qc,
+                ?view_number,
+                ?stage,
+                "Failing on stage/view_number equality check"
+            );
+        }
+        let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
+        let mut total_valid_signatures = 0;
+        for (key, signature) in &qc.signatures {
+            if let Some(key) = I::SignatureKey::from_bytes(key) {
+                let contains = self.inner.cluster_public_keys.contains(&key);
+                let validate = key.validate(signature, hash.as_ref());
+                if contains && validate {
+                    total_valid_signatures += 1;
+                } else {
+                    warn!(?contains, ?validate, "Failed validity check");
+                }
+            }
+        }
+        let valid = total_valid_signatures >= self.inner.config.threshold.get() as u64;
+        debug!(?total_valid_signatures, ?self.inner.config.threshold, ?valid, "Checking QC");
+        valid
     }
 }

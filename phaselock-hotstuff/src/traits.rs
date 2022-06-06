@@ -2,13 +2,14 @@
 
 use async_trait::async_trait;
 use phaselock_types::{
-    data::{Stage, VecQuorumCertificate, ViewNumber},
+    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, ViewNumber},
     event::{Event, EventType},
+    message::ConsensusMessage,
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
-    PrivKey, PubKey,
 };
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
@@ -36,8 +37,8 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
     fn leader_acts_as_replica(&self) -> bool;
 
-    /// Returns the `PubKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> PubKey;
+    /// Returns the `I::SignatureKey` of the leader for the given round and stage
+    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
@@ -47,7 +48,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Send a direct message to the given recipient
     async fn send_direct_message(
         &mut self,
-        recipient: PubKey,
+        recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
@@ -61,10 +62,10 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn send_event(&mut self, event: Event<I::Block, I::State>);
 
     /// Get a reference to the public key.
-    fn public_key(&self) -> &PubKey;
+    fn public_key(&self) -> &I::SignatureKey;
 
     /// Get a reference to the private key.
-    fn private_key(&self) -> &PrivKey;
+    fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey;
 
     /// The `phaselock-hotstuff` implementation will call this method, with the series of blocks and states
     /// that are being committed, whenever a commit action takes place.
@@ -110,5 +111,44 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
             },
         })
         .await;
+    }
+
+    /// Signs a vote
+    fn sign_vote(
+        &self,
+        leaf_hash: &LeafHash<N>,
+        stage: Stage,
+        view_number: ViewNumber,
+    ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Validate a quorum certificate
+    fn validate_qc(
+        &self,
+        quorum_certificate: &QuorumCertificate<N>,
+        view_number: ViewNumber,
+        stage: Stage,
+    ) -> bool;
+
+    /// Validate this message on if the QC is correct, if it has one
+    ///
+    /// If this message has no QC then this will return `true`
+    fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
+        let (qc, view_number, stage) = match message {
+            ConsensusMessage::PreCommit(pre_commit) => {
+                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
+                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
+            }
+            // Same as PreCommit, we compare with 1 stage earlier
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
+
+            ConsensusMessage::NewView(_)
+            | ConsensusMessage::Prepare(_)
+            | ConsensusMessage::CommitVote(_)
+            | ConsensusMessage::PreCommitVote(_)
+            | ConsensusMessage::PrepareVote(_) => return true,
+        };
+
+        self.validate_qc(qc, view_number, stage)
     }
 }

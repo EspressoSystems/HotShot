@@ -2,16 +2,17 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner, N};
 use phaselock::{
-    tc::{self},
     traits::{State, Storage},
     types::Message,
-    PhaseLockConfig, PubKey,
+    PhaseLockConfig,
 };
 use phaselock_types::traits::{
-    network::TestableNetworkingImplementation, state::TestableState, storage::TestableStorage,
+    network::TestableNetworkingImplementation,
+    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+    state::TestableState,
+    storage::TestableStorage,
     BlockContents,
 };
-use rand::thread_rng;
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
@@ -19,13 +20,14 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
     pub(super) state: Generator<STATE>,
-    pub(super) config: PhaseLockConfig,
-    pub(super) sks: tc::SecretKeySet,
+    pub(super) config: PhaseLockConfig<Ed25519Pub>,
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + Default + 'static,
@@ -36,10 +38,12 @@ impl<
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(expected_node_count: usize) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
-        let sks = tc::SecretKeySet::random(threshold as usize - 1, &mut thread_rng());
 
         let known_nodes = (0..expected_node_count)
-            .map(|node_id| PubKey::from_secret_key_set_escape_hatch(&sks, node_id as u64))
+            .map(|id| {
+                let priv_key = Ed25519Pub::generate_test_key(id as u64);
+                Ed25519Pub::from_private(&priv_key)
+            })
             .collect();
         let config = PhaseLockConfig {
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
@@ -57,13 +61,12 @@ impl<
         Self {
             // FIXME pass in number of bootstrap nodes from config
             // instead of just assuming they're 1
-            network: NETWORK::generator(expected_node_count, 1, sks.clone()),
+            network: NETWORK::generator(expected_node_count, 1),
             storage: Box::new(|_| {
                 <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
             }),
             block: Box::new(|_| <BLOCK as Default>::default()),
             state: Box::new(|_| <STATE as TestableState<N>>::get_starting_state()),
-            sks,
             config,
         }
     }
@@ -73,16 +76,16 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
-        network: impl Fn(u64, PubKey) -> NewNetwork + 'static,
+        network: impl Fn(u64, Ed25519Pub) -> NewNetwork + 'static,
     ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
         TestLauncher {
             network: Box::new({
-                let sks = self.sks.clone();
                 move |node_id| {
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                    let priv_key = Ed25519Pub::generate_test_key(node_id);
+                    let pubkey = Ed25519Pub::from_private(&priv_key);
                     network(node_id, pubkey)
                 }
             }),
@@ -90,7 +93,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             block: self.block,
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -105,7 +107,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             block: self.block,
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -120,7 +121,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             block: Box::new(block),
             state: self.state,
             config: self.config,
-            sks: self.sks,
         }
     }
 
@@ -135,26 +135,30 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             block: self.block,
             state: Box::new(state),
             config: self.config,
-            sks: self.sks,
         }
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_default_config(mut self, config: PhaseLockConfig) -> Self {
+    pub fn with_default_config(mut self, config: PhaseLockConfig<Ed25519Pub>) -> Self {
         self.config = config;
         self
     }
 
     /// Modifies the config used when generating nodes with `f`
-    pub fn modify_default_config(mut self, mut f: impl FnMut(&mut PhaseLockConfig)) -> Self {
+    pub fn modify_default_config(
+        mut self,
+        mut f: impl FnMut(&mut PhaseLockConfig<Ed25519Pub>),
+    ) -> Self {
         f(&mut self.config);
         self
     }
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,

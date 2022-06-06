@@ -57,7 +57,7 @@
             description = "Cargo llvm cov generates code coverage via llvm.";
             homepage = "https://github.com/taiki-e/cargo-llvm-cov";
 
-            license = with licenses; [mit asl20 ];
+            license = with licenses; [ mit asl20 ];
           };
         };
 
@@ -75,9 +75,7 @@
           })
           {
             inherit pkgs;
-            # need to force threshold_crypto/use-insuecure-test-only-mock-crypto
-            # otherwise a subset of tests hang
-            rootFeatures = [ "demo" "docs" "blake3" "threshold_crypto/use-insecure-test-only-mock-crypto" ];
+            rootFeatures = [ "demo" "docs" "blake3" ];
             defaultCrateOverrides = pkgs.defaultCrateOverrides // {
               # Crate dependency overrides go here
               # pass in protobuf
@@ -133,10 +131,10 @@
           };
 
           moldShell = pkgs.mkShell {
-            LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
+            LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out grcov flamegraph fd fenixNightly ] ++ buildDeps;
             shellHook = ''
-            export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
+              export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
           };
 

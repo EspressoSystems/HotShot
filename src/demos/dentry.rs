@@ -9,7 +9,7 @@
 use blake3::Hasher;
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage, ViewNumber},
-    traits::state::TestableState,
+    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
 };
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     data::{BlockHash, LeafHash, StateHash, TransactionHash},
@@ -227,7 +227,7 @@ impl crate::traits::State<H_256> for State {
             }
             // Check to make sure the nonce isn't used
             if state.nonces.contains(&tx.nonce) {
-                error!(?state, ?tx, "State nonce is used for transaction");
+                warn!(?state, ?tx, "State nonce is used for transaction");
                 return false;
             }
         }
@@ -407,8 +407,10 @@ impl<NET> Default for DEntryNode<NET> {
 
 impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<Message<DEntryBlock, Transaction, State, H_256>>
-        + Clone
+    NET: NetworkingImplementation<
+            Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
+            Ed25519Pub,
+        > + Clone
         + Debug
         + 'static,
 {
@@ -418,6 +420,7 @@ where
     type Networking = NET;
     type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
     type Election = StaticCommittee<Self::State, H_256>;
+    type SignatureKey = Ed25519Pub;
 }
 
 /// Provides a random valid transaction from the current state
@@ -472,7 +475,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         block_hash: BlockHash::random(),
         genesis: rng.gen(),
         leaf_hash: LeafHash::random(),
-        signature: None,
+        signatures: BTreeMap::new(),
         stage,
         view_number: ViewNumber::new(rng.gen()),
     }

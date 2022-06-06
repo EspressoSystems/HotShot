@@ -34,7 +34,6 @@ use phaselock_types::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
     },
-    PubKey,
 };
 use snafu::ResultExt;
 use std::{
@@ -121,10 +120,10 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
         api: &mut A,
-        sender: PubKey,
+        _sender: I::SignatureKey,
     ) -> Result {
         // Validate the incoming QC is valid
-        if !message.validate_qc(&sender.set) {
+        if !api.validate_qc_in_message(&message) {
             warn!(?message, "Incoming message does not have a valid QC");
             return Ok(());
         }

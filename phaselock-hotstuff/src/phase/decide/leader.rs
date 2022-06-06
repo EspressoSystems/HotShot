@@ -2,7 +2,6 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
-    error::PhaseLockError,
     message::{Commit, CommitVote, Decide},
     traits::node_implementation::NodeImplementation,
 };
@@ -78,19 +77,11 @@ impl<const N: usize> DecideLeader<N> {
         votes: Vec<CommitVote<N>>,
     ) -> Result<Outcome<I, N>> {
         // Generate QC
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|vote| (vote.id, &vote.signature)))
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::Decide,
-                source: e,
-            })?;
+        let signatures = votes.iter().map(|x| x.signature.clone()).collect();
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
             ..commit.qc
         };
