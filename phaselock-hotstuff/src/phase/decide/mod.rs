@@ -12,11 +12,11 @@ use phaselock_types::{
     data::{QuorumCertificate, Stage},
     error::FailedToMessageLeaderSnafu,
     message::{Commit, CommitVote, ConsensusMessage, Decide, NewView},
-    traits::node_implementation::NodeImplementation,
+    traits::{node_implementation::NodeImplementation, storage::Storage, BlockContents},
 };
 use replica::DecideReplica;
 use snafu::ResultExt;
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// The decide phase
 #[derive(Debug)]
@@ -102,8 +102,27 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
             decide,
         } = self;
 
+        // Get the quorum certificates
+        let mut qcs = vec![];
+        let storage = ctx.api.storage();
+        for block in &blocks {
+            match storage.get_qc(&block.hash()).await {
+                Ok(Some(x)) => qcs.push(x.to_vec_cert()),
+                Ok(None) => warn!(
+                    ?block,
+                    "Could not find QC in store for block when sending decide event to listener"
+                ),
+                Err(e) => warn!(
+                    ?e,
+                    ?block,
+                    "Error finding QC in store for block when sending decide event to listener"
+                ),
+            }
+        }
         ctx.api.notify(blocks.clone(), states.clone()).await;
-        ctx.api.send_decide(ctx.view_number, blocks, states).await;
+        ctx.api
+            .send_decide(ctx.view_number, blocks, states, qcs)
+            .await;
         if ctx.is_leader {
             ctx.send_broadcast_message(ConsensusMessage::Decide(decide.clone()))
                 .await?;

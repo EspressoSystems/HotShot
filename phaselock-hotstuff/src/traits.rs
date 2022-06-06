@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use phaselock_types::{
-    data::{Stage, ViewNumber},
+    data::{Stage, VecQuorumCertificate, ViewNumber},
     event::{Event, EventType},
     traits::{
         network::NetworkError,
@@ -98,6 +98,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
+        qcs: Vec<VecQuorumCertificate>,
     ) {
         self.send_event(Event {
             view_number,
@@ -105,6 +106,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
             event: EventType::Decide {
                 block: Arc::new(blocks),
                 state: Arc::new(states),
+                qcs: Arc::new(qcs),
             },
         })
         .await;

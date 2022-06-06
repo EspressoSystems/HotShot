@@ -268,7 +268,7 @@ impl<
                         return Err(PhaseLockError::ViewTimeoutError { view_number });
                     }
                 }
-                EventType::Decide { block, state } => {
+                EventType::Decide { block, state, .. } => {
                     return Ok((
                         state.iter().cloned().collect(),
                         block.iter().cloned().collect(),

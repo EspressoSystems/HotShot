@@ -278,7 +278,7 @@ impl<const N: usize> QuorumCertificate<N> {
     /// directly consensus relevant.
     pub fn to_vec_cert(&self) -> VecQuorumCertificate {
         VecQuorumCertificate {
-            hash: self.block_hash.as_ref().to_vec(),
+            block_hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
             stage: self.stage,
             signature: self.signature.clone(),
@@ -298,7 +298,7 @@ impl<const N: usize> QuorumCertificate<N> {
 pub struct VecQuorumCertificate {
     /// Block this QC refers to
     #[debug(with = "fmt_vec")]
-    pub hash: Vec<u8>,
+    pub block_hash: Vec<u8>,
     /// The view we were on when we made this certificate
     pub view_number: ViewNumber,
     /// The stage of consensus we were on when we made this certificate

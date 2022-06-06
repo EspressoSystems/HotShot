@@ -164,7 +164,7 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state } = event.event {
+            if let EventType::Decide { block, state, .. } = event.event {
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -230,7 +230,7 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state } = event.event {
+            if let EventType::Decide { block, state, .. } = event.event {
                 blocks.push(block);
                 states.push(state);
             } else {

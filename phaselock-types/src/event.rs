@@ -1,7 +1,7 @@
 //! Events that a `PhaseLock` instance can emit
 
 use crate::{
-    data::{Stage, ViewNumber},
+    data::{Stage, VecQuorumCertificate, ViewNumber},
     error::PhaseLockError,
 };
 use std::sync::Arc;
@@ -53,6 +53,8 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
         ///
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
+        /// The quorum certificates that accompy this Decide
+        qcs: Arc<Vec<VecQuorumCertificate>>,
     },
     /// A new view was started by this node
     NewView {
