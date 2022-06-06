@@ -10,6 +10,7 @@ use crate::traits::networking::{
     SocketDecodeSnafu, WebSocketSnafu,
 };
 use crate::traits::NetworkError;
+use crate::utils::ReceiverExt;
 use async_std::prelude::FutureExt;
 use async_std::task::block_on;
 use async_std::{
@@ -945,20 +946,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn broadcast_queue(&self) -> Result<Vec<T>, super::NetworkError> {
-        let mut ret = Vec::new();
-        // Wait for the first message to come up
-        let first = self.inner.outputs.broadcast.recv_async().await;
-        if let Ok(first) = first {
-            trace!(?first, "First message in broadcast queue found");
-            ret.push(first);
-            while let Ok(x) = self.inner.outputs.broadcast.try_recv() {
-                ret.push(x);
-            }
-            Ok(ret)
-        } else {
-            error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
-        }
+        self.inner
+            .outputs
+            .broadcast
+            .recv_async_drain()
+            .await
+            .ok_or(NetworkError::ShutDown)
     }
 
     #[instrument(
@@ -966,15 +959,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn next_broadcast(&self) -> Result<T, super::NetworkError> {
-        debug!("Awaiting next broadcast");
-        let x = self.inner.outputs.broadcast.recv_async().await;
-        if let Ok(x) = x {
-            trace!(?x, "Found Broadcast");
-            Ok(x)
-        } else {
-            error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
-        }
+        self.inner
+            .outputs
+            .broadcast
+            .recv_async()
+            .await
+            .map_err(|_| NetworkError::ShutDown)
     }
 
     #[instrument(
@@ -982,20 +972,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn direct_queue(&self) -> Result<Vec<T>, super::NetworkError> {
-        let mut ret = Vec::new();
-        // Wait for the first message to come up
-        let first = self.inner.outputs.direct.recv_async().await;
-        if let Ok(first) = first {
-            trace!(?first, "First message in direct queue found");
-            ret.push(first);
-            while let Ok(x) = self.inner.outputs.direct.try_recv() {
-                ret.push(x);
-            }
-            Ok(ret)
-        } else {
-            error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
-        }
+        self.inner
+            .outputs
+            .direct
+            .recv_async_drain()
+            .await
+            .ok_or(NetworkError::ShutDown)
     }
 
     #[instrument(
@@ -1003,15 +985,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn next_direct(&self) -> Result<T, super::NetworkError> {
-        debug!("Awaiting next direct message");
-        let x = self.inner.outputs.direct.recv_async().await;
-        if let Ok(x) = x {
-            trace!(?x, "Found direct message");
-            Ok(x)
-        } else {
-            error!("The underlying WNetwork has shutdown");
-            Err(NetworkError::ShutDown)
-        }
+        self.inner
+            .outputs
+            .direct
+            .recv_async()
+            .await
+            .map_err(|_| NetworkError::ShutDown)
     }
 
     async fn known_nodes(&self) -> Vec<PubKey> {
@@ -1023,21 +1002,11 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         fields(node_id = ?self.inner.pub_key.nonce)
     )]
     async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
-        debug!("Waiting for network changes to show up");
-        let mut ret = Vec::new();
-        // Wait for the first message to come up
-        let first = self.inner.network_change_output.recv_async().await;
-        if let Ok(first) = first {
-            trace!(?first, "First message in network changes queue found");
-            ret.push(first);
-            while let Ok(x) = self.inner.network_change_output.try_recv() {
-                ret.push(x);
-            }
-            Ok(ret)
-        } else {
-            error!("The underlying WNetwork has shut down");
-            Err(NetworkError::ShutDown)
-        }
+        self.inner
+            .network_change_output
+            .recv_async_drain()
+            .await
+            .ok_or(NetworkError::ShutDown)
     }
 
     async fn shut_down(&self) {
