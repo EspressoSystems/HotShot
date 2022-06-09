@@ -46,7 +46,7 @@ use crate::{
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use futures::channel::oneshot;
-use phaselock_hotstuff::HotStuff;
+use phaselock_hotstuff::{HotStuff, RoundFinishedEventState};
 use phaselock_types::{
     data::ViewNumber,
     error::{NetworkFaultSnafu, StorageSnafu},
@@ -327,12 +327,27 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .lock()
             .await
             .register_round_finished_listener(current_view, sender);
-        match receiver.await {
-            Ok(view_number) => Ok(view_number),
-            Err(e) => Err(PhaseLockError::InvalidState {
-                context: format!("Could not wait for round to end: {:?}", e),
+        let result = match receiver.await {
+            Ok(result) => result,
+            Err(e) => {
+                return Err(PhaseLockError::InvalidState {
+                    context: format!("Could not wait for round to end: {:?}", e),
+                })
+            }
+        };
+        match result.state {
+            RoundFinishedEventState::Success => Ok(result.view_number),
+            _ => Err(PhaseLockError::ViewTimeoutError {
+                view_number: result.view_number,
             }),
         }
+    }
+
+    /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
+    ///
+    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
+    pub async fn mark_round_as_timed_out(&self, current_view: ViewNumber) {
+        self.inner.hotstuff.lock().await.round_timeout(current_view);
     }
 
     /// Publishes a transaction to the network

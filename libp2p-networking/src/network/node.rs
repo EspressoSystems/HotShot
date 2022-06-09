@@ -376,7 +376,7 @@ impl NetworkNode {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
-        warn!("event observed {:?}", event);
+        info!("event observed {:?}", event);
         let behaviour = self.swarm.behaviour_mut();
 
         match event {

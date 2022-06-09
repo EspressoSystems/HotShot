@@ -43,8 +43,8 @@ pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
     /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
 
-    /// if `true` this phase is done and will not run any more updates
-    done: bool,
+    /// Determines the livelyness state of this viewstate.
+    alive_state: ViewAliveState,
 
     /// The prepare phase. This will always be present
     prepare: PreparePhase<N>,
@@ -59,13 +59,31 @@ pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
     decide: Option<DecidePhase<N>>,
 }
 
+/// Determines the livelyness state of a [`ViewState`].
+#[derive(Debug)]
+enum ViewAliveState {
+    /// The viewstate is running
+    Running,
+    /// The viewstate finished successfully
+    Finished,
+    /// The viewstate got interrupted
+    Interrupted,
+}
+
+impl ViewAliveState {
+    /// Returns `true` is this state is either `Interrupted` or `Finished`.
+    fn is_done(&self) -> bool {
+        matches!(self, ViewAliveState::Interrupted | ViewAliveState::Finished)
+    }
+}
+
 impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
     /// Create a new `prepare` phase with the given `view_number`.
     pub fn prepare(view_number: ViewNumber, is_leader: bool) -> Self {
         Self {
             view_number,
             messages: Vec::new(),
-            done: false,
+            alive_state: ViewAliveState::Running,
 
             prepare: PreparePhase::new(is_leader),
             precommit: None,
@@ -76,7 +94,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
 
     /// Returns the current stage of this phase
     pub fn stage(&self) -> Stage {
-        if self.done {
+        if self.alive_state.is_done() {
             Stage::None
         } else if self.decide.is_some() {
             Stage::Decide
@@ -130,7 +148,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
-        if self.done {
+        if self.alive_state.is_done() {
             warn!(?self, "Phase is done, no updates will be run");
             return Ok(());
         }
@@ -180,7 +198,7 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
                     if let Some(()) =
                         update(&mut self.decide, DecidePhase::update, &mut ctx).await?
                     {
-                        self.done = true;
+                        self.alive_state = ViewAliveState::Finished;
                         info!(?self, "Phase completed");
                     }
                     break Ok(());
@@ -189,9 +207,19 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         }
     }
 
-    /// Return true if this phase has run until completion
+    /// Return true if this phase was finished. Query `was_timed_out` to determine if this was successfull
     pub fn is_done(&self) -> bool {
-        self.done
+        self.alive_state.is_done()
+    }
+
+    /// Return true if this phase has run until completion
+    pub fn was_timed_out(&self) -> bool {
+        matches!(self.alive_state, ViewAliveState::Interrupted)
+    }
+
+    /// Called when the round is timed out. May do some cleanup logic.
+    pub fn timeout(&mut self) {
+        self.alive_state = ViewAliveState::Interrupted;
     }
 }
 

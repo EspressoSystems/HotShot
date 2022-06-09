@@ -18,6 +18,7 @@ use tracing::instrument;
 /// libp2p network test
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
         next_view_timeout: 600,
