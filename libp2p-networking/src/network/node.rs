@@ -32,7 +32,16 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
-use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    io::Error,
+    iter,
+    num::NonZeroUsize,
+    sync::{
+        Arc,
+    },
+    time::Duration,
+};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
@@ -213,13 +222,10 @@ impl NetworkNode {
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
-        if self.swarm.behaviour().should_bootstrap() {
-            self.swarm.behaviour_mut().bootstrap().unwrap();
-        }
+        self.swarm.behaviour_mut().bootstrap().unwrap();
 
         // otherwise periodically get more peers if needed
         if used_peers.len() <= self.config.min_num_peers
-            && self.swarm.behaviour().is_bootstrapped()
             && self.config.node_type == NetworkNodeType::Regular
         {
             // Calcuate the list of "new" peers, once not currently used for
@@ -251,7 +257,7 @@ impl NetworkNode {
                             self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
                         }
                         Err(e) => {
-                            warn!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
                 }
@@ -471,21 +477,13 @@ impl NetworkNode {
                 loop {
                     // TODO variable on futures times
                     select! {
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
+                        _ = sleep(Duration::from_millis(50)).fuse() => {
                             self.handle_sending();
-                        },
-                        _ = sleep(Duration::from_secs(1)).fuse() => {
                             self.handle_peer_discovery();
-                        },
-                        _ = sleep(Duration::from_secs(5)).fuse() => {
-                            self.handle_num_connections();
-                        }
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
-                            self.retry_put_dht();
-                        }
-                        _ = sleep(Duration::from_secs(5)).fuse() => {
                             self.prune_num_connections();
-                        }
+                            self.retry_put_dht();
+                            self.handle_num_connections();
+                        },
                         event = self.swarm.next() => {
                             if let Some(event) = event {
                                 info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
