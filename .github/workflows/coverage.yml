@@ -34,6 +34,7 @@ jobs:
 
       - name: Generate coverage reports
         run: |
+          ulimit -n 4096
           nix develop .#perfShell -c cargo-llvm-cov llvm-cov --lib --bins --tests --benches --release --workspace --all-features --lcov --output-path lcov.info
         timeout-minutes: 45
 
