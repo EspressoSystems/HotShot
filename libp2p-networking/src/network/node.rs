@@ -32,16 +32,7 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
-use std::{
-    collections::HashSet,
-    io::Error,
-    iter,
-    num::NonZeroUsize,
-    sync::{
-        Arc,
-    },
-    time::Duration,
-};
+use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
