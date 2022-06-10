@@ -273,14 +273,38 @@
 <span id="268">268</span>
 <span id="269">269</span>
 <span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Round runner logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This will wait for one of several events, and will run one or multiple rounds</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PhaseLock</span>;
-<span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">future::TimeoutError</span>, <span class="ident">task::JoinHandle</span>};
+<span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">prelude::FutureExt</span>, <span class="ident">task::JoinHandle</span>};
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">unbounded</span>, <span class="ident">Receiver</span>, <span class="ident">Sender</span>};
-<span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span> <span class="kw">as</span> <span class="ident">OneShotSender</span>;
+<span class="kw">use</span> <span class="ident">futures::channel::oneshot</span>::{<span class="self">self</span>, <span class="ident">Sender</span> <span class="kw">as</span> <span class="ident">OneShotSender</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">data</span>::{<span class="ident">Stage</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">error::PhaseLockError</span>,
@@ -409,13 +433,16 @@
 
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                     <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">result</span> {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">new_view</span>)) =&gt; {
+                        <span class="prelude-val">Ok</span>(<span class="ident">new_view</span>) =&gt; {
                             <span class="comment">// If it succeded, simply reset the timeout</span>
                             <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
 
                             <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?}&quot;</span>, <span class="ident">new_view</span>);
                         }
-                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> { <span class="ident">view_number</span> }) =&gt; {
+                            <span class="kw">if</span> <span class="ident">view_number</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> {
+                                <span class="macro">error!</span>(<span class="string">&quot;We received a timeout for view {:?} but we&#39;re currently in view {:?}&quot;</span>, <span class="ident">view_number</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>);
+                            }
                             <span class="comment">// if we timed out, log it, send the event, and increase the timeout</span>
                             <span class="macro">warn!</span>(<span class="string">&quot;Round timed out&quot;</span>);
                             <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
@@ -428,7 +455,7 @@
 
                             <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">*</span> <span class="ident">int_mul</span>) <span class="op">/</span> <span class="ident">int_div</span>;
                         }
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)) =&gt; {
+                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                             <span class="comment">// If it errored, broadcast the error, reset the timeout, and continue</span>
                             <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Round encountered an error&quot;</span>);
                             <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
@@ -457,6 +484,10 @@
                     <span class="kw">if</span> <span class="ident">should_start_new_round</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">spawn</span>().<span class="kw">await</span> {
                         <span class="kw">break</span>;
                     }
+                }
+                <span class="ident">ToRoundRunner::RoundShouldBeFinished</span>(<span class="ident">view</span>) =&gt; {
+                    <span class="comment">// We mark this round as timed out. If the round is not running then this is a no-op, otherwise we will be getting a `RoundFinished` soon.</span>
+                    <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">mark_round_as_timed_out</span>(<span class="ident">view</span>).<span class="kw">await</span>;
                 }
             }
         }
@@ -491,8 +522,8 @@
         <span class="comment">// Increment the view counter</span>
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;New view number is now {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>);
-        <span class="comment">// run the next block, with a timeout</span>
-        <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">int_duration</span>);
+
+        <span class="kw">let</span> (<span class="ident">round_finished_sender</span>, <span class="ident">round_finished_receiver</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
 
         <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">join_handle</span>.<span class="ident">is_none</span>());
         <span class="self">self</span>.<span class="ident">join_handle</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">async_std::task::spawn</span>({
@@ -500,12 +531,26 @@
             <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">clone</span>();
             <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>;
             <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="kw">let</span> <span class="ident">round_res</span> <span class="op">=</span> <span class="ident">async_std::future::timeout</span>(<span class="ident">t</span>, <span class="ident">phaselock</span>.<span class="ident">run_round</span>(<span class="ident">view</span>)).<span class="kw">await</span>;
+                <span class="kw">let</span> <span class="ident">round_res</span> <span class="op">=</span> <span class="ident">phaselock</span>.<span class="ident">run_round</span>(<span class="ident">view</span>).<span class="kw">await</span>;
+                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">round_finished_sender</span>.<span class="ident">send</span>(());
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">sender</span>.<span class="ident">send</span>(<span class="ident">ToRoundRunner::RoundFinished</span>(<span class="ident">Box::new</span>(<span class="ident">round_res</span>))) {
                     <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not send round result&quot;</span>);
                 }
             }
         }));
+
+        <span class="comment">// spawn a fire-and-forget task that will notify us if a round should be timed out, unless our oneshot channel is triggered.</span>
+        <span class="ident">async_std::task::spawn</span>({
+            <span class="kw">let</span> <span class="ident">sender</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sender</span>.<span class="ident">clone</span>();
+            <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">int_duration</span>);
+            <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>;
+            <span class="kw">async</span> <span class="kw">move</span> {
+                <span class="kw">if</span> <span class="ident">round_finished_receiver</span>.<span class="ident">timeout</span>(<span class="ident">t</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                    <span class="comment">// If we weren&#39;t notified of `phaselock.rund_round` being finished, we send an interrupt</span>
+                    <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="ident">sender</span>.<span class="ident">send</span>(<span class="ident">ToRoundRunner::RoundShouldBeFinished</span>(<span class="ident">view</span>));
+                }
+            }
+        });
         <span class="bool-val">true</span>
     }
 }
@@ -541,7 +586,10 @@
     <span class="ident">ShutDown</span>,
 
     <span class="doccomment">/// Will be triggered once a round is done</span>
-    <span class="ident">RoundFinished</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span>, <span class="ident">TimeoutError</span><span class="op">&gt;</span><span class="op">&gt;</span>),
+    <span class="ident">RoundFinished</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">PhaseLockError</span><span class="op">&gt;</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Will be send a fixed amount of time after a round started, to notify us that a round should be marked as timed out if it&#39;s not finished yet</span>
+    <span class="ident">RoundShouldBeFinished</span>(<span class="ident">ViewNumber</span>),
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>

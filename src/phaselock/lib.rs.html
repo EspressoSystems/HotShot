@@ -806,6 +806,21 @@
 <span id="801">801</span>
 <span id="802">802</span>
 <span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -854,7 +869,7 @@
 <span class="kw">use</span> <span class="ident">async_std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot</span>;
-<span class="kw">use</span> <span class="ident">phaselock_hotstuff::HotStuff</span>;
+<span class="kw">use</span> <span class="ident">phaselock_hotstuff</span>::{<span class="ident">HotStuff</span>, <span class="ident">RoundFinishedEventState</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
     <span class="ident">data::ViewNumber</span>,
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
@@ -1135,12 +1150,27 @@
             .<span class="ident">lock</span>()
             .<span class="kw">await</span>
             .<span class="ident">register_round_finished_listener</span>(<span class="ident">current_view</span>, <span class="ident">sender</span>);
-        <span class="kw">match</span> <span class="ident">receiver</span>.<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">view_number</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::InvalidState</span> {
-                <span class="ident">context</span>: <span class="macro">format!</span>(<span class="string">&quot;Could not wait for round to end: {:?}&quot;</span>, <span class="ident">e</span>),
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">receiver</span>.<span class="kw">await</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="ident">result</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::InvalidState</span> {
+                    <span class="ident">context</span>: <span class="macro">format!</span>(<span class="string">&quot;Could not wait for round to end: {:?}&quot;</span>, <span class="ident">e</span>),
+                })
+            }
+        };
+        <span class="kw">match</span> <span class="ident">result</span>.<span class="ident">state</span> {
+            <span class="ident">RoundFinishedEventState::Success</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>.<span class="ident">view_number</span>),
+            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> {
+                <span class="ident">view_number</span>: <span class="ident">result</span>.<span class="ident">view_number</span>,
             }),
         }
+    }
+
+    <span class="doccomment">/// Marks a given view number as timed out. This should be called a fixed period after a round is started.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">mark_round_as_timed_out</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>) {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>.<span class="ident">round_timeout</span>(<span class="ident">current_view</span>);
     }
 
     <span class="doccomment">/// Publishes a transaction to the network</span>
