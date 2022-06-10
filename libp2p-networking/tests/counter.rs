@@ -433,50 +433,53 @@ async fn test_coverage_gossip_one_round() {
     .await;
 }
 
-/// simple case of direct message
-#[async_std::test]
-#[instrument]
-#[ignore]
-async fn test_stress_request_response_one_round() {
-    test_bed(
-        run_request_response_one_round,
-        counter_handle_network_event,
-        TOTAL_NUM_PEERS_STRESS,
-        NUM_OF_BOOTSTRAP_STRESS,
-        TIMEOUT_STRESS,
-    )
-    .await
-}
+// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
+// /// simple case of direct message
+// #[async_std::test]
+// #[instrument]
+// #[ignore]
+// async fn test_stress_request_response_one_round() {
+//     test_bed(
+//         run_request_response_one_round,
+//         counter_handle_network_event,
+//         TOTAL_NUM_PEERS_STRESS,
+//         NUM_OF_BOOTSTRAP_STRESS,
+//         TIMEOUT_STRESS,
+//     )
+//     .await
+// }
 
-/// stress test of direct messsage
-#[async_std::test]
-#[instrument]
-#[ignore]
-async fn test_stress_request_response_many_rounds() {
-    test_bed(
-        run_request_response_many_rounds,
-        counter_handle_network_event,
-        TOTAL_NUM_PEERS_STRESS,
-        NUM_OF_BOOTSTRAP_STRESS,
-        TIMEOUT_STRESS,
-    )
-    .await
-}
+// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
+// /// stress test of direct messsage
+// #[async_std::test]
+// #[instrument]
+// #[ignore]
+// async fn test_stress_request_response_many_rounds() {
+//     test_bed(
+//         run_request_response_many_rounds,
+//         counter_handle_network_event,
+//         TOTAL_NUM_PEERS_STRESS,
+//         NUM_OF_BOOTSTRAP_STRESS,
+//         TIMEOUT_STRESS,
+//     )
+//     .await
+// }
 
-/// stress test of broadcast + direct message
-#[async_std::test]
-#[instrument]
-#[ignore]
-async fn test_stress_intersperse_many_rounds() {
-    test_bed(
-        run_intersperse_many_rounds,
-        counter_handle_network_event,
-        TOTAL_NUM_PEERS_STRESS,
-        NUM_OF_BOOTSTRAP_STRESS,
-        TIMEOUT_STRESS,
-    )
-    .await
-}
+// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
+// /// stress test of broadcast + direct message
+// #[async_std::test]
+// #[instrument]
+// #[ignore]
+// async fn test_stress_intersperse_many_rounds() {
+//     test_bed(
+//         run_intersperse_many_rounds,
+//         counter_handle_network_event,
+//         TOTAL_NUM_PEERS_STRESS,
+//         NUM_OF_BOOTSTRAP_STRESS,
+//         TIMEOUT_STRESS,
+//     )
+//     .await
+// }
 
 /// stress teset that we can broadcast a message out and get counter increments
 #[async_std::test]
