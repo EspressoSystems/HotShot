@@ -29,7 +29,6 @@ use std::{
     task::{Context, Poll},
 };
 use tracing::{debug, error, info, warn};
-use Either::Right;
 
 use super::ConnectionData;
 
@@ -162,13 +161,14 @@ impl NetworkDef {
     /// Will return a `NoKnownPeers` error when no known peers are defined
     pub fn bootstrap(&mut self) -> Result<(), NetworkError> {
         if self.bootstrap_state == BootstrapState::NotStarted {
-            match self.kadem.bootstrap() {
-                Ok(_) => {
-                    self.bootstrap_state = BootstrapState::Started;
-                }
-                Err(_) => {}
+            if self.kadem.bootstrap().is_ok() {
+                self.bootstrap_state = BootstrapState::Started;
+                return Ok(());
             }
+            error!("Failed to initiate bootstrap! Not enough peers.");
+            return Err(NetworkError::NoKnownPeers);
         }
+        info!("already bootstrapped");
         Ok(())
     }
 

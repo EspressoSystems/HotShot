@@ -24,7 +24,7 @@ use libp2p::{
     },
     identify::{Identify, IdentifyConfig},
     identity::Keypair,
-    kad::{self, store::MemoryStore, Kademlia, KademliaConfig},
+    kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
     swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
     Multiaddr, PeerId, Swarm,
