@@ -57,7 +57,7 @@ impl<
         Self {
             // FIXME pass in number of bootstrap nodes from config
             // instead of just assuming they're 1
-            network: NETWORK::generator(expected_node_count, 1, sks.clone()),
+            network: NETWORK::generator(expected_node_count, 3, sks.clone()),
             storage: Box::new(|_| {
                 <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
             }),

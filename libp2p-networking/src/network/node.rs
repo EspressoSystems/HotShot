@@ -158,7 +158,7 @@ impl NetworkNode {
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
-            kconfig.set_caching(kad::KademliaCaching::Disabled);
+
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
             }
@@ -193,13 +193,17 @@ impl NetworkNode {
         })
     }
 
-    /// peer discovery mechanism
-    /// looks up a random peer
+    /// Active peer discovery mechanism. It does this by looking up a random peer
+    /// - must be bootstrapped
+    /// - must not have such a query in progress.
     #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
-        if self.swarm.behaviour().is_bootstrapped() {
+        if self.swarm.behaviour().is_bootstrapped()
+            && !self.swarm.behaviour().is_discovering_peers()
+        {
             let random_peer = PeerId::random();
             self.swarm.behaviour_mut().query_closest_peers(random_peer);
+            self.swarm.behaviour_mut().discovering_peers_on();
         }
     }
 
@@ -209,8 +213,15 @@ impl NetworkNode {
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
+        if self.swarm.behaviour().should_bootstrap() {
+            self.swarm.behaviour_mut().bootstrap().unwrap();
+        }
+
         // otherwise periodically get more peers if needed
-        if used_peers.len() <= self.config.min_num_peers {
+        if used_peers.len() <= self.config.min_num_peers
+            && self.swarm.behaviour().is_bootstrapped()
+            && self.config.node_type == NetworkNodeType::Regular
+        {
             // Calcuate the list of "new" peers, once not currently used for
             // a connection
             let potential_peers: HashSet<PeerId> = self
@@ -230,6 +241,7 @@ impl NetworkNode {
                 .into_iter()
                 .collect::<HashSet<_>>();
             chosen_peers.remove(&self.peer_id);
+
             // Try dialing each random peer
             for a_peer in &chosen_peers {
                 if *a_peer != self.peer_id {
@@ -441,7 +453,7 @@ impl NetworkNode {
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
     pub fn retry_put_dht(&mut self) {
-        self.swarm.behaviour_mut().drain_publish_gossips();
+        self.swarm.behaviour_mut().retry_put_dht();
     }
 
     /// Spawn a task to listen for requests on the returned channel
@@ -465,7 +477,7 @@ impl NetworkNode {
                         _ = sleep(Duration::from_secs(1)).fuse() => {
                             self.handle_peer_discovery();
                         },
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
+                        _ = sleep(Duration::from_secs(5)).fuse() => {
                             self.handle_num_connections();
                         }
                         _ = sleep(Duration::from_millis(25)).fuse() => {

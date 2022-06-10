@@ -277,6 +277,7 @@ async fn run_dht_rounds(
     num_rounds: usize,
 ) {
     for i in 0..num_rounds {
+        error!("round: {:?}", i);
         let msg_handle = get_random_handle(handles);
         let mut key = vec![0; DHT_KV_PADDING];
         key.push((starting_val + i) as u8);
@@ -517,7 +518,7 @@ async fn test_stress_gossip_one_round() {
 #[ignore]
 async fn test_stress_dht_one_round() {
     test_bed(
-        run_gossip_one_round,
+        run_dht_one_round,
         counter_handle_network_event,
         TOTAL_NUM_PEERS_STRESS,
         NUM_OF_BOOTSTRAP_STRESS,

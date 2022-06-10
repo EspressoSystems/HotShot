@@ -25,9 +25,9 @@ async fn libp2p_network() {
         round_start_delay: 25,
         timeout_ratio: (1, 1),
         start_delay: 25,
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 1,
+        total_nodes: 15,
+        start_nodes: 15,
+        num_succeeds: 100,
         txn_ids: Right(1),
         ..GeneralTestDescriptionBuilder::default()
     };

@@ -114,8 +114,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         .build()
                         .unwrap()
                 } else {
-                    let min_num_peers = expected_node_count / 2;
-                    let max_num_peers = expected_node_count;
+                    let min_num_peers = expected_node_count / 4;
+                    let max_num_peers = expected_node_count / 2;
                     NetworkNodeConfigBuilder::default()
                         .node_type(NetworkNodeType::Regular)
                         .min_num_peers(min_num_peers as usize)
