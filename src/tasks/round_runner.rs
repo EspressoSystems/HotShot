@@ -3,9 +3,9 @@
 //! This will wait for one of several events, and will run one or multiple rounds
 
 use crate::PhaseLock;
-use async_std::{future::TimeoutError, task::JoinHandle};
+use async_std::{prelude::FutureExt, task::JoinHandle};
 use flume::{unbounded, Receiver, Sender};
-use futures::channel::oneshot::Sender as OneShotSender;
+use futures::channel::oneshot::{self, Sender as OneShotSender};
 use phaselock_types::{
     data::{Stage, ViewNumber},
     error::PhaseLockError,
@@ -134,13 +134,16 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 
                     let mut event_to_send = None;
                     match *result {
-                        Ok(Ok(new_view)) => {
+                        Ok(new_view) => {
                             // If it succeded, simply reset the timeout
                             self.int_duration = default_interrupt_duration;
 
                             info!("Round finished, new view number is {:?}", new_view);
                         }
-                        Err(_) => {
+                        Err(PhaseLockError::ViewTimeoutError { view_number }) => {
+                            if view_number != self.state.view {
+                                error!("We received a timeout for view {:?} but we're currently in view {:?}", view_number, self.state.view);
+                            }
                             // if we timed out, log it, send the event, and increase the timeout
                             warn!("Round timed out");
                             event_to_send = Some(Event {
@@ -153,7 +156,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 
                             self.int_duration = (self.int_duration * int_mul) / int_div;
                         }
-                        Ok(Err(e)) => {
+                        Err(e) => {
                             // If it errored, broadcast the error, reset the timeout, and continue
                             warn!(?e, "Round encountered an error");
                             event_to_send = Some(Event {
@@ -182,6 +185,10 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     if should_start_new_round && !self.spawn().await {
                         break;
                     }
+                }
+                ToRoundRunner::RoundShouldBeFinished(view) => {
+                    // We mark this round as timed out. If the round is not running then this is a no-op, otherwise we will be getting a `RoundFinished` soon.
+                    self.phaselock.mark_round_as_timed_out(view).await;
                 }
             }
         }
@@ -216,8 +223,8 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         // Increment the view counter
         self.state.view += 1;
         tracing::debug!("New view number is now {:?}", self.state.view);
-        // run the next block, with a timeout
-        let t = Duration::from_millis(self.int_duration);
+
+        let (round_finished_sender, round_finished_receiver) = oneshot::channel();
 
         assert!(self.join_handle.is_none());
         self.join_handle = Some(async_std::task::spawn({
@@ -225,12 +232,26 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             let phaselock = self.phaselock.clone();
             let view = self.state.view;
             async move {
-                let round_res = async_std::future::timeout(t, phaselock.run_round(view)).await;
+                let round_res = phaselock.run_round(view).await;
+                let _ = round_finished_sender.send(());
                 if let Err(e) = sender.send(ToRoundRunner::RoundFinished(Box::new(round_res))) {
                     error!(?e, "Could not send round result");
                 }
             }
         }));
+
+        // spawn a fire-and-forget task that will notify us if a round should be timed out, unless our oneshot channel is triggered.
+        async_std::task::spawn({
+            let sender = self.sender.clone();
+            let t = Duration::from_millis(self.int_duration);
+            let view = self.state.view;
+            async move {
+                if round_finished_receiver.timeout(t).await.is_err() {
+                    // If we weren't notified of `phaselock.rund_round` being finished, we send an interrupt
+                    let _result = sender.send(ToRoundRunner::RoundShouldBeFinished(view));
+                }
+            }
+        });
         true
     }
 }
@@ -266,5 +287,8 @@ pub enum ToRoundRunner {
     ShutDown,
 
     /// Will be triggered once a round is done
-    RoundFinished(Box<Result<Result<ViewNumber, PhaseLockError>, TimeoutError>>),
+    RoundFinished(Box<Result<ViewNumber, PhaseLockError>>),
+
+    /// Will be send a fixed amount of time after a round started, to notify us that a round should be marked as timed out if it's not finished yet
+    RoundShouldBeFinished(ViewNumber),
 }

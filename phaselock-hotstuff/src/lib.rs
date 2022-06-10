@@ -42,7 +42,7 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 /// The result used in this crate
 pub type Result<T = ()> = std::result::Result<T, PhaseLockError>;
@@ -70,7 +70,28 @@ pub struct HotStuff<I: NodeImplementation<N>, const N: usize> {
     transactions: Vec<TransactionState<I, N>>,
 
     /// Listeners to be called when a round ends
-    round_finished_listeners: HashMap<ViewNumber, Vec<Sender<ViewNumber>>>,
+    round_finished_listeners: HashMap<ViewNumber, Vec<Sender<RoundFinishedEvent>>>,
+}
+
+/// A struct containing information about a finished round.
+#[derive(Debug, Clone)]
+pub struct RoundFinishedEvent {
+    /// The round that finished
+    pub view_number: ViewNumber,
+    /// The state that this round finished as
+    pub state: RoundFinishedEventState,
+}
+
+/// Contains the possible outcomes of a round.
+///
+/// The only successfully outcome is `Success`. More variants may be added to this enum but they will all be error states.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum RoundFinishedEventState {
+    /// The round finished successfully
+    Success,
+    /// The round got interrupted
+    Interrupted,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Default for HotStuff<I, N> {
@@ -95,6 +116,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
     /// - Any networking error
     /// - Any storage error
     /// - Any error that the [`ConsensusApi`] methods can return
+    #[allow(clippy::missing_panics_doc)] // Clippy thinks we can panic but logically we should not be able to
     pub async fn add_consensus_message<A: ConsensusApi<I, N>>(
         &mut self,
         message: <I as TypeMap<N>>::ConsensusMessage,
@@ -118,7 +140,9 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
                         api.is_leader(view_number, Stage::Prepare).await,
                     ));
                     self.active_phases.push_back(view_number);
-                    debug_assert!(is_sorted(self.active_phases.iter()));
+                    // The new view-number should always be greater than the other entries in `self.active_phases`
+                    // validate that here
+                    assert!(is_sorted(self.active_phases.iter()));
                     phase
                 } else {
                     // Should we throw an error when we're in a unit test?
@@ -131,20 +155,7 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         phase
             .add_consensus_message(api, &mut self.transactions, message)
             .await?;
-        if phase.is_done() {
-            let listeners = self.round_finished_listeners.remove(&view_number);
-            debug!(
-                ?view_number,
-                "Phase is done, notifying {} listeners",
-                listeners.as_ref().map(Vec::len).unwrap_or_default()
-            );
-            if let Some(listeners) = listeners {
-                for listener in listeners {
-                    let _ = listener.send(view_number);
-                }
-            }
-        }
-
+        self.after_update(view_number);
         Ok(())
     }
 
@@ -165,35 +176,35 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
         self.transactions.push(TransactionState::new(transaction));
         // transactions are useful for the `Prepare` phase
         // so notify these phases
-        for view in &self.active_phases {
+        for view_number in self.active_phases.clone() {
             let phase = self
                 .phases
-                .get_mut(view)
+                .get_mut(&view_number)
                 .expect("Found a view in `active_phase` but it doesn't exist in `self.phases`");
             if let Stage::Prepare = phase.stage() {
                 phase
                     .notify_new_transaction(api, &mut self.transactions)
                     .await?;
+                self.after_update(view_number);
             }
         }
 
         Ok(())
     }
 
-    /// Check to see if we can insert the given view. If the view is earlier than a view we already have, this will return `false`.
-    fn can_insert_view(&self, view_number: ViewNumber) -> bool {
-        // We can insert a view_number when it is higher than any phase we have
-        if let Some(highest) = self.active_phases.back() {
-            view_number > *highest
-        } else {
-            // if we have no phases, always return true
-            // TODO(vko): What if we have inactive phases?
-            assert!(
-                self.inactive_phases.is_empty(),
-                "Active phases is empty but inactive phases isn't"
-            );
-            true
+    /// Call this when a round should be timed out.
+    ///
+    /// If the given round is done, this function will not have any effect
+    #[instrument]
+    pub fn round_timeout(&mut self, view_number: ViewNumber) {
+        if self.active_phases.iter().any(|v| v == &view_number) {
+            return; // round is not running
         }
+
+        // This view_number should always exist, because it is in our `self.active_phases` list
+        self.phases.get_mut(&view_number).unwrap().timeout();
+        // `after_update` will properly clean up the internal state
+        self.after_update(view_number);
     }
 
     /// Send out a [`NextView`] message to the leader of the given round.
@@ -251,13 +262,67 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
     pub fn register_round_finished_listener(
         &mut self,
         view_number: ViewNumber,
-        sender: Sender<ViewNumber>,
+        sender: Sender<RoundFinishedEvent>,
     ) {
         debug!(?view_number, "Attaching listener to round");
         self.round_finished_listeners
             .entry(view_number)
             .or_default()
             .push(sender);
+    }
+
+    /// To be called after a round is updated.
+    ///
+    /// If the round is done, this will:
+    /// - notify all listeners in `self.round_finished_listeners`.
+    /// - Remove the view number from `active_phases` and append it to `inactive_phases`.
+    fn after_update(&mut self, view_number: ViewNumber) {
+        // This phase should always exist
+        let phase = self.phases.get_mut(&view_number).unwrap();
+        if phase.is_done() {
+            let listeners = self.round_finished_listeners.remove(&view_number);
+            debug!(
+                ?view_number,
+                "Phase is done, notifying {} listeners",
+                listeners.as_ref().map(Vec::len).unwrap_or_default()
+            );
+            if let Some(listeners) = listeners {
+                let event = RoundFinishedEvent {
+                    view_number,
+                    state: if phase.was_timed_out() {
+                        RoundFinishedEventState::Interrupted
+                    } else {
+                        RoundFinishedEventState::Success
+                    },
+                };
+                for listener in listeners {
+                    let _ = listener.send(event.clone());
+                }
+            }
+            self.active_phases.retain(|p| p != &view_number);
+            match self.inactive_phases.binary_search(&view_number) {
+                Ok(_) => { /* view number is already in an inactive phase */ }
+                Err(idx) => self.inactive_phases.insert(idx, view_number),
+            }
+        }
+    }
+
+    /// Check to see if we can insert the given view. If the view is earlier than a view we already have, this will return `false`.
+    fn can_insert_view(&self, view_number: ViewNumber) -> bool {
+        // We can insert a view_number when it is higher than any phase we have
+        if let Some(highest) = self.active_phases.back() {
+            view_number > *highest
+        } else {
+            // if we have no phases, always return true
+            if self.inactive_phases.iter().any(|p| p >= &view_number) {
+                tracing::error!(
+                    "Trying to insert view number {:?} but our inactive_phases is {:?}",
+                    view_number,
+                    self.inactive_phases
+                );
+            }
+            true
+        }
     }
 }
 
