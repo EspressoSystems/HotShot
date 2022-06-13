@@ -505,6 +505,51 @@
 <span id="500">500</span>
 <span id="501">501</span>
 <span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -531,7 +576,7 @@
     },
     <span class="ident">identify</span>::{<span class="ident">Identify</span>, <span class="ident">IdentifyConfig</span>},
     <span class="ident">identity::Keypair</span>,
-    <span class="ident">kad</span>::{<span class="self">self</span>, <span class="ident">store::MemoryStore</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaConfig</span>},
+    <span class="ident">kad</span>::{<span class="ident">store::MemoryStore</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaConfig</span>},
     <span class="ident">request_response</span>::{<span class="ident">ProtocolSupport</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseConfig</span>},
     <span class="ident">swarm</span>::{<span class="ident">ConnectionHandlerUpgrErr</span>, <span class="ident">SwarmEvent</span>},
     <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>, <span class="ident">Swarm</span>,
@@ -665,7 +710,7 @@
 
             <span class="comment">// - Build DHT needed for peer discovery</span>
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">kconfig</span> <span class="op">=</span> <span class="ident">KademliaConfig::default</span>();
-            <span class="ident">kconfig</span>.<span class="ident">set_caching</span>(<span class="ident">kad::KademliaCaching::Disabled</span>);
+
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">factor</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">replication_factor</span> {
                 <span class="ident">kconfig</span>.<span class="ident">set_replication_factor</span>(<span class="ident">factor</span>);
             }
@@ -700,13 +745,17 @@
         })
     }
 
-    <span class="doccomment">/// peer discovery mechanism</span>
-    <span class="doccomment">/// looks up a random peer</span>
+    <span class="doccomment">/// Active peer discovery mechanism. It does this by looking up a random peer</span>
+    <span class="doccomment">/// - must be bootstrapped</span>
+    <span class="doccomment">/// - must not have such a query in progress.</span>
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
     <span class="kw">fn</span> <span class="ident">handle_peer_discovery</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">is_bootstrapped</span>() {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">is_bootstrapped</span>()
+            <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">is_discovering_peers</span>()
+        {
             <span class="kw">let</span> <span class="ident">random_peer</span> <span class="op">=</span> <span class="ident">PeerId::random</span>();
             <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">query_closest_peers</span>(<span class="ident">random_peer</span>);
+            <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">set_discovering_peers</span>(<span class="bool-val">true</span>);
         }
     }
 
@@ -716,8 +765,12 @@
     <span class="kw">fn</span> <span class="ident">handle_num_connections</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="kw">let</span> <span class="ident">used_peers</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">get_peers</span>();
 
+        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">bootstrap</span>().<span class="ident">unwrap</span>();
+
         <span class="comment">// otherwise periodically get more peers if needed</span>
-        <span class="kw">if</span> <span class="ident">used_peers</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">min_num_peers</span> {
+        <span class="kw">if</span> <span class="ident">used_peers</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">min_num_peers</span>
+            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">node_type</span> <span class="op">==</span> <span class="ident">NetworkNodeType::Regular</span>
+        {
             <span class="comment">// Calcuate the list of &quot;new&quot; peers, once not currently used for</span>
             <span class="comment">// a connection</span>
             <span class="kw">let</span> <span class="ident">potential_peers</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
@@ -737,6 +790,7 @@
                 .<span class="ident">into_iter</span>()
                 .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
             <span class="ident">chosen_peers</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">peer_id</span>);
+
             <span class="comment">// Try dialing each random peer</span>
             <span class="kw">for</span> <span class="ident">a_peer</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">chosen_peers</span> {
                 <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">a_peer</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">peer_id</span> {
@@ -746,7 +800,7 @@
                             <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">add_connecting_peer</span>(<span class="kw-2">*</span><span class="ident">a_peer</span>);
                         }
                         <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                            <span class="macro">warn!</span>(<span class="string">&quot;Peer {:?} dial {:?} failed: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">a_peer</span>, <span class="ident">e</span>);
+                            <span class="macro">info!</span>(<span class="string">&quot;Peer {:?} dial {:?} failed: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">a_peer</span>, <span class="ident">e</span>);
                         }
                     };
                 }
@@ -948,7 +1002,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::panic</span>)]</span>
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">retry_put_dht</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">drain_publish_gossips</span>();
+        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">retry_put_dht</span>();
     }
 
     <span class="doccomment">/// Spawn a task to listen for requests on the returned channel</span>
@@ -960,27 +1014,63 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>, <span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">s_input</span>, <span class="ident">s_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>();
         <span class="kw">let</span> (<span class="ident">r_input</span>, <span class="ident">r_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>();
+        <span class="comment">// NOTE this could be entirely event driven</span>
+        <span class="comment">// by having one future sleep then send a message to</span>
+        <span class="comment">// a separate future which would then execute these</span>
+        <span class="comment">// periodic handlers</span>
+        <span class="comment">// while verbose, the same effect may be achieved</span>
+        <span class="comment">// while avoiding the overhead of more futures + channels</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_sending</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_peer_discovery</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_prune_num_connections</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_retry_put_dht</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_handle_num_connections</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+
+        <span class="kw">let</span> <span class="ident">sending_thresh</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="number">50</span>);
+        <span class="kw">let</span> <span class="ident">peer_discovery_thresh</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">1</span>);
+        <span class="kw">let</span> <span class="ident">prune_num_connections_thresh</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">1</span>);
+        <span class="kw">let</span> <span class="ident">retry_put_dht_thresh</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="number">250</span>);
+        <span class="kw">let</span> <span class="ident">handle_num_connections_thresh</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">1</span>);
+
+        <span class="kw">let</span> <span class="ident">lowest_increment</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="number">50</span>);
 
         <span class="ident">spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="kw">loop</span> {
-                    <span class="comment">// TODO variable on futures times</span>
                     <span class="macro">select!</span> {
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="number">25</span>)).<span class="ident">fuse</span>() =&gt; {
-                            <span class="self">self</span>.<span class="ident">handle_sending</span>();
+                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">lowest_increment</span>).<span class="ident">fuse</span>() =&gt; {
+                            <span class="ident">time_since_sending</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
+                            <span class="ident">time_since_peer_discovery</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
+                            <span class="ident">time_since_prune_num_connections</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
+                            <span class="ident">time_since_retry_put_dht</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
+                            <span class="ident">time_since_handle_num_connections</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
+
+                            <span class="kw">if</span> <span class="ident">time_since_sending</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">sending_thresh</span> {
+                                <span class="self">self</span>.<span class="ident">handle_sending</span>();
+                                <span class="ident">time_since_sending</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+                            }
+
+                            <span class="kw">if</span> <span class="ident">time_since_peer_discovery</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">peer_discovery_thresh</span> {
+                                <span class="self">self</span>.<span class="ident">handle_peer_discovery</span>();
+                                <span class="ident">time_since_peer_discovery</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+                            }
+
+
+                            <span class="kw">if</span> <span class="ident">time_since_prune_num_connections</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">prune_num_connections_thresh</span> {
+                                <span class="self">self</span>.<span class="ident">prune_num_connections</span>();
+                                <span class="ident">time_since_prune_num_connections</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+                            }
+
+                            <span class="kw">if</span> <span class="ident">time_since_retry_put_dht</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">retry_put_dht_thresh</span> {
+                                <span class="self">self</span>.<span class="ident">retry_put_dht</span>();
+                                <span class="ident">time_since_retry_put_dht</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+                            }
+
+                            <span class="kw">if</span> <span class="ident">time_since_handle_num_connections</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">handle_num_connections_thresh</span> {
+                                <span class="self">self</span>.<span class="ident">handle_num_connections</span>();
+                                <span class="ident">time_since_handle_num_connections</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
+                            }
                         },
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="ident">fuse</span>() =&gt; {
-                            <span class="self">self</span>.<span class="ident">handle_peer_discovery</span>();
-                        },
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="number">25</span>)).<span class="ident">fuse</span>() =&gt; {
-                            <span class="self">self</span>.<span class="ident">handle_num_connections</span>();
-                        }
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="number">25</span>)).<span class="ident">fuse</span>() =&gt; {
-                            <span class="self">self</span>.<span class="ident">retry_put_dht</span>();
-                        }
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="ident">fuse</span>() =&gt; {
-                            <span class="self">self</span>.<span class="ident">prune_num_connections</span>();
-                        }
                         <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">next</span>() =&gt; {
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">event</span> {
                                 <span class="macro">info!</span>(<span class="string">&quot;peerid {:?}\t\thandling event {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">event</span>);
