@@ -39,6 +39,10 @@
           ];
         };
 
+        heapstack_pkgs = import nixpkgs {
+          inherit system;
+        };
+
         cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
           pname = "cargo-llvm-cov";
           version = "0.3.0";
@@ -131,16 +135,16 @@
           };
 
           moldShell = pkgs.mkShell {
-            LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
-            buildInputs = with pkgs; [ zlib.out grcov flamegraph fd fenixNightly ] ++ buildDeps;
+            LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
+            buildInputs = with pkgs; [ zlib.out fd fenixNightly ] ++ buildDeps;
             shellHook = ''
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
           };
 
-          # usage: evaluate performance (grcov + flamegraph)
+          # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-            buildInputs = with pkgs; [ flamegraph fd cargo-llvm-cov fenixStable ] ++ buildDeps;
+            buildInputs = with pkgs; [ heapstack_pkgs.heaptrack cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep valgrind ] ++ buildDeps;
           };
 
         };
@@ -148,7 +152,7 @@
         # packages = pkgsAndChecksAttrSet.packages;
         # checks = pkgsAndChecksAttrSet.checks;
 
-        defaultPackage = project.workspaceMembers.phaselock.build;
+        # defaultPackage = project.workspaceMembers.phaselock.build;
       }
     );
 }

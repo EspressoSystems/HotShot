@@ -24,7 +24,7 @@ use libp2p::{
     },
     identify::{Identify, IdentifyConfig},
     identity::Keypair,
-    kad::{self, store::MemoryStore, Kademlia, KademliaConfig},
+    kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
     swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
     Multiaddr, PeerId, Swarm,
@@ -158,7 +158,7 @@ impl NetworkNode {
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
-            kconfig.set_caching(kad::KademliaCaching::Disabled);
+
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
             }
@@ -193,13 +193,17 @@ impl NetworkNode {
         })
     }
 
-    /// peer discovery mechanism
-    /// looks up a random peer
+    /// Active peer discovery mechanism. It does this by looking up a random peer
+    /// - must be bootstrapped
+    /// - must not have such a query in progress.
     #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
-        if self.swarm.behaviour().is_bootstrapped() {
+        if self.swarm.behaviour().is_bootstrapped()
+            && !self.swarm.behaviour().is_discovering_peers()
+        {
             let random_peer = PeerId::random();
             self.swarm.behaviour_mut().query_closest_peers(random_peer);
+            self.swarm.behaviour_mut().set_discovering_peers(true);
         }
     }
 
@@ -209,8 +213,12 @@ impl NetworkNode {
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
+        self.swarm.behaviour_mut().bootstrap().unwrap();
+
         // otherwise periodically get more peers if needed
-        if used_peers.len() <= self.config.min_num_peers {
+        if used_peers.len() <= self.config.min_num_peers
+            && self.config.node_type == NetworkNodeType::Regular
+        {
             // Calcuate the list of "new" peers, once not currently used for
             // a connection
             let potential_peers: HashSet<PeerId> = self
@@ -230,6 +238,7 @@ impl NetworkNode {
                 .into_iter()
                 .collect::<HashSet<_>>();
             chosen_peers.remove(&self.peer_id);
+
             // Try dialing each random peer
             for a_peer in &chosen_peers {
                 if *a_peer != self.peer_id {
@@ -239,7 +248,7 @@ impl NetworkNode {
                             self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
                         }
                         Err(e) => {
-                            warn!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
                 }
@@ -441,7 +450,7 @@ impl NetworkNode {
     #[allow(clippy::panic)]
     #[instrument(skip(self))]
     pub fn retry_put_dht(&mut self) {
-        self.swarm.behaviour_mut().drain_publish_gossips();
+        self.swarm.behaviour_mut().retry_put_dht();
     }
 
     /// Spawn a task to listen for requests on the returned channel
@@ -453,27 +462,63 @@ impl NetworkNode {
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
+        // NOTE this could be entirely event driven
+        // by having one future sleep then send a message to
+        // a separate future which would then execute these
+        // periodic handlers
+        // while verbose, the same effect may be achieved
+        // while avoiding the overhead of more futures + channels
+        let mut time_since_sending = Duration::ZERO;
+        let mut time_since_peer_discovery = Duration::ZERO;
+        let mut time_since_prune_num_connections = Duration::ZERO;
+        let mut time_since_retry_put_dht = Duration::ZERO;
+        let mut time_since_handle_num_connections = Duration::ZERO;
+
+        let sending_thresh = Duration::from_millis(50);
+        let peer_discovery_thresh = Duration::from_secs(1);
+        let prune_num_connections_thresh = Duration::from_secs(1);
+        let retry_put_dht_thresh = Duration::from_millis(250);
+        let handle_num_connections_thresh = Duration::from_secs(1);
+
+        let lowest_increment = Duration::from_millis(50);
 
         spawn(
             async move {
                 loop {
-                    // TODO variable on futures times
                     select! {
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
-                            self.handle_sending();
+                        _ = sleep(lowest_increment).fuse() => {
+                            time_since_sending += lowest_increment;
+                            time_since_peer_discovery += lowest_increment;
+                            time_since_prune_num_connections += lowest_increment;
+                            time_since_retry_put_dht += lowest_increment;
+                            time_since_handle_num_connections += lowest_increment;
+
+                            if time_since_sending >= sending_thresh {
+                                self.handle_sending();
+                                time_since_sending = Duration::ZERO;
+                            }
+
+                            if time_since_peer_discovery >= peer_discovery_thresh {
+                                self.handle_peer_discovery();
+                                time_since_peer_discovery = Duration::ZERO;
+                            }
+
+
+                            if time_since_prune_num_connections >= prune_num_connections_thresh {
+                                self.prune_num_connections();
+                                time_since_prune_num_connections = Duration::ZERO;
+                            }
+
+                            if time_since_retry_put_dht >= retry_put_dht_thresh {
+                                self.retry_put_dht();
+                                time_since_retry_put_dht = Duration::ZERO;
+                            }
+
+                            if time_since_handle_num_connections >= handle_num_connections_thresh {
+                                self.handle_num_connections();
+                                time_since_handle_num_connections = Duration::ZERO;
+                            }
                         },
-                        _ = sleep(Duration::from_secs(1)).fuse() => {
-                            self.handle_peer_discovery();
-                        },
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
-                            self.handle_num_connections();
-                        }
-                        _ = sleep(Duration::from_millis(25)).fuse() => {
-                            self.retry_put_dht();
-                        }
-                        _ = sleep(Duration::from_secs(5)).fuse() => {
-                            self.prune_num_connections();
-                        }
                         event = self.swarm.next() => {
                             if let Some(event) = event {
                                 info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);

@@ -42,11 +42,13 @@ spawns off five integration tests.
 - Two that uses gossipsub to broadcast a counter increment from one node to all other nodes
 - Two where one node increments its counter, then direct messages all nodes to increment their counters
 - One that intersperses both broadcast and increments.
+- One that intersperses both broadcast and increments.
+- Two that publishes entries to the DHT and checks that other nodes can access these entries.
 
-This often times fails on MacOS due to ["too many open files."](https://github.com/EspressoSystems/phaselock-networking-demo/issues/18) The fix here is:
+This can fail on MacOS (and linux) due to ["too many open files."](https://github.com/EspressoSystems/phaselock-networking-demo/issues/18) The fix is:
 
 ```bash
-ulimit -n 10240
+ulimit -n 4096
 ```
 
 ## Counter Multi-machine tests
@@ -74,7 +76,7 @@ nix develop -c cargo run --features webui --release --example counter -- --bound
 
 To run on the AWS cluster, see [here](https://github.com/EspressoSystems/cloud-infrastructure/blob/c86873a5c647772836907fc206fce5702a5878bb/ansible/networking-demo/README.md).
 
-### Network Emulation 
+### Network Emulation
 One may introduce simulated network latency via the network emulationn queueing discipline. This is implemented in two ways: on what is assumed to be a AWS EC2 instance, and in a docker container. Example usage on AWS EC2 instance:
 
 ```bash

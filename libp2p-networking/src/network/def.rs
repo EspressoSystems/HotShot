@@ -22,7 +22,7 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -82,7 +82,7 @@ pub struct NetworkDef {
     in_progress_rr: HashMap<RequestId, (Vec<u8>, PeerId)>,
     /// track gossip messages that failed to send and we should send later on
     #[behaviour(ignore)]
-    in_progress_gossip: Vec<(Topic, Vec<u8>)>,
+    in_progress_gossip: VecDeque<(Topic, Vec<u8>)>,
     // track unknown addrs
     #[behaviour(ignore)]
     unknown_addrs: HashSet<Multiaddr>,
@@ -97,6 +97,8 @@ pub struct NetworkDef {
     in_progress_put_record_queries: HashMap<Either<usize, QueryId>, KadPutQuery>,
     #[behaviour(ignore)]
     in_progress_put_record_uid: usize,
+    #[behaviour(ignore)]
+    peer_discovery_in_progress: bool,
 }
 
 impl NetworkDef {
@@ -119,13 +121,14 @@ impl NetworkDef {
             bootstrap_state: BootstrapState::NotStarted,
             pruning_enabled,
             in_progress_rr: HashMap::new(),
-            in_progress_gossip: Vec::new(),
+            in_progress_gossip: VecDeque::new(),
             unknown_addrs: HashSet::new(),
             in_progress_get_record_queries: HashMap::new(),
             in_progress_put_record_queries: HashMap::new(),
             in_progress_put_record_uid: 0,
             // currently only functionality is to "not prune" these nodes
             ignored_peers,
+            peer_discovery_in_progress: false,
         }
     }
 
@@ -157,15 +160,26 @@ impl NetworkDef {
     ///
     /// Will return a `NoKnownPeers` error when no known peers are defined
     pub fn bootstrap(&mut self) -> Result<(), NetworkError> {
-        match self.kadem.bootstrap() {
-            Ok(_) => Ok(()),
-            Err(_) => Err(NetworkError::NoKnownPeers),
+        if self.bootstrap_state == BootstrapState::NotStarted {
+            if self.kadem.bootstrap().is_ok() {
+                self.bootstrap_state = BootstrapState::Started;
+                return Ok(());
+            }
+            error!("Failed to initiate bootstrap! Not enough peers.");
+            return Err(NetworkError::NoKnownPeers);
         }
+        info!("already bootstrapped");
+        Ok(())
     }
 
     /// Returns true if the bootstrap state is finished
     pub fn is_bootstrapped(&self) -> bool {
         self.bootstrap_state == BootstrapState::Finished
+    }
+
+    /// Returns true if a peer discovery query is in progress
+    pub fn is_discovering_peers(&self) -> bool {
+        self.peer_discovery_in_progress
     }
 
     /// Returns true if the bootstrap state is not started
@@ -176,6 +190,12 @@ impl NetworkDef {
     /// Returns a reference to the internal `ConnectionData`
     pub fn connection_data(&self) -> Arc<SubscribableRwLock<ConnectionData>> {
         self.connection_data.clone()
+    }
+
+    /// Toggle whether or not libp2p is discovering peers
+    /// NOTE: for internal usage only
+    pub fn set_discovering_peers(&mut self, is_discovering: bool) {
+        self.peer_discovery_in_progress = is_discovering;
     }
 }
 
@@ -309,7 +329,7 @@ impl NetworkDef {
         let res = self.gossipsub.publish(topic.clone(), contents.clone());
         if res.is_err() {
             error!("error publishing gossip message {:?}", res);
-            self.in_progress_gossip.push((topic, contents));
+            self.in_progress_gossip.push_back((topic, contents));
         }
     }
 
@@ -331,27 +351,36 @@ impl NetworkDef {
 
     /// Attempt to drain the internal gossip list, publishing each gossip
     pub fn drain_publish_gossips(&mut self) {
-        let mut num_sent = 0;
-        for (topic, contents) in self.in_progress_gossip.as_slice() {
+        if !self.is_bootstrapped() {
+            warn!("Publishing to peers skipped because node is not yet bootstrapped.");
+            return;
+        }
+
+        while let Some((topic, contents)) = self.in_progress_gossip.pop_front() {
             let res = self.gossipsub.publish(topic.clone(), contents.clone());
             if res.is_err() {
+                self.in_progress_gossip.push_back((topic, contents));
                 break;
             }
-            num_sent += 1;
         }
-        self.in_progress_gossip = self.in_progress_gossip[num_sent..].into();
     }
 
     /// attempt to put all unstarted put querys to DHT
     pub fn retry_put_dht(&mut self) {
+        if !self.is_bootstrapped() {
+            warn!("DHT put request skipped because not bootstrapped.");
+            return;
+        }
+
         // must collect and then iterate otherwise multiple
         // mutable reeferences to self
         let records: Vec<_> = self.in_progress_put_record_queries.drain().collect();
+        info!("Retrying DHT put on: {:?}", records);
         for (k, v) in records {
             if v.progress == DHTProgress::NotStarted {
-                // TODO optimization, if one attempt fails, short circuit out
                 self.put_record(v);
             } else {
+                // skip over still in progress queries
                 self.in_progress_put_record_queries.insert(k, v);
             }
         }
@@ -370,7 +399,7 @@ impl NetworkDef {
 
         match self.kadem.put_record(record, Quorum::Majority) {
             Err(e) => {
-                warn!("Error publishing to DHT: {e:?}");
+                error!("Error publishing to DHT: {e:?}");
                 self.in_progress_put_record_queries
                     .insert(Either::Left(uid), query);
             }
@@ -441,17 +470,17 @@ impl NetworkDef {
                     // values is not handles
                     if let Some((r, _)) = results.into_iter().find(|(_, v)| *v >= 2) {
                         if notify.send(r).is_err() {
-                            warn!("channel closed before get record request result could be sent");
+                            error!("channel closed before get record request result could be sent");
                         }
                     }
                     // lack of replication => error
                     else if records.len() < NUM_REPLICATED_TO_TRUST {
-                        warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                        error!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
                         self.get_record(key, notify, num_replicas);
                     }
                     // many records that don't match => disagreement
                     else if records.len() > MAX_DHT_QUERY_SIZE {
-                        warn!(
+                        error!(
                             "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
                             progress
                         );
@@ -465,16 +494,16 @@ impl NetworkDef {
                             NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
 
                         self.get_record(key, notify, new_factor);
-                        warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                        error!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
                     }
                 }
                 Err(e) => {
-                    warn!("Get DHT: Internal error {:?}. Requerying {:?}", e, progress);
+                    error!("Get DHT: Internal error {:?}. Requerying {:?}", e, progress);
                     self.get_record(key, notify, num_replicas);
                 }
             };
         } else {
-            warn!("completed DHT query that is no longer tracked.");
+            error!("completed DHT query that is no longer tracked.");
         }
     }
 }
@@ -523,7 +552,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
             } => {
                 // we're bootstrapped
                 // don't bootstrap again
-                self.bootstrap_state = BootstrapState::Started;
+                self.bootstrap_state = BootstrapState::Finished;
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::Bootstrap(Err(_)),
@@ -533,14 +562,17 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 self.bootstrap_state = BootstrapState::NotStarted;
             }
             KademliaEvent::OutboundQueryCompleted {
-                result: QueryResult::GetClosestPeers(Ok(GetClosestPeersOk { peers, .. })),
+                result: QueryResult::GetClosestPeers(r),
                 ..
             } => {
-                for peer in peers {
-                    self.connection_data.modify(|s| {
-                        s.known_peers.insert(peer);
-                    });
+                if let Ok(GetClosestPeersOk { peers, .. }) = r {
+                    for peer in peers {
+                        self.connection_data.modify(|s| {
+                            s.known_peers.insert(peer);
+                        });
+                    }
                 }
+                self.set_discovering_peers(false);
             }
             KademliaEvent::RoutingUpdated { peer, .. } => {
                 self.connection_data.modify(|s| {
@@ -559,7 +591,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                 id,
                 ..
             } => {
-                if let Some(query) = self
+                if let Some(mut query) = self
                     .in_progress_put_record_queries
                     .remove(&Either::Right(id))
                 {
@@ -570,16 +602,22 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                     match r {
                         Ok(_) => {
                             if query.notify.send(()).is_err() {
-                                warn!("Put DHT: client channel closed before put record request could be sent");
+                                error!("Put DHT: client channel closed before put record request could be sent");
                             }
                         }
                         Err(e) => {
-                            self.put_record(query);
-                            warn!("Put DHT: error performing put: {:?}. Retrying.", e);
+                            query.progress = DHTProgress::NotStarted;
+                            let uid = self.new_put_uid();
+
+                            // push back onto the queue
+                            self.in_progress_put_record_queries
+                                .insert(Either::Left(uid), query);
+
+                            error!("Put DHT: error performing put: {:?}. Retrying.", e);
                         }
                     }
                 } else {
-                    warn!("Put DHT: completed DHT query that is no longer tracked.");
+                    error!("Put DHT: completed DHT query that is no longer tracked.");
                 }
             }
             _ => {

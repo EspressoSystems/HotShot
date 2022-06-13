@@ -11,7 +11,7 @@ use libp2p_networking::network::{
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{error, info, instrument, warn};
+use tracing::{error, instrument, warn};
 
 pub type CounterState = u32;
 
@@ -277,6 +277,7 @@ async fn run_dht_rounds(
     num_rounds: usize,
 ) {
     for i in 0..num_rounds {
+        error!("round: {:?}", i);
         let msg_handle = get_random_handle(handles);
         let mut key = vec![0; DHT_KV_PADDING];
         key.push((starting_val + i) as u8);
@@ -312,7 +313,7 @@ async fn run_gossip_rounds(
 ) {
     let mut old_state = starting_state;
     for i in 0..num_rounds {
-        info!("running gossip round {}", i);
+        error!("running gossip round {}", i);
         let new_state = old_state + 1;
         let msg = CounterMessage::IncrementCounter {
             from: old_state,
@@ -433,53 +434,50 @@ async fn test_coverage_gossip_one_round() {
     .await;
 }
 
-// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
-// /// simple case of direct message
-// #[async_std::test]
-// #[instrument]
-// #[ignore]
-// async fn test_stress_request_response_one_round() {
-//     test_bed(
-//         run_request_response_one_round,
-//         counter_handle_network_event,
-//         TOTAL_NUM_PEERS_STRESS,
-//         NUM_OF_BOOTSTRAP_STRESS,
-//         TIMEOUT_STRESS,
-//     )
-//     .await
-// }
+/// simple case of direct message
+#[async_std::test]
+#[instrument]
+#[ignore]
+async fn test_stress_request_response_one_round() {
+    test_bed(
+        run_request_response_one_round,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+    )
+    .await
+}
 
-// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
-// /// stress test of direct messsage
-// #[async_std::test]
-// #[instrument]
-// #[ignore]
-// async fn test_stress_request_response_many_rounds() {
-//     test_bed(
-//         run_request_response_many_rounds,
-//         counter_handle_network_event,
-//         TOTAL_NUM_PEERS_STRESS,
-//         NUM_OF_BOOTSTRAP_STRESS,
-//         TIMEOUT_STRESS,
-//     )
-//     .await
-// }
+/// stress test of direct messsage
+#[async_std::test]
+#[instrument]
+#[ignore]
+async fn test_stress_request_response_many_rounds() {
+    test_bed(
+        run_request_response_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+    )
+    .await
+}
 
-// TODO(https://github.com/EspressoSystems/phaselock/issues/220): enable this
-// /// stress test of broadcast + direct message
-// #[async_std::test]
-// #[instrument]
-// #[ignore]
-// async fn test_stress_intersperse_many_rounds() {
-//     test_bed(
-//         run_intersperse_many_rounds,
-//         counter_handle_network_event,
-//         TOTAL_NUM_PEERS_STRESS,
-//         NUM_OF_BOOTSTRAP_STRESS,
-//         TIMEOUT_STRESS,
-//     )
-//     .await
-// }
+/// stress test of broadcast + direct message
+#[async_std::test]
+#[instrument]
+#[ignore]
+async fn test_stress_intersperse_many_rounds() {
+    test_bed(
+        run_intersperse_many_rounds,
+        counter_handle_network_event,
+        TOTAL_NUM_PEERS_STRESS,
+        NUM_OF_BOOTSTRAP_STRESS,
+        TIMEOUT_STRESS,
+    )
+    .await
+}
 
 /// stress teset that we can broadcast a message out and get counter increments
 #[async_std::test]
@@ -517,7 +515,7 @@ async fn test_stress_gossip_one_round() {
 #[ignore]
 async fn test_stress_dht_one_round() {
     test_bed(
-        run_gossip_one_round,
+        run_dht_one_round,
         counter_handle_network_event,
         TOTAL_NUM_PEERS_STRESS,
         NUM_OF_BOOTSTRAP_STRESS,
