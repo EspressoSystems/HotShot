@@ -7,6 +7,16 @@ VRF committee elections.
 
 Please see the rustdoc for API documentation, and the examples directory for usage.
 
+# Static linking
+
+Phaselock supports static linking for its examples:
+
+```
+nix develop .#staticShell
+
+cargo build --examples --all-features --all-targets --release --workspace
+```
+
 # Testing
 
 To test:

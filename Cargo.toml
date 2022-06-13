@@ -76,7 +76,6 @@ opt-level = 3
 ## Enable LTO for release profile
 [profile.release]
 debug = 1
-debuginfo-level = 1
 lto = "thin"
 
 ### Workspace
