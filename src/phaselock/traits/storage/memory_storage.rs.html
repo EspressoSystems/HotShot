@@ -506,6 +506,8 @@
 <span id="501">501</span>
 <span id="502">502</span>
 <span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
@@ -826,6 +828,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
+    <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::data::Stage</span>;
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wildcard_imports</span>)]</span>
@@ -844,7 +848,7 @@
             <span class="ident">leaf_hash</span>: <span class="ident">hash_leaf</span>,
             <span class="ident">view_number</span>: <span class="ident">view</span>,
             <span class="ident">stage</span>: <span class="kw">if</span> <span class="ident">valid</span> { <span class="ident">Stage::Decide</span> } <span class="kw">else</span> { <span class="ident">Stage::None</span> },
-            <span class="ident">signature</span>: <span class="prelude-val">None</span>,
+            <span class="ident">signatures</span>: <span class="ident">BTreeMap::new</span>(),
             <span class="ident">genesis</span>: <span class="bool-val">true</span>,
         }
     }

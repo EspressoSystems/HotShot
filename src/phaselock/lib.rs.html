@@ -821,6 +821,53 @@
 <span id="816">816</span>
 <span id="817">817</span>
 <span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -849,7 +896,6 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">documentation</span>;
 
 <span class="doccomment">/// Contains structures and functions for committee election</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">committee</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">data</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;demo&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">demos</span>;
@@ -871,34 +917,35 @@
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot</span>;
 <span class="kw">use</span> <span class="ident">phaselock_hotstuff</span>::{<span class="ident">HotStuff</span>, <span class="ident">RoundFinishedEventState</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types</span>::{
-    <span class="ident">data::ViewNumber</span>,
+    <span class="ident">data</span>::{<span class="ident">create_verify_hash</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">error</span>::{<span class="ident">NetworkFaultSnafu</span>, <span class="ident">StorageSnafu</span>},
     <span class="ident">message</span>::{<span class="ident">DataMessage</span>, <span class="ident">Message</span>},
     <span class="ident">traits</span>::{
         <span class="ident">election::Election</span>,
         <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>},
         <span class="ident">node_implementation::TypeMap</span>,
+        <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>},
         <span class="ident">stateful_handler::StatefulHandler</span>,
     },
 };
 <span class="kw">use</span> <span class="ident">phaselock_utils::broadcast::BroadcastSender</span>;
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">num::NonZeroUsize</span>, <span class="ident">sync::Arc</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashSet</span>},
+    <span class="ident">fmt::Debug</span>,
+    <span class="ident">num::NonZeroUsize</span>,
+    <span class="ident">sync::Arc</span>,
+    <span class="ident">time::Duration</span>,
+};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
 
 <span class="comment">// -- Rexports</span>
 <span class="comment">// External</span>
 <span class="doccomment">/// Reexport rand crate</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">rand</span>;
-<span class="doccomment">/// Reexport threshold crypto crate</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">threshold_crypto</span> <span class="kw">as</span> <span class="ident">tc</span>;
 <span class="comment">// Internal</span>
 <span class="doccomment">/// Reexport error type</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::error::PhaseLockError</span>;
-<span class="doccomment">/// Reexport key types</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types</span>::{<span class="ident">PrivKey</span>, <span class="ident">PubKey</span>};
 
 <span class="doccomment">/// Length, in bytes, of a 512 bit hash</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">H_512</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span>;
@@ -910,7 +957,7 @@
 
 <span class="doccomment">/// Holds configuration for a `PhaseLock`</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PhaseLockConfig</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PhaseLockConfig</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">SignatureKey</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Total number of nodes in the network</span>
     <span class="kw">pub</span> <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize</span>,
     <span class="doccomment">/// Nodes required to reach a decision</span>
@@ -918,7 +965,7 @@
     <span class="doccomment">/// Maximum transactions per block</span>
     <span class="kw">pub</span> <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize</span>,
     <span class="doccomment">/// List of known node&#39;s public keys, including own, sorted by nonce ()</span>
-    <span class="kw">pub</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PubKey</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds</span>
     <span class="kw">pub</span> <span class="ident">next_view_timeout</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// The exponential backoff ration for the next-view timeout</span>
@@ -937,13 +984,17 @@
 <span class="doccomment">/// Holds the state needed to participate in `PhaseLock` consensus</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PhaseLockInner</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The public key of this node</span>
-    <span class="ident">public_key</span>: <span class="ident">PubKey</span>,
+    <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
 
     <span class="doccomment">/// The private key of this node</span>
-    <span class="ident">private_key</span>: <span class="ident">PrivKey</span>,
+    <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
+
+    <span class="doccomment">/// The public keys for the cluster</span>
+    <span class="doccomment">/// TODO: Move the functionality this expresses into the election trait</span>
+    <span class="ident">cluster_public_keys</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Configuration items for this phaselock instance</span>
-    <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span>,
+    <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Networking interface for this phaselock instance</span>
     <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
@@ -955,7 +1006,7 @@
     <span class="ident">stateful_handler</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">I::StatefulHandler</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// This `PhaseLock` instance&#39;s election backend</span>
-    <span class="ident">election</span>: <span class="ident">PhaseLockElectionState</span><span class="op">&lt;</span><span class="ident">I::Election</span>, <span class="ident">N</span><span class="op">&gt;</span>,
+    <span class="ident">election</span>: <span class="ident">PhaseLockElectionState</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">I::Election</span>, <span class="ident">N</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Sender for [`Event`]s</span>
     <span class="ident">event_sender</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -968,7 +1019,7 @@
 }
 
 <span class="doccomment">/// Contains the state of the election of the current [`PhaseLock`].</span>
-<span class="kw">struct</span> <span class="ident">PhaseLockElectionState</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
+<span class="kw">struct</span> <span class="ident">PhaseLockElectionState</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">SignatureKey</span>, <span class="ident">E</span>: <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// An instance of the election</span>
     <span class="ident">election</span>: <span class="ident">E</span>,
     <span class="doccomment">/// The inner state of the election</span>
@@ -991,7 +1042,8 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>, <span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(
         <span class="ident">genesis</span>,
-        <span class="ident">secret_key_share</span>,
+        <span class="ident">private_key</span>,
+        <span class="ident">cluster_public_keys</span>,
         <span class="ident">starting_state</span>,
         <span class="ident">networking</span>,
         <span class="ident">storage</span>,
@@ -999,10 +1051,11 @@
     ))]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">genesis</span>: <span class="ident">I::Block</span>,
-        <span class="ident">public_keys</span>: <span class="ident">tc::PublicKeySet</span>,
-        <span class="ident">secret_key_share</span>: <span class="ident">tc::SecretKeyShare</span>,
+        <span class="ident">cluster_public_keys</span>: <span class="kw">impl</span> <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
+        <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
+        <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
         <span class="ident">nonce</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span>,
+        <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
         <span class="ident">starting_state</span>: <span class="ident">I::State</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
@@ -1010,14 +1063,14 @@
         <span class="ident">election</span>: <span class="ident">I::Election</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new phaselock&quot;</span>);
-        <span class="kw">let</span> <span class="ident">node_pub_key</span> <span class="op">=</span> <span class="ident">secret_key_share</span>.<span class="ident">public_key_share</span>();
         <span class="kw">let</span> <span class="ident">genesis_hash</span> <span class="op">=</span> <span class="ident">BlockContents::hash</span>(<span class="kw-2">&amp;</span><span class="ident">genesis</span>);
         <span class="kw">let</span> <span class="ident">leaf</span> <span class="op">=</span> <span class="ident">Leaf</span> {
             <span class="ident">parent</span>: [<span class="number">0_u8</span>; { <span class="ident">N</span> }].<span class="ident">into</span>(),
             <span class="ident">item</span>: <span class="ident">genesis</span>.<span class="ident">clone</span>(),
         };
         <span class="kw">let</span> <span class="ident">election</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::State::default</span>();
+            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span>
+                <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::State::default</span>();
             <span class="kw">let</span> <span class="ident">stake_table</span> <span class="op">=</span> <span class="ident">election</span>.<span class="ident">get_stake_table</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
             <span class="ident">PhaseLockElectionState</span> {
                 <span class="ident">election</span>,
@@ -1026,14 +1079,8 @@
             }
         };
         <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">PhaseLockInner</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PhaseLockInner</span> {
-            <span class="ident">public_key</span>: <span class="ident">PubKey</span> {
-                <span class="ident">set</span>: <span class="ident">public_keys</span>,
-                <span class="ident">node</span>: <span class="ident">node_pub_key</span>,
-                <span class="ident">nonce</span>,
-            },
-            <span class="ident">private_key</span>: <span class="ident">PrivKey</span> {
-                <span class="ident">node</span>: <span class="ident">secret_key_share</span>,
-            },
+            <span class="ident">public_key</span>,
+            <span class="ident">private_key</span>,
             <span class="ident">config</span>,
             <span class="ident">networking</span>,
             <span class="ident">storage</span>,
@@ -1042,6 +1089,7 @@
             <span class="ident">event_sender</span>: <span class="ident">RwLock::default</span>(),
             <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle::default</span>(),
             <span class="ident">hotstuff</span>: <span class="ident">Mutex::default</span>(),
+            <span class="ident">cluster_public_keys</span>: <span class="ident">cluster_public_keys</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
         };
         <span class="kw">let</span> <span class="ident">leaf_hash</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">hash</span>();
         <span class="macro">trace!</span>(<span class="string">&quot;Genesis leaf hash: {:?}&quot;</span>, <span class="ident">leaf_hash</span>);
@@ -1054,7 +1102,7 @@
                     <span class="ident">leaf_hash</span>,
                     <span class="ident">view_number</span>: <span class="ident">ViewNumber::genesis</span>(),
                     <span class="ident">stage</span>: <span class="ident">Stage::Decide</span>,
-                    <span class="ident">signature</span>: <span class="prelude-val">None</span>,
+                    <span class="ident">signatures</span>: <span class="ident">BTreeMap::new</span>(),
                     <span class="ident">genesis</span>: <span class="bool-val">true</span>,
                 })
                 .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1075,7 +1123,7 @@
     }
 
     <span class="doccomment">/// Returns true if the proposed leaf extends from the given block</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>))]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">extends_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">leaf</span>: <span class="kw-2">&amp;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">node</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parent</span> <span class="op">=</span> <span class="ident">leaf</span>.<span class="ident">parent</span>;
         <span class="comment">// Short circuit to enable blocks that don&#39;t have parents</span>
@@ -1110,7 +1158,7 @@
     <span class="doccomment">/// - The storage layer returned an error</span>
     <span class="doccomment">/// - There were no QCs in the storage</span>
     <span class="doccomment">/// - A broadcast message could not be send</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>), <span class="ident">err</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="ident">hotstuff</span>
@@ -1142,7 +1190,7 @@
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Panics if consensus hits a bad round</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>),<span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>),<span class="ident">err</span>)]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>), <span class="ident">err</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ViewNumber</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">sender</span>, <span class="ident">receiver</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
         <span class="self">self</span>.<span class="ident">inner</span>
@@ -1250,10 +1298,11 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>, <span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init</span>(
         <span class="ident">genesis</span>: <span class="ident">I::Block</span>,
-        <span class="ident">public_keys</span>: <span class="ident">tc::PublicKeySet</span>,
-        <span class="ident">secret_key_share</span>: <span class="ident">tc::SecretKeyShare</span>,
+        <span class="ident">cluster_public_keys</span>: <span class="kw">impl</span> <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
+        <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
+        <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
         <span class="ident">node_id</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span>,
+        <span class="ident">config</span>: <span class="ident">PhaseLockConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
         <span class="ident">starting_state</span>: <span class="ident">I::State</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
@@ -1263,8 +1312,9 @@
         <span class="comment">// Save a clone of the storage for the handle</span>
         <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
             <span class="ident">genesis</span>,
-            <span class="ident">public_keys</span>,
-            <span class="ident">secret_key_share</span>,
+            <span class="ident">cluster_public_keys</span>,
+            <span class="ident">public_key</span>,
+            <span class="ident">private_key</span>,
             <span class="ident">node_id</span>,
             <span class="ident">config</span>,
             <span class="ident">starting_state</span>,
@@ -1309,7 +1359,7 @@
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">kind</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::MessageKind</span><span class="op">&gt;</span>,
-        <span class="ident">recipient</span>: <span class="ident">PubKey</span>,
+        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">networking</span>
@@ -1327,7 +1377,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-        <span class="ident">sender</span>: <span class="ident">PubKey</span>,
+        <span class="ident">sender</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">hotstuff</span>;
@@ -1347,7 +1397,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_consensus_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-        <span class="ident">sender</span>: <span class="ident">PubKey</span>,
+        <span class="ident">sender</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">hotstuff</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
         <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">hotstuff</span>;
@@ -1359,7 +1409,7 @@
             )
             .<span class="kw">await</span>
         {
-            <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="question-mark">?</span><span class="ident">msg</span>, <span class="question-mark">?</span><span class="ident">hotstuff</span>, <span class="string">&quot;Could not handle direct message&quot;</span>);
+            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="question-mark">?</span><span class="ident">msg</span>, <span class="question-mark">?</span><span class="ident">hotstuff</span>, <span class="string">&quot;Could not handle direct message&quot;</span>);
         }
     }
 
@@ -1367,7 +1417,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_data_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">PubKey</span>,
+        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="kw">match</span> <span class="ident">msg</span> {
             <span class="ident">DataMessage::SubmitTransaction</span>(<span class="ident">transaction</span>) =&gt; {
@@ -1394,7 +1444,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_data_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">PubKey</span>,
+        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Incoming direct data message&quot;</span>);
         <span class="kw">match</span> <span class="ident">msg</span> {
@@ -1471,7 +1521,7 @@
     }
 
     <span class="doccomment">/// Handle a change in the network</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_network_change</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">NetworkChange</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_network_change</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>) {
         <span class="kw">match</span> <span class="ident">node</span> {
             <span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">peer</span>) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, <span class="ident">peer</span>);
@@ -1568,7 +1618,7 @@
         <span class="bool-val">true</span>
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>, <span class="ident">stage</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">PubKey</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>, <span class="ident">stage</span>: <span class="ident">Stage</span>) -&gt; <span class="ident">I::SignatureKey</span> {
         <span class="kw">let</span> <span class="ident">election</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>;
         <span class="ident">election</span>
             .<span class="ident">election</span>
@@ -1581,7 +1631,7 @@
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">recipient</span>: <span class="ident">PubKey</span>,
+        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
         <span class="ident">message</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;send_direct_message&quot;</span>);
@@ -1622,11 +1672,11 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PubKey</span> {
+    <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::SignatureKey</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">private_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrivKey</span> {
+    <span class="kw">fn</span> <span class="ident">private_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>
     }
 
@@ -1637,6 +1687,50 @@
             .<span class="ident">lock</span>()
             .<span class="kw">await</span>
             .<span class="ident">notify</span>(<span class="ident">blocks</span>, <span class="ident">states</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">sign_vote</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">leaf_hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">stage</span>: <span class="ident">Stage</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
+    ) -&gt; (<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>) {
+        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">create_verify_hash</span>(<span class="ident">leaf_hash</span>, <span class="ident">view_number</span>, <span class="ident">stage</span>);
+        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">I::SignatureKey::sign</span>(<span class="self">self</span>.<span class="ident">private_key</span>(), <span class="ident">hash</span>.<span class="ident">as_ref</span>());
+        (<span class="self">self</span>.<span class="ident">public_key</span>().<span class="ident">to_bytes</span>(), <span class="ident">signature</span>)
+    }
+
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
+    <span class="kw">fn</span> <span class="ident">validate_qc</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">qc</span>: <span class="kw-2">&amp;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
+        <span class="ident">stage</span>: <span class="ident">Stage</span>,
+    ) -&gt; <span class="ident">bool</span> {
+        <span class="kw">if</span> <span class="ident">qc</span>.<span class="ident">view_number</span> <span class="op">!</span><span class="op">=</span> <span class="ident">view_number</span> <span class="op">|</span><span class="op">|</span> <span class="ident">qc</span>.<span class="ident">stage</span> <span class="op">!</span><span class="op">=</span> <span class="ident">stage</span> {
+            <span class="macro">warn!</span>(
+                <span class="question-mark">?</span><span class="ident">qc</span>,
+                <span class="question-mark">?</span><span class="ident">view_number</span>,
+                <span class="question-mark">?</span><span class="ident">stage</span>,
+                <span class="string">&quot;Failing on stage/view_number equality check&quot;</span>
+            );
+        }
+        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">create_verify_hash</span>(<span class="kw-2">&amp;</span><span class="ident">qc</span>.<span class="ident">leaf_hash</span>, <span class="ident">view_number</span>, <span class="ident">stage</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_valid_signatures</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">signature</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">qc</span>.<span class="ident">signatures</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="ident">I::SignatureKey::from_bytes</span>(<span class="ident">key</span>) {
+                <span class="kw">let</span> <span class="ident">contains</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">cluster_public_keys</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>);
+                <span class="kw">let</span> <span class="ident">validate</span> <span class="op">=</span> <span class="ident">key</span>.<span class="ident">validate</span>(<span class="ident">signature</span>, <span class="ident">hash</span>.<span class="ident">as_ref</span>());
+                <span class="kw">if</span> <span class="ident">contains</span> <span class="op">&amp;&amp;</span> <span class="ident">validate</span> {
+                    <span class="ident">total_valid_signatures</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                } <span class="kw">else</span> {
+                    <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">contains</span>, <span class="question-mark">?</span><span class="ident">validate</span>, <span class="string">&quot;Failed validity check&quot;</span>);
+                }
+            }
+        }
+        <span class="kw">let</span> <span class="ident">valid</span> <span class="op">=</span> <span class="ident">total_valid_signatures</span> <span class="op">&gt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">threshold</span>.<span class="ident">get</span>() <span class="kw">as</span> <span class="ident">u64</span>;
+        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">total_valid_signatures</span>, <span class="question-mark">?</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">threshold</span>, <span class="question-mark">?</span><span class="ident">valid</span>, <span class="string">&quot;Checking QC&quot;</span>);
+        <span class="ident">valid</span>
     }
 }
 </code></pre></div>

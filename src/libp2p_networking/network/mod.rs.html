@@ -270,8 +270,6 @@
 <span id="265">265</span>
 <span id="266">266</span>
 <span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">def</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="kw">mod</span> <span class="ident">node</span>;
@@ -287,11 +285,9 @@
 
 <span class="kw">use</span> <span class="self">self</span>::{<span class="ident">error::TransportLaunchSnafu</span>, <span class="ident">node::network_node_handle_error::TimeoutSnafu</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::direct_message::DirectMessageResponse</span>;
-<span class="kw">use</span> <span class="ident">async_std::prelude::FutureExt</span> <span class="kw">as</span> <span class="kw">_</span>;
-<span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
+<span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">prelude::FutureExt</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">task::spawn</span>};
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
-<span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
+<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">channel::oneshot::Sender</span>, <span class="ident">select</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">build_multiaddr</span>,
     <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},

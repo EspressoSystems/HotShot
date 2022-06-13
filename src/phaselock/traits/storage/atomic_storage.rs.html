@@ -306,14 +306,12 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
-<span id="304">304</span>
 </pre><pre class="rust"><code><span class="doccomment">//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).</span>
 
 <span class="kw">mod</span> <span class="ident">dual_key_value_store</span>;
 <span class="kw">mod</span> <span class="ident">hash_map_store</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="self">self</span>::dual_key_value_store::DualKeyValueStore</span>;
-<span class="kw">use</span> <span class="ident"><span class="self">self</span>::hash_map_store::HashMapStore</span>;
+<span class="kw">use</span> <span class="self">self</span>::{<span class="ident">dual_key_value_store::DualKeyValueStore</span>, <span class="ident">hash_map_store::HashMapStore</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">Leaf</span>, <span class="ident">LeafHash</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">State</span>},

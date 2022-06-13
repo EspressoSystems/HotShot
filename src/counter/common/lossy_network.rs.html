@@ -587,22 +587,30 @@
 <span id="582">582</span>
 <span id="583">583</span>
 <span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ExecutionEnvironment</span>;
 <span class="kw">use</span> <span class="ident">async_std::process::Command</span>;
 <span class="kw">use</span> <span class="ident">futures::TryStreamExt</span>;
 <span class="kw">use</span> <span class="ident">netlink_packet_route::DecodeError</span>;
-<span class="kw">use</span> <span class="ident">nix::errno::Errno</span>;
-<span class="kw">use</span> <span class="ident">nix::sched::setns</span>;
-<span class="kw">use</span> <span class="ident">nix::sched::CloneFlags</span>;
+<span class="kw">use</span> <span class="ident">nix</span>::{
+    <span class="ident">errno::Errno</span>,
+    <span class="ident">sched</span>::{<span class="ident">setns</span>, <span class="ident">CloneFlags</span>},
+};
 <span class="kw">use</span> <span class="ident">rtnetlink</span>::{
     <span class="ident">new_connection_with_socket</span>, <span class="ident">sys::SmolSocket</span>, <span class="ident">AddressHandle</span>, <span class="ident">Handle</span>, <span class="ident">NetemQdisc</span>,
     <span class="ident">NetworkNamespace</span>, <span class="ident">RouteHandle</span>, <span class="ident">TcNetemCorrelations</span>, <span class="ident">TcNetemCorrupt</span>, <span class="ident">TcNetemDelay</span>, <span class="ident">TcNetemQopt</span>,
     <span class="ident">NETNS_PATH</span>,
 };
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::net::AddrParseError</span>;
-<span class="kw">use</span> <span class="ident">std::os::unix::io::IntoRawFd</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::File</span>, <span class="ident">net::Ipv4Addr</span>, <span class="ident">os::unix::prelude::AsRawFd</span>, <span class="ident">path::Path</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">fs::File</span>,
+    <span class="ident">net</span>::{<span class="ident">AddrParseError</span>, <span class="ident">Ipv4Addr</span>},
+    <span class="ident">os::unix</span>::{<span class="ident">io::IntoRawFd</span>, <span class="ident">prelude::AsRawFd</span>},
+    <span class="ident">path::Path</span>,
+};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>};
 
 <span class="doccomment">/// hardcoded default values</span>

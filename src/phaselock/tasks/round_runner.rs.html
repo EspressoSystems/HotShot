@@ -365,7 +365,7 @@
     }
 
     <span class="doccomment">/// Consume this round runner and run until it receives a `ToRoundRunner::Shutdown`.</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>), <span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">nonce</span>))]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">loop</span> {
             <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">receiver</span>.<span class="ident">recv_async</span>().<span class="kw">await</span> {

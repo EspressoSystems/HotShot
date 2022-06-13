@@ -31,6 +31,9 @@
 <span id="26">26</span>
 <span id="27">27</span>
 <span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Sortition trait</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">election</span>;
 <span class="kw">mod</span> <span class="ident">networking</span>;
@@ -39,18 +42,21 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">networking</span>::{<span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">node_implementation::NodeImplementation</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits::stateful_handler::StatefulHandler</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits::State</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">Transaction</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits</span>::{
+    <span class="ident">stateful_handler::StatefulHandler</span>, <span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">Transaction</span>,
+};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">storage</span>::{<span class="ident">Storage</span>, <span class="ident">StorageResult</span>};
 
 <span class="doccomment">/// Module for publicly usable implementations of the traits</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">implementations</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::libp2p_network</span>::{<span class="ident">Libp2pNetwork</span>, <span class="ident">PeerInfoVec</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::networking::w_network::WNetwork</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::storage::atomic_storage::AtomicStorage</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::storage::memory_storage::MemoryStorage</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
+        <span class="ident">networking</span>::{
+            <span class="ident">libp2p_network</span>::{<span class="ident">Libp2pNetwork</span>, <span class="ident">PeerInfoVec</span>},
+            <span class="ident">memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>},
+            <span class="ident">w_network::WNetwork</span>,
+        },
+        <span class="ident">storage</span>::{<span class="ident">atomic_storage::AtomicStorage</span>, <span class="ident">memory_storage::MemoryStorage</span>},
+    };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">phaselock_types::traits::stateful_handler::Stateless</span>;
 }
 
