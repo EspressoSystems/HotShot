@@ -2,7 +2,6 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
-    error::PhaseLockError,
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, BlockContents},
 };
@@ -79,15 +78,10 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         prepare: Prepare<I::Block, I::State, N>,
         votes: Vec<PrepareVote<N>>,
     ) -> Result<Outcome<N>> {
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|v| (v.id, &v.signature)))
-            .map_err(|source| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::PreCommit,
-                source,
-            })?;
+        // TODO: Make sure signatures are valid before including them. This isn't critical, as the
+        // recipient is obligated to check them all anyway, since we can't trust the leader to have
+        // correct behavior here
+        let signatures = votes.iter().map(|x| x.0.signature.clone()).collect();
 
         // TODO: Should we `safe_node` the incoming `Prepare`?
         let block_hash = prepare.leaf.item.hash();
@@ -99,7 +93,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             leaf_hash,
             view_number: current_view,
             stage: Stage::PreCommit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
         };
         debug!(?qc, "commit qc generated");
@@ -111,14 +105,12 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
 
         let vote = if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
-            let signature =
-                ctx.api
-                    .private_key()
-                    .partial_sign(&leaf_hash, Stage::PreCommit, current_view);
+            let signature = ctx
+                .api
+                .sign_vote(&leaf_hash, Stage::PreCommit, current_view);
             Some(PreCommitVote(Vote {
-                leaf_hash,
                 signature,
-                id: ctx.api.public_key().nonce,
+                leaf_hash,
                 current_view,
             }))
         } else {

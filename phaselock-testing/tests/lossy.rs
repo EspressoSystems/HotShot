@@ -3,8 +3,10 @@ mod common;
 
 use std::sync::Arc;
 
-use common::{AppliedTestRunner, TestRoundResult};
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder};
+use common::{
+    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
+    TestRoundResult,
+};
 use either::Either::Right;
 use phaselock_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},

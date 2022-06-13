@@ -66,7 +66,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
     }
 
     /// Consume this round runner and run until it receives a `ToRoundRunner::Shutdown`.
-    #[instrument(skip(self), fields(id = self.phaselock.inner.public_key.nonce))]
+    #[instrument(skip(self))]
     pub async fn run(mut self) {
         loop {
             let message = match self.receiver.recv_async().await {

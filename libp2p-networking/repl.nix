@@ -1,4 +1,3 @@
-# usage: nix repl repl.nix
 let
   flake = builtins.getFlake (toString ./.);
 in

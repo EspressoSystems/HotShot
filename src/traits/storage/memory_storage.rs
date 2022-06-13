@@ -318,6 +318,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeMap;
+
     use super::*;
     use crate::data::Stage;
     #[allow(clippy::wildcard_imports)]
@@ -336,7 +338,7 @@ mod test {
             leaf_hash: hash_leaf,
             view_number: view,
             stage: if valid { Stage::Decide } else { Stage::None },
-            signature: None,
+            signatures: BTreeMap::new(),
             genesis: true,
         }
     }

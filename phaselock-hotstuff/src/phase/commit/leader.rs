@@ -2,7 +2,6 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
-    error::PhaseLockError,
     message::{Commit, CommitVote, PreCommit, PreCommitVote, Vote},
     traits::node_implementation::NodeImplementation,
 };
@@ -79,19 +78,11 @@ impl<const N: usize> CommitLeader<N> {
         votes: Vec<PreCommitVote<N>>,
     ) -> Result<Outcome<N>> {
         // Generate QC
-        let signature = ctx
-            .api
-            .public_key()
-            .set
-            .combine_signatures(votes.iter().map(|vote| (vote.id, &vote.signature)))
-            .map_err(|e| PhaseLockError::FailedToAssembleQC {
-                stage: Stage::Decide,
-                source: e,
-            })?;
+        let signatures = votes.iter().map(|x| x.signature.clone()).collect();
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signature: Some(signature),
+            signatures,
             genesis: false,
             ..pre_commit.qc
         };
@@ -103,15 +94,12 @@ impl<const N: usize> CommitLeader<N> {
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature = ctx.api.private_key().partial_sign(
-                &commit.leaf_hash,
-                Stage::Commit,
-                ctx.view_number,
-            );
+            let signature = ctx
+                .api
+                .sign_vote(&commit.leaf_hash, Stage::Commit, ctx.view_number);
             Some(CommitVote(Vote {
                 leaf_hash: commit.leaf_hash,
                 signature,
-                id: ctx.api.public_key().nonce,
                 current_view: ctx.view_number,
             }))
         } else {

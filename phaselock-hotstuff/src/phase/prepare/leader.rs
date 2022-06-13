@@ -162,14 +162,10 @@ impl<const N: usize> PrepareLeader<N> {
 
         // if the leader can vote like a replica, cast this vote now
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature =
-                ctx.api
-                    .private_key()
-                    .partial_sign(&leaf_hash, Stage::Prepare, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, current_view);
             Some(PrepareVote(Vote {
                 signature,
                 leaf_hash,
-                id: ctx.api.public_key().nonce,
                 current_view,
             }))
         } else {

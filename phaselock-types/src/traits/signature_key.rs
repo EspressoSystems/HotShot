@@ -1,76 +1,44 @@
 //! Minimal abstraction over public key signatures
-use threshold_crypto::SignatureShare;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{fmt::Debug, hash::Hash};
 
-use crate::{PrivKey, PubKey};
+#[cfg(feature = "demo")]
+pub mod ed25519;
+
+/// Type saftey wrapper for byte encoded keys
+#[derive(
+    Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+)]
+pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
+
+/// Type saftey wrapper for byte encoded signature
+#[derive(
+    Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+)]
+pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
 
 /// Trait for abstracting public key signatures
-pub trait SignatureKey {
+pub trait SignatureKey:
+    Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned + PartialEq + Eq + Unpin
+{
     /// The private key type for this signature algorithm
-    type PrivateKey;
+    type PrivateKey: Send + Sync + Sized;
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature
-    fn validate(&self, signature: &[u8], data: &[u8]) -> bool;
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool;
     /// Produce a signature
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> Vec<u8>;
+    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature;
+    /// Produce a public key from a private key
+    fn from_private(private_key: &Self::PrivateKey) -> Self;
+    /// Serialize a public key to bytes
+    fn to_bytes(&self) -> EncodedPublicKey;
+    /// Deserialize a public key from bytes
+    fn from_bytes(bytes: &EncodedPublicKey) -> Option<Self>;
 }
 
-/// Implementation for [`PubKey`] type that works on partial signatures
-impl SignatureKey for PubKey {
-    type PrivateKey = PrivKey;
-
-    fn validate(&self, signature: &[u8], data: &[u8]) -> bool {
-        // make sure the signature is the right length, 96 bytes for this algorithm
-        #[cfg(not(feature = "test_crypto"))]
-        if signature.len() != 96 {
-            return false;
-        }
-        #[cfg(feature = "test_crypto")]
-        if signature.len() != 4 {
-            return false;
-        }
-
-        #[cfg(not(feature = "test_crypto"))]
-        let mut share_slice = [0; 96];
-        #[cfg(feature = "test_crypto")]
-        let mut share_slice = [0; 4];
-        share_slice.copy_from_slice(signature);
-        if let Ok(signature_share) = SignatureShare::from_bytes(&share_slice) {
-            self.node.verify(&signature_share, data)
-        } else {
-            false
-        }
-    }
-
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> Vec<u8> {
-        private_key.node.sign(data).to_bytes().to_vec()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use rand::Rng;
-
-    use crate::{PrivKey, PubKey};
-
-    use super::SignatureKey;
-
-    #[test]
-    fn tc_impl_smoke() {
-        // get a secrete key share
-        let sks = threshold_crypto::SecretKeySet::random(1, &mut rand::thread_rng());
-        let private = sks.secret_key_share(12345_u64);
-        let public = PubKey::from_secret_key_set_escape_hatch(&sks, 12345);
-        let private = PrivKey { node: private };
-
-        let mut data = [0_u8; 128];
-        rand::thread_rng().fill(&mut data);
-
-        // Make sure the signature validates when it should
-        let mut signature = <PubKey as SignatureKey>::sign(&private, &data);
-        assert!(public.validate(&signature, &data));
-        // Corrupt the signature and make sure it no longer validates
-        signature[0] = signature[0].wrapping_add(1);
-        assert!(!public.validate(&signature, &data));
-    }
+/// Trait for generation of keys during testing
+pub trait TestableSignatureKey: SignatureKey {
+    /// Generates a private key from the given integer seed
+    fn generate_test_key(id: u64) -> Self::PrivateKey;
 }

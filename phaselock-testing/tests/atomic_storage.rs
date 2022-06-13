@@ -19,7 +19,10 @@ use phaselock::{
     PhaseLockConfig, H_256,
 };
 use phaselock_testing::TestLauncher;
-use phaselock_types::{data::ViewNumber, traits::state::TestableState};
+use phaselock_types::{
+    data::ViewNumber,
+    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
+};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use rand::thread_rng;
 use tracing::debug_span;
@@ -299,7 +302,7 @@ async fn restart() {
             );
 
             // modify runner to recognize timing params
-            let set_timing_params = |a: &mut PhaseLockConfig| {
+            let set_timing_params = |a: &mut PhaseLockConfig<Ed25519Pub>| {
                 a.next_view_timeout = desc.timing_config.next_view_timeout;
                 a.timeout_ratio = desc.timing_config.timeout_ratio;
                 a.round_start_delay = desc.timing_config.round_start_delay;

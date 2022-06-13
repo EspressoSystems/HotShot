@@ -3,12 +3,14 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `PhaseLock`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
-use crate::traits::BlockContents;
+use crate::traits::{
+    signature_key::{EncodedPublicKey, EncodedSignature},
+    BlockContents,
+};
 use blake3::Hasher;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use threshold_crypto as tc;
+use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -173,8 +175,7 @@ impl<const N: usize> Default for InternalHash<N> {
 mod serde_bytes_array {
     use core::convert::TryInto;
 
-    use serde::de::Error;
-    use serde::{Deserializer, Serializer};
+    use serde::{de::Error, Deserializer, Serializer};
 
     /// This just specializes [`serde_bytes::serialize`] to `<T = [u8]>`.
     pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
@@ -239,11 +240,16 @@ pub struct QuorumCertificate<const N: usize> {
     ///
     /// This value is covered by the threshold signature.
     pub stage: Stage,
-    /// The threshold signature associated with this Quorum Certificate.
+
+    /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
-    /// This is nullable as part of a temporary mechanism to support bootstrapping from a genesis
-    /// block, as the genesis block can not be produced through the normal means.
-    pub signature: Option<tc::Signature>,
+    /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
+    /// the byte encoded signatures provided by those keys.
+    ///
+    /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
+    /// assumption that singatures are constant in length
+    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+
     /// Temporary bypass for boostrapping
     ///
     /// This value indicates that this is a dummy certificate for the genesis block, and thus does
@@ -253,24 +259,6 @@ pub struct QuorumCertificate<const N: usize> {
 }
 
 impl<const N: usize> QuorumCertificate<N> {
-    /// Verifies a quorum certificate
-    ///
-    /// This concatenates the encoding of the [`Leaf`] hash, the `view_number`, and the `stage`, in
-    /// that order, and makes sure that the associated signature validates against the resulting
-    /// byte string.
-    ///
-    /// If the `genesis` value is set, this disables the normal checking, and instead performs
-    /// bootstrap checking.
-    #[must_use]
-    pub fn verify(&self, key: &tc::PublicKeySet, view: ViewNumber, stage: Stage) -> bool {
-        if let Some(signature) = &self.signature {
-            let concatenated_hash = create_verify_hash(&self.leaf_hash, view, stage);
-            key.public_key().verify(signature, &concatenated_hash)
-        } else {
-            self.genesis
-        }
-    }
-
     /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
     /// array.
     ///
@@ -281,7 +269,7 @@ impl<const N: usize> QuorumCertificate<N> {
             block_hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
             stage: self.stage,
-            signature: self.signature.clone(),
+            signatures: self.signatures.clone(),
             genesis: self.genesis,
         }
     }
@@ -304,7 +292,7 @@ pub struct VecQuorumCertificate {
     /// The stage of consensus we were on when we made this certificate
     pub stage: Stage,
     /// The signature portion of this QC
-    pub signature: Option<tc::Signature>,
+    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
     /// Temporary bypass for boostrapping
     pub genesis: bool,
 }
@@ -384,95 +372,4 @@ fn fmt_leaf_hash<const N: usize>(
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
     write!(f, "{:12}", HexFmt(n))
-}
-
-#[test]
-fn test_validate_qc() {
-    // Validate that `qc.verify` and `ConsensusMessage::validate_qc` both validate correctly.
-    use crate::{
-        message::{Commit, ConsensusMessage, Decide, PreCommit, Vote},
-        traits::{block_contents::dummy::DummyBlock, state::dummy::DummyState},
-        PrivKey, PubKey,
-    };
-    use tc::SecretKeySet;
-
-    let block_hash = BlockHash::<32>::random();
-    let leaf_hash = LeafHash::<32>::random();
-
-    let sks = SecretKeySet::random(4, &mut rand::thread_rng());
-    let public_key = PubKey::from_secret_key_set_escape_hatch(&sks, 0);
-    let view = ViewNumber::new(5);
-
-    for stage in [
-        Stage::Prepare,
-        Stage::PreCommit,
-        Stage::Commit,
-        Stage::Decide,
-    ] {
-        let votes = (1..=5)
-            .map(|id| {
-                let privkey = PrivKey {
-                    node: sks.secret_key_share(id),
-                };
-                Vote {
-                    current_view: view,
-                    id,
-                    leaf_hash,
-                    signature: privkey.partial_sign(&leaf_hash, stage, view),
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let signature = public_key
-            .set
-            .combine_signatures(votes.iter().map(|v| (v.id, &v.signature)))
-            .unwrap();
-        let qc = QuorumCertificate {
-            block_hash,
-            leaf_hash,
-            view_number: view,
-            stage,
-            signature: Some(signature),
-            genesis: false,
-        };
-
-        assert!(qc.verify(&public_key.set, view, stage));
-
-        // Each stage creates a vote for the next stage
-        // So `Prepare` is being validated in `PreCommit`
-        match stage {
-            Stage::Prepare => {
-                assert!(
-                    ConsensusMessage::<DummyBlock, DummyState, 32>::PreCommit(PreCommit {
-                        current_view: view,
-                        leaf_hash,
-                        qc
-                    })
-                    .validate_qc(&public_key.set)
-                );
-            }
-            Stage::PreCommit => {
-                assert!(
-                    ConsensusMessage::<DummyBlock, DummyState, 32>::Commit(Commit {
-                        current_view: view,
-                        leaf_hash,
-                        qc
-                    })
-                    .validate_qc(&public_key.set)
-                );
-            }
-            Stage::Commit => {
-                assert!(
-                    ConsensusMessage::<DummyBlock, DummyState, 32>::Decide(Decide {
-                        current_view: view,
-                        leaf_hash,
-                        qc
-                    })
-                    .validate_qc(&public_key.set)
-                );
-            }
-            Stage::Decide => {}
-            Stage::None => unreachable!(),
-        }
-    }
 }

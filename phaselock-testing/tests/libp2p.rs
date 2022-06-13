@@ -13,6 +13,7 @@ use phaselock::{
     types::Message,
     H_256,
 };
+use phaselock_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
 
 /// libp2p network test
@@ -37,8 +38,10 @@ async fn libp2p_network() {
                 DEntryBlock,
                 <DEntryBlock as BlockContents<H_256>>::Transaction,
                 DemoState,
+                Ed25519Pub,
                 H_256,
             >,
+            Ed25519Pub,
         >, MemoryStorage<DEntryBlock, DemoState, H_256>, DEntryBlock, DemoState>()
         .execute()
         .await
@@ -68,8 +71,10 @@ async fn test_stress_libp2p_network() {
                 DEntryBlock,
                 <DEntryBlock as BlockContents<H_256>>::Transaction,
                 DemoState,
+                Ed25519Pub,
                 H_256,
             >,
+            Ed25519Pub,
         >, MemoryStorage<DEntryBlock, DemoState, H_256>, DEntryBlock, DemoState>()
         .execute()
         .await
