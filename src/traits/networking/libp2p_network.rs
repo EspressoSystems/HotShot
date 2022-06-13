@@ -2,30 +2,32 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
-use async_std::prelude::FutureExt;
-use async_std::sync::RwLock;
-use async_std::task::{block_on, sleep, spawn};
+use async_std::{
+    prelude::FutureExt,
+    sync::RwLock,
+    task::{block_on, sleep, spawn},
+};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::{DashMap, DashSet};
 use flume::Sender;
 use futures::future::join_all;
 use libp2p::{Multiaddr, PeerId};
-use libp2p_networking::network::NetworkEvent::{DirectRequest, DirectResponse, GossipMsg};
 use libp2p_networking::network::{
+    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
-use phaselock_types::traits::network::{FailedToSerializeSnafu, TestableNetworkingImplementation};
-use phaselock_types::{
-    traits::network::{NetworkChange, NetworkError, NetworkingImplementation},
-    PubKey,
+use phaselock_types::traits::{
+    network::{
+        FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
+        TestableNetworkingImplementation,
+    },
+    signature_key::{SignatureKey, TestableSignatureKey},
 };
 use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
-use serde::Deserialize;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::collections::HashSet;
-use std::num::NonZeroUsize;
+use std::{collections::HashSet, num::NonZeroUsize};
 
 use std::{sync::Arc, time::Duration};
 
@@ -39,9 +41,10 @@ pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 /// The underlying state of the libp2p network
 struct Libp2pNetworkInner<
     M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    P: SignatureKey + 'static,
 > {
     /// this node's public key
-    pk: PubKey,
+    pk: P,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<()>>,
     // FIXME ideally this is a bidirectional map
@@ -49,9 +52,9 @@ struct Libp2pNetworkInner<
     // does not exist for rust.
     // Perhaps worth implementing on top or forking of bimap-rs
     /// map of known replica public keys to peer id
-    pubkey_to_pid: DashMap<PubKey, PeerId>,
+    pubkey_to_pid: DashMap<P, PeerId>,
     /// map of known replica peer ids to public keys
-    pid_to_pubkey: DashMap<PeerId, PubKey>,
+    pid_to_pubkey: DashMap<PeerId, P>,
     /// Receiver for broadcast messages
     broadcast_recv: flume::Receiver<M>,
     /// Sender for broadcast messages
@@ -77,13 +80,16 @@ struct Libp2pNetworkInner<
 #[derive(Clone)]
 pub struct Libp2pNetwork<
     M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    P: SignatureKey + 'static,
 > {
     /// holds the state of the libp2p network
-    inner: Arc<Libp2pNetworkInner<M>>,
+    inner: Arc<Libp2pNetworkInner<M, P>>,
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestableNetworkingImplementation<T> for Libp2pNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: TestableSignatureKey + 'static,
+    > TestableNetworkingImplementation<T, P> for Libp2pNetwork<T, P>
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -98,12 +104,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        sks: threshold_crypto::SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         Box::new({
             move |node_id| {
-                let pubkey = PubKey::from_secret_key_set_escape_hatch(&sks, node_id);
+                let privkey = P::generate_test_key(node_id);
+                let pubkey = P::from_private(&privkey);
                 let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
@@ -126,7 +132,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 block_on(async move {
-                    Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref)
+                    Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref, node_id as usize)
                         .await
                         .unwrap()
                 })
@@ -139,8 +145,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 }
 
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    Libp2pNetwork<M>
+impl<
+        M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > Libp2pNetwork<M, P>
 {
     /// returns when network is ready
     async fn wait_for_ready(&self) {
@@ -160,15 +168,16 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// is unable to create a network.
     pub async fn new(
         config: NetworkNodeConfig,
-        pk: PubKey,
+        pk: P,
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
-    ) -> Result<Libp2pNetwork<M>, NetworkError> {
+        id: usize,
+    ) -> Result<Libp2pNetwork<M, P>, NetworkError> {
         // TODO do we want to use pk.nonce? or idx? or are they the same?
 
         // if we care about internal state, we could consider passing something in.
         // We don't, though. AFAICT
         let network_handle = Arc::new(
-            NetworkNodeHandle::<()>::new(config, pk.nonce as usize)
+            NetworkNodeHandle::<()>::new(config, id)
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
@@ -236,7 +245,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     // this is a safe lower bet on the number of nodes in the network.
                     2,
                     handle.recv_network(),
-                    pk.nonce as usize,
+                    // FIXME: Temporary hack to get this to compile
+                    0,
                 )
                 .timeout(timeout_duration)
                 .await;
@@ -255,7 +265,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     .put_record(&handle.peer_id(), &pk)
                     .await
                     .map_err(Into::<NetworkError>::into)?;
-                info!("connected status for {} is {:?}", pk.nonce, connected);
+                info!("connected status is {:?}", connected);
 
                 is_ready
                     .modify_async(|s| {
@@ -351,7 +361,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                     futs.push(fut);
                 }
 
-                let results: Vec<Result<PubKey, _>> = join_all(futs).await;
+                let results: Vec<Result<P, _>> = join_all(futs).await;
 
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
                     match maybe_pk {
@@ -377,33 +387,26 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 }
 
 #[async_trait]
-impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    NetworkingImplementation<M> for Libp2pNetwork<M>
+impl<
+        M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > NetworkingImplementation<M, P> for Libp2pNetwork<M, P>
 {
-    #[instrument(
-        name="Libp2pNetwork::ready",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::ready", skip_all)]
     async fn ready(&self) -> bool {
         self.wait_for_ready().await;
         true
     }
 
-    #[instrument(
-        name="Libp2pNetwork::broadcast_message",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
         self.wait_for_ready().await;
         info!(
-            "broadcasting msg: {:?} on node {:?} with nodes: {:?} connected",
+            "broadcasting msg: {:?} with nodes: {:?} connected",
             message,
-            self.inner.pk.nonce,
             self.inner.handle.connected_peers().await
         );
         // send to self?
@@ -420,12 +423,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(())
     }
 
-    #[instrument(
-        name="Libp2pNetwork::message_node",
-        fields(node_id = ?self.inner.pk.nonce, recipient_id = ?recipient.nonce),
-        skip_all
-    )]
-    async fn message_node(&self, message: M, recipient: PubKey) -> Result<(), NetworkError> {
+    #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
+    async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
@@ -457,11 +456,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(())
     }
 
-    #[instrument(
-        name="Libp2pNetwork::broadcast_queue",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::broadcast_queue", skip_all)]
     async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
             Err(NetworkError::ShutDown)
@@ -474,11 +469,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="Libp2pNetwork::next_broadcast",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::next_broadcast", skip_all)]
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
             Err(NetworkError::ShutDown)
@@ -491,11 +482,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="Libp2pNetwork::direct_queue",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::direct_queue", skip_all)]
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
         if self.inner.handle.is_killed().await {
             Err(NetworkError::ShutDown)
@@ -508,11 +495,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="Libp2pNetwork::next_direct",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::next_direct", skip_all)]
     async fn next_direct(&self) -> Result<M, NetworkError> {
         if self.inner.handle.is_killed().await {
             Err(NetworkError::ShutDown)
@@ -525,12 +508,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="Libp2pNetwork::known_nodes",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
-    async fn known_nodes(&self) -> Vec<PubKey> {
+    #[instrument(name = "Libp2pNetwork::known_nodes", skip_all)]
+    async fn known_nodes(&self) -> Vec<P> {
         self.inner
             .pubkey_to_pid
             .iter()
@@ -538,12 +517,8 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .collect()
     }
 
-    #[instrument(
-        name="Libp2pNetwork::network_changes",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
-    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+    #[instrument(name = "Libp2pNetwork::network_changes", skip_all)]
+    async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
@@ -562,7 +537,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         let added_peers = cur_connected.difference(&old_connected);
 
         for pid in added_peers.clone() {
-            let pk: Result<PubKey, _> = self
+            let pk: Result<P, _> = self
                 .inner
                 .handle
                 .get_record_timeout(&pid, self.inner.dht_timeout)
@@ -585,11 +560,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         Ok(result)
     }
 
-    #[instrument(
-        name="Libp2pNetwork::shut_down",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
     async fn shut_down(&self) {
         if self.inner.handle.is_killed().await {
             error!("Called shut down when already shut down! Noop.");
@@ -598,11 +569,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         }
     }
 
-    #[instrument(
-        name="Libp2pNetwork::put_record",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::put_record", skip_all)]
     async fn put_record(
         &self,
         key: impl Serialize + Send + Sync + 'static,
@@ -616,11 +583,7 @@ impl<M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             .map_err(Into::<NetworkError>::into)
     }
 
-    #[instrument(
-        name="Libp2pNetwork::get_record",
-        fields(node_id = ?self.inner.pk.nonce),
-        skip_all
-    )]
+    #[instrument(name = "Libp2pNetwork::get_record", skip_all)]
     async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: impl Serialize + Send + Sync + 'static,

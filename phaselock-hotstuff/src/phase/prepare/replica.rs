@@ -146,13 +146,11 @@ impl PrepareReplica {
             new_state,
         } = validation_result;
 
-        let signature =
-            ctx.api
-                .private_key()
-                .partial_sign(&leaf_hash, Stage::Prepare, ctx.view_number);
+        let signature = ctx
+            .api
+            .sign_vote(&leaf_hash, Stage::Prepare, ctx.view_number);
         let vote = PrepareVote(Vote {
             signature,
-            id: ctx.api.public_key().nonce,
             leaf_hash,
             current_view: ctx.view_number,
         });

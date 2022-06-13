@@ -9,9 +9,7 @@ version = "0.0.7"
 [features]
 default = ["demo", "docs"]
 # Enable demo/testing logic
-demo = ["blake3"]
-# Enable insecure testing only mock cryptography
-test_crypto = ["threshold_crypto/use-insecure-test-only-mock-crypto", "phaselock-types/test_crypto"]
+demo = ["blake3", "phaselock-types/demo"]
 # Build the extended documentation
 docs = []
 
@@ -20,8 +18,6 @@ name = "dentry-simulator"
 required-features = ["demo"]
 
 [dependencies]
-ark-ec = { version = "0.3.0", default-features = false }
-ark-ed-on-bls12-381 = { version = "0.3.0", default-features = false }
 async-std = { version = "1.11.0", features = ["unstable"] }
 async-trait = "0.1.56"
 async-tungstenite = { version = "0.17.2", features = ["async-std-runtime"] }
@@ -35,7 +31,7 @@ flume = "0.10.12"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
 phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.7" }
-phaselock-types = { path = "./phaselock-types", version = "0.0.7"}
+phaselock-types = { path = "./phaselock-types", version = "0.0.7", default-features = false }
 phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.0.7"}
 libp2p = { version = "0.45.0", features = ["serde"] }
@@ -44,7 +40,6 @@ rand_chacha = "0.2.2"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
 serde_bytes = "0.11"
 snafu = { version = "0.7.0", features = ["backtraces"] }
-threshold_crypto = "0.4.0"
 tracing = "0.1.32"
 tracing-error = "0.2.0"
 tracing-futures = "0.2.5"
@@ -68,10 +63,6 @@ tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
-
-# Optimize tc a lot
-[profile.dev.package.threshold_crypto]
-opt-level = 3
 
 ## Enable LTO for release profile
 [profile.release]

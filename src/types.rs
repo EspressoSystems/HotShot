@@ -1,8 +1,7 @@
 mod event;
 mod handle;
 
-pub use event::Event;
-pub use event::EventType;
+pub use event::{Event, EventType};
 
 pub use handle::PhaseLockHandle;
 

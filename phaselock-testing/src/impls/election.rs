@@ -1,18 +1,21 @@
-use phaselock::{
-    data::{Stage, StateHash},
-    PubKey,
+use phaselock::data::{Stage, StateHash};
+use phaselock_types::{
+    data::ViewNumber,
+    traits::{
+        election::Election,
+        signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+    },
 };
-use phaselock_types::{data::ViewNumber, traits::election::Election};
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
 #[derive(Debug)]
 pub struct TestElection {
     /// These leaders will be picked. If this list runs out the test will panic.
-    pub leaders: Vec<PubKey>,
+    pub leaders: Vec<Ed25519Pub>,
 }
 
-impl<const N: usize> Election<N> for TestElection {
+impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
     type StakeTable = ();
     type SelectionThreshold = ();
     type State = ();
@@ -21,7 +24,7 @@ impl<const N: usize> Election<N> for TestElection {
 
     fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber, _: Stage) -> PubKey {
+    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber, _: Stage) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
             Some(leader) => {
                 info!("Round {:?} has leader {:?}", view_number, leader);
@@ -39,7 +42,7 @@ impl<const N: usize> Election<N> for TestElection {
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
-        pub_key: PubKey,
+        pub_key: Ed25519Pub,
         token: Self::VoteToken,
         next_state: StateHash<N>,
     ) -> Option<Self::ValidatedVoteToken> {
@@ -51,13 +54,13 @@ impl<const N: usize> Election<N> for TestElection {
         todo!()
     }
 
-    #[instrument]
+    #[instrument(skip(_private_key))]
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
-        private_key: &phaselock::PrivKey,
+        _private_key: &Ed25519Priv,
         next_state: phaselock::data::StateHash<N>,
     ) -> Option<Self::VoteToken> {
         todo!()

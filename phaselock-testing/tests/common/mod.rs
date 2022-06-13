@@ -2,18 +2,20 @@
 
 use async_std::task::block_on;
 use either::Either;
-use phaselock::traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage};
-use phaselock::traits::{BlockContents, NetworkingImplementation, State, Storage};
-use phaselock::types::Message;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
-    traits::NetworkReliability,
+    traits::{
+        implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
+        BlockContents, NetworkReliability, NetworkingImplementation, State, Storage,
+    },
+    types::Message,
     PhaseLockConfig,
 };
 use phaselock_testing::{ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner};
-use phaselock_types::traits::network::TestableNetworkingImplementation;
-use phaselock_types::traits::state::TestableState;
-use phaselock_types::traits::storage::TestableStorage;
+use phaselock_types::traits::{
+    network::TestableNetworkingImplementation, signature_key::ed25519::Ed25519Pub,
+    state::TestableState, storage::TestableStorage,
+};
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 
 use std::collections::HashSet;
@@ -65,7 +67,11 @@ pub struct GeneralTestDescriptionBuilder {
 }
 
 pub struct DetailedTestDescriptionBuilder<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -80,8 +86,10 @@ pub struct DetailedTestDescriptionBuilder<
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + Default + 'static,
@@ -92,7 +100,7 @@ impl<
     pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
         let launcher = TestLauncher::new(self.total_nodes);
         // modify runner to recognize timing params
-        let set_timing_params = |a: &mut PhaseLockConfig| {
+        let set_timing_params = |a: &mut PhaseLockConfig<Ed25519Pub>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
             a.timeout_ratio = self.timing_config.timeout_ratio;
             a.round_start_delay = self.timing_config.round_start_delay;
@@ -139,8 +147,10 @@ impl<
 
 impl GeneralTestDescriptionBuilder {
     pub fn build<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
@@ -158,8 +168,10 @@ impl GeneralTestDescriptionBuilder {
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
@@ -196,7 +208,11 @@ impl<
 
 /// Description of a test. Contains all metadata necessary to execute test
 pub struct TestDescription<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -241,7 +257,8 @@ pub type TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec<
 >;
 
 /// type alias for the typical network we use
-pub type TestNetwork = MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
+pub type TestNetwork =
+    MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, Ed25519Pub, N>, Ed25519Pub>;
 /// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryBlock, DemoState, N>;
 /// type alias for the test transaction type
@@ -271,7 +288,8 @@ impl Default for GeneralTestDescriptionBuilder {
     }
 }
 
-pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, N>>;
+pub type TestLibp2pNetwork =
+    Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, Ed25519Pub, N>, Ed25519Pub>;
 
 /// given a description of rounds, generates such rounds
 /// args
@@ -279,7 +297,11 @@ pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryBlock, Transaction, Dem
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
 pub fn default_submitter_id_to_round<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -328,7 +350,11 @@ pub fn default_submitter_id_to_round<
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
-    NETWORK: NetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>> + Clone + 'static,
+    NETWORK: NetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
@@ -360,8 +386,10 @@ pub fn default_randomized_ids_to_round<
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<Message<BLOCK, BLOCK::Transaction, STATE, N>>
-            + Clone
+        NETWORK: TestableNetworkingImplementation<
+                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+                Ed25519Pub,
+            > + Clone
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
@@ -562,7 +590,7 @@ macro_rules! cross_tests {
     // base reduction
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
-        type TestType = $crate::TestDescription< $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, { phaselock::H_256 } >>,
+        type TestType = $crate::TestDescription< $NETWORK<phaselock::types::Message<$BLOCK, <$BLOCK as phaselock::traits::BlockContents< { phaselock::H_256 } > > ::Transaction, $STATE, phaselock_types::traits::signature_key::ed25519::Ed25519Pub ,{ phaselock::H_256 } >, phaselock_types::traits::signature_key::ed25519::Ed25519Pub>,
             $STORAGE<$BLOCK, $STATE, { phaselock::H_256 } >,
             $BLOCK,
             $STATE

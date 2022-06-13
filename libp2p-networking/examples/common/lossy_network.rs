@@ -2,18 +2,22 @@ use super::ExecutionEnvironment;
 use async_std::process::Command;
 use futures::TryStreamExt;
 use netlink_packet_route::DecodeError;
-use nix::errno::Errno;
-use nix::sched::setns;
-use nix::sched::CloneFlags;
+use nix::{
+    errno::Errno,
+    sched::{setns, CloneFlags},
+};
 use rtnetlink::{
     new_connection_with_socket, sys::SmolSocket, AddressHandle, Handle, NetemQdisc,
     NetworkNamespace, RouteHandle, TcNetemCorrelations, TcNetemCorrupt, TcNetemDelay, TcNetemQopt,
     NETNS_PATH,
 };
 use snafu::{ResultExt, Snafu};
-use std::net::AddrParseError;
-use std::os::unix::io::IntoRawFd;
-use std::{fs::File, net::Ipv4Addr, os::unix::prelude::AsRawFd, path::Path};
+use std::{
+    fs::File,
+    net::{AddrParseError, Ipv4Addr},
+    os::unix::{io::IntoRawFd, prelude::AsRawFd},
+    path::Path,
+};
 use tracing::{error, info};
 
 /// hardcoded default values

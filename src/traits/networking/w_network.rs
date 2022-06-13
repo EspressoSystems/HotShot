@@ -5,18 +5,21 @@
 //!
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
-use crate::traits::networking::{
-    CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
-    SocketDecodeSnafu, WebSocketSnafu,
+use crate::{
+    traits::{
+        networking::{
+            CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
+            SocketDecodeSnafu, WebSocketSnafu,
+        },
+        NetworkError,
+    },
+    utils::ReceiverExt,
 };
-use crate::traits::NetworkError;
-use crate::utils::ReceiverExt;
-use async_std::prelude::FutureExt;
-use async_std::task::block_on;
 use async_std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
+    prelude::FutureExt,
     sync::{Mutex, RwLock},
-    task::{sleep, spawn},
+    task::{block_on, sleep, spawn},
 };
 use async_trait::async_trait;
 use async_tungstenite::{
@@ -27,13 +30,14 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use flume::{Receiver, Sender};
-use futures::future::BoxFuture;
-use futures::{channel::oneshot, prelude::*};
-use phaselock_types::traits::network::{NetworkChange, TestableNetworkingImplementation};
+use futures::{channel::oneshot, future::BoxFuture, prelude::*};
+use phaselock_types::traits::{
+    network::{NetworkChange, TestableNetworkingImplementation},
+    signature_key::{SignatureKey, TestableSignatureKey},
+};
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
-use threshold_crypto::SecretKeySet;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
 
@@ -47,17 +51,16 @@ use std::{
 };
 
 use super::NetworkingImplementation;
-use crate::PubKey;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 /// Inter-node protocol level message types
-pub enum Command<T> {
+pub enum Command<T, P> {
     /// A message that was broadcast to all nodes
     Broadcast {
         /// Message being sent
         inner: T,
         /// Who is sending it
-        from: PubKey,
+        from: P,
         /// Message ID
         id: u64,
     },
@@ -66,16 +69,16 @@ pub enum Command<T> {
         /// Message being sent
         inner: T,
         /// Who is sending it
-        from: PubKey,
+        from: P,
         /// Who its being sent to
-        to: PubKey,
+        to: P,
         /// Message ID
         id: u64,
     },
     /// A message identifying the sending node
     Identify {
         /// Who the message is from
-        from: PubKey,
+        from: P,
         /// Message ID
         id: u64,
     },
@@ -93,7 +96,7 @@ pub enum Command<T> {
     },
 }
 
-impl<T> Command<T> {
+impl<T, P> Command<T, P> {
     /// Returns the id of this `Command`
     pub fn id(&self) -> u64 {
         match self {
@@ -108,9 +111,9 @@ impl<T> Command<T> {
 
 /// The handle used for interacting with a [`WNetwork`] connection
 #[derive(Clone)]
-struct Handle<T> {
+struct Handle<T, P> {
     /// Messages to be sent by this node
-    outbound: flume::Sender<Command<T>>,
+    outbound: flume::Sender<Command<T, P>>,
     /// The address of the remote
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
@@ -120,13 +123,13 @@ struct Handle<T> {
 }
 
 /// The inner shared state of a [`WNetwork`] instance
-struct WNetworkInner<T> {
+struct WNetworkInner<T, P: SignatureKey + 'static> {
     /// Whether or not the network is connected
     is_ready: Arc<AtomicBool>,
-    /// The handles for each known `PubKey`
-    handles: DashMap<PubKey, Handle<T>>,
-    /// The `PubKey` of this node
-    pub_key: PubKey,
+    /// The handles for each known public [`SignatureKey`]
+    handles: DashMap<P, Handle<T, P>>,
+    /// The public [`SignatureKey`] of this node
+    pub_key: P,
     /// The global message counter
     counter: Arc<AtomicU64>,
     /// The `SocketAddr` that this [`WNetwork`] listens on
@@ -144,9 +147,9 @@ struct WNetworkInner<T> {
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
     /// Sender for changes in the network
-    network_change_input: Sender<NetworkChange>,
+    network_change_input: Sender<NetworkChange<P>>,
     /// Receiver for changes in the network
-    network_change_output: Receiver<NetworkChange>,
+    network_change_output: Receiver<NetworkChange<P>>,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
@@ -176,44 +179,46 @@ struct Outputs<T> {
 }
 
 /// Internal enum for combining message and command streams
-enum Combo<T> {
+enum Combo<T, P> {
     /// Inbound message
     Message(Message),
     /// Outbound command
-    Command(Command<T>),
+    Command(Command<T, P>),
     /// Error
     Error(WsError),
 }
 
 #[derive(Clone)]
 /// Handle to the underlying networking implementation
-pub struct WNetwork<T> {
+pub struct WNetwork<T, P: SignatureKey + 'static> {
     /// Pointer to the internal state of this [`WNetwork`]
-    inner: Arc<WNetworkInner<T>>,
+    inner: Arc<WNetworkInner<T, P>>,
 }
 
-impl<T> Debug for WNetwork<T> {
+impl<T, P: SignatureKey + 'static> Debug for WNetwork<T, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WNetwork").field("inner", &"inner").finish()
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    TestableNetworkingImplementation<T> for WNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: TestableSignatureKey + 'static,
+    > TestableNetworkingImplementation<T, P> for WNetwork<T, P>
 {
     fn generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
-        sks: threshold_crypto::SecretKeySet,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let map = Arc::new(DashMap::<u64, u16>::new());
 
         Box::new(move |node_id| {
             let mut rng = rand::thread_rng();
+            let priv_key = P::generate_test_key(node_id);
+            let pub_key = P::from_private(&priv_key);
             let (network, port, _) = {
-                let sks = sks.clone();
                 block_on(async move {
-                    get_networking::<T, ThreadRng>(&sks, "0.0.0.0", node_id, &mut rng).await
+                    get_networking::<T, P, ThreadRng>(pub_key, "0.0.0.0", node_id, &mut rng).await
                 })
             };
 
@@ -222,12 +227,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             map.insert(node_id, port);
 
             spawn({
-                let sks = sks.clone();
                 let n = network.clone();
                 let map = map.clone();
                 async move {
                     for i in node_id + 1..(expected_node_count as u64) {
-                        let key2 = PubKey::from_secret_key_set_escape_hatch(&sks, i);
+                        let priv_key_2 = P::generate_test_key(i);
+                        let key2: P = P::from_private(&priv_key_2);
                         let port: u16 = loop {
                             let port = map.get(&i).map(|x| *x);
                             if let Some(port_a) = port {
@@ -253,20 +258,18 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static>
-    WNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > WNetwork<T, P>
 {
     /// Processes an individual `Command`
-    #[instrument(
-        name="WNetworking::process_command",
-        skip(self,inputs),
-        fields(node_id = ?self.inner.pub_key.nonce, own_socket = ?self.inner.socket)
-    )]
+    #[instrument(name = "WNetworking::process_command", skip(self, inputs))]
     async fn process_command(
         &self,
-        command: Command<T>,
+        command: Command<T, P>,
         inputs: &Inputs<T>,
-    ) -> Result<Option<Command<T>>, NetworkError> {
+    ) -> Result<Option<Command<T, P>>, NetworkError> {
         trace!("Processing command");
         match command {
             Command::Broadcast { inner, .. } => {
@@ -311,17 +314,13 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 
     /// Spawns the task for handling a connection to a node
     #[allow(clippy::too_many_lines)]
-    #[instrument(
-        name="WNetwork::spawn_task",
-        skip(self, stream),
-        fields(node_id = ?self.inner.pub_key.nonce, own_socket = ?self.inner.socket)
-    )]
+    #[instrument(name = "WNetwork::spawn_task", skip(self, stream))]
     async fn spawn_task(
         &self,
-        key: Option<PubKey>,
+        key: Option<P>,
         mut stream: WebSocketStream<TcpStream>,
         remote_socket: SocketAddr,
-    ) -> Result<(PubKey, Handle<T>), NetworkError> {
+    ) -> Result<(P, Handle<T, P>), NetworkError> {
         info!("Spawning task to handle connection");
         let (s_outbound, r_outbound) = flume::bounded(128);
         trace!("Opened channels");
@@ -352,7 +351,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 warn!("Signaling other waiter for ack");
                 let _ = other_waiter.send(());
             }
-            let command = Command::<T>::Identify {
+            let command = Command::<T, P>::Identify {
                 from: w.inner.pub_key.clone(),
                 id: ident_id,
             };
@@ -398,7 +397,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                         match m {
                             Message::Binary(vec) => {
                                 trace!(?vec, "Attempting to decode binary message");
-                                let res: Result<Command<T>, _> = bincode_options.deserialize(&vec);
+                                let res: Result<Command<T, P>, _> = bincode_options.deserialize(&vec);
                                 match res {
                                     Ok(command) => {
                                         match w.process_command(command, &inputs).await {
@@ -417,7 +416,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                     }
                                                     trace!("Acking identify");
                                                     let command =
-                                                        Command::<T>::Ack{
+                                                        Command::<T, P>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
@@ -436,7 +435,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                                                 Command::Ping { id } => {
                                                     debug!("Received ping, acking");
                                                     let command =
-                                                        Command::<T>::Ack{
+                                                        Command::<T,P>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
@@ -516,7 +515,6 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                 }
             }
         }.instrument(tracing::info_span!("Background Stream Handler",
-                                      self.node_id = self.inner.pub_key.nonce,
                                       self.socket = ?self.inner.socket,
                                       other.node_id = ?key,
                                          other.socket = ?remote_socket)));
@@ -545,7 +543,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     #[instrument(name = "WNetwork::connect_to", skip(self), err)]
     pub async fn connect_to(
         &self,
-        key: PubKey,
+        key: P,
         addr: impl ToSocketAddrs + Debug,
     ) -> Result<(), NetworkError> {
         // First check to see if we have the node in the map
@@ -575,11 +573,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     ///
     /// Will error if an underlying network error occurs
     #[instrument(level = "trace", name = "WNetwork::send_raw_message", err, skip(self))]
-    async fn send_raw_message(
-        &self,
-        node: &PubKey,
-        message: Command<T>,
-    ) -> Result<(), NetworkError> {
+    async fn send_raw_message(&self, node: &P, message: Command<T, P>) -> Result<(), NetworkError> {
         let handle = &self.inner.handles.get(node);
         if let Some(handle) = handle {
             let res = handle.outbound.send_async(message).await;
@@ -599,7 +593,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// Will error if an underlying networking error occurs
     #[instrument(level = "trace", name = "WNetwork::new_from_strings", err)]
     pub async fn new(
-        own_key: PubKey,
+        own_key: P,
         listen_addr: &str,
         port: u16,
         keep_alive_duration: Option<Duration>,
@@ -664,7 +658,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
     /// # Panics
     ///
     /// Will panic if the
-    #[instrument(skip(self,sync),fields(id = ?self.inner.pub_key.nonce))]
+    #[instrument(skip(self, sync))]
     pub fn generate_task(
         &self,
         sync: oneshot::Sender<()>,
@@ -705,7 +699,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
                             match ws_stream {
                                 Ok(ws_stream) => {
                                     trace!(?addr, "stream accepted");
-                                    let res = w.spawn_task(None, ws_stream, addr).await;
+                                    let res: Result<(P, Handle<T, P>), _> =
+                                        w.spawn_task(None, ws_stream, addr).await;
                                     match res {
                                         Ok((pub_key, handle)) => {
                                             trace!(?addr, "Spawned task for stream");
@@ -790,12 +785,10 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
             Some(vec![
                 listener_future
                     .instrument(info_span!("WNetwork Server",
-                                        id = ?self.inner.pub_key.nonce,
                                         addr = ?self.inner.socket))
                     .boxed(),
                 patrol_future
                     .instrument(info_span!("WNetwork Patrol",
-                                           id = ?self.inner.pub_key.nonce,
                                            addr = ?self.inner.socket
                     ))
                     .boxed(),
@@ -807,8 +800,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
         self.inner.handles.len()
     }
     /// Pings a remote, removing the remote from the handles table if the ping fails
-    #[instrument(skip(self,handle), fields(id = ?self.inner.pub_key.nonce))]
-    async fn ping_remote(&self, remote: PubKey, handle: Handle<T>) {
+    #[instrument(skip(self, handle))]
+    async fn ping_remote(&self, remote: P, handle: Handle<T, P>) {
         let _ = &handle;
         trace!("Packing up ping command");
         let id = self.get_next_message_id();
@@ -848,13 +841,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + '
 }
 
 #[async_trait]
-impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static>
-    NetworkingImplementation<T> for WNetwork<T>
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + 'static,
+        P: SignatureKey + 'static,
+    > NetworkingImplementation<T, P> for WNetwork<T, P>
 {
-    #[instrument(
-        name="WNetwork::ready",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::ready")]
     async fn ready(&self) -> bool {
         while !self.inner.is_ready.load(Ordering::Relaxed) {
             sleep(Duration::from_millis(1)).await;
@@ -862,10 +854,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         true
     }
 
-    #[instrument(
-        name="WNetwork::broadcast_message",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::broadcast_message")]
     async fn broadcast_message(&self, message: T) -> Result<(), super::NetworkError> {
         debug!(?message, "Broadcasting message");
         // As a stop gap solution to be able to simulate network faults, this method will
@@ -906,11 +895,8 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         }
     }
 
-    #[instrument(
-        name="WNetwork::message_node",
-        fields(node_id = ?self.inner.pub_key.nonce, other = recipient.nonce)
-    )]
-    async fn message_node(&self, message: T, recipient: PubKey) -> Result<(), super::NetworkError> {
+    #[instrument(name = "WNetwork::message_node")]
+    async fn message_node(&self, message: T, recipient: P) -> Result<(), super::NetworkError> {
         debug!(?message, "Messaging node");
         // Attempt to locate node
         if let Some(h) = self.inner.handles.get(&recipient) {
@@ -945,10 +931,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
         }
     }
 
-    #[instrument(
-        name="WNetwork::broadcast_queue",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::broadcast_queue")]
     async fn broadcast_queue(&self) -> Result<Vec<T>, super::NetworkError> {
         self.inner
             .outputs
@@ -958,10 +941,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             .ok_or(NetworkError::ShutDown)
     }
 
-    #[instrument(
-        name="WNetwork::next_broadcast",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::next_broadcast")]
     async fn next_broadcast(&self) -> Result<T, super::NetworkError> {
         self.inner
             .outputs
@@ -971,10 +951,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             .map_err(|_| NetworkError::ShutDown)
     }
 
-    #[instrument(
-        name="WNetwork::direct_queue",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::direct_queue")]
     async fn direct_queue(&self) -> Result<Vec<T>, super::NetworkError> {
         self.inner
             .outputs
@@ -984,10 +961,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             .ok_or(NetworkError::ShutDown)
     }
 
-    #[instrument(
-        name="WNetwork::next_direct",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
+    #[instrument(name = "WNetwork::next_direct")]
     async fn next_direct(&self) -> Result<T, super::NetworkError> {
         self.inner
             .outputs
@@ -997,15 +971,12 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
             .map_err(|_| NetworkError::ShutDown)
     }
 
-    async fn known_nodes(&self) -> Vec<PubKey> {
+    async fn known_nodes(&self) -> Vec<P> {
         self.inner.handles.iter().map(|x| x.key().clone()).collect()
     }
 
-    #[instrument(
-        name="WNetwork::direct_queue",
-        fields(node_id = ?self.inner.pub_key.nonce)
-    )]
-    async fn network_changes(&self) -> Result<Vec<NetworkChange>, NetworkError> {
+    #[instrument(name = "WNetwork::direct_queue")]
+    async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         self.inner
             .network_change_output
             .recv_async_drain()
@@ -1041,17 +1012,17 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + std::fmt::Debug + Sync + '
 /// # Panics
 /// panics if unable to generate tasks
 #[allow(clippy::panic)]
-#[instrument(skip(rng, sks))]
+#[instrument(skip(rng))]
 async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+    P: SignatureKey + 'static,
     R: rand::Rng,
 >(
-    sks: &SecretKeySet,
+    pub_key: P,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<T>, u16, PubKey) {
-    let pub_key = PubKey::from_secret_key_set_escape_hatch(sks, node_id);
+) -> (WNetwork<T, P>, u16, P) {
     debug!(?pub_key);
     for _attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000, 50_000);
@@ -1079,6 +1050,7 @@ async fn get_networking<
 #[allow(clippy::panic)]
 mod tests {
     use super::*;
+    use phaselock_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
     use phaselock_utils::test_util::setup_logging;
     use rand::Rng;
 
@@ -1088,11 +1060,12 @@ mod tests {
     }
 
     #[instrument]
-    async fn get_wnetwork() -> (PubKey, WNetwork<Test>, u16) {
+    async fn get_wnetwork() -> (Ed25519Pub, WNetwork<Test, Ed25519Pub>, u16) {
         let mut rng = rand::thread_rng();
         let nonce: u64 = rng.gen();
         debug!(?nonce, "Generating PubKey with id");
-        let pub_key = PubKey::random(nonce);
+        let priv_key = Ed25519Priv::generate();
+        let pub_key = Ed25519Pub::from_private(&priv_key);
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");
@@ -1106,12 +1079,13 @@ mod tests {
     }
 
     #[instrument]
-    async fn get_wnetwork_timeout(timeout: u64) -> (PubKey, WNetwork<Test>, u16) {
+    async fn get_wnetwork_timeout(timeout: u64) -> (Ed25519Pub, WNetwork<Test, Ed25519Pub>, u16) {
         let timeout = Duration::from_millis(timeout);
         let mut rng = rand::thread_rng();
         let nonce: u64 = rng.gen();
         debug!(?nonce, "Generating PubKey with id");
-        let pub_key = PubKey::random(nonce);
+        let priv_key = Ed25519Priv::generate();
+        let pub_key = Ed25519Pub::from_private(&priv_key);
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000, 8000);
             debug!(?port, "Attempting port");

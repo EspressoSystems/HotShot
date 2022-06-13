@@ -162,22 +162,16 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     let shut_down = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
-        network_broadcast_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
-            "PhaseLock Broadcast Task",
-            id = phaselock.inner.public_key.nonce
-        )),
+        network_broadcast_task(phaselock.clone(), shut_down.clone())
+            .instrument(info_span!("PhaseLock Broadcast Task",)),
     );
     let network_direct_task_handle = spawn(
-        network_direct_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
-            "PhaseLock Direct Task",
-            id = phaselock.inner.public_key.nonce
-        )),
+        network_direct_task(phaselock.clone(), shut_down.clone())
+            .instrument(info_span!("PhaseLock Direct Task",)),
     );
     let network_change_task_handle = spawn(
-        network_change_task(phaselock.clone(), shut_down.clone()).instrument(info_span!(
-            "PhaseLock network change listener task",
-            id = phaselock.inner.public_key.nonce
-        )),
+        network_change_task(phaselock.clone(), shut_down.clone())
+            .instrument(info_span!("PhaseLock network change listener task",)),
     );
 
     let (broadcast_sender, broadcast_receiver) = channel();
