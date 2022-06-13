@@ -203,7 +203,7 @@ impl NetworkNode {
         {
             let random_peer = PeerId::random();
             self.swarm.behaviour_mut().query_closest_peers(random_peer);
-            self.swarm.behaviour_mut().discovering_peers_on();
+            self.swarm.behaviour_mut().set_discovering_peers(true);
         }
     }
 

@@ -22,7 +22,7 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -82,7 +82,7 @@ pub struct NetworkDef {
     in_progress_rr: HashMap<RequestId, (Vec<u8>, PeerId)>,
     /// track gossip messages that failed to send and we should send later on
     #[behaviour(ignore)]
-    in_progress_gossip: Vec<(Topic, Vec<u8>)>,
+    in_progress_gossip: VecDeque<(Topic, Vec<u8>)>,
     // track unknown addrs
     #[behaviour(ignore)]
     unknown_addrs: HashSet<Multiaddr>,
@@ -121,7 +121,7 @@ impl NetworkDef {
             bootstrap_state: BootstrapState::NotStarted,
             pruning_enabled,
             in_progress_rr: HashMap::new(),
-            in_progress_gossip: Vec::new(),
+            in_progress_gossip: VecDeque::new(),
             unknown_addrs: HashSet::new(),
             in_progress_get_record_queries: HashMap::new(),
             in_progress_put_record_queries: HashMap::new(),
@@ -192,14 +192,10 @@ impl NetworkDef {
         self.connection_data.clone()
     }
 
-    /// Mark that we're now discovering peers
-    pub fn discovering_peers_off(&mut self) {
-        self.peer_discovery_in_progress = false;
-    }
-
-    /// Mark that we're no longer discovering peers
-    pub fn discovering_peers_on(&mut self) {
-        self.peer_discovery_in_progress = true;
+    /// Toggle whether or not libp2p is discovering peers
+    /// NOTE: for internal usage only
+    pub fn set_discovering_peers(&mut self, is_discovering: bool) {
+        self.peer_discovery_in_progress = is_discovering;
     }
 }
 
@@ -333,7 +329,7 @@ impl NetworkDef {
         let res = self.gossipsub.publish(topic.clone(), contents.clone());
         if res.is_err() {
             error!("error publishing gossip message {:?}", res);
-            self.in_progress_gossip.push((topic, contents));
+            self.in_progress_gossip.push_back((topic, contents));
         }
     }
 
@@ -356,35 +352,35 @@ impl NetworkDef {
     /// Attempt to drain the internal gossip list, publishing each gossip
     pub fn drain_publish_gossips(&mut self) {
         if self.is_bootstrapped() {
-            let mut num_sent = 0;
-            for (topic, contents) in self.in_progress_gossip.as_slice() {
+            while let Some((topic, contents)) = self.in_progress_gossip.pop_front() {
                 let res = self.gossipsub.publish(topic.clone(), contents.clone());
                 if res.is_err() {
+                    self.in_progress_gossip.push_back((topic, contents));
                     break;
                 }
-                num_sent += 1;
             }
-            self.in_progress_gossip = self.in_progress_gossip[num_sent..].into();
+        } else {
+            warn!("Publishing to peers skipped because node is not yet bootstrapped.");
         }
     }
 
     /// attempt to put all unstarted put querys to DHT
     pub fn retry_put_dht(&mut self) {
-        if self.is_bootstrapped() {
-            // must collect and then iterate otherwise multiple
-            // mutable reeferences to self
-            let records: Vec<_> = self.in_progress_put_record_queries.drain().collect();
-            info!("Retrying DHT put on: {:?}", records);
-            for (k, v) in records {
-                if v.progress == DHTProgress::NotStarted {
-                    self.put_record(v);
-                } else {
-                    // skip over still in progress queries
-                    self.in_progress_put_record_queries.insert(k, v);
-                }
-            }
-        } else {
+        if !self.is_bootstrapped() {
             warn!("DHT put request skipped because not bootstrapped.");
+        }
+
+        // must collect and then iterate otherwise multiple
+        // mutable reeferences to self
+        let records: Vec<_> = self.in_progress_put_record_queries.drain().collect();
+        info!("Retrying DHT put on: {:?}", records);
+        for (k, v) in records {
+            if v.progress == DHTProgress::NotStarted {
+                self.put_record(v);
+            } else {
+                // skip over still in progress queries
+                self.in_progress_put_record_queries.insert(k, v);
+            }
         }
     }
 }
@@ -399,7 +395,6 @@ impl NetworkDef {
         let record = Record::new(query.key.clone(), query.value.clone());
         let uid = self.new_put_uid();
 
-        // match self.kadem.put_record(record, Quorum::N(std::num::NonZeroUsize::new(5).unwrap())) {
         match self.kadem.put_record(record, Quorum::Majority) {
             Err(e) => {
                 error!("Error publishing to DHT: {e:?}");
@@ -575,11 +570,10 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for NetworkDef {
                         });
                     }
                 }
-                self.peer_discovery_in_progress = false;
+                self.set_discovering_peers(false);
             }
             KademliaEvent::RoutingUpdated { peer, .. } => {
                 self.connection_data.modify(|s| {
-                    // TODO make this event driven
                     s.known_peers.insert(peer);
                 });
             }
