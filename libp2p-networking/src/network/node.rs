@@ -462,18 +462,62 @@ impl NetworkNode {
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
+        // NOTE this could be entirely event driven
+        // by having one future sleep then send a message to
+        // a separate future which would then execute these
+        // periodic handlers
+        // while verbose, the same effect may be achieved
+        // while avoiding the overhead of more futures + channels
+        let mut time_since_sending = Duration::ZERO;
+        let mut time_since_peer_discovery = Duration::ZERO;
+        let mut time_since_prune_num_connections = Duration::ZERO;
+        let mut time_since_retry_put_dht = Duration::ZERO;
+        let mut time_since_handle_num_connections = Duration::ZERO;
+
+        let sending_thresh = Duration::from_millis(50);
+        let peer_discovery_thresh = Duration::from_secs(1);
+        let prune_num_connections_thresh = Duration::from_secs(5);
+        let retry_put_dht_thresh = Duration::from_secs(1);
+        let handle_num_connections_thresh = Duration::from_secs(1);
+
+        let lowest_increment = Duration::from_millis(50);
 
         spawn(
             async move {
                 loop {
-                    // TODO variable on futures times
                     select! {
-                        _ = sleep(Duration::from_millis(50)).fuse() => {
-                            self.handle_sending();
-                            self.handle_peer_discovery();
-                            self.prune_num_connections();
-                            self.retry_put_dht();
-                            self.handle_num_connections();
+                        _ = sleep(lowest_increment).fuse() => {
+                            time_since_sending += lowest_increment;
+                            time_since_peer_discovery += lowest_increment;
+                            time_since_prune_num_connections += lowest_increment;
+                            time_since_retry_put_dht += lowest_increment;
+                            time_since_handle_num_connections += lowest_increment;
+
+                            if time_since_sending >= sending_thresh {
+                                self.handle_sending();
+                                time_since_sending = Duration::ZERO;
+                            }
+
+                            if time_since_peer_discovery >= peer_discovery_thresh {
+                                self.handle_peer_discovery();
+                                time_since_peer_discovery = Duration::ZERO;
+                            }
+
+
+                            if time_since_prune_num_connections >= prune_num_connections_thresh {
+                                self.prune_num_connections();
+                                time_since_prune_num_connections = Duration::ZERO;
+                            }
+
+                            if time_since_retry_put_dht >= retry_put_dht_thresh {
+                                self.retry_put_dht();
+                                time_since_retry_put_dht = Duration::ZERO;
+                            }
+
+                            if time_since_handle_num_connections >= handle_num_connections_thresh {
+                                self.handle_num_connections();
+                                time_since_handle_num_connections = Duration::ZERO;
+                            }
                         },
                         event = self.swarm.next() => {
                             if let Some(event) = event {
