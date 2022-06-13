@@ -351,16 +351,17 @@ impl NetworkDef {
 
     /// Attempt to drain the internal gossip list, publishing each gossip
     pub fn drain_publish_gossips(&mut self) {
-        if self.is_bootstrapped() {
-            while let Some((topic, contents)) = self.in_progress_gossip.pop_front() {
-                let res = self.gossipsub.publish(topic.clone(), contents.clone());
-                if res.is_err() {
-                    self.in_progress_gossip.push_back((topic, contents));
-                    break;
-                }
-            }
-        } else {
+        if !self.is_bootstrapped() {
             warn!("Publishing to peers skipped because node is not yet bootstrapped.");
+            return;
+        }
+
+        while let Some((topic, contents)) = self.in_progress_gossip.pop_front() {
+            let res = self.gossipsub.publish(topic.clone(), contents.clone());
+            if res.is_err() {
+                self.in_progress_gossip.push_back((topic, contents));
+                break;
+            }
         }
     }
 
@@ -368,6 +369,7 @@ impl NetworkDef {
     pub fn retry_put_dht(&mut self) {
         if !self.is_bootstrapped() {
             warn!("DHT put request skipped because not bootstrapped.");
+            return;
         }
 
         // must collect and then iterate otherwise multiple

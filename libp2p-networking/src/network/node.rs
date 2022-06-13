@@ -476,8 +476,8 @@ impl NetworkNode {
 
         let sending_thresh = Duration::from_millis(50);
         let peer_discovery_thresh = Duration::from_secs(1);
-        let prune_num_connections_thresh = Duration::from_secs(5);
-        let retry_put_dht_thresh = Duration::from_secs(1);
+        let prune_num_connections_thresh = Duration::from_secs(1);
+        let retry_put_dht_thresh = Duration::from_millis(250);
         let handle_num_connections_thresh = Duration::from_secs(1);
 
         let lowest_increment = Duration::from_millis(50);
