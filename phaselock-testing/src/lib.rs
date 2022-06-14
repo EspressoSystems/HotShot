@@ -444,6 +444,18 @@ impl<
     }
 }
 
+/// Defines the level of strictness to have
+/// when validating [`StorageStage`] across all nodes
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ValidateStrictness {
+    /// checks for matching:
+    ///   states and qcs
+    Relaxed,
+    /// checks for matching:
+    ///   states, blocks, qcs, and leaves
+    Strict,
+}
+
 impl<
         NETWORK: TestableNetworkingImplementation<
                 Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
@@ -535,6 +547,7 @@ impl<
         first: &StorageState<BLOCK, STATE, N>,
         other: &StorageState<BLOCK, STATE, N>,
         other_idx: usize,
+        strictness: ValidateStrictness,
     ) -> Result<(), String> {
         let blocks_ok =
             Self::validate_vecs("Storage Blocks", &first.blocks, &other.blocks, other_idx);
@@ -548,8 +561,19 @@ impl<
         let states_ok =
             Self::validate_vecs("Storage State", &first.states, &other.states, other_idx);
 
+        let (ok_err, ok_warn) = match strictness {
+            ValidateStrictness::Relaxed => (vec![states_ok, qcs_ok], vec![blocks_ok, leafs_ok]),
+            ValidateStrictness::Strict => (vec![states_ok, qcs_ok, blocks_ok, leafs_ok], vec![]),
+        };
+
+        for is_ok in ok_warn {
+            if let Err(e) = is_ok {
+                error!("{}", e);
+            }
+        }
+
         let mut result = Ok(());
-        for is_ok in [blocks_ok, qcs_ok, leafs_ok, states_ok] {
+        for is_ok in ok_err {
             result = match is_ok {
                 Err(e) => result.map_or_else(|acc| Err(format!("{acc}{e}")), |_| Err(e.clone())),
                 Ok(_) => result,
@@ -559,7 +583,7 @@ impl<
     }
 
     /// Will validate that all nodes are on exactly the same state.
-    pub async fn validate_node_states(&self) {
+    pub async fn validate_node_states(&self, strictness: ValidateStrictness) {
         let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
 
         let runner_state = first
@@ -607,9 +631,12 @@ impl<
             }
 
             let comparison_storage_state = node.handle.storage().get_internal_state().await;
-            if let Err(error) =
-                Self::validate_storage_states(&storage_state, &comparison_storage_state, idx)
-            {
+            if let Err(error) = Self::validate_storage_states(
+                &storage_state,
+                &comparison_storage_state,
+                idx,
+                strictness,
+            ) {
                 eprintln!("Storage State dump for {:?}", idx);
                 eprintln!("\texpected: {:#?}", storage_state);
                 eprintln!("\tgot:      {:#?}", comparison_storage_state);
