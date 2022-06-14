@@ -133,6 +133,8 @@ impl NetworkNode {
                 .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
+                .history_gossip(50)
+                .history_length(500)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
@@ -474,7 +476,7 @@ impl NetworkNode {
         let mut time_since_retry_put_dht = Duration::ZERO;
         let mut time_since_handle_num_connections = Duration::ZERO;
 
-        let sending_thresh = Duration::from_millis(50);
+        let sending_thresh = Duration::from_millis(250);
         let peer_discovery_thresh = Duration::from_secs(1);
         let prune_num_connections_thresh = Duration::from_secs(1);
         let retry_put_dht_thresh = Duration::from_millis(250);
