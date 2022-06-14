@@ -124,7 +124,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         self.phaselock.publish_transaction_async(tx).await
     }
 
-    /// Synchronously summits a transaction to the backing [`PhaseLock`] instance.
+    /// Synchronously submits a transaction to the backing [`PhaseLock`] instance.
     ///
     /// # Errors
     ///
