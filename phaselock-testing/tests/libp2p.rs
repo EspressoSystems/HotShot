@@ -21,14 +21,14 @@ use tracing::instrument;
 #[instrument]
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
-        next_view_timeout: 600,
         round_start_delay: 25,
         timeout_ratio: (1, 1),
-        start_delay: 25,
         total_nodes: 10,
         start_nodes: 10,
         num_succeeds: 15,
         txn_ids: Right(1),
+        next_view_timeout: 2000,
+        start_delay: 1000,
         ..GeneralTestDescriptionBuilder::default()
     };
 
@@ -54,10 +54,10 @@ async fn libp2p_network() {
 #[ignore]
 async fn test_stress_libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
-        next_view_timeout: 600,
+        next_view_timeout: 2000,
         round_start_delay: 25,
         timeout_ratio: (1, 1),
-        start_delay: 25,
+        start_delay: 1000,
         total_nodes: 15,
         start_nodes: 15,
         num_succeeds: 100,
