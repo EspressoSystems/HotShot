@@ -33,10 +33,17 @@ use phaselock_types::{
             SignatureKey,
         },
         state::TestableState,
+        storage::StorageState,
     },
 };
 use snafu::{ResultExt, Snafu};
-use std::{collections::HashMap, fmt, marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    marker::PhantomData,
+    sync::Arc,
+    time::Duration,
+};
 use tracing::{debug, error, info, info_span, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -444,10 +451,113 @@ impl<
             > + Clone
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N>,
+        BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
+    /// Check if two vectors match.
+    /// If there is a mismatch, return a string containing details
+    /// about the mismatch
+    fn validate_vecs<T: Eq + std::fmt::Debug + std::hash::Hash>(
+        field_name: &str,
+        first: &[T],
+        other: &[T],
+        other_idx: usize,
+    ) -> Result<(), String> {
+        if first != other {
+            let mut err_str: String = "".to_string();
+            if first.len() != other.len() {
+                err_str.push_str(
+                    format!(
+                        "{} lengths did not match. Expected {}, got {}\n",
+                        field_name,
+                        first.len(),
+                        other.len()
+                    )
+                    .as_str(),
+                );
+            }
+            let mut mismatched_first: HashSet<_> = first.iter().collect();
+            mismatched_first = mismatched_first
+                .difference(&other.iter().collect())
+                .cloned()
+                .collect();
+            if mismatched_first.is_empty() {
+                err_str.push_str(
+                    format!(
+                        "All elements of {} in first replica are present in replica {}\n",
+                        field_name, other_idx
+                    )
+                    .as_str(),
+                );
+            } else {
+                err_str.push_str(
+                    format!(
+                        "Elements of {} in first replica not present in replica {}: \n{:#?}\n",
+                        field_name, other_idx, mismatched_first
+                    )
+                    .as_str(),
+                );
+            }
+
+            let mut mismatched_other: HashSet<_> = other.iter().collect();
+            mismatched_other = mismatched_other
+                .difference(&first.iter().collect())
+                .cloned()
+                .collect();
+
+            if mismatched_other.is_empty() {
+                err_str.push_str(
+                    format!(
+                        "All elements of {} in replica {} are present in the first replica\n",
+                        field_name, other_idx
+                    )
+                    .as_str(),
+                );
+            } else {
+                err_str.push_str(
+                    format!(
+                        "Elements of {} in replica {} not present in the first replica: \n{:#?}\n",
+                        field_name, other_idx, mismatched_other
+                    )
+                    .as_str(),
+                );
+            }
+            return Err(err_str);
+        }
+        Ok(())
+    }
+
+    /// Check if two storage states match.
+    /// If there is a mismatch, return a string containing details
+    /// about the mismatch
+    fn validate_storage_states(
+        first: &StorageState<BLOCK, STATE, N>,
+        other: &StorageState<BLOCK, STATE, N>,
+        other_idx: usize,
+    ) -> Result<(), String> {
+        let blocks_ok =
+            Self::validate_vecs("Storage Blocks", &first.blocks, &other.blocks, other_idx);
+        let qcs_ok = Self::validate_vecs(
+            "Storage QCs",
+            &first.quorum_certificates,
+            &other.quorum_certificates,
+            other_idx,
+        );
+        let leafs_ok = Self::validate_vecs("Storage Leafs", &first.leafs, &other.leafs, other_idx);
+        let states_ok =
+            Self::validate_vecs("Storage State", &first.states, &other.states, other_idx);
+
+        let mut result = Ok(());
+        for is_ok in [blocks_ok, qcs_ok, leafs_ok, states_ok] {
+            result = match is_ok {
+                Err(e) => result.map_or_else(|acc| Err(format!("{acc}{e}")), |_| Err(e.clone())),
+                Ok(_) => result,
+            }
+        }
+        result
+    }
+
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let (first, remaining) = self.nodes.split_first().expect("No nodes registered");
@@ -489,17 +599,22 @@ impl<
                 .get_round_runner_state()
                 .await
                 .expect("Could not get the node's runner state");
-            let comparison_storage_state = node.handle.storage().get_internal_state().await;
             if comparison_runner_state != runner_state {
                 eprintln!("Node {} runner state does not match the first node", idx);
                 eprintln!("  expected: {:#?}", runner_state);
                 eprintln!("  got:      {:#?}", comparison_runner_state);
                 is_valid = false;
             }
-            if comparison_storage_state != storage_state {
+
+            let comparison_storage_state = node.handle.storage().get_internal_state().await;
+            if let Err(error) =
+                Self::validate_storage_states(&storage_state, &comparison_storage_state, idx)
+            {
+                eprintln!("Storage State dump for {:?}", idx);
+                eprintln!("\texpected: {:#?}", storage_state);
+                eprintln!("\tgot:      {:#?}", comparison_storage_state);
                 eprintln!("Node {} storage state does not match the first node", idx);
-                eprintln!("  expected: {:#?}", storage_state);
-                eprintln!("  got:      {:#?}", comparison_storage_state);
+                eprintln!("{}", error);
                 is_valid = false;
             }
         }
