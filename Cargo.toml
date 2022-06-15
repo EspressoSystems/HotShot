@@ -4,7 +4,7 @@ description = "PhaseLock consesus module"
 edition = "2021"
 name = "phaselock"
 readme = "README.md"
-version = "0.0.7"
+version = "0.1.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]
@@ -31,10 +31,10 @@ dashmap = "5.3.4"
 flume = "0.10.12"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
-phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.7" }
-phaselock-types = { path = "./phaselock-types", version = "0.0.7", default-features = false }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
-libp2p-networking = {path = "./libp2p-networking", version = "0.0.7"}
+phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.1.0" }
+phaselock-types = { path = "./phaselock-types", version = "0.1.0", default-features = false }
+phaselock-utils = { path = "./phaselock-utils", version = "0.1.0"}
+libp2p-networking = {path = "./libp2p-networking", version = "0.1.0"}
 libp2p = { version = "0.45.1", features = ["serde"] }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
@@ -50,7 +50,7 @@ embed-doc-image = "0.1.4"
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
+phaselock-utils = { path = "./phaselock-utils", version = "0.1.0", features = ["logging-utils"] }
 rand_xoshiro = "0.6.0"
 structopt = "0.3.26"
 toml = "0.5.8"

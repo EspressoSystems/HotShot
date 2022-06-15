@@ -2074,7 +2074,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.0.7"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -2925,7 +2925,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock"
-version = "0.0.7"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-hotstuff"
-version = "0.0.7"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-testing"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "either",
@@ -2999,7 +2999,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-types"
-version = "0.0.7"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3024,7 +3024,7 @@ dependencies = [
 
 [[package]]
 name = "phaselock-utils"
-version = "0.0.7"
+version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
