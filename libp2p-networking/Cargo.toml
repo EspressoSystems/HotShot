@@ -1,7 +1,7 @@
 [package]
 description = "Libp2p Networking Layer"
 name = "libp2p-networking"
-version = "0.0.7"
+version = "0.1.0"
 edition = "2021"
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>", "Victor Koenders <vkoenders@espressosys.com>", "Justin Restivo <justin@espressosys.com"]
 
@@ -29,10 +29,9 @@ rand = "0.8.5"
 async-trait = "0.1.56"
 derive_builder = "0.11.1"
 custom_debug = "0.5"
-phaselock-utils = { path = "../phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
-phaselock-types = { path = "../phaselock-types", version = "0.0.7"}
+phaselock-utils = { path = "../phaselock-utils", version = "0.1.0", features = ["logging-utils"] }
+phaselock-types = { path = "../phaselock-types", version = "0.1.0"}
 either = { version = "1.7.0" }
-
 
 # Feature dependencies
 
