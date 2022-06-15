@@ -11,7 +11,9 @@ use phaselock::{
     types::Message,
     PhaseLockConfig,
 };
-use phaselock_testing::{ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner};
+use phaselock_testing::{
+    ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner, ValidateStrictness,
+};
 use phaselock_types::traits::{
     network::TestableNetworkingImplementation, signature_key::ed25519::Ed25519Pub,
     state::TestableState, storage::TestableStorage,
@@ -408,7 +410,7 @@ impl<
             // this check is rather strict:
             // 1) all nodes have the SAME state
             // 2) no nodes failed
-            async_std::task::block_on(runner.validate_node_states());
+            async_std::task::block_on(runner.validate_node_states(ValidateStrictness::Relaxed));
             assert!(
                 results.failures.is_empty(),
                 "Failing nodes: {:?}",
