@@ -1,5 +1,5 @@
 use crate::{
-    direct_message::DirectMessageResponse,
+    direct_message::{DirectMessageResponse, MAX_MSG_SIZE},
     network::{
         error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
         NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
@@ -163,7 +163,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -190,7 +190,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -310,7 +310,7 @@ impl<S> NetworkNodeHandle<S> {
         peer_id: PeerId,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
         self.send_network
@@ -328,7 +328,7 @@ impl<S> NetworkNodeHandle<S> {
         chan: ResponseChannel<DirectMessageResponse>,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
         self.send_network
@@ -346,7 +346,7 @@ impl<S> NetworkNodeHandle<S> {
         topic: String,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
         self.send_network

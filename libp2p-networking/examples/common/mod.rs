@@ -26,7 +26,7 @@ use libp2p_networking::{
         NetworkNodeType,
     },
 };
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::{seq::IteratorRandom, thread_rng,  RngCore};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
@@ -37,7 +37,8 @@ use tracing::{error, info, instrument};
 use std::net::SocketAddr;
 
 const TIMEOUT: Duration = Duration::from_secs(1000);
-const PADDING_SIZE: usize = 512;
+// 32kb
+const PADDING_SIZE: usize = 32000 / 8;
 
 pub type CounterState = u32;
 pub type Epoch = (CounterState, CounterState);
@@ -229,12 +230,17 @@ pub async fn handle_normal_msg(
         CounterRequest::StateRequest => {
             if let Some(chan) = chan {
                 let state = handle.state().await;
+                let data = {
+                    let mut rng = thread_rng();
+                    vec![rng.next_u64(); PADDING_SIZE]
+                };
+                // ThreadRngko
                 let response = Message::Normal(NormalMessage {
                     sent_ts: SystemTime::now(),
                     relay_to_conductor: true,
                     req: CounterRequest::StateResponse(state),
                     epoch: (state, state + 1),
-                    padding: vec![0; PADDING_SIZE],
+                    padding: data
                 });
                 handle.direct_response(chan, &response).await?;
             } else {
@@ -270,12 +276,13 @@ pub async fn regular_handle_network_event(
     match event {
         GossipMsg(m) | DirectResponse(m, _) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
-                info!("msg recved: {:?}", msg.clone());
+                error!("regular msg recved: {:?}", msg.clone());
                 match msg {
                     Message::ConductorIdIs(peerid) => {
                         handle
                             .ignore_peers(vec![peerid])
                             .await?;
+                        error!("added peerid to handle's ignored peers {:?}", handle.ignored_peers().await);
                         handle.direct_request(peerid, &Message::RecvdConductor).await?;
                     }
                     Message::Normal(msg) => {
@@ -295,7 +302,7 @@ pub async fn regular_handle_network_event(
         }
         DirectRequest(msg, _peer_id, chan) => {
             if let Ok(msg) = deserialize_msg::<Message>(&msg) {
-                info!("from pid {:?} msg recved: {:?}", msg.clone(), _peer_id);
+                error!("from pid {:?} msg recved: {:?}", msg.clone(), _peer_id);
                 match msg {
                     // this is only done via broadcast
                     Message::ConductorIdIs(_)
@@ -309,13 +316,17 @@ pub async fn regular_handle_network_event(
                     }
                     Message::Conductor(msg) => {
                         let state = handle.state().await;
+                        let data = {
+                            let mut rng = thread_rng();
+                            vec![rng.next_u64(); PADDING_SIZE]
+                        };
                         let response =
                             Message::Normal(NormalMessage {
                                 sent_ts: SystemTime::now(),
                                 relay_to_conductor: true,
                                 req: msg.req,
                                 epoch: (state, state+1),
-                                padding: vec![0; PADDING_SIZE]
+                                padding: data,
                         });
                         match msg.broadcast_type {
                             // if the conductor says to broadcast
@@ -472,6 +483,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 async move {
                     // must wait for the listener to start
                     let msg = Message::ConductorIdIs(conductor_peerid);
+                    error!("gossiping {:?}", msg);
                     while r.is_empty() {
                         handle
                             .gossip("global".to_string(), &msg)
@@ -532,6 +544,8 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             while !handle.connected_peers().await.is_empty() {
                 async_std::task::sleep(Duration::from_millis(100)).await;
             }
+
+            error!("result: {:?}", handle.state().await);
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
@@ -595,13 +609,18 @@ pub async fn conductor_direct_message(
 
     res_fut.next().await.unwrap().unwrap();
 
+    let data = {
+        let mut rng = thread_rng();
+        vec![rng.next_u64(); PADDING_SIZE]
+    };
+
     // dispatch message
     let msg = Message::Normal(NormalMessage {
         sent_ts: SystemTime::now(),
         relay_to_conductor: true,
         req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
         epoch: handle.state().await.current_epoch.epoch_idx,
-        padding: vec![0; PADDING_SIZE],
+        padding: data,
     });
     handle.direct_request(chosen_peer, &msg).await?;
 
@@ -670,13 +689,20 @@ pub async fn conductor_broadcast(
     // wait for ready signal
     res_fut.next().await.unwrap().unwrap();
 
+
+    let data = {
+        let mut rng = thread_rng();
+        vec![rng.next_u64(); PADDING_SIZE]
+    };
+
+
     // always spawn listener FIRST
     let increment_leader_msg = Message::Normal(NormalMessage {
         sent_ts: SystemTime::now(),
         relay_to_conductor: true,
         req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx.1),
         epoch: handle.state().await.current_epoch.epoch_idx,
-        padding: vec![0; PADDING_SIZE],
+        padding: data,
     });
     // send direct message from conductor to leader to do broadcast
     handle

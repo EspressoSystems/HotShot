@@ -12,7 +12,7 @@ pub use self::{
 };
 
 use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu};
-use crate::direct_message::DirectMessageResponse;
+use crate::direct_message::{DirectMessageResponse, MAX_MSG_SIZE};
 use async_std::{prelude::FutureExt as _, task::spawn};
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};
@@ -77,7 +77,7 @@ impl FromStr for NetworkNodeType {
 /// # Errors
 /// when unable to serialize a message
 pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
     bincode_options.serialize(&msg)
 }
 
@@ -87,7 +87,7 @@ pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::Erro
 pub fn deserialize_msg<'a, T: Deserialize<'a>>(
     msg: &'a [u8],
 ) -> Result<T, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
     bincode_options.deserialize(msg)
 }
 
@@ -189,7 +189,8 @@ pub async fn gen_transport(
         // useful because only one connection opened
         // https://docs.libp2p.io/concepts/stream-multiplexing/
         .multiplex(upgrade::SelectUpgrade::new(
-            yamux::YamuxConfig::default(),
+            // yamux::YamuxConfig::default(),
+            mplex::MplexConfig::default(),
             mplex::MplexConfig::default(),
         ))
         .timeout(std::time::Duration::from_secs(20))

@@ -10,7 +10,7 @@ use super::{
     gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
 };
 use crate::{
-    direct_message::{DirectMessageCodec, DirectMessageProtocol},
+    direct_message::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE},
     network::def::{DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
 };
 use async_std::task::{sleep, spawn};
@@ -135,6 +135,7 @@ impl NetworkNode {
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
                 .history_length(500)
+                .max_transmit_size(2*MAX_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
@@ -200,9 +201,9 @@ impl NetworkNode {
     /// - must not have such a query in progress.
     #[instrument(skip(self))]
     fn handle_peer_discovery(&mut self) {
-        if self.swarm.behaviour().is_bootstrapped()
-            && !self.swarm.behaviour().is_discovering_peers()
-        {
+        // if self.swarm.behaviour().is_bootstrapped()
+        // &&
+        if !self.swarm.behaviour().is_discovering_peers() {
             let random_peer = PeerId::random();
             self.swarm.behaviour_mut().query_closest_peers(random_peer);
             self.swarm.behaviour_mut().set_discovering_peers(true);
@@ -215,11 +216,15 @@ impl NetworkNode {
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
-        self.swarm.behaviour_mut().bootstrap().unwrap();
+        if self.swarm.behaviour_mut().bootstrap().is_err() {
+            warn!("Failed to bootstrap. Trying again later.");
+        }
 
         // otherwise periodically get more peers if needed
         if used_peers.len() <= self.config.min_num_peers
+            // TODO matches macro
             && self.config.node_type == NetworkNodeType::Regular
+            || self.config.node_type == NetworkNodeType::Conductor
         {
             // Calcuate the list of "new" peers, once not currently used for
             // a connection
@@ -394,6 +399,7 @@ impl NetworkNode {
             ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
+                error!("connection established!!");
                 behaviour.add_address(&peer_id, endpoint.get_remote_address().clone());
                 behaviour.add_connected_peer(peer_id);
 
@@ -507,7 +513,7 @@ impl NetworkNode {
 
 
                             if time_since_prune_num_connections >= prune_num_connections_thresh {
-                                self.prune_num_connections();
+                                // self.prune_num_connections();
                                 time_since_prune_num_connections = Duration::ZERO;
                             }
 

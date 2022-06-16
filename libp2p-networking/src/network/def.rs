@@ -87,8 +87,8 @@ pub struct NetworkDef {
     #[behaviour(ignore)]
     unknown_addrs: HashSet<Multiaddr>,
     /// peers we ignore (mainly here for conductor usecase)
-    #[behaviour(ignore)]
-    ignored_peers: HashSet<PeerId>,
+    // #[behaviour(ignore)]
+    // ignored_peers: HashSet<PeerId>,
     /// query id -> (notify_channel to client, quorum size, key)
     #[behaviour(ignore)]
     in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
@@ -116,7 +116,12 @@ impl NetworkDef {
             kadem,
             identify,
             request_response,
-            connection_data: Arc::default(),
+            connection_data: Arc::new(SubscribableRwLock::new(ConnectionData {
+                connected_peers: HashSet::new(),
+                connecting_peers: HashSet::new(),
+                known_peers: HashSet::new(),
+                ignored_peers,
+            })),
             client_event_queue: Vec::new(),
             bootstrap_state: BootstrapState::NotStarted,
             pruning_enabled,
@@ -126,8 +131,6 @@ impl NetworkDef {
             in_progress_get_record_queries: HashMap::new(),
             in_progress_put_record_queries: HashMap::new(),
             in_progress_put_record_uid: 0,
-            // currently only functionality is to "not prune" these nodes
-            ignored_peers,
             peer_discovery_in_progress: false,
         }
     }
@@ -163,6 +166,7 @@ impl NetworkDef {
         if self.bootstrap_state == BootstrapState::NotStarted {
             if self.kadem.bootstrap().is_ok() {
                 self.bootstrap_state = BootstrapState::Started;
+                error!("successful bootstrap!");
                 return Ok(());
             }
             error!("Failed to initiate bootstrap! Not enough peers.");
@@ -296,8 +300,9 @@ impl NetworkDef {
             .map(|(_, (_, pid))| pid)
             .copied()
             .collect::<HashSet<_>>();
-        let ignored_peers = self.ignored_peers.clone();
+        let ignored_peers = self.connection_data.cloned().ignored_peers;
         let safe_peers = rr_peers.union(&ignored_peers).collect::<HashSet<_>>();
+        error!("safe peers are: {:?}", safe_peers);
         peers_to_rm
             .into_iter()
             .filter(|p| !safe_peers.contains(p))
@@ -316,7 +321,8 @@ impl NetworkDef {
 
     /// Add a list of peers to the ignored peers list
     pub fn extend_ignored_peers(&mut self, peers: Vec<PeerId>) {
-        self.ignored_peers.extend(peers.into_iter());
+        self.connection_data
+            .modify(|s| s.ignored_peers.extend(peers.into_iter()));
     }
 }
 

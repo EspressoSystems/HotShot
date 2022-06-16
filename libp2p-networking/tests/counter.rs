@@ -5,9 +5,9 @@ use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
-use libp2p_networking::network::{
+use libp2p_networking::{network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
-};
+}, direct_message::MAX_MSG_SIZE};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
@@ -52,7 +52,7 @@ pub async fn counter_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
     match event {
         GossipMsg(m) | DirectResponse(m, _) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
