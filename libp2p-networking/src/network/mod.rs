@@ -12,7 +12,7 @@ pub use self::{
 };
 
 use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu};
-use crate::direct_message::{DirectMessageResponse, MAX_MSG_SIZE};
+use crate::direct_message::DirectMessageResponse;
 use async_std::{prelude::FutureExt as _, task::spawn};
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};

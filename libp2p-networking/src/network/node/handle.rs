@@ -1,5 +1,5 @@
 use crate::{
-    direct_message::{DirectMessageResponse, MAX_MSG_SIZE},
+    direct_message::DirectMessageResponse,
     network::{
         error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
         NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,

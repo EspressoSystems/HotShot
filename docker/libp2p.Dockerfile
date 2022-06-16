@@ -18,4 +18,4 @@ ENV NUM_GOSSIP="300"
 
 EXPOSE 9000
 
-ENTRYPOINT "/bin/counter --bound_addr=0.0.0.0:9000 --node_type=${NODE_TYPE} --num_nodes=${NUM_NODES} --bootstrap=${BOOTSTRAP_LIST} --num_gossip=${NUM_GOSSIP}"
+CMD ["sh", "-c", "/bin/counter --bound_addr=0.0.0.0:9000 --node_type=${NODE_TYPE} --num_nodes=${NUM_NODES} --bootstrap=${BOOTSTRAP_LIST} --num_gossip=${NUM_GOSSIP}"]

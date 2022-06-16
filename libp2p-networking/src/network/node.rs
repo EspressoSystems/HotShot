@@ -135,7 +135,7 @@ impl NetworkNode {
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
                 .history_length(500)
-                .max_transmit_size(2*MAX_MSG_SIZE)
+                .max_transmit_size(2 * MAX_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()

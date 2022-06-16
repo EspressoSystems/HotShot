@@ -5,9 +5,10 @@ use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
-use libp2p_networking::{network::{
-    get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
-}, direct_message::MAX_MSG_SIZE};
+use libp2p_networking::{
+    direct_message::MAX_MSG_SIZE,
+    network::{get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError},
+};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};

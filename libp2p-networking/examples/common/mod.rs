@@ -26,11 +26,10 @@ use libp2p_networking::{
         NetworkNodeType,
     },
 };
-use rand::{seq::IteratorRandom, thread_rng,  RngCore};
+use rand::{seq::IteratorRandom, thread_rng, RngCore};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use core::mem::size_of;
 use structopt::StructOpt;
 use tracing::{error, info, instrument};
 
@@ -69,22 +68,19 @@ pub struct EpochData {
 
 impl ConductorState {
     /// returns time per data
-    pub fn aggregate_epochs(&self) -> (Duration, usize){
-        let tmp_entry =
-            NormalMessage {
-                req: CounterRequest::StateRequest,
-                relay_to_conductor: false,
-                sent_ts: SystemTime::now(),
-                epoch: (0, 1),
-                padding: vec![0; PADDING_SIZE],
-            };
-        let data_size =
-            std::mem::size_of_val(&tmp_entry.req) +
-            std::mem::size_of_val(&tmp_entry.relay_to_conductor) +
-            std::mem::size_of_val(&tmp_entry.sent_ts) +
-            std::mem::size_of_val(&tmp_entry.epoch) +
-            PADDING_SIZE * 8
-            ;
+    pub fn aggregate_epochs(&self) -> (Duration, usize) {
+        let tmp_entry = NormalMessage {
+            req: CounterRequest::StateRequest,
+            relay_to_conductor: false,
+            sent_ts: SystemTime::now(),
+            epoch: (0, 1),
+            padding: vec![0; PADDING_SIZE],
+        };
+        let data_size = std::mem::size_of_val(&tmp_entry.req)
+            + std::mem::size_of_val(&tmp_entry.relay_to_conductor)
+            + std::mem::size_of_val(&tmp_entry.sent_ts)
+            + std::mem::size_of_val(&tmp_entry.epoch)
+            + PADDING_SIZE * 8;
 
         let mut total_time = Duration::ZERO;
         let mut total_data = 0;
@@ -98,7 +94,6 @@ impl ConductorState {
             }
         }
         (total_time, total_data)
-
     }
 }
 
@@ -277,7 +272,7 @@ pub async fn handle_normal_msg(
                     relay_to_conductor: true,
                     req: CounterRequest::StateResponse(state),
                     epoch: (state, state + 1),
-                    padding: data
+                    padding: data,
                 });
                 handle.direct_response(chan, &response).await?;
             } else {
@@ -399,7 +394,7 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 pub struct CliOpt {
     /// list of bootstrap node addrs
     #[structopt(long = "bootstrap")]
-    #[structopt(parse(try_from_str = parse_node))]
+    #[structopt(parse(try_from_str = parse_node), use_delimiter = true)]
     pub bootstrap_addrs: Vec<Multiaddr>,
     /// total number of nodes
     #[structopt(long = "num_nodes")]
@@ -422,7 +417,7 @@ pub struct CliOpt {
 
     /// number of rounds of gossip
     #[structopt(long = "num_gossip")]
-    pub num_gossip: u32
+    pub num_gossip: u32,
 }
 
 /// The execution environemnt type
@@ -568,15 +563,13 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             //         .await;
             // }
 
-            let kill_msg = Message::Normal(
-                NormalMessage {
+            let kill_msg = Message::Normal(NormalMessage {
                 req: CounterRequest::Kill,
                 relay_to_conductor: false,
                 sent_ts: SystemTime::now(),
                 epoch: (opts.num_gossip, opts.num_gossip + 1),
                 padding: vec![0; PADDING_SIZE],
-            }
-            );
+            });
 
             for peer_id in handle.connected_peers().await {
                 handle
@@ -734,12 +727,10 @@ pub async fn conductor_broadcast(
     // wait for ready signal
     res_fut.next().await.unwrap().unwrap();
 
-
     let data = {
         let mut rng = thread_rng();
         vec![rng.next_u64(); PADDING_SIZE]
     };
-
 
     // always spawn listener FIRST
     let increment_leader_msg = Message::Normal(NormalMessage {
