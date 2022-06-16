@@ -38,6 +38,7 @@ use std::net::SocketAddr;
 
 const TIMEOUT: Duration = Duration::from_secs(1000);
 // 32kb
+// 8 bytes per u64, so this is fine
 const PADDING_SIZE: usize = 32000 / 8;
 
 pub type CounterState = u32;

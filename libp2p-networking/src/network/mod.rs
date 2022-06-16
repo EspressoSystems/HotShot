@@ -189,8 +189,7 @@ pub async fn gen_transport(
         // useful because only one connection opened
         // https://docs.libp2p.io/concepts/stream-multiplexing/
         .multiplex(upgrade::SelectUpgrade::new(
-            // yamux::YamuxConfig::default(),
-            mplex::MplexConfig::default(),
+            yamux::YamuxConfig::default(),
             mplex::MplexConfig::default(),
         ))
         .timeout(std::time::Duration::from_secs(20))
