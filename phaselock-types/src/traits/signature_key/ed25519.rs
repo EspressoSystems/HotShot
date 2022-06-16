@@ -1,12 +1,13 @@
 //! Demonstration implementation of the [`SignatureKey`] trait using ed25519
 use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
-
 use ed25519_compact::{KeyPair, Noise, PublicKey, SecretKey, Seed, Signature};
-use serde::{
-    de::{Error, Visitor},
-    Deserialize, Serialize,
-};
+use serde::{de::Error, Deserialize, Serialize};
+use std::cmp::Ordering;
+use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
+
+/// TODO(vko): replace this with tagged-base64-espresso-systems-constants
+const PEER_ID: &str = "PEER_ID";
 
 /// Private key type for a ed25519 [`SignatureKey`] pair
 #[derive(PartialEq, Eq, Clone)]
@@ -60,6 +61,22 @@ impl Ed25519Priv {
     }
 }
 
+impl PartialOrd for Ed25519Priv {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let self_bytes = self.priv_key.as_ref();
+        let other_bytes = other.priv_key.as_ref();
+        self_bytes.partial_cmp(other_bytes)
+    }
+}
+
+impl Ord for Ed25519Priv {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_bytes = self.priv_key.as_ref();
+        let other_bytes = other.priv_key.as_ref();
+        self_bytes.cmp(other_bytes)
+    }
+}
+
 /// Public key type for an ed25519 [`SignatureKey`] pair
 ///
 /// This type makes use of noise for non-determinisitc signatures.
@@ -71,11 +88,33 @@ pub struct Ed25519Pub {
 
 impl std::fmt::Debug for Ed25519Pub {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buf = String::new();
-        for byte in self.pub_key.as_ref() {
-            buf.extend(format!("{:02X}", byte).chars());
-        }
-        f.debug_struct("Ed25519Pub").field("pub_key", &buf).finish()
+        f.debug_tuple("Ed25519Pub")
+            .field(&tagged_base64::to_string(&self.to_tagged_base64()))
+            .finish()
+    }
+}
+
+impl PartialOrd for Ed25519Pub {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let self_bytes = self.pub_key.as_ref();
+        let other_bytes = other.pub_key.as_ref();
+        self_bytes.partial_cmp(other_bytes)
+    }
+}
+
+impl Ord for Ed25519Pub {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_bytes = self.pub_key.as_ref();
+        let other_bytes = other.pub_key.as_ref();
+        self_bytes.cmp(other_bytes)
+    }
+}
+
+impl Ed25519Pub {
+    /// Return the [`TaggedBase64`] representation of this key.
+    #[allow(clippy::missing_panics_doc)] // `TaggedBase64::new()` only panics if `PEER_ID` is not valid base64, which it is.
+    pub fn to_tagged_base64(&self) -> TaggedBase64 {
+        TaggedBase64::new(PEER_ID, self.pub_key.as_ref()).unwrap()
     }
 }
 
@@ -147,7 +186,8 @@ impl Serialize for Ed25519Pub {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_bytes(&self.to_bytes().0)
+        let base64 = self.to_tagged_base64();
+        serializer.serialize_str(&tagged_base64::to_string(&base64))
     }
 }
 
@@ -156,24 +196,19 @@ impl<'de> Deserialize<'de> for Ed25519Pub {
     where
         D: serde::Deserializer<'de>,
     {
-        /// serde kludge struct
-        struct BytesVisitor;
-        impl<'de> Visitor<'de> for BytesVisitor {
-            type Value = Vec<u8>;
+        use std::str::FromStr;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("An array of bytes representing a key")
-            }
-
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(v.to_vec())
-            }
+        let base64 = String::deserialize(deserializer)?;
+        let base64 =
+            TaggedBase64::from_str(&base64).map_err(|e| D::Error::custom(e.to_string()))?;
+        if base64.tag() != PEER_ID {
+            return Err(D::Error::custom(format!(
+                "Invalid Ed25519Pub tag: {:?}",
+                base64.tag()
+            )));
         }
-        let key_bytes = deserializer.deserialize_bytes(BytesVisitor)?;
-        if let Some(key) = Self::from_bytes(&EncodedPublicKey(key_bytes)) {
+
+        if let Some(key) = Self::from_bytes(&EncodedPublicKey(base64.value())) {
             Ok(key)
         } else {
             Err(D::Error::custom("Failed to decode Ed25519 key"))
@@ -221,5 +256,23 @@ mod tests {
         let pub_key_bytes = pub_key.to_bytes();
         let pub_key_2 = Ed25519Pub::from_bytes(&pub_key_bytes).expect("Failed to deser key");
         assert!(pub_key == pub_key_2);
+
+        // Serialize the public key and back, then verify equality
+        let serialized = serde_json::to_string(&pub_key).expect("Failed to ser key");
+        let pub_key_2: Ed25519Pub = serde_json::from_str(&serialized).expect("Failed to deser key");
+        assert!(pub_key == pub_key_2);
+    }
+
+    #[test]
+    fn base64_deserialize() {
+        let valid = r#""PEER_ID~oUla6NPfKBahJVNpwlxO5UeHuwLySBnt4a3L2GR-jHla""#;
+        assert!(serde_json::from_str::<Ed25519Pub>(valid).is_ok());
+
+        for invalid in [
+            r#""PEERID~oUla6NPfKBahJVNpwlxO5UeHuwLySBnt4a3L2GR-jHla""#, // invalid tag
+            r#""PEER_ID~oUla6NPfKBahJVNpwlxO5UeHuwLySBnt4a3L2GR-jHlb""#, // invalid checksum
+        ] {
+            assert!(serde_json::from_str::<Ed25519Pub>(invalid).is_err());
+        }
     }
 }
