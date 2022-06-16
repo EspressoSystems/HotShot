@@ -1159,6 +1159,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "espresso-systems-common"
+version = "0.1.0"
+source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.1.0#0f89e27b283b499beb1b094d6513aa94ead40b29"
+
+[[package]]
 name = "event-listener"
 version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2975,6 +2980,7 @@ dependencies = [
  "blake3",
  "custom_debug",
  "ed25519-compact",
+ "espresso-systems-common",
  "futures",
  "hex_fmt",
  "rand 0.8.5",

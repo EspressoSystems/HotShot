@@ -5,9 +5,7 @@ use serde::{de::Error, Deserialize, Serialize};
 use std::cmp::Ordering;
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
-
-/// TODO(vko): replace this with tagged-base64-espresso-systems-constants
-const PEER_ID: &str = "PEER_ID";
+use espresso_systems_common::phaselock::PEER_ID;
 
 /// Private key type for a ed25519 [`SignatureKey`] pair
 #[derive(PartialEq, Eq, Clone)]
