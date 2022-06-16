@@ -383,6 +383,10 @@ pub struct CliOpt {
     #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     #[structopt(long = "env")]
     pub env_type: ExecutionEnvironment,
+
+    /// number of rounds of gossip
+    #[structopt(long = "num_gossip")]
+    pub num_gossip: u32
 }
 
 /// The execution environemnt type
@@ -503,7 +507,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             // kill conductor id broadcast thread
             s.send_async(true).await.unwrap();
 
-            for i in 0..5 {
+            for i in 0..opts.num_gossip {
                 handle
                     .modify_state(|s| s.current_epoch.epoch_type = EpochType::BroadcastViaGossip)
                     .await;
@@ -515,23 +519,23 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .await;
             }
 
-            for j in 5..10 {
-                handle
-                    .modify_state(|s| s.current_epoch.epoch_type = EpochType::DMViaDM)
-                    .await;
-                conductor_direct_message(TIMEOUT, j, handle.clone())
-                    .await
-                    .context(HandleSnafu)?;
-                handle
-                    .modify_state(|s| s.complete_round(EpochType::DMViaDM))
-                    .await;
-            }
+            // for j in 5..10 {
+            //     handle
+            //         .modify_state(|s| s.current_epoch.epoch_type = EpochType::DMViaDM)
+            //         .await;
+            //     conductor_direct_message(TIMEOUT, j, handle.clone())
+            //         .await
+            //         .context(HandleSnafu)?;
+            //     handle
+            //         .modify_state(|s| s.complete_round(EpochType::DMViaDM))
+            //         .await;
+            // }
 
             let kill_msg = Message::Normal(NormalMessage {
                 req: CounterRequest::Kill,
                 relay_to_conductor: false,
                 sent_ts: SystemTime::now(),
-                epoch: (10, 11),
+                epoch: (opts.num_gossip, opts.num_gossip + 1),
                 padding: vec![0; PADDING_SIZE],
             });
 
