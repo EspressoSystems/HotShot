@@ -68,7 +68,7 @@ pub struct EpochData {
 
 impl ConductorState {
     /// returns time per data
-    pub fn aggregate_epochs(&self) -> (Duration, usize) {
+    pub fn aggregate_epochs(&self, num_nodes: usize) -> (Duration, usize) {
         let tmp_entry = NormalMessage {
             req: CounterRequest::StateRequest,
             relay_to_conductor: false,
@@ -85,6 +85,9 @@ impl ConductorState {
         let mut total_time = Duration::ZERO;
         let mut total_data = 0;
         for (_, epoch_data) in &self.previous_epochs {
+            if epoch_data.message_durations.iter().len() != num_nodes {
+                error!("didn't match! expected {} got {} ", num_nodes, epoch_data.message_durations.iter().len());
+            }
             if let Some(max_prop_time) = epoch_data.message_durations.iter().max() {
                 error!("data size is {}", data_size);
                 total_time += *max_prop_time;
@@ -563,35 +566,35 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             //         .await;
             // }
 
-            let kill_msg = Message::Normal(NormalMessage {
-                req: CounterRequest::Kill,
-                relay_to_conductor: false,
-                sent_ts: SystemTime::now(),
-                epoch: (opts.num_gossip, opts.num_gossip + 1),
-                padding: vec![0; PADDING_SIZE],
-            });
-
-            for peer_id in handle.connected_peers().await {
-                handle
-                    .direct_request(peer_id, &kill_msg)
-                    .await
-                    .context(HandleSnafu)?
-            }
-
-            while !handle.connected_peers().await.is_empty() {
-                async_std::task::sleep(Duration::from_millis(100)).await;
-            }
+            // let kill_msg = Message::Normal(NormalMessage {
+            //     req: CounterRequest::Kill,
+            //     relay_to_conductor: false,
+            //     sent_ts: SystemTime::now(),
+            //     epoch: (opts.num_gossip, opts.num_gossip + 1),
+            //     padding: Vec::new(),
+            // });
+            //
+            // for peer_id in handle.connected_peers().await {
+            //     handle
+            //         .direct_request(peer_id, &kill_msg)
+            //         .await
+            //         .context(HandleSnafu)?
+            // }
+            //
+            // while !handle.connected_peers().await.is_empty() {
+            //     async_std::task::sleep(Duration::from_millis(100)).await;
+            // }
 
             error!("result raw: {:?}", handle.state().await);
-            error!("result: {:?}", handle.state().await.aggregate_epochs());
+            error!("result: {:?}", handle.state().await.aggregate_epochs(opts.num_nodes));
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
             let config = NetworkNodeConfigBuilder::default()
                 .bound_addr(opts.bound_addr)
                 .ignored_peers(HashSet::new())
-                .min_num_peers(opts.num_nodes / 4)
-                .max_num_peers(opts.num_nodes / 2)
+                .min_num_peers(3)
+                .max_num_peers(10)
                 .node_type(opts.node_type)
                 .build()
                 .context(NodeConfigSnafu)
