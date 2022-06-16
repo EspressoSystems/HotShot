@@ -30,6 +30,7 @@ use rand::{seq::IteratorRandom, thread_rng,  RngCore};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
+use core::mem::size_of;
 use structopt::StructOpt;
 use tracing::{error, info, instrument};
 
@@ -64,6 +65,41 @@ pub struct EpochData {
     epoch_type: EpochType,
     node_states: HashMap<PeerId, CounterState>,
     message_durations: Vec<Duration>,
+}
+
+impl ConductorState {
+    /// returns time per data
+    pub fn aggregate_epochs(&self) -> (Duration, usize){
+        let tmp_entry =
+            NormalMessage {
+                req: CounterRequest::StateRequest,
+                relay_to_conductor: false,
+                sent_ts: SystemTime::now(),
+                epoch: (0, 1),
+                padding: vec![0; PADDING_SIZE],
+            };
+        let data_size =
+            std::mem::size_of_val(&tmp_entry.req) +
+            std::mem::size_of_val(&tmp_entry.relay_to_conductor) +
+            std::mem::size_of_val(&tmp_entry.sent_ts) +
+            std::mem::size_of_val(&tmp_entry.epoch) +
+            PADDING_SIZE * 8
+            ;
+
+        let mut total_time = Duration::ZERO;
+        let mut total_data = 0;
+        for (_, epoch_data) in &self.previous_epochs {
+            if let Some(max_prop_time) = epoch_data.message_durations.iter().max() {
+                error!("data size is {}", data_size);
+                total_time += *max_prop_time;
+                total_data += data_size;
+            } else {
+                error!("No timing data available for this round!");
+            }
+        }
+        (total_time, total_data)
+
+    }
 }
 
 impl EpochData {
@@ -508,6 +544,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             s.send_async(true).await.unwrap();
 
             for i in 0..opts.num_gossip {
+                error!("iteration i: {}", i);
                 handle
                     .modify_state(|s| s.current_epoch.epoch_type = EpochType::BroadcastViaGossip)
                     .await;
@@ -531,13 +568,15 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             //         .await;
             // }
 
-            let kill_msg = Message::Normal(NormalMessage {
+            let kill_msg = Message::Normal(
+                NormalMessage {
                 req: CounterRequest::Kill,
                 relay_to_conductor: false,
                 sent_ts: SystemTime::now(),
                 epoch: (opts.num_gossip, opts.num_gossip + 1),
                 padding: vec![0; PADDING_SIZE],
-            });
+            }
+            );
 
             for peer_id in handle.connected_peers().await {
                 handle
@@ -550,7 +589,8 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 async_std::task::sleep(Duration::from_millis(100)).await;
             }
 
-            error!("result: {:?}", handle.state().await);
+            error!("result raw: {:?}", handle.state().await);
+            error!("result: {:?}", handle.state().await.aggregate_epochs());
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
