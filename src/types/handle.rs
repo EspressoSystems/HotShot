@@ -60,7 +60,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
             Err(_) => Err(NetworkFault { source: ShutDown }),
         }
     }
-    /// Syncronous version of `next_event`
+    /// Synchronous version of `next_event`
     ///
     /// Will internally call `block_on` on `next_event`
     ///
@@ -70,7 +70,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>> {
         block_on(self.next_event())
     }
-    /// Will attempt to immediatly pull an event out of the queue
+    /// Will attempt to immediately pull an event out of the queue
     ///
     /// # Errors
     ///
@@ -86,7 +86,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has been shut
     /// down.
-    pub fn availible_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -100,7 +100,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         Ok(output)
     }
 
-    /// Gets the current commited state of the [`PhaseLock`] instance
+    /// Gets the current committed state of the [`PhaseLock`] instance
     ///
     /// # Errors
     ///
@@ -124,7 +124,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         self.phaselock.publish_transaction_async(tx).await
     }
 
-    /// Sycronously sumbits a transaction to the backing [`PhaseLock`] instance.
+    /// Synchronously submits a transaction to the backing [`PhaseLock`] instance.
     ///
     /// # Errors
     ///
