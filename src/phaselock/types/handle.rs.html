@@ -292,7 +292,7 @@
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkFault</span> { <span class="ident">source</span>: <span class="ident">ShutDown</span> }),
         }
     }
-    <span class="doccomment">/// Syncronous version of `next_event`</span>
+    <span class="doccomment">/// Synchronous version of `next_event`</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will internally call `block_on` on `next_event`</span>
     <span class="doccomment">///</span>
@@ -302,7 +302,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">next_event</span>())
     }
-    <span class="doccomment">/// Will attempt to immediatly pull an event out of the queue</span>
+    <span class="doccomment">/// Will attempt to immediately pull an event out of the queue</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
@@ -318,7 +318,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has been shut</span>
     <span class="doccomment">/// down.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">availible_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="comment">// Loop to pull out all the outputs</span>
         <span class="kw">loop</span> {
@@ -332,7 +332,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">output</span>)
     }
 
-    <span class="doccomment">/// Gets the current commited state of the [`PhaseLock`] instance</span>
+    <span class="doccomment">/// Gets the current committed state of the [`PhaseLock`] instance</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
@@ -356,7 +356,7 @@
         <span class="self">self</span>.<span class="ident">phaselock</span>.<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>).<span class="kw">await</span>
     }
 
-    <span class="doccomment">/// Sycronously sumbits a transaction to the backing [`PhaseLock`] instance.</span>
+    <span class="doccomment">/// Synchronously submits a transaction to the backing [`PhaseLock`] instance.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
