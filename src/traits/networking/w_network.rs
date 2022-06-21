@@ -1025,7 +1025,7 @@ async fn get_networking<
 ) -> (WNetwork<T, P>, u16, P) {
     debug!(?pub_key);
     for _attempt in 0..50 {
-        let port: u16 = rng.gen_range(10_000, 50_000);
+        let port: u16 = rng.gen_range(10_000..50_000);
         let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
@@ -1067,7 +1067,7 @@ mod tests {
         let priv_key = Ed25519Priv::generate();
         let pub_key = Ed25519Pub::from_private(&priv_key);
         for _ in 0..10 {
-            let port: u16 = rng.gen_range(3000, 8000);
+            let port: u16 = rng.gen_range(3000..8000);
             debug!(?port, "Attempting port");
             let res = WNetwork::new(pub_key.clone(), "localhost", port, None).await;
             if let Ok(n) = res {
@@ -1087,7 +1087,7 @@ mod tests {
         let priv_key = Ed25519Priv::generate();
         let pub_key = Ed25519Pub::from_private(&priv_key);
         for _ in 0..10 {
-            let port: u16 = rng.gen_range(3000, 8000);
+            let port: u16 = rng.gen_range(3000..8000);
             debug!(?port, "Attempting port");
             let res = WNetwork::new(pub_key.clone(), "localhost", port, Some(timeout)).await;
             if let Ok(n) = res {
