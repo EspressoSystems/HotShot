@@ -145,7 +145,7 @@ impl TestableState<H_256> for State {
 
         let input_account = non_zero_balances.iter().choose(&mut rng).unwrap().0;
         let output_account = self.balances.keys().choose(&mut rng).unwrap();
-        let amount = rng.gen_range(0, self.balances[input_account]);
+        let amount = rng.gen_range(0..self.balances[input_account]);
 
         Transaction {
             add: Addition {
@@ -435,7 +435,7 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
         let output_account = state.balances.keys().choose(&mut rng).unwrap();
         let balance = state.balances[input_account];
         if balance != 0 {
-            let amount = rng.gen_range(0, state.balances[input_account]);
+            let amount = rng.gen_range(0..state.balances[input_account]);
             break (input_account, output_account, amount);
         }
         attempts += 1;
@@ -461,7 +461,7 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
 /// Provides a random [`QuorumCertificate`]
 pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
     let mut rng = thread_rng();
-    let stage = match rng.gen_range(0u8, 5) {
+    let stage = match rng.gen_range(0u8..5) {
         0 => Stage::None,
         1 => Stage::Prepare,
         2 => Stage::PreCommit,

@@ -305,7 +305,7 @@ async fn get_networking<
 ) -> (WNetwork<T, Ed25519Pub>, u16, Ed25519Pub, u64) {
     debug!(?pub_key);
     for attempt in 0..50 {
-        let port: u16 = rng.gen_range(10_000, 50_000);
+        let port: u16 = rng.gen_range(10_000 .. 50_000);
         debug!(
             ?attempt,
             ?port,
