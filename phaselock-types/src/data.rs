@@ -297,6 +297,19 @@ pub struct VecQuorumCertificate {
     pub genesis: bool,
 }
 
+impl VecQuorumCertificate {
+    /// Create a dummy [`VecQuorumCertificate`]
+    pub fn dummy<const N: usize>() -> Self {
+        Self {
+            block_hash: BlockHash::<N>::random().to_vec(),
+            view_number: ViewNumber::genesis(),
+            stage: Stage::None,
+            signatures: BTreeMap::default(),
+            genesis: false,
+        }
+    }
+}
+
 /// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in
 /// that order, and hashes the result.
 pub fn create_verify_hash<const N: usize>(
