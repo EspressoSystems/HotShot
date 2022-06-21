@@ -1,11 +1,11 @@
 //! Demonstration implementation of the [`SignatureKey`] trait using ed25519
 use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
 use ed25519_compact::{KeyPair, Noise, PublicKey, SecretKey, Seed, Signature};
+use espresso_systems_common::phaselock::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::cmp::Ordering;
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
-use espresso_systems_common::phaselock::PEER_ID;
 
 /// Private key type for a ed25519 [`SignatureKey`] pair
 #[derive(PartialEq, Eq, Clone)]
