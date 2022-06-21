@@ -144,7 +144,7 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-            buildInputs = with pkgs; [ heapstack_pkgs.heaptrack cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep valgrind ] ++ buildDeps;
+             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
         };
