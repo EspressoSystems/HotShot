@@ -35,8 +35,8 @@ phaselock-types = { path = "./phaselock-types", version = "0.0.7", default-featu
 phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.0.7"}
 libp2p = { version = "0.45.1", features = ["serde"] }
-rand = "0.7.3"
-rand_chacha = "0.2.2"
+rand = "0.8.5"
+rand_chacha = "0.3.1"
 serde = { version = "1.0.136", features = ["derive", "rc"] }
 serde_bytes = "0.11"
 snafu = { version = "0.7.0", features = ["backtraces"] }
@@ -49,7 +49,7 @@ tempfile = "3.3.0"
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
 phaselock-utils = { path = "./phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
-rand_xoshiro = "0.4.0"
+rand_xoshiro = "0.6.0"
 structopt = "0.3.26"
 toml = "0.5.8"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
