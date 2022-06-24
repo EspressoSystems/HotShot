@@ -868,6 +868,10 @@
 <span id="863">863</span>
 <span id="864">864</span>
 <span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -1208,8 +1212,12 @@
         };
         <span class="kw">match</span> <span class="ident">result</span>.<span class="ident">state</span> {
             <span class="ident">RoundFinishedEventState::Success</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>.<span class="ident">view_number</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> {
+            <span class="ident">RoundFinishedEventState::Interrupted</span>(<span class="ident">state</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> {
                 <span class="ident">view_number</span>: <span class="ident">result</span>.<span class="ident">view_number</span>,
+                <span class="ident">state</span>,
+            }),
+            <span class="ident">x</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::InvalidState</span> {
+                <span class="ident">context</span>: <span class="macro">format!</span>(<span class="string">&quot;Round finished in an unknown state: {:?}&quot;</span>, <span class="ident">x</span>),
             }),
         }
     }

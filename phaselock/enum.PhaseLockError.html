@@ -42,6 +42,7 @@ pub enum PhaseLockError {
     },
     ViewTimeoutError {
         view_number: ViewNumber,
+        state: RoundTimedoutState,
     },
     Continue,
 }</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reexport error type
@@ -72,6 +73,7 @@ Can be easily obtained with <code>std::any::type_name::&lt;T&gt;()</code></p>
 </div><h3 id="variant.TimeoutError" class="variant small-section-header"><a href="#variant.TimeoutError" class="anchor field"></a><code>TimeoutError</code></h3><div class="sub-variant" id="variant.TimeoutError.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TimeoutError.field.source" class="variant small-section-header"><a href="#variant.TimeoutError.field.source" class="anchor field"></a><code>source:&nbsp;TimeoutError</code></span><div class="docblock"><p>source of error</p>
 </div></div></div><div class="docblock"><p>Phaselock timed out waiting for msgs</p>
 </div><h3 id="variant.ViewTimeoutError" class="variant small-section-header"><a href="#variant.ViewTimeoutError" class="anchor field"></a><code>ViewTimeoutError</code></h3><div class="sub-variant" id="variant.ViewTimeoutError.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ViewTimeoutError.field.view_number" class="variant small-section-header"><a href="#variant.ViewTimeoutError.field.view_number" class="anchor field"></a><code>view_number:&nbsp;ViewNumber</code></span><div class="docblock"><p>view number</p>
+</div></div><div class="sub-variant-field"><span id="variant.ViewTimeoutError.field.state" class="variant small-section-header"><a href="#variant.ViewTimeoutError.field.state" class="anchor field"></a><code>state:&nbsp;RoundTimedoutState</code></span><div class="docblock"><p>The state that the round was in when it timed out</p>
 </div></div></div><div class="docblock"><p>Phaselock timed out during round</p>
 </div><h3 id="variant.Continue" class="variant small-section-header"><a href="#variant.Continue" class="anchor field"></a><code>Continue</code></h3><div class="docblock"><p>Internal value used to drive the state machine</p>
 </div><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor"></a></h2><div id="implementations-list"><details class="rustdoc-toggle implementors-toggle" open><summary><section id="impl" class="impl has-srclink"><a href="#impl" class="anchor"></a><h3 class="code-header in-band">impl <a class="enum" href="enum.PhaseLockError.html" title="enum phaselock::PhaseLockError">PhaseLockError</a></h3></section></summary><div class="docblock"><p>Reexport error type</p>

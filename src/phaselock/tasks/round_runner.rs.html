@@ -297,6 +297,25 @@
 <span id="292">292</span>
 <span id="293">293</span>
 <span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Round runner logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This will wait for one of several events, and will run one or multiple rounds</span>
@@ -334,6 +353,9 @@
 
     <span class="doccomment">/// The timeout of the next round.</span>
     <span class="ident">int_duration</span>: <span class="ident">u64</span>,
+
+    <span class="doccomment">/// The amount of times in a row that a round timed out</span>
+    <span class="ident">round_timeout_seq_count</span>: <span class="ident">usize</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">RoundRunner</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span> {
@@ -361,6 +383,7 @@
             <span class="ident">phaselock</span>,
             <span class="ident">int_duration</span>,
             <span class="ident">run_once_counter</span>: <span class="number">0</span>,
+            <span class="ident">round_timeout_seq_count</span>: <span class="number">0</span>,
         }
     }
 
@@ -436,15 +459,29 @@
                         <span class="prelude-val">Ok</span>(<span class="ident">new_view</span>) =&gt; {
                             <span class="comment">// If it succeded, simply reset the timeout</span>
                             <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
+                            <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span> <span class="op">=</span> <span class="number">0</span>;
 
                             <span class="macro">info!</span>(<span class="string">&quot;Round finished, new view number is {:?}&quot;</span>, <span class="ident">new_view</span>);
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> { <span class="ident">view_number</span> }) =&gt; {
+                        <span class="prelude-val">Err</span>(<span class="ident">PhaseLockError::ViewTimeoutError</span> { <span class="ident">view_number</span>, <span class="ident">state</span> }) =&gt; {
                             <span class="kw">if</span> <span class="ident">view_number</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span> {
                                 <span class="macro">error!</span>(<span class="string">&quot;We received a timeout for view {:?} but we&#39;re currently in view {:?}&quot;</span>, <span class="ident">view_number</span>, <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>);
                             }
-                            <span class="comment">// if we timed out, log it, send the event, and increase the timeout</span>
-                            <span class="macro">warn!</span>(<span class="string">&quot;Round timed out&quot;</span>);
+                            <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">2</span> {
+                                <span class="macro">info!</span>(
+                                    <span class="string">&quot;Round timed out ({} times). This is fine. State = {:?}&quot;</span>,
+                                    <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span>, <span class="ident">state</span>
+                                );
+                            } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">5</span> {
+                                <span class="macro">warn!</span>(
+                                    <span class="string">&quot;Round timed out ({} times), state = {:?}&quot;</span>,
+                                    <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span>, <span class="ident">state</span>
+                                );
+                            } <span class="kw">else</span> {
+                                <span class="macro">error!</span>(<span class="string">&quot;Round timed out {} times, we&#39;re probably not properly connected to the network any more, state = {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span>, <span class="ident">state</span>);
+                            }
+
                             <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
                                 <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
                                 <span class="ident">stage</span>: <span class="ident">Stage::None</span>,
@@ -457,13 +494,14 @@
                         }
                         <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                             <span class="comment">// If it errored, broadcast the error, reset the timeout, and continue</span>
-                            <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Round encountered an error&quot;</span>);
+                            <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Round encountered an error&quot;</span>);
                             <span class="ident">event_to_send</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Event</span> {
                                 <span class="ident">view_number</span>: <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">view</span>,
                                 <span class="ident">stage</span>: <span class="ident">e</span>.<span class="ident">get_stage</span>().<span class="ident">unwrap_or</span>(<span class="ident">Stage::None</span>),
                                 <span class="ident">event</span>: <span class="ident">EventType::Error</span> { <span class="ident">error</span>: <span class="ident">Arc::new</span>(<span class="ident">e</span>) },
                             });
                             <span class="self">self</span>.<span class="ident">int_duration</span> <span class="op">=</span> <span class="ident">default_interrupt_duration</span>;
+                            <span class="self">self</span>.<span class="ident">round_timeout_seq_count</span> <span class="op">=</span> <span class="number">0</span>;
                         }
                     }
 
