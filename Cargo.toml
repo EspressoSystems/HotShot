@@ -76,6 +76,7 @@ lto = "thin"
 
 members = [
         "libp2p-networking",
+        "phaselock-plots",
         "phaselock-hotstuff",
         "phaselock-testing",
         "phaselock-types",

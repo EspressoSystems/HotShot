@@ -337,6 +337,11 @@ impl<S> NetworkNodeHandle<S> {
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
+    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError>{
+        let req = ClientRequest::Prune(pid);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
     /// Gossip a message to peers
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed

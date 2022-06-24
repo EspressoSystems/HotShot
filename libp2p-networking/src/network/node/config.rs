@@ -32,4 +32,6 @@ pub struct NetworkNodeConfig {
     /// default is [`libp2p::kad::K_VALUE`] which is 20
     #[builder(setter(into, strip_option), default = "DEFAULT_REPLICATION_FACTOR")]
     pub replication_factor: Option<NonZeroUsize>,
+
+    pub to_connect_addrs: HashSet<Multiaddr>
 }

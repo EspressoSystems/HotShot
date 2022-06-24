@@ -156,11 +156,11 @@ impl Default for IsolationConfig {
     fn default() -> Self {
         Self {
             counter_ns: "COUNTER_NS".to_string(),
-            bridge_addr: "172.18.0.1".to_string(),
+            bridge_addr: "172.13.0.1".to_string(),
             bridge_name: "br0".to_string(),
             veth_name: "veth1".to_string(),
             veth2_name: "veth2".to_string(),
-            veth2_addr: "172.18.0.2".to_string(),
+            veth2_addr: "172.13.0.2".to_string(),
         }
     }
 }

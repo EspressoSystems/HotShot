@@ -23,7 +23,7 @@ use libp2p::{
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
-    tcp, websocket, yamux, Multiaddr, PeerId, Transport,
+    tcp, websocket, yamux, Multiaddr, PeerId, Transport, gossipsub::TopicHash,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -114,6 +114,8 @@ pub enum ClientRequest {
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
     /// disable or enable pruning of connections
     Pruning(bool),
+    /// prune a peer
+    Prune(PeerId),
     /// add vec of known peers or addresses
     AddKnownPeers(Vec<(Option<PeerId>, Multiaddr)>),
     /// Ignore peers. Only here for debugging purposes.
@@ -143,7 +145,7 @@ pub enum ClientRequest {
 #[derive(Debug)]
 pub enum NetworkEvent {
     /// recv-ed a broadcast
-    GossipMsg(Vec<u8>),
+    GossipMsg(Vec<u8>, TopicHash),
     /// recv-ed a direct message from a node
     DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
     /// recv-ed a direct response from a node (that hopefully was initiated by this node)
@@ -246,7 +248,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     handle.add_known_peers(known_nodes).await?;
     NetworkNodeHandle::wait_to_connect(
         handle.clone(),
-        config.max_num_peers,
+        config.min_num_peers,
         handle.recv_network(),
         idx,
     )

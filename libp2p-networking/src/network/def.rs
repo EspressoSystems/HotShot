@@ -1,6 +1,6 @@
 use crate::{
     direct_message::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
-    network::{NetworkError, NetworkEvent},
+    network::{NetworkError, NetworkEvent, node::{PEER_EXCESS_FACTOR, PRIORITY_PEER_EXCESS}},
 };
 use either::Either;
 use futures::channel::oneshot::Sender;
@@ -66,6 +66,9 @@ pub struct NetworkDef {
     #[behaviour(ignore)]
     bootstrap_state: BootstrapState,
 
+    #[behaviour(ignore)]
+    limits: (u32, u32, u32),
+
     /// connection data
     #[behaviour(ignore)]
     connection_data: Arc<SubscribableRwLock<ConnectionData>>,
@@ -80,12 +83,22 @@ pub struct NetworkDef {
     /// track in progress request-response
     #[behaviour(ignore)]
     in_progress_rr: HashMap<RequestId, (Vec<u8>, PeerId)>,
+    #[behaviour(ignore)]
+    failed_rr: VecDeque<(Vec<u8>, PeerId)>,
     /// track gossip messages that failed to send and we should send later on
+    /// TODO rename s.t. the name isn't such a misnomer
     #[behaviour(ignore)]
     in_progress_gossip: VecDeque<(Topic, Vec<u8>)>,
     // track unknown addrs
     #[behaviour(ignore)]
     unknown_addrs: HashSet<Multiaddr>,
+
+    #[behaviour(ignore)]
+    pub to_connect_addrs: HashSet<Multiaddr>,
+
+    #[behaviour(ignore)]
+    pub to_connect_peers: HashSet<PeerId>,
+
     /// peers we ignore (mainly here for conductor usecase)
     // #[behaviour(ignore)]
     // ignored_peers: HashSet<PeerId>,
@@ -110,6 +123,8 @@ impl NetworkDef {
         request_response: RequestResponse<DirectMessageCodec>,
         pruning_enabled: bool,
         ignored_peers: HashSet<PeerId>,
+        to_connect_addrs: HashSet<Multiaddr>,
+        limits: (u32, u32, u32)
     ) -> NetworkDef {
         Self {
             gossipsub,
@@ -132,6 +147,10 @@ impl NetworkDef {
             in_progress_put_record_queries: HashMap::new(),
             in_progress_put_record_uid: 0,
             peer_discovery_in_progress: false,
+            to_connect_peers: HashSet::default(),
+            to_connect_addrs,
+            limits,
+            failed_rr: VecDeque::new()
         }
     }
 
@@ -208,6 +227,10 @@ impl NetworkDef {
     /// Add an address
     pub fn add_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
         self.unknown_addrs.remove(&address);
+        if self.to_connect_addrs.contains(&address) {
+            error!("true: adding peer {:?} with address {:?} b/c {:?} in {:?}, known peers now :{:?}", peer_id, address, address, self.to_connect_addrs, self.to_connect_peers);
+            self.to_connect_peers.insert(peer_id.clone());
+        }
         self.kadem.add_address(peer_id, address);
     }
 
@@ -283,12 +306,17 @@ impl NetworkDef {
     /// Return a list of peers to prune, based on given `max_num_peers`
     pub fn get_peers_to_prune(&self, max_num_peers: usize) -> Vec<PeerId> {
         let cd = self.connection_data().cloned();
+        error!("connected {:?}, maxnum: {:?}", cd.connected_peers.len(), max_num_peers);
         if !self.is_bootstrapped()
             || !self.pruning_enabled
             || cd.connected_peers.len() <= max_num_peers
         {
             return Vec::new();
         }
+        let total_peers =
+                    (self.limits.0 as f32 * (1.0 + PEER_EXCESS_FACTOR + PRIORITY_PEER_EXCESS))
+                        .ceil() as u32;
+        error!("MAXMAX PEERS: {}", total_peers);
         let peers_to_rm = cd
             .connected_peers
             .iter()
@@ -305,7 +333,7 @@ impl NetworkDef {
         error!("safe peers are: {:?}", safe_peers);
         peers_to_rm
             .into_iter()
-            .filter(|p| !safe_peers.contains(p))
+            .filter(|p| !safe_peers.contains(p)).take((total_peers - self.limits.0 ) as usize)
             .collect()
     }
 
@@ -371,7 +399,19 @@ impl NetworkDef {
         }
     }
 
+    /// resend all requestresponse
+    pub fn drain_rr(&mut self) {
+        while let Some((contents, peer_id)) = self.failed_rr.pop_front() {
+            let new_request = self
+                .request_response
+                .send_request(&peer_id, DirectMessageRequest(contents.clone()));
+            self.in_progress_rr.insert(new_request, (contents, peer_id));
+        }
+
+    }
+
     /// attempt to put all unstarted put querys to DHT
+    /// FIXME more consistent naming
     pub fn retry_put_dht(&mut self) {
         if !self.is_bootstrapped() {
             warn!("DHT put request skipped because not bootstrapped.");
@@ -521,6 +561,8 @@ impl NetworkDef {
         let request_id = self
             .request_response
             .send_request(&pid, DirectMessageRequest(msg.clone()));
+        error!("direct message request with id {:?}", request_id);
+
         self.in_progress_rr.insert(request_id, (msg, pid));
     }
 
@@ -543,7 +585,7 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for NetworkDef {
     fn inject_event(&mut self, event: GossipsubEvent) {
         if let GossipsubEvent::Message { message, .. } = event {
             self.client_event_queue
-                .push(NetworkEvent::GossipMsg(message.data));
+                .push(NetworkEvent::GossipMsg(message.data, message.topic));
         }
     }
 }
@@ -655,17 +697,21 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
     ) {
         match event {
             RequestResponseEvent::InboundFailure {
-                peer, request_id, ..
+                peer, request_id, error,
+            } => {
+                error!("failed to send message to {:?} with error {:?}", peer, error);
+                if let Some((request, _)) = self.in_progress_rr.get(&request_id).cloned() {
+                    self.in_progress_rr.remove(&request_id);
+                    self.failed_rr.push_back((request, peer));
+                }
             }
             | RequestResponseEvent::OutboundFailure {
-                peer, request_id, ..
+                peer, request_id, error
             } => {
+                error!("failed to send message to {:?} with error {:?}", peer, error);
                 if let Some((request, _)) = self.in_progress_rr.get(&request_id).cloned() {
-                    let new_request = self
-                        .request_response
-                        .send_request(&peer, DirectMessageRequest(request.clone()));
                     self.in_progress_rr.remove(&request_id);
-                    self.in_progress_rr.insert(new_request, (request, peer));
+                    self.failed_rr.push_back((request, peer));
                 }
             }
             RequestResponseEvent::Message { message, peer, .. } => match message {
@@ -687,6 +733,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                         self.client_event_queue
                             .push(NetworkEvent::DirectResponse(msg, peer_id));
                     } else {
+
                         error!("recv-ed a direct response, but is no longer tracking message!");
                     }
                 }

@@ -26,14 +26,19 @@ use libp2p::{
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
-    swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
+    swarm::{ConnectionHandlerUpgrErr, SwarmEvent, SwarmBuilder, ConnectionLimits},
     Multiaddr, PeerId, Swarm,
 };
-use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
+use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ReadView};
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
 use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+pub const PRIORITY_PEER_EXCESS: f32 = 0.2;
+pub const MIN_OUTBOUND_ONLY_FACTOR: f32 = 0.2;
+pub const TARGET_OUTBOUND_ONLY_FACTOR: f32 = 0.3;
+pub const PEER_EXCESS_FACTOR: f32 = 0.1;
 
 /// Network definition
 #[derive(custom_debug::Debug)]
@@ -108,7 +113,7 @@ impl NetworkNode {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
+    pub async fn new(mut config: NetworkNodeConfig) -> Result<Self, NetworkError> {
         // Generate a random PeerId
         let identity = if let Some(ref kp) = config.identity {
             kp.clone()
@@ -129,11 +134,18 @@ impl NetworkNode {
             };
             // Create a custom gossipsub
             // TODO: Extract these defaults into some sort of config
+            // mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high
+            // mesh_outbound_min <= self.config.mesh_n / 2
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .heartbeat_interval(Duration::from_secs(1))
+                .heartbeat_interval(Duration::from_secs(3))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
+                .idle_timeout(Duration::from_secs(1))
+                .mesh_n_high(5)
+                .mesh_n_low(2)
+                .mesh_outbound_min(1)
+                .mesh_n(4)
                 .history_length(500)
                 .max_transmit_size(2 * MAX_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
@@ -161,6 +173,7 @@ impl NetworkNode {
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
+            kconfig.set_connection_idle_timeout(Duration::from_secs(1));
 
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
@@ -174,7 +187,19 @@ impl NetworkNode {
                 RequestResponseConfig::default(),
             );
 
-            let pruning_enabled = config.node_type == NetworkNodeType::Regular;
+            let pruning_enabled = config.node_type == NetworkNodeType::Regular || config.node_type == NetworkNodeType::Bootstrap;
+
+            let (limits, num_incoming, num_outgoing) = match config.node_type {
+                NetworkNodeType::Bootstrap => {
+                    (100, 50, 50)
+                },
+                NetworkNodeType::Regular => {
+                    (10, 5, 5)
+                },
+                NetworkNodeType::Conductor => {
+                    (5000, 2500, 2500)
+                },
+            };
 
             let network = NetworkDef::new(
                 gossipsub,
@@ -183,10 +208,52 @@ impl NetworkNode {
                 request_response,
                 pruning_enabled,
                 config.ignored_peers.clone(),
+                config.to_connect_addrs.clone(),
+                (limits, num_incoming, num_outgoing),
             );
+            config.max_num_peers = limits as usize;
 
-            Swarm::new(transport, network, peer_id)
+
+
+                // if config.nod == 0 {
+                //     5000
+                // } else {
+                //     config.max_num_peers as u32 * 5
+                // };
+
+
+
+
+            // TODO READD
+            let connection_limits =
+                ConnectionLimits::default()
+                .with_max_pending_incoming(Some(num_incoming))
+                // we are not going to connect to everyone.
+                .with_max_pending_outgoing(Some(num_outgoing))
+                .with_max_established_incoming(Some(
+                    (limits as f32
+                        * (1.0 + PEER_EXCESS_FACTOR - MIN_OUTBOUND_ONLY_FACTOR))
+                        .ceil() as u32,
+                ))
+                .with_max_established_outgoing(Some(
+                    (limits as f32 * (1.0 + PEER_EXCESS_FACTOR)).ceil() as u32,
+                ))
+                .with_max_established(Some(
+                    (limits as f32 * (1.0 + PEER_EXCESS_FACTOR + PRIORITY_PEER_EXCESS))
+                        .ceil() as u32,
+                ))
+                .with_max_established_per_peer(Some(2))
+                ;
+
+            SwarmBuilder::new(transport, network, peer_id)
+                .connection_limits(connection_limits)
+                .notify_handler_buffer_size(NonZeroUsize::new(32).unwrap())
+                .connection_event_buffer_size(1024)
+                .build()
+            // Swarm::new(transport, network, peer_id)
+
         };
+
 
         Ok(Self {
             identity,
@@ -220,77 +287,141 @@ impl NetworkNode {
             warn!("Failed to bootstrap. Trying again later.");
         }
 
-        // otherwise periodically get more peers if needed
-        if used_peers.len() <= self.config.min_num_peers
-            // TODO matches macro
-            && self.config.node_type == NetworkNodeType::Regular
-            || self.config.node_type == NetworkNodeType::Conductor
+        if used_peers.len() < self.swarm.behaviour().to_connect_addrs.len() - 3
+            // && (self.config.node_type == NetworkNodeType::Regular
+            // || self.config.node_type == NetworkNodeType::Conductor)
         {
-            // Calcuate the list of "new" peers, once not currently used for
-            // a connection
-            let potential_peers: HashSet<PeerId> = self
-                .swarm
-                .behaviour()
-                .known_peers()
-                .difference(&used_peers)
-                .copied()
-                .collect();
-            // Number of peers we want to try connecting to
-            let num_to_connect = self.config.min_num_peers + 1 - used_peers.len();
-            // Random(?) subset of the availible peers to try connecting to
-            let mut chosen_peers = potential_peers
-                .iter()
-                .copied()
-                .choose_multiple(&mut thread_rng(), num_to_connect)
-                .into_iter()
-                .collect::<HashSet<_>>();
-            chosen_peers.remove(&self.peer_id);
-
-            // Try dialing each random peer
-            for a_peer in &chosen_peers {
-                if *a_peer != self.peer_id {
-                    match self.swarm.dial(*a_peer) {
+            // let potential_peers: HashSet<PeerId> = self
+            //     .swarm
+            //     .behaviour()
+            //     .to_connect_peers
+            //     .difference(&used_peers)
+            //     .copied()
+            //     .collect();
+            //
+            // for a_peer in &potential_peers {
+            //     if *a_peer != self.peer_id {
+            //         match self.swarm.dial(*a_peer) {
+            //             Ok(_) => {
+            //                 info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+            //                 self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
+            //             }
+            //             Err(e) => {
+            //                 info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+            //             }
+            //         };
+            //     }
+            // }
+            //
+            // if potential_peers.is_empty() {
+                for a_peer in &self.swarm.behaviour().to_connect_addrs.clone() {
+                    match self.swarm.dial(a_peer.clone()) {
                         Ok(_) => {
-                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
-                            self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
+                            // info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+                            // self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
                         }
                         Err(e) => {
                             info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
                         }
                     };
                 }
-            }
-
-            // if we don't know any peers, start dialing random peers if we have any.
-            if chosen_peers.is_empty() {
-                let chosen_addrs = self
-                    .swarm
-                    .behaviour()
-                    .iter_unknown_addressess()
-                    .choose_multiple(&mut thread_rng(), num_to_connect);
-                for a_addr in chosen_addrs {
-                    match self.swarm.dial(a_addr.clone()) {
-                        Ok(_) => {
-                            info!("Peer {:?} dial {:?} working!", self.peer_id, a_addr);
-                        }
-                        Err(e) => {
-                            info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_addr, e);
-                        }
-                    }
-                }
-            }
+            // }
         }
+
+        // otherwise periodically get more peers if needed
+        // if used_peers.len() <= self.config.min_num_peers
+        //     // TODO matches macro
+        //     && (self.config.node_type == NetworkNodeType::Regular
+        //     || self.config.node_type == NetworkNodeType::Conductor)
+        // {
+        //     // Calcuate the list of "new" peers, once not currently used for
+        //     // a connection
+        //     let potential_peers: HashSet<PeerId> = self
+        //         .swarm
+        //         .behaviour()
+        //         .known_peers()
+        //         .difference(&used_peers)
+        //         .copied()
+        //         .collect();
+        //     // Number of peers we want to try connecting to
+        //     let num_to_connect = self.config.min_num_peers + 1 - used_peers.len();
+        //     // Random(?) subset of the availible peers to try connecting to
+        //     let mut chosen_peers = potential_peers
+        //         .iter()
+        //         .copied()
+        //         .choose_multiple(&mut thread_rng(), num_to_connect)
+        //         .into_iter()
+        //         .collect::<HashSet<_>>();
+        //     chosen_peers.remove(&self.peer_id);
+        //
+        //     // Try dialing each random peer
+        //     for a_peer in &chosen_peers {
+        //         if *a_peer != self.peer_id {
+        //             match self.swarm.dial(*a_peer) {
+        //                 Ok(_) => {
+        //                     info!("Peer {:?} dial {:?} working!", self.peer_id, a_peer);
+        //                     self.swarm.behaviour_mut().add_connecting_peer(*a_peer);
+        //                 }
+        //                 Err(e) => {
+        //                     info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
+        //                 }
+        //             };
+        //         }
+        //     }
+
+        // if we don't know any peers, start dialing random peers if we have any.
+        // if chosen_peers.is_empty() {
+        //     let chosen_addrs = self
+        //         .swarm
+        //         .behaviour()
+        //         .iter_unknown_addressess()
+        //         .choose_multiple(&mut thread_rng(), num_to_connect);
+        //     for a_addr in chosen_addrs {
+        //         match self.swarm.dial(a_addr.clone()) {
+        //             Ok(_) => {
+        //                 info!("Peer {:?} dial {:?} working!", self.peer_id, a_addr);
+        //             }
+        //             Err(e) => {
+        //                 info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_addr, e);
+        //             }
+        //         }
+        //     }
+        // }
+        //
+        // if chosen_peers.is_empty() {
+        //     // self.swarm.behaviour().
+        //     let chosen_addrs = self
+        //         .swarm
+        //         .behaviour()
+        //         .iter_unknown_addressess()
+        //         .choose_multiple(&mut thread_rng(), num_to_connect);
+        //     for a_addr in chosen_addrs {
+        //         match self.swarm.dial(a_addr.clone()) {
+        //             Ok(_) => {
+        //                 info!("Peer {:?} dial {:?} working!", self.peer_id, a_addr);
+        //             }
+        //             Err(e) => {
+        //                 info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_addr, e);
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     #[instrument(skip(self))]
     fn prune_num_connections(&mut self) {
+        error!("CALLING PRUNE!!!!!");
         let swarm = self.swarm.behaviour_mut();
         // If we are connected to too many peers, try disconnecting from
         // a random subset. Bootstrap nodes accept all connections and
         // attempt to connect to all
-        if self.config.node_type == NetworkNodeType::Regular {
-            for peer_id in swarm.get_peers_to_prune(self.config.max_num_peers) {
+        if self.config.node_type != NetworkNodeType::Conductor {
+            error!("PRUNING TIME!");
+            let peers_to_prune = swarm.get_peers_to_prune(self.config.max_num_peers) ;
+            error!("pruning {} peers, connected to {} peers", peers_to_prune.len(), swarm.connection_data().cloned().connected_peers.len());
+            for peer_id in peers_to_prune {
                 let _ = self.swarm.disconnect_peer_id(peer_id);
+                error!("Disconnected a peer. {} left", self.connection_data().cloned().connected_peers.len());
             }
         }
     }
@@ -307,7 +438,7 @@ impl NetworkNode {
     async fn handle_client_requests(
         &mut self,
         msg: Result<ClientRequest, flume::RecvError>,
-    ) -> Result<bool, NetworkError> {
+        ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
         match msg {
             Ok(msg) => {
@@ -328,7 +459,7 @@ impl NetworkNode {
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
-                        );
+                            );
                     }
                     IgnorePeers(peers) => {
                         behaviour.extend_ignored_peers(peers);
@@ -365,6 +496,10 @@ impl NetworkNode {
                     }
                     AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
+                    },
+                    Prune(pid) => {
+                        //FIXME deal with error handling
+                        let _ = self.swarm.disconnect_peer_id(pid);
                     }
                 }
             }
@@ -381,14 +516,16 @@ impl NetworkNode {
     async fn handle_swarm_events(
         &mut self,
         event: SwarmEvent<
-            NetworkEvent,
-            EitherError<
-                EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
-                ConnectionHandlerUpgrErr<Error>,
-            >,
+        NetworkEvent,
+        EitherError<
+        // if we want to comment out identify
+        // EitherError</* EitherError< */GossipsubHandlerError/* , Error *//* > */, Error>,
+        EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
+        ConnectionHandlerUpgrErr<Error>,
+        >,
         >,
         send_to_client: &Sender<NetworkEvent>,
-    ) -> Result<(), NetworkError> {
+        ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
@@ -399,9 +536,13 @@ impl NetworkNode {
             ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
-                error!("connection established!!");
-                behaviour.add_address(&peer_id, endpoint.get_remote_address().clone());
                 behaviour.add_connected_peer(peer_id);
+
+                error!("add address is called here?");
+                behaviour.add_address(&peer_id, endpoint.get_remote_address().clone());
+                let tmp = behaviour.connection_data().cloned();
+                error!("connection established!! {} connected: {:?} ",
+                       tmp.connected_peers.len(), tmp.connected_peers);
 
                 // now we have at least one peer so we can bootstrap
                 if behaviour.should_bootstrap() {
@@ -452,6 +593,7 @@ impl NetworkNode {
     #[instrument(skip(self))]
     pub fn handle_sending(&mut self) {
         self.swarm.behaviour_mut().drain_publish_gossips();
+        self.swarm.behaviour_mut().drain_rr();
     }
 
     /// periodically retry put requests to dht if they've failed
@@ -467,7 +609,7 @@ impl NetworkNode {
     #[instrument(skip(self))]
     pub async fn spawn_listeners(
         mut self,
-    ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
+        ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
         // NOTE this could be entirely event driven
@@ -483,8 +625,8 @@ impl NetworkNode {
         let mut time_since_handle_num_connections = Duration::ZERO;
 
         let sending_thresh = Duration::from_millis(250);
-        let peer_discovery_thresh = Duration::from_secs(1);
-        let prune_num_connections_thresh = Duration::from_secs(1);
+        let peer_discovery_thresh = Duration::from_millis(250);
+        let prune_num_connections_thresh = Duration::from_secs(2);
         let retry_put_dht_thresh = Duration::from_millis(250);
         let handle_num_connections_thresh = Duration::from_secs(1);
 
@@ -513,18 +655,21 @@ impl NetworkNode {
 
 
                             if time_since_prune_num_connections >= prune_num_connections_thresh {
-                                // self.prune_num_connections();
+                                self.prune_num_connections();
                                 time_since_prune_num_connections = Duration::ZERO;
                             }
 
                             if time_since_retry_put_dht >= retry_put_dht_thresh {
-                                self.retry_put_dht();
+                                // FIXME uncommment soon
+                                // self.retry_put_dht();
                                 time_since_retry_put_dht = Duration::ZERO;
                             }
 
                             if time_since_handle_num_connections >= handle_num_connections_thresh {
                                 self.handle_num_connections();
                                 time_since_handle_num_connections = Duration::ZERO;
+                            } else {
+                                error!("waiting to handle num connections {:?} {:?}", time_since_handle_num_connections, handle_num_connections_thresh);
                             }
                         },
                         event = self.swarm.next() => {
@@ -543,7 +688,7 @@ impl NetworkNode {
                 }
                 Ok::<(), NetworkError>(())
             }
-            .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
+        .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
         );
         Ok((s_input, r_output))
     }

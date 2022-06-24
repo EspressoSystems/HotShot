@@ -299,7 +299,7 @@ impl<
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
-                    GossipMsg(msg) => {
+                    GossipMsg(msg, _) => {
                         let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
