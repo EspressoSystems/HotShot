@@ -13,7 +13,7 @@ mod update_ctx;
 use self::{
     commit::CommitPhase, decide::DecidePhase, precommit::PreCommitPhase, prepare::PreparePhase,
 };
-use crate::{ConsensusApi, Result, TransactionState, ViewNumber};
+use crate::{ConsensusApi, Result, RoundTimedoutState, TransactionState, ViewNumber};
 use phaselock_types::{
     data::Stage,
     error::PhaseLockError,
@@ -66,14 +66,17 @@ enum ViewAliveState {
     Running,
     /// The viewstate finished successfully
     Finished,
-    /// The viewstate got interrupted
-    Interrupted,
+    /// The viewstate got interrupted. The inner state contains information what state the round was in.
+    Interrupted(RoundTimedoutState),
 }
 
 impl ViewAliveState {
     /// Returns `true` is this state is either `Interrupted` or `Finished`.
     fn is_done(&self) -> bool {
-        matches!(self, ViewAliveState::Interrupted | ViewAliveState::Finished)
+        matches!(
+            self,
+            ViewAliveState::Interrupted(_) | ViewAliveState::Finished
+        )
     }
 }
 
@@ -213,13 +216,24 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
     }
 
     /// Return true if this phase has run until completion
-    pub fn was_timed_out(&self) -> bool {
-        matches!(self.alive_state, ViewAliveState::Interrupted)
+    pub fn get_timedout_reason(&self) -> Option<RoundTimedoutState> {
+        match &self.alive_state {
+            ViewAliveState::Interrupted(reason) => Some(reason.clone()),
+            _ => None,
+        }
     }
 
     /// Called when the round is timed out. May do some cleanup logic.
     pub fn timeout(&mut self) {
-        self.alive_state = ViewAliveState::Interrupted;
+        self.alive_state = ViewAliveState::Interrupted(if let Some(decide) = &self.decide {
+            decide.timeout_reason()
+        } else if let Some(commit) = &self.commit {
+            commit.timeout_reason()
+        } else if let Some(precommit) = &self.precommit {
+            precommit.timeout_reason()
+        } else {
+            self.prepare.timeout_reason()
+        });
     }
 }
 

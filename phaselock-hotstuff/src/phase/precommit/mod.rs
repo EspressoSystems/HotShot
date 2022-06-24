@@ -6,7 +6,7 @@ mod leader;
 mod replica;
 
 use super::{commit::CommitPhase, Progress, UpdateCtx};
-use crate::{utils, ConsensusApi, Result};
+use crate::{utils, ConsensusApi, Result, RoundTimedoutState};
 use leader::PreCommitLeader;
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
@@ -67,6 +67,14 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitPhase<I, N> {
             Ok(Progress::Next(commit))
         } else {
             Ok(Progress::NotReady)
+        }
+    }
+
+    /// We're timing out, get the state of this phase
+    pub fn timeout_reason(&self) -> RoundTimedoutState {
+        match self {
+            Self::Leader(_) => RoundTimedoutState::LeaderWaitingForPrepareVotes,
+            Self::Replica(_) => RoundTimedoutState::ReplicaWaitingForPreCommit,
         }
     }
 }

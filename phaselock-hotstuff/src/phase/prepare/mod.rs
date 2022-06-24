@@ -4,7 +4,7 @@ mod leader;
 mod replica;
 
 use super::{precommit::PreCommitPhase, Progress, UpdateCtx};
-use crate::{utils, ConsensusApi, Result, TransactionLink, TransactionState};
+use crate::{utils, ConsensusApi, Result, RoundTimedoutState, TransactionLink, TransactionState};
 use leader::PrepareLeader;
 use phaselock_types::{
     data::{Leaf, QuorumCertificate, Stage},
@@ -61,6 +61,20 @@ impl<const N: usize> PreparePhase<N> {
             Ok(Progress::Next(pre_commit))
         } else {
             Ok(Progress::NotReady)
+        }
+    }
+
+    /// We're timing out, get the state of this phase
+    pub fn timeout_reason(&self) -> RoundTimedoutState {
+        match self {
+            Self::Leader(leader) => {
+                if leader.high_qc.is_none() {
+                    RoundTimedoutState::LeaderWaitingForHighQC
+                } else {
+                    RoundTimedoutState::LeaderMinRoundTimeNotReached
+                }
+            }
+            Self::Replica(_) => RoundTimedoutState::ReplicaWaitingForPrepare,
         }
     }
 }

@@ -15,9 +15,9 @@ use tracing::{debug, error, instrument, trace, warn};
 #[derive(Debug)]
 pub(crate) struct PrepareLeader<const N: usize> {
     /// The `high_qc` that was calculated
-    high_qc: Option<QuorumCertificate<N>>,
+    pub(super) high_qc: Option<QuorumCertificate<N>>,
     /// The timestamp at which this round started. This will be after enough `NewView` messages have been received
-    round_start: Option<Instant>,
+    pub(super) round_start: Option<Instant>,
 }
 
 impl<const N: usize> PrepareLeader<N> {
