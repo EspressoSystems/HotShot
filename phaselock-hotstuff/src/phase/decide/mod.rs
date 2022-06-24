@@ -6,7 +6,7 @@ mod leader;
 mod replica;
 
 use super::{Progress, UpdateCtx};
-use crate::{utils, ConsensusApi, Result};
+use crate::{utils, ConsensusApi, Result, RoundTimedoutState};
 use leader::DecideLeader;
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
@@ -68,6 +68,14 @@ impl<const N: usize> DecidePhase<N> {
             Ok(Progress::Next(()))
         } else {
             Ok(Progress::NotReady)
+        }
+    }
+
+    /// We're timing out, get the state of this phase
+    pub fn timeout_reason(&self) -> RoundTimedoutState {
+        match self {
+            Self::Leader(_) => RoundTimedoutState::LeaderWaitingForCommitVotes,
+            Self::Replica(_) => RoundTimedoutState::ReplicaWaitingForDecide,
         }
     }
 }

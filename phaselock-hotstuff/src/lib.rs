@@ -28,7 +28,7 @@ use futures::channel::oneshot::Sender;
 use phase::ViewState;
 use phaselock_types::{
     data::{Stage, ViewNumber},
-    error::{FailedToMessageLeaderSnafu, PhaseLockError, StorageSnafu},
+    error::{FailedToMessageLeaderSnafu, PhaseLockError, RoundTimedoutState, StorageSnafu},
     message::{ConsensusMessage, NewView},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
@@ -90,7 +90,7 @@ pub enum RoundFinishedEventState {
     /// The round finished successfully
     Success,
     /// The round got interrupted
-    Interrupted,
+    Interrupted(RoundTimedoutState),
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Default for HotStuff<I, N> {
@@ -288,8 +288,8 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
             if let Some(listeners) = listeners {
                 let event = RoundFinishedEvent {
                     view_number,
-                    state: if phase.was_timed_out() {
-                        RoundFinishedEventState::Interrupted
+                    state: if let Some(reason) = phase.get_timedout_reason() {
+                        RoundFinishedEventState::Interrupted(reason)
                     } else {
                         RoundFinishedEventState::Success
                     },

@@ -25,7 +25,7 @@ use phaselock::{
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
 use phaselock_types::{
-    error::TimeoutSnafu,
+    error::{RoundTimedoutState, TimeoutSnafu},
     traits::{
         network::TestableNetworkingImplementation,
         signature_key::{
@@ -298,7 +298,10 @@ impl<
                 EventType::ViewTimeout { view_number } => {
                     if view_number >= cur_view {
                         error!(?event, "Round timed out!");
-                        return Err(PhaseLockError::ViewTimeoutError { view_number });
+                        return Err(PhaseLockError::ViewTimeoutError {
+                            view_number,
+                            state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                        });
                     }
                 }
                 EventType::Decide { block, state, .. } => {

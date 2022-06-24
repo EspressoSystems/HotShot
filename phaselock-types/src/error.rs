@@ -82,6 +82,8 @@ pub enum PhaseLockError {
     ViewTimeoutError {
         /// view number
         view_number: ViewNumber,
+        /// The state that the round was in when it timed out
+        state: RoundTimedoutState,
     },
     /// Internal value used to drive the state machine
     Continue,
@@ -99,4 +101,32 @@ impl PhaseLockError {
             _ => None,
         }
     }
+}
+
+/// Contains information about what the state of the phaselock-hotstuff was when a round timed out
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum RoundTimedoutState {
+    /// Leader is in a Prepare phase and is waiting for a HighQC
+    LeaderWaitingForHighQC,
+    /// Leader is in a Prepare phase and timed out before the round min time is reached
+    LeaderMinRoundTimeNotReached,
+    /// Leader is waiting for prepare votes
+    LeaderWaitingForPrepareVotes,
+    /// Leader is waiting for precommit votes
+    LeaderWaitingForPreCommitVotes,
+    /// Leader is waiting for commit votes
+    LeaderWaitingForCommitVotes,
+
+    /// Replica is waiting for a prepare message
+    ReplicaWaitingForPrepare,
+    /// Replica is waiting for a pre-commit message
+    ReplicaWaitingForPreCommit,
+    /// Replica is waiting for a commit message
+    ReplicaWaitingForCommit,
+    /// Replica is waiting for a decide message
+    ReplicaWaitingForDecide,
+
+    /// Phaselock-testing tried to collect round events, but it timed out
+    TestCollectRoundEventsTimedOut,
 }

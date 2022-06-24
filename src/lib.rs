@@ -338,8 +338,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         };
         match result.state {
             RoundFinishedEventState::Success => Ok(result.view_number),
-            _ => Err(PhaseLockError::ViewTimeoutError {
+            RoundFinishedEventState::Interrupted(state) => Err(PhaseLockError::ViewTimeoutError {
                 view_number: result.view_number,
+                state,
+            }),
+            x => Err(PhaseLockError::InvalidState {
+                context: format!("Round finished in an unknown state: {:?}", x),
             }),
         }
     }

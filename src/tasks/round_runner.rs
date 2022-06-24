@@ -35,6 +35,9 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
 
     /// The timeout of the next round.
     int_duration: u64,
+
+    /// The amount of times in a row that a round timed out
+    round_timeout_seq_count: usize,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
@@ -62,6 +65,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             phaselock,
             int_duration,
             run_once_counter: 0,
+            round_timeout_seq_count: 0,
         }
     }
 
@@ -137,15 +141,29 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                         Ok(new_view) => {
                             // If it succeded, simply reset the timeout
                             self.int_duration = default_interrupt_duration;
+                            self.round_timeout_seq_count = 0;
 
                             info!("Round finished, new view number is {:?}", new_view);
                         }
-                        Err(PhaseLockError::ViewTimeoutError { view_number }) => {
+                        Err(PhaseLockError::ViewTimeoutError { view_number, state }) => {
                             if view_number != self.state.view {
                                 error!("We received a timeout for view {:?} but we're currently in view {:?}", view_number, self.state.view);
                             }
-                            // if we timed out, log it, send the event, and increase the timeout
-                            warn!("Round timed out");
+                            self.round_timeout_seq_count += 1;
+                            if self.round_timeout_seq_count <= 2 {
+                                info!(
+                                    "Round timed out ({} times). This is fine. State = {:?}",
+                                    self.round_timeout_seq_count, state
+                                );
+                            } else if self.round_timeout_seq_count <= 5 {
+                                warn!(
+                                    "Round timed out ({} times), state = {:?}",
+                                    self.round_timeout_seq_count, state
+                                );
+                            } else {
+                                error!("Round timed out {} times, we're probably not properly connected to the network any more, state = {:?}", self.round_timeout_seq_count, state);
+                            }
+
                             event_to_send = Some(Event {
                                 view_number: self.state.view,
                                 stage: Stage::None,
@@ -158,13 +176,14 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                         }
                         Err(e) => {
                             // If it errored, broadcast the error, reset the timeout, and continue
-                            warn!(?e, "Round encountered an error");
+                            error!(?e, "Round encountered an error");
                             event_to_send = Some(Event {
                                 view_number: self.state.view,
                                 stage: e.get_stage().unwrap_or(Stage::None),
                                 event: EventType::Error { error: Arc::new(e) },
                             });
                             self.int_duration = default_interrupt_duration;
+                            self.round_timeout_seq_count = 0;
                         }
                     }
 
