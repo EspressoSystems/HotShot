@@ -37,7 +37,8 @@ use tracing::{error, info, instrument};
 use std::net::SocketAddr;
 
 // number of success we need
-const SUCCESS_NUMBER: usize = 33;
+// let this be "90%" of the network
+const SUCCESS_NUMBER: usize = 120 - 12;
 
 const SEND_NUMERATOR: u32 = 70;
 const SEND_DENOMINATOR: u32 = 100;
@@ -810,7 +811,7 @@ pub async fn conductor_broadcast(
     //     .unwrap();
 
     if res_fut.next().await.unwrap().is_err() {
-        error!("TIMED OUT!!");
+        error!("TIMED OUT with {} msgs recv-ed", handle.state().await.current_epoch.message_durations.len());
         // panic!("timeout!");
     }
 

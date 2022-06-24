@@ -191,7 +191,7 @@ impl NetworkNode {
 
             let (limits, num_incoming, num_outgoing) = match config.node_type {
                 NetworkNodeType::Bootstrap => {
-                    (100, 50, 50)
+                    (50, 25, 25)
                 },
                 NetworkNodeType::Regular => {
                     (10, 5, 5)
