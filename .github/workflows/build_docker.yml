@@ -1,0 +1,39 @@
+name: Build with docker Workflow
+
+on:
+  push:
+    branches:
+      - '*/*'
+      - 'main'
+  pull_request:
+    branches:
+      - '*/*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [self-hosted, X64]
+    container:
+      image: ghcr.io/espressosystems/devops-rust:1.59
+    timeout-minutes: 60
+    steps:
+      - uses: styfle/cancel-workflow-action@0.9.1
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v3
+        name: Checkout Repository
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PATH }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+
+      # sanity check that repository builds with docker
+      - name: Build
+        run: cargo build --all-targets --release --workspace --all-features
