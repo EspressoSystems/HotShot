@@ -2575,7 +2575,7 @@ dependencies = [
 [[package]]
 name = "netlink-packet-core"
 version = "0.4.2"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2586,7 +2586,7 @@ dependencies = [
 [[package]]
 name = "netlink-packet-generic"
 version = "0.2.0"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2612,7 +2612,7 @@ dependencies = [
 [[package]]
 name = "netlink-packet-route"
 version = "0.11.0"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2639,7 +2639,7 @@ dependencies = [
 [[package]]
 name = "netlink-packet-utils"
 version = "0.5.1"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2664,7 +2664,7 @@ dependencies = [
 [[package]]
 name = "netlink-proto"
 version = "0.9.2"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "bytes",
  "futures",
@@ -2691,7 +2691,7 @@ dependencies = [
 [[package]]
 name = "netlink-sys"
 version = "0.8.2"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "async-io",
  "bytes",
@@ -3551,7 +3551,7 @@ dependencies = [
 [[package]]
 name = "rtnetlink"
 version = "0.9.1"
-source = "git+ssh://git@github.com/EspressoSystems/netlink.git#c3c03b96101af5f41559494e1a249481c80b0243"
+source = "git+ssh://git@github.com/EspressoSystems/netlink.git#1347bed011eeae7ece9851773906c4a3c80a5d77"
 dependencies = [
  "async-global-executor",
  "byteorder",
