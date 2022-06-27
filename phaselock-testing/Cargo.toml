@@ -23,7 +23,6 @@ either = { version = "1.7.0" }
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
 tracing-subscriber = { version = "0.3.14", features = ["env-filter", "json"] }
-rand_xoshiro = "0.6.0"
 tracing-error = "0.2.0"
 tracing-unwrap = "0.9.2"
 tempfile = "3.3.0"

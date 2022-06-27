@@ -2987,7 +2987,6 @@ dependencies = [
  "phaselock-utils",
  "proptest",
  "rand 0.8.5",
- "rand_xoshiro",
  "serde",
  "snafu",
  "tempfile",
