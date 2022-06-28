@@ -186,7 +186,11 @@ impl FromStr for Ed25519Pub {
         let base64 = TaggedBase64::from_str(s)
             .map_err(|e| format!("Could not decode Ed25519Pub: {:?}", e))?;
         if base64.tag() != PEER_ID {
-            return Err(format!("Invalid Ed25519Pub tag: {:?}, expected {:?}", base64.tag(), PEER_ID));
+            return Err(format!(
+                "Invalid Ed25519Pub tag: {:?}, expected {:?}",
+                base64.tag(),
+                PEER_ID
+            ));
         }
 
         match Self::from_bytes(&EncodedPublicKey(base64.value())) {
