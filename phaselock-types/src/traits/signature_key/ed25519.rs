@@ -3,7 +3,7 @@ use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureK
 use ed25519_compact::{KeyPair, Noise, PublicKey, SecretKey, Seed, Signature};
 use espresso_systems_common::phaselock::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
-use std::{cmp::Ordering, str::FromStr, fmt};
+use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 
@@ -183,25 +183,20 @@ impl FromStr for Ed25519Pub {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let base64 = TaggedBase64::from_str(s).map_err(|_|  {
-            "Could not decode Ed25519Pub".to_string()
-        })?;
+        let base64 = TaggedBase64::from_str(s)
+            .map_err(|e| format!("Could not decode Ed25519Pub: {:?}", e))?;
         if base64.tag() != PEER_ID {
-            return Err(format!(
-                "Invalid Ed25519Pub tag: {:?}",
-                base64.tag()
-            ));
+            return Err(format!("Invalid Ed25519Pub tag: {:?}, expected {:?}", base64.tag(), PEER_ID));
         }
 
-        if let Some(key) = Self::from_bytes(&EncodedPublicKey(base64.value())) {
-            Ok(key)
-        } else {
-            Err("Failed to decode Ed25519 key".to_string())
+        match Self::from_bytes(&EncodedPublicKey(base64.value())) {
+            Some(key) => Ok(key),
+            None => Err("Failed to decode Ed25519 key".to_string()),
         }
     }
 }
 
-impl fmt::Display for  Ed25519Pub {
+impl fmt::Display for Ed25519Pub {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let base64 = self.to_tagged_base64();
         write!(f, "{}", tagged_base64::to_string(&base64))
