@@ -1,11 +1,13 @@
+use std::collections::BTreeMap;
+
 use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, BlockContents},
+    traits::{node_implementation::NodeImplementation, signature_key::SignatureKey, BlockContents},
 };
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// a precommit leader
 #[derive(Debug)]
@@ -78,15 +80,44 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         prepare: Prepare<I::Block, I::State, N>,
         votes: Vec<PrepareVote<N>>,
     ) -> Result<Outcome<N>> {
-        // TODO: Make sure signatures are valid before including them. This isn't critical, as the
-        // recipient is obligated to check them all anyway, since we can't trust the leader to have
-        // correct behavior here
-        let signatures = votes.iter().map(|x| x.0.signature.clone()).collect();
-
-        // TODO: Should we `safe_node` the incoming `Prepare`?
+        let mut signatures = BTreeMap::new();
         let block_hash = prepare.leaf.item.hash();
         let leaf_hash = prepare.leaf.hash();
         let current_view = ctx.view_number;
+
+        let locked_qc = ctx.get_newest_qc().await?.unwrap();
+        if !crate::utils::validate_against_locked_qc(ctx.api, &locked_qc, &prepare.leaf, &prepare.high_qc).await {
+            warn!(
+                ?prepare,
+                ?locked_qc,
+                "Incoming prepare is not valid against locked QC"
+            )
+        }
+
+        let verify_hash = ctx
+            .api
+            .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
+        for vote in votes {
+            let (encoded_pub_key, signature) = &vote.0.signature;
+            let pub_key = match <I::SignatureKey as SignatureKey>::from_bytes(encoded_pub_key) {
+                Some(pub_key) => pub_key,
+                None => {
+                    warn!(?vote, "Vote has an invalid public key, ignoring");
+                    continue;
+                }
+            };
+            if !pub_key.validate(signature, verify_hash.as_ref()) {
+                warn!(
+                    ?vote,
+                    ?prepare,
+                    "Vote is not valid for this prepare proposal, ignoring"
+                );
+                continue;
+            }
+
+            let (encoded_pub_key, signature) = vote.0.signature;
+            signatures.insert(encoded_pub_key, signature);
+        }
 
         let qc = QuorumCertificate {
             block_hash,

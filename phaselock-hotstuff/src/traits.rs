@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use phaselock_types::{
-    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, ViewNumber},
+    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
     event::{Event, EventType},
     message::ConsensusMessage,
     traits::{
@@ -113,13 +113,25 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
+    /// Create a [`VerifyHash`] for a given [`LeafHash`], [`Stage`] and [`ViewNumber`]
+    fn create_verify_hash(
+        &self,
+        leaf_hash: &LeafHash<N>,
+        stage: Stage,
+        view_number: ViewNumber,
+    ) -> VerifyHash<32>;
+
     /// Signs a vote
     fn sign_vote(
         &self,
         leaf_hash: &LeafHash<N>,
         stage: Stage,
         view_number: ViewNumber,
-    ) -> (EncodedPublicKey, EncodedSignature);
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let hash = self.create_verify_hash(leaf_hash, stage, view_number);
+        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        (self.public_key().to_bytes(), signature)
+    }
 
     /// Validate a quorum certificate
     fn validate_qc(

@@ -23,7 +23,6 @@ mod utils;
 
 pub use traits::ConsensusApi;
 
-use async_std::sync::RwLock;
 use futures::channel::oneshot::Sender;
 use phase::ViewState;
 use phaselock_types::{
@@ -38,7 +37,6 @@ use phaselock_types::{
 use snafu::ResultExt;
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
-    sync::Arc,
     time::Instant,
 };
 use tracing::{debug, instrument, warn};
@@ -52,7 +50,7 @@ pub type Result<T = ()> = std::result::Result<T, PhaseLockError>;
 #[derive(Debug)]
 pub struct HotStuff<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
-    // TODO: Allow this to be loaded from `Storage`?
+    // TODO(https://github.com/EspressoSystems/phaselock/issues/153): Allow this to be loaded from `Storage`?
     phases: HashMap<ViewNumber, ViewState<I, N>>,
 
     /// Active phases, sorted by lowest -> highest
@@ -326,15 +324,14 @@ impl<I: NodeImplementation<N>, const N: usize> HotStuff<I, N> {
 }
 
 /// The state of a [`Transaction`].
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct TransactionState<I: NodeImplementation<N>, const N: usize> {
     /// The transaction
     transaction: <I as TypeMap<N>>::Transaction,
     /// If this is `Some`, the transaction was proposed in the given round
-    // TODO(vko): see if we can remove this `Arc<RwLock<..>>` and use mutable references instead
-    propose: Arc<RwLock<Option<TransactionLink>>>,
+    propose: Option<TransactionLink>,
     /// If this is `Some`, the transaction was rejected on the given timestamp
-    rejected: Arc<RwLock<Option<Instant>>>,
+    rejected: Option<Instant>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
@@ -342,19 +339,19 @@ impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
     fn new(transaction: <I as TypeMap<N>>::Transaction) -> TransactionState<I, N> {
         Self {
             transaction,
-            propose: Arc::default(),
-            rejected: Arc::default(),
+            propose: None,
+            rejected: None,
         }
     }
 
     /// returns `true` if this transaction has not been proposed or rejected yet.
     async fn is_unclaimed(&self) -> bool {
-        self.propose.read().await.is_none() && self.rejected.read().await.is_none()
+        self.propose.is_none() && self.rejected.is_none()
     }
 }
 
 /// A link to a view number at a given time
-// TODO: These fields are not used. In the future we can use this for:
+// TODO(https://github.com/EspressoSystems/phaselock/issues/257): These fields are not used. In the future we can use this for:
 // - debugging
 // - persistent storage
 // - cleaning up old transactions out of memory
