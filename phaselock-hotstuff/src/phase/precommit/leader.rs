@@ -4,6 +4,7 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use phaselock_types::{
     data::{QuorumCertificate, Stage},
+    error::PhaseLockError,
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, signature_key::SignatureKey, BlockContents},
 };
@@ -86,12 +87,22 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let current_view = ctx.view_number;
 
         let locked_qc = ctx.get_newest_qc().await?.unwrap();
-        if !crate::utils::validate_against_locked_qc(ctx.api, &locked_qc, &prepare.leaf, &prepare.high_qc).await {
+        if !crate::utils::validate_against_locked_qc(
+            ctx.api,
+            &locked_qc,
+            &prepare.leaf,
+            &prepare.high_qc,
+        )
+        .await
+        {
             warn!(
                 ?prepare,
                 ?locked_qc,
                 "Incoming prepare is not valid against locked QC"
-            )
+            );
+            return Err(PhaseLockError::InvalidState {
+                context: "Incoming prepare is not valid against locked QC".to_string(),
+            });
         }
 
         let verify_hash = ctx
