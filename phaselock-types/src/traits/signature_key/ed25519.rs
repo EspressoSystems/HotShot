@@ -3,7 +3,7 @@ use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureK
 use ed25519_compact::{KeyPair, Noise, PublicKey, SecretKey, Seed, Signature};
 use espresso_systems_common::phaselock::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, str::FromStr, fmt};
 use tagged_base64::TaggedBase64;
 use tracing::{debug, instrument, warn};
 
@@ -179,13 +179,41 @@ impl TestableSignatureKey for Ed25519Pub {
     }
 }
 
+impl FromStr for Ed25519Pub {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, String> {
+        let base64 = TaggedBase64::from_str(s).map_err(|_|  {
+            "Could not decode Ed25519Pub".to_string()
+        })?;
+        if base64.tag() != PEER_ID {
+            return Err(format!(
+                "Invalid Ed25519Pub tag: {:?}",
+                base64.tag()
+            ));
+        }
+
+        if let Some(key) = Self::from_bytes(&EncodedPublicKey(base64.value())) {
+            Ok(key)
+        } else {
+            Err("Failed to decode Ed25519 key".to_string())
+        }
+    }
+}
+
+impl fmt::Display for  Ed25519Pub {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let base64 = self.to_tagged_base64();
+        write!(f, "{}", tagged_base64::to_string(&base64))
+    }
+}
+
 impl Serialize for Ed25519Pub {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let base64 = self.to_tagged_base64();
-        serializer.serialize_str(&tagged_base64::to_string(&base64))
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -194,23 +222,8 @@ impl<'de> Deserialize<'de> for Ed25519Pub {
     where
         D: serde::Deserializer<'de>,
     {
-        use std::str::FromStr;
-
         let base64 = String::deserialize(deserializer)?;
-        let base64 =
-            TaggedBase64::from_str(&base64).map_err(|e| D::Error::custom(e.to_string()))?;
-        if base64.tag() != PEER_ID {
-            return Err(D::Error::custom(format!(
-                "Invalid Ed25519Pub tag: {:?}",
-                base64.tag()
-            )));
-        }
-
-        if let Some(key) = Self::from_bytes(&EncodedPublicKey(base64.value())) {
-            Ok(key)
-        } else {
-            Err(D::Error::custom("Failed to decode Ed25519 key"))
-        }
+        Self::from_str(&base64).map_err(D::Error::custom)
     }
 }
 
@@ -253,12 +266,17 @@ mod tests {
         // Convert the public key to bytes and back, then verify equality
         let pub_key_bytes = pub_key.to_bytes();
         let pub_key_2 = Ed25519Pub::from_bytes(&pub_key_bytes).expect("Failed to deser key");
-        assert!(pub_key == pub_key_2);
+        assert_eq!(pub_key, pub_key_2);
 
         // Serialize the public key and back, then verify equality
         let serialized = serde_json::to_string(&pub_key).expect("Failed to ser key");
         let pub_key_2: Ed25519Pub = serde_json::from_str(&serialized).expect("Failed to deser key");
-        assert!(pub_key == pub_key_2);
+        assert_eq!(pub_key, pub_key_2);
+
+        // .to_string() and FromStr
+        let str = pub_key.to_string();
+        let pub_key_2: Ed25519Pub = str.parse().expect("Failed to parse key");
+        assert_eq!(pub_key, pub_key_2);
     }
 
     #[test]
