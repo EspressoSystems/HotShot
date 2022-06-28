@@ -69,7 +69,6 @@ impl<const N: usize> CommitReplica<N> {
         {
             Some(leaf) => leaf,
             None => {
-                // TODO(vko) try the next commit in `ctx` if any?
                 return utils::err(format!("Could not find leaf {:?}", commit.leaf_hash));
             }
         };

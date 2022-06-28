@@ -94,7 +94,7 @@ impl<const N: usize> DecideLeader<N> {
         debug!(?decide.qc, "decide qc generated");
 
         // Find blocks and states that were commited
-        // TODO: Walk from `storage().locked_qc()` instead
+        // TODO(https://github.com/EspressoSystems/phaselock/issues/153): Walk from `storage().locked_qc()` instead
         let walk_leaf = decide.leaf_hash;
         let old_leaf_hash = self.starting_qc.leaf_hash;
 

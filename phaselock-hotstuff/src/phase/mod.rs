@@ -163,14 +163,15 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
                 is_leader,
                 api,
                 messages: &mut self.messages,
-                transactions,
                 view_number: self.view_number,
                 stage,
             };
             match stage {
                 Stage::None => unreachable!(),
                 Stage::Prepare => {
-                    if let Progress::Next(precommit) = self.prepare.update(&mut ctx).await? {
+                    if let Progress::Next(precommit) =
+                        self.prepare.update(&mut ctx, transactions).await?
+                    {
                         debug!(?precommit, "Transitioning from prepare to precommit");
                         self.precommit = Some(precommit);
                     } else {

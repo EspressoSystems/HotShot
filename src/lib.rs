@@ -47,14 +47,14 @@ use async_trait::async_trait;
 use futures::channel::oneshot;
 use phaselock_hotstuff::{HotStuff, RoundFinishedEventState};
 use phaselock_types::{
-    data::{create_verify_hash, ViewNumber},
+    data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::SignatureKey,
         stateful_handler::StatefulHandler,
     },
 };
@@ -823,15 +823,13 @@ impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::Consensus
             .notify(blocks, states);
     }
 
-    fn sign_vote(
+    fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
         stage: Stage,
         view_number: ViewNumber,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let hash = create_verify_hash(leaf_hash, view_number, stage);
-        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
-        (self.public_key().to_bytes(), signature)
+    ) -> VerifyHash<32> {
+        create_verify_hash(leaf_hash, view_number, stage)
     }
 
     #[instrument(skip(self))]

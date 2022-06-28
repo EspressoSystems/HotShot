@@ -52,7 +52,7 @@ impl<const N: usize> DecideReplica<N> {
         ctx: &UpdateCtx<'_, I, A, N>,
         decide: Decide<N>,
     ) -> Result<Outcome<I, N>> {
-        // TODO: Walk from `storage().locked_qc()` instead
+        // TODO(https://github.com/EspressoSystems/phaselock/issues/153): Walk from `storage().locked_qc()` instead
         let (blocks, states) =
             utils::walk_leaves(ctx.api, decide.leaf_hash, self.starting_qc.leaf_hash).await?;
         Ok(Outcome {
