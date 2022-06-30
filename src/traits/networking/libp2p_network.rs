@@ -277,7 +277,6 @@ impl<
                     .map_err(Into::<NetworkError>::into)?;
                 info!("connected status is {:?}", connected);
 
-                println!("is connected enough now!");
                 is_ready
                     .modify_async(|s| {
                         *s = true;

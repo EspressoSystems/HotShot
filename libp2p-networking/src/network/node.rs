@@ -216,7 +216,7 @@ impl NetworkNode {
         let used_peers = self.swarm.behaviour().get_peers();
 
         if self.swarm.behaviour_mut().bootstrap().is_err() {
-            warn!("Failed to bootstrap");
+            error!("Failed to bootstrap");
         };
 
         // otherwise periodically get more peers if needed

@@ -139,9 +139,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                 .await
                 .map_err(|_| NetworkNodeHandleError::RecvError)?;
             connected_ok = connection_data.connected_peers.len() >= num_peers;
-            println!("connected peers: {:?}", connection_data.connected_peers);
             known_ok = connection_data.known_peers.len() >= num_peers;
-            println!("known peers: {:?}", connection_data.known_peers);
             node.notify_webui().await;
         }
         Ok(())
