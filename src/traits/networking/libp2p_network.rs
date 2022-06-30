@@ -35,6 +35,16 @@ use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
 
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > std::fmt::Debug for Libp2pNetwork<T, P>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Libp2p").field("inner", &"inner").finish()
+    }
+}
+
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
@@ -243,7 +253,7 @@ impl<
                 let connected = NetworkNodeHandle::wait_to_connect(
                     handle.clone(),
                     // this is a safe lower bet on the number of nodes in the network.
-                    2,
+                    4,
                     handle.recv_network(),
                     // FIXME: Temporary hack to get this to compile
                     0,
@@ -272,6 +282,7 @@ impl<
                         *s = true;
                     })
                     .await;
+                println!("Done is_connected now");
                 Ok::<(), NetworkError>(())
             }
         });
