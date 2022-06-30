@@ -175,11 +175,7 @@ impl NetworkBehaviour for DMBehaviour {
                 },
             }
         }
-        // tco
-        let f: Poll<
-            NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-            > = Self::poll(self, cx, params);
-        f
+        Poll::Pending
     }
 
     fn addresses_of_peer(&mut self, pid: &PeerId) -> Vec<libp2p::Multiaddr> {

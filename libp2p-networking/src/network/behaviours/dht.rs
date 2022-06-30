@@ -18,15 +18,21 @@ pub struct DHTBehaviour {
     queued_put_record_queries: VecDeque<KadPutQuery>,
     kadem: Kademlia<MemoryStore>,
     bootstrap_state: Bootstrap,
+    random_walk: RandomWalk
 }
 
 pub struct Bootstrap {
-    state: BootstrapState,
+    state: State,
+    backoff: ExponentialBackoff
+}
+
+pub struct RandomWalk {
+    state: State,
     backoff: ExponentialBackoff
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum BootstrapState {
+enum State {
     NotStarted,
     Started,
     Finished,
@@ -50,9 +56,13 @@ impl DHTBehaviour {
             queued_put_record_queries: VecDeque::default(),
             kadem,
             bootstrap_state: Bootstrap {
-                state: BootstrapState::NotStarted,
+                state: State::NotStarted,
                 backoff: ExponentialBackoff::default(),
             },
+            random_walk: RandomWalk {
+                state: State::NotStarted,
+                backoff: ExponentialBackoff::default()
+            }
         }
     }
 
@@ -222,6 +232,20 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 self.handle_put_query(record_results, id);
             }
             KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::GetClosestPeers(r),
+                ..
+            } => {
+                match r {
+                    Ok(_result) => {
+                        self.random_walk.backoff.reset();
+                    },
+                    Err(_e) => {
+                        self.random_walk.state = State::NotStarted;
+                        self.random_walk.backoff.start_next(false);
+                    },
+                }
+            }
+            KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetRecord(record_results),
                 id,
                 ..
@@ -241,7 +265,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 result: QueryResult::Bootstrap(Ok(_)),
                 ..
             } => {
-                self.bootstrap_state.state = BootstrapState::Finished;
+                self.bootstrap_state.state = State::Finished;
                 self.bootstrap_state.backoff.reset();
             }
             KademliaEvent::OutboundQueryCompleted {
@@ -249,7 +273,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 ..
             } => {
                 // bootstrap failed. try again
-                self.bootstrap_state.state = BootstrapState::NotStarted;
+                self.bootstrap_state.state = State::NotStarted;
                 self.bootstrap_state.backoff.start_next(false);
             }
             // KademliaEvent::OutboundQueryCompleted { .. } => {
@@ -326,15 +350,22 @@ impl NetworkBehaviour for DHTBehaviour {
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
     ) -> std::task::Poll<libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
-        if matches!(self.bootstrap_state.state, BootstrapState::NotStarted) && self.bootstrap_state.backoff.is_expired() {
+        if matches!(self.bootstrap_state.state, State::NotStarted) && self.bootstrap_state.backoff.is_expired() {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     self.bootstrap_state.backoff.reset();
-                    self.bootstrap_state.state = BootstrapState::Started;
+                    self.bootstrap_state.state = State::Started;
                 },
                 Err(_) => self.bootstrap_state.backoff.start_next(false),
             }
         }
+
+        if matches!(self.random_walk.state, State::NotStarted) && self.random_walk.backoff.is_expired() {
+            self.kadem.get_closest_peers(PeerId::random());
+            self.random_walk.state = State::Started;
+        }
+
+
         // retry put/gets if they are ready
         while let Some(req) = self.queued_get_record_queries.pop_front() {
             if req.backoff.is_expired() {
@@ -399,10 +430,7 @@ impl NetworkBehaviour for DHTBehaviour {
         if !self.event_queue.is_empty(){
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.event_queue.remove(0)))
         }
-        let f: Poll<
-            NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-            > = Self::poll(self, cx, params);
-        f
+        Poll::Pending
     }
 
     fn addresses_of_peer(&mut self, pid: &PeerId) -> Vec<libp2p::Multiaddr> {

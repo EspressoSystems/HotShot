@@ -123,10 +123,7 @@ impl NetworkBehaviour for GossipBehaviour {
         if !self.event_queue.is_empty(){
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.event_queue.remove(0)))
         }
-        let f: Poll<
-            NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-            > = Self::poll(self, cx, params);
-        f
+        Poll::Pending
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<libp2p::Multiaddr> {
