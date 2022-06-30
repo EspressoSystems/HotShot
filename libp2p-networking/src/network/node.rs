@@ -1,17 +1,15 @@
 mod config;
 mod handle;
 
+use crate::network::{behaviours::{direct_message_codec::{MAX_MSG_SIZE, DirectMessageCodec, DirectMessageProtocol}, dht::{DHTBehaviour, KadPutQuery, DHTProgress}, direct_message::DMBehaviour, exponential_backoff::ExponentialBackoff}, def::NUM_REPLICATED_TO_TRUST};
+
 pub use self::{
     config::{NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError},
     handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
-};
-use crate::{
-    direct_message::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE},
-    network::def::{DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
+    gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType, behaviours::gossip::GossipBehaviour,
 };
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
@@ -26,19 +24,14 @@ use libp2p::{
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
-    swarm::{ConnectionHandlerUpgrErr, SwarmEvent, SwarmBuilder, ConnectionLimits},
+    swarm::{ConnectionHandlerUpgrErr, SwarmEvent, SwarmBuilder},
     Multiaddr, PeerId, Swarm,
 };
 use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ReadView};
-use rand::{seq::IteratorRandom, thread_rng};
-use snafu::ResultExt;
-use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
-pub const PRIORITY_PEER_EXCESS: f32 = 0.2;
-pub const MIN_OUTBOUND_ONLY_FACTOR: f32 = 0.2;
-pub const TARGET_OUTBOUND_ONLY_FACTOR: f32 = 0.3;
-pub const PEER_EXCESS_FACTOR: f32 = 0.1;
+use snafu::ResultExt;
+use std::{io::Error, num::NonZeroUsize, sync::Arc, time::Duration};
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
 #[derive(custom_debug::Debug)]
@@ -132,20 +125,37 @@ impl NetworkNode {
                 let hash = blake3::hash(&message.data);
                 MessageId::from(hash.as_bytes().to_vec())
             };
+
+            // TODO insert into config.
+            let (mesh_n_high, mesh_n_low, mesh_outbound_min, mesh_n) = match config.node_type {
+                NetworkNodeType::Bootstrap => {
+                    (50, 4, 2, 12)
+                },
+                NetworkNodeType::Regular => {
+                    (20, 4, 2, 12)
+                },
+                NetworkNodeType::Conductor => {
+                    // (1000, 50, 2, 100)
+                    (20, 4, 2, 12)
+                },
+            };
+
+            // NOTE: can vary on obvious basis
+
             // Create a custom gossipsub
             // TODO: Extract these defaults into some sort of config
             // mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high
             // mesh_outbound_min <= self.config.mesh_n / 2
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .heartbeat_interval(Duration::from_secs(3))
+                .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
-                .idle_timeout(Duration::from_secs(1))
-                .mesh_n_high(5)
-                .mesh_n_low(2)
-                .mesh_outbound_min(1)
-                .mesh_n(4)
+                .idle_timeout(Duration::from_secs(0))
+                .mesh_n_high(mesh_n_high)
+                .mesh_n_low(mesh_n_low)
+                .mesh_outbound_min(mesh_outbound_min)
+                .mesh_n(mesh_n)
                 .history_length(500)
                 .max_transmit_size(2 * MAX_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
@@ -166,92 +176,46 @@ impl NetworkNode {
             //   node connection information
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
-            let identify = Identify::new(IdentifyConfig::new(
+            let mut identify_cfg = IdentifyConfig::new(
                 "Phaselock validation gossip 0.1".to_string(),
                 identity.public(),
-            ));
+            );
+            identify_cfg.cache_size = 3;
+            // identify_cfg.push_listen_addr_updates = true;
+            let identify = Identify::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
-            kconfig.set_connection_idle_timeout(Duration::from_secs(1));
+            kconfig.set_connection_idle_timeout(Duration::from_secs(0));
+            kconfig.set_query_timeout(Duration::from_secs(1));
 
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
             }
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
+            let mut rrconfig = RequestResponseConfig::default();
+            rrconfig.set_request_timeout(Duration::from_secs(1));
+            rrconfig.set_connection_keep_alive(Duration::from_secs(0));
+
             // request response for direct messages
             let request_response = RequestResponse::new(
                 DirectMessageCodec(),
-                iter::once((DirectMessageProtocol(), ProtocolSupport::Full)),
-                RequestResponseConfig::default(),
+                [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                rrconfig
             );
-
-            let pruning_enabled = config.node_type == NetworkNodeType::Regular || config.node_type == NetworkNodeType::Bootstrap;
-
-            let (limits, num_incoming, num_outgoing) = match config.node_type {
-                NetworkNodeType::Bootstrap => {
-                    (50, 25, 25)
-                },
-                NetworkNodeType::Regular => {
-                    (10, 5, 5)
-                },
-                NetworkNodeType::Conductor => {
-                    (5000, 2500, 2500)
-                },
-            };
 
             let network = NetworkDef::new(
-                gossipsub,
-                kadem,
+                GossipBehaviour::new(gossipsub),
+                DHTBehaviour::new(kadem),
                 identify,
-                request_response,
-                pruning_enabled,
+                DMBehaviour::new(request_response),
+                false,
                 config.ignored_peers.clone(),
                 config.to_connect_addrs.clone(),
-                (limits, num_incoming, num_outgoing),
             );
-            config.max_num_peers = limits as usize;
-
-
-
-                // if config.nod == 0 {
-                //     5000
-                // } else {
-                //     config.max_num_peers as u32 * 5
-                // };
-
-
-
-
-            // TODO READD
-            let connection_limits =
-                ConnectionLimits::default()
-                .with_max_pending_incoming(Some(num_incoming))
-                // we are not going to connect to everyone.
-                .with_max_pending_outgoing(Some(num_outgoing))
-                .with_max_established_incoming(Some(
-                    (limits as f32
-                        * (1.0 + PEER_EXCESS_FACTOR - MIN_OUTBOUND_ONLY_FACTOR))
-                        .ceil() as u32,
-                ))
-                .with_max_established_outgoing(Some(
-                    (limits as f32 * (1.0 + PEER_EXCESS_FACTOR)).ceil() as u32,
-                ))
-                .with_max_established(Some(
-                    (limits as f32 * (1.0 + PEER_EXCESS_FACTOR + PRIORITY_PEER_EXCESS))
-                        .ceil() as u32,
-                ))
-                .with_max_established_per_peer(Some(2))
-                ;
-
-            SwarmBuilder::new(transport, network, peer_id)
-                .connection_limits(connection_limits)
-                .notify_handler_buffer_size(NonZeroUsize::new(32).unwrap())
-                .connection_event_buffer_size(1024)
-                .build()
-            // Swarm::new(transport, network, peer_id)
-
+            config.max_num_peers = 0;
+            SwarmBuilder::new(transport, network, peer_id).build()
         };
 
 
@@ -263,31 +227,14 @@ impl NetworkNode {
         })
     }
 
-    /// Active peer discovery mechanism. It does this by looking up a random peer
-    /// - must be bootstrapped
-    /// - must not have such a query in progress.
-    #[instrument(skip(self))]
-    fn handle_peer_discovery(&mut self) {
-        // if self.swarm.behaviour().is_bootstrapped()
-        // &&
-        if !self.swarm.behaviour().is_discovering_peers() {
-            let random_peer = PeerId::random();
-            self.swarm.behaviour_mut().query_closest_peers(random_peer);
-            self.swarm.behaviour_mut().set_discovering_peers(true);
-        }
-    }
-
     /// Keep the number of open connections between threshold specified by
     /// the swarm
     #[instrument(skip(self))]
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
-        if self.swarm.behaviour_mut().bootstrap().is_err() {
-            warn!("Failed to bootstrap. Trying again later.");
-        }
-
-        if used_peers.len() < self.swarm.behaviour().to_connect_addrs.len() - 3
+        // if used_peers.len() < self.swarm.behaviour().to_connect_addrs.len()
+        if used_peers.len() < 1
             // && (self.config.node_type == NetworkNodeType::Regular
             // || self.config.node_type == NetworkNodeType::Conductor)
         {
@@ -408,24 +355,6 @@ impl NetworkNode {
         // }
     }
 
-    #[instrument(skip(self))]
-    fn prune_num_connections(&mut self) {
-        error!("CALLING PRUNE!!!!!");
-        let swarm = self.swarm.behaviour_mut();
-        // If we are connected to too many peers, try disconnecting from
-        // a random subset. Bootstrap nodes accept all connections and
-        // attempt to connect to all
-        if self.config.node_type != NetworkNodeType::Conductor {
-            error!("PRUNING TIME!");
-            let peers_to_prune = swarm.get_peers_to_prune(self.config.max_num_peers) ;
-            error!("pruning {} peers, connected to {} peers", peers_to_prune.len(), swarm.connection_data().cloned().connected_peers.len());
-            for peer_id in peers_to_prune {
-                let _ = self.swarm.disconnect_peer_id(peer_id);
-                error!("Disconnected a peer. {} left", self.connection_data().cloned().connected_peers.len());
-            }
-        }
-    }
-
     /// event handler for client events
     /// currectly supported actions include
     /// - shutting down the swarm
@@ -451,6 +380,7 @@ impl NetworkNode {
                             notify,
                             key,
                             value,
+                            backoff: ExponentialBackoff::default()
                         };
                         self.swarm.behaviour_mut().put_record(query);
                     }
@@ -491,8 +421,8 @@ impl NetworkNode {
                     DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
                     }
-                    Pruning(is_enabled) => {
-                        behaviour.toggle_pruning(is_enabled);
+                    Pruning(_is_enabled) => {
+                        // FIXME chop this behaviour
                     }
                     AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
@@ -537,40 +467,33 @@ impl NetworkNode {
                 peer_id, endpoint, ..
             } => {
                 behaviour.add_connected_peer(peer_id);
-
-                error!("add address is called here?");
                 behaviour.add_address(&peer_id, endpoint.get_remote_address().clone());
                 let tmp = behaviour.connection_data().cloned();
                 error!("connection established!! {} connected: {:?} ",
                        tmp.connected_peers.len(), tmp.connected_peers);
-
-                // now we have at least one peer so we can bootstrap
-                if behaviour.should_bootstrap() {
-                    behaviour
-                        .bootstrap()
-                        .map_err(|_e| NetworkError::NoKnownPeers)?;
-                }
             }
             ConnectionClosed {
                 peer_id,
-                endpoint: _,
-                ..
+                endpoint: e,
+                num_established: _,
+                cause: _,
             } => {
                 info!("connection closed btwn {:?}, {:?}", self.peer_id, peer_id);
                 behaviour.remove_connected_peer(peer_id);
+                let _addr = match e {
+                    libp2p::core::ConnectedPoint::Dialer { address, role_override: _ } => address,
+                    libp2p::core::ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr,
+                };
+                // self.swarm.
                 // FIXME remove stale address, not *all* addresses
-                // swarm.kadem.remove_peer(&peer_id);
-                // swarm.kadem.remove_address();
-                // swarm.request_response.remove_address(peer, address)
+                // behaviour.dht.remove_address(&peer_id, &addr);
             }
             Dialing(_)
             | NewListenAddr { .. }
             | ExpiredListenAddr { .. }
             | ListenerClosed { .. }
             | IncomingConnection { .. }
-            | BannedPeer { .. }
-            | IncomingConnectionError { .. }
-            | ListenerError { .. } => {}
+            | BannedPeer { .. } => {},
             Behaviour(b) => {
                 // forward messages directly to Client
                 send_to_client
@@ -579,28 +502,21 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id, error } => {
-                warn!(?error);
+                error!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
                 if let Some(peer_id) = peer_id {
                     behaviour.remove_peer(peer_id);
                 }
             }
+            IncomingConnectionError { local_addr, send_back_addr, error } => {
+                // behaviour.kadem.remove_address(&peer_id, &send_back_addr);
+                error!("INCOMING CONNECTION ERROR: {:?} {:?} {:?}", local_addr, send_back_addr, error);
+            }
+            ListenerError { listener_id, error } => {
+                // behaviour.kadem.remove_address(&peer_id, &send_back_addr);
+                error!("LISTENER ERROR {:?} {:?}", listener_id, error);
+            }
         }
         Ok(())
-    }
-
-    /// periodically resend gossip messages if they have failed
-    #[allow(clippy::panic)]
-    #[instrument(skip(self))]
-    pub fn handle_sending(&mut self) {
-        self.swarm.behaviour_mut().drain_publish_gossips();
-        self.swarm.behaviour_mut().drain_rr();
-    }
-
-    /// periodically retry put requests to dht if they've failed
-    #[allow(clippy::panic)]
-    #[instrument(skip(self))]
-    pub fn retry_put_dht(&mut self) {
-        self.swarm.behaviour_mut().retry_put_dht();
     }
 
     /// Spawn a task to listen for requests on the returned channel
@@ -623,12 +539,14 @@ impl NetworkNode {
         let mut time_since_prune_num_connections = Duration::ZERO;
         let mut time_since_retry_put_dht = Duration::ZERO;
         let mut time_since_handle_num_connections = Duration::ZERO;
+        let mut time_since_print_num_connections = Duration::ZERO;
 
-        let sending_thresh = Duration::from_millis(250);
-        let peer_discovery_thresh = Duration::from_millis(250);
-        let prune_num_connections_thresh = Duration::from_secs(2);
-        let retry_put_dht_thresh = Duration::from_millis(250);
+        let _sending_thresh = Duration::from_secs(1);
+        let _peer_discovery_thresh = Duration::from_secs(2);
+        let _prune_num_connections_thresh = Duration::from_secs(1);
+        let _retry_put_dht_thresh = Duration::from_millis(250);
         let handle_num_connections_thresh = Duration::from_secs(1);
+        let print_num_connections_thres = Duration::from_secs(1);
 
         let lowest_increment = Duration::from_millis(50);
 
@@ -642,34 +560,19 @@ impl NetworkNode {
                             time_since_prune_num_connections += lowest_increment;
                             time_since_retry_put_dht += lowest_increment;
                             time_since_handle_num_connections += lowest_increment;
+                            time_since_print_num_connections += lowest_increment;
 
-                            if time_since_sending >= sending_thresh {
-                                self.handle_sending();
-                                time_since_sending = Duration::ZERO;
-                            }
+                            if time_since_print_num_connections > print_num_connections_thres {
+                                error!("num connections is {}", self.connection_data().cloned().connected_peers.len());
+                                time_since_print_num_connections = Duration::from_secs(0);
 
-                            if time_since_peer_discovery >= peer_discovery_thresh {
-                                self.handle_peer_discovery();
-                                time_since_peer_discovery = Duration::ZERO;
                             }
 
 
-                            if time_since_prune_num_connections >= prune_num_connections_thresh {
-                                self.prune_num_connections();
-                                time_since_prune_num_connections = Duration::ZERO;
-                            }
-
-                            if time_since_retry_put_dht >= retry_put_dht_thresh {
-                                // FIXME uncommment soon
-                                // self.retry_put_dht();
-                                time_since_retry_put_dht = Duration::ZERO;
-                            }
 
                             if time_since_handle_num_connections >= handle_num_connections_thresh {
                                 self.handle_num_connections();
                                 time_since_handle_num_connections = Duration::ZERO;
-                            } else {
-                                error!("waiting to handle num connections {:?} {:?}", time_since_handle_num_connections, handle_num_connections_thresh);
                             }
                         },
                         event = self.swarm.next() => {

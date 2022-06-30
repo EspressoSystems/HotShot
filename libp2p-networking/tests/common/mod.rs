@@ -8,7 +8,7 @@ use libp2p_networking::network::{
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::{ResultExt, Snafu};
-use std::{collections::HashMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{collections::{HashMap, HashSet}, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{info, instrument, warn};
 
 /// General function to spin up testing infra
@@ -128,6 +128,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut handles = Vec::new();
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
+    /// FIXME make this mesh numbers
     let min_num_peers = num_of_nodes / 4;
     let max_num_peers = num_of_nodes / 2;
     // should never panic unless num_nodes is 0
@@ -139,7 +140,9 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .replication_factor(replication_factor)
             .node_type(NetworkNodeType::Bootstrap)
             .max_num_peers(0)
-            .min_num_peers(0);
+            .min_num_peers(0)
+            .to_connect_addrs(bootstrap_addrs.iter().map(|(_, b)| b.clone()).collect())
+            ;
         let node = Arc::new(
             NetworkNodeHandle::new(
                 config
@@ -165,6 +168,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         .min_num_peers(min_num_peers)
         .max_num_peers(max_num_peers)
         .replication_factor(replication_factor)
+        .to_connect_addrs(bootstrap_addrs.iter().map(|(_, b)| b.clone()).collect())
         .build()
         .context(NodeConfigSnafu)
         .context(HandleSnafu)?;

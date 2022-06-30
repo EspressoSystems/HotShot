@@ -5,6 +5,7 @@ from functools import reduce
 from typing import Final
 from subprocess import run, Popen
 from time import sleep
+from os import environ
 
 class NodeType(Enum):
     CONDUCTOR = "Conductor"
@@ -43,12 +44,10 @@ if __name__ == "__main__":
     # params
     START_PORT : Final[int] = 9100;
     NUM_REGULAR_NODES : Final[int] = 100;
-    NUM_NODES_PER_BOOTSTRAP : Final[int] = 5;
+    NUM_NODES_PER_BOOTSTRAP : Final[int] = 10;
     NUM_BOOTSTRAP : Final[int] = (int) (NUM_REGULAR_NODES / NUM_NODES_PER_BOOTSTRAP);
     TOTAL_NUM_NODES: Final[int] = NUM_BOOTSTRAP + NUM_REGULAR_NODES + 1;
-    NUM_ROUNDS=100;
-
-
+    NUM_ROUNDS = 100;
 
     bootstrap_addrs : Final[list[str]] = list(map(lambda x: f'127.0.0.1:{x + START_PORT}', range(0, NUM_BOOTSTRAP)));
     normal_nodes_addrs : Final[list[str]] = list(map(lambda x: f'127.0.0.1:{x + START_PORT + NUM_BOOTSTRAP}', range(0, NUM_REGULAR_NODES)));
@@ -56,15 +55,17 @@ if __name__ == "__main__":
 
     regular_cmds : list[tuple[list[str], str]] = [];
     bootstrap_cmds : list[tuple[list[str], str]] = [];
+    print("doing conductor")
     conductor_cmd : Final[tuple[list[str], str]] = \
         gen_invocation(
             node_type=NodeType.CONDUCTOR,
-            num_nodes=TOTAL_NUM_NODES - 2,
-            to_connect_addrs=bootstrap_addrs,
+            num_nodes=TOTAL_NUM_NODES,
+            to_connect_addrs=bootstrap_addrs + normal_nodes_addrs,#  + normal_nodes_addrs + [conductor_addr],
             conductor_addr=conductor_addr,
             num_rounds=NUM_ROUNDS,
             bound_addr=conductor_addr
     );
+    print("dfone concuctor")
 
     for i in range(0, len(bootstrap_addrs)):
         bootstrap_addr = bootstrap_addrs[i];
@@ -73,7 +74,7 @@ if __name__ == "__main__":
         bootstrap_cmd = gen_invocation(
             node_type=NodeType.BOOTSTRAP,
             num_nodes=TOTAL_NUM_NODES,
-            to_connect_addrs=bootstrap_addrs + regulars_list + [conductor_addr],
+            to_connect_addrs=bootstrap_addrs,
             conductor_addr=conductor_addr,
             num_rounds=NUM_ROUNDS,
             bound_addr=bootstrap_addr,
@@ -85,7 +86,7 @@ if __name__ == "__main__":
                 node_type=NodeType.REGULAR,
                 num_nodes=TOTAL_NUM_NODES,
                 # NOTE may need to remove regular_addr from regulars_list
-                to_connect_addrs= [bootstrap_addr] + regulars_list,
+                to_connect_addrs= [bootstrap_addr],
                 num_rounds=NUM_ROUNDS,
                 bound_addr=regular_addr,
                 conductor_addr=conductor_addr
@@ -95,24 +96,26 @@ if __name__ == "__main__":
     print(regular_cmds)
 
     TIME_TO_SPIN_UP_BOOTSTRAP : Final[int] = 0;
-    TIME_TO_SPIN_UP_REGULAR : Final[int] = 2;
+    TIME_TO_SPIN_UP_REGULAR : Final[int] = 0;
+    env = environ.copy();
+    env["RUST_BACKTRACE"] = "full"
 
     print("spinning up bootstrap")
     for (node_cmd, file_name) in bootstrap_cmds:
         print("running bootstrap", file_name)
         file = open(file_name, 'w')
-        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file);
+        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
 
     sleep(TIME_TO_SPIN_UP_BOOTSTRAP);
 
     print("spinning up regulars")
     for (node_cmd, file_name) in regular_cmds:
         file = open(file_name, 'w')
-        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file);
+        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
 
     sleep(TIME_TO_SPIN_UP_REGULAR);
 
     file = open(conductor_cmd[1], 'w')
     print("spinning up conductor")
-    Popen(conductor_cmd[0][0].split(), start_new_session=True, stdout=file, stderr=file);
+    Popen(conductor_cmd[0][0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
 

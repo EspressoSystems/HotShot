@@ -1,8 +1,7 @@
 use crate::{
-    direct_message::DirectMessageResponse,
     network::{
         error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
-        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
+        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError, behaviours::direct_message_codec::DirectMessageResponse
     },
 };
 use async_std::{

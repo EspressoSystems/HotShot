@@ -17,13 +17,12 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId, gossipsub::IdentTopic as Topic};
+use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::{
-    direct_message::DirectMessageResponse,
     network::{
         deserialize_msg, network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm,
         NetworkEvent, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType, ClientRequest,
+        NetworkNodeType, behaviours::direct_message_codec::DirectMessageResponse,
     },
 };
 use rand::{seq::IteratorRandom, thread_rng, RngCore, distributions::Bernoulli, prelude::Distribution};
@@ -38,17 +37,18 @@ use std::net::SocketAddr;
 
 // number of success we need
 // let this be "90%" of the network
-const SUCCESS_NUMBER: usize = 120 - 12;
+// const SUCCESS_NUMBER: usize = 120 - (120/10);
+const SUCCESS_NUMBER: usize = 15;
 
-const SEND_NUMERATOR: u32 = 70;
+const SEND_NUMERATOR: u32 = 40;
 const SEND_DENOMINATOR: u32 = 100;
 
 const TIMEOUT: Duration = Duration::from_secs(500);
-const BROADCAST_TIMEOUT: Duration = Duration::from_secs(5);
+const BROADCAST_TIMEOUT: Duration = Duration::from_secs(10);
 // const CONDUCTOR_TOPIC: &str = "conductor";
 // 32kb
 // 8 bytes per u64, so this is fine
-const PADDING_SIZE: usize = 32000 / 8;
+const PADDING_SIZE: usize = 32000 / 16;
 
 pub type CounterState = Epoch;
 pub type Epoch = u32;
@@ -310,14 +310,14 @@ pub async fn handle_normal_msg(
         if let Some(conductor_id) = handle.ignored_peers().await.iter().next() {
             error!("continuing to relay to conductor! {:?}, {:?}", conductor_id, handle.ignored_peers().await);
             // do a dice roll here to decide if we want to keep the thing
-            // if
-            //     Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
-            //         .unwrap()
-            //         .sample(&mut rand::thread_rng()) {
+            if
+                Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
+                    .unwrap()
+                    .sample(&mut rand::thread_rng()) {
                 let relayed_msg = Message::Relayed(msg.normal_to_relayed(handle.peer_id()));
                 handle.direct_request(*conductor_id, &relayed_msg).await?;
                 // handle.disconn
-            // }
+            }
         } else {
             error!("We have a message to send to the conductor, but we do not know who the conductor is!");
         }
@@ -350,7 +350,7 @@ pub async fn regular_handle_network_event(
                             .ignore_peers(vec![peerid])
                             .await?;
                         error!("added peerid to handle's ignored peers {:?}", handle.ignored_peers().await);
-                        handle.direct_request(peerid, &Message::RecvdConductor).await?;
+                        // handle.direct_request(peerid, &Message::RecvdConductor).await?;
                     }
                     Message::Normal(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
@@ -510,7 +510,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .to_connect_addrs(opts.to_connect_addrs.into_iter().collect())
                 .bound_addr(opts.bound_addr)
                 .min_num_peers(2)
-                .max_num_peers(100)
+                .max_num_peers(20)
                 .node_type(NetworkNodeType::Conductor)
                 .ignored_peers(HashSet::new())
                 .build()
@@ -558,7 +558,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             // // is ready
             // res_fut.next().await.unwrap().unwrap();
 
-            let (s, r) = flume::bounded::<bool>(1);
+            let (s, _r) = flume::bounded::<bool>(1);
 
         error!("before gossiping");
         spawn({
@@ -676,9 +676,9 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
 /// have conductor direct message all participants
 pub async fn conductor_direct_message(
-    timeout: Duration,
-    state: CounterState,
-    handle: Arc<NetworkNodeHandle<ConductorState>>,
+    _timeout: Duration,
+    _state: CounterState,
+    _handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
     Ok(())
     // // new state
@@ -827,7 +827,7 @@ pub async fn conductor_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
-        GossipMsg(m, t) => {
+        GossipMsg(_m, _t) => {
             error!("conductor handle event maybe this is expected...");
             // if t == Topic::new(CONDUCTOR_TOPIC).hash() {
             //     if let Ok(msg) = deserialize_msg::<Message>(&m) {
@@ -921,7 +921,7 @@ pub async fn conductor_handle_network_event(
 
                                         })
                                         .await;
-                                    // let _ = handle.prune_peer(msg.from_peer).await;
+                                    let _ = handle.prune_peer(msg.from_peer).await;
                                 }
                             }
                             EpochType::DMViaDM => {

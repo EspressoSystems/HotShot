@@ -1,6 +1,8 @@
 mod def;
 pub mod error;
 mod node;
+pub mod behaviours;
+// mod topology;
 
 pub use self::{
     def::NetworkDef,
@@ -11,8 +13,7 @@ pub use self::{
     },
 };
 
-use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu};
-use crate::direct_message::DirectMessageResponse;
+use self::{error::TransportLaunchSnafu, node::network_node_handle_error::TimeoutSnafu, behaviours::direct_message_codec::{DirectMessageResponse}};
 use async_std::{prelude::FutureExt as _, task::spawn};
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};
@@ -23,7 +24,7 @@ use libp2p::{
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
-    tcp, websocket, yamux, Multiaddr, PeerId, Transport, gossipsub::TopicHash,
+    tcp, websocket, yamux::{self}, Multiaddr, PeerId, Transport, gossipsub::TopicHash,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -182,6 +183,14 @@ pub async fn gen_transport(
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&identity)
         .expect("Signing libp2p-noise static DH keypair failed.");
+    let yamux_cfg = yamux::YamuxConfig::default();
+    // yamux_cfg.set_max_buffer_size(1024 * 1024 * 32);
+    // yamux_cfg.set_receive_window_size((16384 * 32) as u32);
+    // yamux_cfg.set_window_update_mode(yamux::WindowUpdateMode::OnRead);
+    let mplex_cfg = mplex::MplexConfig::default();
+    // mplex_cfg.set_max_num_streams(1024);
+    // mplex_cfg.set_max_buffer_size(usize::MAX);
+    // mplex_cfg.set_split_send_size(8*8*8*1024);
 
     Ok(transport
         .upgrade(upgrade::Version::V1)
@@ -191,10 +200,13 @@ pub async fn gen_transport(
         // useful because only one connection opened
         // https://docs.libp2p.io/concepts/stream-multiplexing/
         .multiplex(upgrade::SelectUpgrade::new(
-            yamux::YamuxConfig::default(),
-            mplex::MplexConfig::default(),
+                // mplex_cfg.clone()
+                yamux_cfg
+            ,
+            mplex_cfg
+            // mplex::MplexConfig::default(),
         ))
-        .timeout(std::time::Duration::from_secs(20))
+        .timeout(std::time::Duration::from_secs(1))
         .boxed())
 }
 

@@ -10,13 +10,13 @@ use libp2p::{
 };
 use serde::{Deserialize, Serialize};
 
-/// the protocol for direct messages
+/// Protocol for direct messages
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
-/// the codec for direct messages
+/// Codec for direct messages
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectMessageCodec();
-/// wrapper type describing a serialized direct message
+/// Wrapper type describing a serialized direct message
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectMessageRequest(pub Vec<u8>);
 /// wrapper type describing the response to direct message
@@ -31,6 +31,7 @@ impl ProtocolName for DirectMessageProtocol {
 
 /// maximum message size
 pub const MAX_MSG_SIZE: usize = 64000;
+pub const MAX_MSG_SIZE_DM: usize = 1024;
 
 #[async_trait]
 impl RequestResponseCodec for DirectMessageCodec {
@@ -48,7 +49,7 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
 
         // NOTE we don't error here unless message is too big.
         // We'll wrap this in a networkbehaviour and get parsing messages there
@@ -63,7 +64,7 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
         Ok(DirectMessageResponse(msg))
     }
 

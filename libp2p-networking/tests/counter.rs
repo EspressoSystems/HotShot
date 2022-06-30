@@ -6,7 +6,6 @@ use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
 use libp2p_networking::{
-    direct_message::MAX_MSG_SIZE,
     network::{get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use serde::{Deserialize, Serialize};
@@ -53,9 +52,9 @@ pub async fn counter_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
+    let bincode_options = bincode::DefaultOptions::new();
     match event {
-        GossipMsg(m) | DirectResponse(m, _) => {
+        GossipMsg(m, _) | DirectResponse(m, _) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message only
