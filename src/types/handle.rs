@@ -6,13 +6,22 @@ use crate::{
     types::{Event, PhaseLockError::NetworkFault},
     PhaseLock, Result,
 };
-use async_std::task::block_on;
-use phaselock_types::traits::network::NetworkingImplementation;
-use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use async_std::{prelude::FutureExt, task::block_on};
+use phaselock_types::{
+    error::{PhaseLockError, RoundTimedoutState, TimeoutSnafu},
+    event::EventType,
+    traits::{network::NetworkingImplementation, storage::StorageError},
 };
+use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
+use snafu::ResultExt;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use tracing::{debug, error};
 
 /// Event streaming handle for a [`PhaseLock`] instance running in the background
 ///
@@ -175,6 +184,56 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     /// Synchronously signals the underlying [`PhaseLock`] to run one round, if paused
     pub fn run_one_round_sync(&self) {
         block_on(self.run_one_round());
+    }
+
+    /// iterate through all events on a [`Node`] and determine if the node finished
+    /// successfully
+    /// # Errors
+    /// Errors if unable to obtain storage
+    pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
+        let cur_view = self
+            .get_round_runner_state()
+            .await
+            .map_err(|e| PhaseLockError::StorageError {
+                source: StorageError::InconsistencyError {
+                    description: e.to_string(),
+                },
+            })?
+            .view;
+
+        // timeout for first event is longer in case
+        // there is a delta before other nodes are spun up
+        let mut timeout = Duration::from_secs(10);
+
+        // drain all events from this node
+        loop {
+            let event = self
+                .next_event()
+                .timeout(timeout)
+                .await
+                .context(TimeoutSnafu)??;
+            timeout = Duration::from_millis(self.get_next_view_timeout());
+            match event.event {
+                EventType::ViewTimeout { view_number } => {
+                    if view_number >= cur_view {
+                        error!(?event, "Round timed out!");
+                        return Err(PhaseLockError::ViewTimeoutError {
+                            view_number,
+                            state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                        });
+                    }
+                }
+                EventType::Decide { block, state, .. } => {
+                    return Ok((
+                        state.iter().cloned().collect(),
+                        block.iter().cloned().collect(),
+                    ));
+                }
+                event => {
+                    debug!("recv-ed event {:?}", event);
+                }
+            }
+        }
     }
 
     /// Provides a reference to the underlying storage for this [`PhaseLock`], allowing access to

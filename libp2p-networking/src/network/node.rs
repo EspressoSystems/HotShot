@@ -215,7 +215,9 @@ impl NetworkNode {
     fn handle_num_connections(&mut self) {
         let used_peers = self.swarm.behaviour().get_peers();
 
-        self.swarm.behaviour_mut().bootstrap().unwrap();
+        if self.swarm.behaviour_mut().bootstrap().is_err() {
+            warn!("Failed to bootstrap");
+        };
 
         // otherwise periodically get more peers if needed
         if used_peers.len() <= self.config.min_num_peers

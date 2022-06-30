@@ -15,34 +15,29 @@ pub mod network_reliability;
 
 pub use self::{impls::TestElection, launcher::TestLauncher};
 
-use async_std::prelude::FutureExt;
 use phaselock::{
     traits::{
         election::StaticCommittee, implementations::Stateless, BlockContents,
         NetworkingImplementation, NodeImplementation, State, Storage,
     },
-    types::{EventType, Message, PhaseLockHandle},
+    types::{Message, PhaseLockHandle},
     PhaseLock, PhaseLockConfig, PhaseLockError, H_256,
 };
-use phaselock_types::{
-    error::{RoundTimedoutState, TimeoutSnafu},
-    traits::{
-        network::TestableNetworkingImplementation,
-        signature_key::{
-            ed25519::{Ed25519Priv, Ed25519Pub},
-            SignatureKey,
-        },
-        state::TestableState,
-        storage::StorageState,
+use phaselock_types::traits::{
+    network::TestableNetworkingImplementation,
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
     },
+    state::TestableState,
+    storage::StorageState,
 };
-use snafu::{ResultExt, Snafu};
+use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},
     fmt,
     marker::PhantomData,
     sync::Arc,
-    time::Duration,
 };
 use tracing::{debug, error, info, info_span, warn};
 
@@ -264,59 +259,6 @@ impl<
         self.nodes.iter().map(|node| &node.handle)
     }
 
-    /// iterate through all events on a [`Node`] and determine if the node finished
-    /// successfully
-    /// # Panics
-    /// If the `node`'s handle is no longer able to access its state
-    async fn collect_round_events(
-        node: &mut Node<NETWORK, STORAGE, BLOCK, STATE>,
-    ) -> Result<(Vec<STATE>, Vec<BLOCK>), PhaseLockError> {
-        let id = node.node_id;
-
-        let cur_view = node
-            .handle
-            .get_round_runner_state()
-            .await
-            .unwrap_or_else(|e| panic!("Could not get round runner state of node {}: {:?}", id, e))
-            .view;
-
-        // timeout for first event is longer in case
-        // there is a delta before other nodes are spun up
-        let mut timeout = Duration::from_secs(10);
-
-        // drain all events from this node
-        loop {
-            let event = node
-                .handle
-                .next_event()
-                .timeout(timeout)
-                .await
-                .context(TimeoutSnafu)??;
-            timeout = Duration::from_millis(node.handle.get_next_view_timeout());
-            info!(?id, ?event, "Node event");
-            match event.event {
-                EventType::ViewTimeout { view_number } => {
-                    if view_number >= cur_view {
-                        error!(?event, "Round timed out!");
-                        return Err(PhaseLockError::ViewTimeoutError {
-                            view_number,
-                            state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                        });
-                    }
-                }
-                EventType::Decide { block, state, .. } => {
-                    return Ok((
-                        state.iter().cloned().collect(),
-                        block.iter().cloned().collect(),
-                    ));
-                }
-                event => {
-                    debug!("Node {} recv-ed event {:?}", id, event);
-                }
-            }
-        }
-    }
-
     /// repeatedly executes consensus until either:
     /// * `self.fail_threshold` rounds fail
     /// * `self.num_succeeds` rounds are successful
@@ -375,7 +317,7 @@ impl<
         }
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
-            let result = Self::collect_round_events(node).await;
+            let result = node.handle.collect_round_events().await;
             match result {
                 Ok((state, block)) => {
                     results.insert(node.node_id, (state, block));

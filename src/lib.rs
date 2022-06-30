@@ -443,6 +443,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         handler: I::StatefulHandler,
         election: I::Election,
     ) -> Result<PhaseLockHandle<I, N>> {
+        error!("building phaselock!");
         // Save a clone of the storage for the handle
         let phaselock = Self::new(
             genesis,
@@ -458,7 +459,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             election,
         )
         .await?;
+        error!("Generating phaselock handle!");
         let handle = tasks::spawn_all(&phaselock).await;
+        error!("REturning phaselock handle");
 
         Ok(handle)
     }
