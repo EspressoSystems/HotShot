@@ -23,7 +23,7 @@ snafu = "0.7.0"
 structopt = "0.3.26"
 tracing = "0.1.32"
 tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.12", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
 tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.56"

@@ -52,7 +52,7 @@ phaselock-utils = { path = "./phaselock-utils", version = "0.0.7", features = ["
 rand_xoshiro = "0.6.0"
 structopt = "0.3.26"
 toml = "0.5.8"
-tracing-subscriber = { version = "0.3.12", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.10", features = ["env-filter", "json"] }
 ### Profiles
 ###
 ### Note: these only apply to example executables or tests built from within this crate. They have
