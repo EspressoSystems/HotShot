@@ -552,6 +552,8 @@
 <span id="547">547</span>
 <span id="548">548</span>
 <span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -769,7 +771,9 @@
     <span class="kw">fn</span> <span class="ident">handle_num_connections</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="kw">let</span> <span class="ident">used_peers</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">get_peers</span>();
 
-        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">bootstrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">bootstrap</span>().<span class="ident">is_err</span>() {
+            <span class="macro">error!</span>(<span class="string">&quot;Failed to bootstrap&quot;</span>);
+        };
 
         <span class="comment">// otherwise periodically get more peers if needed</span>
         <span class="kw">if</span> <span class="ident">used_peers</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">min_num_peers</span>
@@ -1102,5 +1106,5 @@
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
 </body></html>

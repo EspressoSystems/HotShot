@@ -601,6 +601,17 @@
 <span id="596">596</span>
 <span id="597">597</span>
 <span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -637,6 +648,16 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">warn</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::ReceiverExt</span>;
+
+<span class="kw">impl</span><span class="op">&lt;</span>
+        <span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">P</span>: <span class="ident">SignatureKey</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="op">&gt;</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span>
+{
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Libp2p&quot;</span>).<span class="ident">field</span>(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;inner&quot;</span>).<span class="ident">finish</span>()
+    }
+}
 
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">PeerInfoVec</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
@@ -846,7 +867,7 @@
                 <span class="kw">let</span> <span class="ident">connected</span> <span class="op">=</span> <span class="ident">NetworkNodeHandle::wait_to_connect</span>(
                     <span class="ident">handle</span>.<span class="ident">clone</span>(),
                     <span class="comment">// this is a safe lower bet on the number of nodes in the network.</span>
-                    <span class="number">2</span>,
+                    <span class="number">4</span>,
                     <span class="ident">handle</span>.<span class="ident">recv_network</span>(),
                     <span class="comment">// FIXME: Temporary hack to get this to compile</span>
                     <span class="number">0</span>,
@@ -875,6 +896,7 @@
                         <span class="kw-2">*</span><span class="ident">s</span> <span class="op">=</span> <span class="bool-val">true</span>;
                     })
                     .<span class="kw">await</span>;
+                <span class="macro">println!</span>(<span class="string">&quot;Done is_connected now&quot;</span>);
                 <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span>(())
             }
         });
@@ -1200,5 +1222,5 @@
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="phaselock" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
 </body></html>
