@@ -15,7 +15,7 @@ demo = ["ed25519-compact"]
 async-std = "1.11.0"
 async-trait = "0.1.56"
 async-tungstenite = "0.17.2"
-atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.2" }
+atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
 bincode = "1.3.3"
 blake3 = "1.3.1"
 custom_debug = "0.5"
