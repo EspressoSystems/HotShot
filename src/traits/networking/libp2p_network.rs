@@ -35,6 +35,17 @@ use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
 
+impl<
+        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+        P: SignatureKey + 'static,
+    > std::fmt::Debug for Libp2pNetwork<T, P>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Libp2p").field("inner", &"inner").finish()
+    }
+}
+
+
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
