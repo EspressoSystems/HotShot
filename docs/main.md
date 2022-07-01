@@ -66,6 +66,10 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
+![](./img/basic_hotstuff.svg "basic hotstuff")
+*Figure 1: Sequential phaselock. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.*
+
+
 Sequential PhaseLock does not currently support committee election or dynamically updating the
 membership list, instead using a predefined list of participant nodes with equal weights. Sequential
 PhaseLock is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
@@ -137,7 +141,32 @@ it, tagged with the nodes current prepareQC.
   * Waits for the Commit QC from the node
   * Executes the commands between the previously committed Leaf and the one in the proposal for this
     view
+
 ## Pipelined
+
+![](./img/chained_hotstuff.svg "chained hotstuff")
+*Figure 2: Pipelined Phaselock. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.*
+
+
+One of the limitations of the sequential version of Phaselock is that 3 rounds of interactions are needed before
+a leader can commit a block. In order to increase the throughput and latency one can do the following:
+* Have replicas handle the different stages (_Prepare_, _Pre-Commit_, _Commit_, _Decide_) yielding an update of the blockchain 
+state in "parallel" for consecutive/chained proposals during each view.
+* Let leaders delegate the responsibility to move their initial proposal (Prepare) to the next stages 
+to the subsequent leaders/groups of replicas.
+
+So in practice during each view *n*, a leader will propose a new extension to the blockchain, while
+the replicas will update their internal state based on proposals made during the view *n* but also views *n-1*, *n-2*, and *n-3*.
+As shown in Figure 2, during *view n* the following happens:
+1. The leader proposes an extension *cmd n* to the state. This extension is based on the node propose by the previous leader during view *n-1*
+2. Each replica send their vote to the next view leader for the new proposal.
+3. If it is possible, each replica will run the instructions of the *pre-commit* stage for the proposal made during view *n-1*.
+4. If it is possible, each replica will run the instructions of the  *commit* stage for the proposal made during view *n-2*.
+5. If it is possible, each replica will run the instructions of the *decide* stage for the proposal during view *n-3*.
+
+With the pipelined protocol, in case there are no failures, a new block will be committed at the end
+of each view, which in this case involves only one interaction between each replica and the leader instead of
+3 for the sequential version.
 
 # Appendices
 
