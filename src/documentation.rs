@@ -4,7 +4,7 @@
     clippy::pedantic,
     missing_docs,
     clippy::missing_docs_in_private_items,
-    non_camel_case_types,
+    non_camel_case_types
 )]
 #![cfg_attr(feature = "doc-images",
 cfg_attr(all(),
@@ -12,9 +12,8 @@ doc = ::embed_doc_image::embed_image!("basic_hotstuff", "docs/img/basic_hotstuff
 doc = ::embed_doc_image::embed_image!("chained_hotstuff", "docs/img/chained_hotstuff.svg"))
 ]
 #![cfg_attr(
-not(feature = "doc-images"),
-doc = "**Doc images not enabled**. Compile with feature `doc-images` and Rust version >= 1.54 \
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile with feature `doc-images` and Rust version >= 1.54 \
            to enable."
 )]
 #![ doc = include_str!("../docs/main.md")]
-
