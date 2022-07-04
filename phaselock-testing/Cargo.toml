@@ -16,7 +16,7 @@ libp2p = { version = "0.45.1", features = ["serde"] }
 async-std = "1.11.0"
 tracing = "0.1.32"
 rand = "0.8.5"
-serde = { version = "1.0.136", features = ["derive", "rc"] }
+serde = { version = "1.0.138", features = ["derive", "rc"] }
 snafu = { version = "0.7.0", features = ["backtraces"] }
 either = { version = "1.7.0" }
 
