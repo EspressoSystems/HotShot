@@ -66,7 +66,8 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
-![](./img/basic_hotstuff.svg "basic hotstuff")
+![basic_hotstuff][basic_hotstuff]
+
 *Figure 1: Sequential phaselock. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.*
 
 
@@ -144,7 +145,8 @@ it, tagged with the nodes current prepareQC.
 
 ## Pipelined
 
-![](./img/chained_hotstuff.svg "chained hotstuff")
+![chained_hotstuff][chained_hotstuff]
+
 *Figure 2: Pipelined Phaselock. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.*
 
 

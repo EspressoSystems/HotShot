@@ -40,8 +40,9 @@ mod utils;
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{Event, EventType, PhaseLockHandle},
+    types::{Event, EventType, PhaseLockHandle}
 };
+
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use futures::channel::oneshot;
