@@ -69,8 +69,6 @@ mod network_state {
 
     #[derive(serde::Serialize)]
     pub struct NetworkConfig {
-        pub max_num_peers: usize,
-        pub min_num_peers: usize,
         pub node_type: String,
         pub identity: String,
         pub ignored_peers: Vec<String>,
@@ -102,8 +100,6 @@ mod network_state {
     impl NetworkConfig {
         fn new(identity: PeerId, c: &NetworkNodeConfig) -> Self {
             Self {
-                max_num_peers: c.max_num_peers,
-                min_num_peers: c.min_num_peers,
                 node_type: format!("{:?}", c.node_type),
                 identity: identity.to_string(),
                 ignored_peers: c.ignored_peers.iter().map(|p| p.to_string()).collect(),

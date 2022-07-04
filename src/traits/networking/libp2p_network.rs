@@ -7,11 +7,13 @@ use async_std::{
     sync::RwLock,
     task::{block_on, sleep, spawn},
 };
+use std::{str::FromStr, time::Instant, sync::atomic::AtomicBool};
 use async_trait::async_trait;
+use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::{DashMap, DashSet};
 use flume::Sender;
-use futures::future::join_all;
+use futures::{future::join_all, channel::oneshot::Receiver};
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
     NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
@@ -27,13 +29,18 @@ use phaselock_types::traits::{
 use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::{collections::{HashSet, HashMap}, num::NonZeroUsize};
 
 use std::{sync::Arc, time::Duration};
 
 use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
+
+#[derive(Serialize)]
+pub enum Empty {
+    Empty
+}
 
 impl<
         T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
@@ -58,32 +65,26 @@ struct Libp2pNetworkInner<
     pk: P,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<()>>,
-    // FIXME ideally this is a bidirectional map
-    // unfortunately a threadsafe version of this
-    // does not exist for rust.
-    // Perhaps worth implementing on top or forking of bimap-rs
-    /// map of known replica public keys to peer id
-    pubkey_to_pid: DashMap<P, PeerId>,
+    pubkey_pid_map: RwLock<BiHashMap<P, PeerId>>,
     /// map of known replica peer ids to public keys
-    pid_to_pubkey: DashMap<PeerId, P>,
-    /// Receiver for broadcast messages
     broadcast_recv: flume::Receiver<M>,
     /// Sender for broadcast messages
     broadcast_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
+    start_time: Instant,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
     /// whether or not the network is ready to send
-    is_ready: Arc<SubscribableRwLock<bool>>,
-    /// listener for when network is ready
-    is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
+    is_ready: Arc<AtomicBool>,
     /// set of recently seen peers
     /// TODO jr make this LRU eventually/less jank
     recently_updated_peers: DashSet<PeerId>,
     /// max time before dropping message due to DHT error
     dht_timeout: Duration,
+    /// whether or not we've bootstrapped into the DHT yet
+    is_bootstrapped: Arc<AtomicBool>
 }
 
 /// Networking implementation that uses libp2p
@@ -111,33 +112,33 @@ impl<
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    /// TODO error handling!! unwraps is bad
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
+        let start_port = 5000;
         Box::new({
             move |node_id| {
+                let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", start_port + node_id)).unwrap();
+                //arbitrarily start generating on port 5000
                 let privkey = P::generate_test_key(node_id);
                 let pubkey = P::from_private(&privkey);
-                let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
+                let replication_factor = NonZeroUsize::new(10).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         .replication_factor(replication_factor)
+                        .to_connect_addrs(Default::default())
                         .node_type(NetworkNodeType::Bootstrap)
-                        .max_num_peers(0)
-                        .min_num_peers(0)
+                        .bound_addr(Some(addr))
                         .build()
                         .unwrap()
                 } else {
-                    let min_num_peers = expected_node_count / 4;
-                    let max_num_peers = expected_node_count / 2;
                     NetworkNodeConfigBuilder::default()
-                        .node_type(NetworkNodeType::Regular)
-                        .min_num_peers(min_num_peers as usize)
-                        .max_num_peers(max_num_peers as usize)
                         .replication_factor(replication_factor)
+                        .to_connect_addrs(Default::default())
+                        .node_type(NetworkNodeType::Regular)
+                        .bound_addr(Some(addr))
                         .build()
                         .unwrap()
                 };
@@ -163,17 +164,20 @@ impl<
 {
     /// returns when network is ready
     async fn wait_for_ready(&self) {
-        let recv_chan = self.inner.is_ready_listener.subscribe().await;
-        if !self.inner.is_ready_listener.cloned_async().await {
-            while !recv_chan.recv_async().await.unwrap_or(true) {}
-            // a oneshot
+        loop {
+            if self.inner.is_ready.load(std::sync::atomic::Ordering::Relaxed) {
+                break
+            }
+            sleep(Duration::from_secs(1)).await;
         }
+        error!("LIBP2P: IS READY GOT TRIGGERED!!");
     }
 
     /// Constructs new network for a node. Note that this network is unconnected.
     /// One must call `connect` in order to connect.
     /// * `config`: the configuration of the node
     /// * `pk`: public key associated with the node
+    /// * `bootstrap_addrs`: rwlock containing the bootstrap addrs
     /// # Errors
     /// Returns error in the event that the underlying libp2p network
     /// is unable to create a network.
@@ -183,51 +187,46 @@ impl<
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
         id: usize,
     ) -> Result<Libp2pNetwork<M, P>, NetworkError> {
-        // TODO do we want to use pk.nonce? or idx? or are they the same?
-
-        // if we care about internal state, we could consider passing something in.
-        // We don't, though. AFAICT
         let network_handle = Arc::new(
             NetworkNodeHandle::<()>::new(config, id)
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
 
-        if matches!(
-            network_handle.config().node_type,
-            NetworkNodeType::Bootstrap
-        ) {
-            let addr = network_handle.listen_addr();
-            let pid = network_handle.peer_id();
-            bootstrap_addrs.write().await.push((Some(pid), addr));
-        }
+        /// we're making all addresses known for now
+        /// peer discovery works but address discovery does not
+        // if matches!(
+        //     network_handle.config().node_type,
+        //     NetworkNodeType::Bootstrap
+        // ) {
+        let addr = network_handle.listen_addr();
+        let pid = network_handle.peer_id();
+        bootstrap_addrs.write().await.push((Some(pid), addr));
+        // }
 
-        let pubkey_to_pid = DashMap::new();
-        pubkey_to_pid.insert(pk.clone(), network_handle.peer_id());
-        let pid_to_pubkey = DashMap::new();
-        pid_to_pubkey.insert(network_handle.peer_id(), pk.clone());
+        let mut pubkey_pid_map = BiHashMap::new();
+
+        pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
         let (direct_send, direct_recv) = flume::unbounded();
         let (broadcast_send, broadcast_recv) = flume::unbounded();
 
-        let is_ready = Arc::new(SubscribableRwLock::new(false));
-
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
+                start_time: Instant::now(),
                 handle: network_handle,
-                pubkey_to_pid,
-                pid_to_pubkey,
+                pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
                 direct_recv,
                 pk,
                 broadcast_send: broadcast_send.clone(),
                 bootstrap_addrs,
-                is_ready: is_ready.clone(),
-                is_ready_listener: is_ready,
+                is_ready: Arc::new(AtomicBool::new(false)),
                 recently_updated_peers: DashSet::default(),
-                dht_timeout: Duration::from_secs(2),
+                dht_timeout: Duration::from_secs(30),
+                is_bootstrapped: Arc::new(AtomicBool::new(false))
             }),
         };
 
@@ -246,15 +245,17 @@ impl<
             self.add_known_peers(bs_addrs.clone()).await.unwrap();
             info!("added peers! {:?}", bs_addrs);
         });
+        let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn({
             let is_ready = self.inner.is_ready.clone();
+            let start_time = self.inner.start_time.clone();
             async move {
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
                 let connected = NetworkNodeHandle::wait_to_connect(
                     handle.clone(),
                     // this is a safe lower bet on the number of nodes in the network.
-                    2,
+                    4,
                     handle.recv_network(),
                     // FIXME: Temporary hack to get this to compile
                     0,
@@ -265,24 +266,32 @@ impl<
                 // do we care?
                 handle.subscribe("global".to_string()).await.unwrap();
 
-                // these will spin indefinitely but since this is async, that's okay.
-                // we want our records published before
-                // we begin participating in consensus
-                handle
-                    .put_record(&pk, &handle.peer_id())
-                    .await
-                    .map_err(Into::<NetworkError>::into)?;
-                handle
-                    .put_record(&handle.peer_id(), &pk)
-                    .await
-                    .map_err(Into::<NetworkError>::into)?;
-                info!("connected status is {:?}", connected);
+                while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
+                    sleep(Duration::from_secs(1)).await;
+                }
 
-                is_ready
-                    .modify_async(|s| {
-                        *s = true;
-                    })
-                    .await;
+                    // we want our records published before
+                    // we begin participating in consensus
+                while handle
+                    .put_record(&pk, &handle.peer_id())
+                        .await.is_err() {
+                            sleep(Duration::from_secs(1)).await;
+                        }
+
+                while
+                    handle
+                        .put_record(&handle.peer_id(), &pk)
+                        .await.is_err() {
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                info!("connected status is {:?}", connected);
+                // while Instant::now() < start_time + Duration::from_secs(40) {
+                //     sleep(Duration::from_secs(1)).await;
+                // }
+                error!("WE ARE READY!");
+
+                is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
+                error!("STARTING CONENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });
@@ -305,12 +314,13 @@ impl<
     /// terminates on shut down of network
     fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
         let handle = self.clone();
+        let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn(async move {
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
-                    GossipMsg(msg) => {
+                    GossipMsg(msg, _topic) => {
                         let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
@@ -319,7 +329,7 @@ impl<
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
                     }
-                    DirectRequest(msg, _pid, _) => {
+                    DirectRequest(msg, _pid, chan) => {
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
@@ -329,12 +339,16 @@ impl<
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
+                        let _ = handle.inner.handle.direct_response(chan, &Empty::Empty).await;
                     }
                     DirectResponse(msg, _) => {
                         let _result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                     }
+                    IsBootstrapped => {
+                        is_bootstrapped.store(true, std::sync::atomic::Ordering::Relaxed);
+                    },
                 }
             }
             error!("Network receiever shut down!");
@@ -353,14 +367,17 @@ impl<
             let timeout_get_dur = Duration::new(2, 0);
             let sleep_dur = Duration::new(0, 25);
             while !handle.inner.handle.is_killed().await {
-                let known_nodes = handle
+                let known_nodes =
+                    handle
                     .inner
-                    .pubkey_to_pid
-                    .clone()
-                    .into_read_only()
-                    .values()
+                    .pubkey_pid_map
+                    .read()
+                    .await
+                    .right_values()
                     .copied()
                     .collect::<HashSet<_>>();
+                    // .values()
+                    // .copied()
                 let libp2p_known_nodes = handle.inner.handle.known_peers().await;
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)
@@ -377,12 +394,11 @@ impl<
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
                     match maybe_pk {
                         Ok(pk) => {
-                            info!("found pk for peer id {:?}", unknown_nodes[idx]);
-                            handle
-                                .inner
-                                .pubkey_to_pid
+                            warn!("found pk for peer id {:?}", unknown_nodes[idx]);
+                            let mut pubkey_pid_map = handle.inner.pubkey_pid_map.write().await;
+                            pubkey_pid_map
                                 .insert(pk.clone(), *unknown_nodes[idx]);
-                            handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
+                            drop(pubkey_pid_map);
                         }
                         Err(_e) => {
                             // hopefully we'll eventually find the key. Try again
@@ -418,7 +434,7 @@ impl<
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
             message,
-            self.inner.handle.connected_peers().await
+            self.inner.handle.connected_pids().await
         );
         // send to self?
         self.inner
@@ -441,24 +457,28 @@ impl<
         }
         self.wait_for_ready().await;
         // check local cache. if that fails, initiate search
-        let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
-            *pid
-        } else {
-            // TODO separate out into separate function
-            match self
-                .inner
-                .handle
-                .get_record_timeout(&recipient, self.inner.dht_timeout)
-                .await
-                .map_err(Into::<NetworkError>::into)
-            {
-                Ok(r) => r,
-                Err(_e) => {
-                    unreachable!();
-                }
-            }
-            // TODO insert
-        };
+        // if search fails, just error out
+        // NOTE: relay may be a good way to fix this in the future .
+        let pid: PeerId =
+            if let Some(pid) =
+                self.inner.pubkey_pid_map.read().await
+                    .get_by_left(&recipient) {
+                    *pid
+                } else {
+                    match self
+                        .inner
+                        .handle
+                        .get_record_timeout(&recipient, self.inner.dht_timeout)
+                        .await
+                        .map_err(Into::<NetworkError>::into)
+                        {
+                            Ok(r) => r,
+                            Err(_e) => {
+                                error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
+                                return Err(NetworkError::DHTError);
+                            }
+                        }
+                };
         self.inner
             .handle
             .direct_request(pid, &message)
@@ -522,9 +542,11 @@ impl<
     #[instrument(name = "Libp2pNetwork::known_nodes", skip_all)]
     async fn known_nodes(&self) -> Vec<P> {
         self.inner
-            .pubkey_to_pid
-            .iter()
-            .map(|kv| kv.pair().0.clone())
+            .pubkey_pid_map
+            .read()
+            .await
+            .left_values()
+            .cloned()
             .collect()
     }
 
@@ -542,7 +564,7 @@ impl<
             .into_iter()
             .collect();
 
-        let cur_connected: HashSet<_> = self.inner.handle.connected_peers().await;
+        let cur_connected: HashSet<_> = self.inner.handle.connected_pids().await?;
 
         // new - old -> added peers
         let added_peers = cur_connected.difference(&old_connected);

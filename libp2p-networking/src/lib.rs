@@ -16,7 +16,7 @@
 //! Library for p2p communication
 
 /// Direct Messages between two nodes
-pub mod direct_message;
+// pub mod direct_message;
 
 /// Example message used by the UI library
 pub mod message;

@@ -1,14 +1,13 @@
 use crate::{
-    direct_message::DirectMessageResponse,
     network::{
         error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
-        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
+        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError, behaviours::direct_message_codec::DirectMessageResponse
     },
 };
 use async_std::{
     future::TimeoutError,
     prelude::FutureExt,
-    sync::{Condvar, Mutex},
+    sync::{Condvar, Mutex}, task::sleep,
 };
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
@@ -21,7 +20,7 @@ use phaselock_utils::{
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::instrument;
+use tracing::{instrument, error};
 
 /// A handle containing:
 /// - A reference to the state
@@ -68,6 +67,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .bound_addr
             .clone()
             .unwrap_or_else(|| gen_multiaddr(0));
+        error!("LISTEN ADDRESS IS {:?}", listen_addr);
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
@@ -131,16 +131,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
-        let mut known_ok = false;
-        let chan = node.connection_data.subscribe().await;
+        // TODO some heuristic from kad
+        let mut known_ok = true;
         while !(known_ok && connected_ok) {
-            let connection_data = chan
-                .recv_async()
-                .await
-                .map_err(|_| NetworkNodeHandleError::RecvError)?;
-            connected_ok = connection_data.connected_peers.len() >= num_peers;
-            known_ok = connection_data.known_peers.len() >= num_peers;
-            node.notify_webui().await;
+            sleep(Duration::from_secs(1)).await;
+            let num_connected = node.num_connected().await.unwrap();
+            connected_ok = num_connected > num_peers;
         }
         Ok(())
     }
@@ -163,7 +159,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -190,7 +186,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -310,7 +306,7 @@ impl<S> NetworkNodeHandle<S> {
         peer_id: PeerId,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
         self.send_network
@@ -328,13 +324,18 @@ impl<S> NetworkNodeHandle<S> {
         chan: ResponseChannel<DirectMessageResponse>,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
         self.send_network
             .send_async(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError>{
+        let req = ClientRequest::Prune(pid);
+        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
     }
 
     /// Gossip a message to peers
@@ -346,7 +347,7 @@ impl<S> NetworkNodeHandle<S> {
         topic: String,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
         self.send_network
@@ -407,6 +408,20 @@ impl<S> NetworkNodeHandle<S> {
         Ok(())
     }
 
+    pub async fn num_connected(&self)  -> Result<usize, NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetConnectedPeerNum(s);
+        self.send_request(req).await?;
+        Ok(r.await.unwrap())
+    }
+
+    pub async fn connected_pids(&self)  -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetConnectedPeers(s);
+        self.send_request(req).await?;
+        Ok(r.await.unwrap())
+    }
+
     /// Get a reference to the network node handle's id.
     pub fn id(&self) -> usize {
         self.id
@@ -430,11 +445,6 @@ impl<S> NetworkNodeHandle<S> {
     /// Get a clone of the known peers list
     pub async fn known_peers(&self) -> HashSet<PeerId> {
         self.connection_data.cloned_async().await.known_peers
-    }
-
-    /// Get a clone of the connected peers list
-    pub async fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.connected_peers
     }
 
     /// Get a clone of the ignored peers list

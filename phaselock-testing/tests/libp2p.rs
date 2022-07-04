@@ -23,9 +23,9 @@ async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
         timeout_ratio: (1, 1),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 15,
+        total_nodes: 20,
+        start_nodes: 20,
+        num_succeeds: 5,
         txn_ids: Right(1),
         next_view_timeout: 2000,
         start_delay: 1000,

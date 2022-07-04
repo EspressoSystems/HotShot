@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use async_std::task::block_on;
+use async_std::task::{block_on, sleep};
 use either::Either;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
@@ -19,8 +19,9 @@ use phaselock_types::traits::{
     state::TestableState, storage::TestableStorage,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
+use tracing::error;
 
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Duration};
 
 use std::sync::Arc;
 
@@ -122,6 +123,7 @@ impl<
         setup_logging();
         setup_backtrace();
 
+
         let mut runner = if let Some(ref generator) = self.gen_runner {
             generator(self)
         } else {
@@ -131,9 +133,13 @@ impl<
         // configure nodes/timing
         runner.add_nodes(self.start_nodes).await;
 
-        for node in runner.nodes() {
+        error!("EXECUTOR GETTING READY");
+        for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().rev().enumerate() {
             node.is_ready().await;
+            error!("EXECUTOR, NODE {:?} IS READY", idx);
         }
+        // sleep(Duration::from_secs(50)).await;
+        // error!("EXECUTOR, IS READY");
 
         let len = self.rounds.len() as u64;
         runner.with_rounds(self.rounds.clone());

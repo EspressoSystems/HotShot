@@ -5,8 +5,8 @@ use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
-use libp2p_networking::network::{
-    get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
+use libp2p_networking::{
+    network::{get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -21,8 +21,8 @@ const TOTAL_NUM_PEERS_COVERAGE: usize = 8;
 const NUM_OF_BOOTSTRAP_COVERAGE: usize = 3;
 const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
-const TOTAL_NUM_PEERS_STRESS: usize = 15;
-const NUM_OF_BOOTSTRAP_STRESS: usize = 3;
+const TOTAL_NUM_PEERS_STRESS: usize = 30;
+const NUM_OF_BOOTSTRAP_STRESS: usize = 10;
 const TIMEOUT_STRESS: Duration = Duration::from_secs(60);
 
 const DHT_KV_PADDING: usize = 1024;
@@ -39,6 +39,7 @@ pub enum CounterMessage {
     },
     AskForCounter,
     MyCounterIs(CounterState),
+    Noop
 }
 
 /// event handler for events from the swarm
@@ -52,9 +53,10 @@ pub async fn counter_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let bincode_options = bincode::DefaultOptions::new();
     match event {
-        GossipMsg(m) | DirectResponse(m, _) => {
+        IsBootstrapped => {}
+        GossipMsg(m, _) | DirectResponse(m, _) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message only
@@ -72,7 +74,7 @@ pub async fn counter_handle_network_event(
                             .await;
                     }
                     // only as a response
-                    AskForCounter => {}
+                    AskForCounter | Noop => {}
                 }
             } else {
                 error!("FAILED TO DESERIALIZE MSG {:?}", m);
@@ -90,13 +92,19 @@ pub async fn counter_handle_network_event(
                                 }
                             })
                             .await;
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
                     }
                     // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(handle.state().await);
                         handle.direct_response(chan, &response).await?;
                     }
-                    MyCounterIs(_) => {}
+                    MyCounterIs(_) => {
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
+                    }
+                    Noop => {
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
+                    }
                 }
             }
         }
@@ -126,19 +134,22 @@ async fn run_request_response_increment<'a>(
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)
             .await
             .context(HandleSnafu)?;
-        stream.next().await.unwrap().unwrap();
+        // stream.next().await.unwrap().unwrap();
 
-        let s1 = requester_handle.state().await;
-        // sanity check
-        if s1 != new_state {
-            Err(TestError::State {
-                id: requester_handle.id(),
-                expected: new_state,
-                actual: s1,
-            })
-        } else {
-            Ok(())
+        while requester_handle.state().await != new_state {
+            async_std::task::sleep(Duration::from_secs(1)).await;
+            // error!("waiting for {:?} to hear back from {:?} and
         }
+        // // sanity check
+        // if s1 != new_state {
+        //     Err(TestError::State {
+        //         id: requester_handle.id(),
+        //         expected: new_state,
+        //         actual: s1,
+        //     })
+        // } else {
+        Ok(())
+        // }
     }
     .await
 }
@@ -336,7 +347,6 @@ async fn run_request_response_increment_all(
 ) {
     let requestee_handle = get_random_handle(handles);
     requestee_handle.modify_state(|s| *s += 1).await;
-    requestee_handle.toggle_prune(false).await.unwrap();
     let mut futs = Vec::new();
     for (_i, h) in handles.iter().enumerate() {
         // skip `requestee_handle`
@@ -352,8 +362,13 @@ async fn run_request_response_increment_all(
     let results = join_all(futs).await;
     if results.iter().any(|x| x.is_err()) {
         print_connections(handles).await;
+        let mut states = vec![];
+        for handle in handles {
+            states.push(handle.state().await);
+        }
         panic!(
-            "{:?}",
+            "states: {:?}, results {:?}",
+            states,
             results
                 .into_iter()
                 .filter(|r| r.is_err())
@@ -361,7 +376,6 @@ async fn run_request_response_increment_all(
         );
     }
 
-    requestee_handle.toggle_prune(true).await.unwrap();
 }
 
 /// simple case of direct message

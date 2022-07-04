@@ -9,14 +9,15 @@ use libp2p::{
     request_response::RequestResponseCodec,
 };
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
-/// the protocol for direct messages
+/// Protocol for direct messages
 #[derive(Debug, Clone)]
 pub struct DirectMessageProtocol();
-/// the codec for direct messages
+/// Codec for direct messages
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectMessageCodec();
-/// wrapper type describing a serialized direct message
+/// Wrapper type describing a serialized direct message
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectMessageRequest(pub Vec<u8>);
 /// wrapper type describing the response to direct message
@@ -25,11 +26,13 @@ pub struct DirectMessageResponse(pub Vec<u8>);
 
 impl ProtocolName for DirectMessageProtocol {
     fn protocol_name(&self) -> &[u8] {
-        "/spectrum_send_msg/1".as_bytes()
+        "/hotstuff/request_response/1.0".as_bytes()
     }
 }
 
-const MAX_MSG_SIZE: usize = 10000;
+/// maximum message size
+pub const MAX_MSG_SIZE: usize = 64000;
+pub const MAX_MSG_SIZE_DM: usize = 10000;
 
 #[async_trait]
 impl RequestResponseCodec for DirectMessageCodec {
@@ -47,7 +50,7 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
 
         // NOTE we don't error here unless message is too big.
         // We'll wrap this in a networkbehaviour and get parsing messages there
@@ -62,7 +65,9 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        let msg = read_length_prefixed(io, MAX_MSG_SIZE).await?;
+        error!("READING REQUEST!");
+        let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
+        error!("READ REQUEST!");
         Ok(DirectMessageResponse(msg))
     }
 
@@ -75,8 +80,11 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
+        error!("WRITING REQUEST!");
         write_length_prefixed(io, msg).await?;
+        error!("WROTE REQUEST!");
         io.close().await?;
+        error!("CLOSED WRITE REQUEST");
 
         Ok(())
     }
