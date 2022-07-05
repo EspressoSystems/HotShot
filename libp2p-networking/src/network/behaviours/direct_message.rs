@@ -1,48 +1,43 @@
 use std::{collections::{VecDeque, HashMap}, task::Poll};
 
-use futures::{Future};
+
 use libp2p::{swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess}, request_response::{RequestResponse, RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel}, PeerId, Multiaddr};
 use tracing::{error, info};
-
-use crate::network::NetworkEvent;
 
 use super::{exponential_backoff::ExponentialBackoff, direct_message_codec::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse}};
 
 
+/// Request to direct message a peert
 pub struct DMRequest {
+    /// the recv-ers peer id
     pub peer_id: PeerId,
+    /// the data
     pub data: Vec<u8>,
+    /// backoff since last attempted request
     pub backoff: ExponentialBackoff
 }
 
-// wrapper metadata around libp2p's request response
+/// Wrapper metadata around libp2p's request response
+/// usage: direct message peer
 pub struct DMBehaviour {
+    /// The wrapped behaviour
     request_response: RequestResponse<DirectMessageCodec>,
+    /// In progress queries
     in_progress_rr: HashMap<RequestId, DMRequest>,
+    /// Failed queries to be retried
     failed_rr: VecDeque<DMRequest>,
+    /// lsit of out events for parent behaviour
     out_event_queue: Vec<DMEvent>
 }
 
+/// Lilst of direct message output events
 pub enum DMEvent {
+    /// We received as Direct Request
     DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
+    /// We received a Direct Response
     DirectResponse(Vec<u8>, PeerId)
 }
 
-impl Into<NetworkEvent> for DMEvent {
-    fn into(self) -> NetworkEvent {
-        // if we get an event from the dm behaviour, push it
-        // onto the event queue (which will get popped during poll)
-        // and propagated back to the overall behaviour
-        match self {
-            DMEvent::DirectRequest(data, pid, chan) => {
-                NetworkEvent::DirectRequest(data, pid, chan)
-            },
-            DMEvent::DirectResponse(data, pid) => {
-                NetworkEvent::DirectResponse(data, pid)
-            },
-        }
-    }
-}
 
 impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>>
     for DMBehaviour
@@ -115,7 +110,7 @@ impl NetworkBehaviour for DMBehaviour {
         connection: libp2p::core::connection::ConnectionId,
         event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
     ) {
-        NetworkBehaviour::inject_event(&mut self.request_response, peer_id, connection, event)
+        NetworkBehaviour::inject_event(&mut self.request_response, peer_id, connection, event);
     }
 
     fn poll(
@@ -130,13 +125,11 @@ impl NetworkBehaviour for DMBehaviour {
                 self.failed_rr.push_back(req);
             }
         }
-        loop {
-            match NetworkBehaviour::poll(&mut self.request_response, cx, params) {
-                Poll::Ready(ready) => {
+            while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.request_response, cx, params) {
                     match ready {
                         // NOTE: this generates request
                         NetworkBehaviourAction::GenerateEvent(e) => {
-                            NetworkBehaviourEventProcess::inject_event(self, e)
+                            NetworkBehaviourEventProcess::inject_event(self, e);
                         },
                         NetworkBehaviourAction::Dial { opts, handler } => {
                             return Poll::Ready(NetworkBehaviourAction::Dial {
@@ -169,12 +162,7 @@ impl NetworkBehaviour for DMBehaviour {
                                     connection,
                                 });
                         },
-                    }
-                },
-                Poll::Pending => {
-                    break
-                },
-            }
+        }
         }
         if !self.out_event_queue.is_empty(){
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.out_event_queue.remove(0)))
@@ -266,6 +254,7 @@ impl NetworkBehaviour for DMBehaviour {
 }
 
 impl DMBehaviour {
+    /// Create new behaviour based on request response
     pub fn new(request_response: RequestResponse<DirectMessageCodec>) -> Self{
         Self {
             request_response,
@@ -275,15 +264,17 @@ impl DMBehaviour {
         }
     }
 
+    /// Add address to request response behaviour
    pub fn add_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
-        self.request_response.add_address(peer_id, address)
+        self.request_response.add_address(peer_id, address);
    }
 
-   pub fn remove_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
-        self.request_response.remove_address(peer_id, &address)
+   /// Remove address from request response behaviour
+   pub fn remove_address(&mut self, peer_id: &PeerId, address: &Multiaddr) {
+        self.request_response.remove_address(peer_id, address);
    }
 
-    /// send request
+    /// Send request request
     pub fn send_rr(&mut self, req: DMRequest) {
         let new_request = self
             .request_response

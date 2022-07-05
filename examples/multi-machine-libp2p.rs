@@ -157,9 +157,7 @@ pub async fn new_libp2p_network(
     let config = NetworkNodeConfigBuilder::default()
         .replication_factor(NonZeroUsize::new(20).unwrap())
         .node_type(node_type)
-        .max_num_peers(15)
-        .min_num_peers(4)
-        .bound_addr(bound_addr)
+        .bound_addr(Some(bound_addr))
         .build()
         .unwrap();
     let bs: Vec<(Option<PeerId>, Multiaddr)> = bs.into_iter().map(|addr| (None, addr)).collect();

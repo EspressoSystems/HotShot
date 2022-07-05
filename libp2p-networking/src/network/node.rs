@@ -1,7 +1,7 @@
 mod config;
 mod handle;
 
-use crate::network::{behaviours::{direct_message_codec::{MAX_MSG_SIZE, DirectMessageCodec, DirectMessageProtocol}, dht::{DHTBehaviour, KadPutQuery, DHTProgress}, direct_message::DMBehaviour, exponential_backoff::ExponentialBackoff}, def::NUM_REPLICATED_TO_TRUST};
+use crate::network::{behaviours::{direct_message_codec::{MAX_MSG_SIZE_DM, DirectMessageCodec, DirectMessageProtocol}, dht::{DHTBehaviour, KadPutQuery, DHTProgress}, direct_message::DMBehaviour, exponential_backoff::ExponentialBackoff}, def::NUM_REPLICATED_TO_TRUST};
 
 pub use self::{
     config::{NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError},
@@ -11,7 +11,7 @@ use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType, behaviours::gossip::GossipBehaviour, /* tracker::Tracker */
 };
-use async_std::task::{sleep, spawn, block_on};
+use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{
@@ -25,11 +25,11 @@ use libp2p::{
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
     swarm::{ConnectionHandlerUpgrErr, SwarmEvent, SwarmBuilder},
-    Multiaddr, PeerId, Swarm, multiaddr::Protocol,
+    Multiaddr, PeerId, Swarm,
 };
 // TODO introducign metrics is worth
 // use libp2p_metrics::Metrics;
-use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ReadView};
+use phaselock_utils::subscribable_rwlock::{SubscribableRwLock};
 
 use snafu::ResultExt;
 use std::{io::Error, num::NonZeroUsize, sync::Arc, time::Duration, collections::HashSet};
@@ -47,17 +47,17 @@ pub struct NetworkNode {
     swarm: Swarm<NetworkDef>,
     /// the configuration parameters of the netework
     config: NetworkNodeConfig,
-    // /// tracker
-    // tracker: Tracker
 }
 
 impl NetworkNode {
+    /// Returns number of peers this node is connected to
     pub fn num_connected(&self) -> usize {
-        self.swarm.connected_peers().collect::<Vec<_>>().len()
+        self.swarm.connected_peers().count()
     }
 
+    /// return hashset of PIDs this node is connected to
     pub fn connected_pids(&self) -> HashSet<PeerId> {
-        self.swarm.connected_peers().cloned().collect()
+        self.swarm.connected_peers().copied().collect()
     }
 
 
@@ -121,7 +121,7 @@ impl NetworkNode {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(mut config: NetworkNodeConfig) -> Result<Self, NetworkError> {
+    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
         // Generate a random PeerId
         let identity = if let Some(ref kp) = config.identity {
             kp.clone()
@@ -151,7 +151,7 @@ impl NetworkNode {
                 },
                 NetworkNodeType::Conductor => {
                     // (1000, 50, 2, 100)
-                    (20, 8, 4, 12)
+                    (21, 8, 4, 12)
                 },
             };
 
@@ -173,7 +173,7 @@ impl NetworkNode {
                 .mesh_outbound_min(mesh_outbound_min)
                 .mesh_n(mesh_n)
                 .history_length(500)
-                .max_transmit_size(2 * MAX_MSG_SIZE)
+                .max_transmit_size(2 * MAX_MSG_SIZE_DM)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
@@ -210,7 +210,7 @@ impl NetworkNode {
             }
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
-            let mut rrconfig = RequestResponseConfig::default();
+            let rrconfig = RequestResponseConfig::default();
             // rrconfig.set_request_timeout(Duration::from_secs(5));
             // rrconfig.set_connection_keep_alive(Duration::from_secs(5));
 
@@ -239,7 +239,7 @@ impl NetworkNode {
         for (peer, addr) in &config.to_connect_addrs {
             if let Some(peer) = peer {
                 if peer != swarm.local_peer_id() {
-                    swarm.behaviour_mut().add_address(&peer, addr.clone())
+                    swarm.behaviour_mut().add_address(peer, addr.clone());
                 }
             }
         }
@@ -319,7 +319,7 @@ impl NetworkNode {
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
                             );
                     }
-                    IgnorePeers(peers) => {
+                    IgnorePeers(_peers) => {
                         // TODO delete this API
                     }
                     Shutdown => {
@@ -388,7 +388,7 @@ impl NetworkNode {
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
         info!("event observed {:?}", event);
-        let behaviour = self.swarm.behaviour_mut();
+        let _behaviour = self.swarm.behaviour_mut();
 
         match event {
             ConnectionEstablished {
@@ -407,28 +407,15 @@ impl NetworkNode {
                 cause,
             } => {
                 error!("peerid {:?} connection is closed to {:?} with endpoint {:?} with cause {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, cause, num_established);
-                // let tmp = Protocol::P2p();
-                // let _addr = match e {
-                //     libp2p::core::ConnectedPoint::Dialer { address, role_override: _ } => address,
-                //     libp2p::core::ConnectedPoint::Listener { local_addr: _, send_back_addr } => send_back_addr,
-                // };
-                // self.swarm.
-                // FIXME remove stale address, not *all* addresses
-                // behaviour.dht.remove_address(&peer_id, &addr);
-            },
-            ListenerClosed { listener_id, addresses, reason } => {
             },
             Dialing(p) => {
                 error!("{:?} is dialing {:?}", self.peer_id, p);
             },
-            NewListenAddr { listener_id, address }
-             => {
-            },
-            ExpiredListenAddr { listener_id, address } => {
-            }
-            IncomingConnection { local_addr, send_back_addr } => {
-            }
-            BannedPeer { peer_id, endpoint } => {
+            ListenerClosed { listener_id: _, addresses: _, reason: _ } |
+            NewListenAddr { listener_id: _, address: _ } |
+            ExpiredListenAddr { listener_id: _, address: _ } |
+            IncomingConnection { local_addr: _, send_back_addr: _ } |
+            BannedPeer { peer_id: _, endpoint: _ } => {
             },
             Behaviour(b) => {
                 // forward messages directly to Client
@@ -437,7 +424,7 @@ impl NetworkNode {
                     .await
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
-            OutgoingConnectionError { peer_id, error } => {
+            OutgoingConnectionError { peer_id: _, error } => {
                 error!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
                 // if let Some(peer_id) = peer_id {
                 //     behaviour.remove_peer(peer_id);

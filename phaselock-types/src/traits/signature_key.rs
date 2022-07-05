@@ -11,12 +11,6 @@ pub mod ed25519;
 )]
 pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
 
-impl EncodedPublicKey {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.clone()
-    }
-}
-
 /// Type saftey wrapper for byte encoded signature
 #[derive(
     Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,

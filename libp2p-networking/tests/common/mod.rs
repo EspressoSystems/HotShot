@@ -1,7 +1,7 @@
 use async_std::prelude::FutureExt;
 use flume::RecvError;
 use futures::{future::join_all, Future};
-use libp2p::{Multiaddr, PeerId, identity::Keypair, build_multiaddr};
+use libp2p::{Multiaddr, PeerId, identity::Keypair};
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,

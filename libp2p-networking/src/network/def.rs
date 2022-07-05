@@ -15,7 +15,7 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
+use phaselock_utils::subscribable_rwlock::{SubscribableRwLock};
 
 use std::{
     collections::{HashSet},
@@ -28,7 +28,6 @@ use tracing::{debug, error};
 use super::{ConnectionData, behaviours::{direct_message_codec::{DirectMessageResponse}, gossip::{GossipBehaviour, GossipEvent}, direct_message::{DMBehaviour, DMEvent, DMRequest}, dht::{DHTBehaviour, DHTEvent, KadPutQuery}, exponential_backoff::ExponentialBackoff}};
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
-const MAX_DHT_QUERY_SIZE: usize = 5;
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -66,6 +65,7 @@ pub struct NetworkDef {
     #[debug(skip)]
     client_event_queue: Vec<NetworkEvent>,
 
+    /// Addresses to connect to at init
     #[behaviour(ignore)]
     pub to_connect_addrs: HashSet<Multiaddr>,
 }
@@ -126,7 +126,7 @@ impl NetworkDef {
 impl NetworkDef {
     /// Add an address
     pub fn add_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
-        self.dht.add_address(peer_id, address.clone());
+        self.dht.add_address(peer_id, address);
         // self.request_response.add_address(peer_id, address)
     }
 
@@ -136,19 +136,17 @@ impl NetworkDef {
 impl NetworkDef {
     /// Publish a given gossip
     pub fn publish_gossip(&mut self, topic: Topic, contents: Vec<u8>) {
-        // TODO might be better just to push this into the queue and not try to
-        // send here
-        let _res = self.gossipsub.publish_gossip(topic.clone(), contents.clone());
+        self.gossipsub.publish_gossip(topic, contents);
     }
 
     /// Subscribe to a given topic
     pub fn subscribe_gossip(&mut self, t: &str) {
-        self.gossipsub.subscribe_gossip(t)
+        self.gossipsub.subscribe_gossip(t);
     }
 
     /// Unsubscribe from a given topic
     pub fn unsubscribe_gossip(&mut self, t: &str) {
-        self.gossipsub.unsubscribe_gossip(t)
+        self.gossipsub.unsubscribe_gossip(t);
     }
 }
 
@@ -159,14 +157,14 @@ impl NetworkDef {
     /// `chan`. If there is an error, a [`DHTError`] is
     /// sent instead.
     pub fn put_record(&mut self, query: KadPutQuery) {
-        self.dht.put_record(query)
+        self.dht.put_record(query);
     }
 
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`DHTError`] is sent instead.
     pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize) {
-        self.dht.get_record(key, chan, factor, ExponentialBackoff::default())
+        self.dht.get_record(key, chan, factor, ExponentialBackoff::default());
     }
 }
 
@@ -179,7 +177,7 @@ impl NetworkDef {
             data,
             backoff: ExponentialBackoff::default()
         };
-        self.request_response.add_direct_request(request)
+        self.request_response.add_direct_request(request);
     }
 
     /// Add a direct response for a channel
@@ -207,7 +205,7 @@ impl NetworkBehaviourEventProcess<DHTEvent> for NetworkDef {
     fn inject_event(&mut self, event: DHTEvent) {
         match event {
             DHTEvent::IsBootstrapped => {
-                self.client_event_queue.push(NetworkEvent::IsBootstrapped)
+                self.client_event_queue.push(NetworkEvent::IsBootstrapped);
             }
         }
     }
@@ -216,7 +214,7 @@ impl NetworkBehaviourEventProcess<DHTEvent> for NetworkDef {
 impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
     fn inject_event(&mut self, event: IdentifyEvent) {
         // NOTE feed identified peers into kademlia's routing table for peer discovery.
-        if let IdentifyEvent::Received { peer_id, info: IdentifyInfo { listen_addrs, protocols: _, public_key, protocol_version, agent_version, observed_addr } } = event {
+        if let IdentifyEvent::Received { peer_id, info: IdentifyInfo { listen_addrs, protocols: _, public_key: _, protocol_version: _, agent_version: _, observed_addr: _ } } = event {
             // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
             for addr in listen_addrs {
                 // if addr.to_string().contains("127.0.0.1"){

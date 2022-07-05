@@ -1,18 +1,21 @@
 use std::{time::{Duration, Instant}};
 
-
-
-
-
+/// Track (with exponential backoff)
+/// sending of some sort of message
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct ExponentialBackoff {
+    /// Value to reset to when reset is called
     reset_val: Duration,
+    /// factor to back off by
     backoff_factor: u32,
+    /// the current timeout amount
     timeout: Duration,
+    /// when we started the timeout
     started: Option<Instant>,
 }
 
 impl ExponentialBackoff {
+    /// Create new backoff
     pub fn new(backoff_factor: u32, next_timeout: Duration) -> Self {
         ExponentialBackoff {
             backoff_factor,
@@ -22,11 +25,16 @@ impl ExponentialBackoff {
         }
     }
 
-    // reset backoff
+    /// reset backoff
     pub fn reset(&mut self) {
         self.timeout = self.reset_val;
     }
 
+    /// start next timeout
+    /// result: whether or not we succeeded
+    /// if we succeeded, reset the timeout
+    /// else increment the timeout by a factor
+    /// of `timeout`
     pub fn start_next(&mut self, result: bool) {
         // success
         if result {
@@ -40,6 +48,7 @@ impl ExponentialBackoff {
         }
     }
 
+    /// Whether or not the timeout is expired
     pub fn is_expired(&self) -> bool {
         if let Some(then) = self.started {
             Instant::now() - then > self.timeout

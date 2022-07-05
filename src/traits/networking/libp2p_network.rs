@@ -11,9 +11,9 @@ use std::{str::FromStr, time::Instant, sync::atomic::AtomicBool};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use dashmap::{DashMap, DashSet};
+use dashmap::{DashSet};
 use flume::Sender;
-use futures::{future::join_all, channel::oneshot::Receiver};
+use futures::{future::join_all};
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
     NetworkEvent::{DirectRequest, DirectResponse, GossipMsg, self},
@@ -26,10 +26,10 @@ use phaselock_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
+
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::{HashSet, HashMap}, num::NonZeroUsize};
+use std::{collections::{HashSet}, num::NonZeroUsize};
 
 use std::{sync::Arc, time::Duration};
 
@@ -37,8 +37,10 @@ use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
 
+/// Stubbed out Ack
 #[derive(Serialize)]
 pub enum Empty {
+    /// Empty value
     Empty
 }
 
@@ -64,6 +66,8 @@ struct Libp2pNetworkInner<
     pk: P,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<()>>,
+    /// Bidirectional map from public key provided by espresso
+    /// to public key provided by libp2p
     pubkey_pid_map: RwLock<BiHashMap<P, PeerId>>,
     /// map of known replica peer ids to public keys
     broadcast_recv: flume::Receiver<M>,
@@ -71,6 +75,7 @@ struct Libp2pNetworkInner<
     broadcast_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
+    /// Time at which we started libp2p
     start_time: Instant,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
@@ -123,7 +128,7 @@ impl<
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
     fn generator(
-        expected_node_count: usize,
+        _expected_node_count: usize,
         num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
@@ -138,7 +143,7 @@ impl<
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         .replication_factor(replication_factor)
-                        .to_connect_addrs(Default::default())
+                        .to_connect_addrs(HashSet::default())
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
                         .build()
@@ -146,7 +151,7 @@ impl<
                 } else {
                     NetworkNodeConfigBuilder::default()
                         .replication_factor(replication_factor)
-                        .to_connect_addrs(Default::default())
+                        .to_connect_addrs(HashSet::default())
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
                         .build()
@@ -258,7 +263,7 @@ impl<
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn({
             let is_ready = self.inner.is_ready.clone();
-            let start_time = self.inner.start_time.clone();
+            let start_time = self.inner.start_time;
             async move {
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
@@ -349,7 +354,9 @@ impl<
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
-                        let _ = handle.inner.handle.direct_response(chan, &Empty::Empty).await;
+                        if handle.inner.handle.direct_response(chan, &Empty::Empty).await.is_err() {
+                            error!("failed to ack!");
+                        };
                     }
                     DirectResponse(msg, _) => {
                         let _result: Result<M, _> = bincode_options

@@ -132,7 +132,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
         // TODO some heuristic from kad
-        let mut known_ok = true;
+        let known_ok = true;
         while !(known_ok && connected_ok) {
             sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
@@ -333,6 +333,13 @@ impl<S> NetworkNodeHandle<S> {
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
+    /// Forcefully disconnet from a peer
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
     pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError>{
         let req = ClientRequest::Prune(pid);
         self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
@@ -408,6 +415,13 @@ impl<S> NetworkNodeHandle<S> {
         Ok(())
     }
 
+    /// Returns number of peers this node is connected to
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
     pub async fn num_connected(&self)  -> Result<usize, NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeerNum(s);
@@ -415,6 +429,13 @@ impl<S> NetworkNodeHandle<S> {
         Ok(r.await.unwrap())
     }
 
+    /// return hashset of PIDs this node is connected to
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
     pub async fn connected_pids(&self)  -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeers(s);

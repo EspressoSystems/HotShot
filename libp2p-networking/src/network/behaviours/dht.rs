@@ -2,44 +2,70 @@ use std::{num::NonZeroUsize, collections::{HashMap, VecDeque}, task::Poll};
 
 
 use futures::channel::oneshot::Sender;
-use libp2p::{kad::{QueryId, KademliaEvent, Kademlia, store::MemoryStore, QueryResult, GetClosestPeersOk, GetRecordResult, PutRecordResult, GetRecordOk, Quorum, Record}, swarm::{NetworkBehaviourEventProcess, NetworkBehaviour, NetworkBehaviourAction}, PeerId, Multiaddr};
+use libp2p::{kad::{QueryId, KademliaEvent, Kademlia, store::MemoryStore, QueryResult, GetRecordResult, PutRecordResult, GetRecordOk, Quorum, Record}, swarm::{NetworkBehaviourEventProcess, NetworkBehaviour, NetworkBehaviourAction}, PeerId, Multiaddr};
 use tracing::{error, info};
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 const MAX_DHT_QUERY_SIZE: usize = 5;
 
 use super::exponential_backoff::ExponentialBackoff;
 
+/// Behaviour wrapping libp2p's kademlia
+/// included:
+/// - publishing API
+/// - Request API
+/// - bootstrapping into the network
+/// - peer discovery
 pub struct DHTBehaviour {
-    /// NOTE this is currently unused but if we ever generated an event queue...
+    /// List of kademlia events
     event_queue: Vec<DHTEvent>,
+    /// List of in-progress get requests
     in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
+    /// List of in-progress put requests
     in_progress_put_record_queries: HashMap<QueryId, KadPutQuery>,
+    /// List of previously failled get requests
     queued_get_record_queries: VecDeque<KadGetQuery>,
+    /// List of previously failled put requests
     queued_put_record_queries: VecDeque<KadPutQuery>,
+    /// Kademlia behaviour
     kadem: Kademlia<MemoryStore>,
+    /// State of bootstrapping
     bootstrap_state: Bootstrap,
+    /// State of last random walk
     random_walk: RandomWalk,
+    /// the peer id (useful only for debugging right now)
     peer_id: PeerId
 }
 
+/// State of bootstrapping
 pub struct Bootstrap {
+    /// State of bootstrap
     state: State,
+    /// Retry timeout
     backoff: ExponentialBackoff
 }
 
+/// State of the periodic random walk
 pub struct RandomWalk {
+    /// State of random walk
     state: State,
+    /// Retry timeout
     backoff: ExponentialBackoff
 }
 
+/// State used for random walk and bootstrapping
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum State {
+    /// Not in progress
     NotStarted,
+    /// In progress
     Started,
+    /// Sucessfully completed
     Finished,
 }
 
+/// DHT event enum
 pub enum DHTEvent {
+    /// Only event tracked currently is when we successfully bootstrap into the network
     IsBootstrapped
 }
 
@@ -49,6 +75,7 @@ impl DHTBehaviour {
         self.kadem.get_closest_peers(random_peer);
     }
 
+    /// Create a new DHT behaviour
     pub fn new(kadem: Kademlia<MemoryStore>, pid: PeerId) -> Self {
         Self {
             peer_id: pid,
@@ -70,9 +97,10 @@ impl DHTBehaviour {
     }
 
     /// Passthru to kademlia
+    /// Associate address with kademlia peer
     pub fn add_address(&mut self, peer_id: &PeerId, addr: Multiaddr) {
         // add address to kademlia
-        self.kadem.add_address(&peer_id, addr);
+        self.kadem.add_address(peer_id, addr);
     }
 
     /// Publish a key/value to the kv store.
@@ -119,7 +147,8 @@ impl DHTBehaviour {
         self.in_progress_get_record_queries.insert(qid, query);
     }
 
-    pub fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
+    /// update state based on recv-ed get query
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
         if let Some(KadGetQuery {
             backoff,
             progress,
@@ -193,7 +222,10 @@ impl DHTBehaviour {
         }
 
     }
-    pub fn handle_put_query(&mut self, record_results: PutRecordResult, id: QueryId) {
+
+
+    /// Update state based on put query
+    fn handle_put_query(&mut self, record_results: PutRecordResult, id: QueryId) {
         if let Some(mut query) = self
             .in_progress_put_record_queries
                 .remove(&id)
@@ -268,8 +300,6 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
             } => {
                 self.handle_get_query(record_results, id);
             }
-            KademliaEvent::InboundRequest { request } => {
-            },
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::Bootstrap(Ok(_)),
                 ..
@@ -287,13 +317,12 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 self.bootstrap_state.state = State::NotStarted;
                 self.bootstrap_state.backoff.start_next(false);
             }
-            // KademliaEvent::OutboundQueryCompleted { .. } => {
-            // },
-            KademliaEvent::RoutingUpdated { .. } => {},
-            KademliaEvent::UnroutablePeer { .. } => {},
-            KademliaEvent::RoutablePeer { .. } => {},
+            KademliaEvent::InboundRequest { request: _ } |
+            KademliaEvent::RoutingUpdated { .. } |
+            KademliaEvent::UnroutablePeer { .. } |
+            KademliaEvent::RoutablePeer { .. } |
             KademliaEvent::PendingRoutablePeer { ..} => {},
-            e => {
+            e @ KademliaEvent::OutboundQueryCompleted{ .. } => {
                 info!("Not handling dht event {:?}", e);
             }
         }
@@ -333,7 +362,9 @@ pub struct KadPutQuery {
 /// represents progress through DHT
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum DHTProgress {
+    /// The query has been started
     InProgress(QueryId),
+    /// The query has not been started
     NotStarted,
 }
 
@@ -395,47 +426,40 @@ impl NetworkBehaviour for DHTBehaviour {
         }
 
         // poll behaviour which is a passthrough and call inject event
-        loop {
-            match NetworkBehaviour::poll(&mut self.kadem, cx, params) {
-                Poll::Ready(ready) => {
-                    match ready {
-                        NetworkBehaviourAction::GenerateEvent(e) => {
-                            NetworkBehaviourEventProcess::inject_event(self, e)
-                        },
-                        NetworkBehaviourAction::Dial { opts, handler } => {
-                            return Poll::Ready(NetworkBehaviourAction::Dial {
-                                opts,
-                                handler,
-                            });
-                        },
-                        NetworkBehaviourAction::NotifyHandler { peer_id, handler, event } => {
-                            return Poll::Ready(
-                                NetworkBehaviourAction::NotifyHandler {
-                                    peer_id,
-                                    handler,
-                                    event
-                                },
-                                );
-                        },
-                        NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                            return Poll::Ready(
-                                NetworkBehaviourAction::ReportObservedAddr {
-                                    address,
-                                    score,
-                                },
-                                );
-                        },
-                        NetworkBehaviourAction::CloseConnection { peer_id, connection } => {
-                            return Poll::Ready(
-                                NetworkBehaviourAction::CloseConnection {
-                                    peer_id,
-                                    connection,
-                                });
-                        },
-                    }
+        while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx, params) {
+            match ready {
+                NetworkBehaviourAction::GenerateEvent(e) => {
+                    NetworkBehaviourEventProcess::inject_event(self, e);
                 },
-                Poll::Pending => {
-                    break
+                NetworkBehaviourAction::Dial { opts, handler } => {
+                    return Poll::Ready(NetworkBehaviourAction::Dial {
+                        opts,
+                        handler,
+                    });
+                },
+                NetworkBehaviourAction::NotifyHandler { peer_id, handler, event } => {
+                    return Poll::Ready(
+                        NetworkBehaviourAction::NotifyHandler {
+                            peer_id,
+                            handler,
+                            event
+                        },
+                        );
+                },
+                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(
+                        NetworkBehaviourAction::ReportObservedAddr {
+                            address,
+                            score,
+                        },
+                        );
+                },
+                NetworkBehaviourAction::CloseConnection { peer_id, connection } => {
+                    return Poll::Ready(
+                        NetworkBehaviourAction::CloseConnection {
+                            peer_id,
+                            connection,
+                        });
                 },
             }
         }

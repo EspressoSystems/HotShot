@@ -1,11 +1,8 @@
 mod def;
 pub mod error;
 mod node;
+/// networking behaviours wrapping libp2p's behaviours
 pub mod behaviours;
-pub mod tracker;
-// pub mod metrics;
-
-// mod topology;
 
 pub use self::{
     def::NetworkDef,
@@ -27,7 +24,7 @@ use libp2p::{
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
-    tcp, websocket, yamux::{self}, Multiaddr, PeerId, Transport, gossipsub::TopicHash,
+    tcp, yamux::{self}, Multiaddr, PeerId, Transport, gossipsub::TopicHash,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -142,7 +139,9 @@ pub enum ClientRequest {
         /// Channel to notify caller of value (or failure to find value)
         notify: Sender<Vec<u8>>,
     },
+    /// Request the number of connected peers
     GetConnectedPeerNum(Sender<usize>),
+    /// Request the set of connected peers
     GetConnectedPeers(Sender<HashSet<PeerId>>)
 }
 
@@ -150,12 +149,13 @@ pub enum ClientRequest {
 /// to relay to the client
 #[derive(Debug)]
 pub enum NetworkEvent {
-    /// recv-ed a broadcast
+    /// Recv-ed a broadcast
     GossipMsg(Vec<u8>, TopicHash),
-    /// recv-ed a direct message from a node
+    /// Recv-ed a direct message from a node
     DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
-    /// recv-ed a direct response from a node (that hopefully was initiated by this node)
+    /// Recv-ed a direct response from a node (that hopefully was initiated by this node)
     DirectResponse(Vec<u8>, PeerId),
+    /// Report that kademlia has successfully bootstrapped into the network
     IsBootstrapped
 }
 
@@ -189,7 +189,7 @@ pub async fn gen_transport(
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&identity)
         .expect("Signing libp2p-noise static DH keypair failed.");
-    let yamux_cfg = yamux::YamuxConfig::default();
+    let _yamux_cfg = yamux::YamuxConfig::default();
     // yamux_cfg.set_max_buffer_size(1024 * 1024 * 32);
     // yamux_cfg.set_receive_window_size((16384 * 32) as u32);
     // yamux_cfg.set_window_update_mode(yamux::WindowUpdateMode::OnRead);

@@ -30,8 +30,7 @@ impl ProtocolName for DirectMessageProtocol {
     }
 }
 
-/// maximum message size
-pub const MAX_MSG_SIZE: usize = 64000;
+/// Maximum size of a direct message
 pub const MAX_MSG_SIZE_DM: usize = 10000;
 
 #[async_trait]

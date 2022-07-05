@@ -7,7 +7,7 @@ use std::{collections::HashSet, num::NonZeroUsize};
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
 pub struct NetworkNodeConfig {
     #[builder(default)]
-    // TODO add in control over how many nodes, gosispsub/identify options etc
+    /// The type of node (bootstrap etc)
     pub node_type: NetworkNodeType,
     /// optional identity
     #[builder(setter(into, strip_option), default)]
@@ -25,5 +25,6 @@ pub struct NetworkNodeConfig {
     #[builder(setter(into, strip_option), default = "DEFAULT_REPLICATION_FACTOR")]
     pub replication_factor: Option<NonZeroUsize>,
 
+    /// list of addresses to connect to at initialization
     pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>
 }
