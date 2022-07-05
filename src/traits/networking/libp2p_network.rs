@@ -16,7 +16,7 @@ use flume::Sender;
 use futures::{future::join_all, channel::oneshot::Receiver};
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
-    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
+    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg, self},
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
 use phaselock_types::traits::{
@@ -98,6 +98,17 @@ pub struct Libp2pNetwork<
     inner: Arc<Libp2pNetworkInner<M, P>>,
 }
 
+// impl<
+//         T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
+//         P: TestableSignatureKey + 'static,
+//     > Libp2pNetwork<T, P>
+// {
+//     pub async fn is_ready(&self) {
+//         self.inner.wait_for_ready().await
+//     }
+//
+// }
+
 impl<
         T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
         P: TestableSignatureKey + 'static,
@@ -163,7 +174,7 @@ impl<
     > Libp2pNetwork<M, P>
 {
     /// returns when network is ready
-    async fn wait_for_ready(&self) {
+    pub async fn wait_for_ready(&self) {
         loop {
             if self.inner.is_ready.load(std::sync::atomic::Ordering::Relaxed) {
                 break
@@ -193,8 +204,8 @@ impl<
                 .map_err(Into::<NetworkError>::into)?,
         );
 
-        /// we're making all addresses known for now
-        /// peer discovery works but address discovery does not
+        // we're making all addresses known for now
+        // peer discovery works but address discovery does not
         // if matches!(
         //     network_handle.config().node_type,
         //     NetworkNodeType::Bootstrap
@@ -285,9 +296,9 @@ impl<
                             sleep(Duration::from_secs(1)).await;
                         }
                 info!("connected status is {:?}", connected);
-                // while Instant::now() < start_time + Duration::from_secs(40) {
-                //     sleep(Duration::from_secs(1)).await;
-                // }
+                while Instant::now() < start_time + Duration::from_secs(45) {
+                    sleep(Duration::from_secs(1)).await;
+                }
                 error!("WE ARE READY!");
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -346,7 +357,7 @@ impl<
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                     }
-                    IsBootstrapped => {
+                    NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, std::sync::atomic::Ordering::Relaxed);
                     },
                 }
