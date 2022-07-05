@@ -170,6 +170,20 @@ With the pipelined protocol, in case there are no failures, a new block will be 
 of each view, which in this case involves only one interaction between each replica and the leader instead of
 3 for the sequential version.
 
+## Cryptographic sortition
+
+In order to make Phaselock permissionless, we rely on
+ the cryptographic sortition algorithm introduced in the [Algorand](https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf) paper
+(see Section 5).
+
+The goal of this algorithm is to dynamically select a committee of small size in order to produce the next view.
+Members of this committee use a Verifiable Random Function (VRF) in order to prove they have been elected for participating in the view.
+The probability of being elected is proportional to the stake of each member.
+
+Note that in Phaselock the leader is not chosen by cryptographic sortition like in Algorand but defined in a deterministic manner
+    as in Hotstuff.
+Thus, our implementation of cryptographic sortition slightly differs from the Algorand's one (in particular the VRF does not take the *role* as input).
+
 # Appendices
 
 ## Definitions
@@ -187,7 +201,7 @@ of faulty committee seats the network can tolerate.
 
 ### Safe Node Predicate
 
-The safe node predicate can be defined using the following rust-like psuedo code
+The safe node predicate can be defined using the following rust-like pseudo-code
 
 ```ignore
 fn safe_node(
