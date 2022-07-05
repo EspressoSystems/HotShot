@@ -25,7 +25,7 @@ use phaselock_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use std::{str::FromStr, sync::atomic::AtomicBool, time::Instant};
+use std::{str::FromStr, sync::atomic::AtomicBool};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -75,8 +75,6 @@ struct Libp2pNetworkInner<
     broadcast_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
-    /// Time at which we started libp2p
-    start_time: Instant,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -236,7 +234,6 @@ impl<
 
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
-                start_time: Instant::now(),
                 handle: network_handle,
                 pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
@@ -269,7 +266,6 @@ impl<
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn({
             let is_ready = self.inner.is_ready.clone();
-            let start_time = self.inner.start_time;
             async move {
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
@@ -301,9 +297,6 @@ impl<
                     sleep(Duration::from_secs(1)).await;
                 }
                 info!("connected status is {:?}", connected);
-                while Instant::now() < start_time + Duration::from_secs(45) {
-                    sleep(Duration::from_secs(1)).await;
-                }
                 error!("WE ARE READY!");
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -399,8 +392,6 @@ impl<
                     .right_values()
                     .copied()
                     .collect::<HashSet<_>>();
-                // .values()
-                // .copied()
                 let libp2p_known_nodes = handle.inner.handle.known_peers().await;
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)

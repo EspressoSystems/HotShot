@@ -256,26 +256,6 @@ impl NetworkNode {
         })
     }
 
-    /// Keep the number of open connections between threshold specified by
-    /// the swarm
-    #[instrument(skip(self))]
-    fn handle_num_connections(&mut self) {
-        // let used_peers = self.swarm.behaviour().get_peers();
-        //
-        // if used_peers.len() < 1
-        // {
-        //     for a_peer in &self.swarm.behaviour().to_connect_addrs.clone() {
-        //         match self.swarm.dial(a_peer.clone()) {
-        //             Ok(_) => {
-        //             }
-        //             Err(e) => {
-        //                 info!("Peer {:?} dial {:?} failed: {:?}", self.peer_id, a_peer, e);
-        //             }
-        //         };
-        //     }
-        // }
-    }
-
     /// event handler for client events
     /// currectly supported actions include
     /// - shutting down the swarm
@@ -476,24 +456,8 @@ impl NetworkNode {
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
-        // NOTE this could be entirely event driven
-        // by having one future sleep then send a message to
-        // a separate future which would then execute these
-        // periodic handlers
-        // while verbose, the same effect may be achieved
-        // while avoiding the overhead of more futures + channels
-        let mut time_since_sending = Duration::ZERO;
-        let mut time_since_peer_discovery = Duration::ZERO;
-        let mut time_since_prune_num_connections = Duration::ZERO;
-        let mut time_since_retry_put_dht = Duration::ZERO;
-        let mut time_since_handle_num_connections = Duration::ZERO;
         let mut time_since_print_num_connections = Duration::ZERO;
 
-        let _sending_thresh = Duration::from_secs(1);
-        let _peer_discovery_thresh = Duration::from_secs(2);
-        let _prune_num_connections_thresh = Duration::from_secs(1);
-        let _retry_put_dht_thresh = Duration::from_millis(250);
-        let handle_num_connections_thresh = Duration::from_secs(1);
         let print_num_connections_thres = Duration::from_secs(10);
 
         let lowest_increment = Duration::from_millis(50);
@@ -503,27 +467,12 @@ impl NetworkNode {
                 loop {
                     select! {
                         _ = sleep(lowest_increment).fuse() => {
-                            time_since_sending += lowest_increment;
-                            time_since_peer_discovery += lowest_increment;
-                            time_since_prune_num_connections += lowest_increment;
-                            time_since_retry_put_dht += lowest_increment;
-                            time_since_handle_num_connections += lowest_increment;
                             time_since_print_num_connections += lowest_increment;
-
                             if time_since_print_num_connections > print_num_connections_thres {
                                 let peers = self.swarm.connected_peers().collect::<Vec<_>>();
                                 error!("num connections is len {} for peer {:?}, which are {:?}", peers.len(), self.peer_id.clone(), peers);
                                 error!("connection info is: {:?} for peer {:?}", self.swarm.network_info(), self.peer_id.clone());
-                                // error!("pid {:?} connected to {:?} peers", self.peer_id.clone(), peers.len());
                                 time_since_print_num_connections = Duration::from_secs(0);
-
-                            }
-
-
-
-                            if time_since_handle_num_connections >= handle_num_connections_thresh {
-                                // self.handle_num_connections();
-                                time_since_handle_num_connections = Duration::ZERO;
                             }
                         },
                         event = self.swarm.next() => {
