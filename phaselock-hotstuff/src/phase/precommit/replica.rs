@@ -57,7 +57,6 @@ impl<const N: usize> PreCommitReplica<N> {
         ctx: &UpdateCtx<'_, I, A, N>,
         pre_commit: PreCommit<N>,
     ) -> Result<Outcome<N>> {
-        // TODO: We can probably get these from `PreparePhase`
         let leaf = ctx.get_leaf(&pre_commit.leaf_hash).await?;
 
         let self_highest_qc = match ctx.get_newest_qc().await? {

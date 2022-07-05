@@ -26,16 +26,22 @@ impl PrepareReplica {
     ///
     /// Will return any errors `vote` returns.
     #[tracing::instrument]
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    pub(super) async fn update<
+        'a,
+        I: NodeImplementation<N>,
+        A: ConsensusApi<I, N>,
+        const N: usize,
+    >(
         &mut self,
-        ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<Outcome<I, N>>> {
+        ctx: &'_ UpdateCtx<'_, I, A, N>,
+        transactions: &'a mut [TransactionState<I, N>],
+    ) -> Result<Option<Outcome<'a, I, N>>> {
         let prepare = if let Some(prepare) = ctx.prepare_message() {
             prepare
         } else {
             return Ok(None);
         };
-        if let Some(validation_result) = self.validate_prepare(prepare, ctx).await? {
+        if let Some(validation_result) = self.validate_prepare(prepare, ctx, transactions).await? {
             let outcome = self.vote(ctx, validation_result).await?;
             Ok(Some(outcome))
         } else {
@@ -52,11 +58,17 @@ impl PrepareReplica {
     /// Returns an error if:
     /// - the underlying `Storage` returns an error.
     /// - The `state` could not be reconstructed with the given information
-    async fn validate_prepare<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    async fn validate_prepare<
+        'a,
+        I: NodeImplementation<N>,
+        A: ConsensusApi<I, N>,
+        const N: usize,
+    >(
         &self,
         prepare: &Prepare<I::Block, I::State, N>,
         ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<ValidationResult<I, N>>> {
+        _transactions: &'a mut [TransactionState<I, N>],
+    ) -> Result<Option<ValidationResult<'a, I, N>>> {
         let leaf_hash = prepare.leaf.hash();
 
         let state = ctx.get_state_by_leaf(&prepare.leaf.parent).await?;
@@ -105,7 +117,7 @@ impl PrepareReplica {
         //
         // for id in prepare.state.new_transaction_ids(&state) {
         //     if let Some(transaction_state) =
-        //         ctx.transactions.iter().find(|t| t.transaction.id() == id)
+        //         transactions.iter().find(|t| t.transaction.id() == id)
         //     {
         //         added_transactions.push(transaction_state.clone());
         //     } else {
@@ -134,11 +146,11 @@ impl PrepareReplica {
     /// - The incoming QC is not a safe node or valid block
     /// - The given block could not be appended to the current state
     /// - The underlying [`ConsensusApi`] returned an error
-    async fn vote<I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
+    async fn vote<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize>(
         &mut self,
         ctx: &UpdateCtx<'_, I, A, N>,
-        validation_result: ValidationResult<I, N>,
-    ) -> Result<Outcome<I, N>> {
+        validation_result: ValidationResult<'a, I, N>,
+    ) -> Result<Outcome<'a, I, N>> {
         let ValidationResult {
             added_transactions,
             prepare,
@@ -171,9 +183,9 @@ impl PrepareReplica {
 }
 
 /// A result from [`Replica::validate`] that contains the nessecary information to vote.
-struct ValidationResult<I: NodeImplementation<N>, const N: usize> {
+struct ValidationResult<'a, I: NodeImplementation<N>, const N: usize> {
     /// The transactions that are being added in this vote.
-    added_transactions: Vec<TransactionState<I, N>>,
+    added_transactions: Vec<&'a mut TransactionState<I, N>>,
     /// The original prepare message.
     prepare: Prepare<I::Block, I::State, N>,
     /// The leaf hash that was calculated for `prepare.leaf`

@@ -1,6 +1,6 @@
 //! The update context that is used by the different phases.
 
-use crate::{ConsensusApi, OptionUtils, Result, TransactionState, ViewNumber};
+use crate::{ConsensusApi, OptionUtils, Result, ViewNumber};
 use phaselock_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, Stage},
     error::{FailedToBroadcastSnafu, StorageSnafu},
@@ -23,8 +23,6 @@ pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>,
     pub(super) api: &'a mut A,
     /// The current view number
     pub(super) view_number: ViewNumber,
-    /// All transactions that have been received. These will also include the transactions that have been proposed.
-    pub(super) transactions: &'a [TransactionState<I, N>],
     /// All messages that have been received this round
     pub(super) messages: &'a mut Vec<<I as TypeMap<N>>::ConsensusMessage>,
     /// `true` if this phase is leader in this round.
@@ -62,7 +60,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
             .await
             .context(FailedToBroadcastSnafu { stage: self.stage })?;
         // If the networking layer sends this message to ourselves, that means this message will be inserted twice
-        // TODO: Make sure this doesn't happen
+        // TODO(https://github.com/EspressoSystems/phaselock/issues/258): Make sure this doesn't happen
         self.messages.push(message);
         Ok(())
     }

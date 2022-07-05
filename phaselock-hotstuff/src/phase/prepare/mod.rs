@@ -41,13 +41,14 @@ impl<const N: usize> PreparePhase<N> {
     /// # Errors
     ///
     /// Will return an error if this phase is in an incorrect state or if the underlying [`ConsensusApi`] returns an error.
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    pub(super) async fn update<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
         ctx: &mut UpdateCtx<'_, I, A, N>,
+        transactions: &'a mut [TransactionState<I, N>],
     ) -> Result<Progress<PreCommitPhase<I, N>>> {
-        let outcome: Option<Outcome<I, N>> = match (self, ctx.is_leader) {
-            (Self::Leader(leader), true) => leader.update(ctx).await?,
-            (Self::Replica(replica), false) => replica.update(ctx).await?,
+        let outcome: Option<Outcome<'a, I, N>> = match (self, ctx.is_leader) {
+            (Self::Leader(leader), true) => leader.update(ctx, transactions).await?,
+            (Self::Replica(replica), false) => replica.update(ctx, transactions).await?,
             (this, _) => {
                 return utils::err(format!(
                     "We're in {:?} but is_leader is {}",
@@ -81,11 +82,11 @@ impl<const N: usize> PreparePhase<N> {
 
 /// The outcome of the current [`PreparePhase`]
 #[derive(Debug)]
-struct Outcome<I: NodeImplementation<N>, const N: usize> {
+struct Outcome<'a, I: NodeImplementation<N>, const N: usize> {
     /// A list of added transactions.
-    added_transactions: Vec<TransactionState<I, N>>,
+    added_transactions: Vec<&'a mut TransactionState<I, N>>,
     /// A list of rejected transactions
-    rejected_transactions: Vec<TransactionState<I, N>>,
+    rejected_transactions: Vec<&'a mut TransactionState<I, N>>,
     /// The new leaf
     new_leaf: Leaf<I::Block, N>,
     /// The new state
@@ -98,7 +99,7 @@ struct Outcome<I: NodeImplementation<N>, const N: usize> {
     newest_qc: QuorumCertificate<N>,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
+impl<'a, I: NodeImplementation<N>, const N: usize> Outcome<'a, I, N> {
     /// execute the given outcome, returning the next phase
     ///
     /// # Errors
@@ -123,13 +124,13 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
         for transaction in added_transactions {
-            *transaction.propose.write().await = Some(TransactionLink {
+            transaction.propose = Some(TransactionLink {
                 timestamp: Instant::now(),
                 view_number: ctx.view_number,
             });
         }
         for transaction in rejected_transactions {
-            *transaction.rejected.write().await = Some(Instant::now());
+            transaction.rejected = Some(Instant::now());
         }
         let leaf_hash = new_leaf.hash();
         ctx.api

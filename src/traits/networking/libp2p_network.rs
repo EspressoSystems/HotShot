@@ -52,7 +52,6 @@ impl<
     }
 }
 
-
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 

@@ -42,10 +42,11 @@ impl<const N: usize> PrepareLeader<N> {
     /// - The underlying [`ConsensusApi`] encountered an error
     /// - The proposed block could not have been added to the state
     #[instrument]
-    pub(super) async fn update<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    pub(super) async fn update<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &mut self,
-        ctx: &UpdateCtx<'_, I, A, N>,
-    ) -> Result<Option<Outcome<I, N>>> {
+        ctx: &mut UpdateCtx<'_, I, A, N>,
+        transactions: &'a mut [TransactionState<I, N>],
+    ) -> Result<Option<Outcome<'a, I, N>>> {
         if self.high_qc.is_none() {
             let view_messages: Vec<&NewView<N>> = ctx.new_view_messages().collect();
             if view_messages.len() >= ctx.api.threshold().get() {
@@ -75,9 +76,9 @@ impl<const N: usize> PrepareLeader<N> {
 
         // Get unclaimed transactions
         let mut unclaimed_transactions = Vec::new();
-        for transaction in ctx.transactions {
+        for transaction in transactions {
             if transaction.is_unclaimed().await {
-                unclaimed_transactions.push(transaction.clone());
+                unclaimed_transactions.push(transaction);
             }
         }
 
@@ -97,11 +98,11 @@ impl<const N: usize> PrepareLeader<N> {
     /// # Errors
     ///
     /// Errors are described in the documentation of `update`
-    async fn propose_round<I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
+    async fn propose_round<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>>(
         &self,
         ctx: &UpdateCtx<'_, I, A, N>,
-        transactions: Vec<TransactionState<I, N>>,
-    ) -> Result<Outcome<I, N>> {
+        transactions: Vec<&'a mut TransactionState<I, N>>,
+    ) -> Result<Outcome<'a, I, N>> {
         let high_qc = match self.high_qc.clone() {
             Some(high_qc) => high_qc,
             None => return utils::err("in propose_round: no high_qc set"),
@@ -134,8 +135,6 @@ impl<const N: usize> PrepareLeader<N> {
                 debug!(?tx, "Added transaction to block");
                 added_transactions.push(transaction);
             } else {
-                // TODO: `state.append` could change our state.
-                // we should probably make `validate_block` return this error.
                 let err = state.append(&new_block).unwrap_err();
                 warn!(?tx, ?err, "Invalid transaction rejected");
                 rejected_transactions.push(transaction);
