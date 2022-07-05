@@ -1,8 +1,18 @@
-use std::{num::NonZeroUsize, collections::{HashMap, VecDeque}, task::Poll};
-
+use std::{
+    collections::{HashMap, VecDeque},
+    num::NonZeroUsize,
+    task::Poll,
+};
 
 use futures::channel::oneshot::Sender;
-use libp2p::{kad::{QueryId, KademliaEvent, Kademlia, store::MemoryStore, QueryResult, GetRecordResult, PutRecordResult, GetRecordOk, Quorum, Record}, swarm::{NetworkBehaviourEventProcess, NetworkBehaviour, NetworkBehaviourAction}, PeerId, Multiaddr};
+use libp2p::{
+    kad::{
+        store::MemoryStore, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, PutRecordResult,
+        QueryId, QueryResult, Quorum, Record,
+    },
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
+    Multiaddr, PeerId,
+};
 use tracing::{error, info};
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 const MAX_DHT_QUERY_SIZE: usize = 5;
@@ -33,7 +43,7 @@ pub struct DHTBehaviour {
     /// State of last random walk
     random_walk: RandomWalk,
     /// the peer id (useful only for debugging right now)
-    peer_id: PeerId
+    peer_id: PeerId,
 }
 
 /// State of bootstrapping
@@ -41,7 +51,7 @@ pub struct Bootstrap {
     /// State of bootstrap
     state: State,
     /// Retry timeout
-    backoff: ExponentialBackoff
+    backoff: ExponentialBackoff,
 }
 
 /// State of the periodic random walk
@@ -49,7 +59,7 @@ pub struct RandomWalk {
     /// State of random walk
     state: State,
     /// Retry timeout
-    backoff: ExponentialBackoff
+    backoff: ExponentialBackoff,
 }
 
 /// State used for random walk and bootstrapping
@@ -66,7 +76,7 @@ enum State {
 /// DHT event enum
 pub enum DHTEvent {
     /// Only event tracked currently is when we successfully bootstrap into the network
-    IsBootstrapped
+    IsBootstrapped,
 }
 
 impl DHTBehaviour {
@@ -91,8 +101,8 @@ impl DHTBehaviour {
             },
             random_walk: RandomWalk {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::default()
-            }
+                backoff: ExponentialBackoff::default(),
+            },
         }
     }
 
@@ -116,8 +126,7 @@ impl DHTBehaviour {
                 query.progress = DHTProgress::NotStarted;
                 query.backoff.start_next(false);
                 error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
-                self.queued_put_record_queries
-                    .push_back(query);
+                self.queued_put_record_queries.push_back(query);
             }
             Ok(qid) => {
                 error!("Success publishing {:?} to DHT", qid);
@@ -125,17 +134,21 @@ impl DHTBehaviour {
                     progress: DHTProgress::InProgress(qid),
                     ..query
                 };
-                self.in_progress_put_record_queries
-                    .insert(qid, query);
+                self.in_progress_put_record_queries.insert(qid, query);
             }
         }
     }
 
-
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`DHTError`] is sent instead.
-    pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize, backoff: ExponentialBackoff) {
+    pub fn get_record(
+        &mut self,
+        key: Vec<u8>,
+        chan: Sender<Vec<u8>>,
+        factor: NonZeroUsize,
+        backoff: ExponentialBackoff,
+    ) {
         let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
         let query = KadGetQuery {
             backoff,
@@ -211,7 +224,10 @@ impl DHTBehaviour {
                 Err(_e) => {
                     let mut new_query = KadGetQuery {
                         backoff,
-                        progress: DHTProgress::NotStarted, notify, num_replicas, key
+                        progress: DHTProgress::NotStarted,
+                        notify,
+                        num_replicas,
+                        key,
                     };
                     new_query.backoff.start_next(false);
                     self.queued_get_record_queries.push_back(new_query);
@@ -220,52 +236,52 @@ impl DHTBehaviour {
         } else {
             error!("completed DHT query {:?} that is no longer tracked.", id);
         }
-
     }
-
 
     /// Update state based on put query
     fn handle_put_query(&mut self, record_results: PutRecordResult, id: QueryId) {
-        if let Some(mut query) = self
-            .in_progress_put_record_queries
-                .remove(&id)
-                {
-                    // dropped so we handle further
-                    if query.notify.is_canceled() {
-                        return;
-                    }
+        if let Some(mut query) = self.in_progress_put_record_queries.remove(&id) {
+            // dropped so we handle further
+            if query.notify.is_canceled() {
+                return;
+            }
 
-                    match record_results {
-                        Ok(_) => {
-                            if query.notify.send(()).is_err() {
-                                error!("Put DHT: client channel closed before put record request could be sent");
-                            }
-                        }
-                        Err(e) => {
-                            query.progress = DHTProgress::NotStarted;
-                            query.backoff.start_next(false);
-
-                            error!("Put DHT: error performing put: {:?}. Retrying on pid {:?}.", e, self.peer_id);
-                            // push back onto the queue
-                            self.queued_put_record_queries.push_back(query);
-                            // maybe we got disconnected from the nextwork. Retry the bootstrap!
-                            if self.bootstrap_state.state == State::Finished {
-                                self.bootstrap_state.state = State::Started;
-                                self.bootstrap_state.backoff.reset();
-                                if let Err(e) = self.kadem.bootstrap() {
-                                    self.bootstrap_state.state = State::NotStarted;
-                                    self.bootstrap_state.backoff.start_next(false);
-                                    error!("Error initiating bootstrap {:?} on peer {:?}", e,self.peer_id);
-                                } else {
-                                    error!("initiating bootstrap for peer {:?}", self.peer_id);
-                                }
-                            }
-                        }
+            match record_results {
+                Ok(_) => {
+                    if query.notify.send(()).is_err() {
+                        error!("Put DHT: client channel closed before put record request could be sent");
                     }
-                } else {
-                    error!("Put DHT: completed DHT query that is no longer tracked.");
                 }
+                Err(e) => {
+                    query.progress = DHTProgress::NotStarted;
+                    query.backoff.start_next(false);
 
+                    error!(
+                        "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
+                        e, self.peer_id
+                    );
+                    // push back onto the queue
+                    self.queued_put_record_queries.push_back(query);
+                    // maybe we got disconnected from the nextwork. Retry the bootstrap!
+                    if self.bootstrap_state.state == State::Finished {
+                        self.bootstrap_state.state = State::Started;
+                        self.bootstrap_state.backoff.reset();
+                        if let Err(e) = self.kadem.bootstrap() {
+                            self.bootstrap_state.state = State::NotStarted;
+                            self.bootstrap_state.backoff.start_next(false);
+                            error!(
+                                "Error initiating bootstrap {:?} on peer {:?}",
+                                e, self.peer_id
+                            );
+                        } else {
+                            error!("initiating bootstrap for peer {:?}", self.peer_id);
+                        }
+                    }
+                }
+            }
+        } else {
+            error!("Put DHT: completed DHT query that is no longer tracked.");
+        }
     }
 }
 
@@ -282,17 +298,15 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetClosestPeers(r),
                 ..
-            } => {
-                match r {
-                    Ok(_result) => {
-                        self.random_walk.backoff.reset();
-                    },
-                    Err(_e) => {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(false);
-                    },
+            } => match r {
+                Ok(_result) => {
+                    self.random_walk.backoff.reset();
                 }
-            }
+                Err(_e) => {
+                    self.random_walk.state = State::NotStarted;
+                    self.random_walk.backoff.start_next(false);
+                }
+            },
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetRecord(record_results),
                 id,
@@ -317,12 +331,12 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 self.bootstrap_state.state = State::NotStarted;
                 self.bootstrap_state.backoff.start_next(false);
             }
-            KademliaEvent::InboundRequest { request: _ } |
-            KademliaEvent::RoutingUpdated { .. } |
-            KademliaEvent::UnroutablePeer { .. } |
-            KademliaEvent::RoutablePeer { .. } |
-            KademliaEvent::PendingRoutablePeer { ..} => {},
-            e @ KademliaEvent::OutboundQueryCompleted{ .. } => {
+            KademliaEvent::InboundRequest { request: _ }
+            | KademliaEvent::RoutingUpdated { .. }
+            | KademliaEvent::UnroutablePeer { .. }
+            | KademliaEvent::RoutablePeer { .. }
+            | KademliaEvent::PendingRoutablePeer { .. } => {}
+            e @ KademliaEvent::OutboundQueryCompleted { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
         }
@@ -391,23 +405,28 @@ impl NetworkBehaviour for DHTBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
-        if matches!(self.bootstrap_state.state, State::NotStarted) && self.bootstrap_state.backoff.is_expired() {
+    ) -> std::task::Poll<
+        libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
+    > {
+        if matches!(self.bootstrap_state.state, State::NotStarted)
+            && self.bootstrap_state.backoff.is_expired()
+        {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     error!("started bootstrap");
                     self.bootstrap_state.backoff.reset();
                     self.bootstrap_state.state = State::Started;
-                },
+                }
                 Err(_) => self.bootstrap_state.backoff.start_next(false),
             }
         }
 
-        if matches!(self.random_walk.state, State::NotStarted) && self.random_walk.backoff.is_expired() {
+        if matches!(self.random_walk.state, State::NotStarted)
+            && self.random_walk.backoff.is_expired()
+        {
             self.kadem.get_closest_peers(PeerId::random());
             self.random_walk.state = State::Started;
         }
-
 
         // retry put/gets if they are ready
         while let Some(req) = self.queued_get_record_queries.pop_front() {
@@ -430,41 +449,42 @@ impl NetworkBehaviour for DHTBehaviour {
             match ready {
                 NetworkBehaviourAction::GenerateEvent(e) => {
                     NetworkBehaviourEventProcess::inject_event(self, e);
-                },
+                }
                 NetworkBehaviourAction::Dial { opts, handler } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial {
-                        opts,
+                    return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
+                }
+                NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    handler,
+                    event,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                        peer_id,
                         handler,
+                        event,
                     });
-                },
-                NetworkBehaviourAction::NotifyHandler { peer_id, handler, event } => {
-                    return Poll::Ready(
-                        NetworkBehaviourAction::NotifyHandler {
-                            peer_id,
-                            handler,
-                            event
-                        },
-                        );
-                },
+                }
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(
-                        NetworkBehaviourAction::ReportObservedAddr {
-                            address,
-                            score,
-                        },
-                        );
-                },
-                NetworkBehaviourAction::CloseConnection { peer_id, connection } => {
-                    return Poll::Ready(
-                        NetworkBehaviourAction::CloseConnection {
-                            peer_id,
-                            connection,
-                        });
-                },
+                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
+                    });
+                }
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    });
+                }
             }
         }
-        if !self.event_queue.is_empty(){
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.event_queue.remove(0)))
+        if !self.event_queue.is_empty() {
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
+                self.event_queue.remove(0),
+            ));
         }
         Poll::Pending
     }
@@ -481,7 +501,13 @@ impl NetworkBehaviour for DHTBehaviour {
         failed_addresses: Option<&Vec<libp2p::Multiaddr>>,
         other_established: usize,
     ) {
-        self.kadem.inject_connection_established(peer_id, connection_id, endpoint, failed_addresses, other_established);
+        self.kadem.inject_connection_established(
+            peer_id,
+            connection_id,
+            endpoint,
+            failed_addresses,
+            other_established,
+        );
     }
 
     fn inject_connection_closed(
@@ -492,7 +518,8 @@ impl NetworkBehaviour for DHTBehaviour {
         handler: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
         remaining_established: usize,
     ) {
-        self.kadem.inject_connection_closed(pid, cid, cp, handler, remaining_established);
+        self.kadem
+            .inject_connection_closed(pid, cid, cp, handler, remaining_established);
     }
 
     fn inject_address_change(
@@ -520,26 +547,43 @@ impl NetworkBehaviour for DHTBehaviour {
         send_back_addr: &libp2p::Multiaddr,
         handler: Self::ConnectionHandler,
     ) {
-        self.kadem.inject_listen_failure(local_addr, send_back_addr, handler);
+        self.kadem
+            .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
     fn inject_new_listener(&mut self, id: libp2p::core::connection::ListenerId) {
         self.kadem.inject_new_listener(id);
     }
 
-    fn inject_new_listen_addr(&mut self, id: libp2p::core::connection::ListenerId, addr: &libp2p::Multiaddr) {
+    fn inject_new_listen_addr(
+        &mut self,
+        id: libp2p::core::connection::ListenerId,
+        addr: &libp2p::Multiaddr,
+    ) {
         self.kadem.inject_new_listen_addr(id, addr);
     }
 
-    fn inject_expired_listen_addr(&mut self, id: libp2p::core::connection::ListenerId, addr: &libp2p::Multiaddr) {
+    fn inject_expired_listen_addr(
+        &mut self,
+        id: libp2p::core::connection::ListenerId,
+        addr: &libp2p::Multiaddr,
+    ) {
         self.kadem.inject_expired_listen_addr(id, addr);
     }
 
-    fn inject_listener_error(&mut self, id: libp2p::core::connection::ListenerId, err: &(dyn std::error::Error + 'static)) {
+    fn inject_listener_error(
+        &mut self,
+        id: libp2p::core::connection::ListenerId,
+        err: &(dyn std::error::Error + 'static),
+    ) {
         self.kadem.inject_listener_error(id, err);
     }
 
-    fn inject_listener_closed(&mut self, id: libp2p::core::connection::ListenerId, reason: Result<(), &std::io::Error>) {
+    fn inject_listener_closed(
+        &mut self,
+        id: libp2p::core::connection::ListenerId,
+        reason: Result<(), &std::io::Error>,
+    ) {
         self.kadem.inject_listener_closed(id, reason);
     }
 
@@ -550,5 +594,4 @@ impl NetworkBehaviour for DHTBehaviour {
     fn inject_expired_external_addr(&mut self, addr: &libp2p::Multiaddr) {
         self.kadem.inject_expired_external_addr(addr);
     }
-
 }

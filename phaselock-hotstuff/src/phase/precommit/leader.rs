@@ -110,10 +110,14 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
         for vote in votes {
             let (encoded_pub_key, signature) = &vote.0.signature;
-             let pub_key = if let Some(pub_key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_pub_key) { pub_key } else {
-                 warn!(?vote, "Vote has an invalid public key, ignoring");
-                 continue;
-             };
+            let pub_key = if let Some(pub_key) =
+                <I::SignatureKey as SignatureKey>::from_bytes(encoded_pub_key)
+            {
+                pub_key
+            } else {
+                warn!(?vote, "Vote has an invalid public key, ignoring");
+                continue;
+            };
             if !pub_key.validate(signature, verify_hash.as_ref()) {
                 warn!(
                     ?vote,

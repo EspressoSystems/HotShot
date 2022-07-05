@@ -320,7 +320,11 @@ impl<
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
             let result = node.handle.collect_round_events().await;
-            error!("EXECUTOR: collected node {:?} results: {:?}", node.node_id.clone(), result);
+            error!(
+                "EXECUTOR: collected node {:?} results: {:?}",
+                node.node_id.clone(),
+                result
+            );
             match result {
                 Ok((state, block)) => {
                     results.insert(node.node_id, (state, block));

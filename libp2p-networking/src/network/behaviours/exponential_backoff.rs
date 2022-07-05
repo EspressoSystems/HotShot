@@ -1,4 +1,4 @@
-use std::{time::{Duration, Instant}};
+use std::time::{Duration, Instant};
 
 /// Track (with exponential backoff)
 /// sending of some sort of message
@@ -64,7 +64,7 @@ impl Default for ExponentialBackoff {
             reset_val: Duration::from_millis(200),
             backoff_factor: 2,
             timeout: Duration::from_millis(200) * 2,
-            started: None
+            started: None,
         }
     }
 }

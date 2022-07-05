@@ -1,15 +1,22 @@
 use async_std::prelude::FutureExt;
 use flume::RecvError;
 use futures::{future::join_all, Future};
-use libp2p::{Multiaddr, PeerId, identity::Keypair};
+use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::{ResultExt, Snafu};
-use std::{collections::{HashMap, HashSet}, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration, str::FromStr};
-use tracing::{info, instrument, warn, error};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
+use tracing::{error, info, instrument, warn};
 
 /// General function to spin up testing infra
 /// perform tests by calling `run_test`
@@ -117,8 +124,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .replication_factor(replication_factor)
             .node_type(NetworkNodeType::Bootstrap)
             .bound_addr(Some(addr))
-            .to_connect_addrs(HashSet::new())
-            ;
+            .to_connect_addrs(HashSet::new());
         let node = Arc::new(
             NetworkNodeHandle::new(
                 config
@@ -140,9 +146,12 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         handles.push(node);
     }
 
-
     for j in 0..(num_of_nodes - num_bootstrap) {
-        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", start_port + num_bootstrap + j)).unwrap();
+        let addr = Multiaddr::from_str(&format!(
+            "/ip4/127.0.0.1/tcp/{}",
+            start_port + num_bootstrap + j
+        ))
+        .unwrap();
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .node_type(NetworkNodeType::Regular)
             .replication_factor(replication_factor)
@@ -172,7 +181,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
         handles.push(node);
     }
-        error!("BSADDRS ARE: {:?}", bootstrap_addrs);
+    error!("BSADDRS ARE: {:?}", bootstrap_addrs);
 
     info!(
         "known nodes: {:?}",

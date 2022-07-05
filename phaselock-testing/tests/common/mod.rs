@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use async_std::task::{block_on};
+use async_std::task::block_on;
 use either::Either;
 use phaselock::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
@@ -21,7 +21,7 @@ use phaselock_types::traits::{
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use tracing::error;
 
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use std::sync::Arc;
 
@@ -122,7 +122,6 @@ impl<
     pub async fn execute(&self) -> Result<(), ConsensusRoundError> {
         setup_logging();
         setup_backtrace();
-
 
         let mut runner = if let Some(ref generator) = self.gen_runner {
             generator(self)

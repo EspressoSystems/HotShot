@@ -13,4 +13,3 @@ pub mod direct_message_codec;
 
 /// Wrapper around Kademlia
 pub mod dht;
-

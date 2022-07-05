@@ -26,5 +26,5 @@ pub struct NetworkNodeConfig {
     pub replication_factor: Option<NonZeroUsize>,
 
     /// list of addresses to connect to at initialization
-    pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>
+    pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>,
 }

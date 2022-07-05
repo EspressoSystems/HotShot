@@ -5,8 +5,8 @@ use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use futures::future::join_all;
-use libp2p_networking::{
-    network::{get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError},
+use libp2p_networking::network::{
+    get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -39,7 +39,7 @@ pub enum CounterMessage {
     },
     AskForCounter,
     MyCounterIs(CounterState),
-    Noop
+    Noop,
 }
 
 /// event handler for events from the swarm
@@ -375,7 +375,6 @@ async fn run_request_response_increment_all(
                 .collect::<Vec<_>>()
         );
     }
-
 }
 
 /// simple case of direct message

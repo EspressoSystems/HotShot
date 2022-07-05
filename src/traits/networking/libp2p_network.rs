@@ -7,16 +7,15 @@ use async_std::{
     sync::RwLock,
     task::{block_on, sleep, spawn},
 };
-use std::{str::FromStr, time::Instant, sync::atomic::AtomicBool};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use dashmap::{DashSet};
+use dashmap::DashSet;
 use flume::Sender;
-use futures::{future::join_all};
+use futures::future::join_all;
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
-    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg, self},
+    NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
     NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
 };
 use phaselock_types::traits::{
@@ -26,10 +25,11 @@ use phaselock_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
+use std::{str::FromStr, sync::atomic::AtomicBool, time::Instant};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::{HashSet}, num::NonZeroUsize};
+use std::{collections::HashSet, num::NonZeroUsize};
 
 use std::{sync::Arc, time::Duration};
 
@@ -41,7 +41,7 @@ use crate::utils::ReceiverExt;
 #[derive(Serialize)]
 pub enum Empty {
     /// Empty value
-    Empty
+    Empty,
 }
 
 impl<
@@ -88,7 +88,7 @@ struct Libp2pNetworkInner<
     /// max time before dropping message due to DHT error
     dht_timeout: Duration,
     /// whether or not we've bootstrapped into the DHT yet
-    is_bootstrapped: Arc<AtomicBool>
+    is_bootstrapped: Arc<AtomicBool>,
 }
 
 /// Networking implementation that uses libp2p
@@ -135,7 +135,9 @@ impl<
         let start_port = 5000;
         Box::new({
             move |node_id| {
-                let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", start_port + node_id)).unwrap();
+                let addr =
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", start_port + node_id))
+                        .unwrap();
                 //arbitrarily start generating on port 5000
                 let privkey = P::generate_test_key(node_id);
                 let pubkey = P::from_private(&privkey);
@@ -180,8 +182,12 @@ impl<
     /// returns when network is ready
     pub async fn wait_for_ready(&self) {
         loop {
-            if self.inner.is_ready.load(std::sync::atomic::Ordering::Relaxed) {
-                break
+            if self
+                .inner
+                .is_ready
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                break;
             }
             sleep(Duration::from_secs(1)).await;
         }
@@ -241,7 +247,7 @@ impl<
                 is_ready: Arc::new(AtomicBool::new(false)),
                 recently_updated_peers: DashSet::default(),
                 dht_timeout: Duration::from_secs(30),
-                is_bootstrapped: Arc::new(AtomicBool::new(false))
+                is_bootstrapped: Arc::new(AtomicBool::new(false)),
             }),
         };
 
@@ -285,20 +291,15 @@ impl<
                     sleep(Duration::from_secs(1)).await;
                 }
 
-                    // we want our records published before
-                    // we begin participating in consensus
-                while handle
-                    .put_record(&pk, &handle.peer_id())
-                        .await.is_err() {
-                            sleep(Duration::from_secs(1)).await;
-                        }
+                // we want our records published before
+                // we begin participating in consensus
+                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+                    sleep(Duration::from_secs(1)).await;
+                }
 
-                while
-                    handle
-                        .put_record(&handle.peer_id(), &pk)
-                        .await.is_err() {
-                            sleep(Duration::from_secs(1)).await;
-                        }
+                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+                    sleep(Duration::from_secs(1)).await;
+                }
                 info!("connected status is {:?}", connected);
                 while Instant::now() < start_time + Duration::from_secs(45) {
                     sleep(Duration::from_secs(1)).await;
@@ -354,7 +355,13 @@ impl<
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
-                        if handle.inner.handle.direct_response(chan, &Empty::Empty).await.is_err() {
+                        if handle
+                            .inner
+                            .handle
+                            .direct_response(chan, &Empty::Empty)
+                            .await
+                            .is_err()
+                        {
                             error!("failed to ack!");
                         };
                     }
@@ -365,7 +372,7 @@ impl<
                     }
                     NetworkEvent::IsBootstrapped => {
                         is_bootstrapped.store(true, std::sync::atomic::Ordering::Relaxed);
-                    },
+                    }
                 }
             }
             error!("Network receiever shut down!");
@@ -384,8 +391,7 @@ impl<
             let timeout_get_dur = Duration::new(2, 0);
             let sleep_dur = Duration::new(0, 25);
             while !handle.inner.handle.is_killed().await {
-                let known_nodes =
-                    handle
+                let known_nodes = handle
                     .inner
                     .pubkey_pid_map
                     .read()
@@ -393,8 +399,8 @@ impl<
                     .right_values()
                     .copied()
                     .collect::<HashSet<_>>();
-                    // .values()
-                    // .copied()
+                // .values()
+                // .copied()
                 let libp2p_known_nodes = handle.inner.handle.known_peers().await;
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)
@@ -413,8 +419,7 @@ impl<
                         Ok(pk) => {
                             warn!("found pk for peer id {:?}", unknown_nodes[idx]);
                             let mut pubkey_pid_map = handle.inner.pubkey_pid_map.write().await;
-                            pubkey_pid_map
-                                .insert(pk.clone(), *unknown_nodes[idx]);
+                            pubkey_pid_map.insert(pk.clone(), *unknown_nodes[idx]);
                             drop(pubkey_pid_map);
                         }
                         Err(_e) => {
@@ -476,26 +481,29 @@ impl<
         // check local cache. if that fails, initiate search
         // if search fails, just error out
         // NOTE: relay may be a good way to fix this in the future .
-        let pid: PeerId =
-            if let Some(pid) =
-                self.inner.pubkey_pid_map.read().await
-                    .get_by_left(&recipient) {
-                    *pid
-                } else {
-                    match self
-                        .inner
-                        .handle
-                        .get_record_timeout(&recipient, self.inner.dht_timeout)
-                        .await
-                        .map_err(Into::<NetworkError>::into)
-                        {
-                            Ok(r) => r,
-                            Err(_e) => {
-                                error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
-                                return Err(NetworkError::DHTError);
-                            }
-                        }
-                };
+        let pid: PeerId = if let Some(pid) = self
+            .inner
+            .pubkey_pid_map
+            .read()
+            .await
+            .get_by_left(&recipient)
+        {
+            *pid
+        } else {
+            match self
+                .inner
+                .handle
+                .get_record_timeout(&recipient, self.inner.dht_timeout)
+                .await
+                .map_err(Into::<NetworkError>::into)
+            {
+                Ok(r) => r,
+                Err(_e) => {
+                    error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
+                    return Err(NetworkError::DHTError);
+                }
+            }
+        };
         self.inner
             .handle
             .direct_request(pid, &message)

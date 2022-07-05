@@ -1,13 +1,13 @@
-use crate::{
-    network::{
-        error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
-        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError, behaviours::direct_message_codec::DirectMessageResponse
-    },
+use crate::network::{
+    behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
+    ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
 };
 use async_std::{
     future::TimeoutError,
     prelude::FutureExt,
-    sync::{Condvar, Mutex}, task::sleep,
+    sync::{Condvar, Mutex},
+    task::sleep,
 };
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
@@ -20,7 +20,7 @@ use phaselock_utils::{
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::{instrument, error};
+use tracing::{error, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -340,9 +340,12 @@ impl<S> NetworkNodeHandle<S> {
     /// # Panics
     /// If channel errors out
     /// shouldn't happen.
-    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError>{
+    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::Prune(pid);
-        self.send_network.send_async(req).await.map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
     /// Gossip a message to peers
@@ -422,7 +425,7 @@ impl<S> NetworkNodeHandle<S> {
     /// # Panics
     /// If channel errors out
     /// shouldn't happen.
-    pub async fn num_connected(&self)  -> Result<usize, NetworkNodeHandleError> {
+    pub async fn num_connected(&self) -> Result<usize, NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeerNum(s);
         self.send_request(req).await?;
@@ -436,7 +439,7 @@ impl<S> NetworkNodeHandle<S> {
     /// # Panics
     /// If channel errors out
     /// shouldn't happen.
-    pub async fn connected_pids(&self)  -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
+    pub async fn connected_pids(&self) -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeers(s);
         self.send_request(req).await?;
