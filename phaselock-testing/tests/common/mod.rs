@@ -19,7 +19,7 @@ use phaselock_types::traits::{
     state::TestableState, storage::TestableStorage,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
-use tracing::error;
+use tracing::{error, info};
 
 use std::collections::HashSet;
 
@@ -67,6 +67,8 @@ pub struct GeneralTestDescriptionBuilder {
     pub ids_to_shut_down: Vec<HashSet<u64>>,
     /// Description of the network reliability
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
+    /// number of bootstrap nodes
+    pub num_bootstrap_nodes: usize,
 }
 
 pub struct DetailedTestDescriptionBuilder<
@@ -101,7 +103,7 @@ impl<
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
-        let launcher = TestLauncher::new(self.total_nodes);
+        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes);
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut PhaseLockConfig<Ed25519Pub>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
@@ -132,13 +134,10 @@ impl<
         // configure nodes/timing
         runner.add_nodes(self.start_nodes).await;
 
-        error!("EXECUTOR GETTING READY");
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().rev().enumerate() {
             node.is_ready().await;
-            error!("EXECUTOR, NODE {:?} IS READY", idx);
+            error!("EXECUTOR: NODE {:?} IS READY", idx);
         }
-        // sleep(Duration::from_secs(50)).await;
-        // error!("EXECUTOR, IS READY");
 
         let len = self.rounds.len() as u64;
         runner.with_rounds(self.rounds.clone());
@@ -199,8 +198,6 @@ impl<
             self.default_populate_rounds()
         };
 
-        // let gen_runner =
-
         TestDescription {
             rounds,
             gen_runner: self.gen_runner,
@@ -209,6 +206,7 @@ impl<
             total_nodes: self.general_info.total_nodes,
             start_nodes: self.general_info.start_nodes,
             failure_threshold: self.general_info.failure_threshold,
+            num_bootstrap_nodes: self.general_info.num_bootstrap_nodes,
         }
     }
 }
@@ -243,6 +241,8 @@ pub struct TestDescription<
     pub start_nodes: usize,
     /// max number of failing rounds before test is failed
     pub failure_threshold: usize,
+    /// number bootstrap nodes
+    pub num_bootstrap_nodes: usize,
 }
 
 /// type alias for generating a [`TestRunner`]
@@ -280,6 +280,7 @@ impl Default for GeneralTestDescriptionBuilder {
     /// by default, just a single round
     fn default() -> Self {
         Self {
+            num_bootstrap_nodes: 5,
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 1,

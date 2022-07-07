@@ -1,14 +1,17 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
     task::Poll,
+    time::Duration,
 };
 
 use futures::channel::oneshot::Sender;
 use libp2p::{
+    core::transport::ListenerId,
     kad::{
-        store::MemoryStore, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, PutRecordResult,
-        QueryId, QueryResult, Quorum, Record,
+        store::MemoryStore, BootstrapError, GetClosestPeersOk, GetRecordOk,
+        GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
+        Record,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
     Multiaddr, PeerId,
@@ -26,8 +29,10 @@ use super::exponential_backoff::ExponentialBackoff;
 /// - bootstrapping into the network
 /// - peer discovery
 pub struct DHTBehaviour {
+    /// bootstrap nodes
+    pub bootstrap_nodes: HashMap<PeerId, HashSet<Multiaddr>>,
     /// List of kademlia events
-    event_queue: Vec<DHTEvent>,
+    pub event_queue: Vec<DHTEvent>,
     /// List of in-progress get requests
     in_progress_get_record_queries: HashMap<QueryId, KadGetQuery>,
     /// List of in-progress put requests
@@ -37,21 +42,22 @@ pub struct DHTBehaviour {
     /// List of previously failled put requests
     queued_put_record_queries: VecDeque<KadPutQuery>,
     /// Kademlia behaviour
-    kadem: Kademlia<MemoryStore>,
+    pub kadem: Kademlia<MemoryStore>,
     /// State of bootstrapping
-    bootstrap_state: Bootstrap,
+    pub bootstrap_state: Bootstrap,
     /// State of last random walk
-    random_walk: RandomWalk,
+    pub random_walk: RandomWalk,
     /// the peer id (useful only for debugging right now)
-    peer_id: PeerId,
+    pub peer_id: PeerId,
 }
 
 /// State of bootstrapping
+#[derive(Debug, Clone)]
 pub struct Bootstrap {
     /// State of bootstrap
-    state: State,
+    pub state: State,
     /// Retry timeout
-    backoff: ExponentialBackoff,
+    pub backoff: ExponentialBackoff,
 }
 
 /// State of the periodic random walk
@@ -64,7 +70,7 @@ pub struct RandomWalk {
 
 /// State used for random walk and bootstrapping
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum State {
+pub enum State {
     /// Not in progress
     NotStarted,
     /// In progress
@@ -88,6 +94,7 @@ impl DHTBehaviour {
     /// Create a new DHT behaviour
     pub fn new(kadem: Kademlia<MemoryStore>, pid: PeerId) -> Self {
         Self {
+            bootstrap_nodes: HashMap::default(),
             peer_id: pid,
             event_queue: Vec::default(),
             in_progress_get_record_queries: HashMap::default(),
@@ -97,7 +104,7 @@ impl DHTBehaviour {
             kadem,
             bootstrap_state: Bootstrap {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::default(),
+                backoff: ExponentialBackoff::new(2, Duration::from_millis(250)),
             },
             random_walk: RandomWalk {
                 state: State::NotStarted,
@@ -111,6 +118,13 @@ impl DHTBehaviour {
     pub fn add_address(&mut self, peer_id: &PeerId, addr: Multiaddr) {
         // add address to kademlia
         self.kadem.add_address(peer_id, addr);
+    }
+
+    /// Save in case kademlia forgets about bootstrap nodes
+    pub fn add_bootstrap_nodes(&mut self, nodes: HashMap<PeerId, HashSet<Multiaddr>>) {
+        for (k, v) in nodes {
+            self.bootstrap_nodes.insert(k, v);
+        }
     }
 
     /// Publish a key/value to the kv store.
@@ -262,21 +276,6 @@ impl DHTBehaviour {
                     );
                     // push back onto the queue
                     self.queued_put_record_queries.push_back(query);
-                    // maybe we got disconnected from the nextwork. Retry the bootstrap!
-                    if self.bootstrap_state.state == State::Finished {
-                        self.bootstrap_state.state = State::Started;
-                        self.bootstrap_state.backoff.reset();
-                        if let Err(e) = self.kadem.bootstrap() {
-                            self.bootstrap_state.state = State::NotStarted;
-                            self.bootstrap_state.backoff.start_next(false);
-                            error!(
-                                "Error initiating bootstrap {:?} on peer {:?}",
-                                e, self.peer_id
-                            );
-                        } else {
-                            error!("initiating bootstrap for peer {:?}", self.peer_id);
-                        }
-                    }
                 }
             }
         } else {
@@ -299,10 +298,17 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 result: QueryResult::GetClosestPeers(r),
                 ..
             } => match r {
-                Ok(_result) => {
-                    self.random_walk.backoff.reset();
+                Ok(GetClosestPeersOk { key, peers: _ }) => {
+                    error!(
+                        "peer {:?} successfully completed get closest peers for {:?}",
+                        self.peer_id, key
+                    );
                 }
-                Err(_e) => {
+                Err(e) => {
+                    error!(
+                        "peer {:?} failed to get closest peers with {:?}",
+                        self.peer_id, e
+                    );
                     self.random_walk.state = State::NotStarted;
                     self.random_walk.backoff.start_next(false);
                 }
@@ -318,24 +324,49 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 result: QueryResult::Bootstrap(Ok(_)),
                 ..
             } => {
+                // if bootstrap is successful, restart.
                 error!("finished bootstrap for peer {:?}", self.peer_id);
                 self.bootstrap_state.state = State::Finished;
-                self.bootstrap_state.backoff.reset();
+                // self.bootstrap_state.backoff.start_next(true);
                 self.event_queue.push(DHTEvent::IsBootstrapped);
             }
             KademliaEvent::OutboundQueryCompleted {
-                result: QueryResult::Bootstrap(Err(_)),
+                result: QueryResult::Bootstrap(Err(e)),
                 ..
             } => {
-                error!("failed bootstrap");
-                self.bootstrap_state.state = State::NotStarted;
-                self.bootstrap_state.backoff.start_next(false);
+                let BootstrapError::Timeout { num_remaining, .. } = e;
+                if num_remaining == None {
+                    error!(
+                        "peer {:?} failed bootstrap with error {:?}. Adding nodes {:?}",
+                        self.peer_id, e, self.bootstrap_nodes
+                    );
+                    for (peer, addrs) in self.bootstrap_nodes.clone() {
+                        for addr in addrs {
+                            self.kadem.add_address(&peer, addr);
+                        }
+                    }
+                }
             }
-            KademliaEvent::InboundRequest { request: _ }
-            | KademliaEvent::RoutingUpdated { .. }
-            | KademliaEvent::UnroutablePeer { .. }
-            | KademliaEvent::RoutablePeer { .. }
-            | KademliaEvent::PendingRoutablePeer { .. } => {}
+            KademliaEvent::RoutablePeer { peer, address: _ } => {
+                info!("on peer {:?} found routable peer {:?}", self.peer_id, peer);
+            }
+            KademliaEvent::PendingRoutablePeer { peer, address: _ } => {
+                info!(
+                    "on peer {:?} have pending routable peer {:?}",
+                    self.peer_id, peer
+                );
+            }
+            KademliaEvent::UnroutablePeer { peer } => {
+                info!("on peer {:?} have unroutable peer {:?}", self.peer_id, peer);
+            }
+            KademliaEvent::InboundRequest { request: _r } => {}
+            KademliaEvent::RoutingUpdated {
+                peer: _,
+                is_new_peer: _,
+                addresses: _,
+                bucket_range: _,
+                old_peer: _,
+            } => {}
             e @ KademliaEvent::OutboundQueryCompleted { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
@@ -413,11 +444,22 @@ impl NetworkBehaviour for DHTBehaviour {
         {
             match self.kadem.bootstrap() {
                 Ok(_) => {
-                    error!("started bootstrap");
-                    self.bootstrap_state.backoff.reset();
+                    error!("started bootstrap for peer {:?}", self.peer_id);
+                    self.bootstrap_state.backoff.start_next(true);
                     self.bootstrap_state.state = State::Started;
                 }
-                Err(_) => self.bootstrap_state.backoff.start_next(false),
+                Err(e) => {
+                    error!(
+                        "peer id {:?} FAILED TO START BOOTSTRAP {:?} adding peers {:?}",
+                        self.peer_id, e, self.bootstrap_nodes
+                    );
+                    self.bootstrap_state.backoff.start_next(true);
+                    for (peer, addrs) in self.bootstrap_nodes.clone() {
+                        for addr in addrs {
+                            self.kadem.add_address(&peer, addr);
+                        }
+                    }
+                }
             }
         }
 
@@ -538,6 +580,12 @@ impl NetworkBehaviour for DHTBehaviour {
         handler: Self::ConnectionHandler,
         error: &libp2p::swarm::DialError,
     ) {
+        error!(
+            "{:?} dial failure for peer id: {:?} with error {:?}",
+            self.peer_id, peer_id, error
+        );
+        // NOTE if there are no addresses
+        // initiate query searching
         self.kadem.inject_dial_failure(peer_id, handler, error);
     }
 
@@ -551,39 +599,23 @@ impl NetworkBehaviour for DHTBehaviour {
             .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    fn inject_new_listener(&mut self, id: libp2p::core::connection::ListenerId) {
+    fn inject_new_listener(&mut self, id: ListenerId) {
         self.kadem.inject_new_listener(id);
     }
 
-    fn inject_new_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.kadem.inject_new_listen_addr(id, addr);
     }
 
-    fn inject_expired_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.kadem.inject_expired_listen_addr(id, addr);
     }
 
-    fn inject_listener_error(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        err: &(dyn std::error::Error + 'static),
-    ) {
+    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
         self.kadem.inject_listener_error(id, err);
     }
 
-    fn inject_listener_closed(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        reason: Result<(), &std::io::Error>,
-    ) {
+    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
         self.kadem.inject_listener_closed(id, reason);
     }
 

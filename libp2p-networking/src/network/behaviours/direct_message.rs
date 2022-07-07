@@ -4,6 +4,7 @@ use std::{
 };
 
 use libp2p::{
+    core::transport::ListenerId,
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
@@ -145,7 +146,7 @@ impl NetworkBehaviour for DMBehaviour {
     > {
         while let Some(req) = self.failed_rr.pop_front() {
             if req.backoff.is_expired() {
-                self.send_rr(req);
+                self.add_direct_request(req);
             } else {
                 self.failed_rr.push_back(req);
             }
@@ -266,39 +267,23 @@ impl NetworkBehaviour for DMBehaviour {
             .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    fn inject_new_listener(&mut self, id: libp2p::core::connection::ListenerId) {
+    fn inject_new_listener(&mut self, id: ListenerId) {
         self.request_response.inject_new_listener(id);
     }
 
-    fn inject_new_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.request_response.inject_new_listen_addr(id, addr);
     }
 
-    fn inject_expired_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.request_response.inject_expired_listen_addr(id, addr);
     }
 
-    fn inject_listener_error(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        err: &(dyn std::error::Error + 'static),
-    ) {
+    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
         self.request_response.inject_listener_error(id, err);
     }
 
-    fn inject_listener_closed(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        reason: Result<(), &std::io::Error>,
-    ) {
+    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
         self.request_response.inject_listener_closed(id, reason);
     }
 
@@ -332,20 +317,12 @@ impl DMBehaviour {
         self.request_response.remove_address(peer_id, address);
     }
 
-    /// Send request request
-    pub fn send_rr(&mut self, req: DMRequest) {
-        let new_request = self
-            .request_response
-            .send_request(&req.peer_id, DirectMessageRequest(req.data.clone()));
-        self.in_progress_rr.insert(new_request, req);
-    }
-
     /// Add a direct request for a given peer
     pub fn add_direct_request(&mut self, req: DMRequest) {
         let request_id = self
             .request_response
             .send_request(&req.peer_id, DirectMessageRequest(req.data.clone()));
-        info!("direct message request with id {:?}", request_id);
+        error!("direct message request with id {:?}", request_id);
 
         self.in_progress_rr.insert(request_id, req);
     }

@@ -8,13 +8,14 @@ pub use self::{
     def::NetworkDef,
     error::NetworkError,
     node::{
-        network_node_handle_error, NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilder,
-        NetworkNodeConfigBuilderError, NetworkNodeHandle, NetworkNodeHandleError,
+        network_node_handle_error, MeshParams, NetworkNode, NetworkNodeConfig,
+        NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
+        NetworkNodeHandleError,
     },
 };
 
 use self::{
-    behaviours::direct_message_codec::DirectMessageResponse, error::TransportLaunchSnafu,
+    behaviours::direct_message_codec::DirectMessageResponse,
     node::network_node_handle_error::TimeoutSnafu,
 };
 use async_std::{prelude::FutureExt as _, task::spawn};
@@ -180,15 +181,12 @@ pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
     let transport = {
-        let dns_tcp = dns::DnsConfig::system(tcp::TcpConfig::new().nodelay(true))
+        let dns_tcp = dns::DnsConfig::system(tcp::TcpTransport::new(
+            tcp::GenTcpConfig::new().nodelay(true),
+        ));
+        dns_tcp
             .await
-            .context(TransportLaunchSnafu)?;
-        // let ws_dns_tcp = websocket::WsConfig::new(
-        //     dns::DnsConfig::system(tcp::TcpConfig::new().nodelay(true))
-        //         .await
-        //         .context(TransportLaunchSnafu)?,
-        // );
-        dns_tcp /* .or_transport(ws_dns_tcp) */
+            .map_err(|e| NetworkError::TransportLaunch { source: e })?
     };
 
     // keys for signing messages

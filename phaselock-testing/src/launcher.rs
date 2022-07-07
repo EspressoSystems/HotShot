@@ -36,7 +36,7 @@ impl<
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(expected_node_count: usize) -> Self {
+    pub fn new(expected_node_count: usize, num_bootstrap_nodes: usize) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
 
         let known_nodes = (0..expected_node_count)
@@ -46,6 +46,7 @@ impl<
             })
             .collect();
         let config = PhaseLockConfig {
+            num_bootstrap: num_bootstrap_nodes,
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             threshold: NonZeroUsize::new(threshold).unwrap(),
             max_transactions: NonZeroUsize::new(100).unwrap(),

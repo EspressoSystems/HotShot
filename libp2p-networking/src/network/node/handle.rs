@@ -67,7 +67,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .bound_addr
             .clone()
             .unwrap_or_else(|| gen_multiaddr(0));
-        error!("LISTEN ADDRESS IS {:?}", listen_addr);
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
@@ -80,6 +79,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .start_listen(listen_addr)
             .await
             .context(NetworkSnafu)?;
+        error!("LISTEN ADDRESS IS {:?}", listen_addr);
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = flume::bounded(1);
 

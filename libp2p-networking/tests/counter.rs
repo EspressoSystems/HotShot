@@ -1,24 +1,28 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::prelude::StreamExt;
+use async_std::{
+    prelude::StreamExt,
+    sync::RwLock,
+    task::{sleep, spawn},
+};
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
-use futures::future::join_all;
+
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{error, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 pub type CounterState = u32;
 
 const NUM_ROUNDS: usize = 100;
 
-const TOTAL_NUM_PEERS_COVERAGE: usize = 8;
-const NUM_OF_BOOTSTRAP_COVERAGE: usize = 3;
+const TOTAL_NUM_PEERS_COVERAGE: usize = 50;
+const NUM_OF_BOOTSTRAP_COVERAGE: usize = 15;
 const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
 const TOTAL_NUM_PEERS_STRESS: usize = 30;
@@ -134,22 +138,20 @@ async fn run_request_response_increment<'a>(
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)
             .await
             .context(HandleSnafu)?;
-        // stream.next().await.unwrap().unwrap();
+        stream.next().await.unwrap().unwrap();
 
-        while requester_handle.state().await != new_state {
-            async_std::task::sleep(Duration::from_secs(1)).await;
-            // error!("waiting for {:?} to hear back from {:?} and
+        let s1 = requester_handle.state().await;
+
+        // sanity check
+        if s1 != new_state {
+            Err(TestError::State {
+                id: requester_handle.id(),
+                expected: new_state,
+                actual: s1,
+            })
+        } else {
+            Ok(())
         }
-        // // sanity check
-        // if s1 != new_state {
-        //     Err(TestError::State {
-        //         id: requester_handle.id(),
-        //         expected: new_state,
-        //         actual: s1,
-        //     })
-        // } else {
-        Ok(())
-        // }
     }
     .await
 }
@@ -347,6 +349,7 @@ async fn run_request_response_increment_all(
 ) {
     let requestee_handle = get_random_handle(handles);
     requestee_handle.modify_state(|s| *s += 1).await;
+    error!("REQUESTEE IS {:?}", requestee_handle.peer_id());
     let mut futs = Vec::new();
     for (_i, h) in handles.iter().enumerate() {
         // skip `requestee_handle`
@@ -359,21 +362,37 @@ async fn run_request_response_increment_all(
             ));
         }
     }
-    let results = join_all(futs).await;
-    if results.iter().any(|x| x.is_err()) {
+
+    // NOTE this was originally join_all
+    // but this is simpler.
+    let results = Arc::new(RwLock::new(vec![]));
+
+    let len = futs.len();
+
+    for _ in 0..futs.len() {
+        let fut = futs.pop().unwrap();
+        let results = results.clone();
+        spawn(async move {
+            let res = fut.await;
+            results.write().await.push(res);
+        });
+    }
+    loop {
+        let l = results.read().await.iter().len();
+        if l >= len {
+            break;
+        }
+        info!("NUMBER OF RESULTS for increment all is: {}", l);
+        sleep(Duration::from_secs(1)).await;
+    }
+
+    if results.read().await.iter().any(|x| x.is_err()) {
         print_connections(handles).await;
         let mut states = vec![];
         for handle in handles {
             states.push(handle.state().await);
         }
-        panic!(
-            "states: {:?}, results {:?}",
-            states,
-            results
-                .into_iter()
-                .filter(|r| r.is_err())
-                .collect::<Vec<_>>()
-        );
+        panic!("states: {:?}", states,);
     }
 }
 

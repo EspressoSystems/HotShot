@@ -18,14 +18,14 @@ use std::{
 };
 
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
-use libp2p_networking::{
-    network::{
-        deserialize_msg, network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm,
-        NetworkEvent, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeType, behaviours::direct_message_codec::DirectMessageResponse,
-    },
+use libp2p_networking::network::{
+    behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
+    network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm, NetworkEvent,
+    NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
-use rand::{seq::IteratorRandom, thread_rng, RngCore, distributions::Bernoulli, prelude::Distribution};
+use rand::{
+    distributions::Bernoulli, prelude::Distribution, seq::IteratorRandom, thread_rng, RngCore,
+};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
@@ -95,7 +95,11 @@ impl ConductorState {
         let mut total_data = 0;
         for (_, epoch_data) in &self.previous_epochs {
             if epoch_data.message_durations.iter().len() != num_nodes {
-                error!("didn't match! expected {} got {} ", num_nodes, epoch_data.message_durations.iter().len());
+                error!(
+                    "didn't match! expected {} got {} ",
+                    num_nodes,
+                    epoch_data.message_durations.iter().len()
+                );
             }
             if let Some(max_prop_time) = epoch_data.message_durations.iter().max() {
                 error!("data size is {}", data_size);
@@ -274,9 +278,9 @@ pub async fn handle_normal_msg(
                     }
                 })
                 .await;
-                if let Some(chan) = chan {
-                    handle.direct_response(chan, &Message::DummyRecv).await?;
-                }
+            if let Some(chan) = chan {
+                handle.direct_response(chan, &Message::DummyRecv).await?;
+            }
         }
         // only as a response
         CounterRequest::StateRequest => {
@@ -305,26 +309,23 @@ pub async fn handle_normal_msg(
     // relay the message to conductor
     if msg.relay_to_conductor {
         error!("relaying to conductor!");
-        // let relayed_msg = Message::Relayed(msg.normal_to_relayed(handle.peer_id()));
-        // handle.gossip(CONDUCTOR_TOPIC.to_string(), &relayed_msg).await?;
         if let Some(conductor_id) = handle.ignored_peers().await.iter().next() {
-            error!("continuing to relay to conductor! {:?}, {:?}", conductor_id, handle.ignored_peers().await);
+            error!(
+                "continuing to relay to conductor! {:?}, {:?}",
+                conductor_id,
+                handle.ignored_peers().await
+            );
             // do a dice roll here to decide if we want to keep the thing
-            if
-                Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
-                    .unwrap()
-                    .sample(&mut rand::thread_rng()) {
+            if Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
+                .unwrap()
+                .sample(&mut rand::thread_rng())
+            {
                 let relayed_msg = Message::Relayed(msg.normal_to_relayed(handle.peer_id()));
                 handle.direct_request(*conductor_id, &relayed_msg).await?;
-                // handle.disconn
             }
         } else {
             error!("We have a message to send to the conductor, but we do not know who the conductor is!");
         }
-        // if let Some(_) = handle.ignored_peers().await.iter().next() {
-        // } else {
-        //     error!("We have a message to send to the conductor, but we do not know who the conductor is!");
-        // }
     }
     Ok(())
 }
@@ -340,6 +341,7 @@ pub async fn regular_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
+        IsBootstrapped => {},
         GossipMsg(m, _) | DirectResponse(m, _) => {
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 error!("regular msg recved: {:?}", msg.clone());
@@ -457,7 +459,6 @@ pub struct CliOpt {
     #[structopt(long = "env")]
     pub env_type: ExecutionEnvironment,
 
-
     /// number of rounds of gossip
     #[structopt(long = "num_gossip")]
     pub num_gossip: u32,
@@ -496,8 +497,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     // FIXME can we pass in a function that returns an error type
     setup_logging();
     setup_backtrace();
-    let bootstrap_nodes =
-        opts
+    let bootstrap_nodes = opts
         .to_connect_addrs
         .iter()
         .cloned()
@@ -507,8 +507,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     match opts.node_type {
         NetworkNodeType::Conductor => {
             let config = NetworkNodeConfigBuilder::default()
-                .to_connect_addrs(opts.to_connect_addrs.into_iter().collect())
-                .bound_addr(opts.bound_addr)
+                .bound_addr(Some(opts.bound_addr))
                 .node_type(NetworkNodeType::Conductor)
                 .ignored_peers(HashSet::new())
                 .build()
@@ -523,12 +522,10 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
                 .await
                 .context(HandleSnafu)?;
-            error!("spun up!");
-            // subscribe to a conductor channel
-            // handle.subscribe("conductor".to_string()).await.unwrap();
+            info!("spun up!");
 
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
-            error!("spawned handler");
+            info!("spawned handler");
 
             let known_peers = handle.known_peers().await;
             handle
@@ -542,49 +539,33 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     }
                 })
                 .await;
-            // handle.notify_webui().await;
-            // sleep(Duration::from_secs(5)).await;
+            handle.notify_webui().await;
 
             let conductor_peerid = handle.peer_id();
 
-            // let mut res_fut = handle.state_wait_timeout_until_with_trigger(TIMEOUT, |state| {
-            //     // NOTE this is where the cutoff is for connecting bootstrap. Maybe jsut make this
-            //     // a timeout
-            //     state.ready_set.len() >= 100
-            // });
-
-            // // is ready
-            // res_fut.next().await.unwrap().unwrap();
-
             let (s, _r) = flume::bounded::<bool>(1);
 
-        error!("before gossiping");
-        spawn({
+            error!("before gossiping");
+            spawn({
                 error!("in gossip thread");
                 let handle = handle.clone();
                 // the "conductor id"
                 // periodically say "ignore me!"
-                    async move {
-                loop {
+                async move {
+                    loop {
                         // must wait for the listener to start
                         let msg = Message::ConductorIdIs(conductor_peerid);
-                        // error!("gossiping {:?}", msg);
-                            // FIXME make sure duplicates are allowed
-                            handle
-                                .gossip("global".to_string(), &msg)
-                                .await
-                                .context(HandleSnafu).unwrap();
+                        handle
+                            .gossip("global".to_string(), &msg)
+                            .await
+                            .context(HandleSnafu)
+                            .unwrap();
                         sleep(Duration::from_secs(1)).await;
-                        // Ok::<(), CounterError>(())
                     }
                 }
             });
 
-        sleep(Duration::from_secs(10)).await;
-
-            // if res_fut.next().await.unwrap().is_err() {
-            //     panic!("timeout waiting for conductor peerid to propagate!");
-            // }
+            sleep(Duration::from_secs(10)).await;
 
             // kill conductor id broadcast thread
             s.send_async(true).await.unwrap();
@@ -602,45 +583,16 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .await;
             }
 
-            // for j in 5..10 {
-            //     handle
-            //         .modify_state(|s| s.current_epoch.epoch_type = EpochType::DMViaDM)
-            //         .await;
-            //     conductor_direct_message(TIMEOUT, j, handle.clone())
-            //         .await
-            //         .context(HandleSnafu)?;
-            //     handle
-            //         .modify_state(|s| s.complete_round(EpochType::DMViaDM))
-            //         .await;
-            // }
-
-            // let kill_msg = Message::Normal(NormalMessage {
-            //     req: CounterRequest::Kill,
-            //     relay_to_conductor: false,
-            //     sent_ts: SystemTime::now(),
-            //     epoch: (opts.num_gossip, opts.num_gossip + 1),
-            //     padding: Vec::new(),
-            // });
-            //
-            // for peer_id in handle.connected_peers().await {
-            //     handle
-            //         .direct_request(peer_id, &kill_msg)
-            //         .await
-            //         .context(HandleSnafu)?
-            // }
-            //
-            // while !handle.connected_peers().await.is_empty() {
-            //     async_std::task::sleep(Duration::from_millis(100)).await;
-            // }
-
-            error!("result raw: {:?}", handle.state().await);
-            error!("result: {:?}", handle.state().await.aggregate_epochs(opts.num_nodes));
+            println!("result raw: {:?}", handle.state().await);
+            println!(
+                "result: {:?}",
+                handle.state().await.aggregate_epochs(opts.num_nodes)
+            );
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
             let config = NetworkNodeConfigBuilder::default()
-                .to_connect_addrs(opts.to_connect_addrs.into_iter().collect())
-                .bound_addr(opts.bound_addr)
+                .bound_addr(Some(opts.bound_addr))
                 .ignored_peers(HashSet::new())
                 .node_type(opts.node_type)
                 .build()
@@ -670,84 +622,6 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
     Ok(())
 }
 
-/// have conductor direct message all participants
-pub async fn conductor_direct_message(
-    _timeout: Duration,
-    _state: CounterState,
-    _handle: Arc<NetworkNodeHandle<ConductorState>>,
-) -> Result<(), NetworkNodeHandleError> {
-    Ok(())
-    // // new state
-    // let new_state = state + 1;
-    //
-    // // pick a peer to do the be the recipient of the direct messages
-    // let mut known_peers = handle.known_peers().await;
-    // known_peers.remove(&handle.peer_id());
-    //
-    // // FIXME wrapper error
-    // let chosen_peer = *known_peers.iter().choose(&mut thread_rng()).unwrap();
-    //
-    // // step 1: increment counter on the chosen/"leader" node
-    //
-    // let handle = handle.clone();
-    //
-    // // set up listener before any state has the chance to change
-    // let mut res_fut = handle.state_wait_timeout_until_with_trigger(timeout, |state| {
-    //     *state.current_epoch.node_states.get(&chosen_peer).unwrap() >= new_state
-    // });
-    //
-    // res_fut.next().await.unwrap().unwrap();
-    //
-    // let data = {
-    //     let mut rng = thread_rng();
-    //     vec![rng.next_u64(); PADDING_SIZE]
-    // };
-    //
-    // // dispatch message
-    // let msg = Message::Normal(NormalMessage {
-    //     sent_ts: SystemTime::now(),
-    //     relay_to_conductor: true,
-    //     req: CounterRequest::StateResponse(handle.state().await.current_epoch.epoch_idx),
-    //     epoch: handle.state().await.current_epoch.epoch_idx,
-    //     padding: data,
-    // });
-    // handle.direct_request(chosen_peer, &msg).await?;
-    //
-    // if res_fut.next().await.unwrap().is_err() {
-    //     panic!("failed to send!");
-    // }
-    //
-    // // step 2: iterate through remaining nodes, message them "request state from chosen node"
-    //
-    // let res_fut = handle.state_wait_timeout_until(timeout, |state| {
-    //     error!("state is: {:?}", state);
-    //     state
-    //         .current_epoch
-    //         .node_states
-    //         .iter()
-    //         .all(|(_k, &s)| s >= new_state)
-    // });
-    //
-    // // send out the requests to ask the chosen peer for its state (and replace ours)
-    //
-    // let mut remaining_nodes = known_peers.clone();
-    // remaining_nodes.remove(&chosen_peer);
-    //
-    // for peer in &remaining_nodes {
-    //     let msg_increment = Message::Conductor(ConductorMessage {
-    //         req: CounterRequest::StateRequest,
-    //         broadcast_type: ConductorMessageMethod::DirectMessage(chosen_peer),
-    //     });
-    //     handle.direct_request(*peer, &msg_increment).await?;
-    // }
-    //
-    // if res_fut.await.is_err() {
-    //     panic!("failed to send!");
-    // }
-    //
-    // Ok(())
-}
-
 pub async fn conductor_broadcast(
     timeout: Duration,
     handle: Arc<NetworkNodeHandle<ConductorState>>,
@@ -773,26 +647,14 @@ pub async fn conductor_broadcast(
             .current_epoch
             .node_states
             .iter()
-            .filter(|(_, &s)| s >= new_state).count() >= SUCCESS_NUMBER
+            .filter(|(_, &s)| s >= new_state)
+            .count()
+            >= SUCCESS_NUMBER
     });
 
     // wait for ready signal
     res_fut.next().await.unwrap().unwrap();
 
-    // let data = {
-    //     let mut rng = thread_rng();
-    //     vec![rng.next_u64(); PADDING_SIZE]
-    // };
-
-    // always spawn listener FIRST
-    // let increment_leader_msg = Message::Normal(NormalMessage {
-    //     sent_ts: SystemTime::now(),
-    //     relay_to_conductor: true,
-    //         // mplex::MplexConfig::default(),
-    //     req: CounterRequest::StateResponse(new_state),
-    //     epoch: new_state,
-    //     padding: data,
-    // });
     // send direct message from conductor to leader to do broadcast
     handle
         .direct_request(chosen_peer, &msg)
@@ -800,15 +662,12 @@ pub async fn conductor_broadcast(
         .context(HandleSnafu)
         .unwrap();
 
-    // handle
-    //     .direct_request(chosen_peer, &increment_leader_msg)
-    //     .await
-    //     .context(HandleSnafu)
-    //     .unwrap();
 
     if res_fut.next().await.unwrap().is_err() {
-        error!("TIMED OUT with {} msgs recv-ed", handle.state().await.current_epoch.message_durations.len());
-        // panic!("timeout!");
+        error!(
+            "TIMED OUT with {} msgs recv-ed",
+            handle.state().await.current_epoch.message_durations.len()
+        );
     }
 
     Ok(())
@@ -823,79 +682,20 @@ pub async fn conductor_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
+        IsBootstrapped => {},
         GossipMsg(_m, _t) => {
-            error!("conductor handle event maybe this is expected...");
-            // if t == Topic::new(CONDUCTOR_TOPIC).hash() {
-            //     if let Ok(msg) = deserialize_msg::<Message>(&m) {
-            //         match msg {
-            //             Message::Relayed(msg) => {
-            //                 error!("recved relayed message: {:?}", msg);
-            //                 match handle.state().await.current_epoch.epoch_type {
-            //                     EpochType::BroadcastViaGossip => {
-            //                         // FIXME should check epoch
-            //                         if let CounterRequest::StateResponse(..) = msg.req {
-            //                             handle
-            //                                 .modify_state(|s| {
-            //                                     s.current_epoch.message_durations.push(msg.duration)
-            //                                 })
-            //                             .await;
-            //                         }
-            //                     }
-            //                     EpochType::DMViaDM => {
-            //                         // FIXME should check epoch
-            //                         if let CounterRequest::StateRequest = msg.req {
-            //                             handle
-            //                                 .modify_state(|s| {
-            //                                     s.current_epoch.message_durations.push(msg.duration)
-            //                                 })
-            //                             .await;
-            //                         }
-            //                     }
-            //                     EpochType::BroadcastViaDM => {
-            //                         unimplemented!("BroadcastViaDM is currently unimplemented");
-            //                     }
-            //                 }
-            //             if let CounterRequest::StateResponse(state) = msg.req {
-            //                 handle
-            //                     .modify_state(|s| {
-            //                         if let Some(rec_state) =
-            //                             s.current_epoch.node_states.get(&msg.from_peer)
-            //                         {
-            //                             if *rec_state < state {
-            //                                 s.current_epoch.node_states.insert(msg.from_peer, state);
-            //                             }
-            //                         } else {
-            //                             s.current_epoch.node_states.insert(msg.from_peer, state);
-            //                         }
-            //                     })
-            //                     .await;
-            //             }
-            //             }
-            //             msg => {
-            //                 info!("Unexpected message {:?}", msg);
-            //
-            //                 /* Do nothing. Conductor doesn't care about these messages. */
-            //             }
-            //         }
-            //     } else {
-            //         error!("failed to deserialize msg");
-            //     }
-            //
-            // }
             // // this node isn't going to participate in gossip/dms to update state
             // // it's only purpose is to recv relayed messages
         }
         DirectRequest(m, peer_id, chan) => {
             error!("recv: {:?}", m);
-            spawn(
-                {
-                    let handle = handle.clone();
-                    async move {
-                        handle.direct_response(chan, &Message::DummyRecv).await?;
-                        Result::<(), NetworkNodeHandleError>::Ok(())
-                    }
+            spawn({
+                let handle = handle.clone();
+                async move {
+                    handle.direct_response(chan, &Message::DummyRecv).await?;
+                    Result::<(), NetworkNodeHandleError>::Ok(())
                 }
-            );
+            });
             error!("finished spawning now deserializing");
             if let Ok(msg) = deserialize_msg::<Message>(&m) {
                 error!("desrialized MESSAGE IS {:?}", msg);
@@ -903,7 +703,6 @@ pub async fn conductor_handle_network_event(
                     Message::Relayed(msg) => {
                         match handle.state().await.current_epoch.epoch_type {
                             EpochType::BroadcastViaGossip => {
-                                // FIXME should check epoch
                                 if let CounterRequest::StateResponse(..) = msg.req {
                                     handle
                                         .modify_state(|s| {
@@ -939,14 +738,6 @@ pub async fn conductor_handle_network_event(
                             handle
                                 .modify_state(|s| {
                                     s.current_epoch.node_states.insert(peer_id, state);
-                                    // if let Some(rec_state) =
-                                    //     s.current_epoch.node_states.get(&peer_id)
-                                    // {
-                                    //     if *rec_state < state {
-                                    //         s.current_epoch.node_states.insert(peer_id, state);
-                                    //     }
-                                    // } else {
-                                    // }
                                 })
                                 .await;
                         }

@@ -225,14 +225,19 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
                     public_key: _,
                     protocol_version: _,
                     agent_version: _,
-                    observed_addr: _,
+                    observed_addr,
                 },
         } = event
         {
             // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
-            for addr in listen_addrs {
+            // NOTE I manually checked and peer_id corresponds to listen_addrs.
+            error!(
+                "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
+                self.dht.peer_id, peer_id, listen_addrs, observed_addr
+            );
+            // into hashset -> delete duplicates
+            for addr in listen_addrs.iter().collect::<HashSet<_>>() {
                 // if addr.to_string().contains("127.0.0.1"){
-                error!("ADDING ADDRESS {:?} TO DHT", addr);
                 self.dht.add_address(&peer_id, addr.clone());
                 // self.request_response.add_address(&peer_id, addr.clone());
                 // }

@@ -12,7 +12,9 @@ use crate::network::{
 };
 
 pub use self::{
-    config::{NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError},
+    config::{
+        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+    },
     handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use super::{
@@ -41,7 +43,14 @@ use libp2p::{
 use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 
 use snafu::ResultExt;
-use std::{collections::HashSet, io::Error, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    io::Error,
+    iter,
+    num::NonZeroUsize,
+    sync::Arc,
+    time::Duration,
+};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 /// Network definition
@@ -99,8 +108,13 @@ impl NetworkNode {
     /// will start connecting to peers
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
+        error!(
+            "ADDKNOWNNODES Adding nodes {:?} to {:?}",
+            known_peers, self.peer_id
+        );
         // FIXME nuke this altogether
         let behaviour = self.swarm.behaviour_mut();
+        let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         for (peer_id, addr) in known_peers {
             match peer_id {
                 Some(peer_id) => {
@@ -109,6 +123,7 @@ impl NetworkNode {
                     if *peer_id != self.peer_id {
                         // FIXME why can't I pattern match this?
                         behaviour.dht.add_address(peer_id, addr.clone());
+                        bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
                         // behaviour.request_response.add_address(peer_id, addr.clone());
                     }
                     // behaviour.add_known_peer(*peer_id);
@@ -118,6 +133,7 @@ impl NetworkNode {
                 }
             }
         }
+        behaviour.dht.add_bootstrap_nodes(bs_nodes);
     }
 
     /// Creates a new `Network` with the given settings.
@@ -150,21 +166,34 @@ impl NetworkNode {
             };
 
             // TODO insert into config.
-            let (mesh_n_high, mesh_n_low, mesh_outbound_min, mesh_n) = match config.node_type {
-                NetworkNodeType::Bootstrap => (50, 8, 4, 12),
-                NetworkNodeType::Regular => (20, 8, 4, 12),
-                NetworkNodeType::Conductor => {
-                    // (1000, 50, 2, 100)
-                    (21, 8, 4, 12)
+            let params = if let Some(ref params) = config.mesh_params {
+                params.clone()
+            } else {
+                // NOTE this should most likely be a builder pattern
+                match config.node_type {
+                    NetworkNodeType::Bootstrap => MeshParams {
+                        mesh_n_high: 50,
+                        mesh_n_low: 10,
+                        mesh_outbound_min: 5,
+                        mesh_n: 15,
+                    },
+                    NetworkNodeType::Regular => MeshParams {
+                        mesh_n_high: 15,
+                        mesh_n_low: 8,
+                        mesh_outbound_min: 4,
+                        mesh_n: 12,
+                    },
+                    NetworkNodeType::Conductor => MeshParams {
+                        mesh_n_high: 21,
+                        mesh_n_low: 8,
+                        mesh_outbound_min: 4,
+                        mesh_n: 12,
+                    },
                 }
             };
 
-            // NOTE: can vary on obvious basis
-
             // Create a custom gossipsub
             // TODO: Extract these defaults into some sort of config
-            // mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high
-            // mesh_outbound_min <= self.config.mesh_n / 2
             let gossipsub_config = GossipsubConfigBuilder::default()
                 .opportunistic_graft_ticks(3)
                 .heartbeat_interval(Duration::from_secs(1))
@@ -172,16 +201,17 @@ impl NetworkNode {
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
                 .idle_timeout(Duration::from_secs(5))
-                .mesh_n_high(mesh_n_high)
-                .mesh_n_low(mesh_n_low)
-                .mesh_outbound_min(mesh_outbound_min)
-                .mesh_n(mesh_n)
+                .mesh_n_high(params.mesh_n_high)
+                .mesh_n_low(params.mesh_n_low)
+                .mesh_outbound_min(params.mesh_outbound_min)
+                .mesh_n(params.mesh_n)
                 .history_length(500)
                 .max_transmit_size(2 * MAX_MSG_SIZE_DM)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
                 .build()
                 .map_err(|s| GossipsubConfigSnafu { message: s }.build())?;
+
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
                 // TODO do we even need this?
@@ -196,16 +226,12 @@ impl NetworkNode {
             //   node connection information
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
-            let mut identify_cfg =
+            let identify_cfg =
                 IdentifyConfig::new("phaselock/identify/1.0".to_string(), identity.public());
-            identify_cfg.cache_size = 20;
-            identify_cfg.push_listen_addr_updates = true;
             let identify = Identify::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
-            // kconfig.set_connection_idle_timeout(Duration::from_secs(5));
-            // kconfig.set_query_timeout(Duration::from_secs(5));
 
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
@@ -213,19 +239,12 @@ impl NetworkNode {
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
             let rrconfig = RequestResponseConfig::default();
-            // rrconfig.set_request_timeout(Duration::from_secs(5));
-            // rrconfig.set_connection_keep_alive(Duration::from_secs(5));
 
-            // request response for direct messages
             let request_response = RequestResponse::new(
                 DirectMessageCodec(),
                 [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
                 rrconfig,
             );
-
-            // let mut metric_registry = Registry::default();
-            // let metrics = Metrics::new(&mut metric_registry);
-            // spawn(move || block_on(http_service::metrics_server(metric_registry)));
 
             let network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
@@ -237,7 +256,10 @@ impl NetworkNode {
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)
-                .dial_concurrency_factor(std::num::NonZeroU8::new(32).unwrap())
+                .max_negotiating_inbound_streams(1024)
+                .dial_concurrency_factor(std::num::NonZeroU8::new(2).unwrap())
+                .connection_event_buffer_size(1)
+                .notify_handler_buffer_size(NonZeroUsize::new(1).unwrap())
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {
@@ -270,6 +292,7 @@ impl NetworkNode {
         msg: Result<ClientRequest, flume::RecvError>,
     ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
+        error!("SPAWNING EVENT HANDLER FOR {:?}", self.peer_id);
         match msg {
             Ok(msg) => {
                 #[allow(clippy::enum_glob_use)]
@@ -327,6 +350,7 @@ impl NetworkNode {
                         }
                     }
                     DirectRequest(pid, msg) => {
+                        error!("pid {:?} adding direct request", self.peer_id);
                         behaviour.add_direct_request(pid, msg);
                     }
                     DirectResponse(chan, msg) => {
@@ -394,6 +418,12 @@ impl NetworkNode {
             Dialing(p) => {
                 error!("{:?} is dialing {:?}", self.peer_id, p);
             }
+            BannedPeer {
+                peer_id,
+                endpoint: _,
+            } => {
+                error!("Peer {:?} is banning peer {:?}!!", self.peer_id, peer_id);
+            }
             ListenerClosed {
                 listener_id: _,
                 addresses: _,
@@ -410,10 +440,6 @@ impl NetworkNode {
             | IncomingConnection {
                 local_addr: _,
                 send_back_addr: _,
-            }
-            | BannedPeer {
-                peer_id: _,
-                endpoint: _,
             } => {}
             Behaviour(b) => {
                 // forward messages directly to Client
@@ -460,7 +486,7 @@ impl NetworkNode {
 
         let print_num_connections_thres = Duration::from_secs(10);
 
-        let lowest_increment = Duration::from_millis(50);
+        let lowest_increment = Duration::from_millis(5);
 
         spawn(
             async move {
@@ -469,15 +495,16 @@ impl NetworkNode {
                         _ = sleep(lowest_increment).fuse() => {
                             time_since_print_num_connections += lowest_increment;
                             if time_since_print_num_connections > print_num_connections_thres {
+                                info!("peer id {:?} state is {:?} expired {:?} overall state {:?}", self.swarm.behaviour().dht.peer_id, self.swarm.behaviour().dht.bootstrap_state.state, self.swarm.behaviour().dht.bootstrap_state.backoff.is_expired(), self.swarm.behaviour().dht.bootstrap_state);
                                 let peers = self.swarm.connected_peers().collect::<Vec<_>>();
-                                error!("num connections is len {} for peer {:?}, which are {:?}", peers.len(), self.peer_id.clone(), peers);
-                                error!("connection info is: {:?} for peer {:?}", self.swarm.network_info(), self.peer_id.clone());
+                                info!("num connections is len {} for peer {:?}, which are {:?}", peers.len(), self.peer_id.clone(), peers);
+                                info!("connection info is: {:?} for peer {:?}", self.swarm.network_info(), self.peer_id.clone());
                                 time_since_print_num_connections = Duration::from_secs(0);
                             }
                         },
                         event = self.swarm.next() => {
                             if let Some(event) = event {
-                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                error!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
@@ -491,7 +518,7 @@ impl NetworkNode {
                 }
                 Ok::<(), NetworkError>(())
             }
-        .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
+            .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
         );
         Ok((s_input, r_output))
     }

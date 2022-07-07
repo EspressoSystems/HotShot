@@ -1,4 +1,4 @@
-use async_std::prelude::FutureExt;
+use async_std::{prelude::FutureExt, task::sleep};
 use flume::RecvError;
 use futures::{future::join_all, Future};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
@@ -109,16 +109,20 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut handles = Vec::new();
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
-    /// FIXME make this mesh numbers
     // should never panic unless num_nodes is 0
     let replication_factor = NonZeroUsize::new(num_of_nodes).unwrap();
-
-    let start_port = 5000;
 
     for i in 0..num_bootstrap {
         let mut config = NetworkNodeConfigBuilder::default();
         let identity = Keypair::generate_ed25519();
-        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", start_port + i)).unwrap();
+        // let start_port = 5000;
+        // NOTE use this if testing locally and want human readable ports
+        // as opposed to random ports. These are harder to track
+        // especially since the "listener"/inbound connection sees a different
+        // port
+        // let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/", start_port + i)).unwrap();
+
+        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
         config
             .identity(identity)
             .replication_factor(replication_factor)
@@ -147,31 +151,29 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     for j in 0..(num_of_nodes - num_bootstrap) {
-        let addr = Multiaddr::from_str(&format!(
-            "/ip4/127.0.0.1/tcp/{}",
-            start_port + num_bootstrap + j
-        ))
-        .unwrap();
+        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
+        // NOTE use this if testing locally and want human readable ports
+        // let addr = Multiaddr::from_str(&format!(
+        //     "/ip4/127.0.0.1/tcp/{}",
+        //     start_port + num_bootstrap + j
+        // )).unwrap();
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .node_type(NetworkNodeType::Regular)
             .replication_factor(replication_factor)
             .bound_addr(Some(addr.clone()))
-            .to_connect_addrs(Default::default())
+            .to_connect_addrs(HashSet::default())
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
         let node = Arc::new(
-            // FIXME this should really be a reference
             NetworkNodeHandle::new(regular_node_config.clone(), j + num_bootstrap)
                 .await
                 .context(HandleSnafu)?,
         );
-        // let addr = node.listen_addr();
-        // FIXME git rid of this once you're done debugging
-        bootstrap_addrs.push((node.peer_id(), addr));
         connecting_futs.push(
             NetworkNodeHandle::wait_to_connect(
                 node.clone(),
+                // connected to 4 nodes to be "ready"
                 4,
                 node.recv_network(),
                 num_bootstrap + j,
@@ -191,10 +193,15 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .collect::<Vec<_>>()
     );
 
-    for handle in &handles[0..num_of_nodes] {
+    for (idx, handle) in handles[0..num_of_nodes].iter().enumerate() {
+        let to_share = if idx < num_bootstrap {
+            bootstrap_addrs.clone()
+        } else {
+            bootstrap_addrs.clone()
+        };
         handle
             .add_known_peers(
-                bootstrap_addrs
+                to_share
                     .iter()
                     .map(|(a, b)| (Some(*a), b.clone()))
                     .collect::<Vec<_>>(),
@@ -221,6 +228,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .await
             .context(HandleSnafu)?;
     }
+
+    sleep(Duration::from_secs(5)).await;
 
     Ok(handles)
 }

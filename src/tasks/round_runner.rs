@@ -101,7 +101,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     self.state.is_running = false;
                 }
                 ToRoundRunner::Run => {
-                    error!("TEST RUNNER: IS RUNNING !!");
                     self.state.is_running = true;
                     if self.join_handle.is_none() && !self.spawn().await {
                         break;

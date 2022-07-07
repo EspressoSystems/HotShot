@@ -4,7 +4,7 @@ use std::{
 };
 
 use libp2p::{
-    core::connection::ConnectionId,
+    core::{connection::ConnectionId, transport::ListenerId},
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic, TopicHash},
     swarm::{
         ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction,
@@ -195,39 +195,23 @@ impl NetworkBehaviour for GossipBehaviour {
             .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    fn inject_new_listener(&mut self, id: libp2p::core::connection::ListenerId) {
+    fn inject_new_listener(&mut self, id: ListenerId) {
         self.gossipsub.inject_new_listener(id);
     }
 
-    fn inject_new_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.gossipsub.inject_new_listen_addr(id, addr);
     }
 
-    fn inject_expired_listen_addr(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        addr: &libp2p::Multiaddr,
-    ) {
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
         self.gossipsub.inject_expired_listen_addr(id, addr);
     }
 
-    fn inject_listener_error(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        err: &(dyn std::error::Error + 'static),
-    ) {
+    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
         self.gossipsub.inject_listener_error(id, err);
     }
 
-    fn inject_listener_closed(
-        &mut self,
-        id: libp2p::core::connection::ListenerId,
-        reason: Result<(), &std::io::Error>,
-    ) {
+    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
         self.gossipsub.inject_listener_closed(id, reason);
     }
 

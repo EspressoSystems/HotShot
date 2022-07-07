@@ -105,7 +105,8 @@ pub struct PhaseLockConfig<P: SignatureKey> {
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
-
+    /// Number of network bootstrap nodes
+    pub num_bootstrap: usize,
     /// The minimum amount of time a leader has to wait to start a round
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
