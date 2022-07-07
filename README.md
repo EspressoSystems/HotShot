@@ -12,6 +12,7 @@ Please see the rustdoc for API documentation, and the examples directory for usa
 Phaselock supports static linking for its examples:
 
 ```
+# Nix-shell is optional but recommended
 nix develop .#staticShell
 
 cargo build --examples --all-features --all-targets --release --workspace
@@ -25,7 +26,10 @@ To test:
 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace -- --nocapture --test-threads=1
 ```
 
-The basic levels of logging include `warn`, `error`, `info`. The types of logging include `full`, `json`, and `compact`. Inclusion of the `--nocapture` flag indicates whether or not to output logs.
+- `RUST_LOG=$ERROR_LOG_LEVEL`: The basic levels of logging include `warn`, `error`, `info`.
+- `RUST_LOG_FORMAT=$ERROR_LOG_FORMAT`: The types of logging include `full`, `json`, and `compact`.
+- Inclusion of the `--nocapture` flag indicates whether or not to output logs.
+- We run at `--test-threads=1` because the tests spawn up a lot of file handles, and unix based systems consistently run out of handles.
 
 To stress test, run the ignored tests prefixed with `test_stress`:
 ```
@@ -79,16 +83,6 @@ This will output:
 - `flamegraph.svg` which is a (moderately) less detailed version of heaptrack.
 - `lcov.html` generates a summary of code coverage.
 
-## Other tools
-
-### Valgrind
-
-I tried valgrind (specifically with dhat). Tests didn't finish due to the instrumentation slowing them down too much.
-
-### perf
-
-Perf is worth a try if we get to the point where we care about analysis of hotspots.
-
 # Git Workflow
 
-See [here](./WORKFLOW.md)
+For espresso developers we have written up a description of our workflow [here](./WORKFLOW.md).
