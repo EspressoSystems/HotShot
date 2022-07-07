@@ -3,9 +3,9 @@ FROM ghcr.io/espressosystems/nix-docker/nix
 
 RUN printf "\nextra-experimental-features = flakes nix-command\n" >> /etc/nix/nix.conf
 
-COPY . /root/phaselock
+COPY . /root/hotshot
 
-WORKDIR /root/phaselock/libp2p-networking
+WORKDIR /root/hotshot/libp2p-networking
 
 RUN nix develop .#staticShell -c bash -c "cargo build --release --all-features --example counter"
 

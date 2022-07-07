@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
@@ -485,8 +485,8 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use phaselock_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use phaselock_utils::test_util::setup_logging;
+    use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
+    use hotshot_utils::test_util::setup_logging;
     use serde::Deserialize;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]

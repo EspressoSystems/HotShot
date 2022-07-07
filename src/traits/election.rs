@@ -1,5 +1,5 @@
 use crate::data::StateHash;
-use phaselock_types::{
+use hotshot_types::{
     data::{Stage, ViewNumber},
     traits::{
         election::Election,

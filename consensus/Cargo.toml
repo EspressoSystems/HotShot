@@ -1,0 +1,14 @@
+[package]
+name = "hotshot-consensus"
+version = "0.0.7"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-std = { version = "1.11.0", default-features = false }
+async-trait = "0.1.56"
+custom_debug = "0.5"
+futures = "0.3.21"
+hotshot-types = { path = "../types" }
+snafu = "0.7.0"
+tracing = "0.1.33"

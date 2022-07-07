@@ -29,7 +29,7 @@ Adds new type paramaeter, corrosponding to the state type, to Message
 
 ### BREAKING CHANGE
 
-Changes queue type in phaselock methods
+Changes queue type in hotshot methods
 
 
 <a name="0.0.1"></a>
@@ -38,8 +38,8 @@ Changes queue type in phaselock methods
 <a name="0.0.0"></a>
 ## 0.0.0 - 2021-07-07
 
-[Unreleased]: https://github.com/EspressoSystems/phaselock/compare/0.0.4...HEAD
-[0.0.4]: https://github.com/EspressoSystems/phaselock/compare/0.0.3...0.0.4
-[0.0.3]: https://github.com/EspressoSystems/phaselock/compare/0.0.2...0.0.3
-[0.0.2]: https://github.com/EspressoSystems/phaselock/compare/0.0.1...0.0.2
-[0.0.1]: https://github.com/EspressoSystems/phaselock/compare/0.0.0...0.0.1
+[Unreleased]: https://github.com/EspressoSystems/hotshot/compare/0.0.4...HEAD
+[0.0.4]: https://github.com/EspressoSystems/hotshot/compare/0.0.3...0.0.4
+[0.0.3]: https://github.com/EspressoSystems/hotshot/compare/0.0.2...0.0.3
+[0.0.2]: https://github.com/EspressoSystems/hotshot/compare/0.0.1...0.0.2
+[0.0.1]: https://github.com/EspressoSystems/hotshot/compare/0.0.0...0.0.1

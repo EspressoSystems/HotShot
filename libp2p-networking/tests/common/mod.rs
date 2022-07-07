@@ -1,14 +1,16 @@
 use async_std::prelude::FutureExt;
 use flume::RecvError;
 use futures::{future::join_all, Future};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::{ResultExt, Snafu};
-use std::{collections::HashMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, fmt::Debug, fmt::Write, num::NonZeroUsize, sync::Arc, time::Duration,
+};
 use tracing::{info, instrument, warn};
 
 /// General function to spin up testing infra
@@ -98,18 +100,20 @@ pub async fn check_connection_state<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
         if state.known_peers.len() < handle.config().min_num_peers
             && handle.config().node_type != NetworkNodeType::Bootstrap
         {
-            err_msg.push_str(&format!(
+            let _ = write!(
+                &mut err_msg,
                 "\nhad {} known peers for {}-th handle",
                 state.known_peers.len(),
                 i
-            ));
+            );
         }
         if state.connected_peers.len() < handle.config().min_num_peers {
-            err_msg.push_str(&format!(
+            let _ = write!(
+                &mut err_msg,
                 "\nhad {} connected peers for {}-th handle",
                 state.connected_peers.len(),
                 i
-            ));
+            );
         }
     }
     if !err_msg.is_empty() {

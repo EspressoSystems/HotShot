@@ -16,6 +16,7 @@ use crate::{
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
+use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -29,7 +30,6 @@ use libp2p::{
     swarm::{ConnectionHandlerUpgrErr, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
-use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 use rand::{seq::IteratorRandom, thread_rng};
 use snafu::ResultExt;
 use std::{collections::HashSet, io::Error, iter, num::NonZeroUsize, sync::Arc, time::Duration};
@@ -154,7 +154,7 @@ impl NetworkNode {
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
             let identify = Identify::new(IdentifyConfig::new(
-                "Phaselock validation gossip 0.1".to_string(),
+                "HotShot validation gossip 0.1".to_string(),
                 identity.public(),
             ));
 

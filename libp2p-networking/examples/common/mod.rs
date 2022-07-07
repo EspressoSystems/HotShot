@@ -8,7 +8,7 @@ use async_std::{
     prelude::StreamExt,
     task::{sleep, spawn},
 };
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 
 use std::{
     collections::{HashMap, HashSet},

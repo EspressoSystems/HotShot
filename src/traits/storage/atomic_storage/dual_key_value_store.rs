@@ -4,7 +4,7 @@
 
 use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
-use phaselock_types::{
+use hotshot_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::{
         storage::{AtomicStoreSnafu, InconsistencySnafu, StorageError},

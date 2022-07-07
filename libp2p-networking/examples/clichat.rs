@@ -4,6 +4,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::Multiaddr;
 use libp2p_networking::{
     message::Message,
@@ -11,7 +12,6 @@ use libp2p_networking::{
     ui::{run_app, TableApp},
 };
 use parking_lot::Mutex;
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::VecDeque, sync::Arc};
 use structopt::StructOpt;
 use tracing::instrument;

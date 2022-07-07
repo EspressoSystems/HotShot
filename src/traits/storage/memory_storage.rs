@@ -11,7 +11,7 @@ use async_std::sync::RwLock;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::Future;
-use phaselock_types::{
+use hotshot_types::{
     data::ViewNumber,
     traits::storage::{
         InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater, TestableStorage,
@@ -46,7 +46,7 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     states: DashMap<LeafHash<N>, State>,
 }
 
-/// In memory, ephemeral, storage for a [`PhaseLock`](crate::PhaseLock) instance
+/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 #[derive(Clone)]
 pub struct MemoryStorage<Block, State, const N: usize> {
     /// The inner state of this [`MemoryStorage`]
@@ -323,8 +323,8 @@ mod test {
     use super::*;
     use crate::data::Stage;
     #[allow(clippy::wildcard_imports)]
-    use phaselock_types::traits::block_contents::dummy::*;
-    use phaselock_utils::test_util::setup_logging;
+    use hotshot_types::traits::block_contents::dummy::*;
+    use hotshot_utils::test_util::setup_logging;
     use tracing::instrument;
 
     fn dummy_qc(

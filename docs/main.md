@@ -1,14 +1,14 @@
-# PhaseLock: A linear time, committee electing, BFT Protocol.
+# HotShot: A linear time, committee electing, BFT Protocol.
 
 ## Table of contents
   1. [Background](#background)
   2. [Protocol Overview](#protocol-overview)
      1. [Basics](#basics)
         - [View Timeouts](#view-timeouts)
-     2. [Sequential PhaseLock](#sequential)
+     2. [Sequential HotShot](#sequential)
         - [Leader](#sequential-leader)
         - [Replica](#sequential-replica)
-     3. [Pipelined PhaseLock](#pipelined)
+     3. [Pipelined HotShot](#pipelined)
   3. [Appendices](#appendices) 
      1. [Definitions](#definitions)
         1. [Quorum Certificate](#quorum-certificate)
@@ -17,22 +17,22 @@
 
 # Background
 
-PhaseLock is a hybrid, committee electing, Proof of Stake protocol for the partially synchronous model that exhibits
+HotShot is a hybrid, committee electing, Proof of Stake protocol for the partially synchronous model that exhibits
 optimistic responsiveness and linear communication footprint.
 
-PhaseLock's construction borrows heavily from the construction of [Hotstuff](https://arxiv.org/abs/1803.05069) and
+HotShot's construction borrows heavily from the construction of [Hotstuff](https://arxiv.org/abs/1803.05069) and
 [Algorand](https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf), in many senses being a synthesis of
 Hotstuff's protocol with Algorand's sortition.
 
 # Protocol Overview
 
-PhaseLock comes in two variants, [Pipelined Phaselock](#pipelined) and [Sequential Phaselock](#sequential).
-Sequential PhaseLock is the simpler of the two variants, and is the basal form, from which Pipelined PhaseLock is
+HotShot comes in two variants, [Pipelined HotShot](#pipelined) and [Sequential HotShot](#sequential).
+Sequential HotShot is the simpler of the two variants, and is the basal form, from which Pipelined HotShot is
 derived, so it will be discussed first.
 
 ## Basics
 
-The operation of PhaseLock is divided in to a sequence of discrete epoch, referred to as
+The operation of HotShot is divided in to a sequence of discrete epoch, referred to as
 'views'. Each view is assigned an integer index (represented as a [`u64`]) starting with 0, which is
 monotonically increasing.
 
@@ -66,11 +66,11 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
-Sequential PhaseLock does not currently support committee election or dynamically updating the
+Sequential HotShot does not currently support committee election or dynamically updating the
 membership list, instead using a predefined list of participant nodes with equal weights. Sequential
-PhaseLock is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
+HotShot is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
 
-Each view of Sequential PhaseLock is divided into 4 stages the specifics of which depend on if the
+Each view of Sequential HotShot is divided into 4 stages the specifics of which depend on if the
 node is the leader or a replica. Upon either reviving a commit QC in a round, or the round timing
 out, a node will calculate the next leader, and send a NewView message for the next view number to
 it, tagged with the nodes current prepareQC.
@@ -148,10 +148,10 @@ it, tagged with the nodes current prepareQC.
 A Quorum Certificate is a threshold signature of a [`Leaf`](crate::data::Leaf), composed of
 signatures from at least `2f + 1` nodes.
 
-In the case of sequential phaselock, or pipelined phaselock without committee election, `f` is
+In the case of sequential hotshot, or pipelined hotshot without committee election, `f` is
 defined to be the maximum number of faulty nodes the network can tolerate.
 
-In the case of pipelined phaselock with committee election, `f` is defined to be the maximum number
+In the case of pipelined hotshot with committee election, `f` is defined to be the maximum number
 of faulty committee seats the network can tolerate.
 
 ### Safe Node Predicate
@@ -160,7 +160,7 @@ The safe node predicate can be defined using the following rust-like psuedo code
 
 ```ignore
 fn safe_node(
-    phase_lock: PhaseLock,
+    phase_lock: HotShot,
     proposal_node: Leaf,
     proposal_justifcation: QuorumCertificate,
 ) -> bool {

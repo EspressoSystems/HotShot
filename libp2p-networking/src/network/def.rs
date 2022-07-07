@@ -4,6 +4,7 @@ use crate::{
 };
 use either::Either;
 use futures::channel::oneshot::Sender;
+use hotshot_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic as Topic},
     identify::{Identify, IdentifyEvent},
@@ -19,7 +20,6 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use phaselock_utils::subscribable_rwlock::{ReadView, SubscribableRwLock};
 use rand::{prelude::IteratorRandom, thread_rng};
 use std::{
     collections::{HashMap, HashSet, VecDeque},

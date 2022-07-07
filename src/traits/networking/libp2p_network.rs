@@ -12,19 +12,19 @@ use bincode::Options;
 use dashmap::{DashMap, DashSet};
 use flume::Sender;
 use futures::future::join_all;
-use libp2p::{Multiaddr, PeerId};
-use libp2p_networking::network::{
-    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
-};
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     network::{
         FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
         TestableNetworkingImplementation,
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
+use hotshot_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
+use libp2p::{Multiaddr, PeerId};
+use libp2p_networking::network::{
+    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
+    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{collections::HashSet, num::NonZeroUsize};

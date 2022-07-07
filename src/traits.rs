@@ -4,11 +4,11 @@ mod networking;
 mod node_implementation;
 mod storage;
 
-pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
-pub use node_implementation::NodeImplementation;
-pub use phaselock_types::traits::{
+pub use hotshot_types::traits::{
     stateful_handler::StatefulHandler, BlockContents, State, Transaction,
 };
+pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
+pub use node_implementation::NodeImplementation;
 pub use storage::{Storage, StorageResult};
 
 /// Module for publicly usable implementations of the traits
@@ -21,11 +21,11 @@ pub mod implementations {
         },
         storage::{atomic_storage::AtomicStorage, memory_storage::MemoryStorage},
     };
-    pub use phaselock_types::traits::stateful_handler::Stateless;
+    pub use hotshot_types::traits::stateful_handler::Stateless;
 }
 
 /// Dummy testing implementations
 #[cfg(test)]
 pub mod dummy {
-    pub use phaselock_types::traits::state::dummy::DummyState;
+    pub use hotshot_types::traits::state::dummy::DummyState;
 }

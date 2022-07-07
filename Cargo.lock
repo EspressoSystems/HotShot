@@ -1554,6 +1554,118 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot"
+version = "0.0.7"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "async-tungstenite",
+ "atomic_store",
+ "bincode",
+ "blake3",
+ "byteorder",
+ "custom_debug",
+ "dashmap",
+ "flume",
+ "futures",
+ "hex_fmt",
+ "hotshot-consensus",
+ "hotshot-types",
+ "hotshot-utils",
+ "libp2p",
+ "libp2p-networking",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_xoshiro",
+ "serde",
+ "serde_bytes",
+ "snafu",
+ "structopt",
+ "tempfile",
+ "toml",
+ "tracing",
+ "tracing-error",
+ "tracing-futures",
+ "tracing-subscriber",
+ "tracing-unwrap",
+]
+
+[[package]]
+name = "hotshot-consensus"
+version = "0.0.7"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "custom_debug",
+ "futures",
+ "hotshot-types",
+ "snafu",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-testing"
+version = "0.0.1"
+dependencies = [
+ "async-std",
+ "either",
+ "hotshot",
+ "hotshot-types",
+ "hotshot-utils",
+ "libp2p",
+ "libp2p-networking",
+ "proptest",
+ "rand 0.8.5",
+ "rand_xoshiro",
+ "serde",
+ "snafu",
+ "tempfile",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
+ "tracing-unwrap",
+]
+
+[[package]]
+name = "hotshot-types"
+version = "0.0.7"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "async-tungstenite",
+ "atomic_store",
+ "bincode",
+ "blake3",
+ "custom_debug",
+ "ed25519-compact",
+ "espresso-systems-common",
+ "futures",
+ "hex_fmt",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "snafu",
+ "tagged-base64",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-utils"
+version = "0.0.7"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "color-eyre",
+ "flume",
+ "futures",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "http"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2075,6 +2187,8 @@ dependencies = [
  "either",
  "flume",
  "futures",
+ "hotshot-types",
+ "hotshot-utils",
  "libp2p",
  "netlink-packet-core 0.4.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "netlink-packet-generic",
@@ -2084,8 +2198,6 @@ dependencies = [
  "netlink-sys 0.8.2 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "nix 0.24.1",
  "parking_lot 0.12.1",
- "phaselock-types",
- "phaselock-utils",
  "rand 0.8.5",
  "rtnetlink 0.9.1 (git+ssh://git@github.com/EspressoSystems/netlink.git)",
  "serde",
@@ -2909,118 +3021,6 @@ checksum = "e6d5014253a1331579ce62aa67443b4a658c5e7dd03d4bc6d302b94474888143"
 dependencies = [
  "fixedbitset",
  "indexmap",
-]
-
-[[package]]
-name = "phaselock"
-version = "0.0.7"
-dependencies = [
- "async-std",
- "async-trait",
- "async-tungstenite",
- "atomic_store",
- "bincode",
- "blake3",
- "byteorder",
- "custom_debug",
- "dashmap",
- "flume",
- "futures",
- "hex_fmt",
- "libp2p",
- "libp2p-networking",
- "phaselock-hotstuff",
- "phaselock-types",
- "phaselock-utils",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_xoshiro",
- "serde",
- "serde_bytes",
- "snafu",
- "structopt",
- "tempfile",
- "toml",
- "tracing",
- "tracing-error",
- "tracing-futures",
- "tracing-subscriber",
- "tracing-unwrap",
-]
-
-[[package]]
-name = "phaselock-hotstuff"
-version = "0.0.7"
-dependencies = [
- "async-std",
- "async-trait",
- "custom_debug",
- "futures",
- "phaselock-types",
- "snafu",
- "tracing",
-]
-
-[[package]]
-name = "phaselock-testing"
-version = "0.0.1"
-dependencies = [
- "async-std",
- "either",
- "libp2p",
- "libp2p-networking",
- "phaselock",
- "phaselock-types",
- "phaselock-utils",
- "proptest",
- "rand 0.8.5",
- "rand_xoshiro",
- "serde",
- "snafu",
- "tempfile",
- "tracing",
- "tracing-error",
- "tracing-subscriber",
- "tracing-unwrap",
-]
-
-[[package]]
-name = "phaselock-types"
-version = "0.0.7"
-dependencies = [
- "async-std",
- "async-trait",
- "async-tungstenite",
- "atomic_store",
- "bincode",
- "blake3",
- "custom_debug",
- "ed25519-compact",
- "espresso-systems-common",
- "futures",
- "hex_fmt",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "serde_bytes",
- "serde_json",
- "snafu",
- "tagged-base64",
- "tracing",
-]
-
-[[package]]
-name = "phaselock-utils"
-version = "0.0.7"
-dependencies = [
- "async-std",
- "async-trait",
- "color-eyre",
- "flume",
- "futures",
- "tracing",
- "tracing-error",
- "tracing-subscriber",
 ]
 
 [[package]]

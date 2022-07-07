@@ -1,6 +1,6 @@
 use crate::network::NetworkNodeType;
+use hotshot_types::constants::DEFAULT_REPLICATION_FACTOR;
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
-use phaselock_types::constants::DEFAULT_REPLICATION_FACTOR;
 use std::{collections::HashSet, num::NonZeroUsize};
 
 /// describe the configuration of the network

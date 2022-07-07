@@ -1,15 +1,15 @@
 [package]
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
-description = "PhaseLock consesus module"
+description = "HotShot consesus module"
 edition = "2021"
-name = "phaselock"
+name = "hotshot"
 readme = "README.md"
 version = "0.0.7"
 
 [features]
 default = ["demo", "docs"]
 # Enable demo/testing logic
-demo = ["blake3", "phaselock-types/demo"]
+demo = ["blake3", "hotshot-types/demo"]
 # Build the extended documentation
 docs = []
 
@@ -30,9 +30,9 @@ dashmap = "5.3.4"
 flume = "0.10.12"
 futures = "0.3.21"
 hex_fmt = "0.3.0"
-phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.0.7" }
-phaselock-types = { path = "./phaselock-types", version = "0.0.7", default-features = false }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.7"}
+hotshot-consensus = { path = "./consensus", version = "0.0.7" }
+hotshot-types = { path = "./types", version = "0.0.7", default-features = false }
+hotshot-utils = { path = "./utils", version = "0.0.7"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.0.7"}
 libp2p = { version = "0.45.1", features = ["serde"] }
 rand = "0.8.5"
@@ -48,7 +48,7 @@ tempfile = "3.3.0"
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
-phaselock-utils = { path = "./phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
+hotshot-utils = { path = "./utils", version = "0.0.7", features = ["logging-utils"] }
 rand_xoshiro = "0.6.0"
 structopt = "0.3.26"
 toml = "0.5.8"
@@ -70,14 +70,14 @@ debug = 1
 lto = "thin"
 
 ### Workspace
-# The phaselock-types crate needs to be a seperate crate, as to not create a circular dependency
+# The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 
 members = [
         "libp2p-networking",
-        "phaselock-hotstuff",
-        "phaselock-testing",
-        "phaselock-types",
-        "phaselock-utils",
+        "consensus",
+        "testing",
+        "types",
+        "utils",
 ]
