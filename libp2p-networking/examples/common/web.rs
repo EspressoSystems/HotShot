@@ -71,7 +71,6 @@ mod network_state {
     pub struct NetworkConfig {
         pub node_type: String,
         pub identity: String,
-        pub ignored_peers: Vec<String>,
     }
 
     #[derive(serde::Serialize)]
@@ -102,7 +101,6 @@ mod network_state {
             Self {
                 node_type: format!("{:?}", c.node_type),
                 identity: identity.to_string(),
-                ignored_peers: c.ignored_peers.iter().map(|p| p.to_string()).collect(),
             }
         }
     }

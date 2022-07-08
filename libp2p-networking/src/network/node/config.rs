@@ -13,10 +13,6 @@ pub struct NetworkNodeConfig {
     #[builder(setter(into, strip_option), default)]
     #[debug(skip)]
     pub identity: Option<Keypair>,
-    /// nodes to ignore
-    #[builder(default)]
-    #[debug(skip)]
-    pub ignored_peers: HashSet<PeerId>,
     /// address to bind to
     #[builder(default)]
     pub bound_addr: Option<Multiaddr>,

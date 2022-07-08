@@ -1,6 +1,6 @@
 use crate::network::{
     behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
-    ClientRequest, ConnectionData, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
 };
 use async_std::{
@@ -14,9 +14,7 @@ use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use phaselock_types::traits::network::NetworkError as PhaselockNetworkError;
-use phaselock_utils::{
-    subscribable_mutex::SubscribableMutex, subscribable_rwlock::ThreadedReadView,
-};
+use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
@@ -47,10 +45,6 @@ pub struct NetworkNodeHandle<S> {
     listen_addr: Multiaddr,
     /// the peer id of the networkbehaviour
     peer_id: PeerId,
-
-    /// the connection metadata associated with the networkbehaviour
-    connection_data: Arc<dyn ThreadedReadView<ConnectionData>>,
-
     /// human readable id
     id: usize,
 
@@ -70,8 +64,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let mut network = NetworkNode::new(config.clone())
             .await
             .context(NetworkSnafu)?;
-
-        let connection_data = network.connection_data();
 
         let peer_id = network.peer_id();
         // TODO separate this into a separate function so you can make everyone know about everyone
@@ -94,7 +86,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             recv_kill,
             listen_addr,
             peer_id,
-            connection_data,
             id,
             webui_listeners: Arc::default(),
         })
@@ -148,6 +139,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 }
 
 impl<S> NetworkNodeHandle<S> {
+    pub async fn lookup_peer(&self, pid: PeerId) -> Result<(), NetworkError> {
+        // FIXME implement this
+        todo!()
+    }
+
     /// Insert a record into the kademlia DHT
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
@@ -459,21 +455,6 @@ impl<S> NetworkNodeHandle<S> {
     /// Return a reference to the network config
     pub fn config(&self) -> &NetworkNodeConfig {
         &self.network_config
-    }
-
-    /// Get a clone of the internal connection state
-    pub async fn connection_state(&self) -> ConnectionData {
-        self.connection_data.cloned_async().await
-    }
-
-    /// Get a clone of the known peers list
-    pub async fn known_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.known_peers
-    }
-
-    /// Get a clone of the ignored peers list
-    pub async fn ignored_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.ignored_peers
     }
 
     /// Modify the state. This will automatically call `state_changed` and `notify_webui`

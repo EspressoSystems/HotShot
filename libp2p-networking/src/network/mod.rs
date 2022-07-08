@@ -37,19 +37,6 @@ use snafu::ResultExt;
 use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, info_span, instrument, Instrument};
 
-/// metadata about connections
-#[derive(Default, Debug, Clone)]
-pub struct ConnectionData {
-    /// set of currently connecting peers
-    pub connected_peers: HashSet<PeerId>,
-    /// set of peers that were at one point connected
-    pub connecting_peers: HashSet<PeerId>,
-    /// set of known peers
-    pub known_peers: HashSet<PeerId>,
-    /// set of peers that are immune to pruning
-    pub ignored_peers: HashSet<PeerId>,
-}
-
 /// this is mostly to estimate how many network connections
 /// a node should allow
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]

@@ -20,7 +20,7 @@ pub use self::{
 use super::{
     behaviours::gossip::GossipBehaviour,
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
+    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
 };
 use async_std::task::{sleep, spawn};
 use flume::{unbounded, Receiver, Sender};
@@ -39,15 +39,12 @@ use libp2p::{
     Multiaddr, PeerId, Swarm,
 };
 
-use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
-
 use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
     io::Error,
     iter,
     num::NonZeroUsize,
-    sync::Arc,
     time::Duration,
 };
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
@@ -75,12 +72,6 @@ impl NetworkNode {
     /// return hashset of PIDs this node is connected to
     pub fn connected_pids(&self) -> HashSet<PeerId> {
         self.swarm.connected_peers().copied().collect()
-    }
-
-    /// Return a reference to the network
-    #[instrument(skip(self))]
-    fn connection_data(&mut self) -> Arc<SubscribableRwLock<ConnectionData>> {
-        self.swarm.behaviour().connection_data()
     }
 
     /// starts the swarm listening on `listen_addr`
@@ -245,7 +236,6 @@ impl NetworkNode {
                 identify,
                 DMBehaviour::new(request_response),
                 false,
-                config.ignored_peers.clone(),
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)

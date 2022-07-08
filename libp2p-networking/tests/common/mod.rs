@@ -85,16 +85,6 @@ pub async fn print_connections<S>(handles: &[Arc<NetworkNodeHandle<S>>]) {
                 .map(|pid| m.get(pid).unwrap())
                 .collect::<Vec<_>>()
         );
-        warn!(
-            "peer {}, knowns about {:?}",
-            handle.id(),
-            handle
-                .known_peers()
-                .await
-                .iter()
-                .map(|pid| m.get(pid).unwrap())
-                .collect::<Vec<_>>()
-        );
     }
 }
 

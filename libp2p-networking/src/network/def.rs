@@ -10,25 +10,20 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
-    sync::Arc,
     task::{Context, Poll},
 };
 use tracing::{debug, info};
 
-use super::{
-    behaviours::{
-        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-        direct_message::{DMBehaviour, DMEvent, DMRequest},
-        direct_message_codec::DirectMessageResponse,
-        exponential_backoff::ExponentialBackoff,
-        gossip::{GossipBehaviour, GossipEvent},
-    },
-    ConnectionData,
+use super::behaviours::{
+    dht::{DHTBehaviour, DHTEvent, KadPutQuery},
+    direct_message::{DMBehaviour, DMEvent, DMRequest},
+    direct_message_codec::DirectMessageResponse,
+    exponential_backoff::ExponentialBackoff,
+    gossip::{GossipBehaviour, GossipEvent},
 };
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
@@ -61,11 +56,6 @@ pub struct NetworkDef {
     #[debug(skip)]
     pub request_response: DMBehaviour,
 
-    /// purpose: DEPRECATED and not working
-    /// to be removed
-    #[behaviour(ignore)]
-    connection_data: Arc<SubscribableRwLock<ConnectionData>>,
-
     /// set of events to send to behaviour on poll
     #[behaviour(ignore)]
     #[debug(skip)]
@@ -78,11 +68,6 @@ pub struct NetworkDef {
 }
 
 impl NetworkDef {
-    /// Returns a reference to the internal `ConnectionData`
-    pub fn connection_data(&self) -> Arc<SubscribableRwLock<ConnectionData>> {
-        self.connection_data.clone()
-    }
-
     /// Create a new instance of a `NetworkDef`
     pub fn new(
         gossipsub: GossipBehaviour,
@@ -90,7 +75,6 @@ impl NetworkDef {
         identify: Identify,
         request_response: DMBehaviour,
         _pruning_enabled: bool,
-        ignored_peers: HashSet<PeerId>,
         to_connect_addrs: HashSet<Multiaddr>,
     ) -> NetworkDef {
         Self {
@@ -98,12 +82,6 @@ impl NetworkDef {
             dht,
             identify,
             request_response,
-            connection_data: Arc::new(SubscribableRwLock::new(ConnectionData {
-                connected_peers: HashSet::new(),
-                connecting_peers: HashSet::new(),
-                known_peers: HashSet::new(),
-                ignored_peers,
-            })),
             client_event_queue: Vec::new(),
             to_connect_addrs,
         }

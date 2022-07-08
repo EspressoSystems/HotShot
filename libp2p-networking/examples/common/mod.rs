@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
 use structopt::StructOpt;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 #[cfg(feature = "webui")]
 use std::net::SocketAddr;
@@ -101,7 +101,7 @@ impl ConductorState {
 
         let mut total_time = Duration::ZERO;
         let mut total_data = 0;
-        for epoch_data in &self.previous_epochs.values() {
+        for epoch_data in self.previous_epochs.values() {
             if epoch_data.message_durations.iter().len() != num_nodes {
                 error!(
                     "didn't match! expected {} got {} ",
@@ -270,7 +270,7 @@ pub enum ConductorMessageMethod {
 
 /// handler for non-conductor nodes for normal messages
 pub async fn handle_normal_msg(
-    handle: Arc<NetworkNodeHandle<CounterState>>,
+    handle: Arc<NetworkNodeHandle<(CounterState, Option<PeerId>)>>,
     msg: NormalMessage,
     // in case we need to reply to direct message
     chan: Option<ResponseChannel<DirectMessageResponse>>,
@@ -281,8 +281,8 @@ pub async fn handle_normal_msg(
         CounterRequest::StateResponse(c) => {
             handle
                 .modify_state(|s| {
-                    if c >= *s {
-                        *s = c
+                    if c >= s.0 {
+                        s.0 = c
                     }
                 })
                 .await;
@@ -301,7 +301,7 @@ pub async fn handle_normal_msg(
                 let response = Message::Normal(NormalMessage {
                     sent_ts: SystemTime::now(),
                     relay_to_conductor: true,
-                    req: CounterRequest::StateResponse(state),
+                    req: CounterRequest::StateResponse(state.0),
                     epoch: 0,
                     padding: data,
                 });
@@ -317,7 +317,7 @@ pub async fn handle_normal_msg(
     // relay the message to conductor
     if msg.relay_to_conductor {
         info!("Recv-ed message. Deciding if should relay to conductor.");
-        if let Some(conductor_id) = handle.ignored_peers().await.iter().next() {
+        if let Some(conductor_id) = handle.state().await.1 {
             // do a dice roll here to decide if we want to keep the thing
             if Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
                 .unwrap()
@@ -325,7 +325,7 @@ pub async fn handle_normal_msg(
             {
                 info!("Deciding to relay to conductor");
                 let relayed_msg = Message::Relayed(msg.normal_to_relayed(handle.peer_id()));
-                handle.direct_request(*conductor_id, &relayed_msg).await?;
+                handle.direct_request(conductor_id, &relayed_msg).await?;
             }
         } else {
             error!("We have a message to send to the conductor, but we do not know who the conductor is!");
@@ -340,7 +340,7 @@ pub async fn handle_normal_msg(
 #[instrument]
 pub async fn regular_handle_network_event(
     event: NetworkEvent,
-    handle: Arc<NetworkNodeHandle<CounterState>>,
+    handle: Arc<NetworkNodeHandle<(CounterState, Option<PeerId>)>>,
 ) -> Result<(), NetworkNodeHandleError> {
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
@@ -352,10 +352,9 @@ pub async fn regular_handle_network_event(
                 match msg {
                     Message::DummyRecv => { },
                     Message::ConductorIdIs(peerid) => {
-                        handle
-                            .ignore_peers(vec![peerid])
-                            .await?;
-                        info!("added peerid to handle's ignored peers {:?}", handle.ignored_peers().await);
+                        handle.modify_state(|s| {
+                            s.1 = Some(peerid);
+                        }).await;
                     }
                     Message::Normal(msg) => {
                         handle_normal_msg(handle.clone(), msg, None).await?;
@@ -511,7 +510,6 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             let config = NetworkNodeConfigBuilder::default()
                 .bound_addr(Some(opts.bound_addr))
                 .node_type(NetworkNodeType::Conductor)
-                .ignored_peers(HashSet::new())
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
@@ -534,18 +532,6 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             spawn_handler(handle.clone(), conductor_handle_network_event).await;
             info!("spawned handler");
 
-            let known_peers = handle.known_peers().await;
-            handle
-                .modify_state(|s| {
-                    for a_peer in &known_peers {
-                        if *a_peer != handle.peer_id()
-                            && s.current_epoch.node_states.get(a_peer).is_none()
-                        {
-                            s.current_epoch.node_states.insert(*a_peer, 0);
-                        }
-                    }
-                })
-                .await;
             handle.notify_webui().await;
 
             let conductor_peerid = handle.peer_id();
@@ -599,13 +585,12 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
             let config = NetworkNodeConfigBuilder::default()
                 .bound_addr(Some(opts.bound_addr))
-                .ignored_peers(HashSet::new())
                 .node_type(opts.node_type)
                 .build()
                 .context(NodeConfigSnafu)
                 .context(HandleSnafu)?;
 
-            let node = NetworkNodeHandle::<CounterState>::new(config.clone(), 0)
+            let node = NetworkNodeHandle::<(CounterState, Option<PeerId>)>::new(config.clone(), 0)
                 .await
                 .context(HandleSnafu)?;
 
@@ -633,10 +618,12 @@ pub async fn conductor_broadcast(
     handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
     let new_state = handle.state().await.current_epoch.epoch_idx;
-    let mut known_peers = handle.known_peers().await;
-    known_peers.remove(&handle.peer_id());
+    // nOTE it's probably easier to pass in a hard coded list of PIDs
+    // from test.py orchestration
+    let mut connected_peers = handle.connected_pids().await.unwrap();
+    connected_peers.remove(&handle.peer_id());
 
-    let chosen_peer = *known_peers.iter().choose(&mut thread_rng()).unwrap();
+    let chosen_peer = *connected_peers.iter().choose(&mut thread_rng()).unwrap();
 
     let request = CounterRequest::StateResponse(new_state);
 
