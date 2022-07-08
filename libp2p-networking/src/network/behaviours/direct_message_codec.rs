@@ -9,7 +9,7 @@ use libp2p::{
     request_response::RequestResponseCodec,
 };
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::info;
 
 /// Protocol for direct messages
 #[derive(Debug, Clone)]
@@ -64,9 +64,9 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        error!("READING REQUEST!");
+        info!("READING REQUEST!");
         let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
-        error!("READ REQUEST!");
+        info!("READ REQUEST!");
         Ok(DirectMessageResponse(msg))
     }
 
@@ -79,11 +79,11 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        error!("WRITING REQUEST!");
+        info!("WRITING REQUEST!");
         write_length_prefixed(io, msg).await?;
-        error!("WROTE REQUEST!");
+        info!("WROTE REQUEST!");
         io.close().await?;
-        error!("CLOSED WRITE REQUEST");
+        info!("CLOSED WRITE REQUEST");
 
         Ok(())
     }

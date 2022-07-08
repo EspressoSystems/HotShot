@@ -3,7 +3,6 @@
     clippy::pedantic,
     rust_2018_idioms,
     missing_docs,
-    // clippy::missing_docs_in_private_items,
     clippy::panic
 )]
 #![allow(
@@ -14,9 +13,6 @@
     clippy::unused_self
 )]
 //! Library for p2p communication
-
-/// Direct Messages between two nodes
-// pub mod direct_message;
 
 /// Example message used by the UI library
 pub mod message;

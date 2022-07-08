@@ -119,6 +119,7 @@ async fn init_state_and_phaselock(
         start_delay: 1,
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
+        num_bootstrap: 5,
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);

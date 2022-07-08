@@ -38,6 +38,9 @@ use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
 
+/// hardcoded topic of QC used
+pub const QC_TOPIC: &str = "global";
+
 /// Stubbed out Ack
 #[derive(Serialize)]
 pub enum Empty {
@@ -282,14 +285,13 @@ impl<
                     // this is a safe lower bet on the number of nodes in the network.
                     4,
                     handle.recv_network(),
-                    // FIXME: Temporary hack to get this to compile
+                    // FIXME: can we propagate (or get in with tracing)
+                    // the actual peer id that's used a few levels up?
                     0,
                 )
                 .timeout(timeout_duration)
                 .await;
-                // FIXME should this be parametrized?
-                // do we care?
-                handle.subscribe("global".to_string()).await.unwrap();
+                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
                 info!("peer {:?} waiting for bootstrap", handle.peer_id());
 
@@ -472,7 +474,7 @@ impl<
             .unwrap();
         self.inner
             .handle
-            .gossip("global".to_string(), &message)
+            .gossip(QC_TOPIC.to_string(), &message)
             .await
             .map_err(Into::<NetworkError>::into)?;
         Ok(())

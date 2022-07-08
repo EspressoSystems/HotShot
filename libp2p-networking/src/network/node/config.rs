@@ -33,8 +33,8 @@ pub struct NetworkNodeConfig {
     pub to_connect_addrs: HashSet<(Option<PeerId>, Multiaddr)>,
 }
 
-/// NOTE: mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high
-/// NOTE: mesh_outbound_min <= self.config.mesh_n / 2
+/// NOTE: `mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high`
+/// NOTE: `mesh_outbound_min <= self.config.mesh_n / 2`
 /// parameters fed into gossipsub controlling the structure of the mesh
 #[derive(Clone, Debug)]
 pub struct MeshParams {

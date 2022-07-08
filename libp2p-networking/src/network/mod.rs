@@ -29,9 +29,7 @@ use libp2p::{
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
-    tcp,
-    yamux::{self},
-    Multiaddr, PeerId, Transport,
+    tcp, Multiaddr, PeerId, Transport,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -81,21 +79,21 @@ impl FromStr for NetworkNodeType {
     }
 }
 
-/// serialize an arbitrary message
+/// Serialize an arbitrary message
 /// # Errors
-/// when unable to serialize a message
+/// When unable to serialize a message
 pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
+    let bincode_options = bincode::DefaultOptions::new();
     bincode_options.serialize(&msg)
 }
 
-/// deserialize an arbitrary message
+/// Deserialize an arbitrary message
 /// # Errors
-/// when unable to deserialize a message
+/// When unable to deserialize a message
 pub fn deserialize_msg<'a, T: Deserialize<'a>>(
     msg: &'a [u8],
 ) -> Result<T, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
+    let bincode_options = bincode::DefaultOptions::new();
     bincode_options.deserialize(msg)
 }
 
@@ -166,8 +164,8 @@ pub enum NetworkEvent {
     IsBootstrapped,
 }
 
-/// bind all interfaces on port `port`
-/// TODO something more general
+/// Bind all interfaces on port `port`
+/// NOTE we may want something more general in the fture.
 pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
 }
@@ -193,14 +191,7 @@ pub async fn gen_transport(
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&identity)
         .expect("Signing libp2p-noise static DH keypair failed.");
-    let _yamux_cfg = yamux::YamuxConfig::default();
-    // yamux_cfg.set_max_buffer_size(1024 * 1024 * 32);
-    // yamux_cfg.set_receive_window_size((16384 * 32) as u32);
-    // yamux_cfg.set_window_update_mode(yamux::WindowUpdateMode::OnRead);
     let mplex_cfg = mplex::MplexConfig::default();
-    // mplex_cfg.set_max_num_streams(1024);
-    // mplex_cfg.set_max_buffer_size(usize::MAX);
-    // mplex_cfg.set_split_send_size(8*8*8*1024);
 
     Ok(transport
         .upgrade(upgrade::Version::V1)
@@ -208,11 +199,9 @@ pub async fn gen_transport(
         .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
         // muxxing streams
         // useful because only one connection opened
+        // with multiple substreams
         // https://docs.libp2p.io/concepts/stream-multiplexing/
-        .multiplex(
-            mplex_cfg, // yamux_cfg
-        )
-        // .timeout(std::time::Duration::from_secs(20))
+        .multiplex(mplex_cfg)
         .boxed())
 }
 

@@ -18,7 +18,7 @@ pub use self::{
     handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
 };
 use super::{
-    behaviours::gossip::GossipBehaviour, /* tracker::Tracker */
+    behaviours::gossip::GossipBehaviour,
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, ClientRequest, ConnectionData, NetworkDef, NetworkEvent, NetworkNodeType,
 };
@@ -38,8 +38,7 @@ use libp2p::{
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
-// TODO introducign metrics is worth
-// use libp2p_metrics::Metrics;
+
 use phaselock_utils::subscribable_rwlock::SubscribableRwLock;
 
 use snafu::ResultExt;
@@ -108,10 +107,7 @@ impl NetworkNode {
     /// will start connecting to peers
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
-        error!(
-            "ADDKNOWNNODES Adding nodes {:?} to {:?}",
-            known_peers, self.peer_id
-        );
+        info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
         // FIXME nuke this altogether
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
@@ -119,17 +115,14 @@ impl NetworkNode {
             match peer_id {
                 Some(peer_id) => {
                     // if we know the peerid, add address.
-                    // if we don't know the peerid, dial to find out what the peerid is
                     if *peer_id != self.peer_id {
-                        // FIXME why can't I pattern match this?
                         behaviour.dht.add_address(peer_id, addr.clone());
                         bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
-                        // behaviour.request_response.add_address(peer_id, addr.clone());
                     }
-                    // behaviour.add_known_peer(*peer_id);
                 }
                 None => {
-                    // TODO need to add peers here somehow
+                    // TODO actually implement this part
+                    // if we don't know the peerid, dial to find out what the peerid is
                 }
             }
         }
@@ -165,11 +158,11 @@ impl NetworkNode {
                 MessageId::from(hash.as_bytes().to_vec())
             };
 
-            // TODO insert into config.
             let params = if let Some(ref params) = config.mesh_params {
                 params.clone()
             } else {
                 // NOTE this should most likely be a builder pattern
+                // at some point in the future.
                 match config.node_type {
                     NetworkNodeType::Bootstrap => MeshParams {
                         mesh_n_high: 50,
@@ -326,7 +319,7 @@ impl NetworkNode {
                         );
                     }
                     IgnorePeers(_peers) => {
-                        // TODO delete this API
+                        // NOTE used by test with conductor only
                     }
                     Shutdown => {
                         warn!("Libp2p listener shutting down");
@@ -364,12 +357,17 @@ impl NetworkNode {
                     }
                     Prune(pid) => {
                         //FIXME deal with error handling
-                        let _ = self.swarm.disconnect_peer_id(pid);
+                        if self.swarm.disconnect_peer_id(pid).is_err() {
+                            error!(
+                                "Peer {:?} could not disconnect from pid {:?}",
+                                self.peer_id, pid
+                            );
+                        }
                     }
                 }
             }
             Err(e) => {
-                error!("Error receiving msg: {:?}", e);
+                error!("Error receiving msg in main behaviour loop: {:?}", e);
             }
         }
         Ok(false)
@@ -383,8 +381,6 @@ impl NetworkNode {
         event: SwarmEvent<
             NetworkEvent,
             EitherError<
-                // if we want to comment out identify
-                // EitherError</* EitherError< */GossipsubHandlerError/* , Error *//* > */, Error>,
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
                 ConnectionHandlerUpgrErr<Error>,
             >,
@@ -404,8 +400,7 @@ impl NetworkNode {
                 num_established,
                 concurrent_dial_errors,
             } => {
-                // behaviour.add_address(&peer_id, endpoint.get_remote_address().clone());
-                error!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
             }
             ConnectionClosed {
                 peer_id,
@@ -413,10 +408,10 @@ impl NetworkNode {
                 num_established,
                 cause,
             } => {
-                error!("peerid {:?} connection is closed to {:?} with endpoint {:?} with cause {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, cause, num_established);
+                info!("peerid {:?} connection is closed to {:?} with endpoint {:?} with cause {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, cause, num_established);
             }
             Dialing(p) => {
-                error!("{:?} is dialing {:?}", self.peer_id, p);
+                info!("{:?} is dialing {:?}", self.peer_id, p);
             }
             BannedPeer {
                 peer_id,
@@ -449,24 +444,23 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id: _, error } => {
+                // FIXME only print an ERROR when it's actually an error
+                // not a "oh we hit the keepalive timeout"
                 error!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
-                // if let Some(peer_id) = peer_id {
-                //     behaviour.remove_peer(peer_id);
-                // }
             }
             IncomingConnectionError {
                 local_addr,
                 send_back_addr,
                 error,
             } => {
-                // behaviour.kadem.remove_address(&peer_id, &send_back_addr);
+                // FIXME only print an ERROR when it's actually an error
+                // not a "oh we hit the keepalive timeout"
                 error!(
                     "INCOMING CONNECTION ERROR: {:?} {:?} {:?}",
                     local_addr, send_back_addr, error
                 );
             }
             ListenerError { listener_id, error } => {
-                // behaviour.kadem.remove_address(&peer_id, &send_back_addr);
                 error!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
         }
@@ -492,6 +486,8 @@ impl NetworkNode {
             async move {
                 loop {
                     select! {
+                        // TODO move this out of th eevent loop and into the handle_client_requests
+                        // event loop?
                         _ = sleep(lowest_increment).fuse() => {
                             time_since_print_num_connections += lowest_increment;
                             if time_since_print_num_connections > print_num_connections_thres {

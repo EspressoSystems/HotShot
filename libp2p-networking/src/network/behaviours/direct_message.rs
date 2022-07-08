@@ -91,7 +91,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                     channel,
                     ..
                 } => {
-                    error!("recv-ed DIRECT REQUEST {:?}", msg);
+                    info!("recv-ed DIRECT REQUEST {:?}", msg);
                     // receiver, not initiator.
                     // don't track. If we are disconnected, sender will reinitiate
                     self.out_event_queue
@@ -103,7 +103,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, Dir
                 } => {
                     // success, finished.
                     if let Some(req) = self.in_progress_rr.remove(&request_id) {
-                        error!("recv-ed DIRECT RESPONSE {:?}", msg);
+                        info!("recv-ed DIRECT RESPONSE {:?}", msg);
                         self.out_event_queue
                             .push(DMEvent::DirectResponse(msg, req.peer_id));
                     } else {
@@ -322,7 +322,7 @@ impl DMBehaviour {
         let request_id = self
             .request_response
             .send_request(&req.peer_id, DirectMessageRequest(req.data.clone()));
-        error!("direct message request with id {:?}", request_id);
+        info!("direct message request with id {:?}", request_id);
 
         self.in_progress_rr.insert(request_id, req);
     }

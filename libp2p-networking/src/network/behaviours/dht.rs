@@ -9,9 +9,8 @@ use futures::channel::oneshot::Sender;
 use libp2p::{
     core::transport::ListenerId,
     kad::{
-        store::MemoryStore, BootstrapError, GetClosestPeersOk, GetRecordOk,
-        GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
-        Record,
+        store::MemoryStore, BootstrapError, GetClosestPeersOk, GetRecordOk, GetRecordResult,
+        Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
     Multiaddr, PeerId,

@@ -12,7 +12,8 @@ use libp2p::{
     },
     PeerId,
 };
-use tracing::{error, warn};
+
+use tracing::{error, info, warn};
 
 use super::exponential_backoff::ExponentialBackoff;
 
@@ -47,10 +48,10 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for GossipBehaviour {
                     .push(GossipEvent::GossipMsg(message.data, message.topic));
             }
             GossipsubEvent::Subscribed { topic, .. } => {
-                error!("subscribed to topic {}", topic);
+                info!("subscribed to topic {}", topic);
             }
             GossipsubEvent::Unsubscribed { topic, .. } => {
-                error!("unsubscribed to topic {}", topic);
+                info!("unsubscribed to topic {}", topic);
             }
             GossipsubEvent::GossipsubNotSupported { peer_id } => {
                 error!("gossipsub not supported on {}!", peer_id);
@@ -238,8 +239,6 @@ impl GossipBehaviour {
 
     /// Publish a given gossip
     pub fn publish_gossip(&mut self, topic: IdentTopic, contents: Vec<u8>) {
-        // TODO might be better just to push this into the queue and not try to
-        // send here
         let res = self.gossipsub.publish(topic.clone(), contents.clone());
         if res.is_err() {
             error!("error publishing gossip message {:?}", res);
@@ -257,7 +256,7 @@ impl GossipBehaviour {
         } else if self.gossipsub.subscribe(&IdentTopic::new(t)).is_err() {
             error!("error subscribing to topic {}", t);
         } else {
-            error!("subscribed req to {:?}", t);
+            info!("subscribed req to {:?}", t);
             self.subscribed_topics.insert(t.to_string());
         }
     }

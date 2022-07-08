@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use tracing::{debug, error};
+use tracing::{debug, info};
 
 use super::{
     behaviours::{
@@ -49,10 +49,11 @@ pub struct NetworkDef {
     gossipsub: GossipBehaviour,
 
     /// purpose: peer routing
+    /// purpose: storing pub key <-> peer id bijection
     #[debug(skip)]
     pub dht: DHTBehaviour,
 
-    /// purpose: peer discovery
+    /// purpose: identifying the addresses from an outside POV
     #[debug(skip)]
     identify: Identify,
 
@@ -60,16 +61,18 @@ pub struct NetworkDef {
     #[debug(skip)]
     pub request_response: DMBehaviour,
 
-    /// connection data
+    /// purpose: DEPRECATED and not working
+    /// to be removed
     #[behaviour(ignore)]
     connection_data: Arc<SubscribableRwLock<ConnectionData>>,
 
-    /// set of events to send to UI
+    /// set of events to send to behaviour on poll
     #[behaviour(ignore)]
     #[debug(skip)]
     client_event_queue: Vec<NetworkEvent>,
 
     /// Addresses to connect to at init
+    /// DEPRECATED to be removed
     #[behaviour(ignore)]
     pub to_connect_addrs: HashSet<Multiaddr>,
 }
@@ -128,8 +131,13 @@ impl NetworkDef {
 impl NetworkDef {
     /// Add an address
     pub fn add_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
+        // NOTE to get this address to play nice with the other
+        // behaviours using the DHT for ouring
+        // we only need to add this address to the DHT since it
+        // is always enabled. If it were not always enabled,
+        // we would need to manually add the address to
+        // the direct message behaviour
         self.dht.add_address(peer_id, address);
-        // self.request_response.add_address(peer_id, address)
     }
 }
 
@@ -231,20 +239,16 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
         {
             // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
             // NOTE I manually checked and peer_id corresponds to listen_addrs.
-            error!(
+            // NOTE Once we've tested on DNS addresses, this should be swapped out to play nicely
+            // with autonat
+            info!(
                 "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
                 self.dht.peer_id, peer_id, listen_addrs, observed_addr
             );
-            // into hashset -> delete duplicates
+            // into hashset to delete duplicates (I checked: there are duplicates)
             for addr in listen_addrs.iter().collect::<HashSet<_>>() {
-                // if addr.to_string().contains("127.0.0.1"){
                 self.dht.add_address(&peer_id, addr.clone());
-                // self.request_response.add_address(&peer_id, addr.clone());
-                // }
             }
-            // self.connection_data.modify(|s| {
-            //     s.known_peers.insert(peer_id);
-            // });
         }
     }
 }
@@ -252,17 +256,10 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
 impl NetworkBehaviourEventProcess<DMEvent> for NetworkDef {
     fn inject_event(&mut self, event: DMEvent) {
         let out_event = match event {
-            DMEvent::DirectRequest(data, pid, chan) => {
-                error!("EMITTING REQUEST EVENT");
-                NetworkEvent::DirectRequest(data, pid, chan)
-            }
-            DMEvent::DirectResponse(data, pid) => {
-                error!("EMITTING RESPONSE EVENT");
-                NetworkEvent::DirectResponse(data, pid)
-            }
+            DMEvent::DirectRequest(data, pid, chan) => NetworkEvent::DirectRequest(data, pid, chan),
+            DMEvent::DirectResponse(data, pid) => NetworkEvent::DirectResponse(data, pid),
         };
 
-        error!("EMITTING EVENT");
         self.client_event_queue.push(out_event);
     }
 }
