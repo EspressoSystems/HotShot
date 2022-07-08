@@ -74,7 +74,6 @@ impl NetworkDef {
         dht: DHTBehaviour,
         identify: Identify,
         request_response: DMBehaviour,
-        _pruning_enabled: bool,
         to_connect_addrs: HashSet<Multiaddr>,
     ) -> NetworkDef {
         Self {

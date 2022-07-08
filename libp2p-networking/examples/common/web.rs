@@ -55,16 +55,14 @@ where
 }
 
 mod network_state {
-    use std::collections::HashSet;
 
     use libp2p::PeerId;
-    use libp2p_networking::network::{ConnectionData, NetworkNodeConfig, NetworkNodeHandle};
+    use libp2p_networking::network::{NetworkNodeConfig, NetworkNodeHandle};
 
     #[derive(serde::Serialize)]
     pub struct State<S: serde::Serialize> {
         pub network_config: NetworkConfig,
         pub state: S,
-        pub connection_state: ConnectionState,
     }
 
     #[derive(serde::Serialize)]
@@ -88,7 +86,6 @@ mod network_state {
             Self {
                 network_config: NetworkConfig::new(handle.peer_id(), handle.config()),
                 state: handle.state().await.get_serializable(),
-                connection_state: ConnectionState::new(handle.connection_state().await),
             }
         }
         pub async fn send(self, sender: &tide::sse::Sender) -> std::io::Result<()> {
@@ -101,18 +98,6 @@ mod network_state {
             Self {
                 node_type: format!("{:?}", c.node_type),
                 identity: identity.to_string(),
-            }
-        }
-    }
-    impl ConnectionState {
-        fn new(lock: ConnectionData) -> ConnectionState {
-            fn map(set: HashSet<PeerId>) -> Vec<String> {
-                set.into_iter().map(|p| p.to_string()).collect()
-            }
-            Self {
-                connected_peers: map(lock.connected_peers),
-                connecting_peers: map(lock.connecting_peers),
-                known_peers: map(lock.known_peers),
             }
         }
     }

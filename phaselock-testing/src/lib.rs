@@ -312,15 +312,15 @@ impl<
     async fn run_one_round(&mut self, txns: Vec<BLOCK::Transaction>) -> RoundResult<BLOCK, STATE> {
         let mut results = HashMap::new();
 
-        error!("EXECUTOR: running one round");
+        info!("EXECUTOR: running one round");
         for handle in self.nodes() {
             handle.run_one_round().await;
         }
-        error!("EXECUTOR: done running one round");
+        info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
             let result = node.handle.collect_round_events().await;
-            error!(
+            info!(
                 "EXECUTOR: collected node {:?} results: {:?}",
                 node.node_id.clone(),
                 result

@@ -15,7 +15,7 @@ use libp2p::{
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
     Multiaddr, PeerId,
 };
-use tracing::{error, info};
+use tracing::{error, info, warn};
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 const MAX_DHT_QUERY_SIZE: usize = 5;
 
@@ -138,11 +138,11 @@ impl DHTBehaviour {
                 // failed try again later
                 query.progress = DHTProgress::NotStarted;
                 query.backoff.start_next(false);
-                error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
+                warn!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
                 self.queued_put_record_queries.push_back(query);
             }
             Ok(qid) => {
-                error!("Success publishing {:?} to DHT", qid);
+                info!("Success publishing {:?} to DHT", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -207,17 +207,17 @@ impl DHTBehaviour {
                     // values is not handles
                     if let Some((r, _)) = results.into_iter().find(|(_, v)| *v >= 2) {
                         if notify.send(r).is_err() {
-                            error!("channel closed before get record request result could be sent");
+                            warn!("Get DHT: channel closed before get record request result could be sent");
                         }
                     }
                     // lack of replication => error
                     else if records.len() < NUM_REPLICATED_TO_TRUST {
-                        error!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                        warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
                         self.get_record(key, notify, num_replicas, backoff);
                     }
                     // many records that don't match => disagreement
                     else if records.len() > MAX_DHT_QUERY_SIZE {
-                        error!(
+                        warn!(
                             "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
                             progress
                         );
@@ -231,7 +231,7 @@ impl DHTBehaviour {
                             NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
 
                         self.get_record(key, notify, new_factor, backoff);
-                        error!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                        warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
                     }
                 }
                 Err(_e) => {
@@ -247,7 +247,7 @@ impl DHTBehaviour {
                 }
             };
         } else {
-            error!("completed DHT query {:?} that is no longer tracked.", id);
+            warn!("completed DHT query {:?} that is no longer tracked.", id);
         }
     }
 
@@ -262,14 +262,14 @@ impl DHTBehaviour {
             match record_results {
                 Ok(_) => {
                     if query.notify.send(()).is_err() {
-                        error!("Put DHT: client channel closed before put record request could be sent");
+                        warn!("Put DHT: client channel closed before put record request could be sent");
                     }
                 }
                 Err(e) => {
                     query.progress = DHTProgress::NotStarted;
                     query.backoff.start_next(false);
 
-                    error!(
+                    warn!(
                         "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
                         e, self.peer_id
                     );
@@ -278,7 +278,7 @@ impl DHTBehaviour {
                 }
             }
         } else {
-            error!("Put DHT: completed DHT query that is no longer tracked.");
+            warn!("Put DHT: completed DHT query that is no longer tracked.");
         }
     }
 }
@@ -298,13 +298,13 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 ..
             } => match r {
                 Ok(GetClosestPeersOk { key, peers: _ }) => {
-                    error!(
+                    info!(
                         "peer {:?} successfully completed get closest peers for {:?}",
                         self.peer_id, key
                     );
                 }
                 Err(e) => {
-                    error!(
+                    warn!(
                         "peer {:?} failed to get closest peers with {:?}",
                         self.peer_id, e
                     );
@@ -324,7 +324,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 ..
             } => {
                 // if bootstrap is successful, restart.
-                error!("finished bootstrap for peer {:?}", self.peer_id);
+                info!("finished bootstrap for peer {:?}", self.peer_id);
                 self.bootstrap_state.state = State::Finished;
                 // self.bootstrap_state.backoff.start_next(true);
                 self.event_queue.push(DHTEvent::IsBootstrapped);
@@ -336,7 +336,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 let BootstrapError::Timeout { num_remaining, .. } = e;
                 if num_remaining == None {
                     error!(
-                        "peer {:?} failed bootstrap with error {:?}. Adding nodes {:?}",
+                        "Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT. Readding bootstrap nodes {:?}",
                         self.peer_id, e, self.bootstrap_nodes
                     );
                     for (peer, addrs) in self.bootstrap_nodes.clone() {
@@ -443,7 +443,7 @@ impl NetworkBehaviour for DHTBehaviour {
         {
             match self.kadem.bootstrap() {
                 Ok(_) => {
-                    error!("started bootstrap for peer {:?}", self.peer_id);
+                    info!("started bootstrap for peer {:?}", self.peer_id);
                     self.bootstrap_state.backoff.start_next(true);
                     self.bootstrap_state.state = State::Started;
                 }
@@ -579,7 +579,7 @@ impl NetworkBehaviour for DHTBehaviour {
         handler: Self::ConnectionHandler,
         error: &libp2p::swarm::DialError,
     ) {
-        error!(
+        info!(
             "{:?} dial failure for peer id: {:?} with error {:?}",
             self.peer_id, peer_id, error
         );

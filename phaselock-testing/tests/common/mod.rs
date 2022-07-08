@@ -19,7 +19,7 @@ use phaselock_types::traits::{
     state::TestableState, storage::TestableStorage,
 };
 use phaselock_utils::test_util::{setup_backtrace, setup_logging};
-use tracing::{error, info};
+use tracing::info;
 
 use std::collections::HashSet;
 
@@ -134,9 +134,9 @@ impl<
         // configure nodes/timing
         runner.add_nodes(self.start_nodes).await;
 
-        for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().rev().enumerate() {
+        for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
             node.is_ready().await;
-            error!("EXECUTOR: NODE {:?} IS READY", idx);
+            info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
         let len = self.rounds.len() as u64;

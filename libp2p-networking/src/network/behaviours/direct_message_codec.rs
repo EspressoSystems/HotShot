@@ -9,7 +9,6 @@ use libp2p::{
     request_response::RequestResponseCodec,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 /// Protocol for direct messages
 #[derive(Debug, Clone)]
@@ -26,7 +25,7 @@ pub struct DirectMessageResponse(pub Vec<u8>);
 
 impl ProtocolName for DirectMessageProtocol {
     fn protocol_name(&self) -> &[u8] {
-        "/hotstuff/request_response/1.0".as_bytes()
+        "/HotShot/request_response/1.0".as_bytes()
     }
 }
 
@@ -64,9 +63,7 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncRead + Unpin + Send,
     {
-        info!("READING REQUEST!");
         let msg = read_length_prefixed(io, MAX_MSG_SIZE_DM).await?;
-        info!("READ REQUEST!");
         Ok(DirectMessageResponse(msg))
     }
 
@@ -79,11 +76,8 @@ impl RequestResponseCodec for DirectMessageCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        info!("WRITING REQUEST!");
         write_length_prefixed(io, msg).await?;
-        info!("WROTE REQUEST!");
         io.close().await?;
-        info!("CLOSED WRITE REQUEST");
 
         Ok(())
     }

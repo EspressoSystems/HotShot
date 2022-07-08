@@ -211,7 +211,7 @@ impl NetworkNode {
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
             let identify_cfg =
-                IdentifyConfig::new("phaselock/identify/1.0".to_string(), identity.public());
+                IdentifyConfig::new("HotShot/identify/1.0".to_string(), identity.public());
             let identify = Identify::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
@@ -235,7 +235,6 @@ impl NetworkNode {
                 DHTBehaviour::new(kadem, peer_id),
                 identify,
                 DMBehaviour::new(request_response),
-                false,
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)
@@ -275,7 +274,6 @@ impl NetworkNode {
         msg: Result<ClientRequest, flume::RecvError>,
     ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
-        error!("SPAWNING EVENT HANDLER FOR {:?}", self.peer_id);
         match msg {
             Ok(msg) => {
                 #[allow(clippy::enum_glob_use)]
@@ -381,7 +379,6 @@ impl NetworkNode {
         #[allow(clippy::enum_glob_use)]
         use SwarmEvent::*;
         info!("event observed {:?}", event);
-        let _behaviour = self.swarm.behaviour_mut();
 
         match event {
             ConnectionEstablished {

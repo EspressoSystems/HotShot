@@ -18,7 +18,7 @@ use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::{error, instrument};
+use tracing::{info, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -71,7 +71,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .start_listen(listen_addr)
             .await
             .context(NetworkSnafu)?;
-        error!("LISTEN ADDRESS IS {:?}", listen_addr);
+        info!("LISTEN ADDRESS IS {:?}", listen_addr);
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = flume::bounded(1);
 

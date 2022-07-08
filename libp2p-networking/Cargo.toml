@@ -32,7 +32,6 @@ custom_debug = "0.5"
 phaselock-utils = { path = "../phaselock-utils", version = "0.1.0", features = ["logging-utils"] }
 phaselock-types = { path = "../phaselock-types", version = "0.1.0"}
 either = { version = "1.7.0" }
-hyper = { version="0.14", features = ["server", "tcp", "http1"] }
 
 
 # Feature dependencies

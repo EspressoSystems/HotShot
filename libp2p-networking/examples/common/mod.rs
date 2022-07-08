@@ -168,8 +168,8 @@ impl web::WebInfo for ConductorState {
 }
 
 #[cfg(feature = "webui")]
-impl web::WebInfo for CounterState {
-    type Serialized = u32;
+impl web::WebInfo for (CounterState, Option<PeerId>) {
+    type Serialized = (u32, Option<PeerId>);
     fn get_serializable(&self) -> Self::Serialized {
         *self
     }
@@ -546,11 +546,13 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     loop {
                         // must wait for the listener to start
                         let msg = Message::ConductorIdIs(conductor_peerid);
-                        handle
+                        if let Err(e) = handle
                             .gossip("global".to_string(), &msg)
                             .await
                             .context(HandleSnafu)
-                            .unwrap();
+                        {
+                            error!("Error {:?} gossiping the conductor ID to cluster.", e);
+                        }
                         sleep(Duration::from_secs(1)).await;
                     }
                 }
@@ -575,11 +577,14 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .await;
             }
 
-            println!("result raw: {:?}", handle.state().await);
-            println!(
-                "result: {:?}",
-                handle.state().await.aggregate_epochs(opts.num_nodes)
-            );
+            #[cfg(feature = "benchmark-output")]
+            {
+                trace!("result raw: {:?}", handle.state().await);
+                trace!(
+                    "result: {:?}",
+                    handle.state().await.aggregate_epochs(opts.num_nodes)
+                );
+            }
         }
         // regular and bootstrap nodes
         NetworkNodeType::Regular | NetworkNodeType::Bootstrap => {
