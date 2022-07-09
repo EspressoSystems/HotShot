@@ -44,10 +44,10 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-      - name: Stress tests for all crates in workspace
-        run: |
-          ulimit -n 4096
-          cargo test --verbose --release --workspace --all-features --no-fail-fast -- test_stress --test-threads=1 --ignored
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: 1
+      # - name: Stress tests for all crates in workspace
+      #   run: |
+      #     ulimit -n 4096
+      #     cargo test --verbose --release --workspace --all-features --no-fail-fast -- test_stress --test-threads=1 --ignored
+      #   timeout-minutes: 15
+      #   env:
+      #     RUST_BACKTRACE: 1
