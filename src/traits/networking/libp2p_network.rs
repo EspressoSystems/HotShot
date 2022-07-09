@@ -409,7 +409,7 @@ impl<
                     .right_values()
                     .copied()
                     .collect::<HashSet<_>>();
-                let libp2p_known_nodes = handle.inner.handle.known_peers().await;
+                let libp2p_known_nodes = handle.inner.handle.connected_pids().await.unwrap();
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)
                     .collect::<Vec<_>>();

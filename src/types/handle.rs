@@ -186,7 +186,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         block_on(self.run_one_round());
     }
 
-    /// iterate through all events on a [`Node`] and determine if the node finished
+    /// iterate through all events on a [`NodeImplementation`] and determine if the node finished
     /// successfully
     /// # Errors
     /// Errors if unable to obtain storage
