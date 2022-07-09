@@ -18,12 +18,13 @@ use std::{
 };
 use tracing::{debug, info};
 
-use super::{behaviours::{
+use super::behaviours::{
     dht::{DHTBehaviour, DHTEvent, KadPutQuery},
     direct_message::{DMBehaviour, DMEvent, DMRequest},
     direct_message_codec::DirectMessageResponse,
     exponential_backoff::ExponentialBackoff,
-    gossip::{GossipBehaviour, GossipEvent} } };
+    gossip::{GossipBehaviour, GossipEvent},
+};
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 
