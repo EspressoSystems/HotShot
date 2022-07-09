@@ -112,7 +112,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         // port
         // let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/", start_port + i)).unwrap();
 
-        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
         config
             .identity(identity)
             .replication_factor(replication_factor)
@@ -141,7 +141,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     }
 
     for j in 0..(num_of_nodes - num_bootstrap) {
-        let addr = Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
+        let addr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
         // NOTE use this if testing locally and want human readable ports
         // let addr = Multiaddr::from_str(&format!(
         //     "/ip4/127.0.0.1/tcp/{}",
@@ -183,12 +183,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .collect::<Vec<_>>()
     );
 
-    for (idx, handle) in handles[0..num_of_nodes].iter().enumerate() {
-        let to_share = if idx < num_bootstrap {
-            bootstrap_addrs.clone()
-        } else {
-            bootstrap_addrs.clone()
-        };
+    for (_idx, handle) in handles[0..num_of_nodes].iter().enumerate() {
+        let to_share = bootstrap_addrs.clone();
         handle
             .add_known_peers(
                 to_share
