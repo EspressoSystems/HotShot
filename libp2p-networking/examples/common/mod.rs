@@ -717,7 +717,7 @@ pub async fn conductor_handle_network_event(
                             }
                             EpochType::DMViaDM => {
                                 info!("modifying state DM VIA DM {:?}", msg);
-                                // FIXME should check epoch
+                                // NOTE maybe should check epoch
                                 if let CounterRequest::StateRequest = msg.req {
                                     handle
                                         .modify_state(|s| {

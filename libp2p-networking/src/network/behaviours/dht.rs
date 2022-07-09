@@ -128,7 +128,7 @@ impl DHTBehaviour {
 
     /// Publish a key/value to the kv store.
     /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`DHTError`] is
+    /// `chan`. If there is an error, a [`crate::network::error::DHTError`] is
     /// sent instead.
     pub fn put_record(&mut self, mut query: KadPutQuery) {
         let record = Record::new(query.key.clone(), query.value.clone());
@@ -154,7 +154,7 @@ impl DHTBehaviour {
 
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`DHTError`] is sent instead.
+    /// a [`crate::network::error::DHTError`] is sent instead.
     pub fn get_record(
         &mut self,
         key: Vec<u8>,

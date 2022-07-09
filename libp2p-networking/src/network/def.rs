@@ -18,13 +18,12 @@ use std::{
 };
 use tracing::{debug, info};
 
-use super::behaviours::{
+use super::{behaviours::{
     dht::{DHTBehaviour, DHTEvent, KadPutQuery},
     direct_message::{DMBehaviour, DMEvent, DMRequest},
     direct_message_codec::DirectMessageResponse,
     exponential_backoff::ExponentialBackoff,
-    gossip::{GossipBehaviour, GossipEvent},
-};
+    gossip::{GossipBehaviour, GossipEvent} } };
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 
@@ -141,7 +140,7 @@ impl NetworkDef {
 impl NetworkDef {
     /// Publish a key/value to the kv store.
     /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`DHTError`] is
+    /// `chan`. If there is an error, a [`super::error::DHTError`] is
     /// sent instead.
     pub fn put_record(&mut self, query: KadPutQuery) {
         self.dht.put_record(query);
@@ -149,7 +148,7 @@ impl NetworkDef {
 
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`DHTError`] is sent instead.
+    /// a [`super::error::DHTError`] is sent instead.
     pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize) {
         self.dht
             .get_record(key, chan, factor, ExponentialBackoff::default());

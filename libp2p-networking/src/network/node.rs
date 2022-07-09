@@ -99,7 +99,6 @@ impl NetworkNode {
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(Option<PeerId>, Multiaddr)]) {
         info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
-        // FIXME nuke this altogether
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         for (peer_id, addr) in known_peers {
@@ -428,24 +427,20 @@ impl NetworkNode {
                     .map_err(|_e| NetworkError::StreamClosed)?;
             }
             OutgoingConnectionError { peer_id: _, error } => {
-                // FIXME only print an ERROR when it's actually an error
-                // not a "oh we hit the keepalive timeout"
-                error!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
+                info!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
             }
             IncomingConnectionError {
                 local_addr,
                 send_back_addr,
                 error,
             } => {
-                // FIXME only print an ERROR when it's actually an error
-                // not a "oh we hit the keepalive timeout"
-                error!(
+                info!(
                     "INCOMING CONNECTION ERROR: {:?} {:?} {:?}",
                     local_addr, send_back_addr, error
                 );
             }
             ListenerError { listener_id, error } => {
-                error!("LISTENER ERROR {:?} {:?}", listener_id, error);
+                info!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
         }
         Ok(())
