@@ -63,6 +63,7 @@ pub struct NetworkDef {
 
     /// Addresses to connect to at init
     /// DEPRECATED to be removed
+    /// <https://github.com/EspressoSystems/phaselock/issues/289>
     #[behaviour(ignore)]
     pub to_connect_addrs: HashSet<Multiaddr>,
 }

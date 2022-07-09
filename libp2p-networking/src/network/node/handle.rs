@@ -66,7 +66,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .context(NetworkSnafu)?;
 
         let peer_id = network.peer_id();
-        // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
             .start_listen(listen_addr)
             .await
@@ -122,7 +121,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
-        // TODO some heuristic from kad
         let known_ok = true;
         while !(known_ok && connected_ok) {
             sleep(Duration::from_secs(1)).await;
@@ -139,8 +137,14 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 }
 
 impl<S> NetworkNodeHandle<S> {
-    pub async fn lookup_peer(&self, pid: PeerId) -> Result<(), NetworkError> {
-        // FIXME implement this
+    /// TODO implement this
+    /// initiate a peer lookup
+    /// <https://github.com/EspressoSystems/phaselock/issues/286>
+    /// # Panics
+    /// All the time because unimplemented
+    /// # Errors
+    /// when unable to initiate lookup
+    pub async fn lookup_peer(&self, _pid: PeerId) -> Result<(), NetworkError> {
         todo!()
     }
 
@@ -155,7 +159,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
+        let bincode_options = bincode::DefaultOptions::new();
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -356,17 +360,6 @@ impl<S> NetworkNodeHandle<S> {
         let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
-        self.send_network
-            .send_async(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
-    }
-
-    /// Toggle pruning the number of connections
-    /// # Errors
-    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    pub async fn toggle_prune(&self, prune: bool) -> Result<(), NetworkNodeHandleError> {
-        let req = ClientRequest::Pruning(prune);
         self.send_network
             .send_async(req)
             .await

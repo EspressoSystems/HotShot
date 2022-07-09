@@ -112,6 +112,7 @@ impl NetworkNode {
                     }
                 }
                 None => {
+                    // <https://github.com/EspressoSystems/phaselock/issues/290>
                     // TODO actually implement this part
                     // if we don't know the peerid, dial to find out what the peerid is
                 }
@@ -177,7 +178,6 @@ impl NetworkNode {
             };
 
             // Create a custom gossipsub
-            // TODO: Extract these defaults into some sort of config
             let gossipsub_config = GossipsubConfigBuilder::default()
                 .opportunistic_graft_ticks(3)
                 .heartbeat_interval(Duration::from_secs(1))
@@ -199,6 +199,7 @@ impl NetworkNode {
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
                 // TODO do we even need this?
+                // <https://github.com/EspressoSystems/phaselock/issues/42>
                 // if messages are signed at the the consensus level AND the network
                 // level (noise), this feels redundant.
                 MessageAuthenticity::Signed(identity.clone()),
@@ -337,14 +338,10 @@ impl NetworkNode {
                     DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
                     }
-                    Pruning(_is_enabled) => {
-                        // FIXME chop this behaviour
-                    }
                     AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
                     }
                     Prune(pid) => {
-                        //FIXME deal with error handling
                         if self.swarm.disconnect_peer_id(pid).is_err() {
                             error!(
                                 "Peer {:?} could not disconnect from pid {:?}",
@@ -475,6 +472,7 @@ impl NetworkNode {
                     select! {
                         // TODO move this out of th eevent loop and into the handle_client_requests
                         // event loop?
+                        // <https://github.com/EspressoSystems/phaselock/issues/291>
                         _ = sleep(lowest_increment).fuse() => {
                             time_since_print_num_connections += lowest_increment;
                             if time_since_print_num_connections > print_num_connections_thres {

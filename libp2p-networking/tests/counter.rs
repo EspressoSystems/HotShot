@@ -132,7 +132,6 @@ async fn run_request_response_increment<'a>(
 
         let requestee_pid = requestee_handle.peer_id();
 
-        // TODO fix error handling
         stream.next().await.unwrap().unwrap();
         requester_handle
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)

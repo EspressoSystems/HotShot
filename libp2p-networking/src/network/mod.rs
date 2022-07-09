@@ -105,8 +105,6 @@ pub enum ClientRequest {
     DirectRequest(PeerId, Vec<u8>),
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
-    /// disable or enable pruning of connections
-    Pruning(bool),
     /// prune a peer
     Prune(PeerId),
     /// add vec of known peers or addresses
