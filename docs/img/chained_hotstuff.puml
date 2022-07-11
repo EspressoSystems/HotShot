@@ -1,0 +1,35 @@
+@startuml
+
+state View1 as "View 1"
+state View2 as "View 2"
+state ViewN as "View n" {
+
+    state PrepareN as "Prepare n"
+    PrepareN: cmd n
+    --
+    state PrecommitN as "Precommit n-1"
+    --
+    state CommitN as "Commit n-2"
+    --
+    state DecideN as "Decide n-3"
+}
+
+state ViewN1 as "View n+1" {
+    state PrepareN1 as "Prepare n+1"
+    PrepareN1: cmd n+1
+    --
+    state PrecommitN1 as "Precommit n"
+    --
+    state CommitN1 as "Commit n-1"
+    --
+    state DecideN1 as "Decide n-2"
+}
+
+state ViewNK as "View n+k"
+
+[*] -right-> View1
+View1 -right-> View2
+View2 -right[dashed]-> ViewN
+ViewN -right-> ViewN1
+ViewN1 -right[dashed]-> ViewNK
+@enduml

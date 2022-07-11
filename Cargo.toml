@@ -7,11 +7,12 @@ readme = "README.md"
 version = "0.0.7"
 
 [features]
-default = ["demo", "docs"]
+default = ["demo", "docs", "doc-images"]
 # Enable demo/testing logic
 demo = ["blake3", "phaselock-types/demo"]
 # Build the extended documentation
 docs = []
+doc-images = []
 
 [[example]]
 name = "dentry-simulator"
@@ -45,6 +46,7 @@ tracing-error = "0.2.0"
 tracing-futures = "0.2.5"
 tracing-unwrap = "0.9.2"
 tempfile = "3.3.0"
+embed-doc-image = "0.1.4"
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
@@ -63,6 +65,11 @@ tracing-subscriber = { version = "0.3.14", features = ["env-filter", "json"] }
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
 opt-level = 1
+
+[package.metadata.docs.rs]
+# docs.rs uses a nightly compiler, so by instructing it to use our `doc-images` feature we
+# ensure that it will render any images that we may have in inner attribute documentation.
+features = ["doc-images"]
 
 ## Enable LTO for release profile
 [profile.release]

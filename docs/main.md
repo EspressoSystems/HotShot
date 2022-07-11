@@ -1,14 +1,14 @@
-# PhaseLock: A linear time, committee electing, BFT Protocol.
+# Hotshot: A linear time, committee electing, BFT Protocol.
 
 ## Table of contents
   1. [Background](#background)
   2. [Protocol Overview](#protocol-overview)
      1. [Basics](#basics)
         - [View Timeouts](#view-timeouts)
-     2. [Sequential PhaseLock](#sequential)
+     2. [Sequential Hotshot](#sequential)
         - [Leader](#sequential-leader)
         - [Replica](#sequential-replica)
-     3. [Pipelined PhaseLock](#pipelined)
+     3. [Pipelined Hotshot](#pipelined)
   3. [Appendices](#appendices) 
      1. [Definitions](#definitions)
         1. [Quorum Certificate](#quorum-certificate)
@@ -17,22 +17,22 @@
 
 # Background
 
-PhaseLock is a hybrid, committee electing, Proof of Stake protocol for the partially synchronous model that exhibits
+Hotshot is a hybrid, committee electing, Proof of Stake protocol for the partially synchronous model that exhibits
 optimistic responsiveness and linear communication footprint.
 
-PhaseLock's construction borrows heavily from the construction of [Hotstuff](https://arxiv.org/abs/1803.05069) and
+Hotshot's construction borrows heavily from the construction of [Hotstuff](https://arxiv.org/abs/1803.05069) and
 [Algorand](https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf), in many senses being a synthesis of
 Hotstuff's protocol with Algorand's sortition.
 
 # Protocol Overview
 
-PhaseLock comes in two variants, [Pipelined Phaselock](#pipelined) and [Sequential Phaselock](#sequential).
-Sequential PhaseLock is the simpler of the two variants, and is the basal form, from which Pipelined PhaseLock is
+Hotshot comes in two variants, [Pipelined Hotshot](#pipelined) and [Sequential Hotshot](#sequential).
+Sequential Hotshot is the simpler of the two variants, and is the basal form, from which Pipelined Hotshot is
 derived, so it will be discussed first.
 
 ## Basics
 
-The operation of PhaseLock is divided in to a sequence of discrete epoch, referred to as
+The operation of Hotshot is divided in to a sequence of discrete epoch, referred to as
 'views'. Each view is assigned an integer index (represented as a [`u64`]) starting with 0, which is
 monotonically increasing.
 
@@ -66,11 +66,16 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
-Sequential PhaseLock does not currently support committee election or dynamically updating the
-membership list, instead using a predefined list of participant nodes with equal weights. Sequential
-PhaseLock is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
+![basic_hotstuff][basic_hotstuff]
 
-Each view of Sequential PhaseLock is divided into 4 stages the specifics of which depend on if the
+*Figure 1: Sequential phaselock. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.*
+
+
+Sequential Hotshot does not currently support committee election or dynamically updating the
+membership list, instead using a predefined list of participant nodes with equal weights. Sequential
+Hotshot is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
+
+Each view of Sequential Hotshot is divided into 4 stages the specifics of which depend on if the
 node is the leader or a replica. Upon either reviving a commit QC in a round, or the round timing
 out, a node will calculate the next leader, and send a NewView message for the next view number to
 it, tagged with the nodes current prepareQC.
@@ -137,7 +142,47 @@ it, tagged with the nodes current prepareQC.
   * Waits for the Commit QC from the node
   * Executes the commands between the previously committed Leaf and the one in the proposal for this
     view
+
 ## Pipelined
+
+![chained_hotstuff][chained_hotstuff]
+
+*Figure 2: Pipelined Hotshot. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.*
+
+
+One of the limitations of the sequential version of Hotshot is that 3 rounds of interactions are needed before
+a leader can commit a block. In order to increase the throughput and latency one can do the following:
+* Have replicas handle the different stages (_Prepare_, _Pre-Commit_, _Commit_, _Decide_) yielding an update of the blockchain 
+state in "parallel" for consecutive/chained proposals during each view.
+* Let leaders delegate the responsibility to move their initial proposal (Prepare) to the next stages 
+to the subsequent leaders/groups of replicas.
+
+So in practice during each view *n*, a leader will propose a new extension to the blockchain, while
+the replicas will update their internal state based on proposals made during the view *n* but also views *n-1*, *n-2*, and *n-3*.
+As shown in Figure 2, during *view n* the following happens:
+1. The leader proposes an extension *cmd n* to the state. This extension is based on the node propose by the previous leader during view *n-1*
+2. Each replica send their vote to the next view leader for the new proposal.
+3. If it is possible, each replica will run the instructions of the *pre-commit* stage for the proposal made during view *n-1*.
+4. If it is possible, each replica will run the instructions of the  *commit* stage for the proposal made during view *n-2*.
+5. If it is possible, each replica will run the instructions of the *decide* stage for the proposal during view *n-3*.
+
+With the pipelined protocol, in case there are no failures, a new block will be committed at the end
+of each view, which in this case involves only one interaction between each replica and the leader instead of
+3 for the sequential version.
+
+## Cryptographic sortition
+
+In order to make Hotshot permissionless, we rely on
+ the cryptographic sortition algorithm introduced in the [Algorand](https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf) paper
+(see Section 5).
+
+The goal of this algorithm is to dynamically select a committee of small size in order to produce the next view.
+Members of this committee use a Verifiable Random Function (VRF) in order to prove they have been elected for participating in the view.
+The probability of being elected is proportional to the stake of each member.
+
+Note that in Hotshot the leader is not chosen by cryptographic sortition like in Algorand but defined in a deterministic manner
+    as in Hotstuff.
+Thus, our implementation of cryptographic sortition slightly differs from the Algorand's one (in particular the VRF does not take the *role* as input).
 
 # Appendices
 
@@ -156,16 +201,16 @@ of faulty committee seats the network can tolerate.
 
 ### Safe Node Predicate
 
-The safe node predicate can be defined using the following rust-like psuedo code
+The safe node predicate can be defined using the following rust-like pseudo-code
 
 ```ignore
 fn safe_node(
-    phase_lock: PhaseLock,
+    hot_shot: Hotshot,
     proposal_node: Leaf,
     proposal_justifcation: QuorumCertificate,
 ) -> bool {
-    let saftey_rule = proposal_node.extends_from(phase_lock.locked_qc);
-    let liveness_rule = proposal_justifcation.view_number > phase_lock.locked_qc;
+    let saftey_rule = proposal_node.extends_from(hot_shot.locked_qc);
+    let liveness_rule = proposal_justifcation.view_number > hot_shot.locked_qc;
     saftey_rule || liveness_rule
 }
 ```
