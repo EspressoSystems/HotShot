@@ -162,7 +162,15 @@ pub async fn new_libp2p_network(
         .build()
         .unwrap();
     let bs: Vec<(Option<PeerId>, Multiaddr)> = bs.into_iter().map(|addr| (None, addr)).collect();
-    Libp2pNetwork::new(config, pubkey, Arc::new(RwLock::new(bs)), node_id as usize).await
+    let bs_len = bs.len();
+    Libp2pNetwork::new(
+        config,
+        pubkey,
+        Arc::new(RwLock::new(bs)),
+        bs_len,
+        node_id as usize,
+    )
+    .await
 }
 
 #[async_std::main]

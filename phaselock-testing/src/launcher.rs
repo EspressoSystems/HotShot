@@ -63,7 +63,7 @@ impl<
             // FIXME pass in number of bootstrap nodes from config
             // instead of just assuming they're 3
             // <https://github.com/EspressoSystems/phaselock/issues/224>
-            network: NETWORK::generator(expected_node_count, 3),
+            network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
                 <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
             }),

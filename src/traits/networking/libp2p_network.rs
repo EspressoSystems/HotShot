@@ -82,6 +82,8 @@ struct Libp2pNetworkInner<
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
+    /// bootstrap
+    bootstrap_addrs_len: usize,
     /// whether or not the network is ready to send
     is_ready: Arc<AtomicBool>,
     /// set of recently seen peers
@@ -127,6 +129,11 @@ impl<
         // let start_port = 5000;
         Box::new({
             move |node_id| {
+                error!(
+                    "GENERATOR: Node id {:?}, is bootstrap: {:?}",
+                    node_id,
+                    node_id < num_bootstrap as u64
+                );
                 let addr =
                     // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
                     Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", 5000 + node_id)).unwrap();
@@ -170,9 +177,15 @@ impl<
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 block_on(async move {
-                    Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref, node_id as usize)
-                        .await
-                        .unwrap()
+                    Libp2pNetwork::new(
+                        config,
+                        pubkey,
+                        bootstrap_addrs_ref,
+                        num_bootstrap,
+                        node_id as usize,
+                    )
+                    .await
+                    .unwrap()
                 })
             }
         })
@@ -215,6 +228,7 @@ impl<
         config: NetworkNodeConfig,
         pk: P,
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs_len: usize,
         id: usize,
     ) -> Result<Libp2pNetwork<M, P>, NetworkError> {
         let network_handle = Arc::new(
@@ -230,7 +244,9 @@ impl<
         ) {
             let addr = network_handle.listen_addr();
             let pid = network_handle.peer_id();
+            error!("INSERTING BOOTSTRAP ADDR!!");
             bootstrap_addrs.write().await.push((Some(pid), addr));
+            error!("INSERTED BOOTSTRAP ADDR!!");
         }
 
         let mut pubkey_pid_map = BiHashMap::new();
@@ -250,6 +266,7 @@ impl<
                 direct_recv,
                 pk,
                 broadcast_send: broadcast_send.clone(),
+                bootstrap_addrs_len,
                 bootstrap_addrs,
                 is_ready: Arc::new(AtomicBool::new(false)),
                 recently_updated_peers: DashSet::default(),
@@ -266,18 +283,28 @@ impl<
 
     /// Initiates connection to the outside world
     fn spawn_connect(&self) {
-        let handle = self.inner.handle.clone();
         let pk = self.inner.pk.clone();
-        let peer_id = handle.peer_id();
-        block_on(async move {
-            let bs_addrs = self.inner.bootstrap_addrs.read().await.to_vec().clone();
-            self.add_known_peers(bs_addrs.clone()).await.unwrap();
-            info!("added peers! {:?} to {:?}", bs_addrs, peer_id);
-        });
+        let bootstrap_ref = self.inner.bootstrap_addrs.clone();
+        let num_bootstrap = self.inner.bootstrap_addrs_len;
+        let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
+                let bs_addrs = loop {
+                    let bs_addrs = bootstrap_ref.read().await.to_vec().clone();
+                    if bs_addrs.len() == num_bootstrap {
+                        break bs_addrs;
+                    }
+                    warn!(
+                        "bs addr len {:?}, number of bootstrap expected {:?}",
+                        bs_addrs.len(),
+                        num_bootstrap
+                    );
+                    sleep(Duration::new(1, 0)).await;
+                };
+                handle.add_known_peers(bs_addrs.clone()).await.unwrap();
+
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
                 let connected = NetworkNodeHandle::wait_to_connect(
@@ -325,7 +352,7 @@ impl<
     }
 
     /// make network aware of known peers
-    async fn add_known_peers(
+    async fn _add_known_peers(
         &self,
         known_peers: Vec<(Option<PeerId>, Multiaddr)>,
     ) -> Result<(), NetworkError> {
