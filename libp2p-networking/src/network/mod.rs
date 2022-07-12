@@ -29,12 +29,14 @@ use libp2p::{
     identity::Keypair,
     mplex, noise,
     request_response::ResponseChannel,
-    tcp, Multiaddr, PeerId, Transport,
+    tcp,
+    yamux::{WindowUpdateMode, YamuxConfig},
+    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, info_span, instrument, Instrument};
 
 /// this is mostly to estimate how many network connections
@@ -161,6 +163,8 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
 
 /// Generate authenticated transport, copied from `development_transport`
 /// <http://noiseprotocol.org/noise.html#payload-security-properties> for definition of XX
+/// and multiplexing from example
+/// <https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs>
 /// # Errors
 /// could not sign the noise key with `identity`
 #[instrument(skip(identity))]
@@ -180,7 +184,18 @@ pub async fn gen_transport(
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&identity)
         .expect("Signing libp2p-noise static DH keypair failed.");
-    let mplex_cfg = mplex::MplexConfig::default();
+    let multiplexing_config = {
+        let mut mplex_config = mplex::MplexConfig::new();
+        mplex_config.set_max_buffer_behaviour(mplex::MaxBufferBehaviour::Block);
+        mplex_config.set_max_buffer_size(usize::MAX);
+
+        let mut yamux_config = YamuxConfig::default();
+        yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
+
+        upgrade::SelectUpgrade::new(yamux_config, mplex_config)
+            .map_inbound(StreamMuxerBox::new)
+            .map_outbound(StreamMuxerBox::new)
+    };
 
     Ok(transport
         .upgrade(upgrade::Version::V1)
@@ -190,7 +205,9 @@ pub async fn gen_transport(
         // useful because only one connection opened
         // with multiple substreams
         // https://docs.libp2p.io/concepts/stream-multiplexing/
-        .multiplex(mplex_cfg)
+        .multiplex(multiplexing_config)
+        .timeout(Duration::from_secs(20))
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
         .boxed())
 }
 

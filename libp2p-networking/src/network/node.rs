@@ -39,6 +39,7 @@ use libp2p::{
     Multiaddr, PeerId, Swarm,
 };
 
+use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
 use std::{
     collections::{HashMap, HashSet},
@@ -101,7 +102,9 @@ impl NetworkNode {
         info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
-        for (peer_id, addr) in known_peers {
+        let mut shuffled = known_peers.iter().collect::<Vec<_>>();
+        shuffled.shuffle(&mut thread_rng());
+        for (peer_id, addr) in shuffled {
             match peer_id {
                 Some(peer_id) => {
                     // if we know the peerid, add address.

@@ -22,13 +22,14 @@ use tracing::instrument;
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
+        num_bootstrap_nodes: 15,
         timeout_ratio: (1, 1),
-        total_nodes: 20,
-        start_nodes: 20,
+        total_nodes: 50,
+        start_nodes: 50,
         num_succeeds: 5,
         txn_ids: Right(1),
         next_view_timeout: 2000,
-        start_delay: 1000,
+        start_delay: 20000,
         ..GeneralTestDescriptionBuilder::default()
     };
 
