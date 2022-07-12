@@ -26,6 +26,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
+        with:
+          sharedKey: HotShot
 
       - name: Audit
         run: cargo audit --deny warnings
