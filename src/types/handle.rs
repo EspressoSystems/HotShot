@@ -203,7 +203,8 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
 
         // timeout for first event is longer in case
         // there is a delta before other nodes are spun up
-        let mut timeout = Duration::from_secs(10);
+        // this is really long to satisfy CI
+        let mut timeout = Duration::from_secs(300);
 
         // drain all events from this node
         loop {
