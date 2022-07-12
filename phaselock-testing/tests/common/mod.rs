@@ -542,7 +542,7 @@ macro_rules! cross_tests {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $NETWORK {
-            use crate::*;
+            use $crate::*;
             cross_tests!($NETWORK, [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
         }
         cross_tests!([ $($NETWORKS)*  ], [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)* );
@@ -555,7 +555,7 @@ macro_rules! cross_tests {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $STORAGE {
-            use crate::*;
+            use $crate::*;
             cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
         }
         cross_tests!($NETWORK, [ $($STORAGES),* ], [ $($BLOCKS),+ ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, args: $($args)*);
@@ -568,7 +568,7 @@ macro_rules! cross_tests {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $BLOCK {
-            use crate::*;
+            use $crate::*;
             cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
         }
         cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS),* ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, args: $($args)*);
@@ -581,7 +581,7 @@ macro_rules! cross_tests {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $STATE {
-            use crate::*;
+            use $crate::*;
             cross_tests!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e, keep: $keep, args: $($args)*);
         }
         cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)* ], $fn_name, $e, keep: $keep, args: $($args)*);
@@ -614,7 +614,7 @@ macro_rules! cross_all_types {
         #[cfg(test)]
         #[macro_use]
         pub mod $fn_name {
-            use crate::*;
+            use $crate::*;
 
             cross_tests!(
                 [ MemoryNetwork ],
@@ -647,7 +647,7 @@ macro_rules! cross_all_types_proptest {
         #[cfg(test)]
         #[macro_use]
         pub mod $fn_name {
-            use crate::*;
+            use $crate::*;
 
             cross_tests!(
                 [ MemoryNetwork Libp2pNetwork ],
