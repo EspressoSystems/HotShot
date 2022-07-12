@@ -1,0 +1,32 @@
+@startuml
+
+state View1 as "View 1"
+state View2 as "View 2"
+state ViewN as "View n" {
+
+    state PreCommit as "Pre-Commit"
+
+    Prepare -right-> PreCommit
+    PreCommit -right-> Commit
+    Commit -right-> Decide
+
+}
+
+state ViewN1 as "View n+1" {
+
+    state PreCommit1 as "Pre-Commit"
+
+    Prepare1 -right-> PreCommit1
+    PreCommit1 -right-> Commit1
+    Commit1 -right-> Decide1
+
+}
+
+state ViewNK as "View n+k"
+
+[*] -right-> View1
+View1 -right-> View2
+View2 -right[dashed]-> ViewN
+ViewN -right-> ViewN1
+ViewN1 -right[dashed]-> ViewNK
+@enduml

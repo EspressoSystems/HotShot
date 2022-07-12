@@ -66,6 +66,11 @@ base value for timeouts higher than is strictly necessary.
 
 ## Sequential
 
+![basic_hotstuff][basic_hotstuff]
+
+*Figure 1: Sequential HotShot. During each view, a new leader is elected and four stages are required before a replica can extend its blockchain with one block.*
+
+
 Sequential HotShot does not currently support committee election or dynamically updating the
 membership list, instead using a predefined list of participant nodes with equal weights. Sequential
 HotShot is essentially identical to [Basic HotStuff](https://arxiv.org/pdf/1803.05069.pdf).
@@ -137,7 +142,47 @@ it, tagged with the nodes current prepareQC.
   * Waits for the Commit QC from the node
   * Executes the commands between the previously committed Leaf and the one in the proposal for this
     view
+
 ## Pipelined
+
+![chained_hotstuff][chained_hotstuff]
+
+*Figure 2: Pipelined HotShot. The four stages (Prepare,Pre-Commit, Commit and Decide) are run in parallel across consecutive proposals.*
+
+
+One of the limitations of the sequential version of HotShot is that 3 rounds of interactions are needed before
+a leader can commit a block. In order to increase the throughput and latency one can do the following:
+* Have replicas handle the different stages (_Prepare_, _Pre-Commit_, _Commit_, _Decide_) yielding an update of the blockchain 
+state in "parallel" for consecutive/chained proposals during each view.
+* Let leaders delegate the responsibility to move their initial proposal (Prepare) to the next stages 
+to the subsequent leaders/groups of replicas.
+
+So in practice during each view *n*, a leader will propose a new extension to the blockchain, while
+the replicas will update their internal state based on proposals made during the view *n* but also views *n-1*, *n-2*, and *n-3*.
+As shown in Figure 2, during *view n* the following happens:
+1. The leader proposes an extension *cmd n* to the state. This extension is based on the node propose by the previous leader during view *n-1*
+2. Each replica send their vote to the next view leader for the new proposal.
+3. If it is possible, each replica will run the instructions of the *pre-commit* stage for the proposal made during view *n-1*.
+4. If it is possible, each replica will run the instructions of the  *commit* stage for the proposal made during view *n-2*.
+5. If it is possible, each replica will run the instructions of the *decide* stage for the proposal during view *n-3*.
+
+With the pipelined protocol, in case there are no failures, a new block will be committed at the end
+of each view, which in this case involves only one interaction between each replica and the leader instead of
+3 for the sequential version.
+
+## Cryptographic sortition
+
+In order to make HotShot permissionless, we rely on
+ the cryptographic sortition algorithm introduced in the [Algorand](https://people.csail.mit.edu/nickolai/papers/gilad-algorand-eprint.pdf) paper
+(see Section 5).
+
+The goal of this algorithm is to dynamically select a committee of small size in order to produce the next view.
+Members of this committee use a Verifiable Random Function (VRF) in order to prove they have been elected for participating in the view.
+The probability of being elected is proportional to the stake of each member.
+
+Note that in HotShot the leader is not chosen by cryptographic sortition like in Algorand but defined in a deterministic manner
+    as in Hotstuff.
+Thus, our implementation of cryptographic sortition slightly differs from the Algorand's one (in particular the VRF does not take the *role* as input).
 
 # Appendices
 
@@ -148,24 +193,24 @@ it, tagged with the nodes current prepareQC.
 A Quorum Certificate is a threshold signature of a [`Leaf`](crate::data::Leaf), composed of
 signatures from at least `2f + 1` nodes.
 
-In the case of sequential hotshot, or pipelined hotshot without committee election, `f` is
+In the case of sequential HotShot, or pipelined HotShot without committee election, `f` is
 defined to be the maximum number of faulty nodes the network can tolerate.
 
-In the case of pipelined hotshot with committee election, `f` is defined to be the maximum number
+In the case of pipelined HotShot with committee election, `f` is defined to be the maximum number
 of faulty committee seats the network can tolerate.
 
 ### Safe Node Predicate
 
-The safe node predicate can be defined using the following rust-like psuedo code
+The safe node predicate can be defined using the following rust-like pseudo-code
 
 ```ignore
 fn safe_node(
-    phase_lock: HotShot,
+    hot_shot: HotShot,
     proposal_node: Leaf,
     proposal_justifcation: QuorumCertificate,
 ) -> bool {
-    let saftey_rule = proposal_node.extends_from(phase_lock.locked_qc);
-    let liveness_rule = proposal_justifcation.view_number > phase_lock.locked_qc;
+    let saftey_rule = proposal_node.extends_from(hot_shot.locked_qc);
+    let liveness_rule = proposal_justifcation.view_number > hot_shot.locked_qc;
     saftey_rule || liveness_rule
 }
 ```
