@@ -75,8 +75,8 @@ use tracing::{debug, error, info, instrument, trace, warn};
 /// Reexport rand crate
 pub use rand;
 // Internal
-/// Reexport error type
 pub use phaselock_types::error::PhaseLockError;
+pub use tasks::RoundRunnerState;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
