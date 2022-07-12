@@ -279,6 +279,15 @@ impl NetworkNode {
                 #[allow(clippy::enum_glob_use)]
                 use ClientRequest::*;
                 match msg {
+                    LookupPeer(pid, chan) => {
+                        self.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
+                    }
+                    GetRoutingTable(chan) => {
+                        self.swarm.behaviour_mut().dht.print_routing_table();
+                        if chan.send(()).is_err() {
+                            warn!("Tried to notify client but client not tracking anymore");
+                        }
+                    }
                     PutDHT { key, value, notify } => {
                         let query = KadPutQuery {
                             progress: DHTProgress::NotStarted,

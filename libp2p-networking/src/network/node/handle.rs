@@ -137,15 +137,32 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 }
 
 impl<S> NetworkNodeHandle<S> {
-    /// TODO implement this
-    /// initiate a peer lookup
-    /// <https://github.com/EspressoSystems/phaselock/issues/286>
-    /// # Panics
-    /// All the time because unimplemented
+    /// Print out the routing table used by kademlia
+    /// NOTE: only for debugging purposes currently
     /// # Errors
-    /// when unable to initiate lookup
-    pub async fn lookup_peer(&self, _pid: PeerId) -> Result<(), NetworkError> {
-        todo!()
+    /// if the client has stopped listening for a response
+    pub async fn print_routing_table(&self) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetRoutingTable(s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
+    }
+
+    /// Look up a peer's addresses in kademlia
+    /// NOTE: this should always be called before any `request_response` is initiated
+    /// # Errors
+    /// if the client has stopped listening for a response
+    pub async fn lookup_pid(&self, peer_id: PeerId) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::LookupPeer(peer_id, s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
     /// Insert a record into the kademlia DHT

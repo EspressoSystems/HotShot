@@ -28,6 +28,8 @@ use super::exponential_backoff::ExponentialBackoff;
 /// - bootstrapping into the network
 /// - peer discovery
 pub struct DHTBehaviour {
+    /// in progress queries for nearby peers
+    pub in_progress_get_closest_peers: HashMap<QueryId, Sender<()>>,
     /// bootstrap nodes
     pub bootstrap_nodes: HashMap<PeerId, HashSet<Multiaddr>>,
     /// List of kademlia events
@@ -109,7 +111,30 @@ impl DHTBehaviour {
                 state: State::NotStarted,
                 backoff: ExponentialBackoff::default(),
             },
+            in_progress_get_closest_peers: HashMap::default(),
         }
+    }
+
+    /// query a peer (e.g. obtain its address if it exists)
+    pub fn lookup_peer(&mut self, peer_id: PeerId, chan: Sender<()>) {
+        let qid = self.kadem.get_closest_peers(peer_id);
+        self.in_progress_get_closest_peers.insert(qid, chan);
+    }
+
+    /// print out the routing table to stderr
+    pub fn print_routing_table(&mut self) {
+        let mut err = format!("KBUCKETS: PID: {:?}, ", self.peer_id);
+        let v = self.kadem.kbuckets().collect::<Vec<_>>();
+        for i in v {
+            for j in i.iter() {
+                let s = format!(
+                    "node: key: {:?}, val {:?}, status: {:?}",
+                    j.node.key, j.node.value, j.status
+                );
+                err.push_str(&s);
+            }
+        }
+        error!("{:?}", err);
     }
 
     /// Passthru to kademlia
@@ -295,21 +320,34 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::GetClosestPeers(r),
-                ..
+                id: query_id,
+                stats,
             } => match r {
-                Ok(GetClosestPeersOk { key, peers: _ }) => {
+                Ok(GetClosestPeersOk { key, peers }) => {
+                    if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
+                        if chan.send(()).is_err() {
+                            warn!("DHT: finished query but client no longer interested");
+                        };
+                    } else {
+                        self.random_walk.state = State::NotStarted;
+                        self.random_walk.backoff.start_next(true);
+                    }
                     info!(
-                        "peer {:?} successfully completed get closest peers for {:?}",
-                        self.peer_id, key
+                        "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
+                        self.peer_id, key, peers
                     );
                 }
                 Err(e) => {
+                    if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
+                        let _ = chan.send(());
+                    } else {
+                        self.random_walk.state = State::NotStarted;
+                        self.random_walk.backoff.start_next(true);
+                    }
                     warn!(
-                        "peer {:?} failed to get closest peers with {:?}",
-                        self.peer_id, e
+                        "peer {:?} failed to get closest peers with {:?} and stats {:?}",
+                        self.peer_id, e, stats
                     );
-                    self.random_walk.state = State::NotStarted;
-                    self.random_walk.backoff.start_next(false);
                 }
             },
             KademliaEvent::OutboundQueryCompleted {

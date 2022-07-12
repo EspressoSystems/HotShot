@@ -512,6 +512,12 @@ impl<
                 }
             }
         };
+
+        self.inner
+            .handle
+            .lookup_pid(pid)
+            .await
+            .map_err(Into::<NetworkError>::into)?;
         self.inner
             .handle
             .direct_request(pid, &message)

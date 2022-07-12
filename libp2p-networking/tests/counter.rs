@@ -21,8 +21,8 @@ pub type CounterState = u32;
 
 const NUM_ROUNDS: usize = 100;
 
-const TOTAL_NUM_PEERS_COVERAGE: usize = 10;
-const NUM_OF_BOOTSTRAP_COVERAGE: usize = 5;
+const TOTAL_NUM_PEERS_COVERAGE: usize = 50;
+const NUM_OF_BOOTSTRAP_COVERAGE: usize = 15;
 const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
 const TOTAL_NUM_PEERS_STRESS: usize = 50;
@@ -348,9 +348,14 @@ async fn run_request_response_increment_all(
 ) {
     let requestee_handle = get_random_handle(handles);
     requestee_handle.modify_state(|s| *s += 1).await;
-    error!("REQUESTEE IS {:?}", requestee_handle.peer_id());
+    info!("RR REQUESTEE IS {:?}", requestee_handle.peer_id());
     let mut futs = Vec::new();
     for (_i, h) in handles.iter().enumerate() {
+        if h.lookup_pid(requestee_handle.peer_id()).await.is_err() {
+            error!("ERROR LOOKING UP REQUESTEE ADDRS");
+        }
+        // NOTE uncomment if debugging
+        // let _ = h.print_routing_table().await;
         // skip `requestee_handle`
         if h.peer_id() != requestee_handle.peer_id() {
             let requester_handle = h.clone();

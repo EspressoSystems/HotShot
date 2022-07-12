@@ -43,7 +43,10 @@ impl ExponentialBackoff {
         }
         // failure
         else {
-            self.timeout *= self.backoff_factor;
+            // note we want to prevent overflow.
+            if let Some(r) = self.timeout.checked_mul(self.backoff_factor) {
+                self.timeout = r;
+            }
             self.started = Some(Instant::now());
         }
     }
