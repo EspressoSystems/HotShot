@@ -140,7 +140,7 @@ impl<
                 let privkey = P::generate_test_key(node_id);
                 let pubkey = P::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
-                let replication_factor = NonZeroUsize::new(expected_node_count - 2).unwrap();
+                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         // NOTICE the implicit assumption that bootstrap is less
@@ -149,7 +149,7 @@ impl<
                             mesh_n_high: expected_node_count,
                             mesh_n_low: 3,
                             mesh_outbound_min: 2,
-                            mesh_n: (expected_node_count - 1),
+                            mesh_n: (expected_node_count / 2 + 2),
                         }))
                         .replication_factor(replication_factor)
                         .to_connect_addrs(HashSet::default())
@@ -164,9 +164,9 @@ impl<
                         // for more. That is fine.
                         .mesh_params(Some(MeshParams {
                             mesh_n_high: 15,
-                            mesh_n_low: 8,
+                            mesh_n_low: 5,
                             mesh_outbound_min: 4,
-                            mesh_n: 12,
+                            mesh_n: 8,
                         }))
                         .replication_factor(replication_factor)
                         .to_connect_addrs(HashSet::default())
