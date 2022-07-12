@@ -33,6 +33,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
+        with:
+          sharedKey: HotShot
 
       # sanity check that repository builds with docker
       - name: Build
