@@ -21,12 +21,12 @@ pub type CounterState = u32;
 
 const NUM_ROUNDS: usize = 100;
 
-const TOTAL_NUM_PEERS_COVERAGE: usize = 100;
-const NUM_OF_BOOTSTRAP_COVERAGE: usize = 25;
+const TOTAL_NUM_PEERS_COVERAGE: usize = 10;
+const NUM_OF_BOOTSTRAP_COVERAGE: usize = 5;
 const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
 const TOTAL_NUM_PEERS_STRESS: usize = 100;
-const NUM_OF_BOOTSTRAP_STRESS: usize = 15;
+const NUM_OF_BOOTSTRAP_STRESS: usize = 25;
 const TIMEOUT_STRESS: Duration = Duration::from_secs(60);
 
 const DHT_KV_PADDING: usize = 1024;
