@@ -108,11 +108,12 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
             swarm_msg = app.recv_swarm.recv_async() => {
                 if let Ok(res) = swarm_msg {
                     match res {
-                        DirectRequest(m, _,  _) | GossipMsg(m) => {
+                        DirectRequest(m, _,  _) | GossipMsg(m, _) => {
                             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                             let msg : Message = bincode_options.deserialize(&m)?;
                             app.message_buffer.lock().push_back(msg);
                         },
+                        IsBootstrapped |
                         DirectResponse(..) => { /* NOTE unimplemented in this example */ }
                     }
                 }
