@@ -84,7 +84,7 @@ impl Netns {
 pub struct LossyNetwork {
     /// Ethernet interface that is connected to WAN
     eth_name: String,
-    /// metadata describing how to isolate. Only used when [`env_type`] is [`Metal`]
+    /// metadata describing how to isolate. Only used when `env_type` is `Metal`
     isolation_config: Option<IsolationConfig>,
     /// The network loss conditions
     netem_config: NetemQdisc,
@@ -156,11 +156,11 @@ impl Default for IsolationConfig {
     fn default() -> Self {
         Self {
             counter_ns: "COUNTER_NS".to_string(),
-            bridge_addr: "172.18.0.1".to_string(),
+            bridge_addr: "172.13.0.1".to_string(),
             bridge_name: "br0".to_string(),
             veth_name: "veth1".to_string(),
             veth2_name: "veth2".to_string(),
-            veth2_addr: "172.18.0.2".to_string(),
+            veth2_addr: "172.13.0.2".to_string(),
         }
     }
 }
@@ -179,16 +179,16 @@ pub struct IsolationConfig {
     /// that lives in the default/root network namespace
     veth_name: String,
     /// the virtual ethernet interface name
-    /// that lives in [`counter_ns`]
+    /// that lives in `counter_ns`
     veth2_name: String,
     /// the virtual ethernet interface ip address
-    /// that lives in [`counter_ns`]
+    /// that lives in `counter_ns`
     veth2_addr: String,
 }
 
 impl IsolationConfig {
     /// Prepares server for latency by:
-    /// - creating a separate network namespace denoted [`counter_ns`]
+    /// - creating a separate network namespace denoted `counter_ns`
     /// - creating a virtual ethernet device (veth2) in this namespace
     /// - bridging the virtual ethernet device within COUNTER_NS to the default/root network namespace
     /// - adding firewall rules to allow traffic to flow between the network bridge and outside world

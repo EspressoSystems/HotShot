@@ -42,9 +42,6 @@ pub enum NetworkError {
         message: String,
     },
     /// Error if one of the channels to or from the swarm is closed
-    /// FIXME ideally include more information
-    /// run into lifetime errors when making NetworkError generic over
-    /// the type of message.
     StreamClosed,
     /// Error publishing a gossipsub message
     PublishError {

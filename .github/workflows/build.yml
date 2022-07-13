@@ -40,7 +40,7 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          ulimit -n 4096
+          ulimit -n 16384
           cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-threads=1
         timeout-minutes: 15
         env:
@@ -48,8 +48,8 @@ jobs:
 
       - name: Stress tests for all crates in workspace
         run: |
-          ulimit -n 4096
+          ulimit -n 16384
           cargo test --verbose --release --workspace --all-features --no-fail-fast -- test_stress --test-threads=1 --ignored
-        timeout-minutes: 15
+        timeout-minutes: 30
         env:
           RUST_BACKTRACE: 1

@@ -15,12 +15,15 @@ color-eyre = "0.6.2"
 crossterm = { version = "0.24.0", features = ["event-stream"] }
 flume = "0.10.12"
 futures = "0.3.21"
-libp2p = { version = "0.45.1", features = ["serde"] }
+libp2p = { version = "0.46.1", features = ["serde"] }
 parking_lot = "0.12.0"
 serde = { version = "1.0.139", features = ["derive"] }
 serde_json = "1.0.82"
 snafu = "0.7.0"
+structopt = "0.3.26"
 tracing = "0.1.32"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.14", features = ["env-filter", "json"] }
 tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.56"
@@ -29,7 +32,6 @@ custom_debug = "0.5"
 phaselock-utils = { path = "../phaselock-utils", version = "0.0.7", features = ["logging-utils"] }
 phaselock-types = { path = "../phaselock-types", version = "0.0.7"}
 either = { version = "1.7.0" }
-
 
 # Feature dependencies
 
@@ -51,6 +53,3 @@ netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.g
 webui = ["tide"]
 # this only has effect on linux
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
-
-[dev-dependencies]
-structopt = "0.3.26"
