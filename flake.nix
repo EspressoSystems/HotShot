@@ -147,6 +147,11 @@
              buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
+          debugShell = pkgs.mkShell {
+            buildInputs =
+              with pkgs; [ fenixStable lldb ] ++ buildDeps;
+          };
+
         };
         # TODO uncomment when fetching dependencies is unborked
         # packages = pkgsAndChecksAttrSet.packages;
