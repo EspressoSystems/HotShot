@@ -1,25 +1,24 @@
-use crate::{
-    direct_message::DirectMessageResponse,
-    network::{
-        error::DHTError, gen_multiaddr, ClientRequest, ConnectionData, NetworkError, NetworkEvent,
-        NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilderError,
-    },
+use crate::network::{
+    behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
+    ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    NetworkNodeConfigBuilderError,
 };
 use async_std::{
     future::TimeoutError,
     prelude::FutureExt,
     sync::{Condvar, Mutex},
+    task::sleep,
 };
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
-use hotshot_utils::{subscribable_mutex::SubscribableMutex, subscribable_rwlock::ThreadedReadView};
+use hotshot_utils::subscribable_mutex::SubscribableMutex;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -46,10 +45,6 @@ pub struct NetworkNodeHandle<S> {
     listen_addr: Multiaddr,
     /// the peer id of the networkbehaviour
     peer_id: PeerId,
-
-    /// the connection metadata associated with the networkbehaviour
-    connection_data: Arc<dyn ThreadedReadView<ConnectionData>>,
-
     /// human readable id
     id: usize,
 
@@ -70,14 +65,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .await
             .context(NetworkSnafu)?;
 
-        let connection_data = network.connection_data();
-
         let peer_id = network.peer_id();
-        // TODO separate this into a separate function so you can make everyone know about everyone
         let listen_addr = network
             .start_listen(listen_addr)
             .await
             .context(NetworkSnafu)?;
+        info!("LISTEN ADDRESS IS {:?}", listen_addr);
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
         let (kill_switch, recv_kill) = flume::bounded(1);
 
@@ -92,7 +85,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             recv_kill,
             listen_addr,
             peer_id,
-            connection_data,
             id,
             webui_listeners: Arc::default(),
         })
@@ -129,16 +121,14 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
-        let mut known_ok = false;
-        let chan = node.connection_data.subscribe().await;
-        while !(known_ok && connected_ok) {
-            let connection_data = chan
-                .recv_async()
-                .await
-                .map_err(|_| NetworkNodeHandleError::RecvError)?;
-            connected_ok = connection_data.connected_peers.len() >= num_peers;
-            known_ok = connection_data.known_peers.len() >= num_peers;
-            node.notify_webui().await;
+        while !connected_ok {
+            sleep(Duration::from_secs(1)).await;
+            let num_connected = node.num_connected().await.unwrap();
+            info!(
+                "WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}",
+                num_connected, node_idx
+            );
+            connected_ok = num_connected > num_peers;
         }
         Ok(())
     }
@@ -150,6 +140,34 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 }
 
 impl<S> NetworkNodeHandle<S> {
+    /// Print out the routing table used by kademlia
+    /// NOTE: only for debugging purposes currently
+    /// # Errors
+    /// if the client has stopped listening for a response
+    pub async fn print_routing_table(&self) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetRoutingTable(s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
+    }
+
+    /// Look up a peer's addresses in kademlia
+    /// NOTE: this should always be called before any `request_response` is initiated
+    /// # Errors
+    /// if the client has stopped listening for a response
+    pub async fn lookup_pid(&self, peer_id: PeerId) -> Result<(), NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::LookupPeer(peer_id, s);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        r.await.map_err(|_| NetworkNodeHandleError::RecvError)
+    }
+
     /// Insert a record into the kademlia DHT
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
@@ -161,7 +179,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new();
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -188,7 +206,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: bincode_options.serialize(key).context(SerializationSnafu)?,
@@ -308,7 +326,7 @@ impl<S> NetworkNodeHandle<S> {
         peer_id: PeerId,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
         self.send_network
@@ -326,9 +344,24 @@ impl<S> NetworkNodeHandle<S> {
         chan: ResponseChannel<DirectMessageResponse>,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    /// Forcefully disconnet from a peer
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
+    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError> {
+        let req = ClientRequest::Prune(pid);
         self.send_network
             .send_async(req)
             .await
@@ -344,20 +377,9 @@ impl<S> NetworkNodeHandle<S> {
         topic: String,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
-        self.send_network
-            .send_async(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
-    }
-
-    /// Toggle pruning the number of connections
-    /// # Errors
-    /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
-    pub async fn toggle_prune(&self, prune: bool) -> Result<(), NetworkNodeHandleError> {
-        let req = ClientRequest::Pruning(prune);
         self.send_network
             .send_async(req)
             .await
@@ -371,6 +393,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         known_peers: Vec<(Option<PeerId>, Multiaddr)>,
     ) -> Result<(), NetworkNodeHandleError> {
+        info!("ADDING KNOWN PEERS TO {:?}", self.peer_id);
         let req = ClientRequest::AddKnownPeers(known_peers);
         self.send_network
             .send_async(req)
@@ -405,6 +428,34 @@ impl<S> NetworkNodeHandle<S> {
         Ok(())
     }
 
+    /// Returns number of peers this node is connected to
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
+    pub async fn num_connected(&self) -> Result<usize, NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetConnectedPeerNum(s);
+        self.send_request(req).await?;
+        Ok(r.await.unwrap())
+    }
+
+    /// return hashset of PIDs this node is connected to
+    /// # Errors
+    /// If the channel is closed somehow
+    /// Shouldnt' happen.
+    /// # Panics
+    /// If channel errors out
+    /// shouldn't happen.
+    pub async fn connected_pids(&self) -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
+        let (s, r) = futures::channel::oneshot::channel();
+        let req = ClientRequest::GetConnectedPeers(s);
+        self.send_request(req).await?;
+        Ok(r.await.unwrap())
+    }
+
     /// Get a reference to the network node handle's id.
     pub fn id(&self) -> usize {
         self.id
@@ -418,26 +469,6 @@ impl<S> NetworkNodeHandle<S> {
     /// Return a reference to the network config
     pub fn config(&self) -> &NetworkNodeConfig {
         &self.network_config
-    }
-
-    /// Get a clone of the internal connection state
-    pub async fn connection_state(&self) -> ConnectionData {
-        self.connection_data.cloned_async().await
-    }
-
-    /// Get a clone of the known peers list
-    pub async fn known_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.known_peers
-    }
-
-    /// Get a clone of the connected peers list
-    pub async fn connected_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.connected_peers
-    }
-
-    /// Get a clone of the ignored peers list
-    pub async fn ignored_peers(&self) -> HashSet<PeerId> {
-        self.connection_data.cloned_async().await.ignored_peers
     }
 
     /// Modify the state. This will automatically call `state_changed` and `notify_webui`

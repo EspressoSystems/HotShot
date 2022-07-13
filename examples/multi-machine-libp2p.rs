@@ -119,6 +119,7 @@ async fn init_state_and_hotshot(
         start_delay: 1,
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
+        num_bootstrap: 5,
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
@@ -157,13 +158,19 @@ pub async fn new_libp2p_network(
     let config = NetworkNodeConfigBuilder::default()
         .replication_factor(NonZeroUsize::new(20).unwrap())
         .node_type(node_type)
-        .max_num_peers(15)
-        .min_num_peers(4)
-        .bound_addr(bound_addr)
+        .bound_addr(Some(bound_addr))
         .build()
         .unwrap();
     let bs: Vec<(Option<PeerId>, Multiaddr)> = bs.into_iter().map(|addr| (None, addr)).collect();
-    Libp2pNetwork::new(config, pubkey, Arc::new(RwLock::new(bs)), node_id as usize).await
+    let bs_len = bs.len();
+    Libp2pNetwork::new(
+        config,
+        pubkey,
+        Arc::new(RwLock::new(bs)),
+        bs_len,
+        node_id as usize,
+    )
+    .await
 }
 
 #[async_std::main]

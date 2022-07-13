@@ -312,12 +312,19 @@ impl<
     async fn run_one_round(&mut self, txns: Vec<BLOCK::Transaction>) -> RoundResult<BLOCK, STATE> {
         let mut results = HashMap::new();
 
+        info!("EXECUTOR: running one round");
         for handle in self.nodes() {
             handle.run_one_round().await;
         }
+        info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
             let result = node.handle.collect_round_events().await;
+            info!(
+                "EXECUTOR: collected node {:?} results: {:?}",
+                node.node_id.clone(),
+                result
+            );
             match result {
                 Ok((state, block)) => {
                     results.insert(node.node_id, (state, block));

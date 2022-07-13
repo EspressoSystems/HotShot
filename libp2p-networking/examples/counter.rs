@@ -1,6 +1,4 @@
 use color_eyre::eyre::Result;
-use structopt::StructOpt;
-use tracing::instrument;
 
 pub mod common;
 
@@ -11,6 +9,8 @@ use common::{
 };
 
 use common::{start_main, CliOpt};
+use structopt::StructOpt;
+use tracing::instrument;
 
 #[async_std::main]
 #[instrument]
