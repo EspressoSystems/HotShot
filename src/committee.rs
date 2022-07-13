@@ -87,7 +87,7 @@ impl<S, const N: usize> Vrf<Hasher> for DynamicCommittee<S, N> {
 /// Stake table for `DynamicCommitee`
 type StakeTable = BTreeMap<Ed25519Pub, u64>;
 
-/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probablistic of a stake being
+/// Constructed by `p * pow(2, 256)`, where `p` is the predetermined probabillity of a stake being
 /// selected. A stake will be selected iff `H(vrf_output | stake)` is smaller than the selection
 /// threshold.
 type SelectionThreshold = [u8; H_256];
@@ -267,12 +267,10 @@ mod tests {
 
     type S = ();
     const N: usize = H_256;
-    // const SECRET_KEYS_SEED: u64 = 1234;
     const VIEW_NUMBER: ViewNumber = ViewNumber::new(10);
     const INCORRECT_VIEW_NUMBER: ViewNumber = ViewNumber::new(11);
     const NEXT_STATE: [u8; H_256] = [20; H_256];
     const INCORRECT_NEXT_STATE: [u8; H_256] = [22; H_256];
-    // const THRESHOLD: u64 = 1000;
     const HONEST_NODE_ID: u64 = 30;
     const BYZANTINE_NODE_ID: u64 = 45;
     const STAKELESS_NODE_ID: u64 = 50;
@@ -395,7 +393,6 @@ mod tests {
     fn test_stake_selection() {
         with_seed(|seed| {
             // Generate keys
-            // let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
             let secret_key_share = Ed25519Priv::generated_from_seed_indexed(seed, HONEST_NODE_ID);
             let pub_key = Ed25519Pub::from_private(&secret_key_share);
             let pub_keys = vec![pub_key.clone()];
@@ -428,7 +425,6 @@ mod tests {
     fn test_leader_selection() {
         with_seed(|seed| {
             // Generate records
-            // let mut rng = Xoshiro256StarStar::seed_from_u64(SECRET_KEYS_SEED);
             let mut pub_keys = Vec::new();
             for i in 0..10 {
                 let secret_key_share = Ed25519Priv::generated_from_seed_indexed(seed, i);
