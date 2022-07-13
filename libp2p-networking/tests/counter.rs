@@ -1,28 +1,32 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::prelude::StreamExt;
+use async_std::{
+    prelude::StreamExt,
+    sync::RwLock,
+    task::{sleep, spawn},
+};
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
-use futures::future::join_all;
+
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tracing::{error, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 pub type CounterState = u32;
 
 const NUM_ROUNDS: usize = 100;
 
-const TOTAL_NUM_PEERS_COVERAGE: usize = 8;
-const NUM_OF_BOOTSTRAP_COVERAGE: usize = 3;
+const TOTAL_NUM_PEERS_COVERAGE: usize = 10;
+const NUM_OF_BOOTSTRAP_COVERAGE: usize = 5;
 const TIMEOUT_COVERAGE: Duration = Duration::from_secs(120);
 
-const TOTAL_NUM_PEERS_STRESS: usize = 15;
-const NUM_OF_BOOTSTRAP_STRESS: usize = 3;
+const TOTAL_NUM_PEERS_STRESS: usize = 100;
+const NUM_OF_BOOTSTRAP_STRESS: usize = 25;
 const TIMEOUT_STRESS: Duration = Duration::from_secs(60);
 
 const DHT_KV_PADDING: usize = 1024;
@@ -39,6 +43,7 @@ pub enum CounterMessage {
     },
     AskForCounter,
     MyCounterIs(CounterState),
+    Noop,
 }
 
 /// event handler for events from the swarm
@@ -52,9 +57,10 @@ pub async fn counter_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
+    let bincode_options = bincode::DefaultOptions::new();
     match event {
-        GossipMsg(m) | DirectResponse(m, _) => {
+        IsBootstrapped => {}
+        GossipMsg(m, _) | DirectResponse(m, _) => {
             if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message only
@@ -72,7 +78,7 @@ pub async fn counter_handle_network_event(
                             .await;
                     }
                     // only as a response
-                    AskForCounter => {}
+                    AskForCounter | Noop => {}
                 }
             } else {
                 error!("FAILED TO DESERIALIZE MSG {:?}", m);
@@ -90,13 +96,19 @@ pub async fn counter_handle_network_event(
                                 }
                             })
                             .await;
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
                     }
                     // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(handle.state().await);
                         handle.direct_response(chan, &response).await?;
                     }
-                    MyCounterIs(_) => {}
+                    MyCounterIs(_) => {
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
+                    }
+                    Noop => {
+                        handle.direct_response(chan, &CounterMessage::Noop).await?;
+                    }
                 }
             }
         }
@@ -120,7 +132,6 @@ async fn run_request_response_increment<'a>(
 
         let requestee_pid = requestee_handle.peer_id();
 
-        // TODO fix error handling
         stream.next().await.unwrap().unwrap();
         requester_handle
             .direct_request(requestee_pid, &CounterMessage::AskForCounter)
@@ -129,6 +140,7 @@ async fn run_request_response_increment<'a>(
         stream.next().await.unwrap().unwrap();
 
         let s1 = requester_handle.state().await;
+
         // sanity check
         if s1 != new_state {
             Err(TestError::State {
@@ -336,9 +348,14 @@ async fn run_request_response_increment_all(
 ) {
     let requestee_handle = get_random_handle(handles);
     requestee_handle.modify_state(|s| *s += 1).await;
-    requestee_handle.toggle_prune(false).await.unwrap();
+    info!("RR REQUESTEE IS {:?}", requestee_handle.peer_id());
     let mut futs = Vec::new();
     for (_i, h) in handles.iter().enumerate() {
+        if h.lookup_pid(requestee_handle.peer_id()).await.is_err() {
+            error!("ERROR LOOKING UP REQUESTEE ADDRS");
+        }
+        // NOTE uncomment if debugging
+        // let _ = h.print_routing_table().await;
         // skip `requestee_handle`
         if h.peer_id() != requestee_handle.peer_id() {
             let requester_handle = h.clone();
@@ -349,19 +366,38 @@ async fn run_request_response_increment_all(
             ));
         }
     }
-    let results = join_all(futs).await;
-    if results.iter().any(|x| x.is_err()) {
-        print_connections(handles).await;
-        panic!(
-            "{:?}",
-            results
-                .into_iter()
-                .filter(|r| r.is_err())
-                .collect::<Vec<_>>()
-        );
+
+    // NOTE this was originally join_all
+    // but this is simpler.
+    let results = Arc::new(RwLock::new(vec![]));
+
+    let len = futs.len();
+
+    for _ in 0..futs.len() {
+        let fut = futs.pop().unwrap();
+        let results = results.clone();
+        spawn(async move {
+            let res = fut.await;
+            results.write().await.push(res);
+        });
+    }
+    loop {
+        let l = results.read().await.iter().len();
+        if l >= len {
+            break;
+        }
+        info!("NUMBER OF RESULTS for increment all is: {}", l);
+        sleep(Duration::from_secs(1)).await;
     }
 
-    requestee_handle.toggle_prune(true).await.unwrap();
+    if results.read().await.iter().any(|x| x.is_err()) {
+        print_connections(handles).await;
+        let mut states = vec![];
+        for handle in handles {
+            states.push(handle.state().await);
+        }
+        panic!("states: {:?}", states,);
+    }
 }
 
 /// simple case of direct message

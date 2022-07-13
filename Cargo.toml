@@ -33,7 +33,8 @@ phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.1.0" }
 phaselock-types = { path = "./phaselock-types", version = "0.1.0", default-features = false }
 phaselock-utils = { path = "./phaselock-utils", version = "0.1.0"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.1.0"}
-libp2p = { version = "0.45.1", features = ["serde"] }
+libp2p = { version = "0.46.1", features = ["serde"] }
+bimap = "0.6.2"
 rand = "0.8.5"
 serde = { version = "1.0.139", features = ["derive", "rc"] }
 snafu = { version = "0.7.0", features = ["backtraces"] }

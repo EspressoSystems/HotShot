@@ -303,6 +303,7 @@ async fn restart() {
         |desc: &TestDescription<TestNetwork, AtomicStorage, DEntryBlock, DemoState>| {
             let launcher = TestLauncher::<TestNetwork, AtomicStorage, DEntryBlock, DemoState>::new(
                 desc.total_nodes,
+                desc.num_bootstrap_nodes,
             );
 
             // modify runner to recognize timing params
@@ -332,6 +333,7 @@ async fn restart() {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 1,
+            num_bootstrap_nodes: 5,
             failure_threshold: 0,
             txn_ids: Right(1),
             next_view_timeout: 1000,
@@ -418,6 +420,7 @@ async fn restart() {
             total_nodes: 5,
             start_nodes: 5,
             num_succeeds: 1,
+            num_bootstrap_nodes: 5,
             failure_threshold: 0,
             txn_ids: Right(1),
             next_view_timeout: 1000,
