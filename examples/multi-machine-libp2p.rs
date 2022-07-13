@@ -1,20 +1,20 @@
 use async_std::sync::RwLock;
-use libp2p::{multiaddr, Multiaddr, PeerId};
-use libp2p_networking::network::{NetworkNodeConfigBuilder, NetworkNodeType};
-use phaselock::{
+use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
         implementations::{Libp2pNetwork, MemoryStorage, Stateless},
         NetworkError,
     },
-    types::{Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, H_256,
+    types::{HotShotHandle, Message},
+    HotShot, HotShotConfig, H_256,
 };
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
+use libp2p::{multiaddr, Multiaddr, PeerId};
+use libp2p_networking::network::{NetworkNodeConfigBuilder, NetworkNodeType};
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -73,9 +73,9 @@ type Node = DEntryNode<
     Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
 >;
 
-/// Creates the initial state and phaselock for simulation.
+/// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_phaselock(
+async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
@@ -83,7 +83,7 @@ async fn init_state_and_phaselock(
         Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
         Ed25519Pub,
     >,
-) -> (State, PhaseLockHandle<Node, H_256>) {
+) -> (State, HotShotHandle<Node, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -100,7 +100,7 @@ async fn init_state_and_phaselock(
         nonces: BTreeSet::default(),
     };
 
-    // Create the initial phaselock
+    // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
         .map(|x| {
             let priv_key = Ed25519Pub::generate_test_key(x);
@@ -108,7 +108,7 @@ async fn init_state_and_phaselock(
         })
         .collect();
 
-    let config = PhaseLockConfig {
+    let config = HotShotConfig {
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -125,7 +125,7 @@ async fn init_state_and_phaselock(
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
     let genesis = DEntryBlock::default();
-    let phaselock = PhaseLock::init(
+    let hotshot = HotShot::init(
         genesis,
         known_nodes.clone(),
         pub_key,
@@ -139,10 +139,10 @@ async fn init_state_and_phaselock(
         StaticCommittee::new(known_nodes),
     )
     .await
-    .expect("Could not init phaselock");
-    debug!("phaselock launched");
+    .expect("Could not init hotshot");
+    debug!("hotshot launched");
 
-    (state, phaselock)
+    (state, hotshot)
 }
 
 pub async fn new_libp2p_network(
@@ -201,15 +201,15 @@ async fn main() {
 
     println!("Done with network creation");
 
-    // Initialize the state and phaselock
-    let (_own_state, mut phaselock) =
-        init_state_and_phaselock(num_nodes, threshold, own_id, own_network).await;
+    // Initialize the state and hotshot
+    let (_own_state, mut hotshot) =
+        init_state_and_hotshot(num_nodes, threshold, own_id, own_network).await;
 
-    println!("Finished init, starting phaselock!");
-    phaselock.start().await;
+    println!("Finished init, starting hotshot!");
+    hotshot.start().await;
 
-    println!("waiting for connections to phaselock!");
-    phaselock.is_ready().await;
+    println!("waiting for connections to hotshot!");
+    hotshot.is_ready().await;
 
     // Run random transactions
     let mut num_failed_views = 0;
@@ -217,16 +217,16 @@ async fn main() {
         println!("Beginning view {}", view);
         if (own_id % num_views as u64) == view as u64 {
             println!("Generating txn for view {}", view);
-            let state = phaselock.get_state().await.unwrap().unwrap();
+            let state = hotshot.get_state().await.unwrap().unwrap();
 
             let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
             println!("Submitting txn on view {}", view);
-            phaselock.submit_transaction(txn).await.unwrap();
+            hotshot.submit_transaction(txn).await.unwrap();
         }
         println!("Running the view {}", view);
-        phaselock.run_one_round().await;
+        hotshot.run_one_round().await;
         println!("Collection for view {}", view);
-        let result = phaselock.collect_round_events().await;
+        let result = hotshot.collect_round_events().await;
         match result {
             Ok(state) => {
                 println!("View {:?}: successful with {:?}", view, state);

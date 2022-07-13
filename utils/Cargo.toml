@@ -1,0 +1,25 @@
+[package]
+authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+description = "Accompanying utilities used by hotshot."
+edition = "2021"
+name = "hotshot-utils"
+readme = "../README.md"
+version = "0.0.7"
+
+[dependencies]
+flume = "0.10.12"
+tracing = "0.1.32"
+async-std = { version = "1.11.0", features = ["unstable"] }
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.14", features = ["env-filter", "json"], optional = true}
+futures = "0.3.21"
+async-trait = "0.1.56"
+color-eyre = "0.6.2"
+
+[dev-dependencies]
+# need async-std test attribute for subscriber mutex tests
+async-std = { version = "1.11.0", features = ["attributes"] }
+
+[features]
+# needed for logging feature
+logging-utils = ["tracing-subscriber"]

@@ -1,18 +1,18 @@
-//! Provides an event-streaming handle for a [`PhaseLock`] running in the background
+//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
     tasks::RoundRunnerState,
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
-    types::{Event, PhaseLockError::NetworkFault},
-    PhaseLock, Result,
+    types::{Event, HotShotError::NetworkFault},
+    HotShot, Result,
 };
 use async_std::{prelude::FutureExt, task::block_on};
-use phaselock_types::{
-    error::{PhaseLockError, RoundTimedoutState, TimeoutSnafu},
+use hotshot_types::{
+    error::{HotShotError, RoundTimedoutState, TimeoutSnafu},
     event::EventType,
     traits::{network::NetworkingImplementation, storage::StorageError},
 };
-use phaselock_utils::broadcast::{BroadcastReceiver, BroadcastSender};
+use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use snafu::ResultExt;
 use std::{
     sync::{
@@ -23,45 +23,45 @@ use std::{
 };
 use tracing::{debug, error};
 
-/// Event streaming handle for a [`PhaseLock`] instance running in the background
+/// Event streaming handle for a [`HotShot`] instance running in the background
 ///
-/// This type provides the means to message and interact with a background [`PhaseLock`] instance,
+/// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct PhaseLockHandle<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
+pub struct HotShotHandle<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
     pub(crate) sender_handle: Arc<BroadcastSender<Event<I::Block, I::State>>>,
-    /// Internal reference to the underlying [`PhaseLock`]
-    pub(crate) phaselock: PhaseLock<I, N>,
+    /// Internal reference to the underlying [`HotShot`]
+    pub(crate) hotshot: HotShot<I, N>,
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State>>,
-    /// Global to signify the `PhaseLock` should be closed after completing the next round
+    /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
-    /// Our copy of the `Storage` view for a phaselock
+    /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
 
-impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for PhaseLockHandle<B, N> {
+impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for HotShotHandle<B, N> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
             stream_output: self.sender_handle.handle_sync(),
-            phaselock: self.phaselock.clone(),
+            hotshot: self.hotshot.clone(),
             shut_down: self.shut_down.clone(),
             storage: self.storage.clone(),
         }
     }
 }
 
-impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
+impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// Will return the next event in the queue
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] has been closed.
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
     pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>> {
         let result = self.stream_output.recv_async().await;
         match result {
@@ -83,7 +83,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has shut down
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
     pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>> {
         let result = self.stream_output.try_recv();
         Ok(result)
@@ -93,7 +93,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     ///
     /// # Errors
     ///
-    /// Will return [`PhaseLockError::NetworkFault`] if the underlying [`PhaseLock`] instance has been shut
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
     pub fn available_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>> {
         let mut output = vec![];
@@ -102,38 +102,38 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
             match self.try_next_event() {
                 Ok(Some(x)) => output.push(x),
                 Ok(None) => break,
-                // // try_next event can only return PhaseLockError { source: NetworkError::ShutDown }
+                // // try_next event can only return HotShotError { source: NetworkError::ShutDown }
                 Err(x) => return Err(x),
             }
         }
         Ok(output)
     }
 
-    /// Gets the current committed state of the [`PhaseLock`] instance
+    /// Gets the current committed state of the [`HotShot`] instance
     ///
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
     pub async fn get_state(&self) -> Result<Option<I::State>> {
-        self.phaselock.get_state().await
+        self.hotshot.get_state().await
     }
 
-    /// Submits a transaction to the backing [`PhaseLock`] instance.
+    /// Submits a transaction to the backing [`HotShot`] instance.
     ///
     /// The current node broadcasts the transaction to all nodes on the network.
     ///
     /// # Errors
     ///
-    /// Will return a [`PhaseLockError`] if some error occurs in the underlying
-    /// [`PhaseLock`] instance.
+    /// Will return a [`HotShotError`] if some error occurs in the underlying
+    /// [`HotShot`] instance.
     pub async fn submit_transaction(
         &self,
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
     ) -> Result<()> {
-        self.phaselock.publish_transaction_async(tx).await
+        self.hotshot.publish_transaction_async(tx).await
     }
 
-    /// Synchronously submits a transaction to the backing [`PhaseLock`] instance.
+    /// Synchronously submits a transaction to the backing [`HotShot`] instance.
     ///
     /// # Errors
     ///
@@ -145,43 +145,43 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         block_on(self.submit_transaction(tx))
     }
 
-    /// Signals to the underlying [`PhaseLock`] to unpause
+    /// Signals to the underlying [`HotShot`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
     pub async fn start(&self) {
-        self.phaselock.inner.background_task_handle.start().await;
+        self.hotshot.inner.background_task_handle.start().await;
     }
 
-    /// Synchronously signals the underlying [`PhaseLock`] to unpause
+    /// Synchronously signals the underlying [`HotShot`] to unpause
     pub fn start_sync(&self) {
         block_on(self.start());
     }
 
-    /// Signals the underlying [`PhaseLock`] to pause
+    /// Signals the underlying [`HotShot`] to pause
     ///
     /// This will cause the background task to stop driving consensus after the completion of the
     /// current view.
     pub async fn pause(&self) {
-        self.phaselock.inner.background_task_handle.pause().await;
+        self.hotshot.inner.background_task_handle.pause().await;
     }
 
-    /// Synchronously signals the underlying `PhaseLock` to pause
+    /// Synchronously signals the underlying `HotShot` to pause
     pub fn pause_sync(&self) {
         block_on(self.pause());
     }
 
-    /// Signals the underlying [`PhaseLock`] to run one round, if paused.
+    /// Signals the underlying [`HotShot`] to run one round, if paused.
     ///
-    /// Do not call this function if [`PhaseLock`] has been unpaused by [`PhaseLockHandle::start`].
+    /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
     pub async fn run_one_round(&self) {
-        self.phaselock
+        self.hotshot
             .inner
             .background_task_handle
             .run_one_round()
             .await;
     }
 
-    /// Synchronously signals the underlying [`PhaseLock`] to run one round, if paused
+    /// Synchronously signals the underlying [`HotShot`] to run one round, if paused
     pub fn run_one_round_sync(&self) {
         block_on(self.run_one_round());
     }
@@ -194,7 +194,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         let cur_view = self
             .get_round_runner_state()
             .await
-            .map_err(|e| PhaseLockError::StorageError {
+            .map_err(|e| HotShotError::StorageError {
                 source: StorageError::InconsistencyError {
                     description: e.to_string(),
                 },
@@ -218,7 +218,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
                 EventType::ViewTimeout { view_number } => {
                     if view_number >= cur_view {
                         error!(?event, "Round timed out!");
-                        return Err(PhaseLockError::ViewTimeoutError {
+                        return Err(HotShotError::ViewTimeoutError {
                             view_number,
                             state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                         });
@@ -237,28 +237,28 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
         }
     }
 
-    /// Provides a reference to the underlying storage for this [`PhaseLock`], allowing access to
+    /// Provides a reference to the underlying storage for this [`HotShot`], allowing access to
     /// historical data
     pub fn storage(&self) -> &I::Storage {
         &self.storage
     }
 
-    /// Provides a reference to the underlying networking interface for this [`PhaseLock`], allowing access to
+    /// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
     /// networking stats.
     pub fn networking(&self) -> &I::Networking {
-        &self.phaselock.inner.networking
+        &self.hotshot.inner.networking
     }
 
     /// Blocks until network is ready to be used (e.g. connected to other nodes)
     pub async fn is_ready(&self) -> bool {
-        self.phaselock.inner.networking.ready().await
+        self.hotshot.inner.networking.ready().await
     }
 
-    /// Shut down the the inner phaselock and wait until all background threads are closed.
+    /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
-        self.phaselock.inner.networking.shut_down().await;
-        self.phaselock
+        self.hotshot.inner.networking.shut_down().await;
+        self.hotshot
             .inner
             .background_task_handle
             .wait_shutdown()
@@ -273,15 +273,15 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> PhaseLockHandle<I, N> {
     pub async fn get_round_runner_state(
         &self,
     ) -> std::result::Result<RoundRunnerState, Box<dyn std::error::Error>> {
-        self.phaselock
+        self.hotshot
             .inner
             .background_task_handle
             .get_round_runner_state()
             .await
     }
 
-    /// return the timeout for a view of the underlying `Phaselock`
+    /// return the timeout for a view of the underlying `HotShot`
     pub fn get_next_view_timeout(&self) -> u64 {
-        self.phaselock.get_next_view_timeout()
+        self.hotshot.get_next_view_timeout()
     }
 }

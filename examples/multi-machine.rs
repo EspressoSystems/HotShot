@@ -1,16 +1,16 @@
-use phaselock::{
+use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
-    types::{Event, EventType, Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, H_256,
+    types::{Event, EventType, HotShotHandle, Message},
+    HotShot, HotShotConfig, H_256,
 };
-use phaselock_types::traits::signature_key::{
+use hotshot_types::traits::signature_key::{
     ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey,
 };
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -87,14 +87,14 @@ async fn get_networking<
     panic!("Failed to open a port");
 }
 
-/// Creates the initial state and phaselock for simulation.
+/// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_phaselock(
+async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-) -> (State, PhaseLockHandle<Node, H_256>) {
+) -> (State, HotShotHandle<Node, H_256>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -111,7 +111,7 @@ async fn init_state_and_phaselock(
         nonces: BTreeSet::default(),
     };
 
-    // Create the initial phaselock
+    // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
         .map(|x| {
             let priv_key = Ed25519Pub::generate_test_key(x);
@@ -119,7 +119,7 @@ async fn init_state_and_phaselock(
         })
         .collect();
 
-    let config = PhaseLockConfig {
+    let config = HotShotConfig {
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -137,7 +137,7 @@ async fn init_state_and_phaselock(
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
     let genesis = DEntryBlock::default();
-    let phaselock = PhaseLock::init(
+    let hotshot = HotShot::init(
         genesis,
         known_nodes.clone(),
         pub_key,
@@ -151,10 +151,10 @@ async fn init_state_and_phaselock(
         StaticCommittee::new(known_nodes),
     )
     .await
-    .expect("Could not init phaselock");
-    debug!("phaselock launched");
+    .expect("Could not init hotshot");
+    debug!("hotshot launched");
 
-    (state, phaselock)
+    (state, hotshot)
 }
 
 #[async_std::main]
@@ -228,10 +228,10 @@ async fn main() {
     println!("All nodes connected to network");
     debug!("All nodes connected to network");
 
-    // Initialize the state and phaselock
-    let (mut own_state, mut phaselock) =
-        init_state_and_phaselock(nodes, threshold, own_id, own_network).await;
-    phaselock.start().await;
+    // Initialize the state and hotshot
+    let (mut own_state, mut hotshot) =
+        init_state_and_hotshot(nodes, threshold, own_id, own_network).await;
+    hotshot.start().await;
 
     // Run random transactions
     println!("Running random transactions");
@@ -244,24 +244,24 @@ async fn main() {
         // Start consensus
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<DEntryBlock, State> = phaselock
+        let mut event: Event<DEntryBlock, State> = hotshot
             .next_event()
             .await
-            .expect("PhaseLock unexpectedly closed");
+            .expect("HotShot unexpectedly closed");
         while !matches!(event.event, EventType::Decide { .. }) {
             if matches!(event.event, EventType::Leader { .. }) {
                 let tx = random_transaction(&own_state, &mut rng);
                 println!("  - Proposing: {:?}", tx);
                 debug!("Proposing: {:?}", tx);
-                phaselock
+                hotshot
                     .submit_transaction(tx)
                     .await
                     .expect("Failed to submit transaction");
             }
-            event = phaselock
+            event = hotshot
                 .next_event()
                 .await
-                .expect("PhaseLock unexpectedly closed");
+                .expect("HotShot unexpectedly closed");
         }
         println!("Node {} reached decision", own_id);
         debug!(?own_id, "Decision emitted");

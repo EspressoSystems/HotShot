@@ -1,10 +1,10 @@
-//! Provides a number of tasks that run continuously on a [`PhaseLock`]
+//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 mod round_runner;
 
 pub use round_runner::RoundRunnerState;
 
-use crate::{types::PhaseLockHandle, PhaseLock};
+use crate::{types::HotShotHandle, HotShot};
 use async_std::{
     prelude::FutureExt as _,
     sync::RwLock,
@@ -12,12 +12,12 @@ use async_std::{
 };
 use flume::Sender;
 use futures::channel::oneshot::channel as oneshot_channel;
-use phaselock_types::{
+use hotshot_types::{
     data::ViewNumber,
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
-use phaselock_utils::broadcast::channel;
+use hotshot_utils::broadcast::channel;
 use round_runner::ToRoundRunner;
 use std::{
     sync::{
@@ -31,7 +31,7 @@ use tracing::{error, info, info_span, trace, Instrument};
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
 pub struct TaskHandle {
-    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`PhaseLock`] struct. It should be safe to `unwrap` this.
+    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
     inner: RwLock<Option<TaskHandleInner>>,
 }
 impl TaskHandle {
@@ -103,7 +103,7 @@ impl TaskHandle {
             .await
             .expect("Could not tell the round runner to shut down");
 
-        // shutdown_timeout == the phaselock's view timeout
+        // shutdown_timeout == the hotshot's view timeout
         // in case the round_runner task is running for `view_timeout`
         // (exponential timeout maxed out)
         // then this needs to be slightly longer such that it ends up being checked
@@ -148,70 +148,70 @@ struct TaskHandleInner {
     /// Join handle for `round_runner`
     pub round_runner_join_handle: JoinHandle<()>,
 
-    /// same as phaselock's view_timeout such that
+    /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
     shutdown_timeout: Duration,
 }
 
-/// Spawn all tasks that operate on the given [`PhaseLock`].
+/// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
 pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
-    phaselock: &PhaseLock<I, N>,
-) -> PhaseLockHandle<I, N> {
+    hotshot: &HotShot<I, N>,
+) -> HotShotHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
-        network_broadcast_task(phaselock.clone(), shut_down.clone())
-            .instrument(info_span!("PhaseLock Broadcast Task",)),
+        network_broadcast_task(hotshot.clone(), shut_down.clone())
+            .instrument(info_span!("HotShot Broadcast Task",)),
     );
     let network_direct_task_handle = spawn(
-        network_direct_task(phaselock.clone(), shut_down.clone())
-            .instrument(info_span!("PhaseLock Direct Task",)),
+        network_direct_task(hotshot.clone(), shut_down.clone())
+            .instrument(info_span!("HotShot Direct Task",)),
     );
     let network_change_task_handle = spawn(
-        network_change_task(phaselock.clone(), shut_down.clone())
-            .instrument(info_span!("PhaseLock network change listener task",)),
+        network_change_task(hotshot.clone(), shut_down.clone())
+            .instrument(info_span!("HotShot network change listener task",)),
     );
 
     let (broadcast_sender, broadcast_receiver) = channel();
 
-    let round_runner = round_runner::RoundRunner::new(phaselock.clone()).await;
+    let round_runner = round_runner::RoundRunner::new(hotshot.clone()).await;
     let (round_runner, round_runner_join_handle) = {
         let sender = round_runner.sender.clone();
         let join_handle = async_std::task::spawn(round_runner.run());
         (sender, join_handle)
     };
 
-    let handle = PhaseLockHandle {
+    let handle = HotShotHandle {
         sender_handle: Arc::new(broadcast_sender.clone()),
-        phaselock: phaselock.clone(),
+        hotshot: hotshot.clone(),
         stream_output: broadcast_receiver,
-        storage: phaselock.inner.storage.clone(),
+        storage: hotshot.inner.storage.clone(),
         shut_down,
     };
-    *phaselock.inner.event_sender.write().await = Some(broadcast_sender);
+    *hotshot.inner.event_sender.write().await = Some(broadcast_sender);
 
-    let mut background_task_handle = phaselock.inner.background_task_handle.inner.write().await;
+    let mut background_task_handle = hotshot.inner.background_task_handle.inner.write().await;
     *background_task_handle = Some(TaskHandleInner {
         round_runner,
         round_runner_join_handle,
         network_broadcast_task_handle,
         network_direct_task_handle,
         network_change_task_handle,
-        shutdown_timeout: Duration::from_millis(phaselock.inner.config.next_view_timeout),
+        shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
     });
 
     handle
 }
 
-/// Continually processes the incoming broadcast messages received on `phaselock.inner.networking`, redirecting them to `phaselock.handle_broadcast_*_message`.
+/// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
 pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
-    phaselock: PhaseLock<I, N>,
+    hotshot: HotShot<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching broadcast processing task");
-    let networking = &phaselock.inner.networking;
+    let networking = &hotshot.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.broadcast_queue().await {
@@ -235,12 +235,12 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
-                    phaselock
+                    hotshot
                         .handle_broadcast_consensus_message(msg, item.sender)
                         .await;
                 }
                 MessageKind::Data(msg) => {
-                    phaselock
+                    hotshot
                         .handle_broadcast_data_message(msg, item.sender)
                         .await;
                 }
@@ -250,13 +250,13 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
     }
 }
 
-/// Continually processes the incoming direct messages received on `phaselock.inner.networking`, redirecting them to `phaselock.handle_direct_*_message`.
+/// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
 pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
-    phaselock: PhaseLock<I, N>,
+    hotshot: HotShot<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching direct processing task");
-    let networking = &phaselock.inner.networking;
+    let networking = &hotshot.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.direct_queue().await {
@@ -280,12 +280,12 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
-                    phaselock
+                    hotshot
                         .handle_direct_consensus_message(msg, item.sender)
                         .await;
                 }
                 MessageKind::Data(msg) => {
-                    phaselock.handle_direct_data_message(msg, item.sender).await;
+                    hotshot.handle_direct_data_message(msg, item.sender).await;
                 }
             }
         }
@@ -293,13 +293,13 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
     }
 }
 
-/// Runs a task that will call `phaselock.handle_network_change` whenever a change in the network is detected.
+/// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
 pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
-    phaselock: PhaseLock<I, N>,
+    hotshot: HotShot<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network change handler task");
-    let networking = &phaselock.inner.networking;
+    let networking = &hotshot.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.network_changes().await {
@@ -321,7 +321,7 @@ pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
         incremental_backoff_ms = 10;
 
         for node in queue {
-            phaselock.handle_network_change(node).await;
+            hotshot.handle_network_change(node).await;
         }
     }
 }

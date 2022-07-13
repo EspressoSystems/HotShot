@@ -1,5 +1,5 @@
 {
-  description = "PhaseLock consensus library";
+  description = "HotShot consensus library";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -67,7 +67,7 @@
 
 
         # DON'T FORGET TO PUT YOUR PACKAGE NAME HERE, REMOVING `throw`
-        crateName = "phaselock";
+        crateName = "hotshot";
 
         inherit (import "${crate2nix}/tools.nix" { inherit pkgs; })
           generatedCargoNix;
@@ -152,7 +152,7 @@
         # packages = pkgsAndChecksAttrSet.packages;
         # checks = pkgsAndChecksAttrSet.checks;
 
-        # defaultPackage = project.workspaceMembers.phaselock.build;
+        # defaultPackage = project.workspaceMembers.hotshot.build;
       }
     );
 }

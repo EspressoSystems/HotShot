@@ -1,4 +1,4 @@
-//! Contains implementations of the `PhaseLock` traits used in the examples and integration testing.
+//! Contains implementations of the `HotShot` traits used in the examples and integration testing.
 //!
 //! These implementations are not suitable for production use.
 

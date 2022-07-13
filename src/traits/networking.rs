@@ -10,7 +10,7 @@ pub mod libp2p_network;
 pub mod memory_network;
 pub mod w_network;
 
-pub use phaselock_types::traits::network::{
+pub use hotshot_types::traits::network::{
     ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
     FailedToDeserializeSnafu, FailedToSerializeSnafu, IdentityHandshakeSnafu, ListenerSendSnafu,
     NetworkError, NetworkReliability, NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu,
