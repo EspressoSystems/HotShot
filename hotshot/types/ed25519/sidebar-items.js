@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Ed25519Priv","Private key type for a ed25519 [`SignatureKey`] pair"],["Ed25519Pub","Public key type for an ed25519 [`SignatureKey`] pair"]]});

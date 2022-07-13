@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["DynamicCommittee","A structure for dynamic committee."]],"trait":[["Vrf","A trait for VRF proof, evaluation and verification."]]});
