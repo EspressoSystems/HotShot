@@ -1,6 +1,6 @@
 [package]
 name = "hotshot-testing"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 description = "Types and traits for the HotShot consesus module"
 authors = ["Victor Koenders <vkoenders@espressosys.com>"]

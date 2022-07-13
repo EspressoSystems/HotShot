@@ -4,6 +4,8 @@
 
 set -ex
 
+cargo fmt --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo audit --deny warnings
 cargo check
 cargo build --verbose --workspace --all-targets --all-features --release

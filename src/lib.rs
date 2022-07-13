@@ -26,6 +26,7 @@
 pub mod documentation;
 
 /// Contains structures and functions for committee election
+pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;

@@ -4,7 +4,7 @@ description = "Accompanying utilities used by hotshot."
 edition = "2021"
 name = "hotshot-utils"
 readme = "../README.md"
-version = "0.0.7"
+version = "0.1.0"
 
 [dependencies]
 flume = "0.10.12"

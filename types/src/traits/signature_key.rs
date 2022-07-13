@@ -17,6 +17,12 @@ pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>)
 )]
 pub struct EncodedSignature(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
 
+impl AsRef<[u8]> for EncodedSignature {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
 /// Trait for abstracting public key signatures
 pub trait SignatureKey:
     Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned + PartialEq + Eq + Unpin
