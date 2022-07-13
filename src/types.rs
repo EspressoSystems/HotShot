@@ -3,7 +3,7 @@ mod handle;
 
 pub use event::{Event, EventType};
 
-pub use handle::PhaseLockHandle;
+pub use handle::HotShotHandle;
 
-pub(crate) use phaselock_types::error::PhaseLockError;
-pub use phaselock_types::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};
+pub(crate) use hotshot_types::error::HotShotError;
+pub use hotshot_types::message::{Commit, Decide, Message, NewView, PreCommit, Prepare, Vote};

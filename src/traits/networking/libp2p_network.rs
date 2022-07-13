@@ -8,32 +8,41 @@ use async_std::{
     task::{block_on, sleep, spawn},
 };
 use async_trait::async_trait;
+use bimap::BiHashMap;
 use bincode::Options;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashSet;
 use flume::Sender;
 use futures::future::join_all;
-use libp2p::{Multiaddr, PeerId};
-use libp2p_networking::network::{
-    NetworkEvent::{DirectRequest, DirectResponse, GossipMsg},
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
-};
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     network::{
         FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
         TestableNetworkingImplementation,
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use phaselock_utils::subscribable_rwlock::{SubscribableRwLock, ThreadedReadView};
+use libp2p::{Multiaddr, PeerId};
+use libp2p_networking::network::{
+    MeshParams,
+    NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
+    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::HashSet, num::NonZeroUsize};
-
+use std::{collections::HashSet, num::NonZeroUsize, str::FromStr, sync::atomic::AtomicBool};
 use std::{sync::Arc, time::Duration};
-
 use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;
+
+/// hardcoded topic of QC used
+pub const QC_TOPIC: &str = "global";
+
+/// Stubbed out Ack
+#[derive(Serialize)]
+pub enum Empty {
+    /// Empty value
+    Empty,
+}
 
 impl<
         T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
@@ -57,15 +66,10 @@ struct Libp2pNetworkInner<
     pk: P,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<()>>,
-    // FIXME ideally this is a bidirectional map
-    // unfortunately a threadsafe version of this
-    // does not exist for rust.
-    // Perhaps worth implementing on top or forking of bimap-rs
-    /// map of known replica public keys to peer id
-    pubkey_to_pid: DashMap<P, PeerId>,
+    /// Bidirectional map from public key provided by espresso
+    /// to public key provided by libp2p
+    pubkey_pid_map: RwLock<BiHashMap<P, PeerId>>,
     /// map of known replica peer ids to public keys
-    pid_to_pubkey: DashMap<PeerId, P>,
-    /// Receiver for broadcast messages
     broadcast_recv: flume::Receiver<M>,
     /// Sender for broadcast messages
     broadcast_send: flume::Sender<M>,
@@ -74,15 +78,17 @@ struct Libp2pNetworkInner<
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
+    /// bootstrap
+    bootstrap_addrs_len: usize,
     /// whether or not the network is ready to send
-    is_ready: Arc<SubscribableRwLock<bool>>,
-    /// listener for when network is ready
-    is_ready_listener: Arc<dyn ThreadedReadView<bool>>,
+    is_ready: Arc<AtomicBool>,
     /// set of recently seen peers
     /// TODO jr make this LRU eventually/less jank
     recently_updated_peers: DashSet<PeerId>,
     /// max time before dropping message due to DHT error
     dht_timeout: Duration,
+    /// whether or not we've bootstrapped into the DHT yet
+    is_bootstrapped: Arc<AtomicBool>,
 }
 
 /// Networking implementation that uses libp2p
@@ -110,41 +116,73 @@ impl<
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    /// TODO error handling!! unwraps is bad
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
+        // NOTE uncomment this for easier debugging
+        // let start_port = 5000;
         Box::new({
             move |node_id| {
+                info!(
+                    "GENERATOR: Node id {:?}, is bootstrap: {:?}",
+                    node_id,
+                    node_id < num_bootstrap as u64
+                );
+                let addr =
+                    // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", 5000 + node_id)).unwrap();
                 let privkey = P::generate_test_key(node_id);
                 let pubkey = P::from_private(&privkey);
-                let replication_factor = NonZeroUsize::new(expected_node_count as usize).unwrap();
+                // we want the majority of peers to have this lying around.
+                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
+                        // NOTICE the implicit assumption that bootstrap is less
+                        // than half the network. This seems reasonable.
+                        .mesh_params(Some(MeshParams {
+                            mesh_n_high: expected_node_count,
+                            mesh_n_low: 5,
+                            mesh_outbound_min: 4,
+                            // the worst case of 7/2+3 > 5
+                            mesh_n: (expected_node_count / 2 + 3),
+                        }))
                         .replication_factor(replication_factor)
+                        .to_connect_addrs(HashSet::default())
                         .node_type(NetworkNodeType::Bootstrap)
-                        .max_num_peers(0)
-                        .min_num_peers(0)
+                        .bound_addr(Some(addr))
                         .build()
                         .unwrap()
                 } else {
-                    let min_num_peers = expected_node_count / 4;
-                    let max_num_peers = expected_node_count / 2;
                     NetworkNodeConfigBuilder::default()
-                        .node_type(NetworkNodeType::Regular)
-                        .min_num_peers(min_num_peers as usize)
-                        .max_num_peers(max_num_peers as usize)
+                        // NOTE I'm hardcoding these because this is probably the MAX
+                        // parameters. If there aren't this many nodes, gossip keeps looking
+                        // for more. That is fine.
+                        .mesh_params(Some(MeshParams {
+                            mesh_n_high: 15,
+                            mesh_n_low: 5,
+                            mesh_outbound_min: 4,
+                            mesh_n: 8,
+                        }))
                         .replication_factor(replication_factor)
+                        .to_connect_addrs(HashSet::default())
+                        .node_type(NetworkNodeType::Regular)
+                        .bound_addr(Some(addr))
                         .build()
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 block_on(async move {
-                    Libp2pNetwork::new(config, pubkey, bootstrap_addrs_ref, node_id as usize)
-                        .await
-                        .unwrap()
+                    Libp2pNetwork::new(
+                        config,
+                        pubkey,
+                        bootstrap_addrs_ref,
+                        num_bootstrap,
+                        node_id as usize,
+                    )
+                    .await
+                    .unwrap()
                 })
             }
         })
@@ -160,19 +198,26 @@ impl<
         P: SignatureKey + 'static,
     > Libp2pNetwork<M, P>
 {
-    /// returns when network is ready
-    async fn wait_for_ready(&self) {
-        let recv_chan = self.inner.is_ready_listener.subscribe().await;
-        if !self.inner.is_ready_listener.cloned_async().await {
-            while !recv_chan.recv_async().await.unwrap_or(true) {}
-            // a oneshot
+    /// Returns when network is ready
+    pub async fn wait_for_ready(&self) {
+        loop {
+            if self
+                .inner
+                .is_ready
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
         }
+        info!("LIBP2P: IS READY GOT TRIGGERED!!");
     }
 
     /// Constructs new network for a node. Note that this network is unconnected.
     /// One must call `connect` in order to connect.
     /// * `config`: the configuration of the node
     /// * `pk`: public key associated with the node
+    /// * `bootstrap_addrs`: rwlock containing the bootstrap addrs
     /// # Errors
     /// Returns error in the event that the underlying libp2p network
     /// is unable to create a network.
@@ -180,109 +225,126 @@ impl<
         config: NetworkNodeConfig,
         pk: P,
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
+        bootstrap_addrs_len: usize,
         id: usize,
     ) -> Result<Libp2pNetwork<M, P>, NetworkError> {
-        // TODO do we want to use pk.nonce? or idx? or are they the same?
-
-        // if we care about internal state, we could consider passing something in.
-        // We don't, though. AFAICT
         let network_handle = Arc::new(
             NetworkNodeHandle::<()>::new(config, id)
                 .await
                 .map_err(Into::<NetworkError>::into)?,
         );
 
+        // Make bootstrap mappings known
         if matches!(
             network_handle.config().node_type,
             NetworkNodeType::Bootstrap
         ) {
             let addr = network_handle.listen_addr();
             let pid = network_handle.peer_id();
-            bootstrap_addrs.write().await.push((Some(pid), addr));
+            let mut bs_cp = bootstrap_addrs.write().await;
+            bs_cp.push((Some(pid), addr));
+            drop(bs_cp);
         }
 
-        let pubkey_to_pid = DashMap::new();
-        pubkey_to_pid.insert(pk.clone(), network_handle.peer_id());
-        let pid_to_pubkey = DashMap::new();
-        pid_to_pubkey.insert(network_handle.peer_id(), pk.clone());
+        let mut pubkey_pid_map = BiHashMap::new();
+
+        pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
         let (direct_send, direct_recv) = flume::unbounded();
         let (broadcast_send, broadcast_recv) = flume::unbounded();
 
-        let is_ready = Arc::new(SubscribableRwLock::new(false));
-
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: network_handle,
-                pubkey_to_pid,
-                pid_to_pubkey,
+                pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
                 direct_recv,
                 pk,
                 broadcast_send: broadcast_send.clone(),
+                bootstrap_addrs_len,
                 bootstrap_addrs,
-                is_ready: is_ready.clone(),
-                is_ready_listener: is_ready,
+                is_ready: Arc::new(AtomicBool::new(false)),
                 recently_updated_peers: DashSet::default(),
-                dht_timeout: Duration::from_secs(2),
+                dht_timeout: Duration::from_secs(30),
+                is_bootstrapped: Arc::new(AtomicBool::new(false)),
             }),
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-        result.spawn_connect();
+
+        result.spawn_connect(id);
 
         Ok(result)
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&self) {
-        let handle = self.inner.handle.clone();
+    fn spawn_connect(&self, id: usize) {
         let pk = self.inner.pk.clone();
-        block_on(async move {
-            let bs_addrs = self.inner.bootstrap_addrs.read().await.to_vec().clone();
-            self.add_known_peers(bs_addrs.clone()).await.unwrap();
-            info!("added peers! {:?}", bs_addrs);
-        });
+        let bootstrap_ref = self.inner.bootstrap_addrs.clone();
+        let num_bootstrap = self.inner.bootstrap_addrs_len;
+        let handle = self.inner.handle.clone();
+        let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
+                let bs_addrs = loop {
+                    let bss = bootstrap_ref.read().await;
+                    let bs_addrs = bss.clone();
+                    drop(bss);
+                    if bs_addrs.len() == num_bootstrap {
+                        break bs_addrs;
+                    }
+                    info!(
+                        "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
+                        id,
+                        bs_addrs.len(),
+                        num_bootstrap
+                    );
+                    // TODO why does a sleep here not wake up?
+                };
+                handle.add_known_peers(bs_addrs).await.unwrap();
+
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
                 let connected = NetworkNodeHandle::wait_to_connect(
                     handle.clone(),
                     // this is a safe lower bet on the number of nodes in the network.
                     4,
                     handle.recv_network(),
-                    // FIXME: Temporary hack to get this to compile
-                    0,
+                    id,
                 )
                 .timeout(timeout_duration)
                 .await;
-                // FIXME should this be parametrized?
-                // do we care?
-                handle.subscribe("global".to_string()).await.unwrap();
+                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
-                // these will spin indefinitely but since this is async, that's okay.
+                info!("peer {:?} waiting for bootstrap", handle.peer_id());
+
+                while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
+                    sleep(Duration::from_secs(1)).await;
+                }
+
+                info!("peer {:?} waiting for publishing", handle.peer_id());
+
                 // we want our records published before
                 // we begin participating in consensus
-                handle
-                    .put_record(&pk, &handle.peer_id())
-                    .await
-                    .map_err(Into::<NetworkError>::into)?;
-                handle
-                    .put_record(&handle.peer_id(), &pk)
-                    .await
-                    .map_err(Into::<NetworkError>::into)?;
-                info!("connected status is {:?}", connected);
+                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+                    sleep(Duration::from_secs(1)).await;
+                }
 
-                is_ready
-                    .modify_async(|s| {
-                        *s = true;
-                    })
-                    .await;
-                println!("Done is_connected now");
+                info!("PUBLISHED RECORD 1");
+
+                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+                    sleep(Duration::from_secs(1)).await;
+                }
+
+                info!("connected status is {:?}", connected);
+                info!("node {:?} is ready", handle.peer_id());
+
+                is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
+                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });
@@ -290,7 +352,7 @@ impl<
     }
 
     /// make network aware of known peers
-    async fn add_known_peers(
+    async fn _add_known_peers(
         &self,
         known_peers: Vec<(Option<PeerId>, Multiaddr)>,
     ) -> Result<(), NetworkError> {
@@ -305,12 +367,13 @@ impl<
     /// terminates on shut down of network
     fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
         let handle = self.clone();
+        let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn(async move {
             let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
-                    GossipMsg(msg) => {
+                    GossipMsg(msg, _topic) => {
                         let result: Result<M, _> = bincode_options.deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
@@ -319,7 +382,7 @@ impl<
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
                     }
-                    DirectRequest(msg, _pid, _) => {
+                    DirectRequest(msg, _pid, chan) => {
                         let result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
@@ -329,11 +392,23 @@ impl<
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
+                        if handle
+                            .inner
+                            .handle
+                            .direct_response(chan, &Empty::Empty)
+                            .await
+                            .is_err()
+                        {
+                            error!("failed to ack!");
+                        };
                     }
                     DirectResponse(msg, _) => {
                         let _result: Result<M, _> = bincode_options
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
+                    }
+                    NetworkEvent::IsBootstrapped => {
+                        is_bootstrapped.store(true, std::sync::atomic::Ordering::Relaxed);
                     }
                 }
             }
@@ -355,13 +430,13 @@ impl<
             while !handle.inner.handle.is_killed().await {
                 let known_nodes = handle
                     .inner
-                    .pubkey_to_pid
-                    .clone()
-                    .into_read_only()
-                    .values()
+                    .pubkey_pid_map
+                    .read()
+                    .await
+                    .right_values()
                     .copied()
                     .collect::<HashSet<_>>();
-                let libp2p_known_nodes = handle.inner.handle.known_peers().await;
+                let libp2p_known_nodes = handle.inner.handle.connected_pids().await.unwrap();
                 let unknown_nodes = libp2p_known_nodes
                     .difference(&known_nodes)
                     .collect::<Vec<_>>();
@@ -377,12 +452,10 @@ impl<
                 for (idx, maybe_pk) in results.into_iter().enumerate() {
                     match maybe_pk {
                         Ok(pk) => {
-                            info!("found pk for peer id {:?}", unknown_nodes[idx]);
-                            handle
-                                .inner
-                                .pubkey_to_pid
-                                .insert(pk.clone(), *unknown_nodes[idx]);
-                            handle.inner.pid_to_pubkey.insert(*unknown_nodes[idx], pk);
+                            warn!("found pk for peer id {:?}", unknown_nodes[idx]);
+                            let mut pubkey_pid_map = handle.inner.pubkey_pid_map.write().await;
+                            pubkey_pid_map.insert(pk.clone(), *unknown_nodes[idx]);
+                            drop(pubkey_pid_map);
                         }
                         Err(_e) => {
                             // hopefully we'll eventually find the key. Try again
@@ -418,7 +491,7 @@ impl<
         info!(
             "broadcasting msg: {:?} with nodes: {:?} connected",
             message,
-            self.inner.handle.connected_peers().await
+            self.inner.handle.connected_pids().await
         );
         // send to self?
         self.inner
@@ -428,7 +501,7 @@ impl<
             .unwrap();
         self.inner
             .handle
-            .gossip("global".to_string(), &message)
+            .gossip(QC_TOPIC.to_string(), &message)
             .await
             .map_err(Into::<NetworkError>::into)?;
         Ok(())
@@ -441,10 +514,17 @@ impl<
         }
         self.wait_for_ready().await;
         // check local cache. if that fails, initiate search
-        let pid: PeerId = if let Some(pid) = self.inner.pubkey_to_pid.get(&recipient) {
+        // if search fails, just error out
+        // NOTE: relay may be a good way to fix this in the future .
+        let pid: PeerId = if let Some(pid) = self
+            .inner
+            .pubkey_pid_map
+            .read()
+            .await
+            .get_by_left(&recipient)
+        {
             *pid
         } else {
-            // TODO separate out into separate function
             match self
                 .inner
                 .handle
@@ -454,11 +534,17 @@ impl<
             {
                 Ok(r) => r,
                 Err(_e) => {
-                    unreachable!();
+                    error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
+                    return Err(NetworkError::DHTError);
                 }
             }
-            // TODO insert
         };
+
+        self.inner
+            .handle
+            .lookup_pid(pid)
+            .await
+            .map_err(Into::<NetworkError>::into)?;
         self.inner
             .handle
             .direct_request(pid, &message)
@@ -522,13 +608,15 @@ impl<
     #[instrument(name = "Libp2pNetwork::known_nodes", skip_all)]
     async fn known_nodes(&self) -> Vec<P> {
         self.inner
-            .pubkey_to_pid
-            .iter()
-            .map(|kv| kv.pair().0.clone())
+            .pubkey_pid_map
+            .read()
+            .await
+            .left_values()
+            .cloned()
             .collect()
     }
 
-    #[instrument(name = "Libp2pNetwork::network_changes", skip_all)]
+    #[instrument(name = "Libp2pNetwork::network_changes", skip_all, self.peer_id)]
     async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
@@ -542,7 +630,7 @@ impl<
             .into_iter()
             .collect();
 
-        let cur_connected: HashSet<_> = self.inner.handle.connected_peers().await;
+        let cur_connected: HashSet<_> = self.inner.handle.connected_pids().await?;
 
         // new - old -> added peers
         let added_peers = cur_connected.difference(&old_connected);

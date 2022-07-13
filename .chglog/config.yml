@@ -2,7 +2,7 @@ style: gitlab
 template: CHANGELOG.tpl.md
 info:
   title: CHANGELOG
-  repository_url: https://gitlab.com/translucence/systems/phaselock
+  repository_url: https://github.com/espressosystems/hotshot
 options:
   commits:
     filters:

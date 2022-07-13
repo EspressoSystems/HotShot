@@ -1,0 +1,23 @@
+[package]
+name = "hotshot-testing"
+version = "0.0.1"
+edition = "2021"
+description = "Types and traits for the HotShot consesus module"
+authors = ["Victor Koenders <vkoenders@espressosys.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hotshot = { path = "../" }
+hotshot-types = { path = "../types" }
+hotshot-utils = { path = "../utils", features = ["logging-utils"] }
+async-std = "1.11.0"
+tracing = "0.1.32"
+rand = "0.8.5"
+snafu = { version = "0.7.0", features = ["backtraces"] }
+either = { version = "1.7.0" }
+
+[dev-dependencies]
+tempfile = "3.3.0"
+proptest = "1.0.0"
+

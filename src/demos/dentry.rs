@@ -1,13 +1,13 @@
 //! Double entry accounting demo
 //!
-//! This module provides an implementation of the `PhaseLock` suite of traits that implements a
+//! This module provides an implementation of the `HotShot` suite of traits that implements a
 //! basic demonstration of double entry accounting.
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
 use blake3::Hasher;
-use phaselock_types::{
+use hotshot_types::{
     data::{Leaf, QuorumCertificate, Stage, ViewNumber},
     traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
 };

@@ -4,6 +4,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::Multiaddr;
 use libp2p_networking::{
     message::Message,
@@ -11,7 +12,6 @@ use libp2p_networking::{
     ui::{run_app, TableApp},
 };
 use parking_lot::Mutex;
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::VecDeque, sync::Arc};
 use structopt::StructOpt;
 use tracing::instrument;
@@ -35,10 +35,7 @@ async fn main() -> Result<()> {
     setup_logging();
     setup_backtrace();
     // -- Spin up the network connection
-    let networking_config = NetworkNodeConfigBuilder::default()
-        .min_num_peers(10usize)
-        .max_num_peers(15usize)
-        .build()?;
+    let networking_config = NetworkNodeConfigBuilder::default().build()?;
     let mut networking: NetworkNode = NetworkNode::new(networking_config)
         .await
         .context("Failed to launch network")?;

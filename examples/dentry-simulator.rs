@@ -1,9 +1,9 @@
 use futures::future::join_all;
-use phaselock_types::traits::signature_key::{
+use hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
 };
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -14,14 +14,14 @@ use std::{
 use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
-use phaselock::{
+use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
-    types::{Event, EventType, Message, PhaseLockHandle},
-    PhaseLock, PhaseLockConfig, H_256,
+    types::{Event, EventType, HotShotHandle, Message},
+    HotShot, HotShotConfig, H_256,
 };
 
 type Node =
@@ -118,10 +118,10 @@ async fn main() {
             async_std::task::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
-    // Create the phaselocks
-    let mut phaselocks: Vec<PhaseLockHandle<_, H_256>> =
+    // Create the hotshots
+    let mut hotshots: Vec<HotShotHandle<_, H_256>> =
         join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_phaselock(nodes, threshold, node_id, network, &inital_state)
+            get_hotshot(nodes, threshold, node_id, network, &inital_state)
         }))
         .await;
 
@@ -137,35 +137,35 @@ async fn main() {
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        phaselocks[0]
+        hotshots[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
-        for phaselock in &phaselocks {
-            phaselock.run_one_round().await;
+        for hotshot in &hotshots {
+            hotshot.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
+        for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = phaselock
+            let mut event: Event<DEntryBlock, State> = hotshot
                 .next_event()
                 .await
-                .expect("PhaseLock unexpectedly closed");
+                .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 debug! {?node_id, ?event};
-                event = phaselock
+                event = hotshot
                     .next_event()
                     .await
-                    .expect("PhaseLock unexpectedly closed");
+                    .expect("HotShot unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
@@ -203,35 +203,35 @@ async fn main() {
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        phaselocks[0]
+        hotshots[0]
             .submit_transaction(tx)
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
-        for phaselock in &phaselocks {
-            phaselock.run_one_round().await;
+        for hotshot in &hotshots {
+            hotshot.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        for (node_id, phaselock) in phaselocks.iter_mut().enumerate() {
+        for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = phaselock
+            let mut event: Event<DEntryBlock, State> = hotshot
                 .next_event()
                 .await
-                .expect("PhaseLock unexpectedly closed");
+                .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
                 if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
                 debug! {?node_id, ?event};
-                event = phaselock
+                event = hotshot
                     .next_event()
                     .await
-                    .expect("PhaseLock unexpectedly closed");
+                    .expect("HotShot unexpectedly closed");
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
@@ -296,7 +296,7 @@ fn inital_state() -> State {
 #[instrument(skip(rng))]
 async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
-    R: phaselock::rand::Rng,
+    R: hotshot::rand::Rng,
 >(
     pub_key: Ed25519Pub,
     listen_addr: &str,
@@ -331,15 +331,15 @@ async fn get_networking<
     panic!("Failed to open a port");
 }
 
-/// Creates a phaselock
+/// Creates a hotshot
 #[instrument(skip(networking, state))]
-async fn get_phaselock(
+async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
     state: &State,
-) -> PhaseLockHandle<Node, H_256> {
+) -> HotShotHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
             Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
@@ -347,7 +347,7 @@ async fn get_phaselock(
             ))
         })
         .collect();
-    let config = PhaseLockConfig {
+    let config = HotShotConfig {
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -358,12 +358,13 @@ async fn get_phaselock(
         start_delay: 1,
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
+        num_bootstrap: 5,
     };
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
     let genesis = DEntryBlock::default();
-    let h = PhaseLock::init(
+    let h = HotShot::init(
         genesis,
         known_nodes.clone(),
         public_key,
@@ -377,7 +378,7 @@ async fn get_phaselock(
         StaticCommittee::new(known_nodes),
     )
     .await
-    .expect("Could not init phaselock");
-    debug!("phaselock launched");
+    .expect("Could not init hotshot");
+    debug!("hotshot launched");
     h
 }
