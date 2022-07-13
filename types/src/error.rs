@@ -85,6 +85,13 @@ pub enum HotShotError {
         /// The state that the round was in when it timed out
         state: RoundTimedoutState,
     },
+    /// Miscelaneous error
+    /// TODO fix this with
+    /// #181 <https://github.com/EspressoSystems/HotShot/issues/181>
+    Misc {
+        /// source of error
+        context: String,
+    },
     /// Internal value used to drive the state machine
     Continue,
 }

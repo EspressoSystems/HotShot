@@ -10,7 +10,7 @@ use async_std::{prelude::FutureExt, task::block_on};
 use hotshot_types::{
     error::{HotShotError, RoundTimedoutState, TimeoutSnafu},
     event::EventType,
-    traits::{network::NetworkingImplementation, storage::StorageError},
+    traits::network::NetworkingImplementation,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use snafu::ResultExt;
@@ -194,10 +194,8 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         let cur_view = self
             .get_round_runner_state()
             .await
-            .map_err(|e| HotShotError::StorageError {
-                source: StorageError::InconsistencyError {
-                    description: e.to_string(),
-                },
+            .map_err(|e| HotShotError::Misc {
+                context: e.to_string(),
             })?
             .view;
 
