@@ -13,7 +13,7 @@ use async_std::sync::Mutex;
 use async_trait::async_trait;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
 use futures::Future;
-use phaselock_types::{
+use hotshot_types::{
     data::ViewNumber,
     traits::storage::{
         AtomicStoreSnafu, Storage, StorageError, StorageResult, StorageState, StorageUpdater,
@@ -72,7 +72,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         let tempdir = tempdir().map_err(|e| StorageError::InconsistencyError {
             description: e.to_string(),
         })?;
-        let loader = AtomicStoreLoader::create(tempdir.path(), "phaselock").map_err(|e| {
+        let loader = AtomicStoreLoader::create(tempdir.path(), "hotshot").map_err(|e| {
             StorageError::InconsistencyError {
                 description: e.to_string(),
             }
@@ -97,7 +97,7 @@ where
     /// - [`atomic_store::RollingLog`]
     /// - [`atomic_store::AppendLog`]
     pub fn create(path: &Path) -> atomic_store::Result<Self> {
-        let loader = AtomicStoreLoader::create(path, "phaselock")?;
+        let loader = AtomicStoreLoader::create(path, "hotshot")?;
         Self::init_from_loader(loader, None)
     }
 
@@ -111,7 +111,7 @@ where
     /// - [`atomic_store::RollingLog`]
     /// - [`atomic_store::AppendLog`]
     pub fn open(path: &Path) -> atomic_store::Result<Self> {
-        let loader = AtomicStoreLoader::load(path, "phaselock")?;
+        let loader = AtomicStoreLoader::load(path, "hotshot")?;
         Self::init_from_loader(loader, None)
     }
 
@@ -127,10 +127,10 @@ where
         mut loader: AtomicStoreLoader,
         dir: Option<TempDir>,
     ) -> atomic_store::Result<Self> {
-        let blocks = HashMapStore::load(&mut loader, "phaselock_blocks")?;
-        let qcs = DualKeyValueStore::open(&mut loader, "phaselock_qcs")?;
-        let leaves = DualKeyValueStore::open(&mut loader, "phaselock_leaves")?;
-        let states = HashMapStore::load(&mut loader, "phaselock_states")?;
+        let blocks = HashMapStore::load(&mut loader, "hotshot_blocks")?;
+        let qcs = DualKeyValueStore::open(&mut loader, "hotshot_qcs")?;
+        let leaves = DualKeyValueStore::open(&mut loader, "hotshot_leaves")?;
+        let states = HashMapStore::load(&mut loader, "hotshot_states")?;
 
         let atomic_store = AtomicStore::open(loader)?;
 

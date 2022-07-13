@@ -1,12 +1,12 @@
 use async_std::{prelude::FutureExt, task::sleep};
 use flume::RecvError;
 use futures::{future::join_all, Future};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
-use phaselock_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::{ResultExt, Snafu};
 use std::{
     collections::{HashMap, HashSet},

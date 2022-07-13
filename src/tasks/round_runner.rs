@@ -2,20 +2,20 @@
 //!
 //! This will wait for one of several events, and will run one or multiple rounds
 
-use crate::PhaseLock;
+use crate::HotShot;
 use async_std::{prelude::FutureExt, task::JoinHandle};
 use flume::{unbounded, Receiver, Sender};
 use futures::channel::oneshot::{self, Sender as OneShotSender};
-use phaselock_types::{
+use hotshot_types::{
     data::{Stage, ViewNumber},
-    error::PhaseLockError,
+    error::HotShotError,
     event::{Event, EventType},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument, warn};
 
-/// A round runner that will run one or multiple phaselock rounds.
+/// A round runner that will run one or multiple hotshot rounds.
 ///
 /// This can be started and stopped by sending [`ToRoundRunner`] messages to the `sender` that is available on this struct.
 pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
@@ -27,8 +27,8 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
     receiver: Receiver<ToRoundRunner>,
     /// The internal state of the round runner. This will be updated every time a round has finished.
     state: RoundRunnerState,
-    /// A reference to the current running phaselock implementation.
-    phaselock: PhaseLock<I, N>,
+    /// A reference to the current running hotshot implementation.
+    hotshot: HotShot<I, N>,
 
     /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
     run_once_counter: usize,
@@ -42,9 +42,9 @@ pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
     /// Create a new instance of the round runner.
-    pub async fn new(phaselock: PhaseLock<I, N>) -> Self {
+    pub async fn new(hotshot: HotShot<I, N>) -> Self {
         let (sender, receiver) = unbounded();
-        let view = match phaselock.inner.storage.get_newest_qc().await {
+        let view = match hotshot.inner.storage.get_newest_qc().await {
             Ok(Some(qc)) => qc.view_number,
             Ok(None) => ViewNumber::genesis(),
             Err(e) => {
@@ -56,13 +56,13 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             view,
             is_running: false,
         };
-        let int_duration = phaselock.inner.config.next_view_timeout;
+        let int_duration = hotshot.inner.config.next_view_timeout;
         Self {
             join_handle: None,
             sender,
             receiver,
             state,
-            phaselock,
+            hotshot,
             int_duration,
             run_once_counter: 0,
             round_timeout_seq_count: 0,
@@ -133,8 +133,8 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                         break;
                     }
 
-                    let default_interrupt_duration = self.phaselock.inner.config.next_view_timeout;
-                    let (int_mul, int_div) = self.phaselock.inner.config.timeout_ratio;
+                    let default_interrupt_duration = self.hotshot.inner.config.next_view_timeout;
+                    let (int_mul, int_div) = self.hotshot.inner.config.timeout_ratio;
 
                     let mut event_to_send = None;
                     match *result {
@@ -145,7 +145,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 
                             info!("Round finished, new view number is {:?}", new_view);
                         }
-                        Err(PhaseLockError::ViewTimeoutError { view_number, state }) => {
+                        Err(HotShotError::ViewTimeoutError { view_number, state }) => {
                             if view_number != self.state.view {
                                 error!("We received a timeout for view {:?} but we're currently in view {:?}", view_number, self.state.view);
                             }
@@ -188,7 +188,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     }
 
                     if let Some(event_to_send) = event_to_send {
-                        if !self.phaselock.send_event(event_to_send).await {
+                        if !self.hotshot.send_event(event_to_send).await {
                             error!("All event streams closed! Shutting down.");
                             break;
                         }
@@ -207,7 +207,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                 }
                 ToRoundRunner::RoundShouldBeFinished(view) => {
                     // We mark this round as timed out. If the round is not running then this is a no-op, otherwise we will be getting a `RoundFinished` soon.
-                    self.phaselock.mark_round_as_timed_out(view).await;
+                    self.hotshot.mark_round_as_timed_out(view).await;
                 }
             }
         }
@@ -219,11 +219,11 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
     /// Will return `true` if the round was successfully spawned. If this returns `false`, the caller should shut down.
     async fn spawn(&mut self) -> bool {
         // Send the next view
-        let next_view_res = self.phaselock.next_view(self.state.view + 1).await;
+        let next_view_res = self.hotshot.next_view(self.state.view + 1).await;
         // If we fail to send the next view, broadcast the error and pause
         if let Err(e) = next_view_res {
             if !self
-                .phaselock
+                .hotshot
                 .send_event(Event {
                     view_number: self.state.view + 1,
                     stage: e.get_stage().unwrap_or(Stage::None),
@@ -248,10 +248,10 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
         assert!(self.join_handle.is_none());
         self.join_handle = Some(async_std::task::spawn({
             let sender = self.sender.clone();
-            let phaselock = self.phaselock.clone();
+            let hotshot = self.hotshot.clone();
             let view = self.state.view;
             async move {
-                let round_res = phaselock.run_round(view).await;
+                let round_res = hotshot.run_round(view).await;
                 let _ = round_finished_sender.send(());
                 if let Err(e) = sender.send(ToRoundRunner::RoundFinished(Box::new(round_res))) {
                     error!(?e, "Could not send round result");
@@ -266,7 +266,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             let view = self.state.view;
             async move {
                 if round_finished_receiver.timeout(t).await.is_err() {
-                    // If we weren't notified of `phaselock.rund_round` being finished, we send an interrupt
+                    // If we weren't notified of `hotshot.rund_round` being finished, we send an interrupt
                     let _result = sender.send(ToRoundRunner::RoundShouldBeFinished(view));
                 }
             }
@@ -306,7 +306,7 @@ pub enum ToRoundRunner {
     ShutDown,
 
     /// Will be triggered once a round is done
-    RoundFinished(Box<Result<ViewNumber, PhaseLockError>>),
+    RoundFinished(Box<Result<ViewNumber, HotShotError>>),
 
     /// Will be send a fixed amount of time after a round started, to notify us that a round should be marked as timed out if it's not finished yet
     RoundShouldBeFinished(ViewNumber),

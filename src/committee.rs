@@ -1,6 +1,6 @@
 use crate::{data::StateHash, H_256};
 use blake3::Hasher;
-use phaselock_types::{
+use hotshot_types::{
     data::ViewNumber,
     traits::signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
@@ -189,7 +189,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
     }
 
     // TODO !keyao Optimize VRF implementation with the sortition algorithm.
-    // (Issue: <https://github.com/EspressoSystems/phaselock/issues/13>)
+    // (Issue: <https://github.com/EspressoSystems/hotshot/issues/13>)
 
     /// Validates a vote token.
     ///

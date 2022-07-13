@@ -38,7 +38,6 @@ use libp2p::{
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
-
 use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
 use std::{
@@ -114,7 +113,7 @@ impl NetworkNode {
                     }
                 }
                 None => {
-                    // <https://github.com/EspressoSystems/phaselock/issues/290>
+                    // <https://github.com/EspressoSystems/hotshot/issues/290>
                     // TODO actually implement this part
                     // if we don't know the peerid, dial to find out what the peerid is
                 }
@@ -201,7 +200,7 @@ impl NetworkNode {
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
                 // TODO do we even need this?
-                // <https://github.com/EspressoSystems/phaselock/issues/42>
+                // <https://github.com/EspressoSystems/hotshot/issues/42>
                 // if messages are signed at the the consensus level AND the network
                 // level (noise), this feels redundant.
                 MessageAuthenticity::Signed(identity.clone()),
@@ -479,7 +478,7 @@ impl NetworkNode {
                     select! {
                         // TODO move this out of th eevent loop and into the handle_client_requests
                         // event loop?
-                        // <https://github.com/EspressoSystems/phaselock/issues/291>
+                        // <https://github.com/EspressoSystems/hotshot/issues/291>
                         _ = sleep(lowest_increment).fuse() => {
                             time_since_print_num_connections += lowest_increment;
                             if time_since_print_num_connections > print_num_connections_thres {

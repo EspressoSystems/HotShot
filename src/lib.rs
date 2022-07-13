@@ -17,9 +17,9 @@
 #![allow(clippy::cast_possible_truncation)]
 // Temporary, should be disabled after the completion of the NodeImplementation refactor
 #![allow(clippy::type_complexity)]
-//! Provides a generic rust implementation of the `PhaseLock` BFT protocol
+//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
-//! See the [protocol documentation](https://github.com/EspressoSystems/phaselock-spec) for a protocol description.
+//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
 
 // Documentation module
 #[cfg(feature = "docs")]
@@ -30,7 +30,7 @@ pub mod committee;
 pub mod data;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
-/// Contains traits consumed by [`PhaseLock`]
+/// Contains traits consumed by [`HotShot`]
 pub mod traits;
 /// Contains types used by the crate
 pub mod types;
@@ -41,14 +41,14 @@ mod utils;
 use crate::{
     data::{Leaf, LeafHash, QuorumCertificate, Stage},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{Event, EventType, PhaseLockHandle},
+    types::{Event, EventType, HotShotHandle},
 };
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use futures::channel::oneshot;
-use phaselock_hotstuff::{HotStuff, RoundFinishedEventState};
-use phaselock_types::{
+use hotshot_consensus::{Consensus, RoundFinishedEventState};
+use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{DataMessage, Message},
@@ -60,7 +60,7 @@ use phaselock_types::{
         stateful_handler::StatefulHandler,
     },
 };
-use phaselock_utils::broadcast::BroadcastSender;
+use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -77,7 +77,7 @@ use tracing::{debug, error, info, instrument, trace, warn};
 pub use rand;
 // Internal
 /// Reexport error type
-pub use phaselock_types::error::PhaseLockError;
+pub use hotshot_types::error::HotShotError;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -85,11 +85,11 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Convenience type alias
-type Result<T> = std::result::Result<T, PhaseLockError>;
+type Result<T> = std::result::Result<T, HotShotError>;
 
-/// Holds configuration for a `PhaseLock`
+/// Holds configuration for a `HotShot`
 #[derive(Debug, Clone)]
-pub struct PhaseLockConfig<P: SignatureKey> {
+pub struct HotShotConfig<P: SignatureKey> {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
@@ -114,8 +114,8 @@ pub struct PhaseLockConfig<P: SignatureKey> {
     pub propose_max_round_time: Duration,
 }
 
-/// Holds the state needed to participate in `PhaseLock` consensus
-pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
+/// Holds the state needed to participate in `HotShot` consensus
+pub struct HotShotInner<I: NodeImplementation<N>, const N: usize> {
     /// The public key of this node
     public_key: I::SignatureKey,
 
@@ -126,20 +126,20 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     /// TODO: Move the functionality this expresses into the election trait
     cluster_public_keys: HashSet<I::SignatureKey>,
 
-    /// Configuration items for this phaselock instance
-    config: PhaseLockConfig<I::SignatureKey>,
+    /// Configuration items for this hotshot instance
+    config: HotShotConfig<I::SignatureKey>,
 
-    /// Networking interface for this phaselock instance
+    /// Networking interface for this hotshot instance
     networking: I::Networking,
 
-    /// This `PhaseLock` instance's storage backend
+    /// This `HotShot` instance's storage backend
     storage: I::Storage,
 
-    /// This `PhaseLock` instance's stateful callback handler
+    /// This `HotShot` instance's stateful callback handler
     stateful_handler: Mutex<I::StatefulHandler>,
 
-    /// This `PhaseLock` instance's election backend
-    election: PhaseLockElectionState<I::SignatureKey, I::Election, N>,
+    /// This `HotShot` instance's election backend
+    election: HotShotElectionState<I::SignatureKey, I::Election, N>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
@@ -148,11 +148,11 @@ pub struct PhaseLockInner<I: NodeImplementation<N>, const N: usize> {
     background_task_handle: tasks::TaskHandle,
 
     /// The hotstuff implementation
-    hotstuff: Mutex<HotStuff<I, N>>,
+    hotstuff: Mutex<Consensus<I, N>>,
 }
 
-/// Contains the state of the election of the current [`PhaseLock`].
-struct PhaseLockElectionState<P: SignatureKey, E: Election<P, N>, const N: usize> {
+/// Contains the state of the election of the current [`HotShot`].
+struct HotShotElectionState<P: SignatureKey, E: Election<P, N>, const N: usize> {
     /// An instance of the election
     election: E,
     /// The inner state of the election
@@ -162,15 +162,15 @@ struct PhaseLockElectionState<P: SignatureKey, E: Election<P, N>, const N: usize
     stake_table: E::StakeTable,
 }
 
-/// Thread safe, shared view of a `PhaseLock`
+/// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
-pub struct PhaseLock<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
-    /// Handle to internal phaselock implementation
-    inner: Arc<PhaseLockInner<I, N>>,
+pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
+    /// Handle to internal hotshot implementation
+    inner: Arc<HotShotInner<I, N>>,
 }
 
-impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock<I, N> {
-    /// Creates a new phaselock with the given configuration options and sets it up with the given
+impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
+    /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     #[instrument(skip(
@@ -188,14 +188,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: PhaseLockConfig<I::SignatureKey>,
+        config: HotShotConfig<I::SignatureKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
     ) -> Result<Self> {
-        info!("Creating a new phaselock");
+        info!("Creating a new hotshot");
         let genesis_hash = BlockContents::hash(&genesis);
         let leaf = Leaf {
             parent: [0_u8; { N }].into(),
@@ -205,13 +205,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             let state =
                 <<I as NodeImplementation<N>>::Election as Election<I::SignatureKey, N>>::State::default();
             let stake_table = election.get_stake_table(&state);
-            PhaseLockElectionState {
+            HotShotElectionState {
                 election,
                 state,
                 stake_table,
             }
         };
-        let inner: PhaseLockInner<I, N> = PhaseLockInner {
+        let inner: HotShotInner<I, N> = HotShotInner {
             public_key,
             private_key,
             config,
@@ -297,7 +297,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         hotstuff
             .next_view(
                 current_view,
-                &mut PhaseLockConsensusApi { inner: &self.inner },
+                &mut HotShotConsensusApi { inner: &self.inner },
             )
             .await
     }
@@ -334,18 +334,18 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         let result = match receiver.await {
             Ok(result) => result,
             Err(e) => {
-                return Err(PhaseLockError::InvalidState {
+                return Err(HotShotError::InvalidState {
                     context: format!("Could not wait for round to end: {:?}", e),
                 })
             }
         };
         match result.state {
             RoundFinishedEventState::Success => Ok(result.view_number),
-            RoundFinishedEventState::Interrupted(state) => Err(PhaseLockError::ViewTimeoutError {
+            RoundFinishedEventState::Interrupted(state) => Err(HotShotError::ViewTimeoutError {
                 view_number: result.view_number,
                 state,
             }),
-            x => Err(PhaseLockError::InvalidState {
+            x => Err(HotShotError::InvalidState {
                 context: format!("Round finished in an unknown state: {:?}", x),
             }),
         }
@@ -374,10 +374,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             .hotstuff
             .lock()
             .await
-            .add_transaction(
-                tx.clone(),
-                &mut PhaseLockConsensusApi { inner: &self.inner },
-            )
+            .add_transaction(tx.clone(), &mut HotShotConsensusApi { inner: &self.inner })
             .await?;
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(tx);
@@ -420,14 +417,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         }
     }
 
-    /// Initializes a new phaselock and does the work of setting up all the background tasks
+    /// Initializes a new hotshot and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.
     ///
-    /// Underlying `PhaseLock` instance starts out paused, and must be unpaused
+    /// Underlying `HotShot` instance starts out paused, and must be unpaused
     ///
     /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
-    /// the `PhaseLock` instance will log the error and shut down.
+    /// the `HotShot` instance will log the error and shut down.
     ///
     /// # Errors
     ///
@@ -439,15 +436,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: PhaseLockConfig<I::SignatureKey>,
+        config: HotShotConfig<I::SignatureKey>,
         starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
-    ) -> Result<PhaseLockHandle<I, N>> {
+    ) -> Result<HotShotHandle<I, N>> {
         // Save a clone of the storage for the handle
-        let phaselock = Self::new(
+        let hotshot = Self::new(
             genesis,
             cluster_public_keys,
             public_key,
@@ -461,14 +458,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
             election,
         )
         .await?;
-        let handle = tasks::spawn_all(&phaselock).await;
+        let handle = tasks::spawn_all(&hotshot).await;
 
         Ok(handle)
     }
 
     /// Send a broadcast message.
     ///
-    /// This is an alias for `phaselock.inner.networking.broadcast_message(msg.into())`.
+    /// This is an alias for `hotshot.inner.networking.broadcast_message(msg.into())`.
     ///
     /// # Errors
     ///
@@ -488,7 +485,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
 
     /// Send a direct message to a given recipient.
     ///
-    /// This is an alias for `phaselock.inner.networking.message_node(msg.into(), recipient)`.
+    /// This is an alias for `hotshot.inner.networking.message_node(msg.into(), recipient)`.
     ///
     /// # Errors
     ///
@@ -521,7 +518,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         if let Err(e) = hotstuff
             .add_consensus_message(
                 msg.clone(),
-                &mut PhaseLockConsensusApi { inner: &self.inner },
+                &mut HotShotConsensusApi { inner: &self.inner },
                 sender,
             )
             .await
@@ -541,7 +538,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
         if let Err(e) = hotstuff
             .add_consensus_message(
                 msg.clone(),
-                &mut PhaseLockConsensusApi { inner: &self.inner },
+                &mut HotShotConsensusApi { inner: &self.inner },
                 sender,
             )
             .await
@@ -563,7 +560,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
                 if let Err(e) = hotstuff
                     .add_transaction(
                         transaction.clone(),
-                        &mut PhaseLockConsensusApi { inner: &self.inner },
+                        &mut HotShotConsensusApi { inner: &self.inner },
                     )
                     .await
                 {
@@ -665,14 +662,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
 
                 match load_latest_state::<I, N>(&self.inner.storage).await {
                     Ok(Some((quorum_certificate, leaf, state))) => {
-                        let phaselock = self.clone();
+                        let hotshot = self.clone();
                         let msg = DataMessage::NewestQuorumCertificate {
                             quorum_certificate,
                             state,
                             block: leaf.item,
                         };
 
-                        if let Err(e) = phaselock.send_direct_message(msg, peer.clone()).await {
+                        if let Err(e) = hotshot.send_direct_message(msg, peer.clone()).await {
                             error!(
                                 ?e,
                                 "Could not send newest quorumcertificate to node {:?}", peer
@@ -699,7 +696,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> PhaseLock
     }
 }
 
-/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`phaselock_types::traits::State`] from the given [`Storage`]
+/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,
 ) -> std::result::Result<
@@ -721,15 +718,15 @@ async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     Ok(Some((qc, leaf, state)))
 }
 
-/// A handle that is passed to [`phaselock_hotstuff`] with to expose the interface that hotstuff needs to interact with [`PhaseLock`]
-struct PhaseLockConsensusApi<'a, I: NodeImplementation<N>, const N: usize> {
-    /// Reference to the [`PhaseLockInner`]
-    inner: &'a PhaseLockInner<I, N>,
+/// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
+struct HotShotConsensusApi<'a, I: NodeImplementation<N>, const N: usize> {
+    /// Reference to the [`HotShotInner`]
+    inner: &'a HotShotInner<I, N>,
 }
 
 #[async_trait]
-impl<'a, I: NodeImplementation<N>, const N: usize> phaselock_hotstuff::ConsensusApi<I, N>
-    for PhaseLockConsensusApi<'a, I, N>
+impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I, N>
+    for HotShotConsensusApi<'a, I, N>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes

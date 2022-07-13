@@ -31,7 +31,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use flume::{Receiver, Sender};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
@@ -1050,8 +1050,8 @@ async fn get_networking<
 #[allow(clippy::panic)]
 mod tests {
     use super::*;
-    use phaselock_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use phaselock_utils::test_util::setup_logging;
+    use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
+    use hotshot_utils::test_util::setup_logging;
     use rand::Rng;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]

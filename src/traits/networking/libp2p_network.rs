@@ -13,27 +13,23 @@ use bincode::Options;
 use dashmap::DashSet;
 use flume::Sender;
 use futures::future::join_all;
-use libp2p::{Multiaddr, PeerId};
-use libp2p_networking::network::{
-    MeshParams,
-    NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
-};
-use phaselock_types::traits::{
+use hotshot_types::traits::{
     network::{
         FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
         TestableNetworkingImplementation,
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use std::{str::FromStr, sync::atomic::AtomicBool};
-
+use libp2p::{Multiaddr, PeerId};
+use libp2p_networking::network::{
+    MeshParams,
+    NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
+    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::HashSet, num::NonZeroUsize};
-
+use std::{collections::HashSet, num::NonZeroUsize, str::FromStr, sync::atomic::AtomicBool};
 use std::{sync::Arc, time::Duration};
-
 use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;

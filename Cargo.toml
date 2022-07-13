@@ -1,15 +1,15 @@
 [package]
 authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
-description = "PhaseLock consesus module"
+description = "HotShot consesus module"
 edition = "2021"
-name = "phaselock"
+name = "hotshot"
 readme = "README.md"
 version = "0.1.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]
 # Enable demo/testing logic
-demo = ["blake3", "phaselock-types/demo"]
+demo = ["blake3", "hotshot-types/demo"]
 # Build the extended documentation
 docs = []
 doc-images = []
@@ -29,9 +29,9 @@ custom_debug = "0.5"
 dashmap = "5.3.4"
 flume = "0.10.12"
 futures = "0.3.21"
-phaselock-hotstuff = { path = "./phaselock-hotstuff", version = "0.1.0" }
-phaselock-types = { path = "./phaselock-types", version = "0.1.0", default-features = false }
-phaselock-utils = { path = "./phaselock-utils", version = "0.1.0"}
+hotshot-consensus = { path = "./consensus", version = "0.1.0" }
+hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
+hotshot-utils = { path = "./utils", version = "0.1.0"}
 libp2p-networking = {path = "./libp2p-networking", version = "0.1.0"}
 libp2p = { version = "0.46.1", features = ["serde"] }
 bimap = "0.6.2"
@@ -46,7 +46,7 @@ rand_chacha = "0.3.1"
 
 [dev-dependencies]
 async-std = { version = "1.11.0", features = ["attributes"] }
-phaselock-utils = { path = "./phaselock-utils", version = "0.1.0", features = ["logging-utils"] }
+hotshot-utils = { path = "./utils", version = "0.1.0", features = ["logging-utils"] }
 rand_xoshiro = "0.6.0"
 structopt = "0.3.26"
 toml = "0.5.8"
@@ -73,14 +73,14 @@ debug = 1
 lto = "thin"
 
 ### Workspace
-# The phaselock-types crate needs to be a seperate crate, as to not create a circular dependency
+# The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
 
 members = [
         "libp2p-networking",
-        "phaselock-hotstuff",
-        "phaselock-testing",
-        "phaselock-types",
-        "phaselock-utils",
+        "consensus",
+        "testing",
+        "types",
+        "utils",
 ]

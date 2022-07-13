@@ -12,9 +12,9 @@ use async_std::{
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
+use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
+use hotshot_utils::subscribable_mutex::SubscribableMutex;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
-use phaselock_types::traits::network::NetworkError as PhaselockNetworkError;
-use phaselock_utils::subscribable_mutex::SubscribableMutex;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
@@ -545,9 +545,9 @@ impl<S: Clone> NetworkNodeHandle<S> {
     }
 }
 
-impl From<NetworkNodeHandleError> for PhaselockNetworkError {
+impl From<NetworkNodeHandleError> for HotShotNetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
-        PhaselockNetworkError::Other {
+        HotShotNetworkError::Other {
             inner: Box::new(error),
         }
     }

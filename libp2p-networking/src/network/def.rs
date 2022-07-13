@@ -10,7 +10,6 @@ use libp2p::{
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
@@ -63,7 +62,7 @@ pub struct NetworkDef {
 
     /// Addresses to connect to at init
     /// DEPRECATED to be removed
-    /// <https://github.com/EspressoSystems/phaselock/issues/289>
+    /// <https://github.com/EspressoSystems/hotshot/issues/289>
     #[behaviour(ignore)]
     pub to_connect_addrs: HashSet<Multiaddr>,
 }
