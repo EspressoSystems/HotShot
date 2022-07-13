@@ -623,9 +623,9 @@
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">bounded</span>, <span class="ident">Receiver</span>, <span class="ident">SendError</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">stream::FuturesOrdered</span>, <span class="ident">Future</span>};
+<span class="kw">use</span> <span class="ident">hotshot_types::traits::network::NetworkError</span> <span class="kw">as</span> <span class="ident">HotShotNetworkError</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils::subscribable_mutex::SubscribableMutex</span>;
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">request_response::ResponseChannel</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
-<span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkError</span> <span class="kw">as</span> <span class="ident">PhaselockNetworkError</span>;
-<span class="kw">use</span> <span class="ident">phaselock_utils::subscribable_mutex::SubscribableMutex</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashSet</span>, <span class="ident">fmt::Debug</span>, <span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
@@ -1156,9 +1156,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PhaselockNetworkError</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HotShotNetworkError</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">error</span>: <span class="ident">NetworkNodeHandleError</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">PhaselockNetworkError::Other</span> {
+        <span class="ident">HotShotNetworkError::Other</span> {
             <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">error</span>),
         }
     }

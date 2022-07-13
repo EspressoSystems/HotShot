@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["hotshot"] = [{"text":"impl TestableState&lt;H_256&gt; for <a class=\"struct\" href=\"hotshot/demos/dentry/struct.State.html\" title=\"struct hotshot::demos::dentry::State\">State</a>","synthetic":false,"types":["hotshot::demos::dentry::State"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

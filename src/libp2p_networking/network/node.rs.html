@@ -520,7 +520,6 @@
 <span id="515">515</span>
 <span id="516">516</span>
 <span id="517">517</span>
-<span id="518">518</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -561,7 +560,6 @@
     <span class="ident">swarm</span>::{<span class="ident">ConnectionHandlerUpgrErr</span>, <span class="ident">SwarmBuilder</span>, <span class="ident">SwarmEvent</span>},
     <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>, <span class="ident">Swarm</span>,
 };
-
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">prelude::SliceRandom</span>, <span class="ident">thread_rng</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -637,7 +635,7 @@
                     }
                 }
                 <span class="prelude-val">None</span> =&gt; {
-                    <span class="comment">// &lt;https://github.com/EspressoSystems/phaselock/issues/290&gt;</span>
+                    <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/290&gt;</span>
                     <span class="comment">// TODO actually implement this part</span>
                     <span class="comment">// if we don&#39;t know the peerid, dial to find out what the peerid is</span>
                 }
@@ -724,7 +722,7 @@
             <span class="comment">// - Build a gossipsub network behavior</span>
             <span class="kw">let</span> <span class="ident">gossipsub</span>: <span class="ident">Gossipsub</span> <span class="op">=</span> <span class="ident">Gossipsub::new</span>(
                 <span class="comment">// TODO do we even need this?</span>
-                <span class="comment">// &lt;https://github.com/EspressoSystems/phaselock/issues/42&gt;</span>
+                <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/42&gt;</span>
                 <span class="comment">// if messages are signed at the the consensus level AND the network</span>
                 <span class="comment">// level (noise), this feels redundant.</span>
                 <span class="ident">MessageAuthenticity::Signed</span>(<span class="ident">identity</span>.<span class="ident">clone</span>()),
@@ -1002,7 +1000,7 @@
                     <span class="macro">select!</span> {
                         <span class="comment">// TODO move this out of th eevent loop and into the handle_client_requests</span>
                         <span class="comment">// event loop?</span>
-                        <span class="comment">// &lt;https://github.com/EspressoSystems/phaselock/issues/291&gt;</span>
+                        <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/291&gt;</span>
                         <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">lowest_increment</span>).<span class="ident">fuse</span>() =&gt; {
                             <span class="ident">time_since_print_num_connections</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
                             <span class="kw">if</span> <span class="ident">time_since_print_num_connections</span> <span class="op">&gt;</span> <span class="ident">print_num_connections_thres</span> {

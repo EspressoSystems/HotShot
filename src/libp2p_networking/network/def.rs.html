@@ -245,7 +245,6 @@
 <span id="240">240</span>
 <span id="241">241</span>
 <span id="242">242</span>
-<span id="243">243</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::NetworkEvent</span>;
 
 <span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
@@ -258,7 +257,6 @@
     },
     <span class="ident">Multiaddr</span>, <span class="ident">NetworkBehaviour</span>, <span class="ident">PeerId</span>,
 };
-
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashSet</span>,
     <span class="ident">num::NonZeroUsize</span>,
@@ -311,7 +309,7 @@
 
     <span class="doccomment">/// Addresses to connect to at init</span>
     <span class="doccomment">/// DEPRECATED to be removed</span>
-    <span class="doccomment">/// &lt;https://github.com/EspressoSystems/phaselock/issues/289&gt;</span>
+    <span class="doccomment">/// &lt;https://github.com/EspressoSystems/hotshot/issues/289&gt;</span>
     <span class="attribute">#[<span class="ident">behaviour</span>(<span class="ident">ignore</span>)]</span>
     <span class="kw">pub</span> <span class="ident">to_connect_addrs</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span>,
 }

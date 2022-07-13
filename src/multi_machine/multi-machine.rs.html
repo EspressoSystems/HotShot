@@ -289,19 +289,19 @@
 <span id="284">284</span>
 <span id="285">285</span>
 <span id="286">286</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">phaselock</span>::{
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
         <span class="ident">election::StaticCommittee</span>,
         <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>, <span class="ident">WNetwork</span>},
     },
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">Message</span>, <span class="ident">PhaseLockHandle</span>},
-    <span class="ident">PhaseLock</span>, <span class="ident">PhaseLockConfig</span>, <span class="ident">H_256</span>,
+    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
+    <span class="ident">HotShot</span>, <span class="ident">HotShotConfig</span>, <span class="ident">H_256</span>,
 };
-<span class="kw">use</span> <span class="ident">phaselock_types::traits::signature_key</span>::{
+<span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{
     <span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>,
 };
-<span class="kw">use</span> <span class="ident">phaselock_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
+<span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -378,14 +378,14 @@
     <span class="macro">panic!</span>(<span class="string">&quot;Failed to open a port&quot;</span>);
 }
 
-<span class="doccomment">/// Creates the initial state and phaselock for simulation.</span>
+<span class="doccomment">/// Creates the initial state and hotshot for simulation.</span>
 <span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init_state_and_phaselock</span>(
+<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init_state_and_hotshot</span>(
     <span class="ident">nodes</span>: <span class="ident">usize</span>,
     <span class="ident">threshold</span>: <span class="ident">usize</span>,
     <span class="ident">node_id</span>: <span class="ident">u64</span>,
     <span class="ident">networking</span>: <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">Transaction</span>, <span class="ident">State</span>, <span class="ident">Ed25519Pub</span>, <span class="ident">H_256</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-) -&gt; (<span class="ident">State</span>, <span class="ident">PhaseLockHandle</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">H_256</span><span class="op">&gt;</span>) {
+) -&gt; (<span class="ident">State</span>, <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">H_256</span><span class="op">&gt;</span>) {
     <span class="comment">// Create the initial state</span>
     <span class="kw">let</span> <span class="ident">balances</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
         (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
@@ -402,7 +402,7 @@
         <span class="ident">nonces</span>: <span class="ident">BTreeSet::default</span>(),
     };
 
-    <span class="comment">// Create the initial phaselock</span>
+    <span class="comment">// Create the initial hotshot</span>
     <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u64</span>)
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">x</span>);
@@ -410,7 +410,7 @@
         })
         .<span class="ident">collect</span>();
 
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PhaseLockConfig</span> {
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
         <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
         <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
         <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
@@ -428,7 +428,7 @@
     <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">node_id</span>);
     <span class="kw">let</span> <span class="ident">pub_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>);
     <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">DEntryBlock::default</span>();
-    <span class="kw">let</span> <span class="ident">phaselock</span> <span class="op">=</span> <span class="ident">PhaseLock::init</span>(
+    <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
         <span class="ident">genesis</span>,
         <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
         <span class="ident">pub_key</span>,
@@ -442,10 +442,10 @@
         <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
     )
     .<span class="kw">await</span>
-    .<span class="ident">expect</span>(<span class="string">&quot;Could not init phaselock&quot;</span>);
-    <span class="macro">debug!</span>(<span class="string">&quot;phaselock launched&quot;</span>);
+    .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-    (<span class="ident">state</span>, <span class="ident">phaselock</span>)
+    (<span class="ident">state</span>, <span class="ident">hotshot</span>)
 }
 
 <span class="attribute">#[<span class="ident">async_std::main</span>]</span>
@@ -519,10 +519,10 @@
     <span class="macro">println!</span>(<span class="string">&quot;All nodes connected to network&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;All nodes connected to network&quot;</span>);
 
-    <span class="comment">// Initialize the state and phaselock</span>
-    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">own_state</span>, <span class="kw-2">mut</span> <span class="ident">phaselock</span>) <span class="op">=</span>
-        <span class="ident">init_state_and_phaselock</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">own_id</span>, <span class="ident">own_network</span>).<span class="kw">await</span>;
-    <span class="ident">phaselock</span>.<span class="ident">start</span>().<span class="kw">await</span>;
+    <span class="comment">// Initialize the state and hotshot</span>
+    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">own_state</span>, <span class="kw-2">mut</span> <span class="ident">hotshot</span>) <span class="op">=</span>
+        <span class="ident">init_state_and_hotshot</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">own_id</span>, <span class="ident">own_network</span>).<span class="kw">await</span>;
+    <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
 
     <span class="comment">// Run random transactions</span>
     <span class="macro">println!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
@@ -535,24 +535,24 @@
         <span class="comment">// Start consensus</span>
         <span class="macro">println!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">phaselock</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
             .<span class="ident">next_event</span>()
             .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;PhaseLock unexpectedly closed&quot;</span>);
+            .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
         <span class="kw">while</span> <span class="op">!</span><span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Decide</span> { .. }) {
             <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Leader</span> { .. }) {
                 <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">own_state</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
                 <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
                 <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-                <span class="ident">phaselock</span>
+                <span class="ident">hotshot</span>
                     .<span class="ident">submit_transaction</span>(<span class="ident">tx</span>)
                     .<span class="kw">await</span>
                     .<span class="ident">expect</span>(<span class="string">&quot;Failed to submit transaction&quot;</span>);
             }
-            <span class="ident">event</span> <span class="op">=</span> <span class="ident">phaselock</span>
+            <span class="ident">event</span> <span class="op">=</span> <span class="ident">hotshot</span>
                 .<span class="ident">next_event</span>()
                 .<span class="kw">await</span>
-                .<span class="ident">expect</span>(<span class="string">&quot;PhaseLock unexpectedly closed&quot;</span>);
+                .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
         }
         <span class="macro">println!</span>(<span class="string">&quot;Node {} reached decision&quot;</span>, <span class="ident">own_id</span>);
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">own_id</span>, <span class="string">&quot;Decision emitted&quot;</span>);
