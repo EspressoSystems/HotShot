@@ -288,8 +288,6 @@
 <span id="283">283</span>
 <span id="284">284</span>
 <span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -302,7 +300,7 @@
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>, <span class="ident">TimeoutSnafu</span>},
     <span class="ident">event::EventType</span>,
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::StorageError</span>},
+    <span class="ident">traits::network::NetworkingImplementation</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
@@ -486,10 +484,8 @@
         <span class="kw">let</span> <span class="ident">cur_view</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">get_round_runner_state</span>()
             .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">HotShotError::StorageError</span> {
-                <span class="ident">source</span>: <span class="ident">StorageError::InconsistencyError</span> {
-                    <span class="ident">description</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
-                },
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">HotShotError::Misc</span> {
+                <span class="ident">context</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
             })<span class="question-mark">?</span>
             .<span class="ident">view</span>;
 
