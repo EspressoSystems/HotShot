@@ -147,6 +147,13 @@
              buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
+          # usage: brings in debugging tools including:
+          # - lldb: a debugger to be used with vscode
+          debugShell = pkgs.mkShell {
+            buildInputs =
+              with pkgs; [ fenixStable lldb ] ++ buildDeps;
+          };
+
         };
         # TODO uncomment when fetching dependencies is unborked
         # packages = pkgsAndChecksAttrSet.packages;

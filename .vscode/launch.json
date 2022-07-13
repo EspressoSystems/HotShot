@@ -1,0 +1,459 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'libp2p-networking'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'clichat'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=clichat",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "clichat",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'clichat'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=clichat",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "clichat",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'counter'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=counter",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'counter'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=counter",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "counter",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'counter'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=counter",
+                    "--package=libp2p-networking"
+                ],
+                "filter": {
+                    "name": "counter",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'hotshot-types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hotshot-types"
+                ],
+                "filter": {
+                    "name": "hotshot-types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'hotshot-utils'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hotshot-utils"
+                ],
+                "filter": {
+                    "name": "hotshot-utils",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'hotshot-consensus'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hotshot-consensus"
+                ],
+                "filter": {
+                    "name": "hotshot-consensus",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'hotshot-testing'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'lossy'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=lossy",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "lossy",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'atomic_storage'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=atomic_storage",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "atomic_storage",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'random_tests'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=random_tests",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "random_tests",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'libp2p'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=libp2p",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "libp2p",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'smoke'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=smoke",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "smoke",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'query_data'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=query_data",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "query_data",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'failures'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=failures",
+                    "--package=hotshot-testing"
+                ],
+                "filter": {
+                    "name": "failures",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'hotshot'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'dentry-simulator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=dentry-simulator",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "dentry-simulator",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'dentry-simulator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=dentry-simulator",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "dentry-simulator",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'multi-machine-libp2p'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=multi-machine-libp2p",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "multi-machine-libp2p",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'multi-machine-libp2p'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=multi-machine-libp2p",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "multi-machine-libp2p",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'multi-machine'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=multi-machine",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "multi-machine",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'multi-machine'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=multi-machine",
+                    "--package=hotshot"
+                ],
+                "filter": {
+                    "name": "multi-machine",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
