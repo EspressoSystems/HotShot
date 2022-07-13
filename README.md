@@ -83,6 +83,10 @@ This will output:
 - `flamegraph.svg` which is a (moderately) less detailed version of heaptrack.
 - `lcov.html` generates a summary of code coverage.
 
+# Debugging
+
+A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.cargo/config). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
+
 # Git Workflow
 
 For espresso developers we have written up a description of our workflow [here](./WORKFLOW.md).
