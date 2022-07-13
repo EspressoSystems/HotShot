@@ -580,30 +580,56 @@
 <span id="575">575</span>
 <span id="576">576</span>
 <span id="577">577</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">direct_message::DirectMessageResponse</span>,
-    <span class="ident">network</span>::{
-        <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>, <span class="ident">ClientRequest</span>, <span class="ident">ConnectionData</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>,
-        <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>, <span class="ident">NetworkNodeConfigBuilderError</span>,
-    },
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
+    <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
+    <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
+    <span class="ident">NetworkNodeConfigBuilderError</span>,
 };
 <span class="kw">use</span> <span class="ident">async_std</span>::{
     <span class="ident">future::TimeoutError</span>,
     <span class="ident">prelude::FutureExt</span>,
     <span class="ident">sync</span>::{<span class="ident">Condvar</span>, <span class="ident">Mutex</span>},
+    <span class="ident">task::sleep</span>,
 };
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">bounded</span>, <span class="ident">Receiver</span>, <span class="ident">SendError</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">stream::FuturesOrdered</span>, <span class="ident">Future</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">request_response::ResponseChannel</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types::traits::network::NetworkError</span> <span class="kw">as</span> <span class="ident">PhaselockNetworkError</span>;
-<span class="kw">use</span> <span class="ident">phaselock_utils</span>::{
-    <span class="ident">subscribable_mutex::SubscribableMutex</span>, <span class="ident">subscribable_rwlock::ThreadedReadView</span>,
-};
+<span class="kw">use</span> <span class="ident">phaselock_utils::subscribable_mutex::SubscribableMutex</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashSet</span>, <span class="ident">fmt::Debug</span>, <span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
-<span class="kw">use</span> <span class="ident">tracing::instrument</span>;
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
 
 <span class="doccomment">/// A handle containing:</span>
 <span class="doccomment">/// - A reference to the state</span>
@@ -630,10 +656,6 @@
     <span class="ident">listen_addr</span>: <span class="ident">Multiaddr</span>,
     <span class="doccomment">/// the peer id of the networkbehaviour</span>
     <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
-
-    <span class="doccomment">/// the connection metadata associated with the networkbehaviour</span>
-    <span class="ident">connection_data</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ThreadedReadView</span><span class="op">&lt;</span><span class="ident">ConnectionData</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-
     <span class="doccomment">/// human readable id</span>
     <span class="ident">id</span>: <span class="ident">usize</span>,
 
@@ -654,14 +676,12 @@
             .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">NetworkSnafu</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">connection_data</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">connection_data</span>();
-
         <span class="kw">let</span> <span class="ident">peer_id</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">peer_id</span>();
-        <span class="comment">// TODO separate this into a separate function so you can make everyone know about everyone</span>
         <span class="kw">let</span> <span class="ident">listen_addr</span> <span class="op">=</span> <span class="ident">network</span>
             .<span class="ident">start_listen</span>(<span class="ident">listen_addr</span>)
             .<span class="kw">await</span>
             .<span class="ident">context</span>(<span class="ident">NetworkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="macro">info!</span>(<span class="string">&quot;LISTEN ADDRESS IS {:?}&quot;</span>, <span class="ident">listen_addr</span>);
         <span class="kw">let</span> (<span class="ident">send_chan</span>, <span class="ident">recv_chan</span>) <span class="op">=</span> <span class="ident">network</span>.<span class="ident">spawn_listeners</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">NetworkSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="ident">kill_switch</span>, <span class="ident">recv_kill</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">1</span>);
 
@@ -676,7 +696,6 @@
             <span class="ident">recv_kill</span>,
             <span class="ident">listen_addr</span>,
             <span class="ident">peer_id</span>,
-            <span class="ident">connection_data</span>,
             <span class="ident">id</span>,
             <span class="ident">webui_listeners</span>: <span class="ident">Arc::default</span>(),
         })
@@ -713,16 +732,14 @@
         <span class="ident">node_idx</span>: <span class="ident">usize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connected_ok</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">known_ok</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">connection_data</span>.<span class="ident">subscribe</span>().<span class="kw">await</span>;
-        <span class="kw">while</span> <span class="op">!</span>(<span class="ident">known_ok</span> <span class="op">&amp;&amp;</span> <span class="ident">connected_ok</span>) {
-            <span class="kw">let</span> <span class="ident">connection_data</span> <span class="op">=</span> <span class="ident">chan</span>
-                .<span class="ident">recv_async</span>()
-                .<span class="kw">await</span>
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::RecvError</span>)<span class="question-mark">?</span>;
-            <span class="ident">connected_ok</span> <span class="op">=</span> <span class="ident">connection_data</span>.<span class="ident">connected_peers</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">num_peers</span>;
-            <span class="ident">known_ok</span> <span class="op">=</span> <span class="ident">connection_data</span>.<span class="ident">known_peers</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">num_peers</span>;
-            <span class="ident">node</span>.<span class="ident">notify_webui</span>().<span class="kw">await</span>;
+        <span class="kw">while</span> <span class="op">!</span><span class="ident">connected_ok</span> {
+            <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+            <span class="kw">let</span> <span class="ident">num_connected</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">num_connected</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
+            <span class="macro">info!</span>(
+                <span class="string">&quot;WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}&quot;</span>,
+                <span class="ident">num_connected</span>, <span class="ident">node_idx</span>
+            );
+            <span class="ident">connected_ok</span> <span class="op">=</span> <span class="ident">num_connected</span> <span class="op">&gt;</span> <span class="ident">num_peers</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -734,6 +751,34 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Print out the routing table used by kademlia</span>
+    <span class="doccomment">/// NOTE: only for debugging purposes currently</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// if the client has stopped listening for a response</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">print_routing_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetRoutingTable</span>(<span class="ident">s</span>);
+        <span class="self">self</span>.<span class="ident">send_network</span>
+            .<span class="ident">send_async</span>(<span class="ident">req</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::SendError</span>)<span class="question-mark">?</span>;
+        <span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::RecvError</span>)
+    }
+
+    <span class="doccomment">/// Look up a peer&#39;s addresses in kademlia</span>
+    <span class="doccomment">/// NOTE: this should always be called before any `request_response` is initiated</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// if the client has stopped listening for a response</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">lookup_pid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">peer_id</span>: <span class="ident">PeerId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::LookupPeer</span>(<span class="ident">peer_id</span>, <span class="ident">s</span>);
+        <span class="self">self</span>.<span class="ident">send_network</span>
+            .<span class="ident">send_async</span>(<span class="ident">req</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::SendError</span>)<span class="question-mark">?</span>;
+        <span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::RecvError</span>)
+    }
+
     <span class="doccomment">/// Insert a record into the kademlia DHT</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">/// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT</span>
@@ -745,7 +790,7 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::error::CancelledRequestSnafu</span>;
 
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
+        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>();
         <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::PutDHT</span> {
             <span class="ident">key</span>: <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
@@ -772,7 +817,7 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::error::CancelledRequestSnafu</span>;
 
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
+        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
         <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetDHT</span> {
             <span class="ident">key</span>: <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
@@ -892,7 +937,7 @@
         <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
+        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
         <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectRequest</span>(<span class="ident">peer_id</span>, <span class="ident">serialized_msg</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
@@ -910,9 +955,24 @@
         <span class="ident">chan</span>: <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
+        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
         <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectResponse</span>(<span class="ident">chan</span>, <span class="ident">serialized_msg</span>);
+        <span class="self">self</span>.<span class="ident">send_network</span>
+            .<span class="ident">send_async</span>(<span class="ident">req</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::SendError</span>)
+    }
+
+    <span class="doccomment">/// Forcefully disconnet from a peer</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// If the channel is closed somehow</span>
+    <span class="doccomment">/// Shouldnt&#39; happen.</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// If channel errors out</span>
+    <span class="doccomment">/// shouldn&#39;t happen.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">prune_peer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pid</span>: <span class="ident">PeerId</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::Prune</span>(<span class="ident">pid</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
             .<span class="kw">await</span>
@@ -928,20 +988,9 @@
         <span class="ident">topic</span>: <span class="ident">String</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
+        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
         <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GossipMsg</span>(<span class="ident">topic</span>, <span class="ident">serialized_msg</span>);
-        <span class="self">self</span>.<span class="ident">send_network</span>
-            .<span class="ident">send_async</span>(<span class="ident">req</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::SendError</span>)
-    }
-
-    <span class="doccomment">/// Toggle pruning the number of connections</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">/// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">toggle_prune</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">prune</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::Pruning</span>(<span class="ident">prune</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
             .<span class="kw">await</span>
@@ -955,6 +1004,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">known_peers</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="macro">info!</span>(<span class="string">&quot;ADDING KNOWN PEERS TO {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::AddKnownPeers</span>(<span class="ident">known_peers</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
@@ -989,6 +1039,34 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="doccomment">/// Returns number of peers this node is connected to</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// If the channel is closed somehow</span>
+    <span class="doccomment">/// Shouldnt&#39; happen.</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// If channel errors out</span>
+    <span class="doccomment">/// shouldn&#39;t happen.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">num_connected</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetConnectedPeerNum</span>(<span class="ident">s</span>);
+        <span class="self">self</span>.<span class="ident">send_request</span>(<span class="ident">req</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">unwrap</span>())
+    }
+
+    <span class="doccomment">/// return hashset of PIDs this node is connected to</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// If the channel is closed somehow</span>
+    <span class="doccomment">/// Shouldnt&#39; happen.</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// If channel errors out</span>
+    <span class="doccomment">/// shouldn&#39;t happen.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connected_pids</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetConnectedPeers</span>(<span class="ident">s</span>);
+        <span class="self">self</span>.<span class="ident">send_request</span>(<span class="ident">req</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">unwrap</span>())
+    }
+
     <span class="doccomment">/// Get a reference to the network node handle&#39;s id.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">id</span>
@@ -1002,26 +1080,6 @@
     <span class="doccomment">/// Return a reference to the network config</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">NetworkNodeConfig</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">network_config</span>
-    }
-
-    <span class="doccomment">/// Get a clone of the internal connection state</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connection_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ConnectionData</span> {
-        <span class="self">self</span>.<span class="ident">connection_data</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span>
-    }
-
-    <span class="doccomment">/// Get a clone of the known peers list</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">known_peers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">connection_data</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span>.<span class="ident">known_peers</span>
-    }
-
-    <span class="doccomment">/// Get a clone of the connected peers list</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connected_peers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">connection_data</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span>.<span class="ident">connected_peers</span>
-    }
-
-    <span class="doccomment">/// Get a clone of the ignored peers list</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">ignored_peers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">connection_data</span>.<span class="ident">cloned_async</span>().<span class="kw">await</span>.<span class="ident">ignored_peers</span>
     }
 
     <span class="doccomment">/// Modify the state. This will automatically call `state_changed` and `notify_webui`</span>

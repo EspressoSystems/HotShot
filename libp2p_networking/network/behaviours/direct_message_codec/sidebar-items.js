@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["MAX_MSG_SIZE_DM","Maximum size of a direct message"]],"struct":[["DirectMessageCodec","Codec for direct messages"],["DirectMessageProtocol","Protocol for direct messages"],["DirectMessageRequest","Wrapper type describing a serialized direct message"],["DirectMessageResponse","wrapper type describing the response to direct message"]]});

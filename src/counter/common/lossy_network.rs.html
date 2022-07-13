@@ -677,7 +677,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LossyNetwork</span> {
     <span class="doccomment">/// Ethernet interface that is connected to WAN</span>
     <span class="ident">eth_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// metadata describing how to isolate. Only used when [`env_type`] is [`Metal`]</span>
+    <span class="doccomment">/// metadata describing how to isolate. Only used when `env_type` is `Metal`</span>
     <span class="ident">isolation_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IsolationConfig</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The network loss conditions</span>
     <span class="ident">netem_config</span>: <span class="ident">NetemQdisc</span>,
@@ -749,11 +749,11 @@
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">counter_ns</span>: <span class="string">&quot;COUNTER_NS&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">bridge_addr</span>: <span class="string">&quot;172.18.0.1&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">bridge_addr</span>: <span class="string">&quot;172.13.0.1&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">bridge_name</span>: <span class="string">&quot;br0&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">veth_name</span>: <span class="string">&quot;veth1&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">veth2_name</span>: <span class="string">&quot;veth2&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">veth2_addr</span>: <span class="string">&quot;172.18.0.2&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">veth2_addr</span>: <span class="string">&quot;172.13.0.2&quot;</span>.<span class="ident">to_string</span>(),
         }
     }
 }
@@ -772,16 +772,16 @@
     <span class="doccomment">/// that lives in the default/root network namespace</span>
     <span class="ident">veth_name</span>: <span class="ident">String</span>,
     <span class="doccomment">/// the virtual ethernet interface name</span>
-    <span class="doccomment">/// that lives in [`counter_ns`]</span>
+    <span class="doccomment">/// that lives in `counter_ns`</span>
     <span class="ident">veth2_name</span>: <span class="ident">String</span>,
     <span class="doccomment">/// the virtual ethernet interface ip address</span>
-    <span class="doccomment">/// that lives in [`counter_ns`]</span>
+    <span class="doccomment">/// that lives in `counter_ns`</span>
     <span class="ident">veth2_addr</span>: <span class="ident">String</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">IsolationConfig</span> {
     <span class="doccomment">/// Prepares server for latency by:</span>
-    <span class="doccomment">/// - creating a separate network namespace denoted [`counter_ns`]</span>
+    <span class="doccomment">/// - creating a separate network namespace denoted `counter_ns`</span>
     <span class="doccomment">/// - creating a virtual ethernet device (veth2) in this namespace</span>
     <span class="doccomment">/// - bridging the virtual ethernet device within COUNTER_NS to the default/root network namespace</span>
     <span class="doccomment">/// - adding firewall rules to allow traffic to flow between the network bridge and outside world</span>

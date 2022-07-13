@@ -386,6 +386,7 @@
 <span id="381">381</span>
 <span id="382">382</span>
 <span id="383">383</span>
+<span id="384">384</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
 <span class="kw">use</span> <span class="ident">phaselock_types::traits::signature_key</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
@@ -746,6 +747,7 @@
         <span class="ident">start_delay</span>: <span class="number">1</span>,
         <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
         <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
+        <span class="ident">num_bootstrap</span>: <span class="number">5</span>,
     };
     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
     <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>([<span class="number">0_u8</span>; <span class="number">32</span>], <span class="ident">node_id</span>);

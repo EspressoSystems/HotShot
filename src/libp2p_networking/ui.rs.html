@@ -313,6 +313,7 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
+<span id="311">311</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -423,11 +424,12 @@
             <span class="ident">swarm_msg</span> <span class="op">=</span> <span class="ident">app</span>.<span class="ident">recv_swarm</span>.<span class="ident">recv_async</span>() =&gt; {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">swarm_msg</span> {
                     <span class="kw">match</span> <span class="ident">res</span> {
-                        <span class="ident">DirectRequest</span>(<span class="ident">m</span>, <span class="kw">_</span>,  <span class="kw">_</span>) <span class="op">|</span> <span class="ident">GossipMsg</span>(<span class="ident">m</span>) =&gt; {
+                        <span class="ident">DirectRequest</span>(<span class="ident">m</span>, <span class="kw">_</span>,  <span class="kw">_</span>) <span class="op">|</span> <span class="ident">GossipMsg</span>(<span class="ident">m</span>, <span class="kw">_</span>) =&gt; {
                             <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
                             <span class="kw">let</span> <span class="ident">msg</span> : <span class="ident">Message</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">m</span>)<span class="question-mark">?</span>;
                             <span class="ident">app</span>.<span class="ident">message_buffer</span>.<span class="ident">lock</span>().<span class="ident">push_back</span>(<span class="ident">msg</span>);
                         },
+                        <span class="ident">IsBootstrapped</span> <span class="op">|</span>
                         <span class="ident">DirectResponse</span>(..) =&gt; { <span class="comment">/* NOTE unimplemented in this example */</span> }
                     }
                 }

@@ -108,9 +108,6 @@
 <span id="103">103</span>
 <span id="104">104</span>
 <span id="105">105</span>
-<span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">color_eyre::eyre</span>::{<span class="prelude-ty">Result</span>, <span class="ident">WrapErr</span>};
 <span class="kw">use</span> <span class="ident">crossterm</span>::{
     <span class="ident">event</span>::{<span class="ident">DisableMouseCapture</span>, <span class="ident">EnableMouseCapture</span>},
@@ -148,10 +145,7 @@
     <span class="ident">setup_logging</span>();
     <span class="ident">setup_backtrace</span>();
     <span class="comment">// -- Spin up the network connection</span>
-    <span class="kw">let</span> <span class="ident">networking_config</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>()
-        .<span class="ident">min_num_peers</span>(<span class="number">10usize</span>)
-        .<span class="ident">max_num_peers</span>(<span class="number">15usize</span>)
-        .<span class="ident">build</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">networking_config</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>().<span class="ident">build</span>()<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">networking</span>: <span class="ident">NetworkNode</span> <span class="op">=</span> <span class="ident">NetworkNode::new</span>(<span class="ident">networking_config</span>)
         .<span class="kw">await</span>
         .<span class="ident">context</span>(<span class="string">&quot;Failed to launch network&quot;</span>)<span class="question-mark">?</span>;

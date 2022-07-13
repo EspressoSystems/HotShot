@@ -241,6 +241,13 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">multiaddr</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
 <span class="kw">use</span> <span class="ident">libp2p_networking::network</span>::{<span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeType</span>};
@@ -362,6 +369,7 @@
         <span class="ident">start_delay</span>: <span class="number">1</span>,
         <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
         <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
+        <span class="ident">num_bootstrap</span>: <span class="number">5</span>,
     };
     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
     <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">node_id</span>);
@@ -400,13 +408,19 @@
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>()
         .<span class="ident">replication_factor</span>(<span class="ident">NonZeroUsize::new</span>(<span class="number">20</span>).<span class="ident">unwrap</span>())
         .<span class="ident">node_type</span>(<span class="ident">node_type</span>)
-        .<span class="ident">max_num_peers</span>(<span class="number">15</span>)
-        .<span class="ident">min_num_peers</span>(<span class="number">4</span>)
-        .<span class="ident">bound_addr</span>(<span class="ident">bound_addr</span>)
+        .<span class="ident">bound_addr</span>(<span class="prelude-val">Some</span>(<span class="ident">bound_addr</span>))
         .<span class="ident">build</span>()
         .<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">bs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">bs</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">addr</span><span class="op">|</span> (<span class="prelude-val">None</span>, <span class="ident">addr</span>)).<span class="ident">collect</span>();
-    <span class="ident">Libp2pNetwork::new</span>(<span class="ident">config</span>, <span class="ident">pubkey</span>, <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">bs</span>)), <span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="kw">await</span>
+    <span class="kw">let</span> <span class="ident">bs_len</span> <span class="op">=</span> <span class="ident">bs</span>.<span class="ident">len</span>();
+    <span class="ident">Libp2pNetwork::new</span>(
+        <span class="ident">config</span>,
+        <span class="ident">pubkey</span>,
+        <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">bs</span>)),
+        <span class="ident">bs_len</span>,
+        <span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">usize</span>,
+    )
+    .<span class="kw">await</span>
 }
 
 <span class="attribute">#[<span class="ident">async_std::main</span>]</span>

@@ -287,6 +287,8 @@
 <span id="282">282</span>
 <span id="283">283</span>
 <span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">phaselock</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
@@ -419,6 +421,8 @@
         <span class="ident">start_delay</span>: <span class="number">1</span>,
         <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
         <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
+        <span class="comment">// FIXME should this be 5?</span>
+        <span class="ident">num_bootstrap</span>: <span class="number">5</span>,
     };
     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
     <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">node_id</span>);

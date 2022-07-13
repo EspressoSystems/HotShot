@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["libp2p_networking"] = [{"text":"impl ProtocolName for <a class=\"struct\" href=\"libp2p_networking/direct_message/struct.DirectMessageProtocol.html\" title=\"struct libp2p_networking::direct_message::DirectMessageProtocol\">DirectMessageProtocol</a>","synthetic":false,"types":["libp2p_networking::direct_message::DirectMessageProtocol"]}];
+implementors["libp2p_networking"] = [{"text":"impl ProtocolName for <a class=\"struct\" href=\"libp2p_networking/network/behaviours/direct_message_codec/struct.DirectMessageProtocol.html\" title=\"struct libp2p_networking::network::behaviours::direct_message_codec::DirectMessageProtocol\">DirectMessageProtocol</a>","synthetic":false,"types":["libp2p_networking::network::behaviours::direct_message_codec::DirectMessageProtocol"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -38,6 +38,27 @@
 <span id="33">33</span>
 <span id="34">34</span>
 <span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::NetworkNodeType</span>;
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">identity::Keypair</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
 <span class="kw">use</span> <span class="ident">phaselock_types::constants::DEFAULT_REPLICATION_FACTOR</span>;
@@ -46,32 +67,53 @@
 <span class="doccomment">/// describe the configuration of the network</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">derive_builder::Builder</span>, <span class="ident">custom_debug::Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NetworkNodeConfig</span> {
-    <span class="doccomment">/// max number of connections a node may have before it begins</span>
-    <span class="doccomment">/// to disconnect. Only applies if `node_type` is `Regular`</span>
-    <span class="kw">pub</span> <span class="ident">max_num_peers</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// Min number of connections a node may have before it begins</span>
-    <span class="doccomment">/// to connect to more. Only applies if `node_type` is `Regular`</span>
-    <span class="kw">pub</span> <span class="ident">min_num_peers</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// The type of node:</span>
-    <span class="doccomment">/// Either bootstrap (greedily connect to all peers)</span>
-    <span class="doccomment">/// or regular (respect `min_num_peers`/`max num peers`)</span>
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">default</span>)]</span>
+    <span class="doccomment">/// The type of node (bootstrap etc)</span>
     <span class="kw">pub</span> <span class="ident">node_type</span>: <span class="ident">NetworkNodeType</span>,
     <span class="doccomment">/// optional identity</span>
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>, <span class="ident">strip_option</span>), <span class="ident">default</span>)]</span>
     <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span> <span class="ident">identity</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Keypair</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// nodes to ignore</span>
-    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">default</span>)]</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">ignored_peers</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>,
     <span class="doccomment">/// address to bind to</span>
-    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>, <span class="ident">strip_option</span>), <span class="ident">default</span>)]</span>
+    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">default</span>)]</span>
     <span class="kw">pub</span> <span class="ident">bound_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span>,
     <span class="doccomment">/// replication factor for entries in the DHT</span>
     <span class="doccomment">/// default is [`libp2p::kad::K_VALUE`] which is 20</span>
     <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">setter</span>(<span class="ident">into</span>, <span class="ident">strip_option</span>), <span class="ident">default</span> <span class="op">=</span> <span class="string">&quot;DEFAULT_REPLICATION_FACTOR&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">replication_factor</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonZeroUsize</span><span class="op">&gt;</span>,
+
+    <span class="attribute">#[<span class="ident">builder</span>(<span class="ident">default</span>)]</span>
+    <span class="doccomment">/// parameters for gossipsub mesh network</span>
+    <span class="kw">pub</span> <span class="ident">mesh_params</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MeshParams</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// list of addresses to connect to at initialization</span>
+    <span class="kw">pub</span> <span class="ident">to_connect_addrs</span>: <span class="ident">HashSet</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= mesh_n_low &lt;= mesh_n &lt;= mesh_n_high`</span>
+<span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= self.config.mesh_n / 2`</span>
+<span class="doccomment">/// parameters fed into gossipsub controlling the structure of the mesh</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MeshParams</span> {
+    <span class="doccomment">/// mesh_n_high from gossipsub</span>
+    <span class="kw">pub</span> <span class="ident">mesh_n_high</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// mesh_n_low from gossipsub</span>
+    <span class="kw">pub</span> <span class="ident">mesh_n_low</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// mesh_outbound_min from gossipsub</span>
+    <span class="kw">pub</span> <span class="ident">mesh_outbound_min</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// mesh_n from gossipsub</span>
+    <span class="kw">pub</span> <span class="ident">mesh_n</span>: <span class="ident">usize</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">MeshParams</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">mesh_n_high</span>: <span class="number">15</span>,
+            <span class="ident">mesh_n_low</span>: <span class="number">8</span>,
+            <span class="ident">mesh_outbound_min</span>: <span class="number">4</span>,
+            <span class="ident">mesh_n</span>: <span class="number">12</span>,
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>

@@ -289,6 +289,7 @@
 <span id="284">284</span>
 <span id="285">285</span>
 <span id="286">286</span>
+<span id="287">287</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`PhaseLock`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -477,7 +478,7 @@
         <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">run_one_round</span>());
     }
 
-    <span class="doccomment">/// iterate through all events on a [`Node`] and determine if the node finished</span>
+    <span class="doccomment">/// iterate through all events on a [`NodeImplementation`] and determine if the node finished</span>
     <span class="doccomment">/// successfully</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">/// Errors if unable to obtain storage</span>
@@ -494,7 +495,8 @@
 
         <span class="comment">// timeout for first event is longer in case</span>
         <span class="comment">// there is a delta before other nodes are spun up</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
+        <span class="comment">// this is really long to satisfy CI</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">300</span>);
 
         <span class="comment">// drain all events from this node</span>
         <span class="kw">loop</span> {

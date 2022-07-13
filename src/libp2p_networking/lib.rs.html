@@ -27,16 +27,11 @@
 <span id="22">22</span>
 <span id="23">23</span>
 <span id="24">24</span>
-<span id="25">25</span>
-<span id="26">26</span>
-<span id="27">27</span>
-<span id="28">28</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
     <span class="ident">rust_2018_idioms</span>,
     <span class="ident">missing_docs</span>,
-    <span class="comment">// clippy::missing_docs_in_private_items,</span>
     <span class="ident">clippy::panic</span>
 )]</span>
 <span class="attribute">#![<span class="ident">allow</span>(
@@ -47,9 +42,6 @@
     <span class="ident">clippy::unused_self</span>
 )]</span>
 <span class="doccomment">//! Library for p2p communication</span>
-
-<span class="doccomment">/// Direct Messages between two nodes</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">direct_message</span>;
 
 <span class="doccomment">/// Example message used by the UI library</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">message</span>;
