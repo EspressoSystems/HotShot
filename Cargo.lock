@@ -1188,8 +1188,8 @@ dependencies = [
 
 [[package]]
 name = "espresso-systems-common"
-version = "0.1.1"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.1.1#bd3f7b1bbb03269a499101048a06472401953dca"
+version = "0.2.0"
+source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.2.0#99b910038e4880a967eb979394e3adcfa526bb26"
 
 [[package]]
 name = "event-listener"

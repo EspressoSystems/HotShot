@@ -1,11 +1,9 @@
 use ed25519_compact::{KeyPair, SecretKey, Seed};
+use espresso_systems_common::hotshot::tag::PRIVKEY_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{instrument, warn};
-
-/// TODO(vko): Move this to `espresso_systems_common`
-const PRIVKEY_ID: &str = "PEER_PRIVKEY";
 
 /// Private key type for a ed25519 [`SignatureKey`] pair
 #[derive(PartialEq, Eq, Clone)]
