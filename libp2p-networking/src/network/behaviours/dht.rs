@@ -478,6 +478,7 @@ impl NetworkBehaviour for DHTBehaviour {
     > {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
+            && !self.bootstrap_nodes.is_empty()
         {
             match self.kadem.bootstrap() {
                 Ok(_) => {
@@ -502,6 +503,7 @@ impl NetworkBehaviour for DHTBehaviour {
 
         if matches!(self.random_walk.state, State::NotStarted)
             && self.random_walk.backoff.is_expired()
+            && matches!(self.bootstrap_state.state, State::Finished)
         {
             self.kadem.get_closest_peers(PeerId::random());
             self.random_walk.state = State::Started;

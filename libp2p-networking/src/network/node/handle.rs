@@ -121,10 +121,13 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         let mut connected_ok = false;
-        let known_ok = true;
-        while !(known_ok && connected_ok) {
+        while !connected_ok {
             sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
+            info!(
+                "WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}",
+                num_connected, node_idx
+            );
             connected_ok = num_connected > num_peers;
         }
         Ok(())
@@ -390,6 +393,7 @@ impl<S> NetworkNodeHandle<S> {
         &self,
         known_peers: Vec<(Option<PeerId>, Multiaddr)>,
     ) -> Result<(), NetworkNodeHandleError> {
+        info!("ADDING KNOWN PEERS TO {:?}", self.peer_id);
         let req = ClientRequest::AddKnownPeers(known_peers);
         self.send_network
             .send_async(req)

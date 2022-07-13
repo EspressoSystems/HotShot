@@ -42,7 +42,7 @@ jobs:
         run: |
           ulimit -n 16384
           cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-threads=1
-        timeout-minutes: 15
+        timeout-minutes: 30
         env:
           RUST_BACKTRACE: 1
 

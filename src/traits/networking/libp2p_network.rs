@@ -129,7 +129,7 @@ impl<
         // let start_port = 5000;
         Box::new({
             move |node_id| {
-                error!(
+                info!(
                     "GENERATOR: Node id {:?}, is bootstrap: {:?}",
                     node_id,
                     node_id < num_bootstrap as u64
@@ -147,9 +147,10 @@ impl<
                         // than half the network. This seems reasonable.
                         .mesh_params(Some(MeshParams {
                             mesh_n_high: expected_node_count,
-                            mesh_n_low: 3,
-                            mesh_outbound_min: 2,
-                            mesh_n: (expected_node_count / 2 + 2),
+                            mesh_n_low: 5,
+                            mesh_outbound_min: 4,
+                            // the worst case of 7/2+3 > 5
+                            mesh_n: (expected_node_count / 2 + 3),
                         }))
                         .replication_factor(replication_factor)
                         .to_connect_addrs(HashSet::default())
@@ -244,9 +245,9 @@ impl<
         ) {
             let addr = network_handle.listen_addr();
             let pid = network_handle.peer_id();
-            error!("INSERTING BOOTSTRAP ADDR!!");
-            bootstrap_addrs.write().await.push((Some(pid), addr));
-            error!("INSERTED BOOTSTRAP ADDR!!");
+            let mut bs_cp = bootstrap_addrs.write().await;
+            bs_cp.push((Some(pid), addr));
+            drop(bs_cp);
         }
 
         let mut pubkey_pid_map = BiHashMap::new();
@@ -276,13 +277,14 @@ impl<
         };
 
         result.spawn_event_generator(direct_send, broadcast_send);
-        result.spawn_connect();
+
+        result.spawn_connect(id);
 
         Ok(result)
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&self) {
+    fn spawn_connect(&self, id: usize) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = self.inner.bootstrap_addrs.clone();
         let num_bootstrap = self.inner.bootstrap_addrs_len;
@@ -292,29 +294,31 @@ impl<
             let is_ready = self.inner.is_ready.clone();
             async move {
                 let bs_addrs = loop {
-                    let bs_addrs = bootstrap_ref.read().await.to_vec().clone();
+                    let bss = bootstrap_ref.read().await;
+                    let bs_addrs = bss.clone();
+                    drop(bss);
                     if bs_addrs.len() == num_bootstrap {
                         break bs_addrs;
                     }
-                    warn!(
-                        "bs addr len {:?}, number of bootstrap expected {:?}",
+                    info!(
+                        "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
+                        id,
                         bs_addrs.len(),
                         num_bootstrap
                     );
-                    sleep(Duration::new(1, 0)).await;
+                    // TODO why does a sleep here not wake up?
                 };
-                handle.add_known_peers(bs_addrs.clone()).await.unwrap();
+                handle.add_known_peers(bs_addrs).await.unwrap();
 
                 let timeout_duration = Duration::from_secs(20);
                 // perform connection
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
                 let connected = NetworkNodeHandle::wait_to_connect(
                     handle.clone(),
                     // this is a safe lower bet on the number of nodes in the network.
                     4,
                     handle.recv_network(),
-                    // FIXME: can we propagate (or get in with tracing)
-                    // the actual peer id that's used a few levels up?
-                    0,
+                    id,
                 )
                 .timeout(timeout_duration)
                 .await;
@@ -344,7 +348,7 @@ impl<
                 info!("node {:?} is ready", handle.peer_id());
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
-                error!("STARTING CONENSUS ON {:?}", handle.peer_id());
+                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });
