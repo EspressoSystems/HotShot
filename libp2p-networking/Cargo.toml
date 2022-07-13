@@ -20,10 +20,7 @@ parking_lot = "0.12.0"
 serde = { version = "1.0.139", features = ["derive"] }
 serde_json = "1.0.82"
 snafu = "0.7.0"
-structopt = "0.3.26"
 tracing = "0.1.32"
-tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.14", features = ["env-filter", "json"] }
 tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.56"
@@ -53,3 +50,6 @@ netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.g
 webui = ["tide"]
 # this only has effect on linux
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
+
+[dev-dependencies]
+structopt = "0.3.26"

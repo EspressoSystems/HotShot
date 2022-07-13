@@ -11,8 +11,6 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 hotshot = { path = "../" }
 hotshot-types = { path = "../types" }
 hotshot-utils = { path = "../utils", features = ["logging-utils"] }
-libp2p-networking = {path = "../libp2p-networking", version = "0.0.7"}
-libp2p = { version = "0.45.1", features = ["serde"] }
 async-std = "1.11.0"
 tracing = "0.1.32"
 rand = "0.8.5"
