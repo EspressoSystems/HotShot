@@ -78,6 +78,7 @@ pub use rand;
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
+pub use tasks::RoundRunnerState;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
