@@ -42,31 +42,38 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     (
         include_bytes!("../deploy/keys/private_1.pk8"),
-        "18.216.113.34:9003",
+        // "18.216.113.34:9003",
+        "127.0.0.1:9100",
     ),
     (
         include_bytes!("../deploy/keys/private_2.pk8"),
-        "18.117.245.103:9003",
+        // "18.117.245.103:9003",
+        "127.0.0.1:9101",
     ),
     (
         include_bytes!("../deploy/keys/private_3.pk8"),
-        "13.58.161.60:9003",
+        // "13.58.161.60:9003",
+        "127.0.0.1:9102",
     ),
     (
         include_bytes!("../deploy/keys/private_4.pk8"),
-        "3.111.188.178:9003",
+        "127.0.0.1:9103",
+        // "3.111.188.178:9003",
     ),
     (
         include_bytes!("../deploy/keys/private_5.pk8"),
-        "52.66.253.105:9003",
+        "127.0.0.1:9104",
+        // "52.66.253.105:9003",
     ),
     (
         include_bytes!("../deploy/keys/private_6.pk8"),
-        "34.219.31.18:9003",
+        "127.0.0.1:9105",
+        // "34.219.31.18:9003",
     ),
     (
         include_bytes!("../deploy/keys/private_7.pk8"),
-        "54.184.243.4:9003",
+        "127.0.0.1:9106",
+        // "54.184.243.4:9003",
     ),
 ];
 
@@ -150,13 +157,13 @@ async fn init_state_and_hotshot(
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
-        next_view_timeout: 10000,
+        next_view_timeout: 1000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
-        num_bootstrap: 5,
+        num_bootstrap: 7,
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
@@ -197,7 +204,7 @@ pub async fn new_libp2p_network(
     // TODO identity
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
-    config_builder.replication_factor(NonZeroUsize::new(3 * num_nodes / 4).unwrap());
+    config_builder.replication_factor(NonZeroUsize::new(num_nodes - 2).unwrap());
     config_builder.to_connect_addrs(HashSet::new());
     config_builder.node_type(node_type);
     config_builder.bound_addr(Some(bound_addr));
@@ -244,6 +251,8 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
+    let args = CliOpt::from_args();
+
     let bootstrap_priv: Vec<_> = BOOTSTRAPS
         .iter()
         .map(|(key_bytes, addr_str)| {
@@ -253,6 +262,7 @@ async fn main() {
             let multiaddr = parse_node(addr_str).unwrap();
             (key, multiaddr)
         })
+        .take(args.num_bootstrap)
         .collect();
 
     let to_connect_addrs: Vec<_> = bootstrap_priv
@@ -261,7 +271,6 @@ async fn main() {
         .map(|(kp, ma)| (Some(PeerId::from_public_key(&kp.public())), ma))
         .collect();
 
-    let args = CliOpt::from_args();
     let own_id = args.node_idx;
     let num_nodes = args.num_nodes;
     let bound_addr = args.bound_addr;
@@ -303,10 +312,11 @@ async fn main() {
 
     error!("waiting for connections to hotshot!");
     hotshot.is_ready().await;
+    error!("We are ready!");
 
     let start_time = Instant::now();
 
-    let view = 0;
+    let mut view = 0;
 
     // Run random transactions until failure
     let mut num_failed_views = 0;
@@ -341,13 +351,17 @@ async fn main() {
         match result {
             Ok(state) => {
                 total_successful_txns += num_submitted;
-                error!("View {:?}: successful with {:?}", view, state);
+                error!(
+                    "View {:?}: successful with {:?}, and total successful txns {:?}",
+                    view, state, total_successful_txns
+                );
             }
             Err(e) => {
                 num_failed_views += 1;
                 error!("View: {:?}, failed with : {:?}", view, e);
             }
         }
+        view += 1;
     }
 
     error!(

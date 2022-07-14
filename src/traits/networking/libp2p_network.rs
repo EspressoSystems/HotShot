@@ -293,10 +293,10 @@ impl<
                     let bss = bootstrap_ref.read().await;
                     let bs_addrs = bss.clone();
                     drop(bss);
-                    if bs_addrs.len() == num_bootstrap {
+                    if bs_addrs.len() >= num_bootstrap {
                         break bs_addrs;
                     }
-                    info!(
+                    error!(
                         "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
                         id,
                         bs_addrs.len(),

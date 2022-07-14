@@ -30,7 +30,7 @@ impl ProtocolName for DirectMessageProtocol {
 }
 
 /// Maximum size of a direct message
-pub const MAX_MSG_SIZE_DM: usize = 10000;
+pub const MAX_MSG_SIZE_DM: usize = 10_000_000;
 
 #[async_trait]
 impl RequestResponseCodec for DirectMessageCodec {

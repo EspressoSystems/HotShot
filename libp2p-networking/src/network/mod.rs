@@ -206,6 +206,7 @@ pub async fn gen_transport(
         // with multiple substreams
         // https://docs.libp2p.io/concepts/stream-multiplexing/
         .multiplex(multiplexing_config)
+        .timeout(Duration::from_secs(2))
         .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
         .boxed())
 }

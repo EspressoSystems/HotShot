@@ -18,7 +18,7 @@ use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -124,10 +124,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         while !connected_ok {
             sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
-            info!(
+            error!(
                 "WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}",
                 num_connected, node_idx
             );
+            error!("connected to {:?}", node.connected_pids().await);
             connected_ok = num_connected > num_peers;
         }
         Ok(())

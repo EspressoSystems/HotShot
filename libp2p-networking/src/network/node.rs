@@ -240,10 +240,10 @@ impl NetworkNode {
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)
-                .max_negotiating_inbound_streams(1024)
+                .max_negotiating_inbound_streams(20)
                 .dial_concurrency_factor(std::num::NonZeroU8::new(2).unwrap())
-                .connection_event_buffer_size(1)
-                .notify_handler_buffer_size(NonZeroUsize::new(1).unwrap())
+                // .connection_event_buffer_size(1)
+                // .notify_handler_buffer_size(NonZeroUsize::new(1).unwrap())
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {
@@ -491,7 +491,7 @@ impl NetworkNode {
                         },
                         event = self.swarm.next() => {
                             if let Some(event) = event {
-                                error!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
