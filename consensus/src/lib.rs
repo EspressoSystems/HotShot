@@ -310,15 +310,8 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         if let Some(highest) = self.active_phases.back() {
             view_number > *highest
         } else {
-            // if we have no phases, always return true
-            if self.inactive_phases.iter().any(|p| p >= &view_number) {
-                tracing::error!(
-                    "Trying to insert view number {:?} but our inactive_phases is {:?}",
-                    view_number,
-                    self.inactive_phases
-                );
-            }
-            true
+            // if we have no active phases, check if all `inactive_phases` are less than `view_number`
+            self.inactive_phases.iter().all(|p| p < &view_number)
         }
     }
 }
