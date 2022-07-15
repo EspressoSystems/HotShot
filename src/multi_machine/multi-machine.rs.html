@@ -535,7 +535,7 @@
         <span class="comment">// Start consensus</span>
         <span class="macro">println!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
             .<span class="ident">next_event</span>()
             .<span class="kw">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);

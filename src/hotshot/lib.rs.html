@@ -1016,7 +1016,7 @@
     <span class="ident">election</span>: <span class="ident">HotShotElectionState</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">I::Election</span>, <span class="ident">N</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Sender for [`Event`]s</span>
-    <span class="ident">event_sender</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">event_sender</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Senders to the background tasks.</span>
     <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle</span>,
@@ -1179,7 +1179,7 @@
     <span class="doccomment">/// Sends an event over an event broadcaster if one is registered, does nothing otherwise</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns `true` if the event was send, `false` otherwise</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">as_ref</span>() {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">c</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span> {
                 <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not send event to the registered broadcaster&quot;</span>);
@@ -1669,7 +1669,7 @@
             .<span class="kw">await</span>
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span>) {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span>) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;send_event&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_sender</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">write</span>().<span class="kw">await</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sender</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">event_sender</span> {

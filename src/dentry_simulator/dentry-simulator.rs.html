@@ -541,7 +541,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">for</span> (<span class="ident">node_id</span>, <span class="ident">hotshot</span>) <span class="kw">in</span> <span class="ident">hotshots</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
                 .<span class="ident">next_event</span>()
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
@@ -607,7 +607,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">for</span> (<span class="ident">node_id</span>, <span class="ident">hotshot</span>) <span class="kw">in</span> <span class="ident">hotshots</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
             <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
                 .<span class="ident">next_event</span>()
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);

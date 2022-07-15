@@ -323,11 +323,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]</span>
     <span class="doccomment">/// method is needed to generate new receivers for cloning the handle.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">sender_handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">sender_handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Internal reference to the underlying [`HotShot`]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">hotshot</span>: <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span>, <span class="ident">N</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream_output</span>: <span class="ident">BroadcastReceiver</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream_output</span>: <span class="ident">BroadcastReceiver</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Global to signify the `HotShot` should be closed after completing the next round</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">shut_down</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicBool</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot</span>
@@ -352,7 +352,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>),
@@ -366,7 +366,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// See documentation for `next_event`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">next_event</span>())
     }
     <span class="doccomment">/// Will attempt to immediately pull an event out of the queue</span>
@@ -374,7 +374,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">try_recv</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
     }
@@ -385,7 +385,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut</span>
     <span class="doccomment">/// down.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="comment">// Loop to pull out all the outputs</span>
         <span class="kw">loop</span> {
