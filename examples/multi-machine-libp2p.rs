@@ -118,7 +118,6 @@ type Node = DEntryNode<
 >;
 
 /// Creates the initial state and hotshot for simulation.
-// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
@@ -201,7 +200,6 @@ pub async fn new_libp2p_network(
     Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
     NetworkError,
 > {
-    // TODO identity
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
     config_builder.replication_factor(NonZeroUsize::new(num_nodes - 2).unwrap());
@@ -234,13 +232,13 @@ pub async fn new_libp2p_network(
     config_builder.mesh_params(Some(mesh_params));
 
     let config = config_builder.build().unwrap();
+    let bs_len = bs.len();
 
-    // TODO add in mesh parameters based on node type
     Libp2pNetwork::new(
         config,
         pubkey,
-        Arc::new(RwLock::new(bs.clone())),
-        bs.len(),
+        Arc::new(RwLock::new(bs)),
+        bs_len,
         node_id as usize,
     )
     .await
@@ -257,7 +255,6 @@ async fn main() {
         .iter()
         .map(|(key_bytes, addr_str)| {
             let mut key_bytes = <&[u8]>::clone(key_bytes).to_vec();
-            // TODO better error handling
             let key = Keypair::rsa_from_pkcs8(&mut key_bytes).unwrap();
             let multiaddr = parse_node(addr_str).unwrap();
             (key, multiaddr)
@@ -288,7 +285,7 @@ async fn main() {
     let own_priv_key = Ed25519Pub::generate_test_key(own_id as u64);
     let own_pub_key = Ed25519Pub::from_private(&own_priv_key);
 
-    error!("Done with keygen");
+    info!("Done with keygen");
     let own_network = new_libp2p_network(
         own_pub_key,
         to_connect_addrs,
@@ -301,18 +298,18 @@ async fn main() {
     .await
     .unwrap();
 
-    error!("Done with network creation");
+    info!("Done with network creation");
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
         init_state_and_hotshot(num_nodes, threshold, own_id as u64, own_network).await;
 
-    error!("Finished init, starting hotshot!");
+    info!("Finished init, starting hotshot!");
     hotshot.start().await;
 
-    error!("waiting for connections to hotshot!");
+    info!("waiting for connections to hotshot!");
     hotshot.is_ready().await;
-    error!("We are ready!");
+    info!("We are ready!");
 
     let start_time = Instant::now();
 
@@ -327,7 +324,7 @@ async fn main() {
     let mut total_txns = 0;
 
     while start_time + online_time > Instant::now() {
-        error!("Beginning view {}", view);
+        info!("Beginning view {}", view);
         let num_submitted = {
             if own_id == (view % num_nodes) {
                 println!("Generating txn for view {}", view);
@@ -344,32 +341,35 @@ async fn main() {
                 0
             }
         };
-        error!("Running the view {}", view);
+        info!("Running the view {}", view);
         hotshot.run_one_round().await;
-        error!("Collection for view {}", view);
+        info!("Collection for view {}", view);
         let result = hotshot.collect_round_events().await;
         match result {
             Ok(state) => {
                 total_successful_txns += num_submitted;
-                error!(
+                info!(
                     "View {:?}: successful with {:?}, and total successful txns {:?}",
                     view, state, total_successful_txns
                 );
             }
             Err(e) => {
                 num_failed_views += 1;
-                error!("View: {:?}, failed with : {:?}", view, e);
+                info!("View: {:?}, failed with : {:?}", view, e);
             }
         }
         view += 1;
     }
 
     error!(
-        "All rounds completed, {} views with {} failures. This node (id: {:?}) submitted {:?} txns, and {:?} were successful",
+        "All rounds completed, {} views with {} failures. This node (id: {:?}) submitted {:?} txns, and {:?} were successful. Ran for {:?} from {:?} to {:?}",
         view,
         num_failed_views,
         own_id,
         total_txns,
-        total_successful_txns
+        total_successful_txns,
+        online_time,
+        start_time,
+        Instant::now()
     );
 }
