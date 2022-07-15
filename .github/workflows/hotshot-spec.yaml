@@ -1,12 +1,15 @@
-name: Deploy
+name: HotShot spec
 on:
   push:
     branches:
+      - '*/*'
       - 'main'
+  pull_request:
+    branches:
       - '*/*'
   workflow_dispatch:
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Install Nix
