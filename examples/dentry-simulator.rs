@@ -152,7 +152,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotshot
+            let mut event: Event<DEntryBlock, State, H_256> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -218,7 +218,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State> = hotshot
+            let mut event: Event<DEntryBlock, State, H_256> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");

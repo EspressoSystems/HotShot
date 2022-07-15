@@ -8,6 +8,7 @@ use crate::{utils, ConsensusApi, Result, RoundTimedoutState, TransactionLink, Tr
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, Stage},
     error::{FailedToMessageLeaderSnafu, StorageSnafu},
+    event::{Event, EventType},
     message::{ConsensusMessage, Prepare, PrepareVote},
     traits::{node_implementation::NodeImplementation, storage::Storage},
 };
@@ -131,6 +132,15 @@ impl<'a, I: NodeImplementation<N>, const N: usize> Outcome<'a, I, N> {
         }
         for transaction in rejected_transactions {
             transaction.rejected = Some(Instant::now());
+            ctx.api
+                .send_event(Event {
+                    view_number: ctx.view_number,
+                    stage: Stage::Prepare,
+                    event: EventType::TransactionRejected {
+                        transaction: transaction.transaction.clone(),
+                    },
+                })
+                .await;
         }
         let leaf_hash = new_leaf.hash();
         ctx.api

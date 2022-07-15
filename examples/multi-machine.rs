@@ -244,7 +244,7 @@ async fn main() {
         // Start consensus
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<DEntryBlock, State> = hotshot
+        let mut event: Event<DEntryBlock, State, H_256> = hotshot
             .next_event()
             .await
             .expect("HotShot unexpectedly closed");

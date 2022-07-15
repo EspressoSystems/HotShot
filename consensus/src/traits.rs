@@ -59,7 +59,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&mut self, event: Event<I::Block, I::State>);
+    async fn send_event(&mut self, event: Event<I::Block, I::State, N>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
