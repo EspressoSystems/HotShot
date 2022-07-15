@@ -609,6 +609,7 @@
 <span id="604">604</span>
 <span id="605">605</span>
 <span id="606">606</span>
+<span id="607">607</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -629,7 +630,7 @@
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashSet</span>, <span class="ident">fmt::Debug</span>, <span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>};
 
 <span class="doccomment">/// A handle containing:</span>
 <span class="doccomment">/// - A reference to the state</span>
@@ -735,10 +736,11 @@
         <span class="kw">while</span> <span class="op">!</span><span class="ident">connected_ok</span> {
             <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
             <span class="kw">let</span> <span class="ident">num_connected</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">num_connected</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
-            <span class="macro">info!</span>(
+            <span class="macro">error!</span>(
                 <span class="string">&quot;WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}&quot;</span>,
                 <span class="ident">num_connected</span>, <span class="ident">node_idx</span>
             );
+            <span class="macro">error!</span>(<span class="string">&quot;connected to {:?}&quot;</span>, <span class="ident">node</span>.<span class="ident">connected_pids</span>().<span class="kw">await</span>);
             <span class="ident">connected_ok</span> <span class="op">=</span> <span class="ident">num_connected</span> <span class="op">&gt;</span> <span class="ident">num_peers</span>;
         }
         <span class="prelude-val">Ok</span>(())

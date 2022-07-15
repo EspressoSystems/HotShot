@@ -995,10 +995,10 @@
                     <span class="kw">let</span> <span class="ident">bss</span> <span class="op">=</span> <span class="ident">bootstrap_ref</span>.<span class="ident">read</span>().<span class="kw">await</span>;
                     <span class="kw">let</span> <span class="ident">bs_addrs</span> <span class="op">=</span> <span class="ident">bss</span>.<span class="ident">clone</span>();
                     <span class="ident">drop</span>(<span class="ident">bss</span>);
-                    <span class="kw">if</span> <span class="ident">bs_addrs</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">num_bootstrap</span> {
+                    <span class="kw">if</span> <span class="ident">bs_addrs</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">num_bootstrap</span> {
                         <span class="kw">break</span> <span class="ident">bs_addrs</span>;
                     }
-                    <span class="macro">info!</span>(
+                    <span class="macro">error!</span>(
                         <span class="string">&quot;NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}&quot;</span>,
                         <span class="ident">id</span>,
                         <span class="ident">bs_addrs</span>.<span class="ident">len</span>(),

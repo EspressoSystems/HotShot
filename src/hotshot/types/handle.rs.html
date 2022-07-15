@@ -492,7 +492,7 @@
         <span class="comment">// timeout for first event is longer in case</span>
         <span class="comment">// there is a delta before other nodes are spun up</span>
         <span class="comment">// this is really long to satisfy CI</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">300</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
 
         <span class="comment">// drain all events from this node</span>
         <span class="kw">loop</span> {
