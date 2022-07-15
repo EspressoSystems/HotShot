@@ -1,0 +1,53 @@
+digraph {
+
+    node [
+            style=filled
+            shape=rect
+            pencolor="#00000044" // frames color
+            fontname="Helvetica,Arial,sans-serif"
+            shape=plaintext
+        ]
+
+    HotShotProtocolLogic [fillcolor="lightgrey", label="HotShot protocol logic"]
+
+    HotShotProtocolLogic -> NetworkDef [label="(1)"]
+    NetworkDef -> HotShotProtocolLogic [label="(6)"]
+
+
+    NetworkDef [fillcolor="lightblue"];
+    GossipBehaviour [fillcolor="lightblue"]
+    DirectMessageBehaviour [fillcolor="lightblue"]
+    DHTBehaviour [fillcolor="lightblue"]
+    RequestResponse [fillcolor="yellow"]
+    Kademlia [fillcolor="yellow"]
+    Gossipsub [fillcolor="yellow"]
+
+    NetworkDef -> GossipBehaviour [label="(2.1)"]
+    GossipBehaviour  -> NetworkDef [label="(5.1)"]
+
+    NetworkDef -> DHTBehaviour [label="(2.2)"]
+    DHTBehaviour ->  NetworkDef [label="(5.2)"]
+
+    NetworkDef -> DirectMessageBehaviour [label="(2.3)"]
+    DirectMessageBehaviour -> NetworkDef  [label="(5.3)"]
+
+    GossipBehaviour -> Gossipsub [label="(3.1)"]
+    Gossipsub -> GossipBehaviour  [label="(4.1)"]
+
+    DirectMessageBehaviour -> RequestResponse [label="(3.2)"]
+    RequestResponse -> DirectMessageBehaviour  [label="(4.2)"]
+
+    DHTBehaviour -> Kademlia [label="(3.3)"]
+    Kademlia -> DHTBehaviour  [label="(4.3)"]
+
+
+    NetworkHandle [fillcolor="lightblue"];
+
+    HotShotProtocolLogic -> NetworkHandle [label="(7)"]
+
+    NetworkHandle [fillcolor="lightblue"]
+    LibP2PImpl [fillcolor="yellow"]
+
+    NetworkHandle -> LibP2PImpl [label="(8)"]
+
+}
