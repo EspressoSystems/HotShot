@@ -34,7 +34,10 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
+    match Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port)) {
+        Err(_) => Multiaddr::from_str(&format!("/dnsaddr/{}/tcp/{}", ip, port)),
+        a => a,
+    }
 }
 
 // FIXME make these actual ips/ports
@@ -42,38 +45,45 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     (
         include_bytes!("../deploy/keys/private_1.pk8"),
-        "18.216.113.34:9000",
         // "127.0.0.1:9100",
+        // "18.216.113.34:9000",
+        "0.ap-south-1.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_2.pk8"),
-        "18.117.245.103:9000",
         // "127.0.0.1:9101",
+        // "18.117.245.103:9000",
+        "1.ap-south-1.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_3.pk8"),
-        "13.58.161.60:9000",
         // "127.0.0.1:9102",
+        // "13.58.161.60:9000",
+        "0.us-east-2.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_4.pk8"),
         // "127.0.0.1:9103",
-        "3.111.188.178:9000",
+        // "3.111.188.178:9000",
+        "1.us-east-2.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_5.pk8"),
         // "127.0.0.1:9104",
-        "52.66.253.105:9000",
+        // "52.66.253.105:9000",
+        "2.us-east-2.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_6.pk8"),
         // "127.0.0.1:9105",
-        "34.219.31.18:9000",
+        // "34.219.31.18:9000",
+        "0.us-west-2.cluster.aws.espresso.network:9000",
     ),
     (
         include_bytes!("../deploy/keys/private_7.pk8"),
         // "127.0.0.1:9106",
-        "54.184.243.4:9000",
+        // "54.184.243.4:9000",
+        "1.us-west-2.cluster.aws.espresso.network:9000",
     ),
 ];
 

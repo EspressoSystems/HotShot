@@ -28,6 +28,8 @@ ENV SEED="1234"
 # logging
 ENV RUST_LOG="trace"
 
+ENV PORT="9000"
+
 EXPOSE 9000
 
-CMD ["sh", "-c", "RUST_LOG=${RUST_LOG} /bin/multi-machine-libp2p --num_nodes=${NUM_NODES} --num_bootstrap=${NUM_BOOTSTRAP} --num_txn_per_round=${NUM_TXN_PER_ROUND} --node_idx=${NODE_IDX} --online_time=${ONLINE_TIME} --bound_addr=0.0.0.0:9000 --seed=${SEED} "]
+CMD ["sh", "-c", "RUST_LOG=${RUST_LOG} /bin/multi-machine-libp2p --num_nodes=${NUM_NODES} --num_bootstrap=${NUM_BOOTSTRAP} --num_txn_per_round=${NUM_TXN_PER_ROUND} --node_idx=${NODE_IDX} --online_time=${ONLINE_TIME} --bound_addr=0.0.0.0:${PORT} --seed=${SEED} "]
