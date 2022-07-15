@@ -1,0 +1,656 @@
+\documentclass[11pt, oneside]{article}       % use "amsart" instead of "article" for AMSLaTeX format
+\usepackage{geometry}                        % See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                           % ... or a4paper or a5paper or ...
+%\geometry{landscape}                        % Activate for rotated page geometry
+\usepackage[parfill]{parskip}                % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}                % Use pdf, png, jpg, or epsÂ§ with pdflatex; use eps in DVI mode
+                                % TeX will automatically convert eps --> pdf in pdflatex
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{enumerate}
+\usepackage{tikz}
+\usepackage[algoruled,vlined,linesnumbered]{algorithm2e}
+
+\usetikzlibrary{arrows}
+
+\def\firstcircle{(90:1.75cm) circle (2.5cm)}
+\def\secondcircle{(210:1.75cm) circle (2.5cm)}
+\def\thirdcircle{(330:1.75cm) circle (2.5cm)}
+
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+%SetFonts
+
+%SetFonts
+
+
+\title{HotShot: a Low-Communication Proof-of-Stake BFT Consensus Protocol}
+\date{May 9, 2022}                            % Activate to display a given date or no date
+
+\begin{document}
+
+\maketitle
+
+\section{Parameters}
+
+\begin{itemize}
+
+    \item \(N\) total amount of stake in the system.
+
+    \item \(b\) total amount of Byzantine stake in the system
+
+    \item \(k := \frac{N}{b}\) stake corruption ratio
+
+    \item \(f\) committee fault parameter.
+
+    \item \(T := 2f + 1\) committee vote threshold
+
+    \item \(r\) committee size parameter
+
+    \item \(p := \frac{rf}{N}\) probability of each stake being elected to a committee
+
+    \item \(C := pN = rf\) expected committee size
+
+\item A Verifiable Random Function (\texttt{VRF}), with the following associated
+    information:
+
+    \begin{itemize}
+        \item \texttt{VRF.PubKey}:  the set of public keys
+
+        \item \texttt{VRF.SecKey}:  the set of private keys
+        \item \texttt{VRF.Witness}: the set of sample witnesses
+        \item \texttt{B}: the output length, in bits.
+
+        \item \(\texttt{VRF.KeyGen}() \xrightarrow{\$} (\texttt{VRF.PubKey},
+            \texttt{VRF.SecKey})\), a randomized algorithm to generate a VRF key pair.
+
+        \item \(\texttt{VRF.Sample}(sk: \texttt{VRF.SecKey}, \texttt{seed}:
+            \{0,1\}^*) \to (\texttt{result}: \{0,1\}^\texttt{B},
+            \texttt{proof}: \texttt{VRF.Witness})\), a deterministic algorithm
+            generating a pseudorandom \texttt{result} and a \texttt{proof}.
+
+        \item \(\texttt{VRF.Verify}(\texttt{pk}: \texttt{VRF.PubKey},
+            \texttt{seed}: {\{0,1\}}*, \texttt{result}: {\{0,1\}}^\texttt{B},
+            \texttt{proof}: \texttt{VRF.Witness}) -> \{\top,\bot\}\), a
+            deterministic algorithm which checks that a \texttt{result} was
+            correctly generated from a \texttt{seed} and the secret key for
+            \texttt{pk}, using \texttt{proof}.
+    \end{itemize}
+
+    The exact properties of VRFs are out of scope, but the properties we depend
+    on are:
+    \begin{enumerate}
+        \item VRF results are uniformly random and independent for different
+            seeds and different secret keys
+        \item \texttt{VRF.Verify} only returns \texttt{true} if
+            \texttt{result} was correctly generated
+            using \(\texttt{VRF.Sample}(\texttt{sk},\texttt{seed})\), where
+            \((\texttt{pk},\texttt{sk})\)` is a valid key pair.
+        \item Given \(\texttt{pk}: \texttt{VRF.PubKey}\), it is infeasible to generate
+            \((\texttt{seed},\texttt{result},\texttt{proof})\) such that
+            \(\texttt{VRF.Verify}(\texttt{pk},\texttt{seed},\texttt{result},\texttt{proof})\)
+            returns \texttt{true}, unless you know \(\texttt{sk}:
+            \texttt{VRF.SecKey}\) such that \((\texttt{pk},\texttt{sk})\) is
+            a valid key pair.
+    \end{enumerate}
+
+\item A standard \emph{deterministic} cryptographic signature scheme
+    (\texttt{Sig}) with the following associated information:
+
+    \begin{itemize}
+        \item \texttt{Sig.PubKey} -- the set of public keys
+        \item \texttt{Sig.SecKey} -- the set of secret keys
+        \item \texttt{Sig.Signature} -- the set of signatures
+
+        \item \(\texttt{Sig.KeyGen}() \xrightarrow{\$}
+            (\texttt{Sig.PubKey},\texttt{Sig.SecKey})\)
+
+        \item \(\texttt{Sig.Sign}(\texttt{sk}:
+            \texttt{Sig.SecKey},\texttt{msg}: {\{0,1\}}^*) \to \texttt{Sig.Signature}\)
+        \item \(\texttt{Sig.Verify}(\texttt{pk}:
+            \texttt{Sig.PubKey},\texttt{msg}: {\{0,1\}}^*,\texttt{sig}:
+            \texttt{Sig.Signature}) \to \{\top,\bot\}\)
+    \end{itemize}
+
+\item A deterministic leader selection function \(\texttt{SelectLeader}:
+    \mathbb{N} \to \{1,\ldots,N\}\), which selects a particular unit of stake to
+    be the leader for a given view.
+    (TODO: this should depend on the state) % chktex 13
+
+\item A deterministic seed selection function \(\texttt{CurrentSeed}:
+    \mathbb{N} \to {\{0,1\}}^B\), which provides a pseudorandom VRF
+    seed for each view. Note: this has length equal to the VRF output
+    length purely for convenience. (TODO: make this a random
+    beacon)
+
+\item A set of states \texttt{State}, an initial state \(\texttt{init} \in
+    \texttt{State}\), a set of potential state updates \texttt{Command}, and
+    functions:
+
+    \begin{itemize}
+        \item \(\texttt{CommandIsValid} : (\texttt{State},\texttt{Command}) \to
+            \{\top,\bot\}\)
+
+        \item \(\texttt{ApplyCommand} : (\texttt{State},\texttt{Command}) \to
+            \texttt{State} \uplus \{\bot\}\)
+    \end{itemize}
+
+    Such that for all \(\texttt{s}: \texttt{State}\) and \(\texttt{b}:
+    \texttt{Command}\), \(\texttt{ApplyCommand}(\texttt{s},\texttt{b}) = \bot
+    \iff \texttt{CommandIsValid}(\texttt{s},\texttt{b}) =~\bot\).
+
+\end{itemize}
+
+\section{Data Structures}
+
+A committee-member signature \texttt{sig} has the following fields:
+
+\begin{itemize}
+    \item \texttt{sig.vrf\_pk}: a \texttt{VRF.PubKey}
+    \item \texttt{sig.sig\_pk}: a \texttt{Sig.PubKey}
+    \item \texttt{sig.vote\_amount}: a natural number indicating the result
+        of the VRF
+    \item \texttt{sig.stake\_amount}: a natural number indicating the
+        number of stake units used
+    \item \texttt{sig.vrf\_proof}: a \texttt{VRF.Witness}
+    \item \texttt{sig.viewNumber}: a natural number indicating the view
+        this VRF proof corresponds to.
+    \item \texttt{sig.sig}: a \texttt{Sig.Signature} of a
+        \((\texttt{viewNumber},\texttt{leaf})\) pair.
+\end{itemize}
+
+\emph{Note}: the triple \((\texttt{sig\_pk}, \texttt{vrf\_pk},
+\texttt{stake\_amount})\) must be authenticated in some fashion. The exact
+authentication method is out of scope for this document, but this is
+generally called the \\stake table".
+
+A quorum certificate \texttt{qc} has the following fields:
+
+\begin{itemize}
+    \item \texttt{qc.leaf}: the leaf voted for
+    \item \texttt{qc.viewNumber}: a natural number indicating the view 
+    \item \texttt{qc.sigs}: a list of committee-member signatures of
+        \((\texttt{qc.viewNumber},\texttt{qc.leaf})\)
+\end{itemize}
+
+A replica message \texttt{m} is one of two possible disjoint cases:
+
+\begin{enumerate}
+    \item \texttt{m} is a \texttt{Vote} message: \texttt{m} represents a
+        vote for a proposal. It has the following fields:
+
+        \begin{itemize}
+            \item \texttt{m.pk}: a \((\texttt{VRF.PubKey},
+                \texttt{Sig.PubKey})\) pair indicating the voter's public
+                keys
+            \item \texttt{m.votes}: a natural number indicating the number
+                of votes cast
+            \item \texttt{m.sig}: a committee-member signature
+            \item \texttt{m.leaf}: the message being voted for
+            \item \texttt{m.justify}: the justify QC of \texttt{m.leaf}
+            \item \texttt{m.viewNumber}: the view number of this vote
+        \end{itemize}
+
+    \item \texttt{m} is a \texttt{NextView} message, representing a view
+        where the sender has not voted for a proposal. It has the following
+        fields:
+
+        \begin{itemize}
+            \item \texttt{m.justify}: the most recent QC the sender has
+                seen
+            \item \texttt{m.viewNumber}: the view number of this vote
+        \end{itemize}
+\end{enumerate}
+
+A proposal message \texttt{p} has the following fields:
+
+\begin{itemize}
+    \item \texttt{p.leaf}: the proposed leaf
+\end{itemize}
+
+\section{The Protocol}
+
+\SetAlFnt{\scriptsize\tt}
+
+\subsection*{Helper functions}
+
+\begin{procedure}[H]
+    \caption{CreateLeaf(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{ValidProposal(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{VotesFromSeed(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{ExecutePendingCommands(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{CheckValidVote(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{AssembleQC(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{PROPOSAL(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{VOTE(\ldots)}
+\end{procedure}
+
+\begin{procedure}[H]
+    \caption{NEXTVIEW(\ldots)}
+\end{procedure}
+
+\subsection*{The Main Loop}
+
+\begin{procedure}[H]
+    \caption{SafeLeaf(leaf,qc)}
+
+    \Return \((\texttt{leaf} \text{ extends from } \texttt{lockedQC})
+    \vee
+     (\texttt{qc.justify.viewNumber} > \texttt{lockedQC.viewNumber} + 2)\)
+\end{procedure}
+
+
+\begin{algorithm}[H]
+    \SetArgSty{texttt}
+
+    M \(\leftarrow \{\}\)
+
+    \For{curView \(\leftarrow 1,2,3,\ldots\)}{%
+
+        \If%(\tcp*[h]{We are the leader})
+        {%
+            r = SelectLeader(curView)
+        } {%
+            command \(\leftarrow\) SelectFromMempool()
+
+            qcs \(\leftarrow \{ \text{m.justify} : \text{m} \in \text{M}\} \cup
+                \{\text{genericQC}\}\)
+
+            genericQC \(\leftarrow \left(\underset{\text{qc} \in
+                \text{qcs}}{\argmax}\  \text{qc.viewNumber}
+                \right)\)
+
+            proposal \(\leftarrow\)
+                CreateLeaf(genericQC.leaf, command,
+                    genericQC)
+
+            \text{broadcast} PROPOSAL(proposal)
+
+        }
+
+        \Else(\tcp*[h]{We are a replica}){%
+            wait for proposal:~Proposal from SelectLeader(curView)
+
+            \If{interrupted}{go to NEXTVIEW INTERRUPT}
+
+            check ValidProposal(proposal)
+
+            leaf\_proposed \(\leftarrow\) proposal.leaf
+
+            leaf\_prev1 \(\leftarrow\) leaf\_proposed.justify.leaf
+
+            leaf\_prev2 \(\leftarrow\) leaf\_prev1.justify.leaf
+
+            leaf\_prev3 \(\leftarrow\) leaf\_prev2.justify.leaf
+
+            \If{SafeNode(leaf\_proposed,leaf\_proposed.justify)}{%
+                res,pf \(\leftarrow\) VRF.Sample(sk,CurrentSeed(curView))
+
+                votes \(\leftarrow\) VotesFromSeed(res,stake\_amount)
+
+                \If{votes > 0}{%
+                    send VOTE(leaf\_proposed,res,pf) to SelectLeader(\(\text{curView}+1\))
+                }
+            }
+
+            \If(\tcp*[h]{1-chain}){leaf\_proposed.parent = leaf\_prev1}{%
+                genericQC \(\leftarrow\) leaf\_proposed.justify
+
+                \If(\tcp*[h]{2-chain}){leaf\_prev1.parent = leaf\_prev2}{%
+                    lockedQC \(\leftarrow\) leaf\_prev1.justify
+
+                    \If(\tcp*[h]{3-chain}){leaf\_prev2.parent =
+                    leaf\_prev3}{%
+                        ExecutePendingCommands(leaf\_prev3)
+                    }
+                }
+            }
+        }
+
+        \If(\tcp*[h]{We are the next leader}){r =
+        SelectLeader(\(\text{curView}+1\))}{%
+            M \(\leftarrow \{\}\)
+
+            valid\_votes \(\leftarrow\) \{\}
+
+            voters \(\leftarrow \{\}\)
+
+            total \(\leftarrow 0\)
+
+            \While{\(\text{total} < T\)}{%
+                wait for m:~Message
+
+                \If{interrupted}{go to NEXTVIEW INTERRUPT}
+                M \(\leftarrow \text{M} \cup \{\text{m}\}\)
+
+                \If{m is a Vote and CheckValidVote(m) and \(\text{m.pk} \not\in
+                \text{voters}\)}{%
+                    valid\_votes \(\leftarrow \text{valid\_votes} \cup \{\text{m}\}\);
+                    voters \(\leftarrow \text{voters} \cup
+                            \{\text{m.pk}\}\);
+                    total \(\leftarrow \text{total} + \text{m.votes}\)
+
+                }
+            }
+
+            genericQC \(\leftarrow\) AssembleQC(valid\_votes)
+
+        }
+
+        \Begin(NEXTVIEW INTERRUPT){%
+            send NEXTVIEW(genericQC) to SelectLeader(\(\text{curView} +
+            1\))
+        }
+    }
+
+\end{algorithm}
+
+\section{Protocol Analysis}
+
+In the following, we rely on \texttt{VotesFromSeed} being \emph{separable}, in
+the sense that splitting up any amount of stake between multiple parties
+does not affect the overall probabilities involved. More precisely, for any
+\texttt{total}, \(a\), and \(b\):
+
+\[
+    \Pr_{\texttt{seed}}[\texttt{VFS}(\texttt{seed},a+b) =
+    \texttt{total}] = \Pr_{(\texttt{seed1},\texttt{seed2})}[
+        \texttt{VFS}(\texttt{seed1},a) + \texttt{VFS}(\texttt{seed2},b) =
+    \texttt{total}]
+\]
+
+For convenience, we notate by \(\texttt{Comm}_v(n)\) the random variable representing
+the number of votes a set of \(n\) stake units has in view \(v\). Note that this makes
+sense because \texttt{VFS} is separable -- any set of \(n\) stake units
+will have the same distribution for \(\texttt{Comm}_v(n)\).
+
+\subsection*{Proof of Probable Liveness}
+
+\emph{Theorem}: Let \(\lambda_L > 0\). After the GST, an honest leader has at least a \(1 -
+2^{-\lambda_L}\) chance of generating a QC, so long as the following all
+hold:
+
+\begin{equation}\label{liveness_bound}
+    \begin{array}{c}
+        0 \leq 1 - \frac{k}{k-1}\cdot\frac{2}{r} < 1 \\
+
+        \lambda_L \leq \frac{\log_2 e}{2} \left(\frac{k-1}{k}\right) r f \left(1 -
+        \frac{2k}{r(k-1)}\right)^2
+    \end{array}
+\end{equation}
+
+(TODO: this seems like it isn't quite sufficient for liveness, we need a
+few views in a row to get QCs)
+
+\emph{Lemma}: if inequality \eqref{liveness_bound} holds, then
+
+\[
+\begin{array}{rcl}
+    \Pr[\texttt{Comm}_v(N-b) \leq 2f] & \leq & \exp\left(
+        -\frac{1}{2} \cdot
+         \left(\frac{k-1}{k}\right)
+         \cdot r\cdot f \cdot
+         \left(1-\frac{k}{k-1}\cdot \frac{2}{r}\right)^2
+    \right)
+    \\
+    &\leq&2^{-\lambda_L}
+\end{array}
+\]
+
+\emph{Proof}: By Chernoff's bound, setting \(\mu =
+\mathbb{E}[\texttt{Comm}_v(N-b)] = \left(\frac{k-1}{k}\right) \cdot N \cdot
+\frac{rf}{N} = \left(\frac{k-1}{k}\right)\cdot rf\) and solving for
+\(\delta\) in \((1-\delta)\mu = 2f\) to get \(\delta = 1 - \frac{2f}{\mu} =
+1 - \frac{k}{k-1}\cdot \frac{2}{r}\), we get:
+
+\[
+\begin{array}{rclr}
+    \Pr[\texttt{Comm}_v(N-b) \leq 2f] & = & \Pr[\texttt{Comm}_v(N-b) \leq
+    (1-\delta)\mu] \\
+    &\overset{\text{Chernoff}}{\leq}&
+    \exp\left( -\frac{\mu\delta^2}{2}\right) \\
+    &=&
+         \exp\left(-\frac{1}{2}\left(\frac{k-1}{k}
+         \cdot r\cdot f \right) \cdot
+         \left(1-\frac{k}{k-1}\cdot \frac{2}{r}\right)^2
+    \right)
+    \\
+    &=& 2^{\left(-\frac{\log_2 e}{2} \left(\frac{k-1}{k}\right) r f \left(1 -
+    \frac{2k}{r(k-1)}\right)^2\right)} \\
+    &\leq&2^{-\lambda_L} & \square
+\end{array}
+\]
+
+\subsection*{Proof of Probable Safety}
+
+\emph{Base Lemma}: Suppose that a block \(w\) is proposed for view \(v\),
+and suppose that at most \(\frac{N-b}{2}\) honest nodes receive \(w\) and
+have \(\texttt{SafeNode}(w,w.\texttt{justify}) = \top\). Then so long as
+the following holds:
+
+\begin{equation}\label{lemma_majority}
+    \begin{array}{c}
+        0 \leq \frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1 < 1 \\
+        \lambda \leq \frac{\log_2 e 
+        }{3}\cdot\frac{rf\left(1+\frac{1}{2}(k-1)\right)}{k}\cdot
+        {\left(\frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1\right)}^2
+    \end{array}
+\end{equation}
+
+we can conclude that
+
+\[
+    \Pr[\text{a QC for \(w\) can be generated during \(v\)}] \leq 2^{-\lambda}
+\]
+
+\emph{Proof}: To generate a QC for \(w\), at least \(2f\) votes must be
+collected. Honest replicas will only vote if
+\(\texttt{SafeNode}(w,w.\texttt{justify}) = \top\). Byzantine replicas will
+vote as they please. Since at most \(\frac{N-b}{2}\) honest replicas will
+attempt to vote for \(w\), we can use the following upper bound:
+
+\[
+    \Pr[\text{a QC for \(w\) can be generated during \(v\)}] \leq
+    \Pr\left[\texttt{Comm}_v\left(b+\frac{N-b}{2}\right) \geq 2f\right]
+\]
+
+This form can then be Chernoff-bounded. Set
+
+\[
+    \begin{array}{rclr}
+        \mu &=& \mathbb{E}\left[\texttt{Comm}_v\left(b +
+        \frac{N-b}{2}\right)\right] \\
+            &=& \mathbb{E}\left[\texttt{Comm}_v\left(N\left(\frac{1 +
+            \frac{1}{2}(k-1)}{k}\right)\right)\right] \\
+            &=& \frac{rf}{N}\left(N\left(\frac{1 +
+            \frac{1}{2}(k-1)}{k}\right)\right) \\
+            &=& rf\left(\frac{1 +
+            \frac{1}{2}(k-1)}{k}\right) \\
+    \end{array}
+\]
+
+and
+
+\[
+    \begin{array}{rclr}
+        \delta &=& \frac{2f}{\mu} - 1 \\
+        &=& \frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1
+    \end{array}
+\]
+
+Then by Chernoff:
+
+\[
+    \begin{array}{rclr}
+        \Pr\left[\texttt{Comm}_v\left(b+\frac{N-b}{2}\right) \geq 2f\right]
+        &\leq& \exp\left(-\frac{\mu{\delta}^2}{3}\right) \\
+
+        &\leq& 2^{\left(-\frac{\log_2 e
+        }{3}\cdot\frac{rf\left(1+\frac{1}{2}(k-1)\right)}{k}\cdot
+        {\left(\frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} -
+        1\right)}^2\right)} \\
+        &\leq& 2^{-\lambda} & \square
+    \end{array}
+\]
+
+\emph{Lemma} Let \texttt{w2} be a 2-chain. Suppose that at least
+\(\frac{N-b}{2}\) honest nodes have \(\texttt{lockedQC} =
+\texttt{w2.justify.justify}\) and no QC has already been generated for any
+view after \texttt{w2.viewNumber}. Then for any \(\lambda > 0\) such that
+
+\begin{equation}\label{lemma_majority}
+    \begin{array}{c}
+        0 \leq \frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1 < 1 \\
+        \lambda \leq \frac{\log_2 e
+        }{3}\cdot\frac{rf\left(1+\frac{1}{2}(k-1)\right)}{k}\cdot
+        {\left(\frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1\right)}^2
+    \end{array}
+\end{equation}
+
+we can conclude that for any proposal \(\texttt{prop}\) in a view \(v\) after
+\texttt{w2.viewNumber} which is incompatible with
+\texttt{w2.justify.justify},
+
+\[
+    \Pr[\text{a QC for \(\texttt{prop}\) can be generated during \(v\)}] \leq 2^{-\lambda}
+\]
+
+\emph{Proof}: In any honest node which has locked
+\texttt{w2.justify.justify}, if
+\[\texttt{SafeNode}(\texttt{prop},\texttt{prop.justify})~=~\top,\] it must
+be the case that \[\texttt{prop.justify.viewNumber} >
+\texttt{lockedQC.viewNumber}+2 = \texttt{w2.viewNumber}.\] But this violates the assumption that
+no QC after \texttt{w2.viewNumber} has been generated yet. Thus, since in all
+honest nodes with \texttt{w2.justify.justify} locked,
+\[\texttt{SafeNode}(\texttt{prop},\texttt{prop.justify}) = \bot,\] our
+conclusion follows directly from the base lemma. \(\square\)
+
+\emph{Theorem}: Suppose that some 3-chain \texttt{w3} exists. Then for any
+\(\lambda > 0\) such that
+
+\begin{equation}\label{lemma_majority}
+    \begin{array}{c}
+        0 \leq \frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1 < 1 \\
+        \lambda \leq \frac{\log_2 e
+        }{3}\cdot\frac{rf\left(1+\frac{1}{2}(k-1)\right)}{k}\cdot
+        {\left(\frac{2k}{r\left(1+\frac{1}{2}(k-1)\right)} - 1\right)}^2
+    \end{array}
+\end{equation}
+
+and for any \(R > 0\), the chance of generating a QC which conflicts with
+\texttt{w3.justify.justify.justify} by view \(\texttt{w3.viewNumber} + R\)
+is at most \((R + 1)2^{-\lambda}\).
+
+\emph{Proof}: There are two cases to consider, which we will combine by a
+union bound.
+
+In the first case, it is possible that \texttt{w3.justify} was generated in
+such a way that \(n \leq \frac{N-b}{2}\) honest nodes received the proposal
+for \texttt{w3.justify}. In that case, a Byzantine leader can propose a
+contradictory \texttt{prop}, and have the \(b\) byzantine nodes vote along
+with the \(N-b - n\) honest nodes.
+
+For this to happen, we need the event
+``\(\texttt{Comm}_{\texttt{w3.viewNumber-1}}(b + n) \geq
+2f\)" to occur, which by the core lemma is at most \(2^{-\lambda}\).
+
+In the second case, we can assume that \(n \geq \frac{N-b}{2}\) honest
+replicas received the proposal for \texttt{w3.justify}. Since
+\texttt{w3.justify} is a 2-chain, those \(n\) honest will have \(lockedQC =
+\texttt{w3.justify.justify.justify}\). By the base lemma, the chance of any
+conflicting \texttt{prop} being able to generate a QC in any view \(v\)
+such that \(0 < v - \texttt{w3.viewNumber} \leq R\) is bounded:
+
+\[
+    \Pr[\text{a QC for \(\texttt{prop}\) can be generated during \(v\)}] \leq 2^{-\lambda}
+\]
+
+And by the union bound, for any sequence of conflicting proposals
+\(\texttt{prop}_1,\ldots,\texttt{prop}_R\) in views
+\(\texttt{w3.viewNumber}+1,\ldots,\texttt{w3.viewNumber}+R\),
+
+\[
+    \begin{array}{cr}
+        \Pr[\text{a conflicting QC can be generated before view }
+            \texttt{w3.viewNumber}+R] \\
+
+            \overset{\text{Union bound}}{\leq} \\
+            \Pr\left[\text{\texttt{w3.justify} was generated with less than
+            }\frac{N-b}{2}\text{ honest replicas}\right]\\
+            +\\ \Pr[\text{a QC can be generated for any
+            \(\texttt{prop}_i\)}]\\
+
+            \overset{\text{Union bound}}{\leq} \\
+            \Pr\left[\text{\texttt{w3.justify} was generated with less than
+            }\frac{N-b}{2}\text{ honest replicas}\right]\\
+            +\\ R\cdot\Pr[\text{a conflicting QC can be generated for a
+            given \(\texttt{prop}_v\)}]\\
+
+            \overset{\text{cases}}{\leq} \\
+            2^{-\lambda} + R\cdot2^{-\lambda} \\
+            = \\
+            (R+1)2^{-\lambda} & \square
+    \end{array}
+\]
+
+\emph{Corollary (Safety)}: Let \(\lambda > 0\) be bounded as above, and
+suppose \(w\) and \(x\) are conflicting blocks. The chance that some honest
+node will commit \(w\) and and another will commit \(x\) is at most
+\((|w\texttt{.viewNumber} - x\texttt{.viewNumber}|+1)2^{-\lambda}\).
+
+\emph{Proof}: WLOG let \(w\texttt{.viewNumber} < x\texttt{.viewNumber}\).
+Then apply the above theorem with \(R = x\texttt{.viewNumber} -
+w\texttt{.viewNumber}\). \(\square\)
+
+
+\section{Glossary}
+
+\begin{itemize}
+    \item Multiplicative forms of Chernoff bound:
+        Given:
+        \begin{itemize}
+            \item $n$ independent random variables (irvs) $X_i \in [0, 1]$
+            \item $X = \sum_{i=1}^n X_i$
+            \item $\mu = \mathbb{E}\left[X\right]$
+            \item $\delta \in [0, 1)$
+        \end{itemize}
+        We have:
+        \[\Pr[X \geq(1+\delta) \mu] \leq\left(\frac{e^{\delta}}{(1+\delta)^{(1+\delta)}}\right)^{\mu} \leq \exp \left(\frac{-\mu \delta^{2}}{3}\right)\]
+        \[\Pr[X \leq(1-\delta) \mu] \leq\left(\frac{e^{-\delta}}{(1-\delta)^{(1-\delta)}}\right)^{\mu} \leq \exp \left(\frac{-\mu \delta^{2}}{2}\right)\]
+        \item $\uplus$ is the binary operator for disjoint union.
+        \item $\{0, 1\}^*$ is the set of all sets of binary strings of finite length. (see kleene star)
+        \item $\{0, 1\}^B$ is the set of all sets of binary strings of length $B$.
+        \item $\mathbb{E}[X]$ is the expected value of random variable $X$
+        \item $\in$ means set membership
+        \item $\cup$ means set union
+        \item $ f: X \xrightarrow{\$} Y$ denotes that \(f\) is a
+            random procedure with inputs \(X\) and outputs \(Y\)
+        \item $\top$: true, $\bot$: false
+
+\end{itemize}
+
+
+\end{document}

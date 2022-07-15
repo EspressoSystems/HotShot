@@ -1,0 +1,31 @@
+---
+template: "article.tex"
+documentclass: acmart
+classoption: manuscript
+title: HotShot
+subtitle: Linear, Committe Electing BFT Protocol
+author:
+- name: Nathan McCarty
+  affiliation:
+    institution: Espresso Systems
+    city: San Francisco
+    state: California
+    country: USA
+  email: nathan.mccarty@espressosys.com
+bibliography: biblio.bib
+abstract: |
+  HotStuff \cite{DBLP:journals/corr/abs-1803-05069} is a thing that exists. We believe we can do better.
+  
+include-before: |
+  ```{=latex}
+  \copyrightyear{2021}
+  ```
+  
+figPrefix:
+  - "Fig."
+  - "Figs."
+secPrefix:
+  - "Section"
+  - "Sections"
+...
+

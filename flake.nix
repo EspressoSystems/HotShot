@@ -114,8 +114,50 @@
 
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
 
+        # hotstuff spec docs build dependencies
+        texlive = pkgs.texlive.combine {
+          inherit (pkgs.texlive)
+            scheme-small multirow xstring totpages environ ncctools comment
+            hyperxmp ifmtarg preprint latexmk libertine inconsolata shade newtx
+            algorithm2e ifoddpage relsize geometry parskip graphics latex amsmath mathtools pgf hyperref ec
+            ;
+        };
+        hotshot-paper = pkgs.stdenv.mkDerivation {
+          name = "hotshot-paper";
+          src = ./docs/pandoc-based-spec/src;
+          buildInputs = [
+            texlive
+            pkgs.glibcLocales
+            pkgs.pandoc
+            pkgs.fontconfig
+            pkgs.haskellPackages.pandoc-crossref
+          ];
+          FONTCONFIG_FILE =
+            pkgs.makeFontsConf { fontDirectories = [ pkgs.lmodern ]; };
+          buildPhase = "make";
+          installPhase = "cp *.pdf $out";
+        };
+        hotshot-analysis = pkgs.stdenv.mkDerivation {
+          name = "hotshot-analysis";
+          src = ./docs/hotshot-analysis;
+          buildInputs = [
+            texlive
+            pkgs.fontconfig
+          ];
+          FONTCONFIG_FILE =
+            pkgs.makeFontsConf { fontDirectories = [ pkgs.lmodern ]; };
+          buildPhase = ''
+            mkdir -p .cache/texmf-var
+            env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var latexmk -interaction=nonstopmode -pdf -lualatex analysis.tex
+          '';
+          installPhase = "cp *.pdf $out";
+        };
+
       in
       {
+        packages = {
+          inherit hotshot-analysis hotshot-paper;
+        };
         devShell = pkgs.mkShell {
           buildInputs =
             with pkgs; [ fenixStable ] ++ buildDeps;
@@ -123,6 +165,15 @@
 
 
         devShells = {
+          docsShell = pkgs.mkShell {
+            buildInputs = [
+              texlive
+              pkgs.glibcLocales
+              pkgs.pandoc
+              pkgs.fontconfig
+              pkgs.haskellPackages.pandoc-crossref
+            ];
+          };
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
             shellHook = ''

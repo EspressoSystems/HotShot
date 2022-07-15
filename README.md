@@ -43,6 +43,21 @@ To test as if running on CI, one must limit the number of cores and ram to match
 ```
 ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace -- --nocapture --test-threads=1
 ```
+# Documentation
+
+To build documentation, run:
+
+```
+nix build .#hotshot-analysis -o analysis.pdf
+nix build .#hotshot-paper -o paper.pdf
+```
+
+To bring in dependencies and develop:
+
+```
+nix develop .#docsShell
+```
+
 
 # Resource Usage Statistics
 
