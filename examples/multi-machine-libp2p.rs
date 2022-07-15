@@ -30,14 +30,18 @@ use tracing::{debug, error, info};
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
-pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
+pub fn parse_dns(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    match Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port)) {
-        Err(_) => Multiaddr::from_str(&format!("/dnsaddr/{}/tcp/{}", ip, port)),
-        a => a,
-    }
+    Multiaddr::from_str(&format!("/dns/{}/tcp/{}", ip, port))
+}
+
+pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
+    let mut i = s.split(':');
+    let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
 }
 
 // FIXME make these actual ips/ports
@@ -115,7 +119,7 @@ pub struct CliOpt {
 
     /// address to bind to
     #[structopt(long = "bound_addr")]
-    #[structopt(parse(try_from_str = parse_node))]
+    #[structopt(parse(try_from_str = parse_ip))]
     pub bound_addr: Multiaddr,
 
     /// seed used to generate ids
@@ -266,7 +270,7 @@ async fn main() {
         .map(|(key_bytes, addr_str)| {
             let mut key_bytes = <&[u8]>::clone(key_bytes).to_vec();
             let key = Keypair::rsa_from_pkcs8(&mut key_bytes).unwrap();
-            let multiaddr = parse_node(addr_str).unwrap();
+            let multiaddr = parse_dns(addr_str).unwrap();
             (key, multiaddr)
         })
         .take(args.num_bootstrap)
