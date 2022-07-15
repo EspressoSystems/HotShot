@@ -202,7 +202,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         // timeout for first event is longer in case
         // there is a delta before other nodes are spun up
         // this is really long to satisfy CI
-        let mut timeout = Duration::from_secs(300);
+        let mut timeout = Duration::from_secs(10);
 
         // drain all events from this node
         loop {
