@@ -143,7 +143,7 @@ pub struct HotShotInner<I: NodeImplementation<N>, const N: usize> {
     election: HotShotElectionState<I::SignatureKey, I::Election, N>,
 
     /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State>>>>,
+    event_sender: RwLock<Option<BroadcastSender<Event<I::Block, I::State, N>>>>,
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
@@ -306,7 +306,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
     ///
     /// Returns `true` if the event was send, `false` otherwise
-    pub async fn send_event(&self, event: Event<I::Block, I::State>) -> bool {
+    pub async fn send_event(&self, event: Event<I::Block, I::State, N>) -> bool {
         if let Some(c) = self.inner.event_sender.read().await.as_ref() {
             if let Err(e) = c.send_async(event).await {
                 warn!(?e, "Could not send event to the registered broadcaster");
@@ -796,7 +796,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             .await
     }
 
-    async fn send_event(&mut self, event: Event<I::Block, I::State>) {
+    async fn send_event(&mut self, event: Event<I::Block, I::State, N>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {

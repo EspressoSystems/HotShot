@@ -3,6 +3,7 @@
 use crate::{
     data::{Stage, VecQuorumCertificate, ViewNumber},
     error::HotShotError,
+    traits::BlockContents,
 };
 use std::sync::Arc;
 
@@ -11,13 +12,13 @@ use std::sync::Arc;
 /// This includes some metadata, such as the stage and view number that the event was generated in,
 /// as well as an inner [`EventType`] describing the event proper.
 #[derive(Clone, Debug)]
-pub struct Event<B: Send + Sync, S: Send + Sync> {
+pub struct Event<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
     /// The stage that this event originates from
     pub stage: Stage,
     /// The underlying event
-    pub event: EventType<B, S>,
+    pub event: EventType<B, S, N>,
 }
 
 /// The type and contents of a status event emitted by a `HotShot` instance
@@ -26,7 +27,7 @@ pub struct Event<B: Send + Sync, S: Send + Sync> {
 /// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum EventType<B: Send + Sync, S: Send + Sync> {
+pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// A view encountered an error and was interrupted
     Error {
         /// The underlying error
@@ -81,5 +82,12 @@ pub enum EventType<B: Send + Sync, S: Send + Sync> {
     Synced {
         /// The current view number
         view_number: ViewNumber,
+    },
+
+    /// The transaction has been rejected.
+    /// Currently HotShot does not know if a transaction is rejected because it is a duplicate, or because the transaction is invalid.
+    TransactionRejected {
+        /// The transaction that has been rejected.
+        transaction: B::Transaction,
     },
 }

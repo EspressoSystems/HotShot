@@ -33,11 +33,11 @@ pub struct HotShotHandle<I: NodeImplementation<N> + Send + Sync + 'static, const
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::Block, I::State>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::Block, I::State, N>>>,
     /// Internal reference to the underlying [`HotShot`]
     pub(crate) hotshot: HotShot<I, N>,
     /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State, N>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
@@ -62,7 +62,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State>> {
+    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State, N>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -76,7 +76,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State>> {
+    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State, N>> {
         block_on(self.next_event())
     }
     /// Will attempt to immediately pull an event out of the queue
@@ -84,7 +84,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State>>> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State, N>>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -95,7 +95,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(&mut self) -> Result<Vec<Event<I::Block, I::State>>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<I::Block, I::State, N>>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
