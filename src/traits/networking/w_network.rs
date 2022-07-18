@@ -1004,6 +1004,10 @@ impl<
     ) -> Result<V, NetworkError> {
         todo!()
     }
+
+    async fn lookup_pks(&self, _pk: Vec<P>) {
+        // NOTE: already have metadata so this is a noop
+    }
 }
 
 /// Tries to get a networking implementation with the given id

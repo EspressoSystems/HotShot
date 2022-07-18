@@ -144,6 +144,10 @@ where
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError>;
+
+    /// Lookup leader metadata so we are prepared to DM in
+    /// a subsequent view.
+    async fn lookup_pks(&self, pk: Vec<P>);
 }
 
 /// Describes additional functionality needed by the test network implementation

@@ -694,4 +694,8 @@ impl<
             .await
             .map_err(Into::<NetworkError>::into)
     }
+
+    async fn lookup_pks(&self, _pk: Vec<P>) {
+        todo!()
+    }
 }

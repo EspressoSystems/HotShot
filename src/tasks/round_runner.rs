@@ -2,15 +2,20 @@
 //!
 //! This will wait for one of several events, and will run one or multiple rounds
 
-use crate::HotShot;
+use crate::{HotShot, HotShotConsensusApi};
 use async_std::{prelude::FutureExt, task::JoinHandle};
 use flume::{unbounded, Receiver, Sender};
 use futures::channel::oneshot::{self, Sender as OneShotSender};
+use hotshot_consensus::ConsensusApi;
 use hotshot_types::{
     data::{Stage, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{node_implementation::NodeImplementation, storage::Storage},
+    message::Message,
+    traits::{
+        network::NetworkingImplementation, node_implementation::NodeImplementation,
+        storage::Storage, BlockContents,
+    },
 };
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, instrument, warn};
@@ -56,6 +61,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             view,
             is_running: false,
         };
+
         let int_duration = hotshot.inner.config.next_view_timeout;
         Self {
             join_handle: None,
@@ -67,6 +73,36 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             run_once_counter: 0,
             round_timeout_seq_count: 0,
         }
+    }
+
+    /// Updates the view number
+    /// notifies the view numer task
+    /// NOTE we spawn a task because we do not want this to block.
+    pub async fn update_view(&mut self, new_view: ViewNumber) {
+        self.state.view = new_view;
+        // TODO jr move this to configuration variable
+        let num_rounds_ahead = 5;
+        let mut pks = Vec::new();
+        let consensus_api = HotShotConsensusApi {
+            inner: &self.hotshot.inner,
+        };
+        for _i in 0..num_rounds_ahead {
+            let stage_num =
+                ConsensusApi::<I, N>::get_leader(&consensus_api, new_view, Stage::Prepare).await;
+            pks.push(stage_num);
+        }
+
+        <<I as NodeImplementation<N>>::Networking as NetworkingImplementation<
+            Message<
+                <I as NodeImplementation<N>>::Block,
+                <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+                <I as NodeImplementation<N>>::State,
+                <I as NodeImplementation<N>>::SignatureKey,
+                N,
+            >,
+            <I as NodeImplementation<N>>::SignatureKey,
+        >>::lookup_pks(&self.hotshot.inner.networking, pks)
+        .await;
     }
 
     /// Consume this round runner and run until it receives a `ToRoundRunner::Shutdown`.
@@ -95,7 +131,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                     if self.join_handle.is_some() {
                         warn!("Incoming new view number but a round is running. This will not work as expected.");
                     }
-                    self.state.view = view;
+                    self.update_view(view).await;
                 }
                 ToRoundRunner::Pause => {
                     self.state.is_running = false;
@@ -240,7 +276,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
             return true;
         }
         // Increment the view counter
-        self.state.view += 1;
+        self.update_view(self.state.view + 1).await;
         tracing::debug!("New view number is now {:?}", self.state.view);
 
         let (round_finished_sender, round_finished_receiver) = oneshot::channel();

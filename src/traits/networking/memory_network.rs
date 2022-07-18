@@ -480,6 +480,10 @@ impl<
     ) -> Result<V, NetworkError> {
         unimplemented!()
     }
+
+    async fn lookup_pks(&self, _pk: Vec<P>) {
+        // NOTE: already have metadata so this is a noop
+    }
 }
 
 #[cfg(test)]
