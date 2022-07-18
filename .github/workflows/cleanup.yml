@@ -1,0 +1,27 @@
+name: 'Delete old artifacts'
+on:
+  schedule:
+    - cron: '0 0 * * *' # every hour
+  workflow_dispatch:
+
+jobs:
+  delete-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: kolpav/purge-artifacts-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          expire-in: 7days
+      # Will update and uncomment when dockers are published
+      #- uses: snok/container-retention-policy@v1
+      #  with:
+      #    account-type: org
+      #    cut-off: One day ago UTC
+      #    image-names:
+      #    keep-at-least: 1
+      #    org-name: EspressoSystems
+      #    token: ${{ secrets.ORG_GITHUB_PAT }}
+      #    untagged-only: true
+
+
+

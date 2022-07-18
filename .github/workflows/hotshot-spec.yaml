@@ -33,15 +33,6 @@ jobs:
           nix build .#hotshot-analysis -o hotshot-analysis.pdf
           nix build .#hotshot-paper -o hotshot-paper.pdf
 
-      - uses: c-hive/gha-remove-artifacts@v1
-        if: ${{ github.ref == 'refs/heads/main' }}
-        name: Garbage collect old artifacts
-        with:
-          skip-tags: true
-          skip-recent: 5
-          GITHUB_TOKEN: ${{ secrets.ORG_GITHUB_PAT }}
-          age: '0 day'
-
       - uses: actions/upload-artifact@v3
         if: ${{ github.ref == 'refs/heads/main' }}
         name: Upload pdf artifact
