@@ -47,7 +47,7 @@ impl<
             .collect();
         let config = HotShotConfig {
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
-            num_bootstrap: num_bootstrap_nodes,
+            expected_size: NonZeroUsize::new(1000).unwrap(),
             threshold: NonZeroUsize::new(threshold).unwrap(),
             max_transactions: NonZeroUsize::new(100).unwrap(),
             known_nodes,
@@ -55,6 +55,7 @@ impl<
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
+            num_bootstrap: num_bootstrap_nodes,
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
         };

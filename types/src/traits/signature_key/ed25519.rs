@@ -1,6 +1,5 @@
 //! Demonstration implementation of the [`SignatureKey`] trait using ed25519
 use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
-
 /// `Ed25519Priv` implementation
 mod ed25519_priv;
 /// `Ed25519Pub` implementation

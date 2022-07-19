@@ -144,6 +144,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
                     ConsensusMessage::NewView(NewView {
                         current_view: ctx.view_number + 1,
                         justify: decide.qc,
+                        chain_id: ctx.api.chain_id(),
                     }),
                 )
                 .await

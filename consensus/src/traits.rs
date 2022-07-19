@@ -2,10 +2,13 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
+    data::{
+        BlockHash, LeafHash, QuorumCertificate, Stage, StateHash, VecQuorumCertificate, VerifyHash,
+        ViewNumber,
+    },
     error::HotShotError,
     event::{Event, EventType},
-    message::ConsensusMessage,
+    message::{CommitVote, ConsensusMessage, PreCommitVote, PrepareVote, Vote},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
@@ -134,6 +137,13 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         (self.public_key().to_bytes(), signature)
     }
 
+    /// Generates and encodes a vote token
+    fn generate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        next_state: StateHash<N>,
+    ) -> Option<Vec<u8>>;
+
     /// Validate a quorum certificate
     fn validate_qc(
         &self,
@@ -145,24 +155,44 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Validate this message on if the QC is correct, if it has one
     ///
     /// If this message has no QC then this will return `true`
-    fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
-        let (qc, view_number, stage) = match message {
+    fn validate_qc_and_chain_id_in_message(
+        &self,
+        message: &ConsensusMessage<I::Block, I::State, N>,
+    ) -> bool {
+        let (qc, view_number, stage, chain_id) = match message {
             ConsensusMessage::PreCommit(pre_commit) => {
                 // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
+                (
+                    &pre_commit.qc,
+                    pre_commit.current_view,
+                    Stage::Prepare,
+                    Some(pre_commit.qc.chain_id),
+                )
             }
             // Same as PreCommit, we compare with 1 stage earlier
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
-
-            ConsensusMessage::NewView(_)
-            | ConsensusMessage::Prepare(_)
-            | ConsensusMessage::CommitVote(_)
-            | ConsensusMessage::PreCommitVote(_)
-            | ConsensusMessage::PrepareVote(_) => return true,
+            ConsensusMessage::Commit(commit) => (
+                &commit.qc,
+                commit.current_view,
+                Stage::PreCommit,
+                Some(commit.qc.chain_id),
+            ),
+            ConsensusMessage::Decide(decide) => (
+                &decide.qc,
+                decide.current_view,
+                Stage::Commit,
+                Some(decide.qc.chain_id),
+            ),
+            ConsensusMessage::NewView(v) => return v.chain_id == self.chain_id(),
+            ConsensusMessage::Prepare(v) => return v.chain_id == self.chain_id(),
+            ConsensusMessage::CommitVote(CommitVote(v))
+            | ConsensusMessage::PreCommitVote(PreCommitVote(v))
+            | ConsensusMessage::PrepareVote(PrepareVote(v)) => {
+                return v.chain_id == self.chain_id()
+            }
         };
-
         self.validate_qc(qc, view_number, stage)
+            // Validate the chain id, defaulting to true
+            && chain_id.map_or(true, |x| x == self.chain_id())
     }
 
     /// Validate the signatures of a QC
@@ -170,7 +200,12 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
     fn get_valid_signatures(
         &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        signatures: BTreeMap<EncodedPublicKey, Vote<N>>,
         hash: VerifyHash<32>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
+        next_state: StateHash<N>,
+        view_number: ViewNumber,
+    ) -> Result<BTreeMap<EncodedPublicKey, Vote<N>>, HotShotError>;
+
+    /// Returns the hash of the genesis block, used as a chain ID
+    fn chain_id(&self) -> BlockHash<N>;
 }

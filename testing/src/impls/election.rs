@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use hotshot::data::{Stage, StateHash};
 use hotshot_types::{
     data::ViewNumber,
@@ -46,12 +48,12 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         token: Self::VoteToken,
         next_state: StateHash<N>,
     ) -> Option<Self::ValidatedVoteToken> {
-        None
+        Some(())
     }
 
     #[instrument]
     fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
-        todo!()
+        1
     }
 
     #[instrument(skip(_private_key))]
@@ -63,6 +65,13 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         _private_key: &Ed25519Priv,
         next_state: hotshot::data::StateHash<N>,
     ) -> Option<Self::VoteToken> {
-        todo!()
+        Some(())
+    }
+
+    fn calcuate_selection_threshold(
+        &self,
+        _expected_size: NonZeroUsize,
+        _total_participants: NonZeroUsize,
+    ) -> Self::SelectionThreshold {
     }
 }

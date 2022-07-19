@@ -4,7 +4,7 @@ use hotshot_types::{
     data::{QuorumCertificate, Stage},
     error::HotShotError,
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, BlockContents},
+    traits::{node_implementation::NodeImplementation, BlockContents, State},
 };
 use tracing::{debug, warn};
 
@@ -106,8 +106,16 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let verify_hash = ctx
             .api
             .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
-        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
-        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
+        let signatures = votes
+            .into_iter()
+            .map(|vote| (vote.0.signature.0.clone(), vote.0))
+            .collect();
+        let valid_signatures = ctx.api.get_valid_signatures(
+            signatures,
+            verify_hash,
+            prepare.state.hash(),
+            ctx.view_number,
+        )?;
 
         let qc = QuorumCertificate {
             block_hash,
@@ -116,12 +124,15 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             stage: Stage::PreCommit,
             signatures: valid_signatures,
             genesis: false,
+            state_hash: prepare.state.hash(),
+            chain_id: ctx.api.chain_id(),
         };
         debug!(?qc, "commit qc generated");
         let pre_commit = PreCommit {
             leaf_hash,
             qc,
             current_view,
+            state_hash: prepare.state.hash(),
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
@@ -129,11 +140,17 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             let signature = ctx
                 .api
                 .sign_vote(&leaf_hash, Stage::PreCommit, current_view);
-            Some(PreCommitVote(Vote {
-                signature,
-                leaf_hash,
-                current_view,
-            }))
+            ctx.api
+                .generate_vote_token(current_view, prepare.state.hash())
+                .map(|token| {
+                    PreCommitVote(Vote {
+                        signature,
+                        token,
+                        leaf_hash,
+                        current_view,
+                        chain_id: ctx.api.chain_id(),
+                    })
+                })
         } else {
             None
         };

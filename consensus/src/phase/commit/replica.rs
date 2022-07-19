@@ -90,16 +90,23 @@ impl<const N: usize> CommitReplica<N> {
         let signature = ctx
             .api
             .sign_vote(&leaf_hash, Stage::Commit, ctx.view_number);
-        let vote = CommitVote(Vote {
-            leaf_hash,
-            signature,
-            current_view: ctx.view_number,
-        });
+        let vote = ctx
+            .api
+            .generate_vote_token(ctx.view_number, commit.state_hash)
+            .map(|token| {
+                CommitVote(Vote {
+                    leaf_hash,
+                    token,
+                    signature,
+                    current_view: ctx.view_number,
+                    chain_id: ctx.api.chain_id(),
+                })
+            });
         trace!("Commit vote packed");
 
         Ok(Outcome {
             commit,
-            vote: Some(vote),
+            vote,
             starting_qc: self.starting_qc.clone(),
         })
     }

@@ -121,6 +121,7 @@ async fn init_state_and_hotshot(
 
     let config = HotShotConfig {
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
+        expected_size: NonZeroUsize::new(1000).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
@@ -128,10 +129,10 @@ async fn init_state_and_hotshot(
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
-        propose_min_round_time: Duration::from_millis(0),
-        propose_max_round_time: Duration::from_millis(1000),
-        // FIXME should this be 5?
         num_bootstrap: 5,
+        propose_min_round_time: Duration::from_millis(0),
+        // FIXME should this be 5?
+        propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);

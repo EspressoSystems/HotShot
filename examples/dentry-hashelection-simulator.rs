@@ -1,8 +1,8 @@
 use clap::Parser;
 use futures::future::join_all;
-use hotshot_types::traits::signature_key::{
-    ed25519::{Ed25519Priv, Ed25519Pub},
-    SignatureKey,
+use hotshot_types::traits::{
+    election::stub::{HashElection, HashVrfKey, HashVrfSeed},
+    signature_key::SignatureKey,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -12,20 +12,17 @@ use std::{
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use hotshot::{
-    demos::dentry::*,
-    traits::{
-        election::StaticCommittee,
-        implementations::{MemoryStorage, Stateless, WNetwork},
-    },
+    demos::dentry_hashvrf::*,
+    traits::implementations::{MemoryStorage, Stateless, WNetwork},
     types::{Event, EventType, HotShotHandle, Message},
     HotShot, HotShotConfig, H_256,
 };
 
 type Node =
-    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
+    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -83,7 +80,8 @@ async fn main() {
     debug!(?inital_state);
     // Calculate our threshold
     let nodes = opt.nodes;
-    let threshold = ((nodes * 2) / 3) + 1;
+    // This is actually a constant calcuation, since we use a commitee of size 100 here
+    let threshold = 60;
     debug!(?nodes, ?threshold);
     // Generate our private key set
     // Generated using xoshiro for reproduceability
@@ -91,14 +89,14 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
+        WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>,
         u16,
-        Ed25519Pub,
+        HashVrfKey,
         u64,
     )> = Vec::new();
     for node_id in 0..nodes as u64 {
-        let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-        let public_key = Ed25519Pub::from_private(&private_key);
+        let private_key = HashVrfKey::generated_from_seed_indexed([0_u8; 32], node_id);
+        let public_key = HashVrfKey::from_private(&private_key);
         networkings.push(get_networking(public_key, "0.0.0.0", node_id, &mut rng).await);
     }
     // Connect the networking implementations
@@ -106,7 +104,7 @@ async fn main() {
         for (_, port, key, _other_node_id) in networkings[i..].iter() {
             if key != self_key {
                 let socket = format!("localhost:{}", port);
-                n.connect_to(key.clone(), &socket)
+                n.connect_to(*key, &socket)
                     .await
                     .expect("Unable to connect to node");
             }
@@ -138,12 +136,13 @@ async fn main() {
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
         hotshots[0]
-            .submit_transaction(tx)
+            .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
+            warn!("Running round");
             hotshot.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
@@ -203,10 +202,12 @@ async fn main() {
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        hotshots[0]
-            .submit_transaction(tx)
-            .await
-            .expect("Failed to submit transaction");
+        for hotshot in &mut hotshots {
+            hotshot
+                .submit_transaction(tx.clone())
+                .await
+                .expect("Failed to submit transaction");
+        }
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
@@ -298,11 +299,11 @@ async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
     R: hotshot::rand::Rng,
 >(
-    pub_key: Ed25519Pub,
+    pub_key: HashVrfKey,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<T, Ed25519Pub>, u16, Ed25519Pub, u64) {
+) -> (WNetwork<T, HashVrfKey>, u16, HashVrfKey, u64) {
     debug!(?pub_key);
     for attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);
@@ -311,7 +312,7 @@ async fn get_networking<
             ?port,
             "Attempting to bind network listener to port"
         );
-        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+        let x = WNetwork::new(pub_key, listen_addr, port, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
             match x.generate_task(c) {
@@ -337,23 +338,23 @@ async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>,
     state: &State,
 ) -> HotShotHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
-            Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
+            HashVrfKey::from_private(&HashVrfKey::generated_from_seed_indexed(
                 [0_u8; 32], x as u64,
             ))
         })
         .collect();
     let config = HotShotConfig {
-        total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        expected_size: NonZeroUsize::new(1000).unwrap(),
-        threshold: NonZeroUsize::new(threshold).unwrap(),
+        total_nodes: NonZeroUsize::new(nodes * 10).unwrap(),
+        expected_size: NonZeroUsize::new(100).unwrap(),
+        threshold: NonZeroUsize::new(60).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
-        next_view_timeout: 100000,
+        next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
@@ -362,8 +363,9 @@ async fn get_hotshot(
         propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
-    let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-    let public_key = Ed25519Pub::from_private(&private_key);
+    let private_key = HashVrfKey::generated_from_seed_indexed([0_u8; 32], node_id);
+    error!("I am: {:?}", private_key);
+    let public_key = private_key;
     let genesis = DEntryBlock::default();
     let h = HotShot::init(
         genesis,
@@ -376,7 +378,11 @@ async fn get_hotshot(
         networking,
         MemoryStorage::default(),
         Stateless::default(),
-        StaticCommittee::new(known_nodes),
+        // Give each node 10 units of stake
+        HashElection::new(
+            known_nodes.iter().map(|x| (*x, 10)),
+            HashVrfSeed::from_bytes([0_u8]),
+        ),
     )
     .await
     .expect("Could not init hotshot");

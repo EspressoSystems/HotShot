@@ -3,10 +3,11 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
-use crate::traits::{
-    signature_key::{EncodedPublicKey, EncodedSignature},
-    BlockContents,
+use crate::{
+    message::Vote,
+    traits::{signature_key::EncodedPublicKey, BlockContents},
 };
+use bincode::Options;
 use blake3::Hasher;
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
@@ -227,6 +228,11 @@ pub struct QuorumCertificate<const N: usize> {
     /// the referenced leaf.
     #[debug(with = "fmt_blockhash")]
     pub block_hash: BlockHash<N>,
+    // TODO(nm-vacation): Add logic to make sure the state hash matches with the block on verification
+    /// The hash of the state being worked against
+    pub state_hash: StateHash<N>,
+    /// The hash of the genesis block, used as a chain ID
+    pub chain_id: BlockHash<N>,
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
@@ -241,14 +247,14 @@ pub struct QuorumCertificate<const N: usize> {
     /// This value is covered by the threshold signature.
     pub stage: Stage,
 
-    /// The list of signatures establishing the validity of this Quorum Certifcate
+    /// The list of votes establishing the validity of this Quorum Certifcate
     ///
     /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
     /// the byte encoded signatures provided by those keys.
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+    pub signatures: BTreeMap<EncodedPublicKey, Vote<N>>,
 
     /// Temporary bypass for boostrapping
     ///
@@ -269,7 +275,9 @@ impl<const N: usize> QuorumCertificate<N> {
             block_hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
             stage: self.stage,
-            signatures: self.signatures.clone(),
+            signatures: hotshot_utils::bincode::bincode_opts()
+                .serialize(&self.signatures)
+                .expect("This serialization shouldn't be able to fail"),
             genesis: self.genesis,
         }
     }
@@ -291,8 +299,9 @@ pub struct VecQuorumCertificate {
     pub view_number: ViewNumber,
     /// The stage of consensus we were on when we made this certificate
     pub stage: Stage,
+    // TODO(nm-vacation): Another hack where a type saftey wrapper could be used
     /// The signature portion of this QC
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+    pub signatures: Vec<u8>,
     /// Temporary bypass for boostrapping
     pub genesis: bool,
 }
@@ -304,7 +313,7 @@ impl VecQuorumCertificate {
             block_hash: BlockHash::<N>::random().to_vec(),
             view_number: ViewNumber::genesis(),
             stage: Stage::None,
-            signatures: BTreeMap::default(),
+            signatures: Vec::new(),
             genesis: false,
         }
     }

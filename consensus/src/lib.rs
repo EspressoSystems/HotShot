@@ -121,7 +121,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         _sender: I::SignatureKey,
     ) -> Result {
         // Validate the incoming QC is valid
-        if !api.validate_qc_in_message(&message) {
+        if !api.validate_qc_and_chain_id_in_message(&message) {
             warn!(?message, "Incoming message does not have a valid QC");
             return Ok(());
         }
@@ -221,7 +221,6 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     ) -> Result {
         let leader = api.get_leader(view_number, Stage::Prepare).await;
         let is_leader = api.public_key() == &leader;
-
         // If we don't have this phase in our phases, insert it
         let phase = match self.phases.entry(view_number) {
             Entry::Occupied(o) => o.into_mut(),
@@ -241,9 +240,15 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         let new_view = ConsensusMessage::NewView(NewView {
             current_view: view_number,
             justify: newest_qc,
+            chain_id: api.chain_id(),
         });
 
         if is_leader {
+            warn!(
+                ?view_number,
+                "I am the leader maybe  {:?}",
+                api.public_key()
+            );
             phase.add_consensus_message(api, &mut [], new_view).await?;
         } else {
             api.send_direct_message(leader, new_view).await.context(

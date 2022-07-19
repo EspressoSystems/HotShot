@@ -161,24 +161,41 @@ impl PrepareReplica {
         let signature = ctx
             .api
             .sign_vote(&leaf_hash, Stage::Prepare, ctx.view_number);
-        let vote = PrepareVote(Vote {
-            signature,
-            leaf_hash,
-            current_view: ctx.view_number,
-        });
-
         let new_leaf = prepare.leaf.clone();
         let newest_qc = prepare.high_qc.clone();
 
-        Ok(Outcome {
-            new_state,
-            new_leaf,
-            prepare,
-            added_transactions,
-            rejected_transactions: Vec::new(),
-            vote: Some(vote),
-            newest_qc,
-        })
+        if let Some(token) = ctx
+            .api
+            .generate_vote_token(ctx.view_number, new_state.hash())
+        {
+            let vote = PrepareVote(Vote {
+                signature,
+                token,
+                leaf_hash,
+                current_view: ctx.view_number,
+                chain_id: ctx.api.chain_id(),
+            });
+
+            Ok(Outcome {
+                new_state,
+                new_leaf,
+                prepare,
+                added_transactions,
+                rejected_transactions: Vec::new(),
+                vote: Some(vote),
+                newest_qc,
+            })
+        } else {
+            Ok(Outcome {
+                new_state,
+                new_leaf,
+                prepare,
+                added_transactions,
+                rejected_transactions: Vec::new(),
+                vote: None,
+                newest_qc,
+            })
+        }
     }
 }
 

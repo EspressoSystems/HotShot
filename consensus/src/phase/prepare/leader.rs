@@ -50,7 +50,7 @@ impl<const N: usize> PrepareLeader<N> {
         if self.high_qc.is_none() {
             let view_messages: Vec<&NewView<N>> = ctx.new_view_messages().collect();
             if view_messages.len() >= ctx.api.threshold().get() {
-                // this `.unwrap()` is fine because `api.threshold()` is a NonZeroU64.
+                // this `.unwrap()` is fine because `api.threshold()` is a NonZeroUsize.
                 // `max_by_key` only returns `None` if there are no entries, but we check above that there is at least 1 entry.
                 let high_qc = view_messages
                     .into_iter()
@@ -127,13 +127,6 @@ impl<const N: usize> PrepareLeader<N> {
             .api
             .create_verify_hash(&leaf_hash, qc_stage, high_qc.view_number);
 
-        if high_qc.view_number != ViewNumber::genesis() {
-            let valid_signatures = ctx
-                .api
-                .get_valid_signatures(high_qc.signatures.clone(), verify_hash)?;
-            high_qc.signatures = valid_signatures;
-        }
-
         // try to append unclaimed transactions to the block
         let mut added_transactions = Vec::new();
         let mut rejected_transactions = Vec::new();
@@ -171,22 +164,39 @@ impl<const N: usize> PrepareLeader<N> {
             }
         })?;
 
+        if high_qc.view_number != ViewNumber::genesis() {
+            let valid_signatures = ctx.api.get_valid_signatures(
+                high_qc.signatures.clone(),
+                verify_hash,
+                high_qc.state_hash,
+                high_qc.view_number,
+            )?;
+            high_qc.signatures = valid_signatures;
+        }
+
         let prepare = Prepare {
             current_view,
             leaf: new_leaf.clone(),
             high_qc: high_qc.clone(),
             state: new_state.clone(),
+            chain_id: ctx.api.chain_id(),
         };
         let leaf_hash = new_leaf.hash();
 
         // if the leader can vote like a replica, cast this vote now
         let vote = if ctx.api.leader_acts_as_replica() {
             let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, current_view);
-            Some(PrepareVote(Vote {
-                signature,
-                leaf_hash,
-                current_view,
-            }))
+            ctx.api
+                .generate_vote_token(current_view, new_state.hash())
+                .map(|token| {
+                    PrepareVote(Vote {
+                        signature,
+                        token,
+                        leaf_hash,
+                        current_view,
+                        chain_id: ctx.api.chain_id(),
+                    })
+                })
         } else {
             None
         };

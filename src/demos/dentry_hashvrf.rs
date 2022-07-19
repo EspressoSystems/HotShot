@@ -9,7 +9,10 @@
 use blake3::Hasher;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, Stage, ViewNumber},
-    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
+    traits::{
+        election::stub::{HashElection, HashVrfKey},
+        state::TestableState,
+    },
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -24,8 +27,7 @@ use tracing::{error, warn};
 use crate::{
     data::{BlockHash, LeafHash, StateHash, TransactionHash},
     traits::{
-        election::StaticCommittee, implementations::MemoryStorage, BlockContents,
-        NetworkingImplementation, NodeImplementation,
+        implementations::MemoryStorage, BlockContents, NetworkingImplementation, NodeImplementation,
     },
     types::Message,
     H_256,
@@ -412,8 +414,8 @@ impl<NET> Default for DEntryNode<NET> {
 impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
 where
     NET: NetworkingImplementation<
-            Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
-            Ed25519Pub,
+            Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>,
+            HashVrfKey,
         > + Clone
         + Debug
         + 'static,
@@ -423,8 +425,8 @@ where
     type Storage = MemoryStorage<DEntryBlock, State, H_256>;
     type Networking = NET;
     type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
-    type Election = StaticCommittee<Self::State, H_256>;
-    type SignatureKey = Ed25519Pub;
+    type Election = HashElection;
+    type SignatureKey = HashVrfKey;
 }
 
 /// Provides a random valid transaction from the current state

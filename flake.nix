@@ -192,7 +192,7 @@
           };
 
           moldShell = pkgs.mkShell {
-            LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
+            LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out fd fenixNightly ] ++ buildDeps;
             shellHook = ''
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
@@ -201,7 +201,7 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov rustNightly ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
+            buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov rustNightly ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
           # usage: brings in debugging tools including:

@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, StateHash, ViewNumber},
     traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
 use hex_fmt::HexFmt;
@@ -108,6 +108,8 @@ pub struct NewView<const N: usize> {
     pub current_view: ViewNumber,
     /// The justification qc for this view
     pub justify: QuorumCertificate<N>,
+    /// The hash of the genesis block, used as a chain id
+    pub chain_id: BlockHash<N>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
@@ -121,6 +123,8 @@ pub struct Prepare<B, S, const N: usize> {
     pub state: S,
     /// The current high qc
     pub high_qc: QuorumCertificate<N>,
+    /// The hash of the genesis block, used as a chain id
+    pub chain_id: BlockHash<N>,
 }
 
 /// A nodes vote on the prepare field.
@@ -131,11 +135,18 @@ pub struct Prepare<B, S, const N: usize> {
 pub struct Vote<const N: usize> {
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
+    // TODO(nm-vacation): This had previously been a type safe wrapper, but I needed to back that
+    // out because it touches a _lot_ of code adding more type parameters here, and there were
+    // conflicts
+    /// The vote token from the election implementation
+    pub token: Vec<u8>,
     /// Hash of the item being voted on
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The view this vote was cast for
     pub current_view: ViewNumber,
+    /// The hash of the genesis block, used as a chain id
+    pub chain_id: BlockHash<N>,
 }
 
 /// Generate a wrapper for [`Vote`] for type safety.
@@ -175,6 +186,8 @@ pub struct PreCommit<const N: usize> {
     /// Hash of the item being worked on
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
+    /// Hash of the state being worked on
+    pub state_hash: StateHash<N>,
     /// The pre commit qc
     pub qc: QuorumCertificate<N>,
     /// The current view
@@ -187,6 +200,8 @@ pub struct Commit<const N: usize> {
     /// Hash of the thing being worked on
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
+    /// Hash of the state being worked on
+    pub state_hash: StateHash<N>,
     /// The `Commit` qc
     pub qc: QuorumCertificate<N>,
     /// The current view

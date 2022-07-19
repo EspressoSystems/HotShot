@@ -20,7 +20,7 @@ use hotshot_types::{
     traits::node_implementation::{NodeImplementation, TypeMap},
 };
 use std::future::Future;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument, trace, warn};
 use update_ctx::UpdateCtx;
 
 /// Contains all the information about a current `view_number`.
@@ -152,7 +152,8 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
         if self.alive_state.is_done() {
-            warn!(?self, "Phase is done, no updates will be run");
+            warn!("Phase is done, no updates will be run");
+            trace!(?self, "Phase is done, no updates will be run");
             return Ok(());
         }
         // This loop will make sure that when a stage transition happens, the next stage will execute immediately

@@ -322,6 +322,7 @@ mod test {
 
     use super::*;
     use crate::data::Stage;
+    use hotshot_types::data::StateHash;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_utils::test_util::setup_logging;
@@ -340,6 +341,8 @@ mod test {
             stage: if valid { Stage::Decide } else { Stage::None },
             signatures: BTreeMap::new(),
             genesis: true,
+            state_hash: StateHash::random(),
+            chain_id: hash_block,
         }
     }
 

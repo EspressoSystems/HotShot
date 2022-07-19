@@ -224,6 +224,7 @@ async fn init_state_and_hotshot(
         propose_min_round_time: Duration::from_secs(config.propose_min_round_time),
         propose_max_round_time: Duration::from_secs(config.propose_max_round_time),
         num_bootstrap: 7,
+        expected_size: NonZeroUsize::new(1000).unwrap(),
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);

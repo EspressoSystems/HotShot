@@ -83,8 +83,16 @@ impl<const N: usize> DecideLeader<N> {
         let verify_hash = ctx
             .api
             .create_verify_hash(&leaf_hash, Stage::Commit, current_view);
-        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
-        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
+        let signatures = votes
+            .into_iter()
+            .map(|vote| (vote.0.signature.0.clone(), vote.0))
+            .collect();
+        let valid_signatures = ctx.api.get_valid_signatures(
+            signatures,
+            verify_hash,
+            commit.state_hash,
+            ctx.view_number,
+        )?;
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,

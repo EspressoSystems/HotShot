@@ -80,15 +80,28 @@ impl<const N: usize> PreCommitReplica<N> {
         let signature = ctx
             .api
             .sign_vote(&leaf_hash, Stage::PreCommit, current_view);
-        let vote = PreCommitVote(Vote {
-            signature,
-            leaf_hash,
-            current_view,
-        });
-        Ok(Outcome {
-            vote: Some(vote),
-            pre_commit,
-            starting_qc: self.starting_qc.clone(),
-        })
+        if let Some(token) = ctx
+            .api
+            .generate_vote_token(ctx.view_number, pre_commit.state_hash)
+        {
+            let vote = PreCommitVote(Vote {
+                signature,
+                token,
+                leaf_hash,
+                current_view,
+                chain_id: ctx.api.chain_id(),
+            });
+            Ok(Outcome {
+                vote: Some(vote),
+                pre_commit,
+                starting_qc: self.starting_qc.clone(),
+            })
+        } else {
+            Ok(Outcome {
+                vote: None,
+                pre_commit,
+                starting_qc: self.starting_qc.clone(),
+            })
+        }
     }
 }

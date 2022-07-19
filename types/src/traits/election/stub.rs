@@ -1,0 +1,336 @@
+//! Hash based psuedo-vrf that simulates the properties of a VRF using an HMAC with a revealed
+//! private key. This is for testing purposes only and is designed to be insecure
+
+use std::{collections::BTreeMap, num::NonZeroUsize};
+
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
+use tracing::{error, warn};
+
+use crate::{
+    data::{Stage, ViewNumber},
+    traits::signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+};
+
+use super::Election;
+
+/// Output of the simulated VRF
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct HashVrf(u128);
+
+/// Key of the simulated VRF
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
+pub struct HashVrfKey(pub [u8; 32]);
+
+impl HashVrfKey {
+    /// Generate a random hash vrf key
+    pub fn random() -> Self {
+        let mut buffer = [0_u8; 32];
+        rand::thread_rng().fill_bytes(&mut buffer[..]);
+        Self(buffer)
+    }
+    /// Generates a hash vrf key from an arbitrary string of bytes
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
+        let bytes = bytes.as_ref();
+        let hash = *blake3::hash(bytes).as_bytes();
+        Self(hash)
+    }
+    /// Generates from a seed with an index
+    pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> Self {
+        let mut buffer = [0_u8; 40];
+        buffer[0..32].copy_from_slice(&seed[..]);
+        buffer[32..].copy_from_slice(&index.to_le_bytes());
+        Self::from_bytes(buffer)
+    }
+}
+
+impl SignatureKey for HashVrfKey {
+    type PrivateKey = HashVrfKey;
+
+    fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        // Not constant time, but this isn't secure anyway
+        &Self::sign(self, data) == signature
+    }
+
+    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
+        // Make a hash
+        let hash = blake3::keyed_hash(&private_key.0, data);
+        // Wrap it
+        EncodedSignature(hash.as_bytes().to_vec())
+    }
+
+    fn from_private(private_key: &Self::PrivateKey) -> Self {
+        *private_key
+    }
+
+    fn to_bytes(&self) -> EncodedPublicKey {
+        EncodedPublicKey(self.0.to_vec())
+    }
+
+    fn from_bytes(bytes: &EncodedPublicKey) -> Option<Self> {
+        match (bytes.0[..]).try_into() {
+            Ok(x) => Some(Self(x)),
+            Err(_) => None,
+        }
+    }
+}
+
+/// Seed for the simulated VRF
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct HashVrfSeed(pub [u8; 32]);
+
+impl HashVrfSeed {
+    /// Generate a random hash vrf seed
+    pub fn random() -> Self {
+        let mut buffer = [0_u8; 32];
+        rand::thread_rng().fill_bytes(&mut buffer[..]);
+        Self(buffer)
+    }
+    /// Generates a hash vrf seed from an arbitrary string of bytes
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
+        let bytes = bytes.as_ref();
+        let hash = *blake3::hash(bytes).as_bytes();
+        Self(hash)
+    }
+}
+
+/// HMAC-based simulation of a VRF
+pub struct HashElection {
+    /// The stake table of this `HashElection`
+    stake_table: BTreeMap<HashVrfKey, u64>,
+    /// The seed for this `HashElection`
+    seed: HashVrfSeed,
+}
+
+impl HashElection {
+    /// Create a new `HashElection` given a seed and a sate table
+    pub fn new(
+        stake_table: impl IntoIterator<Item = (HashVrfKey, u64)>,
+        seed: HashVrfSeed,
+    ) -> Self {
+        Self {
+            stake_table: stake_table.into_iter().collect(),
+            seed,
+        }
+    }
+    /// Calculate the leader for the view using weighted random selection
+    fn select_leader(
+        &self,
+        table: &BTreeMap<HashVrfKey, u64>,
+        view: ViewNumber,
+        _stage: Stage,
+    ) -> HashVrfKey {
+        // Convert the table into a list using the weights
+        // This will always be in the same order on every machine due to the values being pulled out
+        // of a `BTreeMap`, assuming the key type's `Ord` implementation is correct. If you
+        // encounter issues that lead you here, check the key type's `Ord` implementation.
+        let list: Vec<_> = table
+            .iter()
+            .flat_map(|(key, weight)| {
+                vec![
+                    key;
+                    (*weight)
+                        .try_into()
+                        .expect("Node has an impossibly large number of voting slots")
+                ]
+            })
+            .collect();
+        // Hash some stuff up
+        // - The current view number
+        // - The current stage
+        // - The seed
+        let mut hasher = blake3::Hasher::default();
+        hasher.update(&view.to_le_bytes());
+        // hasher.update(
+        //     &match stage {
+        //         Stage::None => 0_u64,
+        //         Stage::Prepare => 1_u64,
+        //         Stage::PreCommit => 2_u64,
+        //         Stage::Commit => 3_u64,
+        //         Stage::Decide => 4_u64,
+        //     }
+        //     .to_le_bytes(),
+        // );
+        hasher.update(&self.seed.0);
+        // Extract the output
+        let hash = *hasher.finalize().as_bytes();
+        // Get an integer out of the first 8 bytes
+        let rand = u64::from_le_bytes(hash[..8].try_into().unwrap());
+        // Modulo bias doesn't matter here, as this is a testing only implementation, and there
+        // can't be more nodes than will fit into memory
+        let index: usize = (rand % u64::try_from(list.len()).unwrap())
+            .try_into()
+            .unwrap();
+        // Return the result
+        let leader = *list[index];
+        error!("Leader for this round is: {:?}", leader);
+        leader
+    }
+
+    /// Generate a vote hash
+    fn vote_hash(&self, key: &HashVrfKey, view: ViewNumber, vote_index: u64) -> u128 {
+        // make the buffer
+        let mut buf = Vec::<u8>::new();
+        buf.extend(&self.seed.0);
+        buf.extend(view.to_le_bytes());
+        buf.extend(vote_index.to_le_bytes());
+        // Make the hash
+        let signature = HashVrfKey::sign(key, &buf);
+        // Extract the upper bits
+        u128::from_le_bytes(signature.0[..16].try_into().unwrap())
+    }
+    /// Generates the valid vote hashes
+    fn vote_hashes(
+        &self,
+        key: &HashVrfKey,
+        view: ViewNumber,
+        votes: u64,
+        selection_threshold: u128,
+    ) -> Vec<u128> {
+        (0_u64..votes)
+            .map(|x| self.vote_hash(key, view, x))
+            .filter(|x| x <= &selection_threshold)
+            .collect()
+    }
+}
+
+impl<const N: usize> Election<HashVrfKey, N> for HashElection {
+    /// Mapping of a public key to the number of allowed voting attempts and the associated
+    /// `HashVrfKey`
+    type StakeTable = BTreeMap<HashVrfKey, u64>;
+
+    type SelectionThreshold = u128;
+
+    type State = ();
+
+    type VoteToken = (HashVrfKey, u64);
+
+    type ValidatedVoteToken = (HashVrfKey, u64, u64);
+
+    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
+        self.stake_table.clone()
+    }
+
+    fn get_leader(
+        &self,
+        table: &Self::StakeTable,
+        view_number: ViewNumber,
+        stage: Stage,
+    ) -> HashVrfKey {
+        self.select_leader(table, view_number, stage)
+    }
+
+    fn get_votes(
+        &self,
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        view_number: ViewNumber,
+        pub_key: HashVrfKey,
+        token: Self::VoteToken,
+        _next_state: crate::data::StateHash<N>,
+    ) -> Option<Self::ValidatedVoteToken> {
+        warn!("Validating vote token");
+        let hashes = self.vote_hashes(&token.0, view_number, token.1, selection_threshold);
+        match table.get(&pub_key) {
+            Some(votes) => {
+                if &token.1 == votes && !hashes.is_empty() {
+                    Some((token.0, token.1, hashes.len().try_into().unwrap()))
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
+        token.2
+    }
+
+    fn make_vote_token(
+        &self,
+        table: &Self::StakeTable,
+        selection_threshold: Self::SelectionThreshold,
+        view_number: ViewNumber,
+        private_key: &HashVrfKey,
+        _next_state: crate::data::StateHash<N>,
+    ) -> Option<Self::VoteToken> {
+        warn!("Making vote token");
+        if let Some(votes) = table.get(private_key) {
+            // Get the votes for our self
+            let hashes = self.vote_hashes(private_key, view_number, *votes, selection_threshold);
+            if hashes.is_empty() {
+                None
+            } else {
+                Some((*private_key, *votes))
+            }
+        } else {
+            None
+        }
+    }
+
+    fn calcuate_selection_threshold(
+        &self,
+        expected_size: NonZeroUsize,
+        total_participants: NonZeroUsize,
+    ) -> Self::SelectionThreshold {
+        // Promote the inputs to u128s
+        let expected_size: u128 = expected_size.get().try_into().unwrap();
+        let total_participants: u128 = total_participants.get().try_into().unwrap();
+        // We want the probability of a given participant to be 1 / (total_participants * expected_size)
+        // This means we need the selection threshold to be u128::MAX * (1 / (total_participants * expected_size))
+        // This rearranges to: u128::MAX / (total_participants * expected_size)
+        let output = u128::MAX / (total_participants * expected_size);
+        warn!("Selection threshold calcuated, {} {}", u128::MAX, output);
+        output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::StateHash;
+
+    use super::*;
+    // Make sure the selection threshold is calcuated properly
+    #[test]
+    fn selection_threshold() {
+        // Setup a dummy implementation
+        let key = HashVrfKey::random();
+        let seed = HashVrfSeed::random();
+        let vrf = HashElection::new([(key, 1)], seed);
+        let selection: u128 =
+            <HashElection as Election<HashVrfKey, 32>>::calcuate_selection_threshold(
+                &vrf,
+                NonZeroUsize::new(1).unwrap(),
+                NonZeroUsize::new(10).unwrap(),
+            );
+        let next_state = StateHash::<32>::random();
+        // Our strategy here is to run 10,000 trials and make sure the number of hits is within around
+        // 10% of the expected parameter
+        let mut hits: u64 = 0;
+        for i in 0..10_000 {
+            if let Some(token) = vrf.make_vote_token(
+                &vrf.stake_table,
+                selection,
+                ViewNumber::new(i),
+                &key,
+                next_state,
+            ) {
+                if let Some(validated) = vrf.get_votes(
+                    &vrf.stake_table,
+                    selection,
+                    ViewNumber::new(i),
+                    key,
+                    token,
+                    next_state,
+                ) {
+                    hits += <HashElection as Election<HashVrfKey, 32>>::get_vote_count(
+                        &vrf, &validated,
+                    );
+                }
+            }
+        }
+        println!("{}", hits);
+        assert!((900..=1_100).contains(&hits));
+    }
+}

@@ -47,21 +47,23 @@ use crate::{
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
+use bincode::Options;
 use futures::channel::oneshot;
 use hotshot_consensus::{Consensus, RoundFinishedEventState};
 use hotshot_types::{
-    data::{create_verify_hash, VerifyHash, ViewNumber},
+    data::{create_verify_hash, BlockHash, StateHash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{DataMessage, Message},
+    message::{DataMessage, Message, Vote},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, SignatureKey},
         stateful_handler::StatefulHandler,
+        State,
     },
 };
-use hotshot_utils::broadcast::BroadcastSender;
+use hotshot_utils::{bincode::bincode_opts, broadcast::BroadcastSender};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -94,6 +96,8 @@ type Result<T> = std::result::Result<T, HotShotError>;
 pub struct HotShotConfig<P: SignatureKey> {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
+    /// Expected commitee size
+    pub expected_size: NonZeroUsize,
     /// Nodes required to reach a decision
     pub threshold: NonZeroUsize,
     /// Maximum transactions per block
@@ -151,6 +155,9 @@ pub struct HotShotInner<I: NodeImplementation<N>, const N: usize> {
 
     /// The hotstuff implementation
     hotstuff: Mutex<Consensus<I, N>>,
+
+    /// The chain id
+    chain_id: BlockHash<N>,
 }
 
 /// Contains the state of the election of the current [`HotShot`].
@@ -225,6 +232,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             background_task_handle: tasks::TaskHandle::default(),
             hotstuff: Mutex::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
+            chain_id: genesis_hash,
         };
         let leaf_hash = leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
@@ -239,6 +247,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     stage: Stage::Decide,
                     signatures: BTreeMap::new(),
                     genesis: true,
+                    state_hash: starting_state.hash(),
+                    chain_id: genesis_hash,
                 })
                 .await?;
                 m.insert_leaf(Leaf {
@@ -545,7 +555,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             )
             .await
         {
-            warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
+            warn!(?e, "Could not handle direct message");
+            trace!(?e, ?hotstuff, ?msg, "Could not handle direct message");
         }
     }
 
@@ -842,7 +853,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         stage: Stage,
     ) -> bool {
         if qc.view_number != view_number || qc.stage != stage {
-            warn!(
+            trace!(
                 ?qc,
                 ?view_number,
                 ?stage,
@@ -850,37 +861,113 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             );
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
-        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
+        let valid_signatures =
+            self.get_valid_signatures(qc.signatures.clone(), hash, qc.state_hash, qc.view_number);
         match valid_signatures {
             Ok(_) => true,
             Err(_e) => false,
         }
     }
 
+    #[instrument(skip(self, signatures, hash, next_state), err)]
     fn get_valid_signatures(
         &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        signatures: BTreeMap<EncodedPublicKey, Vote<N>>,
         hash: VerifyHash<32>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
+        next_state: StateHash<N>,
+        view_number: ViewNumber,
+    ) -> Result<BTreeMap<EncodedPublicKey, Vote<N>>> {
+        let len = signatures.len();
+        let mut hits = 0;
         let mut valid_signatures = BTreeMap::new();
-
-        for (encoded_key, encoded_signature) in signatures {
+        for (encoded_key, vote) in signatures {
             if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
                 let contains = self.inner.cluster_public_keys.contains(&key);
-                let valid = key.validate(&encoded_signature, hash.as_ref());
+                let valid = key.validate(&vote.signature.1, hash.as_ref());
                 if contains && valid {
-                    valid_signatures.insert(encoded_key, encoded_signature);
+                    // This is a valid signature in the cluster, go ahead and validate the vote
+                    // token and count hits, decoding the signature first
+                    // Decode the token
+                    let token: std::result::Result<
+                        <I::Election as Election<I::SignatureKey, N>>::VoteToken,
+                        _,
+                    > = bincode_opts().deserialize(&vote.token);
+                    match token {
+                        Ok(token) => {
+                            // Validate the token and add hits
+                            if let Some(validated) = self.inner.election.election.get_votes(
+                                &self.inner.election.stake_table,
+                                self.inner.election.election.calcuate_selection_threshold(
+                                    self.inner.config.expected_size,
+                                    self.inner.config.total_nodes,
+                                ),
+                                view_number,
+                                key,
+                                token,
+                                next_state,
+                            ) {
+                                let our_hits =
+                                    self.inner.election.election.get_vote_count(&validated);
+                                warn!(?our_hits, ?hits, "Total signatures: {}", len);
+                                hits += our_hits;
+                                valid_signatures.insert(encoded_key, vote);
+                                if our_hits == 0 {
+                                    error!("Added 0 hits for a structurally valid signature");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!(?contains, ?valid, ?vote, ?e, "Token failed to deser");
+                        }
+                    }
                 } else {
-                    warn!(?contains, ?valid, "Signature failed validity check");
+                    error!(?contains, ?valid, "Signature failed validity check");
                 }
+            } else {
+                error!("Key failed to decode");
             }
         }
-        if valid_signatures.len() < self.inner.config.threshold.get() {
-            return Err(HotShotError::InsufficientValidSignatures {
-                num_valid_signatures: valid_signatures.len(),
+        warn!(?hits, "Total signatures 1: {}", len);
+        let hits = usize::try_from(hits).expect("Overflow");
+        warn!(?hits, "Total signatures 2: {}", len);
+        if hits < self.inner.config.threshold.get() {
+            let e = Err(HotShotError::InsufficientValidSignatures {
+                num_valid_signatures: hits,
                 threshold: self.inner.config.threshold.get(),
             });
+            error!(?e, "Failed to generate QC");
+            e
+        } else {
+            Ok(valid_signatures)
         }
-        Ok(valid_signatures)
+    }
+
+    fn generate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        next_state: StateHash<N>,
+    ) -> Option<Vec<u8>> {
+        self.inner
+            .election
+            .election
+            .make_vote_token(
+                &self.inner.election.stake_table,
+                self.inner.election.election.calcuate_selection_threshold(
+                    self.inner.config.expected_size,
+                    self.inner.config.total_nodes,
+                ),
+                view_number,
+                &self.inner.private_key,
+                next_state,
+            )
+            .map(|token| {
+                hotshot_utils::bincode::bincode_opts()
+                    .serialize(&token)
+                    .expect("This serialization shouldn't be able to fail")
+            })
+    }
+
+    fn chain_id(&self) -> BlockHash<N> {
+        self.inner.chain_id
     }
 }

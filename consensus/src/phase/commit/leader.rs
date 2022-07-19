@@ -85,8 +85,16 @@ impl<const N: usize> CommitLeader<N> {
             .api
             .create_verify_hash(&leaf_hash, Stage::PreCommit, current_view);
 
-        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
-        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
+        let signatures = votes
+            .into_iter()
+            .map(|vote| (vote.0.signature.0.clone(), vote.0))
+            .collect();
+        let valid_signatures = ctx.api.get_valid_signatures(
+            signatures,
+            verify_hash,
+            pre_commit.state_hash,
+            ctx.view_number,
+        )?;
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
@@ -99,17 +107,27 @@ impl<const N: usize> CommitLeader<N> {
             leaf_hash: qc.leaf_hash,
             qc,
             current_view: ctx.view_number,
+            state_hash: pre_commit.state_hash,
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
             let signature = ctx
                 .api
                 .sign_vote(&commit.leaf_hash, Stage::Commit, ctx.view_number);
-            Some(CommitVote(Vote {
-                leaf_hash: commit.leaf_hash,
-                signature,
-                current_view: ctx.view_number,
-            }))
+            if let Some(token) = ctx
+                .api
+                .generate_vote_token(ctx.view_number, pre_commit.state_hash)
+            {
+                Some(CommitVote(Vote {
+                    leaf_hash: commit.leaf_hash,
+                    token,
+                    signature,
+                    current_view: ctx.view_number,
+                    chain_id: ctx.api.chain_id(),
+                }))
+            } else {
+                None
+            }
         } else {
             None
         };
