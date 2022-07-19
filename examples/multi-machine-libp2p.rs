@@ -125,6 +125,38 @@ pub struct CliOpt {
     /// seed used to generate ids
     #[structopt(long = "seed")]
     pub seed: u64,
+
+    /// bootstrap node mesh high
+    #[structopt(long = "bootstrap_mesh_n_high")]
+    pub bootstrap_mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[structopt(long = "bootstrap_mesh_n_low")]
+    pub bootstrap_mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[structopt(long = "bootstrap_mesh_outbound_min")]
+    pub bootstrap_mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[structopt(long = "bootstrap_mesh_n")]
+    pub bootstrap_mesh_n: usize,
+
+    /// bootstrap node mesh high
+    #[structopt(long = "mesh_n_high")]
+    pub mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[structopt(long = "mesh_n_low")]
+    pub mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[structopt(long = "mesh_outbound_min")]
+    pub mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[structopt(long = "mesh_n")]
+    pub mesh_n: usize,
 }
 
 type Node = DEntryNode<
@@ -208,15 +240,15 @@ pub async fn new_libp2p_network(
     node_id: usize,
     node_type: NetworkNodeType,
     bound_addr: Multiaddr,
-    num_nodes: usize,
     identity: Option<Keypair>,
+    opts: &CliOpt,
 ) -> Result<
     Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
     NetworkError,
 > {
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
-    config_builder.replication_factor(NonZeroUsize::new(num_nodes - 2).unwrap());
+    config_builder.replication_factor(NonZeroUsize::new(opts.num_nodes - 2).unwrap());
     config_builder.to_connect_addrs(HashSet::new());
     config_builder.node_type(node_type);
     config_builder.bound_addr(Some(bound_addr));
@@ -229,16 +261,16 @@ pub async fn new_libp2p_network(
         // NOTE I'm arbitrarily choosing these.
         match node_type {
             NetworkNodeType::Bootstrap => MeshParams {
-                mesh_n_high: 50,
-                mesh_n_low: 10,
-                mesh_outbound_min: 5,
-                mesh_n: 15,
+                mesh_n_high: opts.bootstrap_mesh_n_high,
+                mesh_n_low: opts.bootstrap_mesh_n_low,
+                mesh_outbound_min: opts.bootstrap_mesh_outbound_min,
+                mesh_n: opts.bootstrap_mesh_n,
             },
             NetworkNodeType::Regular => MeshParams {
-                mesh_n_high: 15,
-                mesh_n_low: 8,
-                mesh_outbound_min: 4,
-                mesh_n: 12,
+                mesh_n_high: opts.mesh_n_high,
+                mesh_n_low: opts.mesh_n_low,
+                mesh_outbound_min: opts.mesh_outbound_min,
+                mesh_n: opts.mesh_n,
             },
             NetworkNodeType::Conductor => unreachable!(),
         };
@@ -284,7 +316,7 @@ async fn main() {
 
     let own_id = args.node_idx;
     let num_nodes = args.num_nodes;
-    let bound_addr = args.bound_addr;
+    let bound_addr = args.bound_addr.clone();
     let (node_type, own_identity) = if own_id < args.num_bootstrap {
         (
             NetworkNodeType::Bootstrap,
@@ -306,8 +338,8 @@ async fn main() {
         own_id as usize,
         node_type,
         bound_addr,
-        num_nodes,
         own_identity,
+        &args,
     )
     .await
     .unwrap();

@@ -33,6 +33,15 @@ ENV RUST_LOG_FORMAT="json"
 
 ENV PORT="9000"
 
+ENV BOOTSTRAP_MESH_N_HIGH="50"
+ENV BOOTSTRAP_MESH_N_LOW="10"
+ENV BOOTSTRAP_MESH_OUTBOUND_MIN="5"
+ENV BOOTSTRAP_MESH_N="15"
+ENV MESH_N_HIGH="15"
+ENV MESH_N_LOW="8"
+ENV MESH_OUTBOUND_MIN="4"
+ENV MESH_N="12"
+
 EXPOSE 9000
 
-CMD ["sh", "-c", "RUST_LOG=${RUST_LOG} /bin/multi-machine-libp2p --num_nodes=${NUM_NODES} --num_bootstrap=${NUM_BOOTSTRAP} --num_txn_per_round=${NUM_TXN_PER_ROUND} --node_idx=${NODE_IDX} --online_time=${ONLINE_TIME} --bound_addr=0.0.0.0:${PORT} --seed=${SEED} "]
+CMD ["sh", "-c", "RUST_LOG=${RUST_LOG} /bin/multi-machine-libp2p --num_nodes=${NUM_NODES} --num_bootstrap=${NUM_BOOTSTRAP} --num_txn_per_round=${NUM_TXN_PER_ROUND} --node_idx=${NODE_IDX} --online_time=${ONLINE_TIME} --bound_addr=0.0.0.0:${PORT} --seed=${SEED} --bootstrap_mesh_n_high=${BOOTSTRAP_MESH_N_HIGH} --bootstrap_mesh_n_low=${BOOTSTRAP_MESH_N_LOW} --bootstrap_mesh_outbound_min=${BOOTSTRAP_MESH_OUTBOUND_MIN} --bootstrap_mesh_n=${BOOTSTRAP_MESH_N} --mesh_n_high=${MESH_N_HIGH} --mesh_n_low=${MESH_N_LOW} --mesh_outbound_min=${MESH_OUTBOUND_MIN} --mesh_n=${MESH_N}"]
