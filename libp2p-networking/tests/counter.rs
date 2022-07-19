@@ -9,6 +9,7 @@ use async_std::{
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
@@ -57,11 +58,10 @@ pub async fn counter_handle_network_event(
     #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
-    let bincode_options = bincode::DefaultOptions::new();
     match event {
         IsBootstrapped => {}
         GossipMsg(m, _) | DirectResponse(m, _) => {
-            if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
+            if let Ok(msg) = bincode_opts().deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message only
                     MyCounterIs(c) => {
@@ -85,7 +85,7 @@ pub async fn counter_handle_network_event(
             }
         }
         DirectRequest(m, _, chan) => {
-            if let Ok(msg) = bincode_options.deserialize::<CounterMessage>(&m) {
+            if let Ok(msg) = bincode_opts().deserialize::<CounterMessage>(&m) {
                 match msg {
                     // direct message request
                     IncrementCounter { from, to, .. } => {

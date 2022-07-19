@@ -35,6 +35,7 @@ use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
+use hotshot_utils::bincode::bincode_opts;
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
@@ -332,12 +333,6 @@ impl<
             shutdown: shutdown.clone(),
             last_message: last_message.clone(),
         };
-        // For the wire format, we use bincode with the following options:
-        //   - Limit of 16KiB per message
-        //   - Litte endian encoding
-        //   - Varint encoding
-        //   - Reject trailing bytes
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
         let w = self.clone();
         let inputs = w.inner.inputs.clone();
         let (pk_s, pk_r) = oneshot::channel();
@@ -356,7 +351,7 @@ impl<
                 id: ident_id,
             };
             // Unwrap is safe, as this serialization can't fail
-            let bytes = bincode_options.serialize(&command).unwrap();
+            let bytes = bincode_opts().serialize(&command).unwrap();
             let res = stream.send(Message::Binary(bytes)).await;
             if res.is_err() {
                 error!("Failed to ident, closing stream");
@@ -397,7 +392,7 @@ impl<
                         match m {
                             Message::Binary(vec) => {
                                 trace!(?vec, "Attempting to decode binary message");
-                                let res: Result<Command<T, P>, _> = bincode_options.deserialize(&vec);
+                                let res: Result<Command<T, P>, _> = bincode_opts().deserialize(&vec);
                                 match res {
                                     Ok(command) => {
                                         match w.process_command(command, &inputs).await {
@@ -422,7 +417,7 @@ impl<
                                                         };
                                                     // Unwrap is safe, as this serialization can't
                                                     // fail
-                                                    let bytes = bincode_options
+                                                    let bytes = bincode_opts()
                                                         .serialize(&command)
                                                         .unwrap();
                                                     let res = ws_sink.send(Message::Binary(bytes)).await;
@@ -441,7 +436,7 @@ impl<
                                                         };
                                                     // Unwrap is safe, as this serialization can't
                                                     // fail
-                                                    let bytes = bincode_options
+                                                    let bytes = bincode_opts()
                                                         .serialize(&command)
                                                         .unwrap();
                                                     let res = ws_sink.send(Message::Binary(bytes)).await;
@@ -477,7 +472,7 @@ impl<
                     Combo::Command(c) => {
                         trace!(?c, "Sending command");
                         // serializing
-                        let bytes = bincode_options
+                        let bytes = bincode_opts()
                             .serialize(&c)
                             .expect_or_log("Failed to serialize a command. Having types that can fail serialization is not supported.");
                         // Sending down the pipe

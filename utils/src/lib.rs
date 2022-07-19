@@ -21,6 +21,9 @@ pub mod subscribable_rwlock;
 /// Provides types useful for waiting on certain values to arrive
 pub mod waitqueue;
 
+/// Provides bincode options
+pub mod bincode;
+
 /// Provides utility functions used for testing
 #[cfg(feature = "logging-utils")]
 pub mod test_util {

@@ -1656,6 +1656,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
+ "bincode",
  "color-eyre",
  "flume",
  "futures",
