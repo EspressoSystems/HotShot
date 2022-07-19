@@ -13,6 +13,7 @@ use color_eyre::{
 use crossterm::event::{self, Event, KeyCode};
 use flume::{Receiver, Sender};
 use futures::{select, FutureExt, StreamExt};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use std::{
@@ -109,8 +110,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                 if let Ok(res) = swarm_msg {
                     match res {
                         DirectRequest(m, _,  _) | GossipMsg(m, _) => {
-                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-                            let msg : Message = bincode_options.deserialize(&m)?;
+                            let msg : Message = bincode_opts().deserialize(&m)?;
                             app.message_buffer.lock().push_back(msg);
                         },
                         IsBootstrapped |
@@ -150,8 +150,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                                 content: app.input,
                                                 sender: "Client".to_string(),
                                             };
-                                            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-                                            let s_msg = bincode_options.serialize(&msg)?;
+                                            let s_msg = bincode_opts().serialize(&msg)?;
                                             send_swarm.send_async(ClientRequest::DirectRequest(selected_peer, s_msg)).await?;
                                             mb_handle.lock().push_back(msg);
                                             // if it's a duplicate message (error case), fail silently and do nothing
@@ -171,8 +170,7 @@ pub async fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: TableApp) 
                                             content: app.input,
                                             sender: "Client".to_string(),
                                         };
-                                        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-                                        let s_msg = bincode_options.serialize(&msg)?;
+                                        let s_msg = bincode_opts().serialize(&msg)?;
                                         send_swarm.send_async(ClientRequest::GossipMsg(msg.topic.clone(), s_msg)).await?;
                                         Result::<(), Report>::Ok(())
                                     }.instrument(info_span!("Broadcast Handler")));

@@ -21,6 +21,7 @@ use self::{
 use async_std::{prelude::FutureExt as _, task::spawn};
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
@@ -72,8 +73,7 @@ impl FromStr for NetworkNodeType {
 /// # Errors
 /// When unable to serialize a message
 pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new();
-    bincode_options.serialize(&msg)
+    bincode_opts().serialize(&msg)
 }
 
 /// Deserialize an arbitrary message
@@ -82,8 +82,7 @@ pub fn serialize_msg<T: Serialize>(msg: &T) -> Result<Vec<u8>, Box<bincode::Erro
 pub fn deserialize_msg<'a, T: Deserialize<'a>>(
     msg: &'a [u8],
 ) -> Result<T, Box<bincode::ErrorKind>> {
-    let bincode_options = bincode::DefaultOptions::new();
-    bincode_options.deserialize(msg)
+    bincode_opts().deserialize(msg)
 }
 
 impl Default for NetworkNodeType {

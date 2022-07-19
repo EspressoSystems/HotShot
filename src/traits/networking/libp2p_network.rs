@@ -20,6 +20,7 @@ use hotshot_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
+use hotshot_utils::bincode::bincode_opts;
 use libp2p::{Multiaddr, PeerId};
 use libp2p_networking::network::{
     MeshParams,
@@ -369,12 +370,11 @@ impl<
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         spawn(async move {
-            let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {
                     GossipMsg(msg, _topic) => {
-                        let result: Result<M, _> = bincode_options.deserialize(&msg);
+                        let result: Result<M, _> = bincode_opts().deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
                                 .send_async(result)
@@ -383,7 +383,7 @@ impl<
                         }
                     }
                     DirectRequest(msg, _pid, chan) => {
-                        let result: Result<M, _> = bincode_options
+                        let result: Result<M, _> = bincode_opts()
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                         if let Ok(result) = result {
@@ -403,7 +403,7 @@ impl<
                         };
                     }
                     DirectResponse(msg, _) => {
-                        let _result: Result<M, _> = bincode_options
+                        let _result: Result<M, _> = bincode_opts()
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                     }

@@ -13,7 +13,7 @@ use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
-use hotshot_utils::subscribable_mutex::SubscribableMutex;
+use hotshot_utils::{bincode::bincode_opts, subscribable_mutex::SubscribableMutex};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -180,11 +180,10 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new();
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::PutDHT {
-            key: bincode_options.serialize(key).context(SerializationSnafu)?,
-            value: bincode_options
+            key: bincode_opts().serialize(key).context(SerializationSnafu)?,
+            value: bincode_opts()
                 .serialize(value)
                 .context(SerializationSnafu)?,
             notify: s,
@@ -207,16 +206,15 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
-        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetDHT {
-            key: bincode_options.serialize(key).context(SerializationSnafu)?,
+            key: bincode_opts().serialize(key).context(SerializationSnafu)?,
             notify: s,
         };
         self.send_request(req).await?;
 
         match r.await.context(CancelledRequestSnafu) {
-            Ok(result) => bincode_options
+            Ok(result) => bincode_opts()
                 .deserialize(&*result)
                 .context(DeserializationSnafu),
             Err(e) => Err(e).context(DHTSnafu),
@@ -327,8 +325,7 @@ impl<S> NetworkNodeHandle<S> {
         peer_id: PeerId,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
-        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
         self.send_network
             .send_async(req)
@@ -345,8 +342,7 @@ impl<S> NetworkNodeHandle<S> {
         chan: ResponseChannel<DirectMessageResponse>,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
-        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
         self.send_network
             .send_async(req)
@@ -378,8 +374,7 @@ impl<S> NetworkNodeHandle<S> {
         topic: String,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
-        let bincode_options = bincode::DefaultOptions::new()/* .with_limit(MAX_MSG_SIZE as u64) */;
-        let serialized_msg = bincode_options.serialize(msg).context(SerializationSnafu)?;
+        let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
         self.send_network
             .send_async(req)

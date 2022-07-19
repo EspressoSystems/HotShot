@@ -14,6 +14,7 @@ use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
+use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -139,8 +140,6 @@ where
         spawn(
             async move {
                 debug!("Starting background task");
-                // Use the same wire format as WNetwork to make sure round tripping is simulated
-                let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
                 // direct input is right stream
                 let direct = direct_task_recv.into_stream().map(Combo::<Vec<u8>>::Direct);
                 // broadcast input is left stream
@@ -155,7 +154,7 @@ where
                         Combo::Direct(vec) => {
                             trace!(?vec, "Incoming direct message");
                             // Attempt to decode message
-                            let x = bincode_options.deserialize(&vec);
+                            let x = bincode_opts().deserialize(&vec);
                             match x {
                                 Ok(x) => {
                                     let dts = direct_task_send.clone();
@@ -193,7 +192,7 @@ where
                         Combo::Broadcast(vec) => {
                             trace!(?vec, "Incoming broadcast message");
                             // Attempt to decode message
-                            let x = bincode_options.deserialize(&vec);
+                            let x = bincode_opts().deserialize(&vec);
                             match x {
                                 Ok(x) => {
                                     let bts = broadcast_task_send.clone();
@@ -333,8 +332,7 @@ impl<
     async fn broadcast_message(&self, message: T) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-        let vec = bincode_options
+        let vec = bincode_opts()
             .serialize(&message)
             .context(FailedToSerializeSnafu)?;
         trace!("Message bincoded, sending");
@@ -362,8 +360,7 @@ impl<
     async fn message_node(&self, message: T, recipient: P) -> Result<(), NetworkError> {
         debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
-        let bincode_options = bincode::DefaultOptions::new().with_limit(16_384);
-        let vec = bincode_options
+        let vec = bincode_opts()
             .serialize(&message)
             .context(FailedToSerializeSnafu)?;
         trace!("Message bincoded, finding recipient");
