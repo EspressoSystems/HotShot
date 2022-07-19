@@ -1344,11 +1344,6 @@
 <span id="1339">1339</span>
 <span id="1340">1340</span>
 <span id="1341">1341</span>
-<span id="1342">1342</span>
-<span id="1343">1343</span>
-<span id="1344">1344</span>
-<span id="1345">1345</span>
-<span id="1346">1346</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -1386,6 +1381,7 @@
     <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">TestableNetworkingImplementation</span>},
     <span class="ident">signature_key</span>::{<span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
 };
+<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
 <span class="kw">use</span> <span class="ident">rand::prelude::ThreadRng</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">OptionExt</span>, <span class="ident">ResultExt</span>};
@@ -1683,12 +1679,6 @@
             <span class="ident">shutdown</span>: <span class="ident">shutdown</span>.<span class="ident">clone</span>(),
             <span class="ident">last_message</span>: <span class="ident">last_message</span>.<span class="ident">clone</span>(),
         };
-        <span class="comment">// For the wire format, we use bincode with the following options:</span>
-        <span class="comment">//   - Limit of 16KiB per message</span>
-        <span class="comment">//   - Litte endian encoding</span>
-        <span class="comment">//   - Varint encoding</span>
-        <span class="comment">//   - Reject trailing bytes</span>
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
         <span class="kw">let</span> <span class="ident">w</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">w</span>.<span class="ident">inner</span>.<span class="ident">inputs</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> (<span class="ident">pk_s</span>, <span class="ident">pk_r</span>) <span class="op">=</span> <span class="ident">oneshot::channel</span>();
@@ -1707,7 +1697,7 @@
                 <span class="ident">id</span>: <span class="ident">ident_id</span>,
             };
             <span class="comment">// Unwrap is safe, as this serialization can&#39;t fail</span>
-            <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">command</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">command</span>).<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">send</span>(<span class="ident">Message::Binary</span>(<span class="ident">bytes</span>)).<span class="kw">await</span>;
             <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_err</span>() {
                 <span class="macro">error!</span>(<span class="string">&quot;Failed to ident, closing stream&quot;</span>);
@@ -1748,7 +1738,7 @@
                         <span class="kw">match</span> <span class="ident">m</span> {
                             <span class="ident">Message::Binary</span>(<span class="ident">vec</span>) =&gt; {
                                 <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">vec</span>, <span class="string">&quot;Attempting to decode binary message&quot;</span>);
-                                <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
+                                <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Command</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
                                 <span class="kw">match</span> <span class="ident">res</span> {
                                     <span class="prelude-val">Ok</span>(<span class="ident">command</span>) =&gt; {
                                         <span class="kw">match</span> <span class="ident">w</span>.<span class="ident">process_command</span>(<span class="ident">command</span>, <span class="kw-2">&amp;</span><span class="ident">inputs</span>).<span class="kw">await</span> {
@@ -1773,7 +1763,7 @@
                                                         };
                                                     <span class="comment">// Unwrap is safe, as this serialization can&#39;t</span>
                                                     <span class="comment">// fail</span>
-                                                    <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_options</span>
+                                                    <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_opts</span>()
                                                         .<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">command</span>)
                                                         .<span class="ident">unwrap</span>();
                                                     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">ws_sink</span>.<span class="ident">send</span>(<span class="ident">Message::Binary</span>(<span class="ident">bytes</span>)).<span class="kw">await</span>;
@@ -1792,7 +1782,7 @@
                                                         };
                                                     <span class="comment">// Unwrap is safe, as this serialization can&#39;t</span>
                                                     <span class="comment">// fail</span>
-                                                    <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_options</span>
+                                                    <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_opts</span>()
                                                         .<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">command</span>)
                                                         .<span class="ident">unwrap</span>();
                                                     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">ws_sink</span>.<span class="ident">send</span>(<span class="ident">Message::Binary</span>(<span class="ident">bytes</span>)).<span class="kw">await</span>;
@@ -1828,7 +1818,7 @@
                     <span class="ident">Combo::Command</span>(<span class="ident">c</span>) =&gt; {
                         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">c</span>, <span class="string">&quot;Sending command&quot;</span>);
                         <span class="comment">// serializing</span>
-                        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_options</span>
+                        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode_opts</span>()
                             .<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">c</span>)
                             .<span class="ident">expect_or_log</span>(<span class="string">&quot;Failed to serialize a command. Having types that can fail serialization is not supported.&quot;</span>);
                         <span class="comment">// Sending down the pipe</span>
@@ -2696,5 +2686,5 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.1 (e092d0b6b 2022-07-16)" ></div>
 </body></html>

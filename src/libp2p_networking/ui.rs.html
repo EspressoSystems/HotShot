@@ -312,8 +312,6 @@
 <span id="307">307</span>
 <span id="308">308</span>
 <span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -329,6 +327,7 @@
 <span class="kw">use</span> <span class="ident">crossterm::event</span>::{<span class="self">self</span>, <span class="ident">Event</span>, <span class="ident">KeyCode</span>};
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">Receiver</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
 <span class="kw">use</span> <span class="ident">libp2p::PeerId</span>;
 <span class="kw">use</span> <span class="ident">parking_lot::Mutex</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -425,8 +424,7 @@
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">swarm_msg</span> {
                     <span class="kw">match</span> <span class="ident">res</span> {
                         <span class="ident">DirectRequest</span>(<span class="ident">m</span>, <span class="kw">_</span>,  <span class="kw">_</span>) <span class="op">|</span> <span class="ident">GossipMsg</span>(<span class="ident">m</span>, <span class="kw">_</span>) =&gt; {
-                            <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
-                            <span class="kw">let</span> <span class="ident">msg</span> : <span class="ident">Message</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">m</span>)<span class="question-mark">?</span>;
+                            <span class="kw">let</span> <span class="ident">msg</span> : <span class="ident">Message</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">m</span>)<span class="question-mark">?</span>;
                             <span class="ident">app</span>.<span class="ident">message_buffer</span>.<span class="ident">lock</span>().<span class="ident">push_back</span>(<span class="ident">msg</span>);
                         },
                         <span class="ident">IsBootstrapped</span> <span class="op">|</span>
@@ -466,8 +464,7 @@
                                                 <span class="ident">content</span>: <span class="ident">app</span>.<span class="ident">input</span>,
                                                 <span class="ident">sender</span>: <span class="string">&quot;Client&quot;</span>.<span class="ident">to_string</span>(),
                                             };
-                                            <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
-                                            <span class="kw">let</span> <span class="ident">s_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>)<span class="question-mark">?</span>;
+                                            <span class="kw">let</span> <span class="ident">s_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>)<span class="question-mark">?</span>;
                                             <span class="ident">send_swarm</span>.<span class="ident">send_async</span>(<span class="ident">ClientRequest::DirectRequest</span>(<span class="ident">selected_peer</span>, <span class="ident">s_msg</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
                                             <span class="ident">mb_handle</span>.<span class="ident">lock</span>().<span class="ident">push_back</span>(<span class="ident">msg</span>);
                                             <span class="comment">// if it&#39;s a duplicate message (error case), fail silently and do nothing</span>
@@ -487,8 +484,7 @@
                                             <span class="ident">content</span>: <span class="ident">app</span>.<span class="ident">input</span>,
                                             <span class="ident">sender</span>: <span class="string">&quot;Client&quot;</span>.<span class="ident">to_string</span>(),
                                         };
-                                        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
-                                        <span class="kw">let</span> <span class="ident">s_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>)<span class="question-mark">?</span>;
+                                        <span class="kw">let</span> <span class="ident">s_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>)<span class="question-mark">?</span>;
                                         <span class="ident">send_swarm</span>.<span class="ident">send_async</span>(<span class="ident">ClientRequest::GossipMsg</span>(<span class="ident">msg</span>.<span class="ident">topic</span>.<span class="ident">clone</span>(), <span class="ident">s_msg</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
                                         <span class="prelude-ty">Result</span>::<span class="op">&lt;</span>(), <span class="ident">Report</span><span class="op">&gt;</span><span class="ident">::Ok</span>(())
                                     }.<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;Broadcast Handler&quot;</span>)));
@@ -626,5 +622,5 @@
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.1 (e092d0b6b 2022-07-16)" ></div>
 </body></html>

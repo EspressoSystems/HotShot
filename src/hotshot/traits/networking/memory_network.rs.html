@@ -681,9 +681,6 @@
 <span id="676">676</span>
 <span id="677">677</span>
 <span id="678">678</span>
-<span id="679">679</span>
-<span id="680">680</span>
-<span id="681">681</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
@@ -700,6 +697,7 @@
     <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">TestableNetworkingImplementation</span>},
     <span class="ident">signature_key</span>::{<span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
 };
+<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
@@ -825,8 +823,6 @@
         <span class="ident">spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="macro">debug!</span>(<span class="string">&quot;Starting background task&quot;</span>);
-                <span class="comment">// Use the same wire format as WNetwork to make sure round tripping is simulated</span>
-                <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
                 <span class="comment">// direct input is right stream</span>
                 <span class="kw">let</span> <span class="ident">direct</span> <span class="op">=</span> <span class="ident">direct_task_recv</span>.<span class="ident">into_stream</span>().<span class="ident">map</span>(<span class="ident">Combo</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Direct</span>);
                 <span class="comment">// broadcast input is left stream</span>
@@ -841,7 +837,7 @@
                         <span class="ident">Combo::Direct</span>(<span class="ident">vec</span>) =&gt; {
                             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">vec</span>, <span class="string">&quot;Incoming direct message&quot;</span>);
                             <span class="comment">// Attempt to decode message</span>
-                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
+                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
                             <span class="kw">match</span> <span class="ident">x</span> {
                                 <span class="prelude-val">Ok</span>(<span class="ident">x</span>) =&gt; {
                                     <span class="kw">let</span> <span class="ident">dts</span> <span class="op">=</span> <span class="ident">direct_task_send</span>.<span class="ident">clone</span>();
@@ -879,7 +875,7 @@
                         <span class="ident">Combo::Broadcast</span>(<span class="ident">vec</span>) =&gt; {
                             <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">vec</span>, <span class="string">&quot;Incoming broadcast message&quot;</span>);
                             <span class="comment">// Attempt to decode message</span>
-                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
+                            <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">vec</span>);
                             <span class="kw">match</span> <span class="ident">x</span> {
                                 <span class="prelude-val">Ok</span>(<span class="ident">x</span>) =&gt; {
                                     <span class="kw">let</span> <span class="ident">bts</span> <span class="op">=</span> <span class="ident">broadcast_task_send</span>.<span class="ident">clone</span>();
@@ -1019,8 +1015,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">T</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="string">&quot;Broadcasting message&quot;</span>);
         <span class="comment">// Bincode the message</span>
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">bincode_options</span>
+        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">bincode_opts</span>()
             .<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>)
             .<span class="ident">context</span>(<span class="ident">FailedToSerializeSnafu</span>)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, sending&quot;</span>);
@@ -1048,8 +1043,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">message_node</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">T</span>, <span class="ident">recipient</span>: <span class="ident">P</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;Sending direct message&quot;</span>);
         <span class="comment">// Bincode the message</span>
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>().<span class="ident">with_limit</span>(<span class="number">16_384</span>);
-        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">bincode_options</span>
+        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">bincode_opts</span>()
             .<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>)
             .<span class="ident">context</span>(<span class="ident">FailedToSerializeSnafu</span>)<span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Message bincoded, finding recipient&quot;</span>);
@@ -1366,5 +1360,5 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.1 (e092d0b6b 2022-07-16)" ></div>
 </body></html>

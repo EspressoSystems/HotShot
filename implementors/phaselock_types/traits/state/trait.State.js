@@ -1,3 +1,0 @@
-(function() {var implementors = {};
-implementors["phaselock"] = [{"text":"impl <a class=\"trait\" href=\"phaselock/traits/trait.State.html\" title=\"trait phaselock::traits::State\">State</a>&lt;H_256&gt; for <a class=\"struct\" href=\"phaselock/demos/dentry/struct.State.html\" title=\"struct phaselock::demos::dentry::State\">State</a>","synthetic":false,"types":["phaselock::demos::dentry::State"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

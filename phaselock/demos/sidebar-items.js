@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["dentry","Double entry accounting demo"]]});

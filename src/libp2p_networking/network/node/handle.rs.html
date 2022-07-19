@@ -605,11 +605,6 @@
 <span id="600">600</span>
 <span id="601">601</span>
 <span id="602">602</span>
-<span id="603">603</span>
-<span id="604">604</span>
-<span id="605">605</span>
-<span id="606">606</span>
-<span id="607">607</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -625,7 +620,7 @@
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">bounded</span>, <span class="ident">Receiver</span>, <span class="ident">SendError</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">stream::FuturesOrdered</span>, <span class="ident">Future</span>};
 <span class="kw">use</span> <span class="ident">hotshot_types::traits::network::NetworkError</span> <span class="kw">as</span> <span class="ident">HotShotNetworkError</span>;
-<span class="kw">use</span> <span class="ident">hotshot_utils::subscribable_mutex::SubscribableMutex</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{<span class="ident">bincode::bincode_opts</span>, <span class="ident">subscribable_mutex::SubscribableMutex</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">request_response::ResponseChannel</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
@@ -792,11 +787,10 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::error::CancelledRequestSnafu</span>;
 
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>();
         <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::PutDHT</span> {
-            <span class="ident">key</span>: <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
-            <span class="ident">value</span>: <span class="ident">bincode_options</span>
+            <span class="ident">key</span>: <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
+            <span class="ident">value</span>: <span class="ident">bincode_opts</span>()
                 .<span class="ident">serialize</span>(<span class="ident">value</span>)
                 .<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
             <span class="ident">notify</span>: <span class="ident">s</span>,
@@ -819,16 +813,15 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::error::CancelledRequestSnafu</span>;
 
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
         <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetDHT</span> {
-            <span class="ident">key</span>: <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
+            <span class="ident">key</span>: <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
             <span class="ident">notify</span>: <span class="ident">s</span>,
         };
         <span class="self">self</span>.<span class="ident">send_request</span>(<span class="ident">req</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">match</span> <span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">CancelledRequestSnafu</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="ident">bincode_options</span>
+            <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="ident">bincode_opts</span>()
                 .<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">result</span>)
                 .<span class="ident">context</span>(<span class="ident">DeserializationSnafu</span>),
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="ident">DHTSnafu</span>),
@@ -939,8 +932,7 @@
         <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
-        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectRequest</span>(<span class="ident">peer_id</span>, <span class="ident">serialized_msg</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
@@ -957,8 +949,7 @@
         <span class="ident">chan</span>: <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
-        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectResponse</span>(<span class="ident">chan</span>, <span class="ident">serialized_msg</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
@@ -990,8 +981,7 @@
         <span class="ident">topic</span>: <span class="ident">String</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bincode_options</span> <span class="op">=</span> <span class="ident">bincode::DefaultOptions::new</span>()<span class="comment">/* .with_limit(MAX_MSG_SIZE as u64) */</span>;
-        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_options</span>.<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GossipMsg</span>(<span class="ident">topic</span>, <span class="ident">serialized_msg</span>);
         <span class="self">self</span>.<span class="ident">send_network</span>
             .<span class="ident">send_async</span>(<span class="ident">req</span>)
@@ -1218,5 +1208,5 @@
     };
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.0 (a8314ef7d 2022-06-27)" ></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.62.1 (e092d0b6b 2022-07-16)" ></div>
 </body></html>
