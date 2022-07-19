@@ -47,7 +47,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         token: Self::VoteToken,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken> {
-        None
+        Some(())
     }
 
     #[instrument]

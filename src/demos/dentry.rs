@@ -8,12 +8,13 @@
 
 use commit::{Commitment, Committable};
 use hotshot_types::{
+    constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
         StateContents,
-    }, constants::genesis_proposer_id,
+    },
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -301,7 +302,11 @@ impl StateContents for DEntryState {
         }
     }
 
-    fn append(&self, block: &Self::Block, _time: &Self::Time) -> std::result::Result<Self, Self::Error> {
+    fn append(
+        &self,
+        block: &Self::Block,
+        _time: &Self::Time,
+    ) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
                 if self.balances.is_empty() {
@@ -418,6 +423,10 @@ impl TestableBlock for DEntryBlock {
     fn genesis() -> Self {
         Self::genesis()
     }
+
+    fn hash(&self) -> StateHash<H_256> {
+        self.hash_state()
+    }
 }
 
 impl BlockContents for DEntryBlock {
@@ -520,7 +529,9 @@ pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 /// Provides a random [`Leaf`]
 pub fn random_leaf<STATE: StateContents<Time = ViewNumber>>(deltas: STATE::Block) -> Leaf<STATE> {
     let justify_qc = random_quorum_certificate();
-    let state = STATE::default().append(&deltas, &ViewNumber::new(42)).unwrap_or_default();
+    let state = STATE::default()
+        .append(&deltas, &ViewNumber::new(42))
+        .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,
         justify_qc,
@@ -529,6 +540,6 @@ pub fn random_leaf<STATE: StateContents<Time = ViewNumber>>(deltas: STATE::Block
         state,
         rejected: Vec::new(),
         timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-        proposer_id: genesis_proposer_id()
+        proposer_id: genesis_proposer_id(),
     }
 }

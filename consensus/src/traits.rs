@@ -6,6 +6,7 @@ use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
+    message::ConsensusMessage,
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},

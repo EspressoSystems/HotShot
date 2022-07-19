@@ -1,54 +1,46 @@
 use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
-    signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        SignatureKey,
-    },
-    state::TestableState,
+    election::stub::{HashElection, HashVrfKey, HashVrfSeed},
+    signature_key::SignatureKey,
 };
-use hotshot_types::{ExecutionType, HotShotConfig};
-use hotshot_utils::{
-    art::{async_main, async_sleep, async_spawn},
-    test_util::{setup_backtrace, setup_logging},
-};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
+    collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use hotshot::{
-    demos::dentry::*,
-    traits::{
-        election::StaticCommittee,
-        implementations::{MemoryStorage, WNetwork},
-    },
+    demos::dentry_hashvrf::*,
+    traits::implementations::{MemoryStorage, Stateless, WNetwork},
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot,
+    HotShot, HotShotConfig, H_256,
 };
 
-type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
+type Node =
+    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>>;
 
 #[derive(Debug, Parser)]
-#[command(
+#[clap(
     name = "Double Entry Simulator",
     about = "Simulates consensus among a number of nodes"
 )]
 struct Opt {
     /// Number of nodes to run
-    #[arg(short = 'n', default_value = "7")]
+    #[structopt(short = 'n', default_value = "7")]
     nodes: usize,
     /// Number of transactions to simulate
-    #[arg(short = 't', default_value = "10")]
+    #[structopt(short = 't', default_value = "10")]
     transactions: usize,
 }
 /// Prebaked list of transactions
-fn prebaked_transactions() -> Vec<DEntryTransaction> {
+fn prebaked_transactions() -> Vec<Transaction> {
     vec![
-        DEntryTransaction {
+        Transaction {
             add: Addition {
                 account: "Ian".to_string(),
                 amount: 100,
@@ -58,9 +50,8 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 100,
             },
             nonce: 0,
-            padding: vec![0; 0],
         },
-        DEntryTransaction {
+        Transaction {
             add: Addition {
                 account: "John".to_string(),
                 amount: 25,
@@ -70,12 +61,11 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 25,
             },
             nonce: 1,
-            padding: vec![0; 0],
         },
     ]
 }
 
-#[async_main]
+#[async_std::main]
 #[instrument]
 async fn main() {
     // Setup tracing listener
@@ -83,12 +73,15 @@ async fn main() {
     setup_backtrace();
 
     // Get options
-    let opt = Opt::parse();
+    let opt = Opt::from_args();
     debug!(?opt);
-
+    // Setup the inital state
+    let inital_state = inital_state();
+    debug!(?inital_state);
     // Calculate our threshold
     let nodes = opt.nodes;
-    let threshold = ((nodes * 2) / 3) + 1;
+    // This is actually a constant calcuation, since we use a commitee of size 100 here
+    let threshold = 60;
     debug!(?nodes, ?threshold);
     // Generate our private key set
     // Generated using xoshiro for reproduceability
@@ -96,14 +89,14 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+        WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>,
         u16,
-        Ed25519Pub,
+        HashVrfKey,
         u64,
     )> = Vec::new();
     for node_id in 0..nodes as u64 {
-        let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-        let public_key = Ed25519Pub::from_private(&private_key);
+        let private_key = HashVrfKey::generated_from_seed_indexed([0_u8; 32], node_id);
+        let public_key = HashVrfKey::from_private(&private_key);
         networkings.push(get_networking(public_key, "0.0.0.0", node_id, &mut rng).await);
     }
     // Connect the networking implementations
@@ -120,16 +113,15 @@ async fn main() {
     // Wait for the networking implementations to connect
     for (n, _, _, _) in &networkings {
         while n.connection_table_size().await < nodes - 1 {
-            async_sleep(std::time::Duration::from_millis(10)).await;
+            async_std::task::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_>> = join_all(
-        networkings
-            .into_iter()
-            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
-    )
-    .await;
+    let mut hotshots: Vec<HotShotHandle<_, H_256>> =
+        join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
+            get_hotshot(nodes, threshold, node_id, network, &inital_state)
+        }))
+        .await;
 
     let prebaked_txns = prebaked_transactions();
     let prebaked_count = prebaked_txns.len() as u64;
@@ -144,26 +136,27 @@ async fn main() {
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
         hotshots[0]
-            .submit_transaction(tx)
+            .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.start_one_round().await;
+            warn!("Running round");
+            hotshot.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
-        let mut states: Vec<Vec<DEntryState>> = Vec::new();
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryState> = hotshot
+            let mut event: Event<DEntryBlock, State, H_256> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
+                if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
@@ -175,12 +168,7 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { leaf_chain, .. } = event.event {
-                let (block, state) = leaf_chain
-                    .iter()
-                    .cloned()
-                    .map(|leaf| (leaf.deltas, leaf.state))
-                    .unzip();
+            if let EventType::Decide { block, state, .. } = event.event {
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -210,31 +198,33 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
-        let tx = &state.as_ref().unwrap()[0].create_random_transaction();
+        let tx = random_transaction(&state.as_ref().unwrap()[0], &mut rng);
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
-        hotshots[0]
-            .submit_transaction(tx.clone())
-            .await
-            .expect("Failed to submit transaction");
+        for hotshot in &mut hotshots {
+            hotshot
+                .submit_transaction(tx.clone())
+                .await
+                .expect("Failed to submit transaction");
+        }
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.start_one_round().await;
+            hotshot.run_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
-        let mut states: Vec<Vec<DEntryState>> = Vec::new();
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryState> = hotshot
+            let mut event: Event<DEntryBlock, State, H_256> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
+                if matches!(event.event, EventType::ViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
@@ -246,12 +236,7 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { leaf_chain, .. } = event.event {
-                let (block, state) = leaf_chain
-                    .iter()
-                    .cloned()
-                    .map(|leaf| (leaf.deltas, leaf.state))
-                    .unzip();
+            if let EventType::Decide { block, state, .. } = event.event {
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -288,6 +273,24 @@ async fn main() {
     );
 }
 
+/// Provides the initial state for the simulation
+fn inital_state() -> State {
+    let balances: BTreeMap<Account, Balance> = vec![
+        ("Joe", 1_000_000),
+        ("Nathan M", 500_000),
+        ("John", 400_000),
+        ("Nathan Y", 600_000),
+        ("Ian", 0),
+    ]
+    .into_iter()
+    .map(|(x, y)| (x.to_string(), y))
+    .collect();
+    State {
+        balances,
+        nonces: BTreeSet::default(),
+    }
+}
+
 /// Trys to get a networking implementation with the given id
 ///
 /// also starts the background task
@@ -296,11 +299,11 @@ async fn get_networking<
     T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
     R: hotshot::rand::Rng,
 >(
-    pub_key: Ed25519Pub,
+    pub_key: HashVrfKey,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<T, Ed25519Pub>, u16, Ed25519Pub, u64) {
+) -> (WNetwork<T, HashVrfKey>, u16, HashVrfKey, u64) {
     debug!(?pub_key);
     for attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);
@@ -315,7 +318,7 @@ async fn get_networking<
             match x.generate_task(c) {
                 Some(task) => {
                     task.into_iter().for_each(|x| {
-                        async_spawn(x);
+                        async_std::task::spawn(x);
                     });
                     sync.await.expect("sync.await failed");
                 }
@@ -330,28 +333,28 @@ async fn get_networking<
 }
 
 /// Creates a hotshot
-#[instrument(skip(networking))]
+#[instrument(skip(networking, state))]
 async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-) -> HotShotHandle<Node> {
+    networking: WNetwork<Message<DEntryBlock, Transaction, State, HashVrfKey, H_256>, HashVrfKey>,
+    state: &State,
+) -> HotShotHandle<Node, H_256> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
-            Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
+            HashVrfKey::from_private(&HashVrfKey::generated_from_seed_indexed(
                 [0_u8; 32], x as u64,
             ))
         })
         .collect();
     let config = HotShotConfig {
-        execution_type: ExecutionType::Continuous,
-        total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        expected_size: NonZeroUsize::new(1000).unwrap(),
-        threshold: NonZeroUsize::new(threshold).unwrap(),
+        total_nodes: NonZeroUsize::new(nodes * 10).unwrap(),
+        expected_size: NonZeroUsize::new(100).unwrap(),
+        threshold: NonZeroUsize::new(60).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
-        next_view_timeout: 100000,
+        next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
@@ -360,20 +363,26 @@ async fn get_hotshot(
         propose_max_round_time: Duration::from_millis(1000),
     };
     debug!(?config);
-    let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-    let public_key = Ed25519Pub::from_private(&private_key);
-    let genesis_block = DEntryBlock::genesis();
-    let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
+    let private_key = HashVrfKey::generated_from_seed_indexed([0_u8; 32], node_id);
+    error!("I am: {:?}", private_key);
+    let public_key = private_key;
+    let genesis = DEntryBlock::default();
     let h = HotShot::init(
+        genesis,
         known_nodes.clone(),
         public_key,
         private_key,
         node_id,
         config,
+        state.clone(),
         networking,
-        MemoryStorage::new(),
-        StaticCommittee::new(known_nodes),
-        initializer,
+        MemoryStorage::default(),
+        Stateless::default(),
+        // Give each node 10 units of stake
+        HashElection::new(
+            known_nodes.iter().map(|x| (*x, 10)),
+            HashVrfSeed::from_bytes([0_u8]),
+        ),
     )
     .await
     .expect("Could not init hotshot");

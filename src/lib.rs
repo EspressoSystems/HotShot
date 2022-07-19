@@ -95,6 +95,36 @@ pub const H_256: usize = 32;
 
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotShotError>;
+
+/// Holds configuration for a `HotShot`
+#[derive(Debug, Clone)]
+pub struct HotShotConfig<P: SignatureKey> {
+    /// Total number of nodes in the network
+    pub total_nodes: NonZeroUsize,
+    /// Expected commitee size
+    pub expected_size: NonZeroUsize,
+    /// Nodes required to reach a decision
+    pub threshold: NonZeroUsize,
+    /// Maximum transactions per block
+    pub max_transactions: NonZeroUsize,
+    /// List of known node's public keys, including own, sorted by nonce ()
+    pub known_nodes: Vec<P>,
+    /// Base duration for next-view timeout, in milliseconds
+    pub next_view_timeout: u64,
+    /// The exponential backoff ration for the next-view timeout
+    pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    pub round_start_delay: u64,
+    /// Delay after init before starting consensus, in milliseconds
+    pub start_delay: u64,
+    /// Number of network bootstrap nodes
+    pub num_bootstrap: usize,
+    /// The minimum amount of time a leader has to wait to start a round
+    pub propose_min_round_time: Duration,
+    /// The maximum amount of time a leader can wait to start a round
+    pub propose_max_round_time: Duration,
+}
+
 /// Holds the state needed to participate in `HotShot` consensus
 pub struct HotShotInner<I: NodeImplementation> {
     /// The public key of this node
@@ -124,6 +154,9 @@ pub struct HotShotInner<I: NodeImplementation> {
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
+
+    /// The hotstuff implementation
+    hotstuff: Mutex<Consensus<I, N>>,
 }
 
 /// Contains the state of the election of the current [`HotShot`].

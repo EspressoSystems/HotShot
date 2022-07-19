@@ -10,7 +10,7 @@ use hotshot_types::{
         StateContents, state::ConsensusTime,
     },
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, num::NonZeroUsize};
 
 /// Dummy implementation of [`Election`]
 pub struct StaticCommittee<S> {
@@ -91,5 +91,12 @@ where
     /// If its a validated token, it always has one vote
     fn get_vote_count(&self, _token: &Self::ValidatedVoteToken) -> u64 {
         1
+    }
+
+    fn calcuate_selection_threshold(
+        &self,
+        _expected_size: NonZeroUsize,
+        _total_participants: NonZeroUsize,
+    ) -> Self::SelectionThreshold {
     }
 }

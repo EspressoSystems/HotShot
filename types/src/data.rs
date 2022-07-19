@@ -7,8 +7,9 @@ use crate::{
     constants::genesis_proposer_id,
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
+        state::ConsensusTime,
         storage::StoredView,
-        BlockContents, StateContents, state::ConsensusTime,
+        BlockContents, StateContents,
     },
 };
 use commit::{Commitment, Committable};
@@ -97,14 +98,14 @@ pub struct QuorumCertificate<STATE: StateContents> {
     /// This value is covered by the threshold signature.
     pub view_number: ViewNumber,
 
-    /// The list of signatures establishing the validity of this Quorum Certifcate
+    /// The list of votes establishing the validity of this Quorum Certifcate
     ///
     /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
     /// the byte encoded signatures provided by those keys.
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+    pub signatures: BTreeMap<EncodedPublicKey, Vote<N>>,
 
     /// Temporary bypass for boostrapping
     ///
@@ -151,7 +152,7 @@ pub struct ProposalLeaf<STATE: StateContents> {
 
     /// the propser id
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub proposer_id: EncodedPublicKey
+    pub proposer_id: EncodedPublicKey,
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -191,7 +192,7 @@ pub struct Leaf<STATE: StateContents> {
 
     /// the proposer id of the leaf
     #[derivative(PartialEq = "ignore")]
-    pub proposer_id: EncodedPublicKey
+    pub proposer_id: EncodedPublicKey,
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -248,7 +249,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
             deltas: leaf.deltas,
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
-            proposer_id: leaf.proposer_id
+            proposer_id: leaf.proposer_id,
         }
     }
 }
@@ -268,7 +269,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
         view_number: ViewNumber,
         rejected: Vec<TxnCommitment<STATE>>,
         timestamp: i128,
-        proposer_id: EncodedPublicKey
+        proposer_id: EncodedPublicKey,
     ) -> Self {
         Leaf {
             view_number,
@@ -278,7 +279,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected,
             timestamp,
-            proposer_id
+            proposer_id,
         }
     }
 
@@ -293,7 +294,9 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas, &ViewNumber::genesis()).unwrap();
+        let state = STATE::default()
+            .append(&deltas, &ViewNumber::genesis())
+            .unwrap();
         Self {
             view_number: ViewNumber::genesis(),
             justify_qc: QuorumCertificate::genesis(),
@@ -302,11 +305,10 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id: genesis_proposer_id()
+            proposer_id: genesis_proposer_id(),
         }
     }
 }
-
 
 impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
@@ -333,7 +335,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             append: val.deltas.into(),
             rejected: val.rejected,
             timestamp: val.timestamp,
-            proposer_id: val.proposer_id
+            proposer_id: val.proposer_id,
         }
     }
 }

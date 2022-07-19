@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{traits::BlockContents, data::ViewNumber};
+use crate::{data::ViewNumber, traits::BlockContents};
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
@@ -51,6 +51,8 @@ pub trait StateContents:
     fn append(&self, block: &Self::Block, time: &Self::Time) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
+    /// Hashes the state
+    fn hash(&self) -> StateHash<N>;
 }
 
 /// Trait for time abstraction needed for reward collection
@@ -76,7 +78,10 @@ pub trait TestableBlock: BlockContents {
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use crate::{traits::block_contents::dummy::{DummyBlock, DummyError}, data::ViewNumber};
+    use crate::{
+        data::ViewNumber,
+        traits::block_contents::dummy::{DummyBlock, DummyError},
+    };
     use rand::Rng;
     use serde::Deserialize;
 
@@ -122,5 +127,9 @@ pub mod dummy {
         }
 
         fn on_commit(&self) {}
+
+        fn hash(&self) -> StateHash<32> {
+            StateHash::from([0_u8; 32])
+        }
     }
 }
