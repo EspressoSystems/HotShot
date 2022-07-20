@@ -9,7 +9,7 @@ jobs:
   build-and-test:
     runs-on: [self-hosted, X64]
     container:
-      image: ghcr.io/espressosystems/devops-rust:1.62
+      image: ghcr.io/espressosystems/devops-rust:nightly
     timeout-minutes: 140
     steps:
       - uses: actions/checkout@v3
