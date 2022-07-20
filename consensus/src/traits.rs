@@ -11,7 +11,7 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use std::{num::NonZeroUsize, sync::Arc, time::Duration, collections::BTreeMap};
+use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -167,8 +167,9 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Validate the signatures of a QC
     ///
     /// Returns a BTreeMap of valid signatures for the QC; will return an empty tree if no signatures were valid
-    fn get_valid_signatures(&self, signatures: BTreeMap<EncodedPublicKey, EncodedSignature>, 
-    hash: VerifyHash<32>,
+    fn get_valid_signatures(
+        &self,
+        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        hash: VerifyHash<32>,
     ) -> BTreeMap<EncodedPublicKey, EncodedSignature>;
-    
 }

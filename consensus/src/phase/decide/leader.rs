@@ -82,13 +82,14 @@ impl<const N: usize> DecideLeader<N> {
         let current_view = ctx.view_number;
 
         let verify_hash = ctx
-        .api
-        .create_verify_hash(&leaf_hash, Stage::Commit, current_view);
+            .api
+            .create_verify_hash(&leaf_hash, Stage::Commit, current_view);
         let signatures = votes.iter().map(|vote| vote.signature.clone()).collect();
         let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash);
         if valid_signatures.len() < ctx.api.threshold().get() {
             return Err(HotShotError::Misc {
-                context: "Incoming votes to leader do not contain quorum of valid signatures".to_string()
+                context: "Incoming votes to leader do not contain quorum of valid signatures"
+                    .to_string(),
             });
         }
 

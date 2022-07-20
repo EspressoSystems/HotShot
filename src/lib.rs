@@ -853,11 +853,12 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         valid_signatures.len() >= self.inner.config.threshold.get()
     }
 
-    fn get_valid_signatures(&self, signatures: BTreeMap<EncodedPublicKey, EncodedSignature>, 
+    fn get_valid_signatures(
+        &self,
+        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
         hash: VerifyHash<32>,
-        ) -> BTreeMap<EncodedPublicKey, EncodedSignature> {
-
-        let mut valid_signatures = BTreeMap::new(); 
+    ) -> BTreeMap<EncodedPublicKey, EncodedSignature> {
+        let mut valid_signatures = BTreeMap::new();
 
         for (encoded_key, encoded_signature) in signatures {
             if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
@@ -872,5 +873,4 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         }
         valid_signatures
     }
-
 }

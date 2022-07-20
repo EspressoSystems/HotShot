@@ -59,7 +59,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .filter(|vote| vote.leaf_hash == new_leaf_hash)
             .cloned()
             .collect();
-    
+
         if valid_votes.len() >= ctx.api.threshold().get() {
             let prepare = self.prepare.clone();
             let outcome = self.create_commit(ctx, prepare, valid_votes).await?;
@@ -110,7 +110,8 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash);
         if valid_signatures.len() < ctx.api.threshold().get() {
             return Err(HotShotError::Misc {
-                context: "Incoming votes to leader do not contain quorum of valid signatures".to_string()
+                context: "Incoming votes to leader do not contain quorum of valid signatures"
+                    .to_string(),
             });
         }
 
