@@ -26,7 +26,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -338,15 +338,15 @@ async fn main() {
     let mut total_txns = 0;
 
     while start_time + online_time > Instant::now() {
-        error!("Beginning view {}", view);
+        info!("Beginning view {}", view);
         let num_submitted = {
             if own_id == (view % num_nodes) {
-                println!("Generating txn for view {}", view);
+                info!("Generating txn for view {}", view);
                 let state = hotshot.get_state().await.unwrap().unwrap();
 
                 for _ in 0..10 {
                     let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                    error!("Submitting txn on view {}", view);
+                    info!("Submitting txn on view {}", view);
                     hotshot.submit_transaction(txn).await.unwrap();
                 }
                 total_txns += 10;
@@ -362,7 +362,7 @@ async fn main() {
         match result {
             Ok(state) => {
                 total_successful_txns += num_submitted;
-                error!(
+                info!(
                     "View {:?}: successful with {:?}, and total successful txns {:?}",
                     view, state, total_successful_txns
                 );
