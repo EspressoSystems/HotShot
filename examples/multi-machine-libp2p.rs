@@ -299,7 +299,7 @@ async fn main() {
     let own_priv_key = Ed25519Pub::generate_test_key(own_id as u64);
     let own_pub_key = Ed25519Pub::from_private(&own_priv_key);
 
-    info!("Done with keygen");
+    error!("Done with keygen");
     let own_network = new_libp2p_network(
         own_pub_key,
         to_connect_addrs,
@@ -312,18 +312,18 @@ async fn main() {
     .await
     .unwrap();
 
-    info!("Done with network creation");
+    error!("Done with network creation");
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
         init_state_and_hotshot(num_nodes, threshold, own_id as u64, own_network).await;
 
-    info!("Finished init, starting hotshot!");
+    error!("Finished init, starting hotshot!");
     hotshot.start().await;
 
-    info!("waiting for connections to hotshot!");
+    error!("waiting for connections to hotshot!");
     hotshot.is_ready().await;
-    info!("We are ready!");
+    error!("We are ready!");
 
     let start_time = Instant::now();
 
@@ -341,7 +341,7 @@ async fn main() {
         info!("Beginning view {}", view);
         let num_submitted = {
             if own_id == (view % num_nodes) {
-                println!("Generating txn for view {}", view);
+                info!("Generating txn for view {}", view);
                 let state = hotshot.get_state().await.unwrap().unwrap();
 
                 for _ in 0..10 {
@@ -369,7 +369,7 @@ async fn main() {
             }
             Err(e) => {
                 num_failed_views += 1;
-                info!("View: {:?}, failed with : {:?}", view, e);
+                error!("View: {:?}, failed with : {:?}", view, e);
             }
         }
         view += 1;

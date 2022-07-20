@@ -26,7 +26,10 @@ ENV ONLINE_TIME="60"
 ENV SEED="1234"
 
 # logging
-ENV RUST_LOG="trace"
+ENV RUST_LOG="warn"
+
+# log format. JSON no ansi
+ENV RUST_LOG_FORMAT="json"
 
 ENV PORT="9000"
 
