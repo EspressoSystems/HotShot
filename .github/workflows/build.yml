@@ -75,6 +75,6 @@ jobs:
           context: ./
           file: ./deploy/Dockerfile
           platforms: linux/amd64
-#          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.multi-machine-libp2p.outputs.tags }}
           labels: ${{ steps.multi-machine-libp2p.outputs.labels }}
