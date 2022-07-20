@@ -59,7 +59,11 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .filter(|vote| vote.leaf_hash == new_leaf_hash)
             .cloned()
             .collect();
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 7d91144 (Leaders now verify signatures before including them in a QC)
         if valid_votes.len() >= ctx.api.threshold().get() {
             let prepare = self.prepare.clone();
             let outcome = self.create_commit(ctx, prepare, valid_votes).await?;

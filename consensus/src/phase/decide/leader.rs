@@ -2,6 +2,7 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result};
 use hotshot_types::{
     data::{QuorumCertificate, Stage},
+    error::HotShotError,
     message::{Commit, CommitVote, Decide},
     traits::node_implementation::NodeImplementation,
 };
