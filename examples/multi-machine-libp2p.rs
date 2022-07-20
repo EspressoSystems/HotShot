@@ -355,9 +355,9 @@ async fn main() {
                 0
             }
         };
-        error!("Running the view {}", view);
+        info!("Running the view {}", view);
         hotshot.run_one_round().await;
-        error!("Collection for view {}", view);
+        info!("Collection for view {}", view);
         let result = hotshot.collect_round_events().await;
         match result {
             Ok(state) => {
