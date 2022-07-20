@@ -1,3 +1,4 @@
+use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -13,18 +14,17 @@ use libp2p_networking::{
 };
 use parking_lot::Mutex;
 use std::{collections::VecDeque, sync::Arc};
-use structopt::StructOpt;
 use tracing::instrument;
 use tui::{backend::CrosstermBackend, Terminal};
 
 /// command line arguments
-#[derive(StructOpt)]
+#[derive(Parser, Debug)]
 struct CliOpt {
     /// Path to the node configuration file
-    #[structopt(long = "port", short = "p")]
+    #[clap(long = "port", short = 'p')]
     port: Option<u16>,
 
-    #[structopt()]
+    #[clap()]
     first_dial_addr: Option<Multiaddr>,
 }
 

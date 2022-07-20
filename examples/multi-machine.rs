@@ -1,3 +1,4 @@
+use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -21,7 +22,6 @@ use std::{
     path::Path,
     time::Duration,
 };
-use structopt::StructOpt;
 use toml::Value;
 use tracing::debug;
 
@@ -30,22 +30,22 @@ const TRANSACTION_COUNT: u64 = 10;
 type Node =
     DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, Parser)]
+#[clap(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
 struct NodeOpt {
     /// Path to the node configuration file
-    #[structopt(
+    #[clap(
         long = "config",
-        short = "c",
+        short = 'c',
         default_value = "../../../examples/node-config.toml"
     )]
     config: String,
 
     /// Id of the current node
-    #[structopt(long = "id", short = "i", default_value = "0")]
+    #[clap(long = "id", short = 'i', default_value = "0")]
     id: u64,
 }
 

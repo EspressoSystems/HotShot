@@ -1,3 +1,4 @@
+use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
@@ -11,7 +12,6 @@ use std::{
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
-use structopt::StructOpt;
 use tracing::{debug, error, instrument};
 
 use hotshot::{
@@ -27,17 +27,17 @@ use hotshot::{
 type Node =
     DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, Parser)]
+#[clap(
     name = "Double Entry Simulator",
     about = "Simulates consensus among a number of nodes"
 )]
 struct Opt {
     /// Number of nodes to run
-    #[structopt(short = "n", default_value = "7")]
+    #[structopt(short = 'n', default_value = "7")]
     nodes: usize,
     /// Number of transactions to simulate
-    #[structopt(short = "t", default_value = "10")]
+    #[structopt(short = 't', default_value = "10")]
     transactions: usize,
 }
 /// Prebaked list of transactions

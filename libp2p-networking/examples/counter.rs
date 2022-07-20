@@ -1,3 +1,4 @@
+use clap::Parser;
 use color_eyre::eyre::Result;
 
 pub mod common;
@@ -9,7 +10,6 @@ use common::{
 };
 
 use common::{start_main, CliOpt};
-use structopt::StructOpt;
 use tracing::instrument;
 
 #[async_std::main]

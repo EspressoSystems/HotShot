@@ -1,4 +1,5 @@
 use async_std::sync::RwLock;
+use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -24,7 +25,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use structopt::StructOpt;
 
 use tracing::{debug, error, info};
 
@@ -91,71 +91,71 @@ pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     ),
 ];
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[clap(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
 pub struct CliOpt {
     /// num nodes
-    #[structopt(long = "num_nodes")]
+    #[clap(long = "num_nodes", env)]
     pub num_nodes: usize,
 
     /// num bootstrap
-    #[structopt(long = "num_bootstrap")]
+    #[clap(long = "num_bootstrap", env)]
     pub num_bootstrap: usize,
 
     /// num transactions to be submitted per round
-    #[structopt(long = "num_txn_per_round")]
+    #[clap(long = "num_txn_per_round", env)]
     pub num_txn_per_round: usize,
 
     /// Id of the current node
-    #[structopt(long = "node_idx")]
+    #[clap(long = "node_idx", env)]
     pub node_idx: usize,
 
     /// how long to run for
-    #[structopt(long = "online_time", default_value = "60")]
+    #[clap(long = "online_time", default_value = "60", env)]
     pub online_time: u64,
 
     /// address to bind to
-    #[structopt(long = "bound_addr")]
-    #[structopt(parse(try_from_str = parse_ip))]
+    #[clap(long = "bound_addr", env)]
+    #[clap(parse(try_from_str = parse_ip))]
     pub bound_addr: Multiaddr,
 
     /// seed used to generate ids
-    #[structopt(long = "seed")]
+    #[clap(long = "seed", env)]
     pub seed: u64,
 
     /// bootstrap node mesh high
-    #[structopt(long = "bootstrap_mesh_n_high")]
+    #[clap(long = "bootstrap_mesh_n_high", env)]
     pub bootstrap_mesh_n_high: usize,
 
     /// bootstrap node mesh low
-    #[structopt(long = "bootstrap_mesh_n_low")]
+    #[clap(long = "bootstrap_mesh_n_low", env)]
     pub bootstrap_mesh_n_low: usize,
 
     /// bootstrap node outbound min
-    #[structopt(long = "bootstrap_mesh_outbound_min")]
+    #[clap(long = "bootstrap_mesh_outbound_min", env)]
     pub bootstrap_mesh_outbound_min: usize,
 
     /// bootstrap node mesh n
-    #[structopt(long = "bootstrap_mesh_n")]
+    #[clap(long = "bootstrap_mesh_n", env)]
     pub bootstrap_mesh_n: usize,
 
     /// bootstrap node mesh high
-    #[structopt(long = "mesh_n_high")]
+    #[clap(long = "mesh_n_high", env)]
     pub mesh_n_high: usize,
 
     /// bootstrap node mesh low
-    #[structopt(long = "mesh_n_low")]
+    #[clap(long = "mesh_n_low", env)]
     pub mesh_n_low: usize,
 
     /// bootstrap node outbound min
-    #[structopt(long = "mesh_outbound_min")]
+    #[clap(long = "mesh_outbound_min", env)]
     pub mesh_outbound_min: usize,
 
     /// bootstrap node mesh n
-    #[structopt(long = "mesh_n")]
+    #[clap(long = "mesh_n", env)]
     pub mesh_n: usize,
 }
 

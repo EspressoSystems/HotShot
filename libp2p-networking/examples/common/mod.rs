@@ -17,6 +17,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use clap::Parser;
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
@@ -29,7 +30,6 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
-use structopt::StructOpt;
 use tracing::{error, info, instrument, warn};
 
 #[cfg(feature = "webui")]
@@ -432,37 +432,37 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
 }
 
-#[derive(StructOpt)]
+#[derive(Parser, Debug)]
 pub struct CliOpt {
     /// list of bootstrap node addrs
-    #[structopt(long = "to_connect_addrs")]
-    #[structopt(parse(try_from_str = parse_node), use_delimiter = true)]
+    #[clap(long = "to_connect_addrs")]
+    #[clap(parse(try_from_str = parse_node), use_delimiter = true)]
     pub to_connect_addrs: Vec<Multiaddr>,
     /// total number of nodes
-    #[structopt(long = "num_nodes")]
+    #[clap(long = "num_nodes")]
     pub num_nodes: usize,
     /// the role this node plays
-    #[structopt(long = "node_type")]
+    #[clap(long = "node_type")]
     pub node_type: NetworkNodeType,
     /// internal interface to bind to
-    #[structopt(long = "bound_addr")]
-    #[structopt(parse(try_from_str = parse_node))]
+    #[clap(long = "bound_addr")]
+    #[clap(parse(try_from_str = parse_node))]
     pub bound_addr: Multiaddr,
     /// If this value is set, a webserver will be spawned on this address with debug info
-    #[structopt(long = "conductor_addr")]
-    #[structopt(parse(try_from_str = parse_node))]
+    #[clap(long = "conductor_addr")]
+    #[clap(parse(try_from_str = parse_node))]
     pub conductor_addr: Multiaddr,
 
     #[cfg(feature = "webui")]
-    #[structopt(long = "webui")]
+    #[clap(long = "webui")]
     pub webui_addr: Option<SocketAddr>,
     /// type of environment
     #[cfg(all(feature = "lossy_network", target_os = "linux"))]
-    #[structopt(long = "env")]
+    #[clap(long = "env")]
     pub env_type: ExecutionEnvironment,
 
     /// number of rounds of gossip
-    #[structopt(long = "num_gossip")]
+    #[clap(long = "num_gossip")]
     pub num_gossip: u32,
 }
 
