@@ -26,7 +26,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -299,7 +299,7 @@ async fn main() {
     let own_priv_key = Ed25519Pub::generate_test_key(own_id as u64);
     let own_pub_key = Ed25519Pub::from_private(&own_priv_key);
 
-    info!("Done with keygen");
+    error!("Done with keygen");
     let own_network = new_libp2p_network(
         own_pub_key,
         to_connect_addrs,
@@ -312,18 +312,18 @@ async fn main() {
     .await
     .unwrap();
 
-    info!("Done with network creation");
+    error!("Done with network creation");
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
         init_state_and_hotshot(num_nodes, threshold, own_id as u64, own_network).await;
 
-    info!("Finished init, starting hotshot!");
+    error!("Finished init, starting hotshot!");
     hotshot.start().await;
 
-    info!("waiting for connections to hotshot!");
+    error!("waiting for connections to hotshot!");
     hotshot.is_ready().await;
-    info!("We are ready!");
+    error!("We are ready!");
 
     let start_time = Instant::now();
 
@@ -338,7 +338,7 @@ async fn main() {
     let mut total_txns = 0;
 
     while start_time + online_time > Instant::now() {
-        info!("Beginning view {}", view);
+        error!("Beginning view {}", view);
         let num_submitted = {
             if own_id == (view % num_nodes) {
                 println!("Generating txn for view {}", view);
@@ -346,7 +346,7 @@ async fn main() {
 
                 for _ in 0..10 {
                     let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                    info!("Submitting txn on view {}", view);
+                    error!("Submitting txn on view {}", view);
                     hotshot.submit_transaction(txn).await.unwrap();
                 }
                 total_txns += 10;
@@ -355,21 +355,21 @@ async fn main() {
                 0
             }
         };
-        info!("Running the view {}", view);
+        error!("Running the view {}", view);
         hotshot.run_one_round().await;
-        info!("Collection for view {}", view);
+        error!("Collection for view {}", view);
         let result = hotshot.collect_round_events().await;
         match result {
             Ok(state) => {
                 total_successful_txns += num_submitted;
-                info!(
+                error!(
                     "View {:?}: successful with {:?}, and total successful txns {:?}",
                     view, state, total_successful_txns
                 );
             }
             Err(e) => {
                 num_failed_views += 1;
-                info!("View: {:?}, failed with : {:?}", view, e);
+                error!("View: {:?}, failed with : {:?}", view, e);
             }
         }
         view += 1;
