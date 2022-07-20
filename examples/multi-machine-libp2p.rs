@@ -157,6 +157,18 @@ pub struct CliOpt {
     /// bootstrap node mesh n
     #[clap(long = "mesh_n", env)]
     pub mesh_n: usize,
+
+    /// max round time
+    #[clap(long = "propose_max_round_time", env)]
+    pub propose_max_round_time: u64,
+
+    /// min round time
+    #[clap(long = "propose_min_round_time", env)]
+    pub propose_min_round_time: u64,
+
+    /// next view timeout
+    #[clap(long = "next_view_timeout", env)]
+    pub next_view_timeout: u64,
 }
 
 type Node = DEntryNode<
@@ -168,18 +180,21 @@ async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
+    config: &CliOpt,
     networking: Libp2pNetwork<
         Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
         Ed25519Pub,
     >,
 ) -> (State, HotShotHandle<Node, H_256>) {
     // Create the initial state
+    // NOTE: all balances must be positive
+    // so we avoid a negative balance
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000),
         ("John", 400_000),
         ("Nathan Y", 600_000),
-        ("Ian", 0),
+        ("Ian", 5_000_000),
     ]
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
@@ -202,12 +217,12 @@ async fn init_state_and_hotshot(
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
-        next_view_timeout: 1000,
+        next_view_timeout: config.next_view_timeout * 1000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
-        propose_min_round_time: Duration::from_millis(0),
-        propose_max_round_time: Duration::from_millis(1000),
+        propose_min_round_time: Duration::from_secs(config.propose_min_round_time),
+        propose_max_round_time: Duration::from_secs(config.propose_max_round_time),
         num_bootstrap: 7,
     };
     debug!(?config);
@@ -348,7 +363,7 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
-        init_state_and_hotshot(num_nodes, threshold, own_id as u64, own_network).await;
+        init_state_and_hotshot(num_nodes, threshold, own_id as u64, &args, own_network).await;
 
     error!("Finished init, starting hotshot!");
     hotshot.start().await;
