@@ -1,0 +1,33 @@
+name: Non-deterministic tests
+
+on:
+  schedule:
+  # Run every night at midnight
+    - cron: '0 0 * * *' 
+
+jobs: 
+  build-and-test:
+    runs-on: [self-hosted, X64]
+    container:
+      image: ghcr.io/espressosystems/devops-rust:1.62
+    timeout-minutes: 140
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout Repository
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+  
+      - uses: Swatinem/rust-cache@v1
+        name: Enable Rust Caching
+        with:
+          sharedKey: HotShot
+
+      - name: Test
+        run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --all-features --no-fail-fast -- --ignored
+        timeout-minutes: 120
+        env:
+          RUST_BACKTRACE: 1
+
