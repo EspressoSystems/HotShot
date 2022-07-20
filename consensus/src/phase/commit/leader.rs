@@ -2,9 +2,11 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use hotshot_types::{
     data::{QuorumCertificate, Stage},
+    error::HotShotError,
     message::{Commit, CommitVote, PreCommit, PreCommitVote, Vote},
-    traits::node_implementation::NodeImplementation,
+    traits::{node_implementation::NodeImplementation, signature_key::{EncodedPublicKey, EncodedSignature}},
 };
+use std::collections::BTreeMap;
 
 /// The leader
 #[derive(Debug)]
@@ -78,11 +80,23 @@ impl<const N: usize> CommitLeader<N> {
         votes: Vec<PreCommitVote<N>>,
     ) -> Result<Outcome<N>> {
         // Generate QC
-        let signatures = votes.iter().map(|x| x.signature.clone()).collect();
+        let leaf_hash = pre_commit.leaf_hash;
+        let current_view = ctx.view_number;
+
+        let verify_hash = ctx
+        .api
+        .create_verify_hash(&leaf_hash, Stage::PreCommit, current_view);
+        let signatures: BTreeMap<EncodedPublicKey, EncodedSignature> = votes.iter().map(|vote| vote.signature.clone()).collect();
+        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash);
+        if valid_signatures.len() < ctx.api.threshold().get() {
+            return Err(HotShotError::Misc {
+                context: "Incoming votes to leader do not contain quorum of valid signatures".to_string()
+            });
+        }
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signatures,
+            signatures: valid_signatures,
             genesis: false,
             ..pre_commit.qc
         };
