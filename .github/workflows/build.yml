@@ -64,7 +64,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate docker metadata
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v4
         id: multi-machine-libp2p
         with:
           images: ghcr.io/espressosystems/hotshot/multi-machine-libp2p
