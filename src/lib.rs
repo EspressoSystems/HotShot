@@ -881,6 +881,5 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             });
         }
         Ok(valid_signatures)
-
     }
 }
