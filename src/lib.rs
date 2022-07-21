@@ -879,8 +879,8 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
                 num_valid_signatures: valid_signatures.len(),
                 threshold: self.inner.config.threshold.get(),
             });
-        } else {
-            return Ok(valid_signatures);
         }
+        Ok(valid_signatures)
+
     }
 }
