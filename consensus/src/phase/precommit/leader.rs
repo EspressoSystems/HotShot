@@ -106,14 +106,8 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let verify_hash = ctx
             .api
             .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
-        let signatures = votes.iter().map(|vote| vote.signature.clone()).collect();
-        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash);
-        if valid_signatures.len() < ctx.api.threshold().get() {
-            return Err(HotShotError::Misc {
-                context: "Incoming votes to leader do not contain quorum of valid signatures"
-                    .to_string(),
-            });
-        }
+        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
+        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
 
         let qc = QuorumCertificate {
             block_hash,

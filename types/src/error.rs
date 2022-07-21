@@ -85,6 +85,14 @@ pub enum HotShotError {
         /// The state that the round was in when it timed out
         state: RoundTimedoutState,
     },
+    /// Not enough valid signatures for a quorum
+    #[snafu(display("Insufficient number of valid signatures: the threshold is {}, but only {} signatures were valid", threshold, num_valid_signatures))]
+    InsufficientValidSignatures {
+        /// Number of valid signatures
+        num_valid_signatures: usize,
+        /// Threshold of signatures needed for a quorum
+        threshold: usize,
+    },
     /// Miscelaneous error
     /// TODO fix this with
     /// #181 <https://github.com/EspressoSystems/HotShot/issues/181>

@@ -850,14 +850,17 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
-        valid_signatures.len() >= self.inner.config.threshold.get()
+        match valid_signatures {
+            Ok(_) => true,
+            Err(_e) => false,
+        }
     }
 
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
         hash: VerifyHash<32>,
-    ) -> BTreeMap<EncodedPublicKey, EncodedSignature> {
+    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
         let mut valid_signatures = BTreeMap::new();
 
         for (encoded_key, encoded_signature) in signatures {
@@ -871,6 +874,13 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
                 }
             }
         }
-        valid_signatures
+        if valid_signatures.len() < self.inner.config.threshold.get() {
+            return Err(HotShotError::InsufficientValidSignatures {
+                num_valid_signatures: valid_signatures.len(),
+                threshold: self.inner.config.threshold.get(),
+            });
+        } else {
+            return Ok(valid_signatures);
+        }
     }
 }

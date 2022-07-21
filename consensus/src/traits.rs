@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use hotshot_types::{
     data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
+    error::HotShotError,
     event::{Event, EventType},
     message::ConsensusMessage,
     traits::{
@@ -166,10 +167,10 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     /// Validate the signatures of a QC
     ///
-    /// Returns a BTreeMap of valid signatures for the QC; will return an empty tree if no signatures were valid
+    /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
         hash: VerifyHash<32>,
-    ) -> BTreeMap<EncodedPublicKey, EncodedSignature>;
+    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
 }
