@@ -3,7 +3,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, utils, ConsensusApi, Result, TransactionState};
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, Stage},
+    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
     error::HotShotError,
     message::{NewView, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, BlockContents, State},
@@ -103,7 +103,7 @@ impl<const N: usize> PrepareLeader<N> {
         ctx: &UpdateCtx<'_, I, A, N>,
         transactions: Vec<&'a mut TransactionState<I, N>>,
     ) -> Result<Outcome<'a, I, N>> {
-        let high_qc = match self.high_qc.clone() {
+        let mut high_qc = match self.high_qc.clone() {
             Some(high_qc) => high_qc,
             None => return utils::err("in propose_round: no high_qc set"),
         };
@@ -113,6 +113,25 @@ impl<const N: usize> PrepareLeader<N> {
         trace!(?state, ?leaf_hash);
         let mut block = state.next_block();
         let current_view = ctx.view_number;
+
+        let qc_stage = match high_qc.stage {
+            Stage::PreCommit => Stage::Prepare,
+            Stage::Commit => Stage::PreCommit,
+            Stage::Decide => Stage::Commit,
+            Stage::Prepare => Stage::Decide,
+            Stage::None => Stage::None,
+        };
+
+        let verify_hash = ctx
+            .api
+            .create_verify_hash(&leaf_hash, qc_stage, high_qc.view_number);
+
+        if !high_qc.genesis || high_qc.view_number != ViewNumber::genesis() {
+            let valid_signatures = ctx
+                .api
+                .get_valid_signatures(high_qc.signatures.clone(), verify_hash)?;
+            high_qc.signatures = valid_signatures;
+        }
 
         // try to append unclaimed transactions to the block
         let mut added_transactions = Vec::new();
