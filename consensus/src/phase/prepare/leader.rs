@@ -114,6 +114,7 @@ impl<const N: usize> PrepareLeader<N> {
         let mut block = state.next_block();
         let current_view = ctx.view_number;
 
+        // This is to accomodate for the off by one error where the replicas have signed the QC with the previous stage
         let qc_stage = match high_qc.stage {
             Stage::PreCommit => Stage::Prepare,
             Stage::Commit => Stage::PreCommit,
