@@ -59,7 +59,6 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .filter(|vote| vote.leaf_hash == new_leaf_hash)
             .cloned()
             .collect();
-
         if valid_votes.len() >= ctx.api.threshold().get() {
             let prepare = self.prepare.clone();
             let outcome = self.create_commit(ctx, prepare, valid_votes).await?;

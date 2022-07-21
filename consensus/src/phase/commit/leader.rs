@@ -2,9 +2,11 @@ use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use hotshot_types::{
     data::{QuorumCertificate, Stage},
+    error::HotShotError,
     message::{Commit, CommitVote, PreCommit, PreCommitVote, Vote},
-    traits::node_implementation::NodeImplementation,
+    traits::{node_implementation::NodeImplementation, signature_key::{EncodedPublicKey, EncodedSignature}},
 };
+use std::collections::BTreeMap;
 
 /// The leader
 #[derive(Debug)]
