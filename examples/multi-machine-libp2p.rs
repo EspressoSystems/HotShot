@@ -1,4 +1,5 @@
 use async_std::sync::RwLock;
+use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -24,7 +25,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use structopt::StructOpt;
 
 use tracing::{debug, error, info};
 
@@ -91,40 +91,84 @@ pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     ),
 ];
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[clap(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
 pub struct CliOpt {
     /// num nodes
-    #[structopt(long = "num_nodes")]
+    #[clap(long = "num_nodes", env)]
     pub num_nodes: usize,
 
     /// num bootstrap
-    #[structopt(long = "num_bootstrap")]
+    #[clap(long = "num_bootstrap", env)]
     pub num_bootstrap: usize,
 
     /// num transactions to be submitted per round
-    #[structopt(long = "num_txn_per_round")]
+    #[clap(long = "num_txn_per_round", env)]
     pub num_txn_per_round: usize,
 
     /// Id of the current node
-    #[structopt(long = "node_idx")]
+    #[clap(long = "node_idx", env)]
     pub node_idx: usize,
 
     /// how long to run for
-    #[structopt(long = "online_time", default_value = "60")]
+    #[clap(long = "online_time", default_value = "60", env)]
     pub online_time: u64,
 
     /// address to bind to
-    #[structopt(long = "bound_addr")]
-    #[structopt(parse(try_from_str = parse_ip))]
+    #[clap(long = "bound_addr", env)]
+    #[clap(parse(try_from_str = parse_ip))]
     pub bound_addr: Multiaddr,
 
     /// seed used to generate ids
-    #[structopt(long = "seed")]
+    #[clap(long = "seed", env)]
     pub seed: u64,
+
+    /// bootstrap node mesh high
+    #[clap(long = "bootstrap_mesh_n_high", env)]
+    pub bootstrap_mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[clap(long = "bootstrap_mesh_n_low", env)]
+    pub bootstrap_mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[clap(long = "bootstrap_mesh_outbound_min", env)]
+    pub bootstrap_mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[clap(long = "bootstrap_mesh_n", env)]
+    pub bootstrap_mesh_n: usize,
+
+    /// bootstrap node mesh high
+    #[clap(long = "mesh_n_high", env)]
+    pub mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[clap(long = "mesh_n_low", env)]
+    pub mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[clap(long = "mesh_outbound_min", env)]
+    pub mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[clap(long = "mesh_n", env)]
+    pub mesh_n: usize,
+
+    /// max round time
+    #[clap(long = "propose_max_round_time", env)]
+    pub propose_max_round_time: u64,
+
+    /// min round time
+    #[clap(long = "propose_min_round_time", env)]
+    pub propose_min_round_time: u64,
+
+    /// next view timeout
+    #[clap(long = "next_view_timeout", env)]
+    pub next_view_timeout: u64,
 }
 
 type Node = DEntryNode<
@@ -136,18 +180,21 @@ async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
+    config: &CliOpt,
     networking: Libp2pNetwork<
         Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
         Ed25519Pub,
     >,
 ) -> (State, HotShotHandle<Node, H_256>) {
     // Create the initial state
+    // NOTE: all balances must be positive
+    // so we avoid a negative balance
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000),
         ("John", 400_000),
         ("Nathan Y", 600_000),
-        ("Ian", 0),
+        ("Ian", 5_000_000),
     ]
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
@@ -170,12 +217,12 @@ async fn init_state_and_hotshot(
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
-        next_view_timeout: 1000,
+        next_view_timeout: config.next_view_timeout * 1000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
-        propose_min_round_time: Duration::from_millis(0),
-        propose_max_round_time: Duration::from_millis(1000),
+        propose_min_round_time: Duration::from_secs(config.propose_min_round_time),
+        propose_max_round_time: Duration::from_secs(config.propose_max_round_time),
         num_bootstrap: 7,
     };
     debug!(?config);
@@ -208,15 +255,15 @@ pub async fn new_libp2p_network(
     node_id: usize,
     node_type: NetworkNodeType,
     bound_addr: Multiaddr,
-    num_nodes: usize,
     identity: Option<Keypair>,
+    opts: &CliOpt,
 ) -> Result<
     Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
     NetworkError,
 > {
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
-    config_builder.replication_factor(NonZeroUsize::new(num_nodes - 2).unwrap());
+    config_builder.replication_factor(NonZeroUsize::new(opts.num_nodes - 2).unwrap());
     config_builder.to_connect_addrs(HashSet::new());
     config_builder.node_type(node_type);
     config_builder.bound_addr(Some(bound_addr));
@@ -229,16 +276,16 @@ pub async fn new_libp2p_network(
         // NOTE I'm arbitrarily choosing these.
         match node_type {
             NetworkNodeType::Bootstrap => MeshParams {
-                mesh_n_high: 50,
-                mesh_n_low: 10,
-                mesh_outbound_min: 5,
-                mesh_n: 15,
+                mesh_n_high: opts.bootstrap_mesh_n_high,
+                mesh_n_low: opts.bootstrap_mesh_n_low,
+                mesh_outbound_min: opts.bootstrap_mesh_outbound_min,
+                mesh_n: opts.bootstrap_mesh_n,
             },
             NetworkNodeType::Regular => MeshParams {
-                mesh_n_high: 15,
-                mesh_n_low: 8,
-                mesh_outbound_min: 4,
-                mesh_n: 12,
+                mesh_n_high: opts.mesh_n_high,
+                mesh_n_low: opts.mesh_n_low,
+                mesh_outbound_min: opts.mesh_outbound_min,
+                mesh_n: opts.mesh_n,
             },
             NetworkNodeType::Conductor => unreachable!(),
         };
@@ -284,7 +331,7 @@ async fn main() {
 
     let own_id = args.node_idx;
     let num_nodes = args.num_nodes;
-    let bound_addr = args.bound_addr;
+    let bound_addr = args.bound_addr.clone();
     let (node_type, own_identity) = if own_id < args.num_bootstrap {
         (
             NetworkNodeType::Bootstrap,
@@ -306,8 +353,8 @@ async fn main() {
         own_id as usize,
         node_type,
         bound_addr,
-        num_nodes,
         own_identity,
+        &args,
     )
     .await
     .unwrap();
@@ -316,7 +363,7 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
-        init_state_and_hotshot(num_nodes, threshold, own_id as u64, own_network).await;
+        init_state_and_hotshot(num_nodes, threshold, own_id as u64, &args, own_network).await;
 
     error!("Finished init, starting hotshot!");
     hotshot.start().await;
