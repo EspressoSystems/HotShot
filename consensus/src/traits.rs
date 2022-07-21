@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use hotshot_types::{
     data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
+    error::HotShotError,
     event::{Event, EventType},
     message::ConsensusMessage,
     traits::{
@@ -11,7 +12,7 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -163,4 +164,13 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
         self.validate_qc(qc, view_number, stage)
     }
+
+    /// Validate the signatures of a QC
+    ///
+    /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
+    fn get_valid_signatures(
+        &self,
+        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        hash: VerifyHash<32>,
+    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
 }

@@ -56,7 +56,7 @@ use hotshot_types::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::SignatureKey,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         stateful_handler::StatefulHandler,
     },
 };
@@ -849,20 +849,37 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             );
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
-        let mut total_valid_signatures = 0;
-        for (key, signature) in &qc.signatures {
-            if let Some(key) = I::SignatureKey::from_bytes(key) {
+        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
+        match valid_signatures {
+            Ok(_) => true,
+            Err(_e) => false,
+        }
+    }
+
+    fn get_valid_signatures(
+        &self,
+        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        hash: VerifyHash<32>,
+    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
+        let mut valid_signatures = BTreeMap::new();
+
+        for (encoded_key, encoded_signature) in signatures {
+            if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
                 let contains = self.inner.cluster_public_keys.contains(&key);
-                let validate = key.validate(signature, hash.as_ref());
-                if contains && validate {
-                    total_valid_signatures += 1;
+                let valid = key.validate(&encoded_signature, hash.as_ref());
+                if contains && valid {
+                    valid_signatures.insert(encoded_key, encoded_signature);
                 } else {
-                    warn!(?contains, ?validate, "Failed validity check");
+                    warn!(?contains, ?valid, "Signature failed validity check");
                 }
             }
         }
-        let valid = total_valid_signatures >= self.inner.config.threshold.get() as u64;
-        debug!(?total_valid_signatures, ?self.inner.config.threshold, ?valid, "Checking QC");
-        valid
+        if valid_signatures.len() < self.inner.config.threshold.get() {
+            return Err(HotShotError::InsufficientValidSignatures {
+                num_valid_signatures: valid_signatures.len(),
+                threshold: self.inner.config.threshold.get(),
+            });
+        }
+        Ok(valid_signatures)
     }
 }

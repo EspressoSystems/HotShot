@@ -78,11 +78,19 @@ impl<const N: usize> CommitLeader<N> {
         votes: Vec<PreCommitVote<N>>,
     ) -> Result<Outcome<N>> {
         // Generate QC
-        let signatures = votes.iter().map(|x| x.signature.clone()).collect();
+        let leaf_hash = pre_commit.leaf_hash;
+        let current_view = ctx.view_number;
+
+        let verify_hash = ctx
+            .api
+            .create_verify_hash(&leaf_hash, Stage::PreCommit, current_view);
+
+        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
+        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
 
         let qc = QuorumCertificate {
             stage: Stage::Commit,
-            signatures,
+            signatures: valid_signatures,
             genesis: false,
             ..pre_commit.qc
         };

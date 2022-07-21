@@ -1,12 +1,10 @@
-use std::collections::BTreeMap;
-
 use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use hotshot_types::{
     data::{QuorumCertificate, Stage},
     error::HotShotError,
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
-    traits::{node_implementation::NodeImplementation, signature_key::SignatureKey, BlockContents},
+    traits::{node_implementation::NodeImplementation, BlockContents},
 };
 use tracing::{debug, warn};
 
@@ -61,6 +59,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             .filter(|vote| vote.leaf_hash == new_leaf_hash)
             .cloned()
             .collect();
+
         if valid_votes.len() >= ctx.api.threshold().get() {
             let prepare = self.prepare.clone();
             let outcome = self.create_commit(ctx, prepare, valid_votes).await?;
@@ -81,7 +80,6 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         prepare: Prepare<I::Block, I::State, N>,
         votes: Vec<PrepareVote<N>>,
     ) -> Result<Outcome<N>> {
-        let mut signatures = BTreeMap::new();
         let block_hash = prepare.leaf.item.hash();
         let leaf_hash = prepare.leaf.hash();
         let current_view = ctx.view_number;
@@ -108,34 +106,15 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
         let verify_hash = ctx
             .api
             .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
-        for vote in votes {
-            let (encoded_pub_key, signature) = &vote.0.signature;
-            let pub_key = match <I::SignatureKey as SignatureKey>::from_bytes(encoded_pub_key) {
-                Some(pub_key) => pub_key,
-                None => {
-                    warn!(?vote, "Vote has an invalid public key, ignoring");
-                    continue;
-                }
-            };
-            if !pub_key.validate(signature, verify_hash.as_ref()) {
-                warn!(
-                    ?vote,
-                    ?prepare,
-                    "Vote is not valid for this prepare proposal, ignoring"
-                );
-                continue;
-            }
-
-            let (encoded_pub_key, signature) = vote.0.signature;
-            signatures.insert(encoded_pub_key, signature);
-        }
+        let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
+        let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
 
         let qc = QuorumCertificate {
             block_hash,
             leaf_hash,
             view_number: current_view,
             stage: Stage::PreCommit,
-            signatures,
+            signatures: valid_signatures,
             genesis: false,
         };
         debug!(?qc, "commit qc generated");
