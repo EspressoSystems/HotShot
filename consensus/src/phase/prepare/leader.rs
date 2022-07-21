@@ -114,6 +114,24 @@ impl<const N: usize> PrepareLeader<N> {
         let mut block = state.next_block();
         let current_view = ctx.view_number;
 
+        let verify_hash =
+            ctx.api
+                .create_verify_hash(&leaf_hash, high_qc.stage, high_qc.view_number);
+
+        if !high_qc.genesis {
+            let valid_signatures = ctx
+                .api
+                .get_valid_signatures(high_qc.signatures.clone(), verify_hash);
+            // Explicity matching valid_signatures for debugging purposes, in the future will just propogate the error upwards
+            match valid_signatures {
+                Ok(_v) => println!("VALID"),
+                Err(e) => {
+                    println!("NOT VALID"); 
+                    return Err(e); 
+                }
+            }
+        }
+
         // try to append unclaimed transactions to the block
         let mut added_transactions = Vec::new();
         let mut rejected_transactions = Vec::new();
