@@ -108,7 +108,8 @@
 <span id="103">103</span>
 <span id="104">104</span>
 <span id="105">105</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">color_eyre::eyre</span>::{<span class="prelude-ty">Result</span>, <span class="ident">WrapErr</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">color_eyre::eyre</span>::{<span class="prelude-ty">Result</span>, <span class="ident">WrapErr</span>};
 <span class="kw">use</span> <span class="ident">crossterm</span>::{
     <span class="ident">event</span>::{<span class="ident">DisableMouseCapture</span>, <span class="ident">EnableMouseCapture</span>},
     <span class="ident">execute</span>,
@@ -123,18 +124,17 @@
 };
 <span class="kw">use</span> <span class="ident">parking_lot::Mutex</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::VecDeque</span>, <span class="ident">sync::Arc</span>};
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 <span class="kw">use</span> <span class="ident">tui</span>::{<span class="ident">backend::CrosstermBackend</span>, <span class="ident">Terminal</span>};
 
 <span class="doccomment">/// command line arguments</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">CliOpt</span> {
     <span class="doccomment">/// Path to the node configuration file</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;port&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;p&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;port&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;p&#39;</span>)]</span>
     <span class="ident">port</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>()]</span>
+    <span class="attribute">#[<span class="ident">clap</span>()]</span>
     <span class="ident">first_dial_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span>,
 }
 

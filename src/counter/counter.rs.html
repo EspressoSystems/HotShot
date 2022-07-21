@@ -55,7 +55,8 @@
 <span id="50">50</span>
 <span id="51">51</span>
 <span id="52">52</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">color_eyre::eyre::Result</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">color_eyre::eyre::Result</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">common</span>;
 
@@ -66,7 +67,6 @@
 };
 
 <span class="kw">use</span> <span class="ident">common</span>::{<span class="ident">start_main</span>, <span class="ident">CliOpt</span>};
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 
 <span class="attribute">#[<span class="ident">async_std::main</span>]</span>

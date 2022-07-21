@@ -387,7 +387,8 @@
 <span id="382">382</span>
 <span id="383">383</span>
 <span id="384">384</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
     <span class="ident">SignatureKey</span>,
@@ -400,7 +401,6 @@
     <span class="ident">num::NonZeroUsize</span>,
     <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
-<span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">instrument</span>};
 
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
@@ -416,17 +416,17 @@
 <span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span>
     <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">Transaction</span>, <span class="ident">State</span>, <span class="ident">Ed25519Pub</span>, <span class="ident">H_256</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>)]</span>
-<span class="attribute">#[<span class="ident">structopt</span>(
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
+<span class="attribute">#[<span class="ident">clap</span>(
     <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Double Entry Simulator&quot;</span>,
     <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among a number of nodes&quot;</span>
 )]</span>
 <span class="kw">struct</span> <span class="ident">Opt</span> {
     <span class="doccomment">/// Number of nodes to run</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;n&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;7&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;n&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;7&quot;</span>)]</span>
     <span class="ident">nodes</span>: <span class="ident">usize</span>,
     <span class="doccomment">/// Number of transactions to simulate</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;t&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;10&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;t&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;10&quot;</span>)]</span>
     <span class="ident">transactions</span>: <span class="ident">usize</span>,
 }
 <span class="doccomment">/// Prebaked list of transactions</span>
