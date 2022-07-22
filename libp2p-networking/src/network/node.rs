@@ -248,7 +248,6 @@ impl NetworkNode {
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)
-                .max_negotiating_inbound_streams(3)
                 .dial_concurrency_factor(std::num::NonZeroU8::new(1).unwrap())
                 .build()
         };
