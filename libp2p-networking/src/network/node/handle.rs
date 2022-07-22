@@ -125,7 +125,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
             error!(
-                "WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}",
+                "WAITING TO CONNECT, connected to {:?} peers ON NODE {:?}",
                 num_connected, node_idx
             );
             error!("connected to {:?}", node.connected_pids().await);

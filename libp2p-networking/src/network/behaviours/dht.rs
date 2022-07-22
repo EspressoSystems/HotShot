@@ -109,7 +109,7 @@ impl DHTBehaviour {
             },
             random_walk: RandomWalk {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::default(),
+                backoff: ExponentialBackoff::new(2, Duration::from_secs(600)),
             },
             in_progress_get_closest_peers: HashMap::default(),
         }
