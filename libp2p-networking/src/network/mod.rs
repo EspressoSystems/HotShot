@@ -28,7 +28,7 @@ use libp2p::{
     dns,
     gossipsub::TopicHash,
     identity::Keypair,
-    mplex, noise,
+    noise,
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
@@ -184,14 +184,10 @@ pub async fn gen_transport(
         .into_authentic(&identity)
         .expect("Signing libp2p-noise static DH keypair failed.");
     let multiplexing_config = {
-        let mut mplex_config = mplex::MplexConfig::new();
-        mplex_config.set_max_buffer_behaviour(mplex::MaxBufferBehaviour::Block);
-        mplex_config.set_max_buffer_size(usize::MAX);
-
         let mut yamux_config = YamuxConfig::default();
         yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
 
-        upgrade::SelectUpgrade::new(yamux_config, mplex_config)
+        yamux_config
             .map_inbound(StreamMuxerBox::new)
             .map_outbound(StreamMuxerBox::new)
     };
@@ -205,7 +201,7 @@ pub async fn gen_transport(
         // with multiple substreams
         // https://docs.libp2p.io/concepts/stream-multiplexing/
         .multiplex(multiplexing_config)
-        .timeout(Duration::from_secs(2))
+        .timeout(Duration::from_secs(20))
         .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
         .boxed())
 }

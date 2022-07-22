@@ -64,9 +64,9 @@ impl ExponentialBackoff {
 impl Default for ExponentialBackoff {
     fn default() -> Self {
         Self {
-            reset_val: Duration::from_millis(200),
+            reset_val: Duration::from_millis(1000),
             backoff_factor: 2,
-            timeout: Duration::from_millis(200) * 2,
+            timeout: Duration::from_millis(1000) * 2,
             started: None,
         }
     }

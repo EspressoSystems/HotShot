@@ -105,11 +105,11 @@ impl DHTBehaviour {
             kadem,
             bootstrap_state: Bootstrap {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::new(2, Duration::from_millis(250)),
+                backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
             },
             random_walk: RandomWalk {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::default(),
+                backoff: ExponentialBackoff::new(2, Duration::from_secs(600)),
             },
             in_progress_get_closest_peers: HashMap::default(),
         }
@@ -362,9 +362,8 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 ..
             } => {
                 // if bootstrap is successful, restart.
-                info!("finished bootstrap for peer {:?}", self.peer_id);
+                error!("finished bootstrap for peer {:?}", self.peer_id);
                 self.bootstrap_state.state = State::Finished;
-                // self.bootstrap_state.backoff.start_next(true);
                 self.event_queue.push(DHTEvent::IsBootstrapped);
             }
             KademliaEvent::OutboundQueryCompleted {
@@ -383,6 +382,8 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                         }
                     }
                 }
+                self.bootstrap_state.state = State::NotStarted;
+                self.bootstrap_state.backoff.start_next(true);
             }
             KademliaEvent::RoutablePeer { peer, address: _ } => {
                 info!("on peer {:?} found routable peer {:?}", self.peer_id, peer);
@@ -483,7 +484,6 @@ impl NetworkBehaviour for DHTBehaviour {
             match self.kadem.bootstrap() {
                 Ok(_) => {
                     info!("started bootstrap for peer {:?}", self.peer_id);
-                    self.bootstrap_state.backoff.start_next(true);
                     self.bootstrap_state.state = State::Started;
                 }
                 Err(e) => {
@@ -491,7 +491,6 @@ impl NetworkBehaviour for DHTBehaviour {
                         "peer id {:?} FAILED TO START BOOTSTRAP {:?} adding peers {:?}",
                         self.peer_id, e, self.bootstrap_nodes
                     );
-                    self.bootstrap_state.backoff.start_next(true);
                     for (peer, addrs) in self.bootstrap_nodes.clone() {
                         for addr in addrs {
                             self.kadem.add_address(&peer, addr);

@@ -26,10 +26,10 @@ async fn libp2p_network() {
         timeout_ratio: (11, 10),
         total_nodes: 10,
         start_nodes: 10,
-        num_succeeds: 5,
+        num_succeeds: 20,
         txn_ids: Right(1),
-        next_view_timeout: 5000,
-        start_delay: 30000,
+        next_view_timeout: 10000,
+        start_delay: 120000,
         ..GeneralTestDescriptionBuilder::default()
     };
 

@@ -12,7 +12,6 @@ use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::DashSet;
 use flume::Sender;
-use futures::future::join_all;
 use hotshot_types::traits::{
     network::{
         FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
@@ -292,6 +291,7 @@ impl<
         let num_bootstrap = self.inner.bootstrap_addrs_len;
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
+        let node_type = self.inner.handle.config().node_type;
         spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
@@ -308,14 +308,14 @@ impl<
                         bs_addrs.len(),
                         num_bootstrap
                     );
-                    // TODO why does a sleep here not wake up?
                 };
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
-                let timeout_duration = Duration::from_secs(20);
+                // 10 minute timeout
+                let timeout_duration = Duration::from_secs(600);
                 // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
-                let connected = NetworkNodeHandle::wait_to_connect(
+                error!("WAITING TO CONNECT ON NODE {:?}", id);
+                NetworkNodeHandle::wait_to_connect(
                     handle.clone(),
                     // this is a safe lower bet on the number of nodes in the network.
                     4,
@@ -323,16 +323,26 @@ impl<
                     id,
                 )
                 .timeout(timeout_duration)
-                .await;
+                .await
+                .unwrap()
+                .unwrap();
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
-                info!("peer {:?} waiting for bootstrap", handle.peer_id());
+                error!(
+                    "peer {:?} waiting for bootstrap, type: {:?}",
+                    handle.peer_id(),
+                    node_type
+                );
 
                 while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
                     sleep(Duration::from_secs(1)).await;
                 }
 
-                info!("peer {:?} waiting for publishing", handle.peer_id());
+                error!(
+                    "peer {:?} waiting for publishing, type: {:?}",
+                    handle.peer_id(),
+                    node_type
+                );
 
                 // we want our records published before
                 // we begin participating in consensus
@@ -340,21 +350,27 @@ impl<
                     sleep(Duration::from_secs(1)).await;
                 }
 
-                info!("PUBLISHED RECORD 1");
+                error!(
+                    "Node {:?} is ready, type: {:?}",
+                    handle.peer_id(),
+                    node_type
+                );
 
                 while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
                     sleep(Duration::from_secs(1)).await;
                 }
 
-                info!("connected status is {:?}", connected);
-                info!("node {:?} is ready", handle.peer_id());
+                error!(
+                    "node {:?} is barring bootstrap, type: {:?}",
+                    handle.peer_id(),
+                    node_type
+                );
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
-                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
+                error!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });
-        self.spawn_pk_gather();
     }
 
     /// make network aware of known peers
@@ -419,58 +435,6 @@ impl<
             }
             error!("Network receiever shut down!");
             Ok::<(), NetworkError>(())
-        });
-    }
-
-    /// Task to periodically look at other public keys
-    /// just to have knowledge of who exists
-    fn spawn_pk_gather(&self) {
-        let handle = self.clone();
-        spawn(async move {
-            // time to sleep between getting metadata info
-            // should probably implement some sort of implicit message passing to figure out how
-            // many nodes in the network so we can do this on-demand
-            let timeout_get_dur = Duration::new(2, 0);
-            let sleep_dur = Duration::new(0, 25);
-            while !handle.inner.handle.is_killed().await {
-                let known_nodes = handle
-                    .inner
-                    .pubkey_pid_map
-                    .read()
-                    .await
-                    .right_values()
-                    .copied()
-                    .collect::<HashSet<_>>();
-                let libp2p_known_nodes = handle.inner.handle.connected_pids().await.unwrap();
-                let unknown_nodes = libp2p_known_nodes
-                    .difference(&known_nodes)
-                    .collect::<Vec<_>>();
-
-                let mut futs = vec![];
-                for pid in &unknown_nodes {
-                    let fut = handle.inner.handle.get_record_timeout(pid, timeout_get_dur);
-                    futs.push(fut);
-                }
-
-                let results: Vec<Result<P, _>> = join_all(futs).await;
-
-                for (idx, maybe_pk) in results.into_iter().enumerate() {
-                    match maybe_pk {
-                        Ok(pk) => {
-                            warn!("found pk for peer id {:?}", unknown_nodes[idx]);
-                            let mut pubkey_pid_map = handle.inner.pubkey_pid_map.write().await;
-                            pubkey_pid_map.insert(pk.clone(), *unknown_nodes[idx]);
-                            drop(pubkey_pid_map);
-                        }
-                        Err(_e) => {
-                            // hopefully we'll eventually find the key. Try again
-                        }
-                    }
-                }
-
-                // sleep then repeat
-                sleep(sleep_dur).await;
-            }
         });
     }
 }

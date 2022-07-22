@@ -22,9 +22,9 @@ use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
 };
-use async_std::task::{sleep, spawn};
+use async_std::task::spawn;
 use flume::{unbounded, Receiver, Sender};
-use futures::{select, FutureExt, StreamExt};
+use futures::{select, StreamExt};
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -44,10 +44,16 @@ use std::{
     collections::{HashMap, HashSet},
     io::Error,
     iter,
-    num::NonZeroUsize,
+    num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+
+/// Wrapped num of connections
+pub const ESTABLISHED_LIMIT: NonZeroU32 =
+    unsafe { NonZeroU32::new_unchecked(ESTABLISHED_LIMIT_UNWR) };
+/// Number of connections to a single peer before logging an error
+pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
 #[derive(custom_debug::Debug)]
@@ -185,7 +191,6 @@ impl NetworkNode {
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
                 .history_gossip(50)
-                .idle_timeout(Duration::from_secs(5))
                 .mesh_n_high(params.mesh_n_high)
                 .mesh_n_low(params.mesh_n_low)
                 .mesh_outbound_min(params.mesh_outbound_min)
@@ -218,6 +223,9 @@ impl NetworkNode {
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
+            // FIXME do we need this?
+            // <https://github.com/EspressoSystems/HotShot/issues/344>
+            kconfig.set_parallelism(NonZeroUsize::new(1).unwrap());
 
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
@@ -240,10 +248,7 @@ impl NetworkNode {
                 HashSet::default(),
             );
             SwarmBuilder::new(transport, network, peer_id)
-                .max_negotiating_inbound_streams(20)
-                .dial_concurrency_factor(std::num::NonZeroU8::new(2).unwrap())
-                // .connection_event_buffer_size(1)
-                // .notify_handler_buffer_size(NonZeroUsize::new(1).unwrap())
+                .dial_concurrency_factor(std::num::NonZeroU8::new(1).unwrap())
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {
@@ -394,7 +399,14 @@ impl NetworkNode {
                 num_established,
                 concurrent_dial_errors,
             } => {
-                info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                if num_established > ESTABLISHED_LIMIT {
+                    error!(
+                        "Num concurrent connections to a single peer exceeding {:?} at {:?}!",
+                        ESTABLISHED_LIMIT, num_established
+                    );
+                } else {
+                    info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                }
             }
             ConnectionClosed {
                 peer_id,
@@ -402,7 +414,14 @@ impl NetworkNode {
                 num_established,
                 cause,
             } => {
-                info!("peerid {:?} connection is closed to {:?} with endpoint {:?} with cause {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, cause, num_established);
+                if num_established > ESTABLISHED_LIMIT_UNWR {
+                    error!(
+                        "Num concurrent connections to a single peer exceeding {:?} at {:?}!",
+                        ESTABLISHED_LIMIT, num_established
+                    );
+                } else {
+                    info!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
+                }
             }
             Dialing(p) => {
                 info!("{:?} is dialing {:?}", self.peer_id, p);
@@ -466,29 +485,11 @@ impl NetworkNode {
     ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
-        let mut time_since_print_num_connections = Duration::ZERO;
-
-        let print_num_connections_thres = Duration::from_secs(10);
-
-        let lowest_increment = Duration::from_millis(5);
 
         spawn(
             async move {
                 loop {
                     select! {
-                        // TODO move this out of th eevent loop and into the handle_client_requests
-                        // event loop?
-                        // <https://github.com/EspressoSystems/hotshot/issues/291>
-                        _ = sleep(lowest_increment).fuse() => {
-                            time_since_print_num_connections += lowest_increment;
-                            if time_since_print_num_connections > print_num_connections_thres {
-                                info!("peer id {:?} state is {:?} expired {:?} overall state {:?}", self.swarm.behaviour().dht.peer_id, self.swarm.behaviour().dht.bootstrap_state.state, self.swarm.behaviour().dht.bootstrap_state.backoff.is_expired(), self.swarm.behaviour().dht.bootstrap_state);
-                                let peers = self.swarm.connected_peers().collect::<Vec<_>>();
-                                info!("num connections is len {} for peer {:?}, which are {:?}", peers.len(), self.peer_id.clone(), peers);
-                                info!("connection info is: {:?} for peer {:?}", self.swarm.network_info(), self.peer_id.clone());
-                                time_since_print_num_connections = Duration::from_secs(0);
-                            }
-                        },
                         event = self.swarm.next() => {
                             if let Some(event) = event {
                                 info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
