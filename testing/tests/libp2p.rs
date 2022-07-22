@@ -28,8 +28,8 @@ async fn libp2p_network() {
         start_nodes: 20,
         num_succeeds: 20,
         txn_ids: Right(1),
-        next_view_timeout: 5000,
-        start_delay: 30000,
+        next_view_timeout: 10000,
+        start_delay: 120000,
         ..GeneralTestDescriptionBuilder::default()
     };
 
