@@ -520,6 +520,7 @@
 <span id="515">515</span>
 <span id="516">516</span>
 <span id="517">517</span>
+<span id="518">518</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -544,9 +545,9 @@
     <span class="ident">error</span>::{<span class="ident">GossipsubBuildSnafu</span>, <span class="ident">GossipsubConfigSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">TransportSnafu</span>},
     <span class="ident">gen_transport</span>, <span class="ident">ClientRequest</span>, <span class="ident">NetworkDef</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNodeType</span>,
 };
-<span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">sleep</span>, <span class="ident">spawn</span>};
+<span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">unbounded</span>, <span class="ident">Receiver</span>, <span class="ident">Sender</span>};
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">StreamExt</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">core</span>::{<span class="ident">either::EitherError</span>, <span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>},
     <span class="ident">gossipsub</span>::{
@@ -566,10 +567,16 @@
     <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
     <span class="ident">io::Error</span>,
     <span class="ident">iter</span>,
-    <span class="ident">num::NonZeroUsize</span>,
+    <span class="ident">num</span>::{<span class="ident">NonZeroU32</span>, <span class="ident">NonZeroUsize</span>},
     <span class="ident">time::Duration</span>,
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
+
+<span class="doccomment">/// Wrapped num of connections</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ESTABLISHED_LIMIT</span>: <span class="ident">NonZeroU32</span> <span class="op">=</span>
+    <span class="kw">unsafe</span> { <span class="ident">NonZeroU32::new_unchecked</span>(<span class="ident">ESTABLISHED_LIMIT_UNWR</span>) };
+<span class="doccomment">/// Number of connections to a single peer before logging an error</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ESTABLISHED_LIMIT_UNWR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">10</span>;
 
 <span class="doccomment">/// Network definition</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">custom_debug::Debug</span>)]</span>
@@ -707,7 +714,6 @@
                 <span class="comment">// Force all messages to have valid signatures</span>
                 .<span class="ident">validation_mode</span>(<span class="ident">ValidationMode::Strict</span>)
                 .<span class="ident">history_gossip</span>(<span class="number">50</span>)
-                .<span class="ident">idle_timeout</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>))
                 .<span class="ident">mesh_n_high</span>(<span class="ident">params</span>.<span class="ident">mesh_n_high</span>)
                 .<span class="ident">mesh_n_low</span>(<span class="ident">params</span>.<span class="ident">mesh_n_low</span>)
                 .<span class="ident">mesh_outbound_min</span>(<span class="ident">params</span>.<span class="ident">mesh_outbound_min</span>)
@@ -740,6 +746,9 @@
 
             <span class="comment">// - Build DHT needed for peer discovery</span>
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">kconfig</span> <span class="op">=</span> <span class="ident">KademliaConfig::default</span>();
+            <span class="comment">// FIXME do we need this?</span>
+            <span class="comment">// &lt;https://github.com/EspressoSystems/HotShot/issues/344&gt;</span>
+            <span class="ident">kconfig</span>.<span class="ident">set_parallelism</span>(<span class="ident">NonZeroUsize::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>());
 
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">factor</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">replication_factor</span> {
                 <span class="ident">kconfig</span>.<span class="ident">set_replication_factor</span>(<span class="ident">factor</span>);
@@ -762,10 +771,7 @@
                 <span class="ident">HashSet::default</span>(),
             );
             <span class="ident">SwarmBuilder::new</span>(<span class="ident">transport</span>, <span class="ident">network</span>, <span class="ident">peer_id</span>)
-                .<span class="ident">max_negotiating_inbound_streams</span>(<span class="number">20</span>)
-                .<span class="ident">dial_concurrency_factor</span>(<span class="ident">std::num::NonZeroU8::new</span>(<span class="number">2</span>).<span class="ident">unwrap</span>())
-                <span class="comment">// .connection_event_buffer_size(1)</span>
-                <span class="comment">// .notify_handler_buffer_size(NonZeroUsize::new(1).unwrap())</span>
+                .<span class="ident">dial_concurrency_factor</span>(<span class="ident">std::num::NonZeroU8::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>())
                 .<span class="ident">build</span>()
         };
         <span class="kw">for</span> (<span class="ident">peer</span>, <span class="ident">addr</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">to_connect_addrs</span> {
@@ -916,7 +922,14 @@
                 <span class="ident">num_established</span>,
                 <span class="ident">concurrent_dial_errors</span>,
             } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">concurrent_dial_errors</span>, <span class="ident">num_established</span>);
+                <span class="kw">if</span> <span class="ident">num_established</span> <span class="op">&gt;</span> <span class="ident">ESTABLISHED_LIMIT</span> {
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Num concurrent connections to a single peer exceeding {:?} at {:?}!&quot;</span>,
+                        <span class="ident">ESTABLISHED_LIMIT</span>, <span class="ident">num_established</span>
+                    );
+                } <span class="kw">else</span> {
+                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">concurrent_dial_errors</span>, <span class="ident">num_established</span>);
+                }
             }
             <span class="ident">ConnectionClosed</span> {
                 <span class="ident">peer_id</span>,
@@ -924,7 +937,14 @@
                 <span class="ident">num_established</span>,
                 <span class="ident">cause</span>,
             } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?} with cause {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">cause</span>, <span class="ident">num_established</span>);
+                <span class="kw">if</span> <span class="ident">num_established</span> <span class="op">&gt;</span> <span class="ident">ESTABLISHED_LIMIT_UNWR</span> {
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Num concurrent connections to a single peer exceeding {:?} at {:?}!&quot;</span>,
+                        <span class="ident">ESTABLISHED_LIMIT</span>, <span class="ident">num_established</span>
+                    );
+                } <span class="kw">else</span> {
+                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">num_established</span>, <span class="ident">cause</span>);
+                }
             }
             <span class="ident">Dialing</span>(<span class="ident">p</span>) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">p</span>);
@@ -988,29 +1008,11 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>, <span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">s_input</span>, <span class="ident">s_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>();
         <span class="kw">let</span> (<span class="ident">r_input</span>, <span class="ident">r_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">time_since_print_num_connections</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
-
-        <span class="kw">let</span> <span class="ident">print_num_connections_thres</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
-
-        <span class="kw">let</span> <span class="ident">lowest_increment</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="number">5</span>);
 
         <span class="ident">spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="kw">loop</span> {
                     <span class="macro">select!</span> {
-                        <span class="comment">// TODO move this out of th eevent loop and into the handle_client_requests</span>
-                        <span class="comment">// event loop?</span>
-                        <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/291&gt;</span>
-                        <span class="kw">_</span> <span class="op">=</span> <span class="ident">sleep</span>(<span class="ident">lowest_increment</span>).<span class="ident">fuse</span>() =&gt; {
-                            <span class="ident">time_since_print_num_connections</span> <span class="op">+</span><span class="op">=</span> <span class="ident">lowest_increment</span>;
-                            <span class="kw">if</span> <span class="ident">time_since_print_num_connections</span> <span class="op">&gt;</span> <span class="ident">print_num_connections_thres</span> {
-                                <span class="macro">info!</span>(<span class="string">&quot;peer id {:?} state is {:?} expired {:?} overall state {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">dht</span>.<span class="ident">peer_id</span>, <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">dht</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span>, <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">dht</span>.<span class="ident">bootstrap_state</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>(), <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour</span>().<span class="ident">dht</span>.<span class="ident">bootstrap_state</span>);
-                                <span class="kw">let</span> <span class="ident">peers</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">connected_peers</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-                                <span class="macro">info!</span>(<span class="string">&quot;num connections is len {} for peer {:?}, which are {:?}&quot;</span>, <span class="ident">peers</span>.<span class="ident">len</span>(), <span class="self">self</span>.<span class="ident">peer_id</span>.<span class="ident">clone</span>(), <span class="ident">peers</span>);
-                                <span class="macro">info!</span>(<span class="string">&quot;connection info is: {:?} for peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">network_info</span>(), <span class="self">self</span>.<span class="ident">peer_id</span>.<span class="ident">clone</span>());
-                                <span class="ident">time_since_print_num_connections</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">0</span>);
-                            }
-                        },
                         <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">next</span>() =&gt; {
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">event</span> {
                                 <span class="macro">info!</span>(<span class="string">&quot;peerid {:?}\t\thandling event {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">event</span>);

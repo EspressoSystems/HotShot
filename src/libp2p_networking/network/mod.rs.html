@@ -275,10 +275,6 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -309,7 +305,7 @@
     <span class="ident">dns</span>,
     <span class="ident">gossipsub::TopicHash</span>,
     <span class="ident">identity::Keypair</span>,
-    <span class="ident">mplex</span>, <span class="ident">noise</span>,
+    <span class="ident">noise</span>,
     <span class="ident">request_response::ResponseChannel</span>,
     <span class="ident">tcp</span>,
     <span class="ident">yamux</span>::{<span class="ident">WindowUpdateMode</span>, <span class="ident">YamuxConfig</span>},
@@ -465,14 +461,10 @@
         .<span class="ident">into_authentic</span>(<span class="kw-2">&amp;</span><span class="ident">identity</span>)
         .<span class="ident">expect</span>(<span class="string">&quot;Signing libp2p-noise static DH keypair failed.&quot;</span>);
     <span class="kw">let</span> <span class="ident">multiplexing_config</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mplex_config</span> <span class="op">=</span> <span class="ident">mplex::MplexConfig::new</span>();
-        <span class="ident">mplex_config</span>.<span class="ident">set_max_buffer_behaviour</span>(<span class="ident">mplex::MaxBufferBehaviour::Block</span>);
-        <span class="ident">mplex_config</span>.<span class="ident">set_max_buffer_size</span>(<span class="ident">usize::MAX</span>);
-
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">yamux_config</span> <span class="op">=</span> <span class="ident">YamuxConfig::default</span>();
         <span class="ident">yamux_config</span>.<span class="ident">set_window_update_mode</span>(<span class="ident">WindowUpdateMode::on_read</span>());
 
-        <span class="ident">upgrade::SelectUpgrade::new</span>(<span class="ident">yamux_config</span>, <span class="ident">mplex_config</span>)
+        <span class="ident">yamux_config</span>
             .<span class="ident">map_inbound</span>(<span class="ident">StreamMuxerBox::new</span>)
             .<span class="ident">map_outbound</span>(<span class="ident">StreamMuxerBox::new</span>)
     };
@@ -486,7 +478,7 @@
         <span class="comment">// with multiple substreams</span>
         <span class="comment">// https://docs.libp2p.io/concepts/stream-multiplexing/</span>
         .<span class="ident">multiplex</span>(<span class="ident">multiplexing_config</span>)
-        .<span class="ident">timeout</span>(<span class="ident">Duration::from_secs</span>(<span class="number">2</span>))
+        .<span class="ident">timeout</span>(<span class="ident">Duration::from_secs</span>(<span class="number">20</span>))
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="ident">err</span>))
         .<span class="ident">boxed</span>())
 }

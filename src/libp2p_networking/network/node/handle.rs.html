@@ -733,7 +733,7 @@
             <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
             <span class="kw">let</span> <span class="ident">num_connected</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">num_connected</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
             <span class="macro">error!</span>(
-                <span class="string">&quot;WAITING TO CONNECT, conencted to {:?} peers ON NODE {:?}&quot;</span>,
+                <span class="string">&quot;WAITING TO CONNECT, connected to {:?} peers ON NODE {:?}&quot;</span>,
                 <span class="ident">num_connected</span>, <span class="ident">node_idx</span>
             );
             <span class="macro">error!</span>(<span class="string">&quot;connected to {:?}&quot;</span>, <span class="ident">node</span>.<span class="ident">connected_pids</span>().<span class="kw">await</span>);

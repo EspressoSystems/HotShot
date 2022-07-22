@@ -142,9 +142,9 @@
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ExponentialBackoff</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">reset_val</span>: <span class="ident">Duration::from_millis</span>(<span class="number">200</span>),
+            <span class="ident">reset_val</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
             <span class="ident">backoff_factor</span>: <span class="number">2</span>,
-            <span class="ident">timeout</span>: <span class="ident">Duration::from_millis</span>(<span class="number">200</span>) <span class="op">*</span> <span class="number">2</span>,
+            <span class="ident">timeout</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>) <span class="op">*</span> <span class="number">2</span>,
             <span class="ident">started</span>: <span class="prelude-val">None</span>,
         }
     }
