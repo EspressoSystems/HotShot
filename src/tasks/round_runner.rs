@@ -276,7 +276,7 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 }
 
 /// The internal state of the [`round_runner_task`].
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RoundRunnerState {
     /// The view number of the next `QuorumCertificate`
     pub view: ViewNumber,

@@ -113,7 +113,7 @@ pub trait TestableStorage<
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct StorageState<B, S, const N: usize> {
     /// A list of all the blocks in the storage, sorted by [`BlockHash`].
     pub blocks: Vec<B>,

@@ -15,7 +15,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod phase;
 mod traits;

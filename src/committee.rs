@@ -9,9 +9,10 @@ use hotshot_types::{
 };
 use rand::Rng;
 use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
-use std::collections::BTreeMap;
-use std::collections::HashSet;
-use std::marker::PhantomData;
+use std::{
+    collections::{BTreeMap, HashSet},
+    marker::PhantomData,
+};
 
 /// Determines whether the hash of a seeded VRF should be selected.
 ///

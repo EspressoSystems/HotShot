@@ -16,20 +16,24 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
+  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix, rust-overlay }:
     utils.lib.eachDefaultSystem (system:
       let
-        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
+        rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17";
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
 
         rustOverlay = final: prev:
           {
-            rustc = fenixStable;
-            cargo = fenixStable;
-            rust-src = fenixStable;
+            rustc = rustNightly;
+            cargo = rustNightly;
+            rust-src = rustNightly;
           };
 
         pkgs = import nixpkgs {
@@ -111,7 +115,6 @@
           zlib.dev
           zlib.out
           fenix.packages.${system}.rust-analyzer
-
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
 
         # hotstuff spec docs build dependencies
@@ -160,7 +163,7 @@
         };
         devShell = pkgs.mkShell {
           buildInputs =
-            with pkgs; [ fenixStable ] ++ buildDeps;
+            with pkgs; [ rustNightly ] ++ buildDeps;
         };
 
 
@@ -195,14 +198,14 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
+             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov rustNightly ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
             buildInputs =
-              with pkgs; [ fenixStable lldb ] ++ buildDeps;
+              with pkgs; [ rustNightly lldb ] ++ buildDeps;
           };
 
         };

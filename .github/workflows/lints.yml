@@ -13,6 +13,8 @@ on:
 jobs:
   lints:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/espressosystems/devops-rust:nightly
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v3

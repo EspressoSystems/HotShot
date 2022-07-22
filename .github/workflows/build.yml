@@ -27,6 +27,9 @@ jobs:
         with:
           sharedKey: HotShot
 
+      - name: Install the right toolchain
+        run: rustup install nightly-2022-07-15
+
       - name: Audit
         run: cargo audit --deny warnings
 
@@ -34,7 +37,7 @@ jobs:
         run: cargo check
 
       - name: Build all crates in workspace
-        run: cargo build --verbose --workspace --all-targets --all-features --release
+        run: cargo +nightly-2022-07-15 build --verbose --workspace --all-targets --all-features --release
 
       - name: Unit and integration tests for all crates in workspace
         run: |

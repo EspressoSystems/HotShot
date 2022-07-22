@@ -1,5 +1,4 @@
-use super::Ed25519Priv;
-use super::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
+use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
 use ed25519_compact::{Noise, PublicKey, Signature};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};

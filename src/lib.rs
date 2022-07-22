@@ -11,7 +11,8 @@
     clippy::must_use_candidate,
     clippy::module_name_repetitions,
     clippy::similar_names,
-    clippy::unused_self
+    clippy::unused_self,
+    clippy::unused_async, // For API reasons
 )]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
