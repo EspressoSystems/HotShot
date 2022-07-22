@@ -559,6 +559,7 @@
 <span id="554">554</span>
 <span id="555">555</span>
 <span id="556">556</span>
+<span id="557">557</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">data::StateHash</span>, <span class="ident">H_256</span>};
 <span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
@@ -570,9 +571,10 @@
 };
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
 <span class="kw">use</span> <span class="ident">rand_chacha</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">ChaChaRng</span>};
-<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
-<span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashSet</span>},
+    <span class="ident">marker::PhantomData</span>,
+};
 
 <span class="doccomment">/// Determines whether the hash of a seeded VRF should be selected.</span>
 <span class="doccomment">///</span>
