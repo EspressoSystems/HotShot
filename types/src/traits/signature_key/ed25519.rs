@@ -6,8 +6,7 @@ mod ed25519_priv;
 /// `Ed25519Pub` implementation
 mod ed25519_pub;
 
-pub use self::ed25519_priv::Ed25519Priv;
-pub use self::ed25519_pub::Ed25519Pub;
+pub use self::{ed25519_priv::Ed25519Priv, ed25519_pub::Ed25519Pub};
 
 #[cfg(test)]
 mod tests {

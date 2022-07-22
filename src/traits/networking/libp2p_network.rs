@@ -29,8 +29,13 @@ use libp2p_networking::network::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
-use std::{collections::HashSet, num::NonZeroUsize, str::FromStr, sync::atomic::AtomicBool};
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 use tracing::{error, info, instrument, warn};
 
 use crate::utils::ReceiverExt;

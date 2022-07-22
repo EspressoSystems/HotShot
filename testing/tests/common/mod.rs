@@ -19,8 +19,7 @@ use hotshot_types::traits::{
     state::TestableState, storage::TestableStorage,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 use tracing::info;
 use Either::{Left, Right};
 

@@ -53,7 +53,7 @@ use std::{
 
 use super::NetworkingImplementation;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 /// Inter-node protocol level message types
 pub enum Command<T, P> {
     /// A message that was broadcast to all nodes
@@ -568,6 +568,7 @@ impl<
     ///
     /// Will error if an underlying network error occurs
     #[instrument(level = "trace", name = "WNetwork::send_raw_message", err, skip(self))]
+    #[allow(dead_code)]
     async fn send_raw_message(&self, node: &P, message: Command<T, P>) -> Result<(), NetworkError> {
         let handle = &self.inner.handles.get(node);
         if let Some(handle) = handle {
