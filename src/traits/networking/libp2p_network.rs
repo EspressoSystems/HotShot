@@ -303,7 +303,6 @@ impl<
                         bs_addrs.len(),
                         num_bootstrap
                     );
-                    sleep(Duration::from_secs(1)).await;
                 };
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
