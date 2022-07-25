@@ -200,6 +200,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
+    #[allow(clippy::explicit_auto_deref)] // False positive, that reborrow actually does something
     pub async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: &impl Serialize,
