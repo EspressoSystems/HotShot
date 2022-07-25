@@ -12,7 +12,7 @@ default = ["demo"]
 demo = ["ed25519-compact"]
 
 [dependencies]
-async-std = "1.11.0"
+async-std = "1.12.0"
 async-trait = "0.1.56"
 async-tungstenite = "0.17.2"
 atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
