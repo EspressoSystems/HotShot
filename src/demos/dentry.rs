@@ -435,7 +435,9 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
         let output_account = state.balances.keys().choose(&mut rng).unwrap();
         let balance = state.balances[input_account];
         if balance != 0 {
-            let amount = rng.gen_range(0..state.balances[input_account]);
+            // SMALL transaction amount to prevent accidentally
+            // creating a negative balance
+            let amount = rng.gen_range(0..100);
             break (input_account, output_account, amount);
         }
         attempts += 1;
