@@ -11,7 +11,7 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 hotshot = { path = "../" }
 hotshot-types = { path = "../types" }
 hotshot-utils = { path = "../utils", features = ["logging-utils"] }
-async-std = "1.11.0"
+async-std = "1.12.0"
 tracing = "0.1.32"
 rand = "0.8.5"
 snafu = { version = "0.7.0", features = ["backtraces"] }
