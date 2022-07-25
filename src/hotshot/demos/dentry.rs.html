@@ -491,6 +491,8 @@
 <span id="486">486</span>
 <span id="487">487</span>
 <span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the `HotShot` suite of traits that implements a</span>
@@ -928,7 +930,9 @@
         <span class="kw">let</span> <span class="ident">output_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">balance</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>[<span class="ident">input_account</span>];
         <span class="kw">if</span> <span class="ident">balance</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">let</span> <span class="ident">amount</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">0</span>..<span class="ident">state</span>.<span class="ident">balances</span>[<span class="ident">input_account</span>]);
+            <span class="comment">// SMALL transaction amount to prevent accidentally</span>
+            <span class="comment">// creating a negative balance</span>
+            <span class="kw">let</span> <span class="ident">amount</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">0</span>..<span class="number">100</span>);
             <span class="kw">break</span> (<span class="ident">input_account</span>, <span class="ident">output_account</span>, <span class="ident">amount</span>);
         }
         <span class="ident">attempts</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
