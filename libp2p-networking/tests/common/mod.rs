@@ -100,7 +100,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
     // should never panic unless num_nodes is 0
-    let replication_factor = NonZeroUsize::new(num_of_nodes).unwrap();
+    let replication_factor = NonZeroUsize::new(num_of_nodes - 1).unwrap();
 
     for i in 0..num_bootstrap {
         let mut config = NetworkNodeConfigBuilder::default();

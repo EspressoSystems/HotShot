@@ -326,17 +326,12 @@ impl<
                 .await
                 .unwrap()
                 .unwrap();
-                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
-
-                error!(
-                    "peer {:?} waiting for bootstrap, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
 
                 while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
                     sleep(Duration::from_secs(1)).await;
                 }
+
+                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
                 error!(
                     "peer {:?} waiting for publishing, type: {:?}",

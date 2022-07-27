@@ -9,8 +9,9 @@ use futures::channel::oneshot::Sender;
 use libp2p::{
     core::transport::ListenerId,
     kad::{
-        store::MemoryStore, BootstrapError, GetClosestPeersOk, GetRecordOk, GetRecordResult,
-        Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum, Record,
+        store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
+        GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
+        Record,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
     Multiaddr, PeerId,
@@ -28,6 +29,8 @@ use super::exponential_backoff::ExponentialBackoff;
 /// - bootstrapping into the network
 /// - peer discovery
 pub struct DHTBehaviour {
+    /// client approval to begin bootstrap
+    pub begin_bootstrap: bool,
     /// in progress queries for nearby peers
     pub in_progress_get_closest_peers: HashMap<QueryId, Sender<()>>,
     /// bootstrap nodes
@@ -50,6 +53,8 @@ pub struct DHTBehaviour {
     pub random_walk: RandomWalk,
     /// the peer id (useful only for debugging right now)
     pub peer_id: PeerId,
+    /// replication factor
+    pub replication_factor: NonZeroUsize,
 }
 
 /// State of bootstrapping
@@ -87,14 +92,24 @@ pub enum DHTEvent {
 }
 
 impl DHTBehaviour {
+    /// Begin the bootstrap process
+    pub fn begin_bootstrap(&mut self) {
+        self.begin_bootstrap = true;
+    }
+
     /// Start a query for the closest peers
     pub fn query_closest_peers(&mut self, random_peer: PeerId) {
         self.kadem.get_closest_peers(random_peer);
     }
 
     /// Create a new DHT behaviour
-    pub fn new(kadem: Kademlia<MemoryStore>, pid: PeerId) -> Self {
+    pub fn new(
+        kadem: Kademlia<MemoryStore>,
+        pid: PeerId,
+        replication_factor: NonZeroUsize,
+    ) -> Self {
         Self {
+            begin_bootstrap: false,
             bootstrap_nodes: HashMap::default(),
             peer_id: pid,
             event_queue: Vec::default(),
@@ -109,9 +124,11 @@ impl DHTBehaviour {
             },
             random_walk: RandomWalk {
                 state: State::NotStarted,
-                backoff: ExponentialBackoff::new(2, Duration::from_secs(600)),
+                // TODO jr this may be way too frequent
+                backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
             },
             in_progress_get_closest_peers: HashMap::default(),
+            replication_factor,
         }
     }
 
@@ -158,7 +175,10 @@ impl DHTBehaviour {
     pub fn put_record(&mut self, mut query: KadPutQuery) {
         let record = Record::new(query.key.clone(), query.value.clone());
 
-        match self.kadem.put_record(record, Quorum::Majority) {
+        match self
+            .kadem
+            .put_record(record, Quorum::N(self.replication_factor))
+        {
             Err(e) => {
                 // failed try again later
                 query.progress = DHTProgress::NotStarted;
@@ -230,7 +250,10 @@ impl DHTBehaviour {
                     // agreement on two or more nodes => success
                     // NOTE case where multiple nodes agree on different
                     // values is not handles
-                    if let Some((r, _)) = results.into_iter().find(|(_, v)| *v >= 2) {
+                    if let Some((r, _)) = results
+                        .into_iter()
+                        .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
+                    {
                         if notify.send(r).is_err() {
                             warn!("Get DHT: channel closed before get record request result could be sent");
                         }
@@ -309,6 +332,7 @@ impl DHTBehaviour {
 }
 
 impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
+    #![allow(clippy::too_many_lines)]
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::OutboundQueryCompleted {
@@ -358,18 +382,31 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
                 self.handle_get_query(record_results, id);
             }
             KademliaEvent::OutboundQueryCompleted {
-                result: QueryResult::Bootstrap(Ok(_)),
+                result:
+                    QueryResult::Bootstrap(Ok(BootstrapOk {
+                        peer: _,
+                        num_remaining,
+                    })),
                 ..
             } => {
-                // if bootstrap is successful, restart.
-                error!("finished bootstrap for peer {:?}", self.peer_id);
-                self.bootstrap_state.state = State::Finished;
-                self.event_queue.push(DHTEvent::IsBootstrapped);
+                if num_remaining == 0 {
+                    // if bootstrap is successful, restart.
+                    error!("Finished bootstrap for peer {:?}", self.peer_id);
+                    self.bootstrap_state.state = State::Finished;
+                    self.event_queue.push(DHTEvent::IsBootstrapped);
+                    self.begin_bootstrap = false;
+                } else {
+                    error!(
+                        "Bootstrap in progress: num remaining nodes to ping {:?}",
+                        num_remaining
+                    );
+                }
             }
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::Bootstrap(Err(e)),
                 ..
             } => {
+                error!("DHT: Bootstrap attempt failed. Retrying shortly.");
                 let BootstrapError::Timeout { num_remaining, .. } = e;
                 if num_remaining == None {
                     error!(
@@ -479,7 +516,7 @@ impl NetworkBehaviour for DHTBehaviour {
     > {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
-            && !self.bootstrap_nodes.is_empty()
+            && self.begin_bootstrap
         {
             match self.kadem.bootstrap() {
                 Ok(_) => {

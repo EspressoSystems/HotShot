@@ -230,6 +230,7 @@ impl NetworkNode {
             if let Some(factor) = config.replication_factor {
                 kconfig.set_replication_factor(factor);
             }
+
             let kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
             let rrconfig = RequestResponseConfig::default();
@@ -242,7 +243,13 @@ impl NetworkNode {
 
             let network = NetworkDef::new(
                 GossipBehaviour::new(gossipsub),
-                DHTBehaviour::new(kadem, peer_id),
+                DHTBehaviour::new(
+                    kadem,
+                    peer_id,
+                    config
+                        .replication_factor
+                        .unwrap_or_else(|| NonZeroUsize::new(4).unwrap()),
+                ),
                 identify,
                 DMBehaviour::new(request_response),
                 HashSet::default(),
@@ -291,6 +298,9 @@ impl NetworkNode {
                 #[allow(clippy::enum_glob_use)]
                 use ClientRequest::*;
                 match msg {
+                    BeginBootstrap => {
+                        self.swarm.behaviour_mut().dht.begin_bootstrap();
+                    }
                     LookupPeer(pid, chan) => {
                         self.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
                     }
