@@ -108,7 +108,20 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
-    /// Wait for a node to connect to other nodes
+    /// Notify the network to begin the bootstrap process
+    /// # Errors
+    /// If unable to send via `send_network`. This should only happen
+    /// if the network is shut down.
+    pub async fn begin_bootstrap(&self) -> Result<(), NetworkNodeHandleError> {
+        let req = ClientRequest::BeginBootstrap;
+        self.send_network
+            .send_async(req)
+            .await
+            .map_err(|_| NetworkNodeHandleError::SendError)
+    }
+
+    /// Kick off bootstrap processs,
+    /// then wait for a node to connect to other nodes
     /// * `node`: reference to the node
     /// * `num_peers`: number of peers required to be connected successfully before returning
     /// * `chan`: listener for connection events
@@ -120,6 +133,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         chan: Receiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
+        // kick off bootstrap
+        node.begin_bootstrap().await?;
         let mut connected_ok = false;
         while !connected_ok {
             sleep(Duration::from_secs(1)).await;

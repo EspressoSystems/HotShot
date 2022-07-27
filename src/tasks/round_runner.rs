@@ -286,6 +286,7 @@ pub struct RoundRunnerState {
 }
 
 /// Events going to the round runner.
+#[derive(Debug)]
 pub enum ToRoundRunner {
     /// Notify the round runner that there is a new view number inserted externally that it should use from now on.
     NewViewNumber(ViewNumber),

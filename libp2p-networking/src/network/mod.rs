@@ -94,6 +94,8 @@ impl Default for NetworkNodeType {
 /// Actions to send from the client to the swarm
 #[derive(Debug)]
 pub enum ClientRequest {
+    /// Start the bootstrap process to kademlia
+    BeginBootstrap,
     /// kill the swarm
     Shutdown,
     /// broadcast a serialized message
