@@ -1,0 +1,60 @@
+@startuml
+skinparam BackgroundColor transparent
+skinparam componentStyle rectangle
+component HSLogic as "HotShot Logic" #grey
+component Replica1 {
+
+    component LibP2PNI as "LibP2P<NetworkingImplementation>" #lightblue
+    component Swarm #lightblue
+    component NetworkNodeHandle #lightblue
+    component NetworkDef #lightblue
+    component GossipBehaviour #lightblue
+    component DirectMessageBehaviour #lightblue
+    component DHTBehaviour #lightblue
+    component GossipSub #Yellow
+    component RequestResponse #Yellow
+    component Kademlia #Yellow
+
+    HSLogic -down-> LibP2PNI
+    LibP2PNI -down-> NetworkNodeHandle
+    NetworkNodeHandle -down-> Swarm
+    Swarm -down-> NetworkDef
+    NetworkDef -down-> GossipBehaviour
+    NetworkDef -down-> DirectMessageBehaviour
+    NetworkDef -down-> DHTBehaviour
+
+    GossipBehaviour -down-> GossipSub
+    DirectMessageBehaviour -down-> RequestResponse
+    DHTBehaviour -down-> Kademlia
+
+}
+
+
+component Replica2 {
+
+    component LibP2PNI2 as "LibP2P<NetworkingImplementation>" #lightblue
+    component Swarm2 as "Swarm" #lightblue
+    component NetworkNodeHandle2 as "NetworkNodeHandle" #lightblue
+    component NetworkDef2 as "NetworkDef" #lightblue
+    component GossipBehaviour2 as "GossipBehaviour" #lightblue
+    component DirectMessageBehaviour2 as "DirectMessageBehaviour" #lightblue
+    component DHTBehaviour2 as "DHTBehaviour" #lightblue
+    component GossipSub2 as "GossipSub" #Yellow
+    component RequestResponse2 as "RequestResponse" #Yellow
+    component Kademlia2 as "Kademlia" #Yellow
+
+    LibP2PNI2 -up-> HSLogic
+    NetworkNodeHandle2 -up->  LibP2PNI2
+    Swarm2 -up->  NetworkNodeHandle2
+    NetworkDef2 -up->  Swarm2
+    GossipBehaviour2 -up-> NetworkDef2
+    DirectMessageBehaviour2 -up->  NetworkDef2
+    DHTBehaviour2 -up-> NetworkDef2
+
+    GossipSub2  -up-> GossipBehaviour2
+    RequestResponse2 -up-> DirectMessageBehaviour2
+    Kademlia2  -up-> DHTBehaviour2
+
+}
+
+@enduml
