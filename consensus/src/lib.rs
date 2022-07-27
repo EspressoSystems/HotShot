@@ -194,7 +194,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// If the given round is done, this function will not have any effect
     #[instrument]
     pub fn round_timeout(&mut self, view_number: ViewNumber) {
-        if self.active_phases.iter().any(|v| v == &view_number) {
+        if self.inactive_phases.iter().any(|v| v == &view_number) {
             return; // round is not running
         }
 
