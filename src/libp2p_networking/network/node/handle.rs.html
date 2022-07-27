@@ -606,6 +606,21 @@
 <span id="601">601</span>
 <span id="602">602</span>
 <span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -716,7 +731,20 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Wait for a node to connect to other nodes</span>
+    <span class="doccomment">/// Notify the network to begin the bootstrap process</span>
+    <span class="doccomment">/// # Errors</span>
+    <span class="doccomment">/// If unable to send via `send_network`. This should only happen</span>
+    <span class="doccomment">/// if the network is shut down.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">begin_bootstrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::BeginBootstrap</span>;
+        <span class="self">self</span>.<span class="ident">send_network</span>
+            .<span class="ident">send_async</span>(<span class="ident">req</span>)
+            .<span class="kw">await</span>
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::SendError</span>)
+    }
+
+    <span class="doccomment">/// Kick off bootstrap processs,</span>
+    <span class="doccomment">/// then wait for a node to connect to other nodes</span>
     <span class="doccomment">/// * `node`: reference to the node</span>
     <span class="doccomment">/// * `num_peers`: number of peers required to be connected successfully before returning</span>
     <span class="doccomment">/// * `chan`: listener for connection events</span>
@@ -728,6 +756,8 @@
         <span class="ident">chan</span>: <span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>,
         <span class="ident">node_idx</span>: <span class="ident">usize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
+        <span class="comment">// kick off bootstrap</span>
+        <span class="ident">node</span>.<span class="ident">begin_bootstrap</span>().<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connected_ok</span> <span class="op">=</span> <span class="bool-val">false</span>;
         <span class="kw">while</span> <span class="op">!</span><span class="ident">connected_ok</span> {
             <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;

@@ -664,11 +664,6 @@
 <span id="659">659</span>
 <span id="660">660</span>
 <span id="661">661</span>
-<span id="662">662</span>
-<span id="663">663</span>
-<span id="664">664</span>
-<span id="665">665</span>
-<span id="666">666</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -997,17 +992,12 @@
                 .<span class="kw">await</span>
                 .<span class="ident">unwrap</span>()
                 .<span class="ident">unwrap</span>();
-                <span class="ident">handle</span>.<span class="ident">subscribe</span>(<span class="ident">QC_TOPIC</span>.<span class="ident">to_string</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-
-                <span class="macro">error!</span>(
-                    <span class="string">&quot;peer {:?} waiting for bootstrap, type: {:?}&quot;</span>,
-                    <span class="ident">handle</span>.<span class="ident">peer_id</span>(),
-                    <span class="ident">node_type</span>
-                );
 
                 <span class="kw">while</span> <span class="op">!</span><span class="ident">is_bootstrapped</span>.<span class="ident">load</span>(<span class="ident">std::sync::atomic::Ordering::Relaxed</span>) {
                     <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
+
+                <span class="ident">handle</span>.<span class="ident">subscribe</span>(<span class="ident">QC_TOPIC</span>.<span class="ident">to_string</span>()).<span class="kw">await</span>.<span class="ident">unwrap</span>();
 
                 <span class="macro">error!</span>(
                     <span class="string">&quot;peer {:?} waiting for publishing, type: {:?}&quot;</span>,

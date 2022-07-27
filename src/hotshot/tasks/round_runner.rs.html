@@ -316,6 +316,7 @@
 <span id="311">311</span>
 <span id="312">312</span>
 <span id="313">313</span>
+<span id="314">314</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Round runner logic</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This will wait for one of several events, and will run one or multiple rounds</span>
@@ -604,6 +605,7 @@
 }
 
 <span class="doccomment">/// Events going to the round runner.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ToRoundRunner</span> {
     <span class="doccomment">/// Notify the round runner that there is a new view number inserted externally that it should use from now on.</span>
     <span class="ident">NewViewNumber</span>(<span class="ident">ViewNumber</span>),
