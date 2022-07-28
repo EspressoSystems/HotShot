@@ -15,7 +15,7 @@ jobs:
         uses: cachix/install-nix-action@v17
 
       - name: Update flake.lock
-        uses: DeterminateSystems/update-flake-lock@v10
+        uses: DeterminateSystems/update-flake-lock@v11
         with:
           pr-title: "Weekly PR to bump flake.nix" # Title of PR to be created
           token: ${{ secrets.ORG_GITHUB_PAT }} # PAT necessary to run CI on opened PR
