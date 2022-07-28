@@ -261,6 +261,7 @@ pub async fn new_libp2p_network(
     Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
     NetworkError,
 > {
+    assert!(node_id < opts.num_nodes);
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
     config_builder.replication_factor(NonZeroUsize::new(opts.num_nodes - 2).unwrap());

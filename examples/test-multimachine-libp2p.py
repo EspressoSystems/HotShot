@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 from enum import Enum
-from functools import reduce
 from typing import Final
 from subprocess import run, Popen
-from time import sleep
 from os import environ
 
 class NodeType(Enum):
@@ -24,12 +22,23 @@ def gen_invocation(
     fmt_cmd = [
         f'cargo run --example=multi-machine-libp2p --release -- ' \
         f' --num_nodes={num_nodes} ' \
-        f' --seed={seed} '\
         f' --num_bootstrap={len(to_connect_addrs)} '\
         f' --num_txn_per_round=10 '\
+        f' --seed={seed} '\
         f' --node_idx={node_id} '\
         f' --online_time=1 '\
-        f' --bound_addr={bound_addr} '
+        f' --bound_addr={bound_addr} '\
+        f' --bootstrap_mesh_n_high=50 '\
+        f' --bootstrap_mesh_n_low=10 '\
+        f' --bootstrap_mesh_outbound_min=5 '\
+        f' --bootstrap_mesh_n=15 '\
+        f' --mesh_n_high=15 '\
+        f' --mesh_n_low=8 '\
+        f' --mesh_outbound_min=4 '\
+        f' --mesh_n=12 '\
+        f' --next_view_timeout=30 '\
+        f' --propose_min_round_time=1 '\
+        f' --propose_max_round_time=10 '
     ];
     return (fmt_cmd, out_file_name)
 
@@ -40,7 +49,7 @@ if __name__ == "__main__":
 
     # params
     START_PORT : Final[int] = 9100;
-    NUM_REGULAR_NODES : Final[int] = 20;
+    NUM_REGULAR_NODES : Final[int] = 13;
     NUM_BOOTSTRAP : Final[int] = 7;
     TOTAL_NUM_NODES: Final[int] = NUM_BOOTSTRAP + NUM_REGULAR_NODES;
     SEED: Final[int] = 1234;
