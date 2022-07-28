@@ -439,6 +439,7 @@
 <span id="434">434</span>
 <span id="435">435</span>
 <span id="436">436</span>
+<span id="437">437</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
@@ -702,6 +703,7 @@
     <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">Transaction</span>, <span class="ident">State</span>, <span class="ident">Ed25519Pub</span>, <span class="ident">H_256</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
     <span class="ident">NetworkError</span>,
 <span class="op">&gt;</span> {
+    <span class="macro">assert!</span>(<span class="ident">node_id</span> <span class="op">&lt;</span> <span class="ident">opts</span>.<span class="ident">num_nodes</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config_builder</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>();
     <span class="comment">// NOTE we may need to change this as we scale</span>
     <span class="ident">config_builder</span>.<span class="ident">replication_factor</span>(<span class="ident">NonZeroUsize::new</span>(<span class="ident">opts</span>.<span class="ident">num_nodes</span> <span class="op">-</span> <span class="number">2</span>).<span class="ident">unwrap</span>());
