@@ -279,93 +279,88 @@ impl<
 
         result.spawn_event_generator(direct_send, broadcast_send);
 
-        result.spawn_connect(id);
+        result.spawn_connect(id).await;
 
         Ok(result)
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&self, id: usize) {
+    async fn spawn_connect(&self, id: usize) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = self.inner.bootstrap_addrs.clone();
         let num_bootstrap = self.inner.bootstrap_addrs_len;
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
-        spawn({
-            let is_ready = self.inner.is_ready.clone();
-            async move {
-                let bs_addrs = loop {
-                    let bss = bootstrap_ref.read().await;
-                    let bs_addrs = bss.clone();
-                    drop(bss);
-                    if bs_addrs.len() >= num_bootstrap {
-                        break bs_addrs;
-                    }
-                    error!(
-                        "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
-                        id,
-                        bs_addrs.len(),
-                        num_bootstrap
-                    );
-                };
-                handle.add_known_peers(bs_addrs).await.unwrap();
-
-                // 10 minute timeout
-                let timeout_duration = Duration::from_secs(600);
-                // perform connection
-                error!("WAITING TO CONNECT ON NODE {:?}", id);
-                NetworkNodeHandle::wait_to_connect(
-                    handle.clone(),
-                    // this is a safe lower bet on the number of nodes in the network.
-                    4,
-                    handle.recv_network(),
-                    id,
-                )
-                .timeout(timeout_duration)
-                .await
-                .unwrap()
-                .unwrap();
-
-                while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
-                    sleep(Duration::from_secs(1)).await;
-                }
-
-                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
-
-                error!(
-                    "peer {:?} waiting for publishing, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
-
-                // we want our records published before
-                // we begin participating in consensus
-                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
-                    sleep(Duration::from_secs(1)).await;
-                }
-
-                error!(
-                    "Node {:?} is ready, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
-
-                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
-                    sleep(Duration::from_secs(1)).await;
-                }
-
-                error!(
-                    "node {:?} is barring bootstrap, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
-
-                is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
-                error!("STARTING CONSENSUS ON {:?}", handle.peer_id());
-                Ok::<(), NetworkError>(())
+        let is_ready = self.inner.is_ready.clone();
+        let bs_addrs = loop {
+            let bss = bootstrap_ref.read().await;
+            let bs_addrs = bss.clone();
+            drop(bss);
+            if bs_addrs.len() >= num_bootstrap {
+                break bs_addrs;
             }
-        });
+            error!(
+                "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
+                id,
+                bs_addrs.len(),
+                num_bootstrap
+            );
+        };
+        handle.add_known_peers(bs_addrs).await.unwrap();
+
+        // 10 minute timeout
+        let timeout_duration = Duration::from_secs(600);
+        // perform connection
+        error!("WAITING TO CONNECT ON NODE {:?}", id);
+        NetworkNodeHandle::wait_to_connect(
+            handle.clone(),
+            // this is a safe lower bet on the number of nodes in the network.
+            4,
+            handle.recv_network(),
+            id,
+        )
+        .timeout(timeout_duration)
+        .await
+        .unwrap()
+        .unwrap();
+
+        while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
+
+        error!(
+            "peer {:?} waiting for publishing, type: {:?}",
+            handle.peer_id(),
+            node_type
+        );
+
+        // we want our records published before
+        // we begin participating in consensus
+        while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        error!(
+            "Node {:?} is ready, type: {:?}",
+            handle.peer_id(),
+            node_type
+        );
+
+        while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        error!(
+            "node {:?} is barring bootstrap, type: {:?}",
+            handle.peer_id(),
+            node_type
+        );
+
+        is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
+        error!("STARTING CONSENSUS ON {:?}", handle.peer_id());
     }
 
     /// make network aware of known peers
