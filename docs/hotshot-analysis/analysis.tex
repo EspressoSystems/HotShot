@@ -291,41 +291,41 @@ A proposal message \texttt{p} has the following fields:
 
         }
 
-        \Else(\tcp*[h]{We are a replica}){%
-            wait for proposal:~Proposal from SelectLeader(curView)
+        \tcp*[h]{We are a replica}
 
-            \If{interrupted}{go to NEXTVIEW INTERRUPT}
+        wait for proposal:~Proposal from SelectLeader(curView)
 
-            check ValidProposal(proposal)
+        \If{interrupted}{go to NEXTVIEW INTERRUPT}
 
-            leaf\_proposed \(\leftarrow\) proposal.leaf
+        check ValidProposal(proposal)
 
-            leaf\_prev1 \(\leftarrow\) leaf\_proposed.justify.leaf
+        leaf\_proposed \(\leftarrow\) proposal.leaf
 
-            leaf\_prev2 \(\leftarrow\) leaf\_prev1.justify.leaf
+        leaf\_prev1 \(\leftarrow\) leaf\_proposed.justify.leaf
 
-            leaf\_prev3 \(\leftarrow\) leaf\_prev2.justify.leaf
+        leaf\_prev2 \(\leftarrow\) leaf\_prev1.justify.leaf
 
-            \If{SafeNode(leaf\_proposed,leaf\_proposed.justify)}{%
-                res,pf \(\leftarrow\) VRF.Sample(sk,CurrentSeed(curView))
+        leaf\_prev3 \(\leftarrow\) leaf\_prev2.justify.leaf
 
-                votes \(\leftarrow\) VotesFromSeed(res,stake\_amount)
+        \If{SafeNode(leaf\_proposed,leaf\_proposed.justify)}{%
+            res,pf \(\leftarrow\) VRF.Sample(sk,CurrentSeed(curView))
 
-                \If{votes > 0}{%
-                    send VOTE(leaf\_proposed,res,pf) to SelectLeader(\(\text{curView}+1\))
-                }
+            votes \(\leftarrow\) VotesFromSeed(res,stake\_amount)
+
+            \If{votes > 0}{%
+                send VOTE(leaf\_proposed,res,pf) to SelectLeader(\(\text{curView}+1\))
             }
+        }
 
-            \If(\tcp*[h]{1-chain}){leaf\_proposed.parent = leaf\_prev1}{%
-                genericQC \(\leftarrow\) leaf\_proposed.justify
+        \If(\tcp*[h]{1-chain}){leaf\_proposed.parent = leaf\_prev1}{%
+            genericQC \(\leftarrow\) leaf\_proposed.justify
 
-                \If(\tcp*[h]{2-chain}){leaf\_prev1.parent = leaf\_prev2}{%
-                    lockedQC \(\leftarrow\) leaf\_prev1.justify
+            \If(\tcp*[h]{2-chain}){leaf\_prev1.parent = leaf\_prev2}{%
+                lockedQC \(\leftarrow\) leaf\_prev1.justify
 
-                    \If(\tcp*[h]{3-chain}){leaf\_prev2.parent =
-                    leaf\_prev3}{%
-                        ExecutePendingCommands(leaf\_prev3)
-                    }
+                \If(\tcp*[h]{3-chain}){leaf\_prev2.parent =
+                leaf\_prev3}{%
+                    ExecutePendingCommands(leaf\_prev3)
                 }
             }
         }
@@ -361,8 +361,15 @@ A proposal message \texttt{p} has the following fields:
         }
 
         \Begin(NEXTVIEW INTERRUPT){%
-            send NEXTVIEW(genericQC) to SelectLeader(\(\text{curView} +
-            1\))
+            res,pf \(\leftarrow\) VRF.Sample(sk,CurrentSeed(curView))
+
+            votes \(\leftarrow\) VotesFromSeed(res,stake\_amount)
+
+            \If{votes > 0}{%
+                send NEXTVIEW(genericQC) to
+                    SelectLeader(\(\text{curView} + 1\))
+            }
+
         }
     }
 
