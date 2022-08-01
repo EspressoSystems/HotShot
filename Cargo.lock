@@ -673,9 +673,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.15"
+version = "3.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44bbe24bbd31a185bc2c4f7c2abe80bea13a20d57ee4e55be70ac512bdc76417"
+checksum = "a3dbbb6653e7c55cc8595ad3e1f7be8f32aba4eb7ff7f0fd1163d4f3d137c0a9"
 dependencies = [
  "atty",
  "bitflags",
@@ -1615,7 +1615,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "clap 3.2.15",
+ "clap 3.2.16",
  "custom_debug",
  "dashmap",
  "embed-doc-image",
@@ -2185,7 +2185,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 3.2.15",
+ "clap 3.2.16",
  "color-eyre",
  "crossterm 0.24.0",
  "custom_debug",
