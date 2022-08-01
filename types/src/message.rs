@@ -45,8 +45,14 @@ impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
-    /// Signals start of a new view
+    /// New View Interrupt
+    // contains:
+    // justify
+    // viewnumber
     NewView(NewView<N>),
+    // includes leaf
+    // GenericProposal(),
+    // GenericVote(),
     /// Contains the prepare qc from the leader
     Prepare(Prepare<B, S, N>),
     /// A nodes vote on the prepare stage
@@ -114,9 +120,28 @@ pub struct NewView<const N: usize> {
 /// Prepare qc from the leader
 pub struct Prepare<B, S, const N: usize> {
     /// The current view
+    /// NOTE: needed per pseudocode
     pub current_view: ViewNumber,
     /// The item being proposed
+    /// NOTE: needed per pseudocode
     pub leaf: Leaf<B, N>,
+    /// NOTE: we shouldn't this with mempool
+    /// The state this proposal results in
+    pub state: S,
+    /// The current high qc
+    pub high_qc: QuorumCertificate<N>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
+/// Prepare qc from the leader
+pub struct GenericProposal<B, S, const N: usize> {
+    /// The current view
+    /// NOTE: needed per pseudocode
+    pub current_view: ViewNumber,
+    /// The item being proposed
+    /// NOTE: needed per pseudocode
+    pub leaf: Leaf<B, N>,
+    /// NOTE: we shouldn't this with mempool
     /// The state this proposal results in
     pub state: S,
     /// The current high qc

@@ -331,6 +331,10 @@ pub fn create_verify_hash<const N: usize>(
 /// as well as the hash of its parent `Leaf`.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
 pub struct Leaf<T, const N: usize> {
+    /// Per spec
+    pub view_number: ViewNumber,
+    /// Per spec
+    pub qc: QuorumCertificate<N>,
     /// The hash of the parent `Leaf`
     #[debug(with = "fmt_leaf_hash")]
     pub parent: LeafHash<N>,
@@ -344,19 +348,30 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
-    pub fn new(item: T, parent: LeafHash<N>) -> Self {
-        Leaf { parent, item }
+    pub fn new(
+        item: T,
+        parent: LeafHash<N>,
+        qc: QuorumCertificate<N>,
+        view_number: ViewNumber,
+    ) -> Self {
+        Leaf {
+            view_number,
+            qc,
+            parent,
+            item,
+        }
     }
 
     /// Hashes the leaf with the hashing algorithm provided by the [`BlockContents`] implementation
     ///
     /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
     /// contained block, and then return the hash of the resulting concatenated byte string.
+    /// NOTE: are we sure this is hashing correctly
     pub fn hash(&self) -> LeafHash<N> {
         let mut bytes = Vec::<u8>::new();
         bytes.extend_from_slice(self.parent.as_ref());
-        bytes.extend_from_slice(BlockContents::hash(&self.item).as_ref());
-        T::hash_leaf(&bytes)
+        bytes.extend_from_slice(<T as BlockContents<N>>::hash(&self.item).as_ref());
+        <T as BlockContents<N>>::hash_leaf(&bytes)
     }
 }
 

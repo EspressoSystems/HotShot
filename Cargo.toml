@@ -19,7 +19,7 @@ name = "dentry-simulator"
 required-features = ["demo"]
 
 [dependencies]
-async-std = { version = "1.12.0", features = ["unstable"] }
+async-std = { version = "1.12.0", features = [] }
 async-trait = "0.1.56"
 async-tungstenite = { version = "0.17.2", features = ["async-std-runtime"] }
 atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }

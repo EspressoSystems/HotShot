@@ -19,7 +19,7 @@ pub mod subscribable_mutex;
 pub mod subscribable_rwlock;
 
 /// Provides types useful for waiting on certain values to arrive
-pub mod waitqueue;
+// pub mod waitqueue;
 
 /// Provides bincode options
 pub mod bincode;

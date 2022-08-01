@@ -321,7 +321,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::data::Stage;
+    use crate::{data::Stage, demos::dentry::random_quorom_certificate};
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_utils::test_util::setup_logging;
@@ -442,14 +442,20 @@ mod test {
         let block_2 = DummyBlock::random();
         let parent_1 = LeafHash::<32>::random();
         let parent_2 = LeafHash::<32>::random();
+        let qc_1 = random_quorom_certificate();
+        let qc_2 = random_quorom_certificate();
         let leaf_1 = Leaf {
             parent: parent_1,
             item: block_1.clone(),
+            view_number: qc_1.view_number,
+            qc: qc_1,
         };
         let hash_1 = leaf_1.hash();
         let leaf_2 = Leaf {
             parent: parent_2,
             item: block_2.clone(),
+            view_number: qc_2.view_number,
+            qc: qc_2,
         };
         let hash_2 = leaf_2.hash();
         // Attempt to insert them

@@ -162,7 +162,7 @@ impl<const N: usize> PrepareLeader<N> {
         }
 
         // Create new leaf and add it to the store
-        let new_leaf = Leaf::new(block, high_qc.leaf_hash);
+        let new_leaf = Leaf::new(block, high_qc.leaf_hash, high_qc.clone(), current_view);
         // let the_hash = new_leaf.hash();
         let new_state = state.append(&new_leaf.item).map_err(|error| {
             error!(?error, "Failed to append block to existing state");

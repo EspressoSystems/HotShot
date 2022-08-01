@@ -45,6 +45,8 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
+// mod state_machine;
+
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use futures::channel::oneshot;
@@ -199,9 +201,21 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ) -> Result<Self> {
         info!("Creating a new hotshot");
         let genesis_hash = BlockContents::hash(&genesis);
-        let leaf = Leaf {
+        let genesis_qc = QuorumCertificate {
+            block_hash: genesis_hash,
+            leaf_hash: [0_u8; { N }].into(),
+            view_number: ViewNumber::genesis(),
+            // TODO why is this here?
+            stage: Stage::Decide,
+            signatures: BTreeMap::new(),
+            genesis: true,
+        };
+        let genesis_leaf = Leaf {
             parent: [0_u8; { N }].into(),
             item: genesis.clone(),
+            // NOTE: view number might be different
+            view_number: ViewNumber::genesis(),
+            qc: genesis_qc.clone(),
         };
         let election = {
             let state =
@@ -226,26 +240,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             hotstuff: Mutex::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
-        let leaf_hash = leaf.hash();
+        let leaf_hash = genesis_leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
 
         inner
             .storage
             .update(|mut m| async move {
-                m.insert_qc(QuorumCertificate {
-                    block_hash: genesis_hash,
-                    leaf_hash,
-                    view_number: ViewNumber::genesis(),
-                    stage: Stage::Decide,
-                    signatures: BTreeMap::new(),
-                    genesis: true,
-                })
-                .await?;
-                m.insert_leaf(Leaf {
-                    parent: [0_u8; { N }].into(),
-                    item: genesis,
-                })
-                .await?;
+                m.insert_qc(genesis_qc).await?;
+                m.insert_leaf(genesis_leaf).await?;
                 m.insert_state(starting_state, leaf_hash).await?;
                 Ok(())
             })
@@ -255,32 +257,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         Ok(Self {
             inner: Arc::new(inner),
         })
-    }
-
-    /// Returns true if the proposed leaf extends from the given block
-    #[instrument(skip(self))]
-    pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &LeafHash<N>) -> bool {
-        let mut parent = leaf.parent;
-        // Short circuit to enable blocks that don't have parents
-        if &parent == node {
-            trace!("leaf extends from node through short-circuit");
-            return true;
-        }
-        while parent != LeafHash::from_array([0_u8; { N }]) {
-            if &parent == node {
-                trace!(?parent, "Leaf extends from");
-                return true;
-            }
-            let next_parent = self.inner.storage.get_leaf(&parent).await;
-            if let Ok(Some(next_parent)) = next_parent {
-                parent = next_parent.parent;
-            } else {
-                error!("Leaf does not extend from node");
-                return false;
-            }
-        }
-        trace!("Leaf extends from node by default");
-        true
     }
 
     /// Sends out the next view message
@@ -607,7 +583,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     let new_view_number = qc.view_number;
                     let block_hash = BlockContents::hash(&block);
                     let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(block.clone(), leaf_hash);
+                    let leaf = Leaf::new(block.clone(), leaf_hash, qc.clone(), qc.view_number);
                     debug!(?leaf, ?block, ?state, ?qc, "Saving");
 
                     if let Err(e) = self
