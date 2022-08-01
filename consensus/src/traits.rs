@@ -137,21 +137,20 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         &self,
         quorum_certificate: &QuorumCertificate<N>,
         view_number: ViewNumber,
-        stage: Stage,
     ) -> bool;
 
     /// Validate this message on if the QC is correct, if it has one
     ///
     /// If this message has no QC then this will return `true`
     fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
-        let (qc, view_number, stage) = match message {
+        let (qc, view_number) = match message {
             ConsensusMessage::PreCommit(pre_commit) => {
                 // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
+                (&pre_commit.qc, pre_commit.current_view)
             }
             // Same as PreCommit, we compare with 1 stage earlier
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
+            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
+            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
 
             ConsensusMessage::NewView(_)
             | ConsensusMessage::Prepare(_)
@@ -160,7 +159,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
             | ConsensusMessage::PrepareVote(_) => return true,
         };
 
-        self.validate_qc(qc, view_number, stage)
+        self.validate_qc(qc, view_number)
     }
 
     /// Validate the signatures of a QC

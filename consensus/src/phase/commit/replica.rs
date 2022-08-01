@@ -75,11 +75,7 @@ impl<const N: usize> CommitReplica<N> {
         let leaf_hash = leaf.hash();
         // Verify QC
 
-        if !(ctx
-            .api
-            .validate_qc(&commit.qc, ctx.view_number, Stage::PreCommit)
-            && commit.leaf_hash == leaf_hash)
-        {
+        if !(ctx.api.validate_qc(&commit.qc, ctx.view_number) && commit.leaf_hash == leaf_hash) {
             error!(?commit.qc, "Bad or forged precommit qc");
             return Err(HotShotError::BadOrForgedQC {
                 stage: Stage::Commit,

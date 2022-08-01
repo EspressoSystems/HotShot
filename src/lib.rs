@@ -808,18 +808,9 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     }
 
     #[instrument(skip(self))]
-    fn validate_qc(
-        &self,
-        qc: &QuorumCertificate<N>,
-        view_number: ViewNumber,
-        stage: Stage,
-    ) -> bool {
+    fn validate_qc(&self, qc: &QuorumCertificate<N>, view_number: ViewNumber) -> bool {
         if qc.view_number != view_number {
-            warn!(
-                ?qc,
-                ?view_number,
-                "Failing on stage/view_number equality check"
-            );
+            warn!(?qc, ?view_number, "Failing on view_number equality check");
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number);
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
