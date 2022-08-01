@@ -87,9 +87,7 @@ impl<const N: usize> CommitReplica<N> {
             });
         }
 
-        let signature = ctx
-            .api
-            .sign_vote(&leaf_hash, Stage::Commit, ctx.view_number);
+        let signature = ctx.api.sign_vote(&leaf_hash, ctx.view_number);
         let vote = CommitVote(Vote {
             leaf_hash,
             signature,

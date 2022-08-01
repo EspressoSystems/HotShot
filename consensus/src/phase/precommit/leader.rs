@@ -1,7 +1,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use hotshot_types::{
-    data::{QuorumCertificate, Stage},
+    data::QuorumCertificate,
     error::HotShotError,
     message::{PreCommit, PreCommitVote, Prepare, PrepareVote, Vote},
     traits::{node_implementation::NodeImplementation, BlockContents},
@@ -103,9 +103,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             });
         }
 
-        let verify_hash = ctx
-            .api
-            .create_verify_hash(&leaf_hash, Stage::Prepare, current_view);
+        let verify_hash = ctx.api.create_verify_hash(&leaf_hash, current_view);
         let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
         let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
 
@@ -113,7 +111,6 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
             block_hash,
             leaf_hash,
             view_number: current_view,
-            stage: Stage::PreCommit,
             signatures: valid_signatures,
             genesis: false,
         };
@@ -126,9 +123,7 @@ impl<I: NodeImplementation<N>, const N: usize> PreCommitLeader<I, N> {
 
         let vote = if ctx.api.leader_acts_as_replica() {
             // Make a pre commit vote and send it to the next leader
-            let signature = ctx
-                .api
-                .sign_vote(&leaf_hash, Stage::PreCommit, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, current_view);
             Some(PreCommitVote(Vote {
                 signature,
                 leaf_hash,

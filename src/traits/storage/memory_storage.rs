@@ -321,7 +321,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::{data::Stage, demos::dentry::random_quorom_certificate};
+    use crate::demos::dentry::random_quorom_certificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_utils::test_util::setup_logging;
@@ -331,13 +331,11 @@ mod test {
         hash_block: BlockHash<32>,
         hash_leaf: LeafHash<32>,
         view: ViewNumber,
-        valid: bool,
     ) -> QuorumCertificate<32> {
         QuorumCertificate {
             block_hash: hash_block,
             leaf_hash: hash_leaf,
             view_number: view,
-            stage: if valid { Stage::Decide } else { Stage::None },
             signatures: BTreeMap::new(),
             genesis: true,
         }
@@ -394,10 +392,10 @@ mod test {
         // Create a few dummy qcs
         let qc_1_hash_block = BlockHash::<32>::random();
         let qc_1_hash_leaf = LeafHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1, true);
+        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1);
         let qc_2_hash_block = BlockHash::<32>::random();
         let qc_2_hash_leaf = LeafHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2, true);
+        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2);
         // Attempt to insert them
         storage
             .update(|mut m| {

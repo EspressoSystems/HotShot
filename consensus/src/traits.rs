@@ -118,7 +118,6 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> VerifyHash<32>;
 
@@ -126,10 +125,9 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn sign_vote(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let hash = self.create_verify_hash(leaf_hash, stage, view_number);
+        let hash = self.create_verify_hash(leaf_hash, view_number);
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         (self.public_key().to_bytes(), signature)
     }

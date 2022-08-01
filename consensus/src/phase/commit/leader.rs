@@ -1,7 +1,7 @@
 use super::Outcome;
 use crate::{phase::UpdateCtx, ConsensusApi, Result};
 use hotshot_types::{
-    data::{QuorumCertificate, Stage},
+    data::QuorumCertificate,
     message::{Commit, CommitVote, PreCommit, PreCommitVote, Vote},
     traits::node_implementation::NodeImplementation,
 };
@@ -81,15 +81,12 @@ impl<const N: usize> CommitLeader<N> {
         let leaf_hash = pre_commit.leaf_hash;
         let current_view = ctx.view_number;
 
-        let verify_hash = ctx
-            .api
-            .create_verify_hash(&leaf_hash, Stage::PreCommit, current_view);
+        let verify_hash = ctx.api.create_verify_hash(&leaf_hash, current_view);
 
         let signatures = votes.into_iter().map(|vote| vote.0.signature).collect();
         let valid_signatures = ctx.api.get_valid_signatures(signatures, verify_hash)?;
 
         let qc = QuorumCertificate {
-            stage: Stage::Commit,
             signatures: valid_signatures,
             genesis: false,
             ..pre_commit.qc
@@ -102,9 +99,7 @@ impl<const N: usize> CommitLeader<N> {
         };
 
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature = ctx
-                .api
-                .sign_vote(&commit.leaf_hash, Stage::Commit, ctx.view_number);
+            let signature = ctx.api.sign_vote(&commit.leaf_hash, ctx.view_number);
             Some(CommitVote(Vote {
                 leaf_hash: commit.leaf_hash,
                 signature,

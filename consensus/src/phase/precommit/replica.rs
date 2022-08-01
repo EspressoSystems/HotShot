@@ -77,9 +77,7 @@ impl<const N: usize> PreCommitReplica<N> {
 
         let leaf_hash = leaf.hash();
         let current_view = ctx.view_number;
-        let signature = ctx
-            .api
-            .sign_vote(&leaf_hash, Stage::PreCommit, current_view);
+        let signature = ctx.api.sign_vote(&leaf_hash, current_view);
         let vote = PreCommitVote(Vote {
             signature,
             leaf_hash,

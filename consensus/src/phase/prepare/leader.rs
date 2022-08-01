@@ -114,18 +114,7 @@ impl<const N: usize> PrepareLeader<N> {
         let mut block = state.next_block();
         let current_view = ctx.view_number;
 
-        // This is to accomodate for the off by one error where the replicas have signed the QC with the previous stage
-        let qc_stage = match high_qc.stage {
-            Stage::PreCommit => Stage::Prepare,
-            Stage::Commit => Stage::PreCommit,
-            Stage::Decide => Stage::Commit,
-            Stage::Prepare => Stage::Decide,
-            Stage::None => Stage::None,
-        };
-
-        let verify_hash = ctx
-            .api
-            .create_verify_hash(&leaf_hash, qc_stage, high_qc.view_number);
+        let verify_hash = ctx.api.create_verify_hash(&leaf_hash, high_qc.view_number);
 
         if high_qc.view_number != ViewNumber::genesis() {
             let valid_signatures = ctx
@@ -181,7 +170,7 @@ impl<const N: usize> PrepareLeader<N> {
 
         // if the leader can vote like a replica, cast this vote now
         let vote = if ctx.api.leader_acts_as_replica() {
-            let signature = ctx.api.sign_vote(&leaf_hash, Stage::Prepare, current_view);
+            let signature = ctx.api.sign_vote(&leaf_hash, current_view);
             Some(PrepareVote(Vote {
                 signature,
                 leaf_hash,

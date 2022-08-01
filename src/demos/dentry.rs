@@ -8,7 +8,7 @@
 
 use blake3::Hasher;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
 };
 use rand::{thread_rng, Rng};
@@ -463,14 +463,6 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
 /// Provides a random [`QuorumCertificate`]
 pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
     let mut rng = thread_rng();
-    let stage = match rng.gen_range(0u8..5) {
-        0 => Stage::None,
-        1 => Stage::Prepare,
-        2 => Stage::PreCommit,
-        3 => Stage::Commit,
-        4 => Stage::Decide,
-        _ => unreachable!(),
-    };
 
     // TODO: Generate a tc::Signature
     QuorumCertificate {
@@ -478,7 +470,6 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         genesis: rng.gen(),
         leaf_hash: LeafHash::random(),
         signatures: BTreeMap::new(),
-        stage,
         view_number: ViewNumber::new(rng.gen()),
     }
 }

@@ -227,19 +227,17 @@ pub struct QuorumCertificate<const N: usize> {
     /// the referenced leaf.
     #[debug(with = "fmt_blockhash")]
     pub block_hash: BlockHash<N>,
+
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
     pub leaf_hash: LeafHash<N>,
+
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
     pub view_number: ViewNumber,
-    /// The [`Stage`] of consensus that this Quorum Certificate was generated during
-    ///
-    /// This value is covered by the threshold signature.
-    pub stage: Stage,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -268,7 +266,6 @@ impl<const N: usize> QuorumCertificate<N> {
         VecQuorumCertificate {
             block_hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
-            stage: self.stage,
             signatures: self.signatures.clone(),
             genesis: self.genesis,
         }
@@ -289,8 +286,6 @@ pub struct VecQuorumCertificate {
     pub block_hash: Vec<u8>,
     /// The view we were on when we made this certificate
     pub view_number: ViewNumber,
-    /// The stage of consensus we were on when we made this certificate
-    pub stage: Stage,
     /// The signature portion of this QC
     pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
     /// Temporary bypass for boostrapping
@@ -303,7 +298,6 @@ impl VecQuorumCertificate {
         Self {
             block_hash: BlockHash::<N>::random().to_vec(),
             view_number: ViewNumber::genesis(),
-            stage: Stage::None,
             signatures: BTreeMap::default(),
             genesis: false,
         }
@@ -315,12 +309,10 @@ impl VecQuorumCertificate {
 pub fn create_verify_hash<const N: usize>(
     leaf_hash: &LeafHash<N>,
     view: ViewNumber,
-    stage: Stage,
 ) -> VerifyHash<32> {
     let mut hasher = Hasher::new();
     hasher.update(leaf_hash.as_ref());
     hasher.update(&view.to_be_bytes());
-    hasher.update(&(stage as u64).to_be_bytes());
     let hash = hasher.finalize();
     VerifyHash::from_array(*hash.as_bytes())
 }

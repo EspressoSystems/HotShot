@@ -205,8 +205,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             block_hash: genesis_hash,
             leaf_hash: [0_u8; { N }].into(),
             view_number: ViewNumber::genesis(),
-            // TODO why is this here?
-            stage: Stage::Decide,
             signatures: BTreeMap::new(),
             genesis: true,
         };
@@ -804,10 +802,9 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> VerifyHash<32> {
-        create_verify_hash(leaf_hash, view_number, stage)
+        create_verify_hash(leaf_hash, view_number)
     }
 
     #[instrument(skip(self))]
@@ -817,15 +814,14 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         view_number: ViewNumber,
         stage: Stage,
     ) -> bool {
-        if qc.view_number != view_number || qc.stage != stage {
+        if qc.view_number != view_number {
             warn!(
                 ?qc,
                 ?view_number,
-                ?stage,
                 "Failing on stage/view_number equality check"
             );
         }
-        let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
+        let hash = create_verify_hash(&qc.leaf_hash, view_number);
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
         match valid_signatures {
             Ok(_) => true,

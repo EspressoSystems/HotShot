@@ -158,9 +158,7 @@ impl PrepareReplica {
             new_state,
         } = validation_result;
 
-        let signature = ctx
-            .api
-            .sign_vote(&leaf_hash, Stage::Prepare, ctx.view_number);
+        let signature = ctx.api.sign_vote(&leaf_hash, ctx.view_number);
         let vote = PrepareVote(Vote {
             signature,
             leaf_hash,
