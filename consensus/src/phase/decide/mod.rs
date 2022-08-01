@@ -137,7 +137,7 @@ impl<I: NodeImplementation<N>, const N: usize> Outcome<I, N> {
         }
 
         if ctx.api.should_start_round(ctx.view_number + 1).await {
-            let next_leader = ctx.api.get_leader(ctx.view_number, Stage::Prepare).await;
+            let next_leader = ctx.api.get_leader(ctx.view_number).await;
             ctx.api
                 .send_direct_message(
                     next_leader,

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, VecQuorumCertificate, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     message::ConsensusMessage,
@@ -39,7 +39,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn leader_acts_as_replica(&self) -> bool;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey;
+    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
@@ -78,15 +78,19 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     // Utility functions
 
     /// returns `true` if the current node is a leader for the given `view_number` and `stage`
-    async fn is_leader(&self, view_number: ViewNumber, stage: Stage) -> bool {
-        &self.get_leader(view_number, stage).await == self.public_key()
+    async fn is_leader(&self, view_number: ViewNumber) -> bool {
+        &self.get_leader(view_number).await == self.public_key()
+    }
+
+    /// returns `true` if the current node should act as a replica for the given `view_number`
+    async fn is_replica(&self, view_number: ViewNumber) -> bool {
+        self.leader_acts_as_replica() || (!self.is_leader(view_number).await)
     }
 
     /// sends a proposal event down the channel
     async fn send_propose(&mut self, view_number: ViewNumber, block: I::Block) {
         self.send_event(Event {
             view_number,
-            stage: Stage::Prepare,
             event: EventType::Propose {
                 block: Arc::new(block),
             },
@@ -104,7 +108,6 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     ) {
         self.send_event(Event {
             view_number,
-            stage: Stage::Prepare,
             event: EventType::Decide {
                 block: Arc::new(blocks),
                 state: Arc::new(states),

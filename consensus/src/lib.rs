@@ -135,7 +135,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
                 if can_insert_view {
                     let phase = v.insert(ViewState::prepare(
                         view_number,
-                        api.is_leader(view_number, Stage::Prepare).await,
+                        api.is_leader(view_number).await,
                     ));
                     self.active_phases.push_back(view_number);
                     // The new view-number should always be greater than the other entries in `self.active_phases`
@@ -220,7 +220,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         view_number: ViewNumber,
         api: &mut A,
     ) -> Result {
-        let leader = api.get_leader(view_number, Stage::Prepare).await;
+        let leader = api.get_leader(view_number).await;
         let is_leader = api.public_key() == &leader;
 
         // If we don't have this phase in our phases, insert it

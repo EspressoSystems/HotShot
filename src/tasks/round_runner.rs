@@ -7,7 +7,7 @@ use async_std::{prelude::FutureExt, task::JoinHandle};
 use flume::{unbounded, Receiver, Sender};
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use hotshot_types::{
-    data::{Stage, ViewNumber},
+    data::ViewNumber,
     error::HotShotError,
     event::{Event, EventType},
     traits::{node_implementation::NodeImplementation, storage::Storage},
@@ -166,7 +166,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
 
                             event_to_send = Some(Event {
                                 view_number: self.state.view,
-                                stage: Stage::None,
                                 event: EventType::ViewTimeout {
                                     view_number: self.state.view,
                                 },
@@ -179,7 +178,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                             error!(?e, "Round encountered an error");
                             event_to_send = Some(Event {
                                 view_number: self.state.view,
-                                stage: e.get_stage().unwrap_or(Stage::None),
                                 event: EventType::Error { error: Arc::new(e) },
                             });
                             self.int_duration = default_interrupt_duration;
@@ -226,8 +224,6 @@ impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {
                 .hotshot
                 .send_event(Event {
                     view_number: self.state.view + 1,
-                    stage: e.get_stage().unwrap_or(Stage::None),
-
                     event: EventType::Error { error: Arc::new(e) },
                 })
                 .await

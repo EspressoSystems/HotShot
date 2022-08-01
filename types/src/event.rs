@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{Stage, VecQuorumCertificate, ViewNumber},
+    data::{VecQuorumCertificate, ViewNumber},
     error::HotShotError,
     traits::BlockContents,
 };
@@ -15,8 +15,6 @@ use std::sync::Arc;
 pub struct Event<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
-    /// The stage that this event originates from
-    pub stage: Stage,
     /// The underlying event
     pub event: EventType<B, S, N>,
 }

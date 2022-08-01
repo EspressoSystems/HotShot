@@ -40,7 +40,7 @@ mod tasks;
 mod utils;
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, Stage},
+    data::{Leaf, LeafHash, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, EventType, HotShotHandle},
 };
@@ -614,7 +614,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     // Broadcast that we're updated
                     self.send_event(Event {
                         view_number: new_view_number,
-                        stage: Stage::None,
                         event: EventType::Synced {
                             view_number: new_view_number,
                         },
@@ -728,11 +727,11 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         true
     }
 
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey {
+    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let election = &self.inner.election;
         election
             .election
-            .get_leader(&election.stake_table, view_number, stage)
+            .get_leader(&election.stake_table, view_number)
     }
 
     async fn should_start_round(&self, _: ViewNumber) -> bool {

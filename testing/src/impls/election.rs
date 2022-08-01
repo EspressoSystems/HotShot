@@ -1,4 +1,4 @@
-use hotshot::data::{Stage, StateHash};
+use hotshot::data::StateHash;
 use hotshot_types::{
     data::ViewNumber,
     traits::{
@@ -24,7 +24,7 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
 
     fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber, _: Stage) -> Ed25519Pub {
+    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
             Some(leader) => {
                 info!("Round {:?} has leader {:?}", view_number, leader);

@@ -121,7 +121,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> Outcome<'a, I, N> {
         } = self;
 
         let was_leader = ctx.is_leader;
-        let next_leader = ctx.api.get_leader(ctx.view_number, Stage::PreCommit).await;
+        let next_leader = ctx.api.get_leader(ctx.view_number).await;
         let is_next_leader = ctx.api.public_key() == &next_leader;
 
         for transaction in added_transactions {
@@ -135,7 +135,6 @@ impl<'a, I: NodeImplementation<N>, const N: usize> Outcome<'a, I, N> {
             ctx.api
                 .send_event(Event {
                     view_number: ctx.view_number,
-                    stage: Stage::Prepare,
                     event: EventType::TransactionRejected {
                         transaction: transaction.transaction.clone(),
                     },
