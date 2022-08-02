@@ -5,7 +5,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.56"
+async-trait = "0.1.57"
 custom_debug = "0.5"
 futures = "0.3.21"
 hotshot-types = { path = "../types" }

@@ -20,7 +20,7 @@ required-features = ["demo"]
 
 [dependencies]
 async-std = { version = "1.12.0", features = ["unstable"] }
-async-trait = "0.1.56"
+async-trait = "0.1.57"
 async-tungstenite = { version = "0.17.2", features = ["async-std-runtime"] }
 atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
 bincode = "1.3.3"
