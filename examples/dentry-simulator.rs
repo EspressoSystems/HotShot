@@ -276,10 +276,10 @@ async fn main() {
 fn inital_state() -> State {
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 0),
+        ("Nathan M", 500_000_000),
+        ("John", 400_000_000),
+        ("Nathan Y", 600_000_000),
+        ("Ian", 300_000_000),
     ]
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
