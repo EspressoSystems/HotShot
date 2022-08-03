@@ -31,7 +31,7 @@ jobs:
         run: rustup install nightly-2022-07-15
 
       - name: Audit
-        run: cargo audit --deny warnings
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040
 
       - name: Check
         run: cargo check
