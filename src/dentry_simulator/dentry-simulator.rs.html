@@ -665,10 +665,10 @@
 <span class="kw">fn</span> <span class="ident">inital_state</span>() -&gt; <span class="ident">State</span> {
     <span class="kw">let</span> <span class="ident">balances</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
         (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
-        (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000</span>),
-        (<span class="string">&quot;John&quot;</span>, <span class="number">400_000</span>),
-        (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000</span>),
-        (<span class="string">&quot;Ian&quot;</span>, <span class="number">0</span>),
+        (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000_000</span>),
+        (<span class="string">&quot;John&quot;</span>, <span class="number">400_000_000</span>),
+        (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000_000</span>),
+        (<span class="string">&quot;Ian&quot;</span>, <span class="number">300_000_000</span>),
     ]
     .<span class="ident">into_iter</span>()
     .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
