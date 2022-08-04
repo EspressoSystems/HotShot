@@ -243,7 +243,7 @@ impl<
                             sleep(Duration::from_millis(2)).await;
                         };
                         let addr = format!("localhost:{}", port);
-                        n.connect_to(key2.clone(), &addr)
+                        n.connect_to(key2, &addr)
                             .await
                             .expect("Failed to connect nodes");
                     }
@@ -1065,7 +1065,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000..8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), "localhost", port, None).await;
+            let res = WNetwork::new(pub_key, "localhost", port, None).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }
@@ -1085,7 +1085,7 @@ mod tests {
         for _ in 0..10 {
             let port: u16 = rng.gen_range(3000..8000);
             debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key.clone(), "localhost", port, Some(timeout)).await;
+            let res = WNetwork::new(pub_key, "localhost", port, Some(timeout)).await;
             if let Ok(n) = res {
                 return (pub_key, n, port);
             }
@@ -1149,7 +1149,7 @@ mod tests {
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
         network1
-            .connect_to(key2.clone(), &addr)
+            .connect_to(key2, &addr)
             .await
             .expect("Failed to connect nodes");
     }
@@ -1184,7 +1184,7 @@ mod tests {
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
         network1
-            .connect_to(key2.clone(), &addr)
+            .connect_to(key2, &addr)
             .await
             .expect("Failed to connect nodes");
 
@@ -1192,7 +1192,7 @@ mod tests {
         // Send messages
         for message in &messages {
             network1
-                .message_node(message.clone(), key2.clone())
+                .message_node(message.clone(), key2)
                 .await
                 .expect("Failed to message node");
         }
@@ -1212,7 +1212,7 @@ mod tests {
         // Send messages
         for message in &messages {
             network2
-                .message_node(message.clone(), key1.clone())
+                .message_node(message.clone(), key1)
                 .await
                 .expect("Failed to message node");
         }
@@ -1259,7 +1259,7 @@ mod tests {
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
         network1
-            .connect_to(key2.clone(), &addr)
+            .connect_to(key2, &addr)
             .await
             .expect("Failed to connect nodes");
 
@@ -1332,7 +1332,7 @@ mod tests {
         // Connect 1 to 2
         let addr = format!("localhost:{}", port2);
         network1
-            .connect_to(key2.clone(), &addr)
+            .connect_to(key2, &addr)
             .await
             .expect("Failed to connect nodes");
         // Wait 100ms to make sure that nothing crashes

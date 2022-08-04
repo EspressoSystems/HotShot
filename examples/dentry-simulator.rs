@@ -106,7 +106,7 @@ async fn main() {
         for (_, port, key, _other_node_id) in networkings[i..].iter() {
             if key != self_key {
                 let socket = format!("localhost:{}", port);
-                n.connect_to(key.clone(), &socket)
+                n.connect_to(*key, &socket)
                     .await
                     .expect("Unable to connect to node");
             }
@@ -311,7 +311,7 @@ async fn get_networking<
             ?port,
             "Attempting to bind network listener to port"
         );
-        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+        let x = WNetwork::new(pub_key, listen_addr, port, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
             match x.generate_task(c) {
