@@ -1214,15 +1214,15 @@
         <span class="kw">let</span> <span class="ident">group</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">Test</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MasterMap::new</span>();
         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">group</span>);
         <span class="kw">let</span> <span class="ident">pub_key_1</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>.<span class="ident">clone</span>(), <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>, <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
         <span class="kw">let</span> <span class="ident">pub_key_2</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>.<span class="ident">clone</span>(), <span class="ident">group</span>, <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>, <span class="ident">group</span>, <span class="ident">Option::None</span>);
 
         <span class="comment">// Test 1 -&gt; 2</span>
         <span class="comment">// Send messages</span>
         <span class="kw">for</span> <span class="ident">message</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">messages</span> {
             <span class="ident">network1</span>
-                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_2</span>.<span class="ident">clone</span>())
+                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_2</span>)
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;Failed to message node&quot;</span>);
         }
@@ -1242,7 +1242,7 @@
         <span class="comment">// Send messages</span>
         <span class="kw">for</span> <span class="ident">message</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">messages</span> {
             <span class="ident">network2</span>
-                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_1</span>.<span class="ident">clone</span>())
+                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_1</span>)
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;Failed to message node&quot;</span>);
         }
@@ -1270,9 +1270,9 @@
         <span class="kw">let</span> <span class="ident">group</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">Test</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MasterMap::new</span>();
         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">group</span>);
         <span class="kw">let</span> <span class="ident">pub_key_1</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>.<span class="ident">clone</span>(), <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>, <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
         <span class="kw">let</span> <span class="ident">pub_key_2</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>.<span class="ident">clone</span>(), <span class="ident">group</span>, <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>, <span class="ident">group</span>, <span class="ident">Option::None</span>);
 
         <span class="comment">// Test 1 -&gt; 2</span>
         <span class="comment">// Send messages</span>
@@ -1323,16 +1323,16 @@
         <span class="kw">let</span> <span class="ident">group</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">Test</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MasterMap::new</span>();
         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">group</span>);
         <span class="kw">let</span> <span class="ident">pub_key_1</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>.<span class="ident">clone</span>(), <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network1</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_1</span>, <span class="ident">group</span>.<span class="ident">clone</span>(), <span class="ident">Option::None</span>);
         <span class="kw">let</span> <span class="ident">pub_key_2</span> <span class="op">=</span> <span class="ident">get_pubkey</span>();
-        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>.<span class="ident">clone</span>(), <span class="ident">group</span>, <span class="ident">Option::None</span>);
+        <span class="kw">let</span> <span class="ident">network2</span> <span class="op">=</span> <span class="ident">MemoryNetwork::new</span>(<span class="ident">pub_key_2</span>, <span class="ident">group</span>, <span class="ident">Option::None</span>);
 
         <span class="macro">assert_eq!</span>(<span class="ident">network1</span>.<span class="ident">in_flight_message_count</span>(), <span class="prelude-val">Some</span>(<span class="number">0</span>));
         <span class="macro">assert_eq!</span>(<span class="ident">network2</span>.<span class="ident">in_flight_message_count</span>(), <span class="prelude-val">Some</span>(<span class="number">0</span>));
 
         <span class="kw">for</span> (<span class="ident">count</span>, <span class="ident">message</span>) <span class="kw">in</span> <span class="ident">messages</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="ident">network1</span>
-                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_2</span>.<span class="ident">clone</span>())
+                .<span class="ident">message_node</span>(<span class="ident">message</span>.<span class="ident">clone</span>(), <span class="ident">pub_key_2</span>)
                 .<span class="kw">await</span>
                 .<span class="ident">unwrap</span>();
             <span class="comment">// network 2 has received `count` broadcast messages and `count + 1` direct messages</span>
