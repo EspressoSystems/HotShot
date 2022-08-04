@@ -42,21 +42,6 @@ pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
     /// All messages that have been received on this phase.
     /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
     messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
-
-    /// Determines the livelyness state of this viewstate.
-    alive_state: ViewAliveState,
-
-    /// The prepare phase. This will always be present
-    prepare: PreparePhase<N>,
-
-    /// The precommit phase
-    precommit: Option<PreCommitPhase<I, N>>,
-
-    /// The commit phase
-    commit: Option<CommitPhase<N>>,
-
-    /// The decide phase
-    decide: Option<DecidePhase<N>>,
 }
 
 /// Determines the livelyness state of a [`ViewState`].
@@ -86,27 +71,6 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         Self {
             view_number,
             messages: Vec::new(),
-            alive_state: ViewAliveState::Running,
-
-            prepare: PreparePhase::new(is_leader),
-            precommit: None,
-            commit: None,
-            decide: None,
-        }
-    }
-
-    /// Returns the current stage of this phase
-    pub fn stage(&self) -> Stage {
-        if self.alive_state.is_done() {
-            Stage::None
-        } else if self.decide.is_some() {
-            Stage::Decide
-        } else if self.commit.is_some() {
-            Stage::Commit
-        } else if self.precommit.is_some() {
-            Stage::PreCommit
-        } else {
-            Stage::Prepare
         }
     }
 
@@ -121,9 +85,10 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         transactions: &mut [TransactionState<I, N>],
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> Result {
-        debug!(?message, "Incoming message");
-        self.messages.push(message.clone());
-        self.update(api, transactions).await
+        todo!()
+        // debug!(?message, "Incoming message");
+        // self.messages.push(message.clone());
+        // self.update(api, transactions).await
     }
 
     /// Notify this phase that new transactions are available.
@@ -151,90 +116,94 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         api: &mut A,
         transactions: &mut [TransactionState<I, N>],
     ) -> Result {
-        if self.alive_state.is_done() {
-            warn!(?self, "Phase is done, no updates will be run");
-            return Ok(());
-        }
-        // This loop will make sure that when a stage transition happens, the next stage will execute immediately
-        loop {
-            let is_leader = api.is_leader(self.view_number).await;
-            let stage = self.stage();
-            let mut ctx = UpdateCtx {
-                is_leader,
-                api,
-                messages: &mut self.messages,
-                view_number: self.view_number,
-                stage,
-            };
-            match stage {
-                Stage::None => unreachable!(),
-                Stage::Prepare => {
-                    if let Progress::Next(precommit) =
-                        self.prepare.update(&mut ctx, transactions).await?
-                    {
-                        debug!(?precommit, "Transitioning from prepare to precommit");
-                        self.precommit = Some(precommit);
-                    } else {
-                        break Ok(());
-                    }
-                }
-                Stage::PreCommit => {
-                    if let Some(commit) =
-                        update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
-                    {
-                        debug!(?commit, "Transitioning from precommit to commit");
-                        self.commit = Some(commit);
-                    } else {
-                        break Ok(());
-                    }
-                }
-                Stage::Commit => {
-                    if let Some(decide) =
-                        update(&mut self.commit, CommitPhase::update, &mut ctx).await?
-                    {
-                        debug!(?decide, "Transitioning from commit to decide");
-                        self.decide = Some(decide);
-                    } else {
-                        break Ok(());
-                    }
-                }
-                Stage::Decide => {
-                    if let Some(()) =
-                        update(&mut self.decide, DecidePhase::update, &mut ctx).await?
-                    {
-                        self.alive_state = ViewAliveState::Finished;
-                        info!(?self, "Phase completed");
-                    }
-                    break Ok(());
-                }
-            }
-        }
+        todo!()
+        // if self.alive_state.is_done() {
+        //     warn!(?self, "Phase is done, no updates will be run");
+        //     return Ok(());
+        // }
+        // // This loop will make sure that when a stage transition happens, the next stage will execute immediately
+        // loop {
+        //     let is_leader = api.is_leader(self.view_number).await;
+        //     let stage = self.stage();
+        //     let mut ctx = UpdateCtx {
+        //         is_leader,
+        //         api,
+        //         messages: &mut self.messages,
+        //         view_number: self.view_number,
+        //         stage,
+        //     };
+        //     match stage {
+        //         Stage::None => unreachable!(),
+        //         Stage::Prepare => {
+        //             if let Progress::Next(precommit) =
+        //                 self.prepare.update(&mut ctx, transactions).await?
+        //             {
+        //                 debug!(?precommit, "Transitioning from prepare to precommit");
+        //                 self.precommit = Some(precommit);
+        //             } else {
+        //                 break Ok(());
+        //             }
+        //         }
+        //         Stage::PreCommit => {
+        //             if let Some(commit) =
+        //                 update(&mut self.precommit, PreCommitPhase::update, &mut ctx).await?
+        //             {
+        //                 debug!(?commit, "Transitioning from precommit to commit");
+        //                 self.commit = Some(commit);
+        //             } else {
+        //                 break Ok(());
+        //             }
+        //         }
+        //         Stage::Commit => {
+        //             if let Some(decide) =
+        //                 update(&mut self.commit, CommitPhase::update, &mut ctx).await?
+        //             {
+        //                 debug!(?decide, "Transitioning from commit to decide");
+        //                 self.decide = Some(decide);
+        //             } else {
+        //                 break Ok(());
+        //             }
+        //         }
+        //         Stage::Decide => {
+        //             if let Some(()) =
+        //                 update(&mut self.decide, DecidePhase::update, &mut ctx).await?
+        //             {
+        //                 self.alive_state = ViewAliveState::Finished;
+        //                 info!(?self, "Phase completed");
+        //             }
+        //             break Ok(());
+        //         }
+        //     }
+        // }
     }
 
     /// Return true if this phase was finished. Query `was_timed_out` to determine if this was successfull
     pub fn is_done(&self) -> bool {
-        self.alive_state.is_done()
+        todo!()
+        // self.alive_state.is_done()
     }
 
     /// Return true if this phase has run until completion
     pub fn get_timedout_reason(&self) -> Option<RoundTimedoutState> {
-        match &self.alive_state {
-            ViewAliveState::Interrupted(reason) => Some(reason.clone()),
-            _ => None,
-        }
+        todo!()
+        // match &self.alive_state {
+        //     ViewAliveState::Interrupted(reason) => Some(reason.clone()),
+        //     _ => None,
+        // }
     }
 
     /// Called when the round is timed out. May do some cleanup logic.
     pub fn timeout(&mut self) {
-        self.alive_state = ViewAliveState::Interrupted(if let Some(decide) = &self.decide {
-            decide.timeout_reason()
-        } else if let Some(commit) = &self.commit {
-            commit.timeout_reason()
-        } else if let Some(precommit) = &self.precommit {
-            precommit.timeout_reason()
-        } else {
-            self.prepare.timeout_reason()
-        });
+        todo!()
+        // self.alive_state = ViewAliveState::Interrupted(if let Some(decide) = &self.decide {
+        //     decide.timeout_reason()
+        // } else if let Some(commit) = &self.commit {
+        //     commit.timeout_reason()
+        // } else if let Some(precommit) = &self.precommit {
+        //     precommit.timeout_reason()
+        // } else {
+        //     self.prepare.timeout_reason()
+        // });
     }
 }
 

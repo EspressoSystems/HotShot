@@ -155,7 +155,7 @@ pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>,
             warn!(?walk_leaf, "Parent did not exist in store");
             break;
         };
-        blocks.push(leaf.item);
+        blocks.push(leaf.deltas);
         states.push(state);
         walk_leaf = leaf.parent;
     }

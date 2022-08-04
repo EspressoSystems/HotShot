@@ -209,6 +209,6 @@ where
     }
 
     fn key_2(&self) -> Self::Key2 {
-        BlockContents::hash(&self.item)
+        BlockContents::hash(&self.deltas)
     }
 }

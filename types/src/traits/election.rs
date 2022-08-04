@@ -20,8 +20,10 @@ pub trait Election<P: SignatureKey, const N: usize>: Send + Sync {
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
+
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> P;
+
     /// Validates a vote token and returns the number of seats that it has
     ///
     /// Salt: Hash of the leaf that is being proposed
@@ -34,8 +36,10 @@ pub trait Election<P: SignatureKey, const N: usize>: Send + Sync {
         token: Self::VoteToken,
         next_state: StateHash<N>,
     ) -> Option<Self::ValidatedVoteToken>;
+
     /// Returns the number of votes the validated vote token has
     fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64;
+
     /// Attempts to generate a vote token for self
     ///
     /// Returns `None` if the number of seats would be zero

@@ -17,7 +17,7 @@
 )]
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
-mod phase;
+// mod phase;
 mod traits;
 mod utils;
 // pub mod message_processing;
@@ -26,21 +26,30 @@ pub use traits::ConsensusApi;
 
 use futures::channel::oneshot::Sender;
 use hotshot_types::{
-    data::{Stage, ViewNumber},
+    data::ViewNumber,
     error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
-    message::{ConsensusMessage, NewView},
+    message::{ConsensusMessage, NextView},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
     },
 };
-use phase::ViewState;
 use snafu::ResultExt;
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, VecDeque},
     time::Instant,
 };
 use tracing::{debug, instrument, warn};
+
+#[derive(Debug)]
+pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
+    /// The view number of this phase.
+    view_number: ViewNumber,
+
+    /// All messages that have been received on this phase.
+    /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
+    messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+}
 
 /// The result used in this crate
 pub type Result<T = ()> = std::result::Result<T, HotShotError>;
@@ -52,23 +61,30 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    phases: HashMap<ViewNumber, ViewState<I, N>>,
+    view_cache: BTreeMap<ViewNumber, ViewState<I, N>>,
 
-    /// Active phases, sorted by lowest -> highest
-    active_phases: VecDeque<ViewNumber>,
+    /// Currently active view
+    active_view: ViewNumber,
 
-    /// Phases that are in memory but not active any more. These are most likely done and can be unloaded soon.
-    /// sorted by lowest -> highest
-    inactive_phases: VecDeque<ViewNumber>,
+    /// last view had a successful decide event
+    last_decided_view: ViewNumber,
 
-    /// A list of transactions. Transactions are in 1 of 3 states:
-    /// - Unclaimed
-    /// - Claimed (`propose` is `Some(...)`)
-    /// - Rejected (`rejected` is `Some(...)`)
-    transactions: Vec<TransactionState<I, N>>,
+    /// [last_decided_view, current_view]
+    /// Does not contain empty/timed out views
+    undecided_views: BTreeSet<ViewNumber>,
 
-    /// Listeners to be called when a round ends
-    round_finished_listeners: HashMap<ViewNumber, Vec<Sender<RoundFinishedEvent>>>,
+    /// contains timed out views since last decide
+    bad_views: BTreeSet<ViewNumber>,
+
+    /// contains views that are ahead of `self.active_view`
+    future_views: BTreeSet<ViewNumber>,
+
+    // /// Listeners to be called when a round ends
+    // /// TODO we can probably nuke this soon
+    // new_round_finished_listeners: Vec<Sender<RoundFinishedEvent>>,
+    /// A list of transactions
+    /// TODO we should flush out the logic here more
+    transactions: Vec<<I as TypeMap<N>>::Transaction>,
 }
 
 /// A struct containing information about a finished round.
@@ -95,11 +111,13 @@ pub enum RoundFinishedEventState {
 impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
     fn default() -> Self {
         Self {
-            phases: HashMap::new(),
-            active_phases: VecDeque::new(),
-            inactive_phases: VecDeque::new(),
+            view_cache: BTreeMap::new(),
             transactions: Vec::new(),
-            round_finished_listeners: HashMap::new(),
+            active_view: todo!(),
+            last_decided_view: todo!(),
+            undecided_views: todo!(),
+            bad_views: todo!(),
+            future_views: todo!(),
         }
     }
 }
@@ -121,40 +139,42 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         api: &mut A,
         _sender: I::SignatureKey,
     ) -> Result {
-        // Validate the incoming QC is valid
-        if !api.validate_qc_in_message(&message) {
-            warn!(?message, "Incoming message does not have a valid QC");
-            return Ok(());
-        }
-
-        let view_number = message.view_number();
-        let can_insert_view = self.can_insert_view(view_number);
-        let phase = match self.phases.entry(view_number) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => {
-                if can_insert_view {
-                    let phase = v.insert(ViewState::prepare(
-                        view_number,
-                        api.is_leader(view_number).await,
-                    ));
-                    self.active_phases.push_back(view_number);
-                    // The new view-number should always be greater than the other entries in `self.active_phases`
-                    // validate that here
-                    assert!(is_sorted(self.active_phases.iter()));
-                    phase
-                } else {
-                    // Should we throw an error when we're in a unit test?
-                    warn!(?view_number, "Could not insert, too old");
-                    return Ok(());
-                }
-            }
-        };
-
-        phase
-            .add_consensus_message(api, &mut self.transactions, message)
-            .await?;
-        self.after_update(view_number);
-        Ok(())
+        // // Validate the incoming QC is valid
+        // if !api.validate_qc_in_message(&message) {
+        //     warn!(?message, "Incoming message does not have a valid QC");
+        //     return Ok(());
+        // }
+        //
+        // let view_number = message.view_number();
+        // let can_insert_view = self.can_insert_view(view_number);
+        // let phase = match self.view_cache.entry(view_number) {
+        //     Entry::Occupied(o) => o.into_mut(),
+        //     Entry::Vacant(v) => {
+        //         if can_insert_view {
+        //             // NOTE this is inserting into the vacant entry in self.phases
+        //             let phase = v.insert(ViewState::prepare(
+        //                 view_number,
+        //                 api.is_leader(view_number).await,
+        //             ));
+        //             self.active_phases.push_back(view_number);
+        //             // The new view-number should always be greater than the other entries in `self.active_phases`
+        //             // validate that here
+        //             assert!(is_sorted(self.active_phases.iter()));
+        //             phase
+        //         } else {
+        //             // Should we throw an error when we're in a unit test?
+        //             warn!(?view_number, "Could not insert, too old");
+        //             return Ok(());
+        //         }
+        //     }
+        // };
+        //
+        // phase
+        //     .add_consensus_message(api, &mut self.transactions, message)
+        //     .await?;
+        // self.after_update(view_number);
+        // Ok(())
+        todo!()
     }
 
     /// Add a transaction to the hotstuff implementation.
@@ -171,21 +191,24 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         transaction: <I as TypeMap<N>>::Transaction,
         api: &mut A,
     ) -> Result {
-        self.transactions.push(TransactionState::new(transaction));
-        // transactions are useful for the `Prepare` phase
-        // so notify these phases
-        for view_number in self.active_phases.clone() {
-            let phase = self
-                .phases
-                .get_mut(&view_number)
-                .expect("Found a view in `active_phase` but it doesn't exist in `self.phases`");
-            if let Stage::Prepare = phase.stage() {
-                phase
-                    .notify_new_transaction(api, &mut self.transactions)
-                    .await?;
-                self.after_update(view_number);
-            }
-        }
+        self.transactions.push(transaction);
+
+        // TODO rewrite this portion to be stageless
+
+        // // transactions are useful for the `Prepare` phase
+        // // so notify these phases
+        // for view_number in self.active_phases.clone() {
+        //     let phase = self
+        //         .view_cache
+        //         .get_mut(&view_number)
+        //         .expect("Found a view in `active_phase` but it doesn't exist in `self.phases`");
+        //     if let Stage::Prepare = phase.stage() {
+        //         phase
+        //             .notify_new_transaction(api, &mut self.transactions)
+        //             .await?;
+        //         self.after_update(view_number);
+        //     }
+        // }
 
         Ok(())
     }
@@ -195,14 +218,15 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// If the given round is done, this function will not have any effect
     #[instrument]
     pub fn round_timeout(&mut self, view_number: ViewNumber) {
-        if self.inactive_phases.iter().any(|v| v == &view_number) {
-            return; // round is not running
-        }
-
-        // This view_number should always exist, because it is in our `self.active_phases` list
-        self.phases.get_mut(&view_number).unwrap().timeout();
-        // `after_update` will properly clean up the internal state
-        self.after_update(view_number);
+        todo!()
+        // if self.inactive_phases.iter().any(|v| v == &view_number) {
+        //     return; // round is not running
+        // }
+        //
+        // // This view_number should always exist, because it is in our `self.active_phases` list
+        // self.view_cache.get_mut(&view_number).unwrap().timeout();
+        // // `after_update` will properly clean up the internal state
+        // self.after_update(view_number);
     }
 
     /// Send out a [`NextView`] message to the leader of the given round.
@@ -220,40 +244,39 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         view_number: ViewNumber,
         api: &mut A,
     ) -> Result {
-        let leader = api.get_leader(view_number).await;
-        let is_leader = api.public_key() == &leader;
-
-        // If we don't have this phase in our phases, insert it
-        let phase = match self.phases.entry(view_number) {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => {
-                self.active_phases.push_back(view_number);
-                if !is_sorted(self.active_phases.iter()) {
-                    return utils::err("Internal error; phases aren't properly sorted");
-                }
-                v.insert(ViewState::prepare(view_number, is_leader))
-            }
-        };
-
-        let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
-            Some(qc) => qc,
-            None => return utils::err("No QC in storage"),
-        };
-        let new_view = ConsensusMessage::NewView(NewView {
-            current_view: view_number,
-            justify: newest_qc,
-        });
-
-        if is_leader {
-            phase.add_consensus_message(api, &mut [], new_view).await?;
-        } else {
-            api.send_direct_message(leader, new_view).await.context(
-                FailedToMessageLeaderSnafu {
-                    stage: Stage::Prepare,
-                },
-            )?;
-        }
-        Ok(())
+        todo!()
+        // let leader = api.get_leader(view_number).await;
+        // let is_leader = api.public_key() == &leader;
+        //
+        // // If we don't have this phase in our phases, insert it
+        // let phase = match self.view_cache.entry(view_number) {
+        //     Entry::Occupied(o) => o.into_mut(),
+        //     Entry::Vacant(v) => {
+        //         self.active_phases.push_back(view_number);
+        //         if !is_sorted(self.active_phases.iter()) {
+        //             return utils::err("Internal error; phases aren't properly sorted");
+        //         }
+        //         v.insert(ViewState::prepare(view_number, is_leader))
+        //     }
+        // };
+        //
+        // let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
+        //     Some(qc) => qc,
+        //     None => return utils::err("No QC in storage"),
+        // };
+        // let new_view = ConsensusMessage::NewView(NewView {
+        //     current_view: view_number,
+        //     justify: newest_qc,
+        // });
+        //
+        // if is_leader {
+        //     phase.add_consensus_message(api, &mut [], new_view).await?;
+        // } else {
+        //     api.send_direct_message(leader, new_view).await.context(
+        //         FailedToMessageLeaderSnafu { },
+        //     )?;
+        // }
+        // Ok(())
     }
 
     /// Register a [`Sender`] that will be notified when the given round ends.
@@ -262,11 +285,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         view_number: ViewNumber,
         sender: Sender<RoundFinishedEvent>,
     ) {
-        debug!(?view_number, "Attaching listener to round");
-        self.round_finished_listeners
-            .entry(view_number)
-            .or_default()
-            .push(sender);
+        todo!()
     }
 
     /// To be called after a round is updated.
@@ -275,45 +294,47 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// - notify all listeners in `self.round_finished_listeners`.
     /// - Remove the view number from `active_phases` and append it to `inactive_phases`.
     fn after_update(&mut self, view_number: ViewNumber) {
-        // This phase should always exist
-        let phase = self.phases.get_mut(&view_number).unwrap();
-        if phase.is_done() {
-            let listeners = self.round_finished_listeners.remove(&view_number);
-            debug!(
-                ?view_number,
-                "Phase is done, notifying {} listeners",
-                listeners.as_ref().map(Vec::len).unwrap_or_default()
-            );
-            if let Some(listeners) = listeners {
-                let event = RoundFinishedEvent {
-                    view_number,
-                    state: if let Some(reason) = phase.get_timedout_reason() {
-                        RoundFinishedEventState::Interrupted(reason)
-                    } else {
-                        RoundFinishedEventState::Success
-                    },
-                };
-                for listener in listeners {
-                    let _ = listener.send(event.clone());
-                }
-            }
-            self.active_phases.retain(|p| p != &view_number);
-            match self.inactive_phases.binary_search(&view_number) {
-                Ok(_) => { /* view number is already in an inactive phase */ }
-                Err(idx) => self.inactive_phases.insert(idx, view_number),
-            }
-        }
+        todo!()
+        // // This phase should always exist
+        // let phase = self.view_cache.get_mut(&view_number).unwrap();
+        // if phase.is_done() {
+        //     let listeners = self.round_finished_listeners.remove(&view_number);
+        //     debug!(
+        //         ?view_number,
+        //         "Phase is done, notifying {} listeners",
+        //         listeners.as_ref().map(Vec::len).unwrap_or_default()
+        //     );
+        //     if let Some(listeners) = listeners {
+        //         let event = RoundFinishedEvent {
+        //             view_number,
+        //             state: if let Some(reason) = phase.get_timedout_reason() {
+        //                 RoundFinishedEventState::Interrupted(reason)
+        //             } else {
+        //                 RoundFinishedEventState::Success
+        //             },
+        //         };
+        //         for listener in listeners {
+        //             let _ = listener.send(event.clone());
+        //         }
+        //     }
+        //     self.active_phases.retain(|p| p != &view_number);
+        //     match self.inactive_phases.binary_search(&view_number) {
+        //         Ok(_) => { /* view number is already in an inactive phase */ }
+        //         Err(idx) => self.inactive_phases.insert(idx, view_number),
+        //     }
+        // }
     }
 
     /// Check to see if we can insert the given view. If the view is earlier than a view we already have, this will return `false`.
     fn can_insert_view(&self, view_number: ViewNumber) -> bool {
-        // We can insert a view_number when it is higher than any phase we have
-        if let Some(highest) = self.active_phases.back() {
-            view_number > *highest
-        } else {
-            // if we have no active phases, check if all `inactive_phases` are less than `view_number`
-            self.inactive_phases.iter().all(|p| p < &view_number)
-        }
+        todo!()
+        // // We can insert a view_number when it is higher than any phase we have
+        // if let Some(highest) = self.active_phases.back() {
+        //     view_number > *highest
+        // } else {
+        //     // if we have no active phases, check if all `inactive_phases` are less than `view_number`
+        //     self.inactive_phases.iter().all(|p| p < &view_number)
+        // }
     }
 }
 

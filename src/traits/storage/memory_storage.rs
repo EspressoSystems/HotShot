@@ -298,7 +298,7 @@ where
     async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult {
         let hash = leaf.hash();
         trace!(?leaf, ?hash, "Inserting");
-        let block_hash = BlockContents::hash(&leaf.item);
+        let block_hash = BlockContents::hash(&leaf.deltas);
         let mut leaves = self.inner.leaves.write().await;
         let index = leaves.len();
         trace!(?leaf, ?index, "Inserting leaf");
@@ -444,16 +444,16 @@ mod test {
         let qc_2 = random_quorom_certificate();
         let leaf_1 = Leaf {
             parent: parent_1,
-            item: block_1.clone(),
+            deltas: block_1.clone(),
             view_number: qc_1.view_number,
-            qc: qc_1,
+            justify_qc: qc_1,
         };
         let hash_1 = leaf_1.hash();
         let leaf_2 = Leaf {
             parent: parent_2,
-            item: block_2.clone(),
+            deltas: block_2.clone(),
             view_number: qc_2.view_number,
-            qc: qc_2,
+            justify_qc: qc_2,
         };
         let hash_2 = leaf_2.hash();
         // Attempt to insert them
@@ -474,9 +474,9 @@ mod test {
         let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap().unwrap();
         // Make sure they are the right leaves
         assert_eq!(h_leaf_1.parent, leaf_1.parent);
-        assert_eq!(h_leaf_1.item, leaf_1.item);
+        assert_eq!(h_leaf_1.deltas, leaf_1.deltas);
         assert_eq!(h_leaf_2.parent, leaf_2.parent);
-        assert_eq!(h_leaf_2.item, leaf_2.item);
+        assert_eq!(h_leaf_2.deltas, leaf_2.deltas);
         // Attempt to get them back by block hash
         let b_leaf_1 = storage
             .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_1))
@@ -490,9 +490,9 @@ mod test {
             .unwrap();
         // Make sure they are the right leaves
         assert_eq!(b_leaf_1.parent, leaf_1.parent);
-        assert_eq!(b_leaf_1.item, leaf_1.item);
+        assert_eq!(b_leaf_1.deltas, leaf_1.deltas);
         assert_eq!(b_leaf_2.parent, leaf_2.parent);
-        assert_eq!(b_leaf_2.item, leaf_2.item);
+        assert_eq!(b_leaf_2.deltas, leaf_2.deltas);
         // Getting a bunk leaf by hash fails
         assert!(storage
             .get_leaf(&LeafHash::<32>::random())

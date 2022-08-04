@@ -77,14 +77,14 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     // Utility functions
 
-    /// returns `true` if the current node is a leader for the given `view_number` and `stage`
+    /// returns `true` if the current node is a leader for the given `view_number`
     async fn is_leader(&self, view_number: ViewNumber) -> bool {
         &self.get_leader(view_number).await == self.public_key()
     }
 
     /// returns `true` if the current node should act as a replica for the given `view_number`
     async fn is_replica(&self, view_number: ViewNumber) -> bool {
-        self.leader_acts_as_replica() || (!self.is_leader(view_number).await)
+        self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
     /// sends a proposal event down the channel
@@ -117,7 +117,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
-    /// Create a [`VerifyHash`] for a given [`LeafHash`], [`Stage`] and [`ViewNumber`]
+    /// Create a [`VerifyHash`] for a given [`LeafHash`], and [`ViewNumber`]
     fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
@@ -147,19 +147,20 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// If this message has no QC then this will return `true`
     fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
         let (qc, view_number) = match message {
-            ConsensusMessage::PreCommit(pre_commit) => {
-                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-                (&pre_commit.qc, pre_commit.current_view)
-            }
-            // Same as PreCommit, we compare with 1 stage earlier
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
-
-            ConsensusMessage::NewView(_)
-            | ConsensusMessage::Prepare(_)
-            | ConsensusMessage::CommitVote(_)
-            | ConsensusMessage::PreCommitVote(_)
-            | ConsensusMessage::PrepareVote(_) => return true,
+            _ => todo!(),
+            // ConsensusMessage::PreCommit(pre_commit) => {
+            //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
+            //     (&pre_commit.qc, pre_commit.current_view)
+            // }
+            // // Same as PreCommit, we compare with 1 stage earlier
+            // ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
+            // ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
+            //
+            // ConsensusMessage::NextView(_)
+            // | ConsensusMessage::Prepare(_)
+            // | ConsensusMessage::CommitVote(_)
+            // | ConsensusMessage::PreCommitVote(_)
+            // | ConsensusMessage::PrepareVote(_) => return true,
         };
 
         self.validate_qc(qc, view_number)

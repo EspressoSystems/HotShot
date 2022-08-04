@@ -19,25 +19,25 @@ use tracing::{error, info, instrument, warn};
 ///
 /// This can be started and stopped by sending [`ToRoundRunner`] messages to the `sender` that is available on this struct.
 pub struct RoundRunner<I: NodeImplementation<N>, const N: usize> {
-    /// The join handle of the current running round
-    join_handle: Option<JoinHandle<()>>,
-    /// The sender that can be used to send messages to this round runner
-    pub sender: Sender<ToRoundRunner>,
-    /// The internal receiver used to receive messages from `sender`
-    receiver: Receiver<ToRoundRunner>,
-    /// The internal state of the round runner. This will be updated every time a round has finished.
-    state: RoundRunnerState,
-    /// A reference to the current running hotshot implementation.
-    hotshot: HotShot<I, N>,
-
-    /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
-    run_once_counter: usize,
-
-    /// The timeout of the next round.
-    int_duration: u64,
-
-    /// The amount of times in a row that a round timed out
-    round_timeout_seq_count: usize,
+    // /// The join handle of the current running round
+    // join_handle: Option<JoinHandle<()>>,
+    // /// The sender that can be used to send messages to this round runner
+    // pub sender: Sender<ToRoundRunner>,
+    // /// The internal receiver used to receive messages from `sender`
+    // receiver: Receiver<ToRoundRunner>,
+    // /// The internal state of the round runner. This will be updated every time a round has finished.
+    // state: RoundRunnerState,
+    // /// A reference to the current running hotshot implementation.
+    // hotshot: HotShot<I, N>,
+    //
+    // /// Counter of how many rounds need to be run. This allows us to send multiple `RunOnce` commands and the backround runner will handle this correctly.
+    // run_once_counter: usize,
+    //
+    // /// The timeout of the next round.
+    // int_duration: u64,
+    //
+    // /// The amount of times in a row that a round timed out
+    // round_timeout_seq_count: usize,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> RoundRunner<I, N> {

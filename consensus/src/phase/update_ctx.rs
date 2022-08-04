@@ -2,7 +2,7 @@
 
 use crate::{ConsensusApi, OptionUtils, Result, ViewNumber};
 use hotshot_types::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, Stage},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate},
     error::{FailedToBroadcastSnafu, StorageSnafu},
     message::{
         Commit, CommitVote, ConsensusMessage, Decide, NewView, PreCommit, PreCommitVote, Prepare,
@@ -27,8 +27,6 @@ pub(super) struct UpdateCtx<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>,
     pub(super) messages: &'a mut Vec<<I as TypeMap<N>>::ConsensusMessage>,
     /// `true` if this phase is leader in this round.
     pub(super) is_leader: bool,
-    /// The current stage of this phase
-    pub(super) stage: Stage,
 }
 
 impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> UpdateCtx<'a, I, A, N> {
@@ -58,7 +56,7 @@ impl<'a, I: NodeImplementation<N>, A: ConsensusApi<I, N>, const N: usize> Update
         self.api
             .send_broadcast_message(message.clone())
             .await
-            .context(FailedToBroadcastSnafu { stage: self.stage })?;
+            .context(FailedToBroadcastSnafu {})?;
         // If the networking layer sends this message to ourselves, that means this message will be inserted twice
         // TODO(https://github.com/EspressoSystems/hotshot/issues/258): Make sure this doesn't happen
         self.messages.push(message);

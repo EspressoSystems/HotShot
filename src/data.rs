@@ -5,6 +5,6 @@
 //! representing the threshold signatures fundamental to consensus.
 
 pub use hotshot_types::data::{
-    create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, Stage, StateHash,
-    TransactionHash, VecQuorumCertificate, VerifyHash,
+    create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, StateHash, TransactionHash,
+    VecQuorumCertificate, VerifyHash,
 };

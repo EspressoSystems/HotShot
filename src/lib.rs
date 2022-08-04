@@ -81,7 +81,6 @@ pub use rand;
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
-pub use tasks::RoundRunnerState;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -209,11 +208,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             genesis: true,
         };
         let genesis_leaf = Leaf {
-            parent: [0_u8; { N }].into(),
-            item: genesis.clone(),
-            // NOTE: view number might be different
             view_number: ViewNumber::genesis(),
-            qc: genesis_qc.clone(),
+            justify_qc: genesis_qc.clone(),
+            // NOTE: view number might be different
+            parent: [0_u8; { N }].into(),
+            deltas: todo!(),
         };
         let election = {
             let state =
@@ -641,7 +640,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                         let msg = DataMessage::NewestQuorumCertificate {
                             quorum_certificate,
                             state,
-                            block: leaf.item,
+                            block: leaf.deltas,
                         };
 
                         if let Err(e) = hotshot.send_direct_message(msg, peer.clone()).await {

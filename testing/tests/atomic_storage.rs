@@ -209,7 +209,7 @@ async fn test_happy_path_leaves() {
                     panic!("Could not read leaf hash {:?}: {:?}", leaf.hash(), leaf)
                 }
             }
-            let hash = BlockContents::hash(&leaf.item);
+            let hash = BlockContents::hash(&leaf.deltas);
             match store
                 .get_leaf_by_block(&hash)
                 .await
