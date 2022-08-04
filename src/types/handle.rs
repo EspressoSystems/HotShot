@@ -6,20 +6,16 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::{prelude::FutureExt, task::block_on};
+use async_std::task::block_on;
 use hotshot_types::{
-    error::{HotShotError, RoundTimedoutState, TimeoutSnafu},
+    error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::network::NetworkingImplementation,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-use snafu::ResultExt;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 use tracing::{debug, error};
 
@@ -199,19 +195,9 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
             })?
             .view;
 
-        // timeout for first event is longer in case
-        // there is a delta before other nodes are spun up
-        // this is really long to satisfy CI
-        let mut timeout = Duration::from_secs(10);
-
         // drain all events from this node
         loop {
-            let event = self
-                .next_event()
-                .timeout(timeout)
-                .await
-                .context(TimeoutSnafu)??;
-            timeout = Duration::from_millis(self.get_next_view_timeout());
+            let event = self.next_event().await?;
             match event.event {
                 EventType::ViewTimeout { view_number } => {
                     if view_number >= cur_view {
