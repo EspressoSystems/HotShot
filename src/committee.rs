@@ -183,7 +183,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         for record in table.iter() {
             stake_sum += record.1;
             if stake_sum > selected_stake {
-                return record.0.clone();
+                return *record.0;
             }
         }
         unreachable!()
@@ -213,7 +213,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         next_state: StateHash<N>,
     ) -> Option<ValidatedVoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
-        if !<Self as Vrf<Hasher>>::verify(token.clone(), pub_key.clone(), hash) {
+        if !<Self as Vrf<Hasher>>::verify(token.clone(), pub_key, hash) {
             return None;
         }
 
@@ -299,9 +299,9 @@ mod tests {
         let mut stake_table = BTreeMap::new();
         #[allow(clippy::needless_range_loop)]
         for i in 0..record_size - 1 {
-            stake_table.insert(vrf_public_keys[i].clone(), stake_per_record);
+            stake_table.insert(vrf_public_keys[i], stake_per_record);
         }
-        stake_table.insert(vrf_public_keys[record_size - 1].clone(), last_stake);
+        stake_table.insert(vrf_public_keys[record_size - 1], last_stake);
 
         stake_table
     }
@@ -323,14 +323,14 @@ mod tests {
             let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
             let proof = DynamicCommittee::<S, N>::prove(&secret_key_honest, &input);
             let valid =
-                DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest.clone(), input);
+                DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, input);
             assert!(valid);
 
             // VRF verification should fail if the secret key share does not correspond to the public
             // key share
             let incorrect_proof = DynamicCommittee::<S, N>::prove(&secret_key_byzantine, &input);
             let valid =
-                DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_honest.clone(), input);
+                DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_honest, input);
             assert!(!valid);
 
             // VRF verification should fail if the view number used for proof generation is incorrect
@@ -338,7 +338,7 @@ mod tests {
                 DynamicCommittee::<S, N>::hash_commitee_seed(INCORRECT_VIEW_NUMBER, next_state);
             let valid = DynamicCommittee::<S, N>::verify(
                 proof.clone(),
-                public_key_honest.clone(),
+                public_key_honest,
                 incorrect_input,
             );
             assert!(!valid);
@@ -396,7 +396,7 @@ mod tests {
             // Generate keys
             let secret_key_share = Ed25519Priv::generated_from_seed_indexed(seed, HONEST_NODE_ID);
             let pub_key = Ed25519Pub::from_private(&secret_key_share);
-            let pub_keys = vec![pub_key.clone()];
+            let pub_keys = vec![pub_key];
 
             // Get the VRF proof
             let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
@@ -459,7 +459,7 @@ mod tests {
             let pub_key_stakeless = Ed25519Pub::from_private(&private_key_stakeless);
 
             // Build the committee
-            let mut stake_table = dummy_stake_table(&[pub_key_honest.clone(), pub_key_byzantine]);
+            let mut stake_table = dummy_stake_table(&[pub_key_honest, pub_key_byzantine]);
             stake_table.insert(pub_key_stakeless, 0);
 
             // Vote token should be null if the public key is not selected as a member.
@@ -486,7 +486,7 @@ mod tests {
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
-                pub_key_honest.clone(),
+                pub_key_honest,
                 vote_token.clone(),
                 next_state,
             );
@@ -508,7 +508,7 @@ mod tests {
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
-                pub_key_honest.clone(),
+                pub_key_honest,
                 incorrect_vote_token,
                 next_state,
             );
@@ -527,7 +527,7 @@ mod tests {
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
-                pub_key_honest.clone(),
+                pub_key_honest,
                 incorrect_vote_token,
                 next_state,
             );

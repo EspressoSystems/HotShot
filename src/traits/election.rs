@@ -55,7 +55,7 @@ where
         _: Stage,
     ) -> Ed25519Pub {
         let index = (*view_number % table.len() as u64) as usize;
-        table[index].clone()
+        table[index]
     }
     /// Simply verify the signature and check the membership list
     fn get_votes(
