@@ -1641,6 +1641,7 @@ dependencies = [
 name = "hotshot-consensus"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "async-trait",
  "custom_debug",
  "futures",

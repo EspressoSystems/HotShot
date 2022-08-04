@@ -147,7 +147,10 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// If this message has no QC then this will return `true`
     fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
         let (qc, view_number) = match message {
-            _ => todo!(),
+            ConsensusMessage::Proposal(proposal) => todo!(),
+            ConsensusMessage::NextView(next_view) => todo!(),
+            ConsensusMessage::Vote(vote) => todo!(),
+        };
             // ConsensusMessage::PreCommit(pre_commit) => {
             //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
             //     (&pre_commit.qc, pre_commit.current_view)
@@ -161,7 +164,6 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
             // | ConsensusMessage::CommitVote(_)
             // | ConsensusMessage::PreCommitVote(_)
             // | ConsensusMessage::PrepareVote(_) => return true,
-        };
 
         self.validate_qc(qc, view_number)
     }

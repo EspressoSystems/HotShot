@@ -138,6 +138,9 @@ struct TaskHandleInner {
     /// Join handle for `network_change_task`
     pub network_change_task_handle: JoinHandle<()>,
 
+    /// Join handle for `consensus_task`
+    pub consensus_task_handle: JoinHandle<()>,
+
     /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
     shutdown_timeout: Duration,
@@ -164,6 +167,11 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
             .instrument(info_span!("HotShot network change listener task",)),
     );
 
+    let consensus_task_handle = spawn(
+        consensus_task(hotshot.clone(), shut_down.clone())
+            .instrument(info_span!("Consensus task handle",)),
+    );
+
     let (broadcast_sender, broadcast_receiver) = channel();
 
     // let round_runner = round_runner::RoundRunner::new(hotshot.clone()).await;
@@ -184,15 +192,22 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 
     let mut background_task_handle = hotshot.inner.background_task_handle.inner.write().await;
     *background_task_handle = Some(TaskHandleInner {
-        // round_runner,
-        // round_runner_join_handle,
         network_broadcast_task_handle,
         network_direct_task_handle,
         network_change_task_handle,
+        consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
     });
 
     handle
+}
+
+pub async fn consensus_task<I: NodeImplementation<N>, const N: usize>(
+    hotshot: HotShot<I, N>,
+    shut_down: Arc<AtomicBool>,
+) {
+    // hotshot.
+    todo!()
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.

@@ -34,10 +34,11 @@ use hotshot_types::{
         storage::Storage,
     },
 };
+use async_std::sync::{Arc, RwLock};
 use snafu::ResultExt;
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, VecDeque},
-    time::Instant,
+    time::Instant
 };
 use tracing::{debug, instrument, warn};
 
@@ -84,8 +85,12 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     // new_round_finished_listeners: Vec<Sender<RoundFinishedEvent>>,
     /// A list of transactions
     /// TODO we should flush out the logic here more
-    transactions: Vec<<I as TypeMap<N>>::Transaction>,
+    transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+
+    // msg_channel: Receiver<ConsensusMessage<>>,
 }
+
+
 
 /// A struct containing information about a finished round.
 #[derive(Debug, Clone)]
@@ -112,7 +117,7 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
     fn default() -> Self {
         Self {
             view_cache: BTreeMap::new(),
-            transactions: Vec::new(),
+            transactions: Arc::default(),
             active_view: todo!(),
             last_decided_view: todo!(),
             undecided_views: todo!(),
@@ -191,7 +196,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         transaction: <I as TypeMap<N>>::Transaction,
         api: &mut A,
     ) -> Result {
-        self.transactions.push(transaction);
+        self.transactions.write().await.push(transaction);
 
         // TODO rewrite this portion to be stageless
 

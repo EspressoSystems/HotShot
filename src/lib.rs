@@ -149,9 +149,6 @@ pub struct HotShotInner<I: NodeImplementation<N>, const N: usize> {
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
-
-    /// The hotstuff implementation
-    hotstuff: Mutex<Consensus<I, N>>,
 }
 
 /// Contains the state of the election of the current [`HotShot`].
@@ -170,6 +167,9 @@ struct HotShotElectionState<P: SignatureKey, E: Election<P, N>, const N: usize> 
 pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<I, N>>,
+
+    /// The hotstuff implementation
+    hotstuff: Arc<RwLock<Consensus<I, N>>>,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -234,7 +234,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
-            hotstuff: Mutex::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
         let leaf_hash = genesis_leaf.hash();
@@ -253,6 +252,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         Ok(Self {
             inner: Arc::new(inner),
+            hotstuff: Arc::default()
         })
     }
 
@@ -268,7 +268,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// - A broadcast message could not be send
     #[instrument(skip(self), err)]
     pub async fn next_view(&self, current_view: ViewNumber) -> Result<()> {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
+        let mut hotstuff = self.hotstuff.write().await;
         hotstuff
             .next_view(
                 current_view,
@@ -301,9 +301,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     #[instrument(skip(self), err)]
     pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
         let (sender, receiver) = oneshot::channel();
-        self.inner
+        self
             .hotstuff
-            .lock()
+            .write()
             .await
             .register_round_finished_listener(current_view, sender);
         let result = match receiver.await {
@@ -330,7 +330,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
     pub async fn mark_round_as_timed_out(&self, current_view: ViewNumber) {
-        self.inner.hotstuff.lock().await.round_timeout(current_view);
+        self.hotstuff.write().await.round_timeout(current_view);
     }
 
     /// Publishes a transaction to the network
@@ -345,9 +345,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
-        self.inner
-            .hotstuff
-            .lock()
+        self.hotstuff
+            .write()
             .await
             .add_transaction(tx.clone(), &mut HotShotConsensusApi { inner: &self.inner })
             .await?;
@@ -434,6 +433,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
+        // TODO this is where we should spin up
 
         Ok(handle)
     }
@@ -488,7 +488,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
+        let mut hotstuff = self.hotstuff.write().await;
         let hotstuff = &mut *hotstuff;
         if let Err(e) = hotstuff
             .add_consensus_message(
@@ -508,7 +508,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
+        let mut hotstuff = self.hotstuff.write().await;
         let hotstuff = &mut *hotstuff;
         if let Err(e) = hotstuff
             .add_consensus_message(
@@ -530,7 +530,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ) {
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
-                let mut hotstuff = self.inner.hotstuff.lock().await;
+                let mut hotstuff = self.hotstuff.write().await;
                 let hotstuff = &mut *hotstuff;
                 if let Err(e) = hotstuff
                     .add_transaction(

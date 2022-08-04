@@ -10,4 +10,5 @@ custom_debug = "0.5"
 futures = "0.3.21"
 hotshot-types = { path = "../types" }
 snafu = "0.7.0"
+async-std = "1.12.0"
 tracing = "0.1.36"
