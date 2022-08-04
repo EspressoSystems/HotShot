@@ -274,20 +274,6 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -296,20 +282,16 @@
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotError::NetworkFault</span>},
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
-<span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">prelude::FutureExt</span>, <span class="ident">task::block_on</span>};
+<span class="kw">use</span> <span class="ident">async_std::task::block_on</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>, <span class="ident">TimeoutSnafu</span>},
+    <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
     <span class="ident">event::EventType</span>,
     <span class="ident">traits::network::NetworkingImplementation</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">sync</span>::{
-        <span class="ident">atomic</span>::{<span class="ident">AtomicBool</span>, <span class="ident">Ordering</span>},
-        <span class="ident">Arc</span>,
-    },
-    <span class="ident">time::Duration</span>,
+<span class="kw">use</span> <span class="ident">std::sync</span>::{
+    <span class="ident">atomic</span>::{<span class="ident">AtomicBool</span>, <span class="ident">Ordering</span>},
+    <span class="ident">Arc</span>,
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>};
 
@@ -489,19 +471,9 @@
             })<span class="question-mark">?</span>
             .<span class="ident">view</span>;
 
-        <span class="comment">// timeout for first event is longer in case</span>
-        <span class="comment">// there is a delta before other nodes are spun up</span>
-        <span class="comment">// this is really long to satisfy CI</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
-
         <span class="comment">// drain all events from this node</span>
         <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">next_event</span>()
-                .<span class="ident">timeout</span>(<span class="ident">timeout</span>)
-                .<span class="kw">await</span>
-                .<span class="ident">context</span>(<span class="ident">TimeoutSnafu</span>)<span class="question-mark">?</span><span class="question-mark">?</span>;
-            <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">Duration::from_millis</span>(<span class="self">self</span>.<span class="ident">get_next_view_timeout</span>());
+            <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_event</span>().<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">event</span> {
                 <span class="ident">EventType::ViewTimeout</span> { <span class="ident">view_number</span> } =&gt; {
                     <span class="kw">if</span> <span class="ident">view_number</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">cur_view</span> {
