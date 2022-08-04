@@ -322,25 +322,20 @@ mod tests {
             let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
             let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
             let proof = DynamicCommittee::<S, N>::prove(&secret_key_honest, &input);
-            let valid =
-                DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, input);
+            let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, input);
             assert!(valid);
 
             // VRF verification should fail if the secret key share does not correspond to the public
             // key share
             let incorrect_proof = DynamicCommittee::<S, N>::prove(&secret_key_byzantine, &input);
-            let valid =
-                DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_honest, input);
+            let valid = DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_honest, input);
             assert!(!valid);
 
             // VRF verification should fail if the view number used for proof generation is incorrect
             let incorrect_input =
                 DynamicCommittee::<S, N>::hash_commitee_seed(INCORRECT_VIEW_NUMBER, next_state);
-            let valid = DynamicCommittee::<S, N>::verify(
-                proof.clone(),
-                public_key_honest,
-                incorrect_input,
-            );
+            let valid =
+                DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, incorrect_input);
             assert!(!valid);
 
             // VRF verification should fail if the next state used for proof generation is incorrect
