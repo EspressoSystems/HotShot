@@ -323,11 +323,11 @@ pub struct Leaf<STATE, BLOCK, const N: usize> {
     /// Block leaf wants to apply
     pub deltas: BLOCK,
 
-    // What the state should be after applying `self.deltas`
+    /// What the state should be after applying `self.deltas`
     pub state: STATE,
 }
 
-impl<STATE: BlockContents<N>, BLOCK: BlockContents<N>, const N: usize> Leaf<STATE, BLOCK, N> {
+impl<STATE: State<N>, BLOCK: BlockContents<N>, const N: usize> Leaf<STATE, BLOCK, N> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments

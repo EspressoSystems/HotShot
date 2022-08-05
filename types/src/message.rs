@@ -48,7 +48,7 @@ impl<'a, B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
-    Proposal(Proposal<B, S, N>),
+    Proposal(Proposal<S, B, N>),
     NextView(NextView<N>),
     Vote(Vote<N>),
 }

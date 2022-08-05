@@ -99,7 +99,7 @@ impl Transaction {
 }
 
 /// The state for the dentry demo
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
 pub struct State {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
@@ -475,7 +475,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, N> {
+pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<State, DEntryBlock, N> {
     let parent = LeafHash::random();
     let justify_qc = random_quorom_certificate();
     Leaf {
@@ -483,5 +483,7 @@ pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, N> 
         deltas,
         view_number: justify_qc.view_number,
         justify_qc,
+        // TODO we should add in a random
+        state: State::default(),
     }
 }

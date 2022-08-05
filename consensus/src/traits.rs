@@ -151,19 +151,19 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
             ConsensusMessage::NextView(next_view) => todo!(),
             ConsensusMessage::Vote(vote) => todo!(),
         };
-            // ConsensusMessage::PreCommit(pre_commit) => {
-            //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-            //     (&pre_commit.qc, pre_commit.current_view)
-            // }
-            // // Same as PreCommit, we compare with 1 stage earlier
-            // ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
-            // ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
-            //
-            // ConsensusMessage::NextView(_)
-            // | ConsensusMessage::Prepare(_)
-            // | ConsensusMessage::CommitVote(_)
-            // | ConsensusMessage::PreCommitVote(_)
-            // | ConsensusMessage::PrepareVote(_) => return true,
+        // ConsensusMessage::PreCommit(pre_commit) => {
+        //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
+        //     (&pre_commit.qc, pre_commit.current_view)
+        // }
+        // // Same as PreCommit, we compare with 1 stage earlier
+        // ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
+        // ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
+        //
+        // ConsensusMessage::NextView(_)
+        // | ConsensusMessage::Prepare(_)
+        // | ConsensusMessage::CommitVote(_)
+        // | ConsensusMessage::PreCommitVote(_)
+        // | ConsensusMessage::PrepareVote(_) => return true,
 
         self.validate_qc(qc, view_number)
     }

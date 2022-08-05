@@ -55,7 +55,7 @@ use hotshot_consensus::{Consensus, RoundFinishedEventState};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{DataMessage, Message, ConsensusMessage},
+    message::{ConsensusMessage, DataMessage, Message, Proposal},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -67,7 +67,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashSet, btree_map::Entry},
+    collections::{btree_map::Entry, BTreeMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -172,7 +172,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
 
-    channel_map: BTreeMap<ViewNumber, Sender<ConsensusMessage<N>>>
+    channel_map: Arc<RwLock<BTreeMap<ViewNumber, Sender<Proposal<I::State, I::Block, N>>>>>,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -256,8 +256,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         Ok(Self {
             inner: Arc::new(inner),
+            // TODO check this is what we want.
             hotstuff: Arc::default(),
-            channel_map: BTreeMap::new(),
+            channel_map: Arc::default(),
         })
     }
 
@@ -305,30 +306,31 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Panics if consensus hits a bad round
     #[instrument(skip(self), err)]
     pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
-        let (sender, receiver) = oneshot::channel();
-        self
-            .hotstuff
-            .write()
-            .await
-            .register_round_finished_listener(current_view, sender);
-        let result = match receiver.await {
-            Ok(result) => result,
-            Err(e) => {
-                return Err(HotShotError::InvalidState {
-                    context: format!("Could not wait for round to end: {:?}", e),
-                })
-            }
-        };
-        match result.state {
-            RoundFinishedEventState::Success => Ok(result.view_number),
-            RoundFinishedEventState::Interrupted(state) => Err(HotShotError::ViewTimeoutError {
-                view_number: result.view_number,
-                state,
-            }),
-            x => Err(HotShotError::InvalidState {
-                context: format!("Round finished in an unknown state: {:?}", x),
-            }),
-        }
+        todo!()
+        // let (sender, receiver) = oneshot::channel();
+        // self
+        //     .hotstuff
+        //     .write()
+        //     .await
+        //     .register_round_finished_listener(current_view, sender);
+        // let result = match receiver.await {
+        //     Ok(result) => result,
+        //     Err(e) => {
+        //         return Err(HotShotError::InvalidState {
+        //             context: format!("Could not wait for round to end: {:?}", e),
+        //         })
+        //     }
+        // };
+        // match result.state {
+        //     RoundFinishedEventState::Success => Ok(result.view_number),
+        //     RoundFinishedEventState::Interrupted(state) => Err(HotShotError::ViewTimeoutError {
+        //         view_number: result.view_number,
+        //         state,
+        //     }),
+        //     x => Err(HotShotError::InvalidState {
+        //         context: format!("Round finished in an unknown state: {:?}", x),
+        //     }),
+        // }
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -492,38 +494,36 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
-        ) {
+    ) {
+        let msg_view_number = msg.view_number();
 
         match msg {
             ConsensusMessage::Proposal(p) => {
-                let msg_view_number = msg.view_number();
-
+                let mut channel_map = self.channel_map.write().await;
                 // either obtains channel or creates one
-                let chan = match self.channel_map.entry(&msg_view_number) {
+                let chan = match channel_map.entry(msg_view_number) {
                     Entry::Vacant(location) => {
                         // access consensus
-                        let consensus = self.hotstuff.write().await;
+                        let mut consensus = self.hotstuff.write().await;
                         if let Some(chan) = consensus.get_future_view_sender(msg_view_number) {
-                            Some(location.insert(chan))
+                            Some(location.insert(chan).clone())
                         } else {
                             None
                         }
-                    },
-                    Entry::Occupied(entry) => {
-                        Some(entry.get())
-                    },
+                    }
+                    Entry::Occupied(entry) => Some(entry.get().clone()),
                 };
 
                 // sends the message if not stale
                 if let Some(chan) = chan {
-                    if chan.send_async(msg).await.is_err() {
+                    if chan.send_async(p).await.is_err() {
                         error!("failed to send");
                     }
                 };
-            },
+            }
             ConsensusMessage::NextView(_) | ConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
-            },
+            }
         };
     }
 
@@ -605,8 +605,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     let new_view_number = qc.view_number;
                     let block_hash = BlockContents::hash(&block);
                     let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(block.clone(), leaf_hash, qc.clone(), qc.view_number, state);
-                    debug!(?leaf, ?block, ?state, ?qc, "Saving");
+                    let leaf = Leaf::new(
+                        state.clone(),
+                        block.clone(),
+                        leaf_hash,
+                        qc.clone(),
+                        qc.view_number,
+                    );
+                    debug!(?leaf, ?block, ?qc, "Saving");
 
                     if let Err(e) = self
                         .inner
@@ -696,10 +702,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 }
 
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
+/// TODO potentially remove I::State since can obtain from leaf
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,
 ) -> std::result::Result<
-    Option<(QuorumCertificate<N>, Leaf<I::Block, N>, I::State)>,
+    Option<(QuorumCertificate<N>, Leaf<I::State, I::Block, N>, I::State)>,
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
     let qc = match storage.get_newest_qc().await? {

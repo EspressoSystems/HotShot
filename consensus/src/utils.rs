@@ -16,7 +16,7 @@ pub(crate) async fn leaf_descends_from<
     const N: usize,
 >(
     api: &A,
-    leaf: &Leaf<I::Block, N>,
+    leaf: &Leaf<I::State, I::Block, N>,
     ancestor_hash: LeafHash<N>,
 ) -> bool {
     let leaf_hash = leaf.hash();
@@ -86,7 +86,7 @@ pub(crate) async fn validate_against_locked_qc<
 >(
     api: &A,
     locked_qc: &QuorumCertificate<N>,
-    new_leaf: &Leaf<I::Block, N>,
+    new_leaf: &Leaf<I::State, I::Block, N>,
     high_qc: &QuorumCertificate<N>,
 ) -> bool {
     // Check to make sure the leaf actually descends from its high_qc

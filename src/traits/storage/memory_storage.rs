@@ -37,7 +37,7 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    leaves: RwLock<Vec<Leaf<Block, N>>>,
+    leaves: RwLock<Vec<Leaf<State, Block, N>>>,
     /// Index of the [`Leaf`]s by their hashes
     hash_to_leaf: DashMap<LeafHash<N>, usize>,
     /// Index of the [`Leaf`]s by their block's hashes
@@ -147,7 +147,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<S, B, N>>> {
         trace!(?self.inner.hash_to_leaf, ?hash);
         // Check to see if we have the leaf
         let index = self.inner.hash_to_leaf.get(hash);
@@ -162,7 +162,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<S, B, N>>> {
         // Check to see if we have the leaf
         let index = self.inner.block_to_leaf.get(hash);
         Ok(if let Some(index) = index {
@@ -208,7 +208,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         blocks.sort_by_key(|(hash, _)| *hash);
         let blocks = blocks.into_iter().map(|(_, block)| block).collect();
 
-        let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.read().await.clone();
+        let mut leafs: Vec<Leaf<S, B, N>> = self.inner.leaves.read().await.clone();
         leafs.sort_by_cached_key(Leaf::hash);
 
         let mut quorum_certificates = self.inner.qcs.read().await.clone();
@@ -295,7 +295,7 @@ where
     }
 
     #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
-    async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult {
+    async fn insert_leaf(&mut self, leaf: Leaf<S, B, N>) -> StorageResult {
         let hash = leaf.hash();
         trace!(?leaf, ?hash, "Inserting");
         let block_hash = BlockContents::hash(&leaf.deltas);
@@ -440,6 +440,8 @@ mod test {
         let block_2 = DummyBlock::random();
         let parent_1 = LeafHash::<32>::random();
         let parent_2 = LeafHash::<32>::random();
+        let state_1 = DummyState::random();
+        let state_2 = DummyState::random();
         let qc_1 = random_quorom_certificate();
         let qc_2 = random_quorom_certificate();
         let leaf_1 = Leaf {
@@ -447,6 +449,7 @@ mod test {
             deltas: block_1.clone(),
             view_number: qc_1.view_number,
             justify_qc: qc_1,
+            state: state_1,
         };
         let hash_1 = leaf_1.hash();
         let leaf_2 = Leaf {
@@ -454,6 +457,7 @@ mod test {
             deltas: block_2.clone(),
             view_number: qc_2.view_number,
             justify_qc: qc_2,
+            state: state_2,
         };
         let hash_2 = leaf_2.hash();
         // Attempt to insert them
