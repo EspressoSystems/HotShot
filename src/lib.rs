@@ -535,7 +535,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     }
                 };
             }
-            ConsensusMessage::NextView(_) | ConsensusMessage::Vote(_) => {
+            ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
             }
         };

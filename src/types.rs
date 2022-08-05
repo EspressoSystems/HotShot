@@ -7,6 +7,6 @@ pub use handle::HotShotHandle;
 
 pub(crate) use hotshot_types::error::HotShotError;
 pub use hotshot_types::{
-    message::{Message, NextView, Vote},
+    message::{Message, TimedOut, Vote},
     traits::signature_key::{ed25519, SignatureKey},
 };

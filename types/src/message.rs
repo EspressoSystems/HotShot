@@ -48,9 +48,16 @@ impl<'a, B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
+    /// Leader's proposal
     Proposal(Proposal<S, B, N>),
-    NextView(NextView<N>),
+    /// Replica timed out
+    TimedOut(TimedOut<N>),
+    /// Replica votes
     Vote(Vote<N>),
+    /// Internal ONLY message indicating a NextView interrupt
+    /// View number this nextview interrupt was generated for
+    /// used so we ignore stale nextview interrupts within a task
+    NextViewInterrupt(ViewNumber)
 }
 
 impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
@@ -59,7 +66,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     /// Otherwise the return value will be the `current_view` of the inner struct.
     pub fn view_number(&self) -> ViewNumber {
         match self {
-            Self::NextView(view) => view.current_view,
+            Self::TimedOut(view) => view.current_view,
             _ => todo!(),
             // Self::Prepare(prepare) => prepare.current_view,
             // Self::PrepareVote(vote) => vote.current_view,
@@ -97,7 +104,7 @@ pub enum DataMessage<B, T, S, const N: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Signals the start of a new view
-pub struct NextView<const N: usize> {
+pub struct TimedOut<const N: usize> {
     /// The current view
     pub current_view: ViewNumber,
     /// The justification qc for this view

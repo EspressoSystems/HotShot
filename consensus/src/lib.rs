@@ -33,7 +33,7 @@ use futures::{future::join, select, FutureExt};
 use hotshot_types::{
     data::{Leaf, LeafHash, QuorumCertificate, TransactionHash, ViewNumber},
     error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
-    message::{ConsensusMessage, NextView, Proposal, Vote},
+    message::{ConsensusMessage, TimedOut, Proposal, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,

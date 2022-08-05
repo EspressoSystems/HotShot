@@ -148,8 +148,9 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
         let (qc, view_number) = match message {
             ConsensusMessage::Proposal(proposal) => todo!(),
-            ConsensusMessage::NextView(next_view) => todo!(),
+            ConsensusMessage::TimedOut(next_view) => todo!(),
             ConsensusMessage::Vote(vote) => todo!(),
+            ConsensusMessage::NextViewInterrupt(view_number) => todo!()
         };
         // ConsensusMessage::PreCommit(pre_commit) => {
         //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
