@@ -172,7 +172,17 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
 
+    /// for sending received proposals from handle_broadcast_consensus_message task
+    /// to the replica task
     channel_map: Arc<RwLock<BTreeMap<ViewNumber, Sender<Proposal<I::State, I::Block, N>>>>>,
+
+    /// for sending consensus messages from handle_direct_consensus_message task
+    /// to the next leader task. NOTE: only Vote, NextView should be sent over this channel
+    /// TODO is there a way to enforce this with type safety
+    send_next_leader: Sender<ConsensusMessage<I::Block, I::State, N>>,
+
+    /// for recv-ing consensus messages from handle_direct_consensus_message task
+    recv_next_leader: Receiver<ConsensusMessage<I::Block, I::State, N>>,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -254,11 +264,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             .await
             .context(StorageSnafu)?;
 
+        let (send_next_leader, recv_next_leader) = flume::unbounded();
+
         Ok(Self {
             inner: Arc::new(inner),
             // TODO check this is what we want.
             hotstuff: Arc::default(),
             channel_map: Arc::default(),
+            send_next_leader,
+            recv_next_leader,
         })
     }
 
@@ -517,7 +531,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 // sends the message if not stale
                 if let Some(chan) = chan {
                     if chan.send_async(p).await.is_err() {
-                        error!("failed to send");
+                        error!("Failed to replica task!");
                     }
                 };
             }
@@ -533,6 +547,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
+        match msg {
+            ConsensusMessage::Proposal(_) => {
+                warn!("Received a direct message for a proposal. This shouldn't be possible.");
+            }
+            c => {
+                if self.send_next_leader.send_async(c).await.is_err() {
+                    warn!("Failed to send to next leader!");
+                }
+            }
+        }
         // let mut hotstuff = self.hotstuff.write().await;
         // let hotstuff = &mut *hotstuff;
         // if let Err(e) = hotstuff

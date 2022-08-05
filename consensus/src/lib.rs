@@ -186,7 +186,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         let leader: Leader<I, N> = Leader {
             generic_qc: self.generic_qc.clone(),
             // this should be changed to a channel
-            messages: todo!(),
+            message_receiver: todo!(),
         };
 
         let next_leader = NextLeader {
@@ -245,7 +245,8 @@ pub struct Replica<const N: usize> {
 
 pub struct Leader<I: NodeImplementation<N>, const N: usize> {
     generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
-    messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+    /// receives votes and nextview messages
+    message_receiver: Receiver<ConsensusMessage<I::State, I::Block, N>>,
 }
 
 pub struct NextLeader<const N: usize> {
