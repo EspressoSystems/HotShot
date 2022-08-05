@@ -1644,6 +1644,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "custom_debug",
+ "flume",
  "futures",
  "hotshot-types",
  "snafu",

@@ -52,10 +52,10 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     ) -> StorageResult<Option<QuorumCertificate<N>>>;
 
     /// Retrieves a leaf by its hash
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<S, B, N>>>;
 
     /// Retrieves a leaf by the hash of its block
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<S, B, N>>>;
 
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
     async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>>;
@@ -120,7 +120,7 @@ pub struct StorageState<B, S, const N: usize> {
     /// A list of all the [`QuorumCertificate`] in the storage, sorted by view_number.
     pub quorum_certificates: Vec<QuorumCertificate<N>>,
     /// A list of all the [`Leaf`] in the storage, sorted by [`LeafHash`].
-    pub leafs: Vec<Leaf<B, N>>,
+    pub leafs: Vec<Leaf<S, B, N>>,
     /// A list of all the states in the storage, storted by [`LeafHash`]
     pub states: Vec<S>,
 }
@@ -140,7 +140,7 @@ pub trait StorageUpdater<
     /// not from a decide stage.
     async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> StorageResult;
     /// Inserts a leaf.
-    async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult;
+    async fn insert_leaf(&mut self, leaf: Leaf<S, B, N>) -> StorageResult;
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it.
     async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult;
 }

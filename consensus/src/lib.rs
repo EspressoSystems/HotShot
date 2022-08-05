@@ -22,34 +22,79 @@ mod traits;
 mod utils;
 // pub mod message_processing;
 
+use flume::{Receiver, Sender};
 pub use traits::ConsensusApi;
 
-use futures::channel::oneshot::Sender;
+use futures::{select, FutureExt, future::join};
 use hotshot_types::{
-    data::ViewNumber,
+    data::{ViewNumber, TransactionHash, LeafHash, Leaf, QuorumCertificate},
     error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
-    message::{ConsensusMessage, NextView},
+    message::{ConsensusMessage, NextView, Vote, Proposal},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
     },
 };
-use async_std::sync::{Arc, RwLock};
+use async_std::{sync::{Arc, RwLock}, task::{JoinHandle, sleep, spawn}};
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, VecDeque},
-    time::Instant
+    collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, VecDeque, HashSet},
+    time::{Instant, Duration}
 };
 use tracing::{debug, instrument, warn};
 
 #[derive(Debug)]
-pub(crate) struct ViewState<I: NodeImplementation<N>, const N: usize> {
-    /// The view number of this phase.
-    view_number: ViewNumber,
+pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
+    Future {
+        sender_chan: Receiver<Proposal<I::State, I::Block, N>>,
+        receiver_chan: Receiver<Proposal<I::State, I::Block, N>>,
+    },
+    Undecided {
+        leaf: Leaf<I::State, I::Block, N>,
+    },
+    Decided {
+        leaf: Leaf<I::State, I::Block, N>,
+    },
+    Failed
+}
 
-    /// All messages that have been received on this phase.
-    /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
-    messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+impl<I: NodeImplementation<N>, const N: usize>  View<I, N> {
+    pub fn transition(&mut self) {
+        todo!()
+    }
+}
+
+impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
+    pub fn new() -> Self {
+        let (sender_chan, receiver_chan) = flume::unbounded();
+        Self {
+            view_inner: ViewInner::Future {
+                sender_chan,
+                receiver_chan
+            }
+        }
+
+    }
+}
+
+
+
+/// This exists so we can perform state transitions mutably
+#[derive(Debug)]
+pub(crate) struct View<I: NodeImplementation<N>, const N: usize> {
+    view_inner: ViewInner<I, N>
+//     message_chan: Receiver<<I as TypeMap<N>>::ConsensusMessage>,
+//     state: ViewState,
+//
+//     // /// The view number of this phase.
+//     // view_number: ViewNumber,
+//
+//     // /// transactions included in proposal for this round
+//     // proposed_transactions: HashSet<TransactionHash<N>>,
+//
+//     /// All messages that have been received on this phase.
+//     /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
+//     // messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
 }
 
 /// The result used in this crate
@@ -62,33 +107,167 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    view_cache: BTreeMap<ViewNumber, ViewState<I, N>>,
+    state_map: BTreeMap<ViewNumber, View<I, N>>,
 
-    /// Currently active view
-    active_view: ViewNumber,
+    /// leaves that have been seen
+    in_progress_leaves: HashSet<Leaf<I::Block, N>>,
+
+    /// cur_view from pseudocode
+    cur_view: ViewNumber,
 
     /// last view had a successful decide event
     last_decided_view: ViewNumber,
 
-    /// [last_decided_view, current_view]
-    /// Does not contain empty/timed out views
-    undecided_views: BTreeSet<ViewNumber>,
-
-    /// contains timed out views since last decide
-    bad_views: BTreeSet<ViewNumber>,
-
-    /// contains views that are ahead of `self.active_view`
-    future_views: BTreeSet<ViewNumber>,
+    // /// [last_decided_view, current_view]
+    // /// Does not contain empty/timed out views
+    // undecided_views: BTreeSet<ViewNumber>,
+    //
+    // /// contains timed out views since last decide
+    // bad_views: BTreeSet<ViewNumber>,
+    //
+    // /// contains views that are ahead of `self.active_view`
+    // future_views: BTreeSet<ViewNumber>,
 
     // /// Listeners to be called when a round ends
     // /// TODO we can probably nuke this soon
     // new_round_finished_listeners: Vec<Sender<RoundFinishedEvent>>,
     /// A list of transactions
     /// TODO we should flush out the logic here more
-    transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
 
+    undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, N>>,
+
+    locked_qc: QuorumCertificate<N>,
+    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
     // msg_channel: Receiver<ConsensusMessage<>>,
 }
+
+
+impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
+
+    /// Returns a channel that may be used to send received proposals
+    /// to the Replica task.
+    /// NOTE: requires write access to `Consensus` because may
+    /// insert into `self.state_map` if the view has not been constructed NOTE: requires write
+    /// access to `Consensus` because may
+    /// insert into `self.state_map` if the view has not been constructed
+    pub async fn get_future_view_sender(&mut self, msg_view_number: ViewNumber) -> Option<Sender<Proposal<I::State, I::Block>>> {
+        if msg_view_number < self.cur_view {
+            return None;
+        }
+
+        let view = self.state_map.entry(&msg_view_number).or_insert(View::new());
+        if let ViewInner::Future { sender_chan, .. } = view {
+            Some(sender_chan.clone())
+        } else {
+            None
+        }
+
+
+    }
+
+
+
+    pub fn spawn_network_handler() -> Sender<ConsensusMessage<I::Block, I::State, N>> {
+        let (send_network_handler, recv_network_handler) = flume::unbounded();
+        spawn(async move {
+            // TODO use this somehow
+            // TODO shutdown
+            drop(recv_network_handler);
+        });
+        send_network_handler
+    }
+
+
+    pub async fn run_views<A: ConsensusApi<I, N>>(&mut self, api: A) {
+        // construct two channels
+        let (send_replica, recv_replica) = flume::unbounded();
+
+        let (send_next_leader, recv_next_leader) = flume::unbounded();
+
+        let r = vec![];
+        // run leader task
+        let leader : Leader<I, N> = Leader {
+            generic_qc: self.generic_qc.clone(),
+            messages: self.state_map.get(&self.cur_view).unwrap_or_else(|| &r).clone(),
+        };
+
+        let next_leader = NextLeader {
+            generic_qc: self.generic_qc.clone(),
+            vote_collection_chan: recv_replica,
+        };
+
+
+        let replica : Replica<N> = Replica {
+            locked_qc: self.locked_qc.clone(),
+            generic_qc: self.generic_qc.clone(),
+            proposal_collection_chan: recv_next_leader,
+        };
+
+        let leader_handle = Self::spawn_next_leader(next_leader);
+        let replica_handle = Self::spawn_replica(replica);
+
+        let leader_returned = leader_handle;
+        let replica_returned = replica_handle;
+
+        let children_finished = join(leader_returned, replica_returned);
+
+
+
+
+        // TODO make this the actual timeout
+        // let timeout = ;
+
+        select!(
+            _ = sleep(Duration::from_millis(5)).fuse() => {
+                // notify tasks that they have timed out
+
+            },
+            _ = children_finished.fuse() => {
+                // do nothing
+            }
+        );
+
+
+
+    }
+
+    fn spawn_next_leader(leader: NextLeader<N>) -> JoinHandle<()> {
+        async_std::task::spawn(async move {
+            // just capture leader for now
+            drop(leader);
+        })
+    }
+
+    fn spawn_replica(replica: Replica<N>) -> JoinHandle<()> {
+        async_std::task::spawn(async move {
+            // just capture leader for now
+            drop(replica);
+        })
+    }
+
+}
+
+
+pub struct Replica<const N: usize> {
+    locked_qc: QuorumCertificate<N>,
+    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
+    proposal_collection_chan: Receiver<Vote<N>>
+}
+
+pub struct Leader<I: NodeImplementation<N>, const N: usize> {
+    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
+    messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+}
+
+pub struct NextLeader<const N: usize> {
+    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
+    vote_collection_chan: Receiver<Vote<N>>,
+}
+
+
+
+
 
 
 
@@ -116,13 +295,14 @@ pub enum RoundFinishedEventState {
 impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
     fn default() -> Self {
         Self {
-            view_cache: BTreeMap::new(),
             transactions: Arc::default(),
-            active_view: todo!(),
+            cur_view: todo!(),
             last_decided_view: todo!(),
-            undecided_views: todo!(),
-            bad_views: todo!(),
-            future_views: todo!(),
+            state_map: todo!(),
+            in_progress_leaves: todo!(),
+            undecided_leaves: todo!(),
+            locked_qc: todo!(),
+            generic_qc: todo!(),
         }
     }
 }

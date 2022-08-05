@@ -62,11 +62,12 @@ impl TaskHandle {
     ///
     /// This will time out after two seconds.
     pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
-        // let (sender, receiver) = oneshot_channel();
+        // todo!()
+        let (sender, receiver) = oneshot_channel();
         // self.send_to_round_runner(ToRoundRunner::GetState(sender))
         //     .await?;
-        // let state = receiver.timeout(Duration::from_millis(30000)).await??;
+        let state = receiver.timeout(Duration::from_millis(30000)).await??;
+        todo!()
         // Ok(state)
     }
 

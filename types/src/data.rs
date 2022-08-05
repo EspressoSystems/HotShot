@@ -306,9 +306,9 @@ pub fn create_verify_hash<const N: usize>(
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: T is constrainted to implementing BlockContents
+/// NOTE: T is constrainted to implementing BlockContents, is TypeMap::Block
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
-pub struct Leaf<T, const N: usize> {
+pub struct Leaf<STATE, BLOCK, const N: usize> {
     /// Per spec
     pub view_number: ViewNumber,
 
@@ -320,19 +320,22 @@ pub struct Leaf<T, const N: usize> {
     #[debug(with = "fmt_leaf_hash")]
     pub parent: LeafHash<N>,
 
-    /// SHOULD BE: state or commitment of the state after block has been applied
-    /// e.g. state hash (or even just state)
-    pub deltas: T,
+    /// Block leaf wants to apply
+    pub deltas: BLOCK,
+
+    // What the state should be after applying `self.deltas`
+    pub state: STATE,
 }
 
-impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
+impl<STATE: BlockContents<N>, BLOCK: BlockContents<N>, const N: usize> Leaf<STATE, BLOCK, N> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
     pub fn new(
-        item: T,
+        state: STATE,
+        deltas: BLOCK,
         parent: LeafHash<N>,
         qc: QuorumCertificate<N>,
         view_number: ViewNumber,
@@ -341,7 +344,8 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
             view_number,
             justify_qc: qc,
             parent,
-            deltas: todo!(),
+            deltas,
+            state,
         }
     }
 
@@ -353,8 +357,8 @@ impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
     pub fn hash(&self) -> LeafHash<N> {
         let mut bytes = Vec::<u8>::new();
         bytes.extend_from_slice(self.parent.as_ref());
-        bytes.extend_from_slice(<T as BlockContents<N>>::hash(&self.deltas).as_ref());
-        <T as BlockContents<N>>::hash_leaf(&bytes)
+        bytes.extend_from_slice(<BLOCK as BlockContents<N>>::hash(&self.deltas).as_ref());
+        <BLOCK as BlockContents<N>>::hash_leaf(&bytes)
     }
 }
 

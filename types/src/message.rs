@@ -106,14 +106,11 @@ pub struct NextView<const N: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
-pub struct Proposal<B, S, const N: usize> {
+pub struct Proposal<STATE, BLOCK, const N: usize> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    pub leaf: Leaf<B, N>,
-
-    /// This is morally wrong
-    pub new_state: S,
+    pub leaf: Leaf<STATE, BLOCK, N>,
 }
 
 /// A nodes vote on the prepare field.

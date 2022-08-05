@@ -49,12 +49,13 @@ use crate::{
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
+use flume::{Receiver, Sender};
 use futures::channel::oneshot;
 use hotshot_consensus::{Consensus, RoundFinishedEventState};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{DataMessage, Message},
+    message::{DataMessage, Message, ConsensusMessage},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -66,7 +67,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashSet, btree_map::Entry},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -170,6 +171,8 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
+
+    channel_map: BTreeMap<ViewNumber, Sender<ConsensusMessage<N>>>
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -208,6 +211,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             genesis: true,
         };
         let genesis_leaf = Leaf {
+            state: starting_state,
             view_number: ViewNumber::genesis(),
             justify_qc: genesis_qc.clone(),
             // NOTE: view number might be different
@@ -252,7 +256,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         Ok(Self {
             inner: Arc::new(inner),
-            hotstuff: Arc::default()
+            hotstuff: Arc::default(),
+            channel_map: BTreeMap::new(),
         })
     }
 
@@ -487,19 +492,39 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
-    ) {
-        let mut hotstuff = self.hotstuff.write().await;
-        let hotstuff = &mut *hotstuff;
-        if let Err(e) = hotstuff
-            .add_consensus_message(
-                msg.clone(),
-                &mut HotShotConsensusApi { inner: &self.inner },
-                sender,
-            )
-            .await
-        {
-            error!(?e, ?msg, ?hotstuff, "Could not execute hotstuff");
-        }
+        ) {
+
+        match msg {
+            ConsensusMessage::Proposal(p) => {
+                let msg_view_number = msg.view_number();
+
+                // either obtains channel or creates one
+                let chan = match self.channel_map.entry(&msg_view_number) {
+                    Entry::Vacant(location) => {
+                        // access consensus
+                        let consensus = self.hotstuff.write().await;
+                        if let Some(chan) = consensus.get_future_view_sender(msg_view_number) {
+                            Some(location.insert(chan))
+                        } else {
+                            None
+                        }
+                    },
+                    Entry::Occupied(entry) => {
+                        Some(entry.get())
+                    },
+                };
+
+                // sends the message if not stale
+                if let Some(chan) = chan {
+                    if chan.send_async(msg).await.is_err() {
+                        error!("failed to send");
+                    }
+                };
+            },
+            ConsensusMessage::NextView(_) | ConsensusMessage::Vote(_) => {
+                warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
+            },
+        };
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
@@ -508,18 +533,18 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
-        let mut hotstuff = self.hotstuff.write().await;
-        let hotstuff = &mut *hotstuff;
-        if let Err(e) = hotstuff
-            .add_consensus_message(
-                msg.clone(),
-                &mut HotShotConsensusApi { inner: &self.inner },
-                sender,
-            )
-            .await
-        {
-            warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
-        }
+        // let mut hotstuff = self.hotstuff.write().await;
+        // let hotstuff = &mut *hotstuff;
+        // if let Err(e) = hotstuff
+        //     .add_consensus_message(
+        //         msg.clone(),
+        //         &mut HotShotConsensusApi { inner: &self.inner },
+        //         sender,
+        //     )
+        //     .await
+        // {
+        //     warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
+        // }
     }
 
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
@@ -580,7 +605,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     let new_view_number = qc.view_number;
                     let block_hash = BlockContents::hash(&block);
                     let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(block.clone(), leaf_hash, qc.clone(), qc.view_number);
+                    let leaf = Leaf::new(block.clone(), leaf_hash, qc.clone(), qc.view_number, state);
                     debug!(?leaf, ?block, ?state, ?qc, "Saving");
 
                     if let Err(e) = self
