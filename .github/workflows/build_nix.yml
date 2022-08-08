@@ -38,4 +38,4 @@ jobs:
       # sanity check that repository builds with nix
       - name: Build
         run: |
-          nix develop -c cargo build --all-targets --release --workspace --all-features
+          nix develop --ignore-environment -c cargo build --all-targets --release --workspace --all-features
