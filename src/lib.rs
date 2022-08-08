@@ -174,7 +174,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
 
     /// for sending received proposals from handle_broadcast_consensus_message task
     /// to the replica task
-    channel_map: Arc<RwLock<BTreeMap<ViewNumber, Sender<Proposal<I::State, I::Block, N>>>>>,
+    channel_map: Arc<RwLock<BTreeMap<ViewNumber, Sender<ConsensusMessage<I::Block, I::State, N>>>>>,
 
     /// for sending consensus messages from handle_direct_consensus_message task
     /// to the next leader task. NOTE: only Vote, NextView should be sent over this channel
@@ -509,10 +509,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
+        // TODO validate incoming data message based on sender signature key
         let msg_view_number = msg.view_number();
 
         match msg {
-            ConsensusMessage::Proposal(p) => {
+            ConsensusMessage::Proposal(_) => {
                 let mut channel_map = self.channel_map.write().await;
                 // either obtains channel or creates one
                 let chan = match channel_map.entry(msg_view_number) {
@@ -530,10 +531,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
                 // sends the message if not stale
                 if let Some(chan) = chan {
-                    if chan.send_async(p).await.is_err() {
+                    if chan.send_async(msg).await.is_err() {
                         error!("Failed to replica task!");
                     }
                 };
+            }
+            ConsensusMessage::NextViewInterrupt(_) => {
+                warn!("Received a next view interrupt. This shouldn't be possible.");
             }
             ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
@@ -547,11 +551,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::ConsensusMessage,
         sender: I::SignatureKey,
     ) {
+        // TODO validate incoming data message based on sender signature key
+        // We can only recv from a replicas
+        // replicas should only send votes or if they timed out, timeouts
         match msg {
-            ConsensusMessage::Proposal(_) => {
+            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_)  => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
-            c => {
+            c@(ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
                 if self.send_next_leader.send_async(c).await.is_err() {
                     warn!("Failed to send to next leader!");
                 }
@@ -577,6 +584,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::DataMessage,
         _sender: I::SignatureKey,
     ) {
+        // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
                 let mut hotstuff = self.hotstuff.write().await;
@@ -604,6 +612,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::DataMessage,
         _sender: I::SignatureKey,
     ) {
+        // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
             DataMessage::NewestQuorumCertificate {
@@ -611,6 +620,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 block,
                 state,
             } => {
+                // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let own_newest = match self.inner.storage.get_newest_qc().await {
                     Err(e) => {
                         error!(?e, "Could not load QC");

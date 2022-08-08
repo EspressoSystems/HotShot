@@ -50,8 +50,8 @@ use tracing::{debug, instrument, warn};
 #[derive(Debug)]
 pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
     Future {
-        sender_chan: Sender<Proposal<I::State, I::Block, N>>,
-        receiver_chan: Receiver<Proposal<I::State, I::Block, N>>,
+        sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
+        receiver_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
     },
     Undecided {
         leaf: Leaf<I::State, I::Block, N>,
@@ -83,18 +83,7 @@ impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
 pub(crate) struct View<I: NodeImplementation<N>, const N: usize> {
-    view_inner: ViewInner<I, N>, //     message_chan: Receiver<<I as TypeMap<N>>::ConsensusMessage>,
-                                 //     state: ViewState,
-                                 //
-                                 //     // /// The view number of this phase.
-                                 //     // view_number: ViewNumber,
-                                 //
-                                 //     // /// transactions included in proposal for this round
-                                 //     // proposed_transactions: HashSet<TransactionHash<N>>,
-                                 //
-                                 //     /// All messages that have been received on this phase.
-                                 //     /// In the future these could be trimmed whenever messages are being used, but for now they are stored in memory for debugging purposes.
-                                 //     // messages: Vec<<I as TypeMap<N>>::ConsensusMessage>,
+    view_inner: ViewInner<I, N>,
 }
 
 /// The result used in this crate
@@ -152,7 +141,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     pub fn get_future_view_sender(
         &mut self,
         msg_view_number: ViewNumber,
-    ) -> Option<Sender<Proposal<I::State, I::Block, N>>> {
+    ) -> Option<Sender<ConsensusMessage<I::Block, I::State, N>>> {
         if msg_view_number < self.cur_view {
             return None;
         }
@@ -357,35 +346,14 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     pub async fn add_transaction<A: ConsensusApi<I, N>>(
         &mut self,
         transaction: <I as TypeMap<N>>::Transaction,
-        api: &mut A,
+        _api: &mut A,
     ) -> Result {
         let txn_hash = <I::Block as BlockContents<N>>::hash_transaction(&transaction);
-        match self.transactions.write().await.entry(txn_hash) {
-            std::collections::hash_map::Entry::Occupied(entry) => {
-                assert_eq!(*entry.get(), transaction);
-            }
-            std::collections::hash_map::Entry::Vacant(v) => {
-                v.insert(transaction);
-            }
-        };
-        // .insert(txn_hash, transaction);
-
-        // TODO rewrite this portion to be stageless
-
-        // // transactions are useful for the `Prepare` phase
-        // // so notify these phases
-        // for view_number in self.active_phases.clone() {
-        //     let phase = self
-        //         .view_cache
-        //         .get_mut(&view_number)
-        //         .expect("Found a view in `active_phase` but it doesn't exist in `self.phases`");
-        //     if let Stage::Prepare = phase.stage() {
-        //         phase
-        //             .notify_new_transaction(api, &mut self.transactions)
-        //             .await?;
-        //         self.after_update(view_number);
-        //     }
-        // }
+        // The API contract requires the hash to be unique
+        // so we can assume entry == incoming txn
+        // even if eq not satisfied
+        // so insert is an idempotent operation
+        self.transactions.write().await.insert(txn_hash, transaction);
 
         Ok(())
     }
