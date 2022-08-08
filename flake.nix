@@ -1,11 +1,12 @@
 {
   description = "HotShot consensus library";
 
+  nixConfig = {
+    extra-substituters = ["https://espresso-systems-private.cachix.org"];
+    extra-trusted-public-keys = ["espresso-systems-private.cachix.org-1:LHYk03zKQCeZ4dvg3NctyCq88e44oBZVug5LpYKjPRI="];
+  };
+
   inputs = {
-    nixConfig = {
-      extra-substituters = ["https://espresso-systems-private.cachix.org"];
-      extra-trusted-public-keys = ["espresso-systems-private.cachix.org-1:LHYk03zKQCeZ4dvg3NctyCq88e44oBZVug5LpYKjPRI="];
-    };
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     utils.url = "github:numtide/flake-utils";
     flake-compat = {
@@ -122,6 +123,7 @@
           zlib.dev
           zlib.out
           fenix.packages.${system}.rust-analyzer
+          git
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
       in
       {
