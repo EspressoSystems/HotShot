@@ -6,13 +6,14 @@ use crate::{types::HotShotHandle, HotShot};
 use async_std::{
     prelude::FutureExt as _,
     sync::RwLock,
-    task::{spawn, JoinHandle},
+    task::{spawn, JoinHandle, sleep},
 };
-use flume::Sender;
-use futures::channel::oneshot::channel as oneshot_channel;
+use flume::{Sender, Receiver};
+use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select, FutureExt};
+use hotshot_consensus::{NextLeader, Leader, Replica};
 use hotshot_types::{
-    data::ViewNumber,
-    message::MessageKind,
+    data::{ViewNumber, QuorumCertificate},
+    message::{MessageKind, Vote, ConsensusMessage},
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
 use hotshot_utils::broadcast::channel;
@@ -169,7 +170,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     );
 
     let consensus_task_handle = spawn(
-        consensus_task(hotshot.clone(), shut_down.clone())
+        enter_view(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("Consensus task handle",)),
     );
 
@@ -203,13 +204,75 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     handle
 }
 
-pub async fn consensus_task<I: NodeImplementation<N>, const N: usize>(
+pub async fn enter_view<I: NodeImplementation<N>, const N: usize>(
     hotshot: HotShot<I, N>,
     shut_down: Arc<AtomicBool>,
 ) {
-    // hotshot.
-    todo!()
+    let next_view_timeout = hotshot.inner.config.next_view_timeout;
+
+    // OBTAIN write lock on consensus
+    let mut consensus = hotshot.hotstuff.write().await;
+    let cur_view = consensus.increment_view();
+    // TODO repalce these with calls to consensus
+    let next_leader : NextLeader<I, N> = NextLeader {
+        generic_qc: todo!(),
+        vote_collection_chan: todo!(),
+    };
+    let leader : Leader<I, N> = Leader {
+        generic_qc: todo!(),
+        messages: todo!(),
+    };
+    let replica : Replica<I, N> = Replica {
+        locked_qc: todo!(),
+        generic_qc: todo!(),
+        proposal_collection_chan: todo!(),
+    };
+    // DROP write lock on consensus
+    drop(consensus);
+
+
+    let replica_handle = replica.run_view().await;
+
+    let next_leader_handle = next_leader.run_view().await;
+
+    let leader_handle = leader.run_view().await;
+
+    let children_finished = join_all(vec![replica_handle, next_leader_handle, leader_handle]);
+
+    select!(
+        // TODO this should be the actual view timeout
+        _ = sleep(Duration::from_millis(next_view_timeout)).fuse() => {
+            hotshot.timeout_view(cur_view).await;
+            // notify tasks that they have timed out
+
+        },
+        _ = children_finished.fuse() => {
+            // do nothing
+        }
+    );
+
+    children_finished.await;
+
+
+    // sender channel for this view exists in the hotshot struct
+
+
+    // timer logic
+    //
+    // spawn next leader
+    // spawn leader
+    // spawn replica
+
+    // select btwn timeout
+    // if timeout send messages then wait on join a second time
+
+    let consensus = hotshot.hotstuff.write().await;
+    consensus.collect_garbage().await;
+    // GC consensus step based on success of view
+    // increments view number
+    // deletes old metadata in the case of a commit
 }
+
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
 pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(

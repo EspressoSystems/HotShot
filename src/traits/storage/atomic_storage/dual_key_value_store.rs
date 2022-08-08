@@ -194,7 +194,7 @@ impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
     }
 }
 
-impl<STATE, BLOCK, const N: usize> DualKeyValue for Leaf<STATE, BLOCK, N>
+impl<BLOCK, STATE, const N: usize> DualKeyValue for Leaf<BLOCK, STATE, N>
 where
     BLOCK: Clone + Serialize + DeserializeOwned + BlockContents<N>,
     STATE: State<N>,

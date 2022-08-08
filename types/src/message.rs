@@ -49,7 +49,7 @@ impl<'a, B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
     /// Leader's proposal
-    Proposal(Proposal<S, B, N>),
+    Proposal(Proposal<B, S, N>),
     /// Replica timed out
     TimedOut(TimedOut<N>),
     /// Replica votes
@@ -113,11 +113,11 @@ pub struct TimedOut<const N: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
-pub struct Proposal<STATE, BLOCK, const N: usize> {
+pub struct Proposal<BLOCK, STATE, const N: usize> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    pub leaf: Leaf<STATE, BLOCK, N>,
+    pub leaf: Leaf<BLOCK, STATE, N>,
 }
 
 /// A nodes vote on the prepare field.

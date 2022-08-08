@@ -21,9 +21,9 @@ use std::sync::Arc;
 use tracing::{instrument, trace};
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<Block, State, const N: usize> {
+struct MemoryStorageInternal<BLOCK, STATE, const N: usize> {
     /// The Blocks stored by this [`MemoryStorage`]
-    blocks: DashMap<BlockHash<N>, Block>,
+    blocks: DashMap<BlockHash<N>, BLOCK>,
     /// The [`QuorumCertificate`]s stored by this [`MemoryStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
@@ -37,13 +37,13 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    leaves: RwLock<Vec<Leaf<State, Block, N>>>,
+    leaves: RwLock<Vec<Leaf<BLOCK, STATE, N>>>,
     /// Index of the [`Leaf`]s by their hashes
     hash_to_leaf: DashMap<LeafHash<N>, usize>,
     /// Index of the [`Leaf`]s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
     /// The store of states
-    states: DashMap<LeafHash<N>, State>,
+    states: DashMap<LeafHash<N>, STATE>,
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
@@ -87,11 +87,11 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
 }
 
 #[async_trait]
-impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
-    Storage<B, S, N> for MemoryStorage<B, S, N>
+impl<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static, const N: usize>
+    Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
 {
     #[instrument(name = "MemoryStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<B>> {
+    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
         Ok(if let Some(r) = self.inner.blocks.get(hash) {
             trace!("Block found");
             let block = r.value().clone();
@@ -147,7 +147,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<S, B, N>>> {
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         trace!(?self.inner.hash_to_leaf, ?hash);
         // Check to see if we have the leaf
         let index = self.inner.hash_to_leaf.get(hash);
@@ -162,7 +162,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<S, B, N>>> {
+    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         // Check to see if we have the leaf
         let index = self.inner.block_to_leaf.get(hash);
         Ok(if let Some(index) = index {
@@ -175,7 +175,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         })
     }
 
-    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>> {
+    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>> {
         let maybe_state = self.inner.states.get(hash);
         Ok(if let Some(state) = maybe_state {
             let state = state.value().clone();
@@ -187,7 +187,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 
     async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
     where
-        F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
+        F: FnOnce(Box<dyn StorageUpdater<'a, BLOCK, STATE, N> + 'a>) -> FUT + Send + 'a,
         FUT: Future<Output = StorageResult> + Send + 'a,
     {
         let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
@@ -195,8 +195,8 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         Ok(())
     }
 
-    async fn get_internal_state(&self) -> StorageState<B, S, N> {
-        let mut blocks: Vec<(BlockHash<N>, B)> = self
+    async fn get_internal_state(&self) -> StorageState<BLOCK, STATE, N> {
+        let mut blocks: Vec<(BlockHash<N>, BLOCK)> = self
             .inner
             .blocks
             .iter()
@@ -208,13 +208,13 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         blocks.sort_by_key(|(hash, _)| *hash);
         let blocks = blocks.into_iter().map(|(_, block)| block).collect();
 
-        let mut leafs: Vec<Leaf<S, B, N>> = self.inner.leaves.read().await.clone();
+        let mut leafs: Vec<Leaf<BLOCK, STATE, N>> = self.inner.leaves.read().await.clone();
         leafs.sort_by_cached_key(Leaf::hash);
 
         let mut quorum_certificates = self.inner.qcs.read().await.clone();
         quorum_certificates.sort_by_key(|qc| qc.view_number);
 
-        let mut states: Vec<(LeafHash<N>, S)> = self
+        let mut states: Vec<(LeafHash<N>, STATE)> = self
             .inner
             .states
             .iter()
@@ -242,13 +242,13 @@ struct MemoryStorageUpdater<'a, B, S, const N: usize> {
 }
 
 #[async_trait]
-impl<'a, B, S, const N: usize> StorageUpdater<'a, B, S, N> for MemoryStorageUpdater<'a, B, S, N>
+impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N> for MemoryStorageUpdater<'a, BLOCK, STATE, N>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 {
     #[instrument(name = "MemoryStorage::insert_block", skip_all)]
-    async fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> StorageResult {
+    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {
         trace!(?block, "inserting block");
         self.inner.blocks.insert(hash, block);
         Ok(())
@@ -295,7 +295,7 @@ where
     }
 
     #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
-    async fn insert_leaf(&mut self, leaf: Leaf<S, B, N>) -> StorageResult {
+    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> StorageResult {
         let hash = leaf.hash();
         trace!(?leaf, ?hash, "Inserting");
         let block_hash = BlockContents::hash(&leaf.deltas);
@@ -309,7 +309,7 @@ where
     }
 
     #[instrument(name = "MemoryStorage::insert_state", skip_all)]
-    async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult {
+    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> StorageResult {
         trace!(?hash, "Inserting state");
         self.inner.states.insert(hash, state);
         Ok(())

@@ -49,7 +49,7 @@ use crate::{
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
-use flume::{Receiver, Sender};
+use flume::{Receiver, Sender, SendError};
 use futures::channel::oneshot;
 use hotshot_consensus::{Consensus, RoundFinishedEventState};
 use hotshot_types::{
@@ -350,8 +350,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
-    pub async fn mark_round_as_timed_out(&self, current_view: ViewNumber) {
-        self.hotstuff.write().await.round_timeout(current_view);
+    pub async fn timeout_view(&self, current_view: ViewNumber) {
+        let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
+        let _ = self.send_next_leader.send_async(msg.clone()).await;
+        // NOTE this should always exist
+        let chan_map = self.channel_map.read().await;
+        let send_replica = chan_map.get(&current_view).unwrap();
+        let _ = send_replica.send_async(msg).await;
     }
 
     /// Publishes a transaction to the network
@@ -740,7 +745,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,
 ) -> std::result::Result<
-    Option<(QuorumCertificate<N>, Leaf<I::State, I::Block, N>, I::State)>,
+    Option<(QuorumCertificate<N>, Leaf<I::Block, I::State, N>, I::State)>,
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
     let qc = match storage.get_newest_qc().await? {

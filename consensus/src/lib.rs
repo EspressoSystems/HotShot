@@ -54,10 +54,10 @@ pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
         receiver_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
     },
     Undecided {
-        leaf: Leaf<I::State, I::Block, N>,
+        leaf: Leaf<I::Block, I::State, N>,
     },
     Decided {
-        leaf: Leaf<I::State, I::Block, N>,
+        leaf: Leaf<I::Block, I::State, N>,
     },
     Failed,
 }
@@ -99,23 +99,13 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     state_map: BTreeMap<ViewNumber, View<I, N>>,
 
     /// leaves that have been seen
-    in_progress_leaves: HashSet<Leaf<I::State, I::Block, N>>,
+    in_progress_leaves: HashSet<Leaf<I::Block, I::State, N>>,
 
     /// cur_view from pseudocode
     cur_view: ViewNumber,
 
     /// last view had a successful decide event
     last_decided_view: ViewNumber,
-
-    // /// [last_decided_view, current_view]
-    // /// Does not contain empty/timed out views
-    // undecided_views: BTreeSet<ViewNumber>,
-    //
-    // /// contains timed out views since last decide
-    // bad_views: BTreeSet<ViewNumber>,
-    //
-    // /// contains views that are ahead of `self.active_view`
-    // future_views: BTreeSet<ViewNumber>,
 
     // /// Listeners to be called when a round ends
     // /// TODO we can probably nuke this soon
@@ -124,14 +114,74 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// TODO we should flush out the logic here more
     transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
 
-    undecided_leaves: HashMap<LeafHash<N>, Leaf<I::State, I::Block, N>>,
+    undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
 
     locked_qc: QuorumCertificate<N>,
-    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
+    generic_qc: QuorumCertificate<N>,
     // msg_channel: Receiver<ConsensusMessage<>>,
 }
 
+
+#[derive(Debug, Clone)]
+pub struct Replica<I: NodeImplementation<N>, const N: usize> {
+    pub locked_qc: QuorumCertificate<N>,
+    pub generic_qc: QuorumCertificate<N>,
+    pub proposal_collection_chan: Receiver<ConsensusMessage<I::State, I::Block, N>>,
+}
+
+impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
+    /// run one view of replica
+    pub async fn run_view(&mut self) -> JoinHandle<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Leader<I: NodeImplementation<N>, const N: usize> {
+    pub generic_qc: QuorumCertificate<N>,
+    pub messages: ConsensusMessage<I::Block, I::State, N>
+}
+
+impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
+    pub async fn run_view(&mut self) -> JoinHandle<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
+    pub generic_qc: QuorumCertificate<N>,
+    pub vote_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+}
+
+impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
+    pub async fn run_view(&mut self) -> JoinHandle<()> {
+        todo!()
+    }
+}
+
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
+    pub fn create_leader_state(&self, msgs: ConsensusMessage<I::Block, I::State, N>) -> Leader<I, N>{
+        todo!()
+        // Leader {
+        //     self.generic_qc,
+        // }
+
+    }
+
+    /// increment the current view
+    /// NOTE may need to do gc here
+    pub fn increment_view(&mut self) -> ViewNumber {
+        self.cur_view += 1;
+        self.cur_view
+    }
+
+
+    /// garbage collects based on state change
+    pub async fn collect_garbage(&mut self) {
+    }
+
+
     /// Returns a channel that may be used to send received proposals
     /// to the Replica task.
     /// NOTE: requires write access to `Consensus` because may
@@ -154,93 +204,15 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         }
     }
 
-    pub fn spawn_network_handler() -> Sender<ConsensusMessage<I::Block, I::State, N>> {
-        let (send_network_handler, recv_network_handler) = flume::unbounded();
-        spawn(async move {
-            // TODO use this somehow
-            // TODO shutdown
-            drop(recv_network_handler);
-        });
-        send_network_handler
-    }
-
-    pub async fn run_views<A: ConsensusApi<I, N>>(&mut self, api: A) {
-        // construct two channels
-        let (send_replica, recv_replica) = flume::unbounded();
-
-        let (send_next_leader, recv_next_leader) = flume::unbounded();
-
-        // let r = vec![];
-        // run leader task
-        let leader: Leader<I, N> = Leader {
-            generic_qc: self.generic_qc.clone(),
-            // this should be changed to a channel
-            message_receiver: todo!(),
-        };
-
-        let next_leader = NextLeader {
-            generic_qc: self.generic_qc.clone(),
-            vote_collection_chan: recv_replica,
-        };
-
-        let replica: Replica<N> = Replica {
-            locked_qc: self.locked_qc.clone(),
-            generic_qc: self.generic_qc.clone(),
-            proposal_collection_chan: recv_next_leader,
-        };
-
-        let leader_handle = Self::spawn_next_leader(next_leader);
-        let replica_handle = Self::spawn_replica(replica);
-
-        let leader_returned = leader_handle;
-        let replica_returned = replica_handle;
-
-        let children_finished = join(leader_returned, replica_returned);
-
-        // TODO make this the actual timeout
-        // let timeout = ;
-
-        select!(
-            _ = sleep(Duration::from_millis(5)).fuse() => {
-                // notify tasks that they have timed out
-
-            },
-            _ = children_finished.fuse() => {
-                // do nothing
-            }
-        );
-    }
-
-    fn spawn_next_leader(leader: NextLeader<N>) -> JoinHandle<()> {
-        async_std::task::spawn(async move {
-            // just capture leader for now
-            drop(leader);
-        })
-    }
-
-    fn spawn_replica(replica: Replica<N>) -> JoinHandle<()> {
-        async_std::task::spawn(async move {
-            // just capture leader for now
-            drop(replica);
-        })
-    }
-}
-
-pub struct Replica<const N: usize> {
-    locked_qc: QuorumCertificate<N>,
-    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
-    proposal_collection_chan: Receiver<Vote<N>>,
-}
-
-pub struct Leader<I: NodeImplementation<N>, const N: usize> {
-    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
-    /// receives votes and nextview messages
-    message_receiver: Receiver<ConsensusMessage<I::State, I::Block, N>>,
-}
-
-pub struct NextLeader<const N: usize> {
-    generic_qc: Arc<RwLock<QuorumCertificate<N>>>,
-    vote_collection_chan: Receiver<Vote<N>>,
+    // pub fn spawn_network_handler() -> Sender<ConsensusMessage<I::Block, I::State, N>> {
+    //     let (send_network_handler, recv_network_handler) = flume::unbounded();
+    //     spawn(async move {
+    //         // TODO use this somehow
+    //         // TODO shutdown
+    //         drop(recv_network_handler);
+    //     });
+    //     send_network_handler
+    // }
 }
 
 /// A struct containing information about a finished round.
@@ -363,15 +335,11 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// If the given round is done, this function will not have any effect
     #[instrument]
     pub fn round_timeout(&mut self, view_number: ViewNumber) {
-        todo!()
-        // if self.inactive_phases.iter().any(|v| v == &view_number) {
-        //     return; // round is not running
-        // }
-        //
-        // // This view_number should always exist, because it is in our `self.active_phases` list
-        // self.view_cache.get_mut(&view_number).unwrap().timeout();
-        // // `after_update` will properly clean up the internal state
-        // self.after_update(view_number);
+        let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(view_number);
+        // TODO send to next leader (if applicable)
+
+        // TODO send to replica (if applicable)
+
     }
 
     /// Send out a [`NextView`] message to the leader of the given round.

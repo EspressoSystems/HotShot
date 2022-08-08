@@ -16,7 +16,7 @@ pub(crate) async fn leaf_descends_from<
     const N: usize,
 >(
     api: &A,
-    leaf: &Leaf<I::State, I::Block, N>,
+    leaf: &Leaf<I::Block, I::State, N>,
     ancestor_hash: LeafHash<N>,
 ) -> bool {
     let leaf_hash = leaf.hash();
@@ -86,7 +86,7 @@ pub(crate) async fn validate_against_locked_qc<
 >(
     api: &A,
     locked_qc: &QuorumCertificate<N>,
-    new_leaf: &Leaf<I::State, I::Block, N>,
+    new_leaf: &Leaf<I::Block, I::State, N>,
     high_qc: &QuorumCertificate<N>,
 ) -> bool {
     // Check to make sure the leaf actually descends from its high_qc
@@ -129,8 +129,8 @@ pub(crate) async fn walk_leaves<I: NodeImplementation<N>, A: ConsensusApi<I, N>,
     mut walk_leaf: LeafHash<N>,
     old_leaf_hash: LeafHash<N>,
 ) -> Result<(Vec<I::Block>, Vec<I::State>)> {
-    let mut blocks = vec![];
-    let mut states = vec![];
+    let mut blocks : Vec<I::Block> = vec![];
+    let mut states : Vec<I::State> = vec![];
     while walk_leaf != old_leaf_hash {
         debug!(?walk_leaf, "Looping");
         let leaf = if let Some(x) = api

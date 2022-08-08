@@ -475,7 +475,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<State, DEntryBlock, N> {
+pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, State, N> {
     let parent = LeafHash::random();
     let justify_qc = random_quorom_certificate();
     Leaf {

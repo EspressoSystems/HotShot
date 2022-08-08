@@ -308,7 +308,7 @@ pub fn create_verify_hash<const N: usize>(
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: T is constrainted to implementing BlockContents, is TypeMap::Block
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
-pub struct Leaf<STATE, BLOCK, const N: usize> {
+pub struct Leaf<BLOCK, STATE, const N: usize> {
     /// Per spec
     pub view_number: ViewNumber,
 
@@ -327,7 +327,7 @@ pub struct Leaf<STATE, BLOCK, const N: usize> {
     pub state: STATE,
 }
 
-impl<STATE: State<N>, BLOCK: BlockContents<N>, const N: usize> Leaf<STATE, BLOCK, N> {
+impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE, N> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments

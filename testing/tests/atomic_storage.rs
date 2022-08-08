@@ -169,7 +169,7 @@ async fn test_happy_path_leaves() {
     let mut store = AtomicStorage::open(path).expect("Could not open atomic store");
 
     // Add some leaves
-    let mut leaves = Vec::<Leaf<State, DEntryBlock, H_256>>::new();
+    let mut leaves = Vec::<Leaf<DEntryBlock, State, H_256>>::new();
     for _ in 0..10 {
         let leaf = random_leaf(DEntryBlock {
             previous_block: StateHash::random(),
