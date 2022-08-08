@@ -38,4 +38,7 @@ jobs:
       # sanity check that repository builds with nix
       - name: Build
         run: |
-          nix develop --ignore-environment -c cargo build --all-targets --release --workspace --all-features
+          printf "OLD ENV "
+          env
+          printf "NEW ENV "
+          nix develop --ignore-environment -c env
