@@ -124,6 +124,7 @@
           zlib.out
           fenix.packages.${system}.rust-analyzer
           git
+          openssh
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
       in
       {
