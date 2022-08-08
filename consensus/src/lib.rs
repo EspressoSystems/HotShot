@@ -137,12 +137,14 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Leader<I: NodeImplementation<N>, const N: usize> {
+pub struct Leader<const N: usize> {
+    /// next leader calculated this
+    pub high_qc: QuorumCertificate<N>,
+    /// replica calculated this
     pub generic_qc: QuorumCertificate<N>,
-    pub messages: ConsensusMessage<I::Block, I::State, N>
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
+impl<const N: usize> Leader<N> {
     pub async fn run_view(&mut self) -> JoinHandle<()> {
         todo!()
     }
@@ -161,7 +163,7 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
-    pub fn create_leader_state(&self, msgs: ConsensusMessage<I::Block, I::State, N>) -> Leader<I, N>{
+    pub fn create_leader_state(&self, msgs: ConsensusMessage<I::Block, I::State, N>) -> Leader<N>{
         todo!()
         // Leader {
         //     self.generic_qc,

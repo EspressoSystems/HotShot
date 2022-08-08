@@ -10,7 +10,7 @@ use async_std::{
 };
 use flume::{Sender, Receiver};
 use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select, FutureExt};
-use hotshot_consensus::{NextLeader, Leader, Replica};
+use hotshot_consensus::{NextLeader, Leader, Replica, Consensus};
 use hotshot_types::{
     data::{ViewNumber, QuorumCertificate},
     message::{MessageKind, Vote, ConsensusMessage},
@@ -218,9 +218,9 @@ pub async fn enter_view<I: NodeImplementation<N>, const N: usize>(
         generic_qc: todo!(),
         vote_collection_chan: todo!(),
     };
-    let leader : Leader<I, N> = Leader {
+    let leader : Leader<N> = Leader {
         generic_qc: todo!(),
-        messages: todo!(),
+        high_qc: todo!(),
     };
     let replica : Replica<I, N> = Replica {
         locked_qc: todo!(),

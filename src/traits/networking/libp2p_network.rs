@@ -78,6 +78,8 @@ struct Libp2pNetworkInner<
     broadcast_recv: flume::Receiver<M>,
     /// Sender for broadcast messages
     broadcast_send: flume::Sender<M>,
+    /// Sender for direct messages (only used for sending messages back to oneself)
+    direct_send: flume::Sender<M>,
     /// Receiver for direct messages
     direct_recv: flume::Receiver<M>,
     /// this is really cheating to enable local tests
@@ -265,6 +267,7 @@ impl<
                 handle: network_handle,
                 pubkey_pid_map: RwLock::new(pubkey_pid_map),
                 broadcast_recv,
+                direct_send: direct_send.clone(),
                 direct_recv,
                 pk,
                 broadcast_send: broadcast_send.clone(),
@@ -473,9 +476,18 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
     async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError> {
+
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }
+
+        // short circuit if we're dming ourselves
+        if recipient == self.inner.pk {
+            // panic if we already shut down?
+            self.inner.direct_send.send_async(message).await.unwrap();
+            return Ok(());
+        }
+
         self.wait_for_ready().await;
         // check local cache. if that fails, initiate search
         // if search fails, just error out
