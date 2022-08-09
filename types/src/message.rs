@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber, BlockHash},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         State,
@@ -133,6 +133,9 @@ pub struct Proposal<BLOCK, STATE, const N: usize> {
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
 pub struct Vote<const N: usize> {
+    /// hash of the block being proposed
+    /// TODO delete this when we delete block hash from the QC
+    pub block_hash: BlockHash<N>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on

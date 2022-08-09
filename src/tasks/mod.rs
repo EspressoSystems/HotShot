@@ -233,23 +233,44 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     // DROP write lock on consensus
     drop(consensus);
 
-    let c_api = HotShotConsensusApi { inner: & hotshot.inner };
 
     let mut task_handles = Vec::new();
 
-    let replica_handle = replica.run_view(&c_api).await;
-    task_handles.push(replica_handle);
+    // TODO move &api into struct such that we avoid this ugly code path
 
+    let c_api = HotShotConsensusApi { inner: & hotshot.inner };
 
-
-    if ConsensusApi::is_leader(&c_api, cur_view).await {
-        let leader_handle = leader.run_view(&c_api).await;
-        task_handles.push(leader_handle);
+    {
+        let inner = hotshot.inner.clone();
+        let replica_handle = spawn(async move {
+            let c_api = &HotShotConsensusApi { inner: & inner };
+            replica.run_view(c_api).await
+        });
+        task_handles.push(replica_handle);
     }
 
-    if ConsensusApi::is_leader(&c_api, cur_view + 1).await {
-        let next_leader_handle = next_leader.run_view(&c_api).await;
-        task_handles.push(next_leader_handle);
+
+
+    if c_api.is_leader(cur_view).await {
+        {
+            let inner = hotshot.inner.clone();
+            let leader_handle = spawn(async move {
+                let c_api = &HotShotConsensusApi { inner: & inner };
+                leader.run_view(c_api).await
+            });
+            task_handles.push(leader_handle);
+        }
+    }
+
+    if c_api.is_leader(cur_view + 1).await {
+        {
+            let inner = hotshot.inner.clone();
+            let next_leader_handle = spawn(async move {
+                let c_api = &HotShotConsensusApi { inner: & inner };
+                next_leader.run_view(c_api).await
+            });
+            task_handles.push(next_leader_handle);
+        }
     }
 
 

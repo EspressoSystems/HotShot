@@ -49,19 +49,19 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     /// Send a direct message to the given recipient
     async fn send_direct_message(
-        &mut self,
+        &self,
         recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
-        &mut self,
+        &self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&mut self, event: Event<I::Block, I::State, N>);
+    async fn send_event(&self, event: Event<I::Block, I::State, N>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
@@ -89,7 +89,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&mut self, view_number: ViewNumber, block: I::Block) {
+    async fn send_propose(&self, view_number: ViewNumber, block: I::Block) {
         self.send_event(Event {
             view_number,
             event: EventType::Propose {
@@ -101,7 +101,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     /// sends a decide event down the channel
     async fn send_decide(
-        &mut self,
+        &self,
         view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
@@ -146,6 +146,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Validate the signatures of a QC
     ///
     /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
+    /// TODO this should really take in a reference to the map. No need to clone it on every check.
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,

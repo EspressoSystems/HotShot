@@ -740,7 +740,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     }
 
     async fn send_direct_message(
-        &mut self,
+        &self,
         recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
@@ -758,7 +758,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     }
 
     async fn send_broadcast_message(
-        &mut self,
+        &self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
@@ -771,7 +771,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             .await
     }
 
-    async fn send_event(&mut self, event: Event<I::Block, I::State, N>) {
+    async fn send_event(&self, event: Event<I::Block, I::State, N>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -820,6 +820,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         }
     }
 
+    // s/get_valid_signatures/get_valid_signature(signature, hash)
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,

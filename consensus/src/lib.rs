@@ -33,18 +33,18 @@ use async_std::{
 };
 use futures::{future::join, select, FutureExt};
 use hotshot_types::{
-    data::{Leaf, LeafHash, QuorumCertificate, TransactionHash, ViewNumber},
+    data::{Leaf, LeafHash, QuorumCertificate, TransactionHash, ViewNumber, BlockHash, create_verify_hash},
     error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
-        BlockContents,
+        BlockContents, signature_key::{EncodedPublicKey, EncodedSignature},
     },
 };
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+    collections::{btree_map::{Entry, OccupiedEntry}, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     time::{Duration, Instant},
 };
 use tracing::{debug, instrument, warn, error};
@@ -134,7 +134,7 @@ pub struct Replica<I: NodeImplementation<N>, const N: usize> {
 impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// run one view of replica
     /// returns the high_qc
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
         nll_todo()
     }
 }
@@ -146,7 +146,7 @@ pub struct Leader<I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
         nll_todo()
     }
 }
@@ -159,11 +159,17 @@ pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
     pub cur_view: ViewNumber
 }
 
+pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
+
 impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
         let vote_count = 0;
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
+        let threshold = api.threshold();
+
+        let mut vote_outcomes: HashMap<LeafHash<N>, (BlockHash<N>, Signatures)> = HashMap::new();
+        // NOTE will need to refactor this during VRF integration
         let threshold = api.threshold();
 
 
@@ -178,7 +184,45 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
                     // append to qc set
                 },
                 ConsensusMessage::Vote(vote) => {
-                    let hash = vote.leaf_hash;
+                    match vote_outcomes.entry(vote.leaf_hash) {
+                        std::collections::hash_map::Entry::Occupied(mut o) => {
+                            let (bh, map) = o.get_mut();
+                            if *bh != vote.block_hash {
+                                error!("Mismatch between blockhash in received votes. This is probably an error without byzantine nodes.");
+
+                            }
+                            map.insert(vote.signature.0.clone(), vote.signature.1.clone());
+                        },
+                        std::collections::hash_map::Entry::Vacant(location) => {
+                            let mut map = BTreeMap::new();
+                            map.insert(vote.signature.0, vote.signature.1);
+                            location.insert((vote.block_hash, map));
+                        },
+                    }
+
+                    let (block_hash, map) = vote_outcomes.get(&vote.leaf_hash).unwrap();
+
+
+                    if map.len() >= threshold.into() {
+                        // NOTE this is slow, shouldn't check all the signatures EVERY time
+                        let result = api.get_valid_signatures(map.clone(), create_verify_hash(&vote.leaf_hash, self.cur_view));
+                        if let Ok(valid_signatures) = result {
+                            // construct QC
+                            let qc = QuorumCertificate {
+                                block_hash: nll_todo(),
+                                leaf_hash: nll_todo(),
+                                view_number: nll_todo(),
+                                signatures: nll_todo(),
+                                genesis: nll_todo(),
+                            };
+                            return qc;
+
+                        } else {
+                            continue
+                        }
+                    }
+
+
 
                     // add qc to qcs
                     // check validatiy of vote
