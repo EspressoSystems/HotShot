@@ -168,26 +168,30 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
 
 
         while let Ok(msg) = self.vote_collection_chan.recv_async().await {
-            let msg_view_number = msg.view_number();
+            if msg.view_number() != self.cur_view {
+                continue;
+            }
             match msg {
                 ConsensusMessage::TimedOut(t) => {
-                    if t.current_view == self.cur_view {
-                        qcs.insert(t.justify);
-                    }
+                    qcs.insert(t.justify);
 
                     // append to qc set
                 },
                 ConsensusMessage::Vote(vote) => {
+                    let hash = vote.leaf_hash;
+
                     // add qc to qcs
                     // check validatiy of vote
                     // increment vote count
                     //
                     // if vote_count >= threshold, break
+                    // let result = get_valid_signatures()
+                    // if Ok(result)
+                    //      result.unwrap
+
                 },
                 ConsensusMessage::NextViewInterrupt(view_number) => {
-                    if self.cur_view == view_number {
-                        break;
-                    }
+                    break;
                 },
                 ConsensusMessage::Proposal(p) => {
                     error!("useful error goes here");
@@ -195,7 +199,9 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
             }
         }
 
-        let high_qc = qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+
+
+        // let high_qc = qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap();
 
         // calculate the high_qc and return
 
