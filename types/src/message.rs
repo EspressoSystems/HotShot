@@ -62,20 +62,27 @@ pub enum ConsensusMessage<B, S, const N: usize> {
 }
 
 impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
-    /// Get the current view number from this message.
-    /// If this message is `SubmitTransaction` the returned value will be `None`.
-    /// Otherwise the return value will be the `current_view` of the inner struct.
+    /// The view number of the (leader|replica) when the message was sent
+    /// or the view of the timeout
     pub fn view_number(&self) -> ViewNumber {
         match self {
-            Self::TimedOut(view) => view.current_view,
-            _ => nll_todo(),
-            // Self::Prepare(prepare) => prepare.current_view,
-            // Self::PrepareVote(vote) => vote.current_view,
-            // Self::PreCommit(precommit) => precommit.current_view,
-            // Self::PreCommitVote(vote) => vote.current_view,
-            // Self::Commit(commit) => commit.current_view,
-            // Self::CommitVote(vote) => vote.current_view,
-            // Self::Decide(decide) => decide.current_view,
+            ConsensusMessage::Proposal(p) => {
+                // view of leader in the leaf when proposal
+                // this should match replica upon receipt
+                p.leaf.view_number
+            },
+            ConsensusMessage::TimedOut(t) => {
+                // view number on which the replica timed out waiting for proposal
+                t.current_view
+            },
+            ConsensusMessage::Vote(v) => {
+                // view number on which the replica votes for a proposal for
+                // the leaf should have this view number
+                v.current_view
+            },
+            ConsensusMessage::NextViewInterrupt(view_number) => {
+                *view_number
+            },
         }
     }
 }

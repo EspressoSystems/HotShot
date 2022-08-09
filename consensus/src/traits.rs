@@ -143,33 +143,6 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         view_number: ViewNumber,
     ) -> bool;
 
-    /// Validate this message on if the QC is correct, if it has one
-    ///
-    /// If this message has no QC then this will return `true`
-    fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
-        let (qc, view_number) = match message {
-            ConsensusMessage::Proposal(proposal) => nll_todo(),
-            ConsensusMessage::TimedOut(next_view) => nll_todo(),
-            ConsensusMessage::Vote(vote) => nll_todo(),
-            ConsensusMessage::NextViewInterrupt(view_number) => nll_todo(),
-        };
-        // ConsensusMessage::PreCommit(pre_commit) => {
-        //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-        //     (&pre_commit.qc, pre_commit.current_view)
-        // }
-        // // Same as PreCommit, we compare with 1 stage earlier
-        // ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view),
-        // ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view),
-        //
-        // ConsensusMessage::NextView(_)
-        // | ConsensusMessage::Prepare(_)
-        // | ConsensusMessage::CommitVote(_)
-        // | ConsensusMessage::PreCommitVote(_)
-        // | ConsensusMessage::PrepareVote(_) => return true,
-
-        self.validate_qc(qc, view_number)
-    }
-
     /// Validate the signatures of a QC
     ///
     /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures

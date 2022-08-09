@@ -2,7 +2,7 @@
 
 // mod round_runner;
 
-use crate::{types::HotShotHandle, HotShot};
+use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_std::{
     future::timeout,
     prelude::FutureExt,
@@ -11,7 +11,7 @@ use async_std::{
 };
 use flume::{Receiver, Sender};
 use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select};
-use hotshot_consensus::{Consensus, Leader, NextLeader, Replica};
+use hotshot_consensus::{Consensus, Leader, NextLeader, Replica, ConsensusApi};
 use hotshot_types::{
     data::{QuorumCertificate, ViewNumber},
     message::{ConsensusMessage, MessageKind, Vote},
@@ -205,16 +205,15 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     handle
 }
 
-pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot<I, N>) {
+pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot<I, N>) -> Result<(), ()> {
     let next_view_timeout = hotshot.inner.config.next_view_timeout;
-
-    // TODO create view if it does not exist
 
     // OBTAIN write lock on consensus
     let mut consensus = hotshot.hotstuff.write().await;
 
     let cur_view = consensus.increment_view();
 
+    // Creates the view state if it does not already exist
     // Unwrap is fine b/c getting none here shouldn't be possible
     let (_, recv_replica) = consensus.get_future_view_pair(cur_view).unwrap();
 
@@ -222,16 +221,40 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     let mut next_leader: NextLeader<I, N> = NextLeader {
         generic_qc: consensus.high_qc.clone(),
         vote_collection_chan: hotshot.recv_next_leader.clone(),
+        cur_view,
     };
     let mut leader: Leader<I, N> = Leader {
         consensus: hotshot.hotstuff.clone(),
     };
     let mut replica: Replica<I, N> = Replica {
-        consensus: Arc::default(),
+        consensus: hotshot.hotstuff.clone(),
         proposal_collection_chan: recv_replica,
     };
     // DROP write lock on consensus
     drop(consensus);
+
+    let c_api = HotShotConsensusApi { inner: & hotshot.inner };
+
+    let mut task_handles = Vec::new();
+
+    let replica_handle = replica.run_view(&c_api).await;
+    task_handles.push(replica_handle);
+
+
+
+    if ConsensusApi::is_leader(&c_api, cur_view).await {
+        let leader_handle = leader.run_view(&c_api).await;
+        task_handles.push(leader_handle);
+    }
+
+    if ConsensusApi::is_leader(&c_api, cur_view + 1).await {
+        let next_leader_handle = next_leader.run_view(&c_api).await;
+        task_handles.push(next_leader_handle);
+    }
+
+
+    let children_finished =
+        futures::future::join_all(task_handles);
 
     spawn({
         let next_view_timeout = next_view_timeout.clone();
@@ -242,27 +265,16 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
         }
     });
 
-    // TODO push to vec based on consensusAPI is_next_leader and is_leader
-    let replica_handle = replica.run_view().await;
-
-    let next_leader_handle = next_leader.run_view().await;
-
-    let leader_handle = leader.run_view().await;
-
-    let children_finished =
-        futures::future::join_all(vec![replica_handle, next_leader_handle, leader_handle]);
-
     let results = children_finished.await;
 
-    // unwrap is fine sicne resutls must have >= 1 item(s)
+    // unwrap is fine since results must have >= 1 item(s)
     let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
     consensus.collect_garbage().await;
     // GC consensus step based on success of view
-    // increments view number
-    // deletes old metadata in the case of a commit
+    Ok(())
 }
 
 /// main thread driving consensus

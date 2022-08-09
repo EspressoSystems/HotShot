@@ -283,27 +283,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         })
     }
 
-    /// Sends out the next view message
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The phase already exists
-    /// - INTERNAL: Phases are not properly sorted
-    /// - The storage layer returned an error
-    /// - There were no QCs in the storage
-    /// - A broadcast message could not be send
-    #[instrument(skip(self), err)]
-    pub async fn next_view(&self, current_view: ViewNumber) -> Result<()> {
-        let mut hotstuff = self.hotstuff.write().await;
-        hotstuff
-            .next_view(
-                current_view,
-                &mut HotShotConsensusApi { inner: &self.inner },
-            )
-            .await
-    }
-
     /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
     ///
     /// Returns `true` if the event was send, `false` otherwise
@@ -316,42 +295,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             }
         }
         false
-    }
-
-    /// Runs a single round of consensus
-    ///
-    /// Returns the view number of the round that was completed.
-    ///
-    /// # Panics
-    ///
-    /// Panics if consensus hits a bad round
-    #[instrument(skip(self), err)]
-    pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
-        nll_todo()
-        // let (sender, receiver) = oneshot::channel();
-        // self
-        //     .hotstuff
-        //     .write()
-        //     .await
-        //     .register_round_finished_listener(current_view, sender);
-        // let result = match receiver.await {
-        //     Ok(result) => result,
-        //     Err(e) => {
-        //         return Err(HotShotError::InvalidState {
-        //             context: format!("Could not wait for round to end: {:?}", e),
-        //         })
-        //     }
-        // };
-        // match result.state {
-        //     RoundFinishedEventState::Success => Ok(result.view_number),
-        //     RoundFinishedEventState::Interrupted(state) => Err(HotShotError::ViewTimeoutError {
-        //         view_number: result.view_number,
-        //         state,
-        //     }),
-        //     x => Err(HotShotError::InvalidState {
-        //         context: format!("Round finished in an unknown state: {:?}", x),
-        //     }),
-        // }
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -571,18 +514,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 }
             }
         }
-        // let mut hotstuff = self.hotstuff.write().await;
-        // let hotstuff = &mut *hotstuff;
-        // if let Err(e) = hotstuff
-        //     .add_consensus_message(
-        //         msg.clone(),
-        //         &mut HotShotConsensusApi { inner: &self.inner },
-        //         sender,
-        //     )
-        //     .await
-        // {
-        //     warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
-        // }
     }
 
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network

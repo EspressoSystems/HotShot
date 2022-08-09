@@ -309,7 +309,7 @@ pub fn create_verify_hash<const N: usize>(
 /// NOTE: T is constrainted to implementing BlockContents, is TypeMap::Block
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
 pub struct Leaf<BLOCK, STATE, const N: usize> {
-    /// Per spec
+    /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
     /// Per spec, justification

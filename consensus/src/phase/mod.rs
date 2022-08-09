@@ -74,23 +74,6 @@ impl<I: NodeImplementation<N>, const N: usize> ViewState<I, N> {
         }
     }
 
-    /// Notify this phase that a new message has been received
-    ///
-    /// # Errors
-    ///
-    /// Will return an error when a stage is invalid, or when any of the [`ConsensusApi`] methods return an error.
-    pub async fn add_consensus_message<A: ConsensusApi<I, N>>(
-        &mut self,
-        api: &mut A,
-        transactions: &mut [TransactionState<I, N>],
-        message: <I as TypeMap<N>>::ConsensusMessage,
-    ) -> Result {
-        todo!()
-        // debug!(?message, "Incoming message");
-        // self.messages.push(message.clone());
-        // self.update(api, transactions).await
-    }
-
     /// Notify this phase that new transactions are available.
     ///
     /// # Errors

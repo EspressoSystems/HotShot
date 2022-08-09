@@ -47,7 +47,7 @@ use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     time::{Duration, Instant},
 };
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument, warn, error};
 
 #[derive(Debug)]
 pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
@@ -134,7 +134,7 @@ pub struct Replica<I: NodeImplementation<N>, const N: usize> {
 impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// run one view of replica
     /// returns the high_qc
-    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
         nll_todo()
     }
 }
@@ -146,19 +146,59 @@ pub struct Leader<I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
-    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
         nll_todo()
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
+    /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<N>,
     pub vote_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+    pub cur_view: ViewNumber
 }
 
 impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
-    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> JoinHandle<QuorumCertificate<N>> {
+        let vote_count = 0;
+        let mut qcs = HashSet::<QuorumCertificate<N>>::new();
+        qcs.insert(self.generic_qc.clone());
+        let threshold = api.threshold();
+
+
+        while let Ok(msg) = self.vote_collection_chan.recv_async().await {
+            let msg_view_number = msg.view_number();
+            match msg {
+                ConsensusMessage::TimedOut(t) => {
+                    if t.current_view == self.cur_view {
+                        qcs.insert(t.justify);
+                    }
+
+                    // append to qc set
+                },
+                ConsensusMessage::Vote(vote) => {
+                    // add qc to qcs
+                    // check validatiy of vote
+                    // increment vote count
+                    //
+                    // if vote_count >= threshold, break
+                },
+                ConsensusMessage::NextViewInterrupt(view_number) => {
+                    if self.cur_view == view_number {
+                        break;
+                    }
+                },
+                ConsensusMessage::Proposal(p) => {
+                    error!("useful error goes here");
+                },
+            }
+        }
+
+        let high_qc = qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+
+        // calculate the high_qc and return
+
         nll_todo()
     }
 }
@@ -261,184 +301,11 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
-    /// ar
+    /// return a clone of the internal storage of unclaimed transactions
     pub fn get_transactions(
         &self,
     ) -> Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>> {
         self.transactions.clone()
-    }
-
-    /// Add a consensus message to the hotstuff implementation.
-    ///
-    /// # Errors
-    ///
-    /// Will return:
-    /// - Any error that a stage can encounter (usually when it's in an invalid state)
-    /// - Any networking error
-    /// - Any storage error
-    /// - Any error that the [`ConsensusApi`] methods can return
-    #[allow(clippy::missing_panics_doc)] // Clippy thinks we can panic but logically we should not be able to
-    pub async fn add_consensus_message<A: ConsensusApi<I, N>>(
-        &mut self,
-        message: <I as TypeMap<N>>::ConsensusMessage,
-        api: &mut A,
-        _sender: I::SignatureKey,
-    ) -> Result {
-        // // Validate the incoming QC is valid
-        // if !api.validate_qc_in_message(&message) {
-        //     warn!(?message, "Incoming message does not have a valid QC");
-        //     return Ok(());
-        // }
-        //
-        // let view_number = message.view_number();
-        // let can_insert_view = self.can_insert_view(view_number);
-        // let phase = match self.view_cache.entry(view_number) {
-        //     Entry::Occupied(o) => o.into_mut(),
-        //     Entry::Vacant(v) => {
-        //         if can_insert_view {
-        //             // NOTE this is inserting into the vacant entry in self.phases
-        //             let phase = v.insert(ViewState::prepare(
-        //                 view_number,
-        //                 api.is_leader(view_number).await,
-        //             ));
-        //             self.active_phases.push_back(view_number);
-        //             // The new view-number should always be greater than the other entries in `self.active_phases`
-        //             // validate that here
-        //             assert!(is_sorted(self.active_phases.iter()));
-        //             phase
-        //         } else {
-        //             // Should we throw an error when we're in a unit test?
-        //             warn!(?view_number, "Could not insert, too old");
-        //             return Ok(());
-        //         }
-        //     }
-        // };
-        //
-        // phase
-        //     .add_consensus_message(api, &mut self.transactions, message)
-        //     .await?;
-        // self.after_update(view_number);
-        // Ok(())
-        nll_todo()
-    }
-
-    /// Call this when a round should be timed out.
-    ///
-    /// If the given round is done, this function will not have any effect
-    #[instrument]
-    pub fn round_timeout(&mut self, view_number: ViewNumber) {
-        let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(view_number);
-        // TODO send to next leader (if applicable)
-
-        // TODO send to replica (if applicable)
-    }
-
-    /// Send out a [`NextView`] message to the leader of the given round.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The phase already exists
-    /// - INTERNAL: Phases are not properly sorted
-    /// - The storage layer returned an error
-    /// - There were no QCs in the storage
-    /// - A broadcast message could not be send
-    pub async fn next_view<A: ConsensusApi<I, N>>(
-        &mut self,
-        view_number: ViewNumber,
-        api: &mut A,
-    ) -> Result {
-        nll_todo()
-        // let leader = api.get_leader(view_number).await;
-        // let is_leader = api.public_key() == &leader;
-        //
-        // // If we don't have this phase in our phases, insert it
-        // let phase = match self.view_cache.entry(view_number) {
-        //     Entry::Occupied(o) => o.into_mut(),
-        //     Entry::Vacant(v) => {
-        //         self.active_phases.push_back(view_number);
-        //         if !is_sorted(self.active_phases.iter()) {
-        //             return utils::err("Internal error; phases aren't properly sorted");
-        //         }
-        //         v.insert(ViewState::prepare(view_number, is_leader))
-        //     }
-        // };
-        //
-        // let newest_qc = match api.storage().get_newest_qc().await.context(StorageSnafu)? {
-        //     Some(qc) => qc,
-        //     None => return utils::err("No QC in storage"),
-        // };
-        // let new_view = ConsensusMessage::NewView(NewView {
-        //     current_view: view_number,
-        //     justify: newest_qc,
-        // });
-        //
-        // if is_leader {
-        //     phase.add_consensus_message(api, &mut [], new_view).await?;
-        // } else {
-        //     api.send_direct_message(leader, new_view).await.context(
-        //         FailedToMessageLeaderSnafu { },
-        //     )?;
-        // }
-        // Ok(())
-    }
-
-    /// Register a [`Sender`] that will be notified when the given round ends.
-    pub fn register_round_finished_listener(
-        &mut self,
-        view_number: ViewNumber,
-        sender: Sender<RoundFinishedEvent>,
-    ) {
-        nll_todo()
-    }
-
-    /// To be called after a round is updated.
-    ///
-    /// If the round is done, this will:
-    /// - notify all listeners in `self.round_finished_listeners`.
-    /// - Remove the view number from `active_phases` and append it to `inactive_phases`.
-    fn after_update(&mut self, view_number: ViewNumber) {
-        nll_todo()
-        // // This phase should always exist
-        // let phase = self.view_cache.get_mut(&view_number).unwrap();
-        // if phase.is_done() {
-        //     let listeners = self.round_finished_listeners.remove(&view_number);
-        //     debug!(
-        //         ?view_number,
-        //         "Phase is done, notifying {} listeners",
-        //         listeners.as_ref().map(Vec::len).unwrap_or_default()
-        //     );
-        //     if let Some(listeners) = listeners {
-        //         let event = RoundFinishedEvent {
-        //             view_number,
-        //             state: if let Some(reason) = phase.get_timedout_reason() {
-        //                 RoundFinishedEventState::Interrupted(reason)
-        //             } else {
-        //                 RoundFinishedEventState::Success
-        //             },
-        //         };
-        //         for listener in listeners {
-        //             let _ = listener.send(event.clone());
-        //         }
-        //     }
-        //     self.active_phases.retain(|p| p != &view_number);
-        //     match self.inactive_phases.binary_search(&view_number) {
-        //         Ok(_) => { /* view number is already in an inactive phase */ }
-        //         Err(idx) => self.inactive_phases.insert(idx, view_number),
-        //     }
-        // }
-    }
-
-    /// Check to see if we can insert the given view. If the view is earlier than a view we already have, this will return `false`.
-    fn can_insert_view(&self, view_number: ViewNumber) -> bool {
-        nll_todo()
-        // // We can insert a view_number when it is higher than any phase we have
-        // if let Some(highest) = self.active_phases.back() {
-        //     view_number > *highest
-        // } else {
-        //     // if we have no active phases, check if all `inactive_phases` are less than `view_number`
-        //     self.inactive_phases.iter().all(|p| p < &view_number)
-        // }
     }
 }
 
