@@ -24,6 +24,15 @@ pub mod subscribable_rwlock;
 /// Provides bincode options
 pub mod bincode;
 
+/// Collection of hacks
+pub mod hack {
+    /// Satisfies type checker without breaking non lexical lifetimes
+    #[deprecated]
+    pub fn nll_todo<S>() -> S {
+        None.unwrap()
+    }
+}
+
 /// Provides utility functions used for testing
 #[cfg(feature = "logging-utils")]
 pub mod test_util {

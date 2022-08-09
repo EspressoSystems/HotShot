@@ -36,8 +36,11 @@ pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static, const N: usize>:
-    Clone + Send + Sync
+pub trait Storage<
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+    const N: usize,
+>: Clone + Send + Sync
 {
     /// Retrieves a block from storage, returning `None` if it could not be found in local storage
     async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>>;
@@ -55,7 +58,10 @@ pub trait Storage<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLO
     async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>>;
 
     /// Retrieves a leaf by the hash of its block
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>>;
+    async fn get_leaf_by_block(
+        &self,
+        hash: &BlockHash<N>,
+    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>>;
 
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
     async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>>;

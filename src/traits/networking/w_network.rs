@@ -991,14 +991,14 @@ impl<
         _key: impl Serialize + Send + Sync + 'static,
         _value: impl Serialize + Send + Sync + 'static,
     ) -> Result<(), NetworkError> {
-        todo!()
+        unimplemented!()
     }
 
     async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         _key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
-        todo!()
+        unimplemented!()
     }
 }
 

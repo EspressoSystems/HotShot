@@ -32,6 +32,7 @@ use hotshot_types::traits::{
     state::TestableState,
     storage::StorageState,
 };
+use hotshot_utils::hack::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},
@@ -537,7 +538,7 @@ impl<
 
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self, _strictness: ValidateStrictness) {
-        todo!()
+        nll_todo()
         // let mut states = Vec::<(RoundRunnerState, StorageState<BLOCK, STATE, N>)>::new();
         // for (idx, node) in self.nodes.iter().enumerate() {
         //     if let Some(message_count) = node.handle.networking().in_flight_message_count() {

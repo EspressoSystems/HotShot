@@ -87,8 +87,11 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
 }
 
 #[async_trait]
-impl<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static, const N: usize>
-    Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
+impl<
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+        const N: usize,
+    > Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
 {
     #[instrument(name = "MemoryStorage::get_block", skip_all)]
     async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
@@ -162,7 +165,10 @@ impl<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static
     }
 
     #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
+    async fn get_leaf_by_block(
+        &self,
+        hash: &BlockHash<N>,
+    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         // Check to see if we have the leaf
         let index = self.inner.block_to_leaf.get(hash);
         Ok(if let Some(index) = index {
@@ -242,7 +248,8 @@ struct MemoryStorageUpdater<'a, B, S, const N: usize> {
 }
 
 #[async_trait]
-impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N> for MemoryStorageUpdater<'a, BLOCK, STATE, N>
+impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N>
+    for MemoryStorageUpdater<'a, BLOCK, STATE, N>
 where
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,

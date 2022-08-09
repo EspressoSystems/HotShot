@@ -148,8 +148,11 @@ where
 }
 
 #[async_trait]
-impl<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static, const N: usize>
-    Storage<BLOCK, STATE, N> for AtomicStorage<BLOCK, STATE, N>
+impl<
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+        const N: usize,
+    > Storage<BLOCK, STATE, N> for AtomicStorage<BLOCK, STATE, N>
 {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
     async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
@@ -180,7 +183,10 @@ impl<BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static
     }
 
     #[instrument(name = "AtomicStorage::get_leaf_by_block", skip_all)]
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
+    async fn get_leaf_by_block(
+        &self,
+        hash: &BlockHash<N>,
+    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         Ok(self.inner.leaves.load_by_key_2_ref(hash).await)
     }
 
@@ -266,8 +272,12 @@ struct AtomicStorageUpdater<
 }
 
 #[async_trait]
-impl<'a, BLOCK: BlockContents<N> + 'static, STATE: State<N, Block = BLOCK> + 'static, const N: usize>
-    StorageUpdater<'a, BLOCK, STATE, N> for AtomicStorageUpdater<'a, BLOCK, STATE, N>
+impl<
+        'a,
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+        const N: usize,
+    > StorageUpdater<'a, BLOCK, STATE, N> for AtomicStorageUpdater<'a, BLOCK, STATE, N>
 {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
     async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {

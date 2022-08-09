@@ -49,11 +49,11 @@ use crate::{
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
-use flume::{Receiver, Sender, SendError};
+use flume::{Receiver, SendError, Sender};
 use futures::channel::oneshot;
 use hotshot_consensus::{Consensus, RoundFinishedEventState};
 use hotshot_types::{
-    data::{create_verify_hash, VerifyHash, ViewNumber},
+    data::{create_verify_hash, TransactionHash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message, Proposal},
     traits::{
@@ -64,10 +64,10 @@ use hotshot_types::{
         stateful_handler::StatefulHandler,
     },
 };
-use hotshot_utils::broadcast::BroadcastSender;
+use hotshot_utils::{broadcast::BroadcastSender, hack::nll_todo};
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, HashSet},
+    collections::{btree_map::Entry, BTreeMap, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -169,6 +169,10 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<I, N>>,
 
+    /// Transactions
+    /// (this is shared btwn hotshot and `Consensus`)
+    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
+
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
 
@@ -221,12 +225,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             genesis: true,
         };
         let genesis_leaf = Leaf {
-            state: starting_state,
+            state: starting_state.clone(),
             view_number: ViewNumber::genesis(),
             justify_qc: genesis_qc.clone(),
             // NOTE: view number might be different
             parent: [0_u8; { N }].into(),
-            deltas: todo!(),
+            deltas: nll_todo(),
         };
         let election = {
             let state =
@@ -265,11 +269,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             .context(StorageSnafu)?;
 
         let (send_next_leader, recv_next_leader) = flume::unbounded();
+        let hotstuff: Arc<RwLock<Consensus<I, N>>> = Arc::default();
+        let txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {
             inner: Arc::new(inner),
+            transactions: Arc::default(),
             // TODO check this is what we want.
-            hotstuff: Arc::default(),
+            hotstuff,
             channel_map: Arc::default(),
             send_next_leader,
             recv_next_leader,
@@ -320,7 +327,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Panics if consensus hits a bad round
     #[instrument(skip(self), err)]
     pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
-        todo!()
+        nll_todo()
         // let (sender, receiver) = oneshot::channel();
         // self
         //     .hotstuff
@@ -367,17 +374,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
-        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+        transaction: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
-        self.hotstuff
-            .write()
-            .await
-            .add_transaction(tx.clone(), &mut HotShotConsensusApi { inner: &self.inner })
-            .await?;
         // Wrap up a message
-        let message = DataMessage::SubmitTransaction(tx);
+        let message = DataMessage::SubmitTransaction(transaction);
         let network_result = self
             .send_broadcast_message(message.clone())
             .await
@@ -525,8 +527,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     Entry::Vacant(location) => {
                         // access consensus
                         let mut consensus = self.hotstuff.write().await;
-                        if let Some(chan) = consensus.get_future_view_sender(msg_view_number) {
-                            Some(location.insert(chan).clone())
+                        if let Some((send, _)) = consensus.get_future_view_pair(msg_view_number) {
+                            Some(location.insert(send).clone())
                         } else {
                             None
                         }
@@ -560,10 +562,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
-            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_)  => {
+            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
-            c@(ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
+            c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
                 if self.send_next_leader.send_async(c).await.is_err() {
                     warn!("Failed to send to next leader!");
                 }
@@ -592,17 +594,15 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
-                let mut hotstuff = self.hotstuff.write().await;
-                let hotstuff = &mut *hotstuff;
-                if let Err(e) = hotstuff
-                    .add_transaction(
-                        transaction.clone(),
-                        &mut HotShotConsensusApi { inner: &self.inner },
-                    )
+                let txn_hash = <I::Block as BlockContents<N>>::hash_transaction(&transaction);
+                // The API contract requires the hash to be unique
+                // so we can assume entry == incoming txn
+                // even if eq not satisfied
+                // so insert is an idempotent operation
+                self.transactions
+                    .write()
                     .await
-                {
-                    error!(?e, ?transaction, ?hotstuff, "Could not add transaction");
-                }
+                    .insert(txn_hash, transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed

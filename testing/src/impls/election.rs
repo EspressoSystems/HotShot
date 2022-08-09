@@ -6,6 +6,7 @@ use hotshot_types::{
         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     },
 };
+use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
@@ -51,7 +52,7 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
 
     #[instrument]
     fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
-        todo!()
+        nll_todo()
     }
 
     #[instrument(skip(_private_key))]
@@ -63,6 +64,6 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         _private_key: &Ed25519Priv,
         next_state: hotshot::data::StateHash<N>,
     ) -> Option<Self::VoteToken> {
-        todo!()
+        nll_todo()
     }
 }

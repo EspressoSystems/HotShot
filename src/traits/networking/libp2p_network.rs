@@ -476,7 +476,6 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
     async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError> {
-
         if self.inner.handle.is_killed().await {
             return Err(NetworkError::ShutDown);
         }

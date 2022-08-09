@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use hex_fmt::HexFmt;
+use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -57,7 +58,7 @@ pub enum ConsensusMessage<B, S, const N: usize> {
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
-    NextViewInterrupt(ViewNumber)
+    NextViewInterrupt(ViewNumber),
 }
 
 impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
@@ -67,7 +68,7 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     pub fn view_number(&self) -> ViewNumber {
         match self {
             Self::TimedOut(view) => view.current_view,
-            _ => todo!(),
+            _ => nll_todo(),
             // Self::Prepare(prepare) => prepare.current_view,
             // Self::PrepareVote(vote) => vote.current_view,
             // Self::PreCommit(precommit) => precommit.current_view,

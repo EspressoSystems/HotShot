@@ -4,19 +4,20 @@
 
 use crate::{types::HotShotHandle, HotShot};
 use async_std::{
-    prelude::FutureExt as _,
+    future::timeout,
+    prelude::FutureExt,
     sync::RwLock,
-    task::{spawn, JoinHandle, sleep},
+    task::{sleep, spawn, JoinHandle},
 };
-use flume::{Sender, Receiver};
-use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select, FutureExt};
-use hotshot_consensus::{NextLeader, Leader, Replica, Consensus};
+use flume::{Receiver, Sender};
+use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select};
+use hotshot_consensus::{Consensus, Leader, NextLeader, Replica};
 use hotshot_types::{
-    data::{ViewNumber, QuorumCertificate},
-    message::{MessageKind, Vote, ConsensusMessage},
+    data::{QuorumCertificate, ViewNumber},
+    message::{ConsensusMessage, MessageKind, Vote},
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
-use hotshot_utils::broadcast::channel;
+use hotshot_utils::{broadcast::channel, hack::nll_todo};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -54,7 +55,7 @@ impl TaskHandle {
         &self,
         view_number: ViewNumber,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
+        nll_todo()
         // self.send_to_round_runner(ToRoundRunner::NewViewNumber(view_number))
         //     .await
     }
@@ -63,12 +64,11 @@ impl TaskHandle {
     ///
     /// This will time out after two seconds.
     pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // todo!()
         let (sender, receiver) = oneshot_channel();
         // self.send_to_round_runner(ToRoundRunner::GetState(sender))
         //     .await?;
         let state = receiver.timeout(Duration::from_millis(30000)).await??;
-        todo!()
+        nll_todo()
         // Ok(state)
     }
 
@@ -120,6 +120,7 @@ impl TaskHandle {
                 inner.network_change_task_handle,
                 "network_change_task_handle",
             ),
+            (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
                 handle.timeout(long_timeout).await.is_ok(),
@@ -170,7 +171,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     );
 
     let consensus_task_handle = spawn(
-        enter_view(hotshot.clone(), shut_down.clone())
+        view_runner(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("Consensus task handle",)),
     );
 
@@ -204,75 +205,75 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     handle
 }
 
-pub async fn enter_view<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
-    shut_down: Arc<AtomicBool>,
-) {
+pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot<I, N>) {
     let next_view_timeout = hotshot.inner.config.next_view_timeout;
+
+    // TODO create view if it does not exist
 
     // OBTAIN write lock on consensus
     let mut consensus = hotshot.hotstuff.write().await;
+
     let cur_view = consensus.increment_view();
-    // TODO repalce these with calls to consensus
-    let next_leader : NextLeader<I, N> = NextLeader {
-        generic_qc: todo!(),
-        vote_collection_chan: todo!(),
+
+    // Unwrap is fine b/c getting none here shouldn't be possible
+    let (_, recv_replica) = consensus.get_future_view_pair(cur_view).unwrap();
+
+    // TODO repalce these with sensible values
+    let mut next_leader: NextLeader<I, N> = NextLeader {
+        generic_qc: consensus.high_qc.clone(),
+        vote_collection_chan: hotshot.recv_next_leader.clone(),
     };
-    let leader : Leader<N> = Leader {
-        generic_qc: todo!(),
-        high_qc: todo!(),
+    let mut leader: Leader<I, N> = Leader {
+        consensus: hotshot.hotstuff.clone(),
     };
-    let replica : Replica<I, N> = Replica {
-        locked_qc: todo!(),
-        generic_qc: todo!(),
-        proposal_collection_chan: todo!(),
+    let mut replica: Replica<I, N> = Replica {
+        consensus: Arc::default(),
+        proposal_collection_chan: recv_replica,
     };
     // DROP write lock on consensus
     drop(consensus);
 
+    spawn({
+        let next_view_timeout = next_view_timeout.clone();
+        let hotshot: HotShot<I, N> = hotshot.clone();
+        async move {
+            sleep(Duration::from_millis(next_view_timeout)).await;
+            hotshot.timeout_view(cur_view).await;
+        }
+    });
 
+    // TODO push to vec based on consensusAPI is_next_leader and is_leader
     let replica_handle = replica.run_view().await;
 
     let next_leader_handle = next_leader.run_view().await;
 
     let leader_handle = leader.run_view().await;
 
-    let children_finished = join_all(vec![replica_handle, next_leader_handle, leader_handle]);
+    let children_finished =
+        futures::future::join_all(vec![replica_handle, next_leader_handle, leader_handle]);
 
-    select!(
-        // TODO this should be the actual view timeout
-        _ = sleep(Duration::from_millis(next_view_timeout)).fuse() => {
-            hotshot.timeout_view(cur_view).await;
-            // notify tasks that they have timed out
+    let results = children_finished.await;
 
-        },
-        _ = children_finished.fuse() => {
-            // do nothing
-        }
-    );
+    // unwrap is fine sicne resutls must have >= 1 item(s)
+    let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
 
-    children_finished.await;
-
-
-    // sender channel for this view exists in the hotshot struct
-
-
-    // timer logic
-    //
-    // spawn next leader
-    // spawn leader
-    // spawn replica
-
-    // select btwn timeout
-    // if timeout send messages then wait on join a second time
-
-    let consensus = hotshot.hotstuff.write().await;
+    let mut consensus = hotshot.hotstuff.write().await;
+    consensus.high_qc = high_qc;
     consensus.collect_garbage().await;
     // GC consensus step based on success of view
     // increments view number
     // deletes old metadata in the case of a commit
 }
 
+/// main thread driving consensus
+pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
+    hotshot: HotShot<I, N>,
+    shut_down: Arc<AtomicBool>,
+) {
+    while !shut_down.load(Ordering::Relaxed) {
+        run_view(hotshot.clone()).await;
+    }
+}
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
 pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(

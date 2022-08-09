@@ -1647,6 +1647,7 @@ dependencies = [
  "flume",
  "futures",
  "hotshot-types",
+ "hotshot-utils",
  "snafu",
  "tracing",
 ]
@@ -1682,6 +1683,7 @@ dependencies = [
  "espresso-systems-common",
  "futures",
  "hex_fmt",
+ "hotshot-utils",
  "rand 0.8.5",
  "serde",
  "serde_bytes",

@@ -12,6 +12,7 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
+use hotshot_utils::hack::nll_todo;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -147,10 +148,10 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// If this message has no QC then this will return `true`
     fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
         let (qc, view_number) = match message {
-            ConsensusMessage::Proposal(proposal) => todo!(),
-            ConsensusMessage::TimedOut(next_view) => todo!(),
-            ConsensusMessage::Vote(vote) => todo!(),
-            ConsensusMessage::NextViewInterrupt(view_number) => todo!()
+            ConsensusMessage::Proposal(proposal) => nll_todo(),
+            ConsensusMessage::TimedOut(next_view) => nll_todo(),
+            ConsensusMessage::Vote(vote) => nll_todo(),
+            ConsensusMessage::NextViewInterrupt(view_number) => nll_todo(),
         };
         // ConsensusMessage::PreCommit(pre_commit) => {
         //     // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit

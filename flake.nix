@@ -26,9 +26,11 @@
     utils.lib.eachDefaultSystem (system:
       let
         # rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17";
-        rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17".override {
-          extensions = [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" ];
-        };
+        # rustNightly = rust-overlay.packages.${system}.latest.stable/* "rust-nightly_2022-07-17" */.override {
+        #   extensions = [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" ];
+        # };
+
+        rustNightly = fenix.packages.${system}.stable.withComponents [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" "cargo" "rustc" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
 

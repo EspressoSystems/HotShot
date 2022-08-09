@@ -11,7 +11,10 @@ use hotshot_types::{
     event::EventType,
     traits::network::NetworkingImplementation,
 };
-use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
+use hotshot_utils::{
+    broadcast::{BroadcastReceiver, BroadcastSender},
+    hack::nll_todo,
+};
 use snafu::ResultExt;
 use std::{
     sync::{
@@ -232,7 +235,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         //         }
         //     }
         // }
-        todo!()
+        nll_todo()
     }
 
     /// Provides a reference to the underlying storage for this [`HotShot`], allowing access to
@@ -271,7 +274,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     pub async fn get_round_runner_state(
         &self,
     ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        todo!()
+        nll_todo()
         // self.hotshot
         //     .inner
         //     .background_task_handle

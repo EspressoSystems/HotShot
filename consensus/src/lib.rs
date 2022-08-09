@@ -22,6 +22,8 @@ mod traits;
 mod utils;
 // pub mod message_processing;
 
+use hotshot_utils::hack::nll_todo;
+
 use flume::{Receiver, Sender};
 pub use traits::ConsensusApi;
 
@@ -33,7 +35,7 @@ use futures::{future::join, select, FutureExt};
 use hotshot_types::{
     data::{Leaf, LeafHash, QuorumCertificate, TransactionHash, ViewNumber},
     error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
-    message::{ConsensusMessage, TimedOut, Proposal, Vote},
+    message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
@@ -64,7 +66,7 @@ pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
 
 impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
     pub fn transition(&mut self) {
-        todo!()
+        nll_todo()
     }
 }
 
@@ -117,36 +119,35 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
 
     locked_qc: QuorumCertificate<N>,
-    generic_qc: QuorumCertificate<N>,
+    pub high_qc: QuorumCertificate<N>,
     // msg_channel: Receiver<ConsensusMessage<>>,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Replica<I: NodeImplementation<N>, const N: usize> {
-    pub locked_qc: QuorumCertificate<N>,
-    pub generic_qc: QuorumCertificate<N>,
-    pub proposal_collection_chan: Receiver<ConsensusMessage<I::State, I::Block, N>>,
+    /// Reference to consensus. Replica will require a write lock on this.
+    pub consensus: Arc<RwLock<Consensus<I, N>>>,
+    /// channel for accepting leader proposals and timeouts messages
+    pub proposal_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// run one view of replica
-    pub async fn run_view(&mut self) -> JoinHandle<()> {
-        todo!()
+    /// returns the high_qc
+    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+        nll_todo()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Leader<const N: usize> {
-    /// next leader calculated this
-    pub high_qc: QuorumCertificate<N>,
-    /// replica calculated this
-    pub generic_qc: QuorumCertificate<N>,
+pub struct Leader<I: NodeImplementation<N>, const N: usize> {
+    /// Reference to consensus. Leader will require a read lock on this.
+    pub consensus: Arc<RwLock<Consensus<I, N>>>,
 }
 
-impl<const N: usize> Leader<N> {
-    pub async fn run_view(&mut self) -> JoinHandle<()> {
-        todo!()
+impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
+    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+        nll_todo()
     }
 }
 
@@ -157,18 +158,20 @@ pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
-    pub async fn run_view(&mut self) -> JoinHandle<()> {
-        todo!()
+    pub async fn run_view(&mut self) -> JoinHandle<QuorumCertificate<N>> {
+        nll_todo()
     }
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
-    pub fn create_leader_state(&self, msgs: ConsensusMessage<I::Block, I::State, N>) -> Leader<N>{
-        todo!()
+    pub fn create_leader_state(
+        &self,
+        msgs: ConsensusMessage<I::Block, I::State, N>,
+    ) -> Leader<I, N> {
+        nll_todo()
         // Leader {
         //     self.generic_qc,
         // }
-
     }
 
     /// increment the current view
@@ -178,29 +181,33 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         self.cur_view
     }
 
-
     /// garbage collects based on state change
-    pub async fn collect_garbage(&mut self) {
-    }
+    pub async fn collect_garbage(&mut self) {}
 
-
-    /// Returns a channel that may be used to send received proposals
+    /// Returns channels that may be used to send/receive received proposals
     /// to the Replica task.
     /// NOTE: requires write access to `Consensus` because may
     /// insert into `self.state_map` if the view has not been constructed NOTE: requires write
     /// access to `Consensus` because may
     /// insert into `self.state_map` if the view has not been constructed
-    pub fn get_future_view_sender(
+    pub fn get_future_view_pair(
         &mut self,
         msg_view_number: ViewNumber,
-    ) -> Option<Sender<ConsensusMessage<I::Block, I::State, N>>> {
+    ) -> Option<(
+        Sender<ConsensusMessage<I::Block, I::State, N>>,
+        Receiver<ConsensusMessage<I::Block, I::State, N>>,
+    )> {
         if msg_view_number < self.cur_view {
             return None;
         }
 
         let view = self.state_map.entry(msg_view_number).or_insert(View::new());
-        if let ViewInner::Future { sender_chan, .. } = &view.view_inner {
-            Some(sender_chan.clone())
+        if let ViewInner::Future {
+            sender_chan,
+            receiver_chan,
+        } = &view.view_inner
+        {
+            Some((sender_chan.clone(), receiver_chan.clone()))
         } else {
             None
         }
@@ -242,18 +249,25 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: todo!(),
-            last_decided_view: todo!(),
-            state_map: todo!(),
-            in_progress_leaves: todo!(),
-            undecided_leaves: todo!(),
-            locked_qc: todo!(),
-            generic_qc: todo!(),
+            cur_view: nll_todo(),
+            last_decided_view: nll_todo(),
+            state_map: nll_todo(),
+            in_progress_leaves: nll_todo(),
+            undecided_leaves: nll_todo(),
+            locked_qc: nll_todo(),
+            high_qc: nll_todo(),
         }
     }
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
+    /// ar
+    pub fn get_transactions(
+        &self,
+    ) -> Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>> {
+        self.transactions.clone()
+    }
+
     /// Add a consensus message to the hotstuff implementation.
     ///
     /// # Errors
@@ -305,31 +319,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         //     .await?;
         // self.after_update(view_number);
         // Ok(())
-        todo!()
-    }
-
-    /// Add a transaction to the hotstuff implementation.
-    ///
-    /// # Errors
-    ///
-    /// Will return:
-    /// - Any error that a stage can encounter (usually when it's in an invalid state)
-    /// - Any networking error
-    /// - Any storage error
-    /// - Any error that the [`ConsensusApi`] methods can return
-    pub async fn add_transaction<A: ConsensusApi<I, N>>(
-        &mut self,
-        transaction: <I as TypeMap<N>>::Transaction,
-        _api: &mut A,
-    ) -> Result {
-        let txn_hash = <I::Block as BlockContents<N>>::hash_transaction(&transaction);
-        // The API contract requires the hash to be unique
-        // so we can assume entry == incoming txn
-        // even if eq not satisfied
-        // so insert is an idempotent operation
-        self.transactions.write().await.insert(txn_hash, transaction);
-
-        Ok(())
+        nll_todo()
     }
 
     /// Call this when a round should be timed out.
@@ -341,7 +331,6 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         // TODO send to next leader (if applicable)
 
         // TODO send to replica (if applicable)
-
     }
 
     /// Send out a [`NextView`] message to the leader of the given round.
@@ -359,7 +348,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         view_number: ViewNumber,
         api: &mut A,
     ) -> Result {
-        todo!()
+        nll_todo()
         // let leader = api.get_leader(view_number).await;
         // let is_leader = api.public_key() == &leader;
         //
@@ -400,7 +389,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         view_number: ViewNumber,
         sender: Sender<RoundFinishedEvent>,
     ) {
-        todo!()
+        nll_todo()
     }
 
     /// To be called after a round is updated.
@@ -409,7 +398,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// - notify all listeners in `self.round_finished_listeners`.
     /// - Remove the view number from `active_phases` and append it to `inactive_phases`.
     fn after_update(&mut self, view_number: ViewNumber) {
-        todo!()
+        nll_todo()
         // // This phase should always exist
         // let phase = self.view_cache.get_mut(&view_number).unwrap();
         // if phase.is_done() {
@@ -442,7 +431,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
 
     /// Check to see if we can insert the given view. If the view is earlier than a view we already have, this will return `false`.
     fn can_insert_view(&self, view_number: ViewNumber) -> bool {
-        todo!()
+        nll_todo()
         // // We can insert a view_number when it is higher than any phase we have
         // if let Some(highest) = self.active_phases.back() {
         //     view_number > *highest
