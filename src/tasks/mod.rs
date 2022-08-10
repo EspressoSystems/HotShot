@@ -4,17 +4,15 @@
 
 use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_std::{
-    future::timeout,
     prelude::FutureExt,
     sync::RwLock,
     task::{sleep, spawn, JoinHandle},
 };
-use flume::{Receiver, Sender};
-use futures::{channel::oneshot::channel as oneshot_channel, future::join_all, select};
-use hotshot_consensus::{Consensus, Leader, NextLeader, Replica, ConsensusApi};
+
+use futures::{channel::oneshot::channel as oneshot_channel};
+use hotshot_consensus::{Leader, NextLeader, Replica, ConsensusApi};
 use hotshot_types::{
-    data::{QuorumCertificate, ViewNumber},
-    message::{ConsensusMessage, MessageKind, Vote},
+    message::{MessageKind},
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
 use hotshot_utils::{broadcast::channel, hack::nll_todo};
@@ -39,10 +37,10 @@ impl TaskHandle {
     ///
     /// This will time out after two seconds.
     pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let (sender, receiver) = oneshot_channel();
+        let (_sender, receiver) = oneshot_channel();
         // self.send_to_round_runner(ToRoundRunner::GetState(sender))
         //     .await?;
-        let state = receiver.timeout(Duration::from_millis(30000)).await??;
+        let _state = receiver.timeout(Duration::from_millis(30000)).await??;
         nll_todo()
         // Ok(state)
     }

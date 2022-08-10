@@ -5,25 +5,22 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::{prelude::FutureExt, task::block_on};
+use async_std::{task::block_on};
 use hotshot_types::{
-    error::{HotShotError, RoundTimedoutState, TimeoutSnafu},
-    event::EventType,
     traits::network::NetworkingImplementation,
 };
 use hotshot_utils::{
     broadcast::{BroadcastReceiver, BroadcastSender},
     hack::nll_todo,
 };
-use snafu::ResultExt;
+
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
 };
-use tracing::{debug, error};
+
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///

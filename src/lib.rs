@@ -49,13 +49,13 @@ use crate::{
 
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
-use flume::{Receiver, SendError, Sender};
-use futures::channel::oneshot;
-use hotshot_consensus::{Consensus, RoundFinishedEventState};
+use flume::{Receiver, Sender};
+
+use hotshot_consensus::{Consensus};
 use hotshot_types::{
-    data::{create_verify_hash, TransactionHash, VerifyHash, ViewNumber},
+    data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
-    message::{ConsensusMessage, DataMessage, Message, Proposal},
+    message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -67,7 +67,7 @@ use hotshot_types::{
 use hotshot_utils::{broadcast::BroadcastSender, hack::nll_todo};
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, HashMap, HashSet},
+    collections::{btree_map::Entry, BTreeMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -270,7 +270,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         let (send_next_leader, recv_next_leader) = flume::unbounded();
         let hotstuff: Arc<RwLock<Consensus<I, N>>> = Arc::default();
-        let txns = hotstuff.read().await.get_transactions();
+        let _txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {
             inner: Arc::new(inner),
@@ -457,7 +457,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: I::SignatureKey,
+        _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         let msg_view_number = msg.view_number();
@@ -499,7 +499,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     async fn handle_direct_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: I::SignatureKey,
+        _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         // We can only recv from a replicas

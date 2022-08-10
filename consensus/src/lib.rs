@@ -174,7 +174,6 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
         let original_parent_hash = parent_leaf.hash();
         let starting_state = parent_leaf.state.clone();
 
-        let txns = self.transactions.read().await;
 
         let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
 
@@ -192,6 +191,7 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
 
         let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<TransactionHash<N>>>();
 
+        let txns = self.transactions.read().await;
         let unclaimed_txns: Vec<_> = txns.iter().filter(|txn| {
             !previous_used_txns.contains(&I::Block::hash_transaction(*txn))
         }).collect();
@@ -313,16 +313,6 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
-    pub fn create_leader_state(
-        &self,
-        msgs: ConsensusMessage<I::Block, I::State, N>,
-    ) -> Leader<I, N> {
-        nll_todo()
-        // Leader {
-        //     self.generic_qc,
-        // }
-    }
-
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> ViewNumber {
