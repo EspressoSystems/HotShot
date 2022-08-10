@@ -202,6 +202,8 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     let mut replica: Replica<I, N> = Replica {
         consensus: hotshot.hotstuff.clone(),
         proposal_collection_chan: recv_replica,
+        cur_view,
+        high_qc: consensus.high_qc.clone(),
     };
     // DROP write lock on consensus
     drop(consensus);

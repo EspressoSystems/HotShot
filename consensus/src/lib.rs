@@ -24,11 +24,11 @@ mod utils;
 
 use hotshot_utils::hack::nll_todo;
 
-use flume::{Receiver, Sender};
+use flume::{Receiver, Sender, RecvError};
 pub use traits::ConsensusApi;
 
 use async_std::{
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockUpgradableReadGuard},
     task::{sleep, spawn, JoinHandle},
 };
 use futures::{future::join, select, FutureExt};
@@ -126,12 +126,90 @@ pub struct Replica<I: NodeImplementation<N>, const N: usize> {
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
     /// channel for accepting leader proposals and timeouts messages
     pub proposal_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+    /// view number this view is executing in
+    pub cur_view: ViewNumber,
+    /// genericQC from the pseudocode
+    pub high_qc: QuorumCertificate<N>
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// run one view of replica
     /// returns the high_qc
     pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
+
+        let consensus = self.consensus.upgradable_read().await;
+        let _ = self.proposal_collection_chan.recv_async().await ;
+
+        let leaf =
+            loop {
+                let msg = self.proposal_collection_chan.recv_async().await;
+                match msg {
+                    Ok(msg) => {
+                        // drop stale/newer view messages
+                        if msg.view_number() != self.cur_view {
+                            continue;
+                        }
+                        match msg {
+                            ConsensusMessage::Proposal(p) => {
+                                api.validate_qc(&p.leaf.justify_qc, p.leaf.justify_qc.view_number);
+                                // vote
+                                // let vote = ConsensusMessage::Vote(Vote {
+                                //     block_hash: nll_todo(),
+                                //     justify_qc: nll_todo(),
+                                //     signature: nll_todo(),
+                                //     leaf_hash: nll_todo(),
+                                //     current_view: nll_todo(),
+                                // });
+
+                                api.sign_vote(nll_todo(), self.cur_view);
+
+                                // send out vote
+
+                                let next_leader = api.get_leader(self.cur_view + 1).await;
+
+                                let _result = api.send_direct_message(next_leader, nll_todo());
+
+                                // break
+
+                                // return leaf
+                                let leaf : Leaf<I::Block, I::State, N> = nll_todo();
+                                break leaf;
+                            },
+                            ConsensusMessage::NextViewInterrupt(_view_number) => {
+                                let next_leader = api.get_leader(self.cur_view + 1).await;
+
+                                let timed_out_msg = ConsensusMessage::TimedOut( TimedOut {
+                                    current_view: self.cur_view,
+                                    justify: self.high_qc.clone(),
+                                });
+
+                                // send timedout message to the next leader
+                                let _result = api.send_direct_message(next_leader, timed_out_msg).await;
+
+                                // exits from entire function
+                                return self.high_qc.clone();
+
+                            },
+                            ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
+                                // should only be for leader, never
+                                error!("useful error goes here");
+                                continue;
+                            },
+                        }
+                    },
+                    Err(_) => {
+                        error!("useful error goes here");
+                        return self.high_qc.clone();
+                    },
+                }
+            };
+
+
+        error!("{:?}", leaf);
+
+        let consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        // promote lock here
+
         nll_todo()
     }
 }
@@ -318,6 +396,27 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     pub fn increment_view(&mut self) -> ViewNumber {
         self.cur_view += 1;
         self.cur_view
+    }
+
+    /// filler
+    pub fn visit_leaf_ancestors<F>(&self, first_leaf: &LeafHash<N>, f: F) -> Result<()>
+        where F: Fn(&Leaf<I::Block, I::State, N>) -> bool
+    {
+        let mut next_leaf = first_leaf;
+        loop {
+            if let Some(leaf) = self.undecided_leaves.get(next_leaf) {
+                next_leaf = &leaf.parent;
+                if !f(leaf) {
+                    return Ok(());
+                }
+                if leaf.view_number <= self.locked_qc.view_number {
+                    break;
+                }
+            } else {
+                return Err(HotShotError::ItemNotFound { type_name: "Leaf", hash: next_leaf.to_vec()});
+            }
+        }
+        Ok(())
     }
 
     /// garbage collects based on state change
