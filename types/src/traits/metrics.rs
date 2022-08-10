@@ -41,6 +41,7 @@ mod test {
     }
 
     impl Metrics for TestMetrics {
+        #[allow(clippy::significant_drop_in_scrutinee)]
         fn add_counter(&self, label: &str, amount: usize) {
             let label = self.label(label);
             let mut values = self.values.lock().unwrap();
@@ -54,6 +55,7 @@ mod test {
             }
         }
 
+        #[allow(clippy::significant_drop_in_scrutinee)]
         fn set_gauge(&self, label: &str, amount: usize) {
             let label = self.label(label);
             let mut values = self.values.lock().unwrap();
@@ -67,6 +69,7 @@ mod test {
             }
         }
 
+        #[allow(clippy::significant_drop_in_scrutinee)]
         fn add_histogram_point(&self, label: &str, value: f64) {
             let label = self.label(label);
             let mut values = self.values.lock().unwrap();
@@ -80,6 +83,7 @@ mod test {
             }
         }
 
+        #[allow(clippy::significant_drop_in_scrutinee)]
         fn set_label(&self, label: &str, value: String) {
             let label = self.label(label);
             let mut values = self.values.lock().unwrap();
@@ -162,7 +166,7 @@ mod test {
         }
 
         for i in 0..10 {
-            metrics.add_histogram_point("baz", i as f64);
+            metrics.add_histogram_point("baz", f64::from(i));
         }
 
         let sub = metrics.subgroup("child");
@@ -174,7 +178,7 @@ mod test {
         }
 
         for i in 0..10 {
-            sub.add_histogram_point("baz", i as f64 * 2.0);
+            sub.add_histogram_point("baz", f64::from(i) * 2.0);
         }
 
         drop(sub);
