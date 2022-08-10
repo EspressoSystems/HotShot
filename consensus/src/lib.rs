@@ -39,7 +39,7 @@ use hotshot_types::{
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         storage::Storage,
-        BlockContents, signature_key::{EncodedPublicKey, EncodedSignature},
+        BlockContents, signature_key::{EncodedPublicKey, EncodedSignature}, State,
     },
 };
 use snafu::ResultExt;
@@ -100,9 +100,6 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
     state_map: BTreeMap<ViewNumber, View<I, N>>,
 
-    /// leaves that have been seen
-    in_progress_leaves: HashSet<Leaf<I::Block, I::State, N>>,
-
     /// cur_view from pseudocode
     cur_view: ViewNumber,
 
@@ -114,9 +111,9 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     // new_round_finished_listeners: Vec<Sender<RoundFinishedEvent>>,
     /// A list of transactions
     /// TODO we should flush out the logic here more
-    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
+    pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 
-    undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
+    pub undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
 
     locked_qc: QuorumCertificate<N>,
     pub high_qc: QuorumCertificate<N>,
@@ -143,11 +140,90 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
 pub struct Leader<I: NodeImplementation<N>, const N: usize> {
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
+    pub high_qc: QuorumCertificate<N>,
+    pub cur_view: ViewNumber,
+    pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
+    /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
-        nll_todo()
+        let parent_view_number = self.high_qc.view_number;
+        let consensus = self.consensus.read().await;
+        let mut reached_decided = false;
+
+        let parent_leaf =
+            if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
+                match &parent_view.view_inner {
+                    ViewInner::Undecided { leaf } => leaf,
+                    ViewInner::Decided { leaf } => {
+                        reached_decided = true;
+                        leaf
+                    },
+                    // can happen if future api is whacked
+                    ViewInner::Future { .. } | ViewInner::Failed => {
+                        error!("error goes here");
+                        return self.high_qc.clone();
+                    },
+                }
+            } else {
+                error!("error goes here");
+                return self.high_qc.clone();
+            };
+
+        let original_parent_hash = parent_leaf.hash();
+        let starting_state = parent_leaf.state.clone();
+
+        let txns = self.transactions.read().await;
+
+        let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
+
+        let next_parent_hash = original_parent_hash.clone();
+
+        while !reached_decided {
+            if let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
+                let mut next_parent_txns = next_parent_leaf.deltas.contained_transactions();
+                previous_used_txns_vec.append(&mut next_parent_txns);
+            } else {
+                // TODO do some sort of sanity check on the view number that it matches decided
+                break;
+            }
+        }
+
+        let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<TransactionHash<N>>>();
+
+        let unclaimed_txns: Vec<_> = txns.iter().filter(|txn| {
+            !previous_used_txns.contains(&I::Block::hash_transaction(*txn))
+        }).collect();
+
+        let mut block = starting_state.next_block();
+        unclaimed_txns.iter().for_each(|txn| {
+            let new_block_check = block.add_transaction_raw(txn);
+            if let Ok(new_block) = new_block_check {
+                if starting_state.validate_block(&new_block) {
+                    block = new_block;
+                }
+            }
+        });
+
+        if let Ok(new_state) = starting_state.append(&block) {
+            let message = ConsensusMessage::Proposal(Proposal {
+                leaf: Leaf {
+                    view_number: self.cur_view,
+                    justify_qc: self.high_qc.clone(),
+                    parent: original_parent_hash,
+                    deltas: block,
+                    state: new_state,
+                },
+            });
+            // TODO add erroring stuff
+            let _ = api.send_broadcast_message(message).await;
+        }
+
+
+
+        self.high_qc.clone()
+
     }
 }
 
@@ -159,14 +235,14 @@ pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
     pub cur_view: ViewNumber
 }
 
+/// type alias for a less ugly mapping of signatures
 pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
 
 impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
+    /// run one view of the next leader task
     pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
-        let vote_count = 0;
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
-        let threshold = api.threshold();
 
         let mut vote_outcomes: HashMap<LeafHash<N>, (BlockHash<N>, Signatures)> = HashMap::new();
         // NOTE will need to refactor this during VRF integration
@@ -180,10 +256,11 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
             match msg {
                 ConsensusMessage::TimedOut(t) => {
                     qcs.insert(t.justify);
-
-                    // append to qc set
                 },
                 ConsensusMessage::Vote(vote) => {
+                    qcs.insert(vote.justify_qc);
+
+
                     match vote_outcomes.entry(vote.leaf_hash) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
                             let (bh, map) = o.get_mut();
@@ -209,11 +286,11 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
                         if let Ok(valid_signatures) = result {
                             // construct QC
                             let qc = QuorumCertificate {
-                                block_hash: nll_todo(),
-                                leaf_hash: nll_todo(),
-                                view_number: nll_todo(),
-                                signatures: nll_todo(),
-                                genesis: nll_todo(),
+                                block_hash: *block_hash,
+                                leaf_hash: vote.leaf_hash,
+                                view_number: self.cur_view,
+                                signatures: valid_signatures,
+                                genesis: false,
                             };
                             return qc;
 
@@ -221,20 +298,8 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
                             continue
                         }
                     }
-
-
-
-                    // add qc to qcs
-                    // check validatiy of vote
-                    // increment vote count
-                    //
-                    // if vote_count >= threshold, break
-                    // let result = get_valid_signatures()
-                    // if Ok(result)
-                    //      result.unwrap
-
                 },
-                ConsensusMessage::NextViewInterrupt(view_number) => {
+                ConsensusMessage::NextViewInterrupt(_view_number) => {
                     break;
                 },
                 ConsensusMessage::Proposal(p) => {
@@ -243,13 +308,7 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
             }
         }
 
-
-
-        // let high_qc = qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap();
-
-        // calculate the high_qc and return
-
-        nll_todo()
+        qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
 
@@ -342,7 +401,6 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
             cur_view: nll_todo(),
             last_decided_view: nll_todo(),
             state_map: nll_todo(),
-            in_progress_leaves: nll_todo(),
             undecided_leaves: nll_todo(),
             locked_qc: nll_todo(),
             high_qc: nll_todo(),
@@ -354,7 +412,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// return a clone of the internal storage of unclaimed transactions
     pub fn get_transactions(
         &self,
-    ) -> Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>> {
+    ) -> Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>{
         self.transactions.clone()
     }
 }

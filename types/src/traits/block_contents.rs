@@ -47,6 +47,9 @@ pub trait BlockContents<const N: usize>:
     ///
     /// Used to produce hashes for internal `HotShot` control structures
     fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
+
+    /// returns hashes of all the transactiosn in this block
+    fn contained_transactions(&self) -> Vec<TransactionHash<N>>;
 }
 
 /// A transaction trait for [`BlockContents`]
@@ -124,6 +127,10 @@ pub mod dummy {
             hasher.update(bytes);
             let x = *hasher.finalize().as_bytes();
             x.into()
+        }
+
+        fn contained_transactions(&self) -> Vec<TransactionHash<32>> {
+            vec![]
         }
     }
 }

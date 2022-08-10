@@ -373,6 +373,10 @@ impl BlockContents<H_256> for DEntryBlock {
         let x = *blake3::hash(bytes).as_bytes();
         x.into()
     }
+
+    fn contained_transactions(&self) -> Vec<TransactionHash<H_256>> {
+        self.transactions.clone().into_iter().map(|tx| Self::hash_transaction(&tx)).collect()
+    }
 }
 
 /// The node implementation for the dentry demo

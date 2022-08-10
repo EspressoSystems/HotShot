@@ -136,6 +136,10 @@ pub struct Vote<const N: usize> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
     pub block_hash: BlockHash<N>,
+    /// TODO we should remove this
+    /// this is correct, but highly inefficient
+    /// we should check a cache, and if that fails request the qc
+    pub justify_qc: QuorumCertificate<N>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on

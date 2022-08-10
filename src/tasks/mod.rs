@@ -34,31 +34,6 @@ pub struct TaskHandle {
     inner: RwLock<Option<TaskHandleInner>>,
 }
 impl TaskHandle {
-    /// Helper function to send a given message to the round runner
-    // async fn send_to_round_runner(
-    //     &self,
-    //     to_round_runner: ToRoundRunner,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     self.inner
-    //         .read()
-    //         .await
-    //         .as_ref()
-    //         .unwrap()
-    //         .round_runner
-    //         .send_async(to_round_runner)
-    //         .await?;
-    //     Ok(())
-    // }
-
-    /// Send a message to the [`round_runner_task`].
-    pub async fn set_round_runner_view_number(
-        &self,
-        view_number: ViewNumber,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        nll_todo()
-        // self.send_to_round_runner(ToRoundRunner::NewViewNumber(view_number))
-        //     .await
-    }
 
     /// Get the internal state of the [`round_runner_task`].
     ///
@@ -96,11 +71,6 @@ impl TaskHandle {
     /// Wait until all underlying handles are shut down
     pub async fn wait_shutdown(&self) {
         let inner = self.inner.write().await.take().unwrap();
-        // inner
-        //     .round_runner
-        //     .send_async(ToRoundRunner::ShutDown)
-        //     .await
-        //     .expect("Could not tell the round runner to shut down");
 
         // shutdown_timeout == the hotshot's view timeout
         // in case the round_runner task is running for `view_timeout`
@@ -217,6 +187,8 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     // Unwrap is fine b/c getting none here shouldn't be possible
     let (_, recv_replica) = consensus.get_future_view_pair(cur_view).unwrap();
 
+    // let block = consensus.undecided_leaves.get(consensus.high_qc.leaf_hash);
+
     // TODO repalce these with sensible values
     let mut next_leader: NextLeader<I, N> = NextLeader {
         generic_qc: consensus.high_qc.clone(),
@@ -225,6 +197,9 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     };
     let mut leader: Leader<I, N> = Leader {
         consensus: hotshot.hotstuff.clone(),
+        high_qc: consensus.high_qc.clone(),
+        cur_view,
+        transactions: consensus.transactions.clone(),
     };
     let mut replica: Replica<I, N> = Replica {
         consensus: hotshot.hotstuff.clone(),

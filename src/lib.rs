@@ -171,7 +171,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
+    transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
@@ -525,7 +525,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
-                let txn_hash = <I::Block as BlockContents<N>>::hash_transaction(&transaction);
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
@@ -533,7 +532,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 self.transactions
                     .write()
                     .await
-                    .insert(txn_hash, transaction);
+                    .push(transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -597,18 +596,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                         .await
                     {
                         error!(?e, "Could not insert incoming QC");
-                    }
-                    // Make sure to update the background round runner
-                    if let Err(e) = self
-                        .inner
-                        .background_task_handle
-                        .set_round_runner_view_number(new_view_number)
-                        .await
-                    {
-                        error!(
-                            ?e,
-                            "Could not update the background round runner of a new view number"
-                        );
                     }
 
                     // Broadcast that we're updated
