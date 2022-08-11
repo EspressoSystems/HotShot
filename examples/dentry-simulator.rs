@@ -348,6 +348,7 @@ async fn get_hotshot(
         })
         .collect();
     let config = HotShotConfig {
+        execution_type: hotshot::ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

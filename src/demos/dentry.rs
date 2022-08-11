@@ -375,7 +375,11 @@ impl BlockContents<H_256> for DEntryBlock {
     }
 
     fn contained_transactions(&self) -> Vec<TransactionHash<H_256>> {
-        self.transactions.clone().into_iter().map(|tx| Self::hash_transaction(&tx)).collect()
+        self.transactions
+            .clone()
+            .into_iter()
+            .map(|tx| Self::hash_transaction(&tx))
+            .collect()
     }
 }
 
