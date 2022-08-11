@@ -91,9 +91,23 @@ pub const H_256: usize = 32;
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotShotError>;
 
+/// the type of consensus to run. Either:
+/// wait for a signal to start a view,
+/// or constantly run
+/// you almost always want continuous
+/// incremental is just for testing
+#[derive(Debug, Clone, Copy)]
+pub enum ExecutionType {
+    /// constantly increment view as soon as view finishes
+    Continuous,
+    /// wait for a signal
+    Incremental
+}
+
 /// Holds configuration for a `HotShot`
 #[derive(Debug, Clone)]
 pub struct HotShotConfig<P: SignatureKey> {
+    pub execution_type: ExecutionType,
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision

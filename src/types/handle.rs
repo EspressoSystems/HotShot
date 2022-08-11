@@ -5,20 +5,22 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::{task::block_on};
+use async_std::{task::block_on, prelude::FutureExt};
 use hotshot_types::{
-    traits::network::NetworkingImplementation,
+    traits::network::NetworkingImplementation, error::{HotShotError, TimeoutSnafu, RoundTimedoutState}, event::EventType,
 };
 use hotshot_utils::{
     broadcast::{BroadcastReceiver, BroadcastSender},
     hack::nll_todo,
 };
+use snafu::ResultExt;
+use tracing::{error, debug};
 
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    },
+    }, time::Duration,
 };
 
 
@@ -151,24 +153,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         self.hotshot.inner.background_task_handle.start().await;
     }
 
-    /// Synchronously signals the underlying [`HotShot`] to unpause
-    pub fn start_sync(&self) {
-        block_on(self.start());
-    }
-
-    /// Signals the underlying [`HotShot`] to pause
-    ///
-    /// This will cause the background task to stop driving consensus after the completion of the
-    /// current view.
-    pub async fn pause(&self) {
-        self.hotshot.inner.background_task_handle.pause().await;
-    }
-
-    /// Synchronously signals the underlying `HotShot` to pause
-    pub fn pause_sync(&self) {
-        block_on(self.pause());
-    }
-
     /// Signals the underlying [`HotShot`] to run one round, if paused.
     ///
     /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
@@ -190,49 +174,34 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     /// Errors if unable to obtain storage
     pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
-        // let cur_view = self
-        //     .get_round_runner_state()
-        //     .await
-        //     .map_err(|e| HotShotError::Misc {
-        //         context: e.to_string(),
-        //     })?
-        //     .view;
-        //
-        // // timeout for first event is longer in case
-        // // there is a delta before other nodes are spun up
-        // // this is really long to satisfy CI
-        // let mut timeout = Duration::from_secs(10);
-        //
-        // // drain all events from this node
-        // loop {
-        //     let event = self
-        //         .next_event()
-        //         .timeout(timeout)
-        //         .await
-        //         .context(TimeoutSnafu)??;
-        //     timeout = Duration::from_millis(self.get_next_view_timeout());
-        //     match event.event {
-        //         EventType::ViewTimeout { view_number } => {
-        //             if view_number >= cur_view {
-        //                 error!(?event, "Round timed out!");
-        //                 return Err(HotShotError::ViewTimeoutError {
-        //                     view_number,
-        //                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-        //                 });
-        //             }
-        //         }
-        //         EventType::Decide { block, state, .. } => {
-        //             return Ok((
-        //                 state.iter().cloned().collect(),
-        //                 block.iter().cloned().collect(),
-        //             ));
-        //         }
-        //         event => {
-        //             debug!("recv-ed event {:?}", event);
-        //         }
-        //     }
-        // }
-        nll_todo()
+
+        // TODO we should probably do a view check
+        // but we can do that later. It's non-obvious how to get the view number out
+        // to check against
+
+        // drain all events from this node
+        loop {
+            // unwrap is fine here since the thing hasn't been shut down
+            let event = self.next_event().await.unwrap();
+            match event.event {
+                EventType::ViewTimeout { view_number } => {
+                    error!(?event, "Round timed out!");
+                    return Err(HotShotError::ViewTimeoutError {
+                        view_number,
+                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                    });
+                }
+                EventType::Decide { block, state, .. } => {
+                    return Ok((
+                        state.iter().cloned().collect(),
+                        block.iter().cloned().collect(),
+                    ));
+                }
+                event => {
+                    debug!("recv-ed event {:?}", event);
+                }
+            }
+        }
     }
 
     /// Provides a reference to the underlying storage for this [`HotShot`], allowing access to
@@ -261,22 +230,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
             .background_task_handle
             .wait_shutdown()
             .await;
-    }
-
-    /// Get the state of the internal round runner. This is used for testing purposes.
-    ///
-    /// # Errors
-    ///
-    /// Will return an error when the background thread is unable to respond within a second.
-    pub async fn get_round_runner_state(
-        &self,
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        nll_todo()
-        // self.hotshot
-        //     .inner
-        //     .background_task_handle
-        //     .get_round_runner_state()
-        //     .await
     }
 
     /// return the timeout for a view of the underlying `HotShot`

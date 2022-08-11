@@ -9,6 +9,7 @@ use async_std::{
     task::{sleep, spawn, JoinHandle},
 };
 
+use flume::{Receiver, Sender};
 use futures::{channel::oneshot::channel as oneshot_channel};
 use hotshot_consensus::{Leader, NextLeader, Replica, ConsensusApi};
 use hotshot_types::{
@@ -33,37 +34,37 @@ pub struct TaskHandle {
 }
 impl TaskHandle {
 
-    /// Get the internal state of the [`round_runner_task`].
-    ///
-    /// This will time out after two seconds.
-    pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let (_sender, receiver) = oneshot_channel();
-        // self.send_to_round_runner(ToRoundRunner::GetState(sender))
-        //     .await?;
-        let _state = receiver.timeout(Duration::from_millis(30000)).await??;
-        nll_todo()
-        // Ok(state)
-    }
+    // /// Get the internal state of the [`round_runner_task`].
+    // ///
+    // /// This will time out after two seconds.
+    // pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     let (_sender, receiver) = oneshot_channel();
+    //     // self.send_to_round_runner(ToRoundRunner::GetState(sender))
+    //     //     .await?;
+    //     let _state = receiver.timeout(Duration::from_millis(30000)).await??;
+    //     nll_todo()
+    //     // Ok(state)
+    // }
 
     /// Start the round runner. This will make it run until `pause` is called
     pub async fn start(&self) {
-        // self.send_to_round_runner(ToRoundRunner::Run)
-        //     .await
-        //     .expect("Could not start the round runner");
+        let handle = self.inner.read().await;
+        if handle.is_some() {
+            let handle = handle.as_ref().unwrap();
+            handle.started.store(true, Ordering::Relaxed);
+        }
     }
 
     /// Make the round runner run 1 round.
+    /// TODO should this block?
     pub async fn run_one_round(&self) {
-        // self.send_to_round_runner(ToRoundRunner::RunOnce)
-        //     .await
-        //     .expect("Could not start the round runner");
-    }
-
-    /// Pause the round runner.
-    pub async fn pause(&self) {
-        // self.send_to_round_runner(ToRoundRunner::Pause)
-        //     .await
-        //     .expect("Could not pause the round runner");
+        let handle = self.inner.read().await;
+        if handle.is_some() {
+            let handle = handle.as_ref().unwrap();
+            if let Some(s) = &handle.run_view_channels {
+                let _ = s.send_async(()).await;
+            }
+        }
     }
 
     /// Wait until all underlying handles are shut down
@@ -100,6 +101,10 @@ impl TaskHandle {
 }
 /// Inner struct of the [`TaskHandle`]
 struct TaskHandleInner {
+    /// for the client to indicate "increment a view"
+    /// only Some in Continuous exeuction mode
+    /// otherwise None
+    pub run_view_channels: Option<Sender<()>>,
     /// Join handle for `network_broadcast_task`
     pub network_broadcast_task_handle: JoinHandle<()>,
 
@@ -111,6 +116,9 @@ struct TaskHandleInner {
 
     /// Join handle for `consensus_task`
     pub consensus_task_handle: JoinHandle<()>,
+
+    /// Global to signify the `HotShot` should be started
+    pub(crate) started: Arc<AtomicBool>,
 
     /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
@@ -124,6 +132,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     hotshot: &HotShot<I, N>,
 ) -> HotShotHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
+    let started = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
         network_broadcast_task(hotshot.clone(), shut_down.clone())
@@ -138,25 +147,29 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
             .instrument(info_span!("HotShot network change listener task",)),
     );
 
+
+    let (handle_channels, task_channels) =
+        match hotshot.inner.config.execution_type {
+            crate::ExecutionType::Continuous => (None, None),
+            crate::ExecutionType::Incremental => {
+                let (send_consensus_start, recv_consensus_start) = flume::unbounded();
+                (Some(send_consensus_start), Some(recv_consensus_start))
+            },
+        };
+
     let consensus_task_handle = spawn(
-        view_runner(hotshot.clone(), shut_down.clone())
+        view_runner(hotshot.clone(), started.clone(), shut_down.clone(), task_channels)
             .instrument(info_span!("Consensus task handle",)),
     );
 
     let (broadcast_sender, broadcast_receiver) = channel();
-
-    // let round_runner = round_runner::RoundRunner::new(hotshot.clone()).await;
-    // let (round_runner, round_runner_join_handle) = {
-    //     let sender = round_runner.sender.clone();
-    //     let join_handle = async_std::task::spawn(round_runner.run());
-    //     (sender, join_handle)
-    // };
 
     let handle = HotShotHandle {
         sender_handle: Arc::new(broadcast_sender.clone()),
         hotshot: hotshot.clone(),
         stream_output: broadcast_receiver,
         storage: hotshot.inner.storage.clone(),
+        // TODO this should really be in the same place as started...
         shut_down,
     };
     *hotshot.inner.event_sender.write().await = Some(broadcast_sender);
@@ -168,6 +181,8 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
         network_change_task_handle,
         consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
+        run_view_channels: handle_channels,
+        started,
     });
 
     handle
@@ -276,10 +291,16 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
 /// main thread driving consensus
 pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     hotshot: HotShot<I, N>,
+    started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
+    run_once: Option<Receiver<()>>,
 ) {
-    while !shut_down.load(Ordering::Relaxed) {
-        run_view(hotshot.clone()).await;
+    while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
+        if let Some(ref recv) = run_once {
+            let _ = recv.recv_async().await;
+            let _ = run_view(hotshot.clone()).await;
+
+        }
     }
 }
 
