@@ -5,24 +5,20 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::{task::block_on, prelude::FutureExt};
+use async_std::task::block_on;
 use hotshot_types::{
-    traits::network::NetworkingImplementation, error::{HotShotError, TimeoutSnafu, RoundTimedoutState}, event::EventType,
+    error::{HotShotError, RoundTimedoutState},
+    event::EventType,
+    traits::network::NetworkingImplementation,
 };
-use hotshot_utils::{
-    broadcast::{BroadcastReceiver, BroadcastSender},
-    hack::nll_todo,
-};
-use snafu::ResultExt;
-use tracing::{error, debug};
+use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    }, time::Duration,
-};
+use tracing::{debug, error};
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -174,7 +170,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     /// Errors if unable to obtain storage
     pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
-
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against

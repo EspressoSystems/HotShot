@@ -51,7 +51,7 @@ use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
 
-use hotshot_consensus::{Consensus};
+use hotshot_consensus::Consensus;
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
@@ -101,7 +101,7 @@ pub enum ExecutionType {
     /// constantly increment view as soon as view finishes
     Continuous,
     /// wait for a signal
-    Incremental
+    Incremental,
 }
 
 /// Holds configuration for a `HotShot`
@@ -543,10 +543,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                self.transactions
-                    .write()
-                    .await
-                    .push(transaction);
+                self.transactions.write().await.push(transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed

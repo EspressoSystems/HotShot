@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber, BlockHash},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         State,
@@ -70,19 +70,17 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
                 p.leaf.view_number
-            },
+            }
             ConsensusMessage::TimedOut(t) => {
                 // view number on which the replica timed out waiting for proposal
                 t.current_view
-            },
+            }
             ConsensusMessage::Vote(v) => {
                 // view number on which the replica votes for a proposal for
                 // the leaf should have this view number
                 v.current_view
-            },
-            ConsensusMessage::NextViewInterrupt(view_number) => {
-                *view_number
-            },
+            }
+            ConsensusMessage::NextViewInterrupt(view_number) => *view_number,
         }
     }
 }

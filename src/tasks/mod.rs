@@ -10,13 +10,13 @@ use async_std::{
 };
 
 use flume::{Receiver, Sender};
-use futures::{channel::oneshot::channel as oneshot_channel};
-use hotshot_consensus::{Leader, NextLeader, Replica, ConsensusApi};
+
+use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica};
 use hotshot_types::{
-    message::{MessageKind},
+    message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
-use hotshot_utils::{broadcast::channel, hack::nll_todo};
+use hotshot_utils::broadcast::channel;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -33,7 +33,6 @@ pub struct TaskHandle {
     inner: RwLock<Option<TaskHandleInner>>,
 }
 impl TaskHandle {
-
     // /// Get the internal state of the [`round_runner_task`].
     // ///
     // /// This will time out after two seconds.
@@ -147,19 +146,22 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
             .instrument(info_span!("HotShot network change listener task",)),
     );
 
-
-    let (handle_channels, task_channels) =
-        match hotshot.inner.config.execution_type {
-            crate::ExecutionType::Continuous => (None, None),
-            crate::ExecutionType::Incremental => {
-                let (send_consensus_start, recv_consensus_start) = flume::unbounded();
-                (Some(send_consensus_start), Some(recv_consensus_start))
-            },
-        };
+    let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
+        crate::ExecutionType::Continuous => (None, None),
+        crate::ExecutionType::Incremental => {
+            let (send_consensus_start, recv_consensus_start) = flume::unbounded();
+            (Some(send_consensus_start), Some(recv_consensus_start))
+        }
+    };
 
     let consensus_task_handle = spawn(
-        view_runner(hotshot.clone(), started.clone(), shut_down.clone(), task_channels)
-            .instrument(info_span!("Consensus task handle",)),
+        view_runner(
+            hotshot.clone(),
+            started.clone(),
+            shut_down.clone(),
+            task_channels,
+        )
+        .instrument(info_span!("Consensus task handle",)),
     );
 
     let (broadcast_sender, broadcast_receiver) = channel();
@@ -188,7 +190,9 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     handle
 }
 
-pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot<I, N>) -> Result<(), ()> {
+pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
+    hotshot: HotShot<I, N>,
+) -> Result<(), ()> {
     let next_view_timeout = hotshot.inner.config.next_view_timeout;
 
     // OBTAIN write lock on consensus
@@ -223,29 +227,28 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
     // DROP write lock on consensus
     drop(consensus);
 
-
     let mut task_handles = Vec::new();
 
     // TODO move &api into struct such that we avoid this ugly code path
 
-    let c_api = HotShotConsensusApi { inner: & hotshot.inner };
+    let c_api = HotShotConsensusApi {
+        inner: &hotshot.inner,
+    };
 
     {
         let inner = hotshot.inner.clone();
         let replica_handle = spawn(async move {
-            let c_api = &HotShotConsensusApi { inner: & inner };
+            let c_api = &HotShotConsensusApi { inner: &inner };
             replica.run_view(c_api).await
         });
         task_handles.push(replica_handle);
     }
 
-
-
     if c_api.is_leader(cur_view).await {
         {
             let inner = hotshot.inner.clone();
             let leader_handle = spawn(async move {
-                let c_api = &HotShotConsensusApi { inner: & inner };
+                let c_api = &HotShotConsensusApi { inner: &inner };
                 leader.run_view(c_api).await
             });
             task_handles.push(leader_handle);
@@ -256,16 +259,14 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(hotshot: HotShot
         {
             let inner = hotshot.inner.clone();
             let next_leader_handle = spawn(async move {
-                let c_api = &HotShotConsensusApi { inner: & inner };
+                let c_api = &HotShotConsensusApi { inner: &inner };
                 next_leader.run_view(c_api).await
             });
             task_handles.push(next_leader_handle);
         }
     }
 
-
-    let children_finished =
-        futures::future::join_all(task_handles);
+    let children_finished = futures::future::join_all(task_handles);
 
     spawn({
         let next_view_timeout = next_view_timeout.clone();
@@ -299,7 +300,6 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
         if let Some(ref recv) = run_once {
             let _ = recv.recv_async().await;
             let _ = run_view(hotshot.clone()).await;
-
         }
     }
 }
