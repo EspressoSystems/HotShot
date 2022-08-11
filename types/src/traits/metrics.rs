@@ -1,200 +1,226 @@
-//! The metrics trait is used to collect information from multiple components in the entire system.
+//! The [`Metrics`] trait is used to collect information from multiple components in the entire system.
 //!
-//! It is recommended to move this metrics around in an `Arc<dyn Metrics>` so the application is agnostic over what the metric collection system is running.
-
-use std::sync::Arc;
+//! This trait can be used to spawn the following traits:
+//! - [`Counter`]: an ever-increasing value (example usage: total bytes send/received)
+//! - [`Gauge`]: a value that store the latest value, and can go up and down (example usage: amount of users logged in)
+//! - [`Histogram`]: stores multiple float values based for a graph (example usage: CPU %)
+//! - [`Label`]: Stores the last string (example usage: current version, network online/offline)
 
 /// The metrics type.
 pub trait Metrics {
-    /// Add an ever-incrementing counter.
-    fn add_counter(&self, label: &str, amount: usize);
-    /// Set a gauge to a specific value, overwriting the previous value.
-    fn set_gauge(&self, label: &str, amount: usize);
-    /// Add a histogram point
-    fn add_histogram_point(&self, label: &str, value: f64);
-    /// Set a label, overwriting the previous label value
-    fn set_label(&self, name: &str, value: String);
+    /// Create a [`Counter`] with an optional `unit_label`.
+    ///
+    /// The `unit_label` can be used to indicate what the unit of the value is, e.g. "kb" or "seconds"
+    fn create_counter(&self, label: String, unit_label: Option<String>) -> Box<dyn Counter>;
+    /// Create a [`Gauge`] with an optional `unit_label`.
+    ///
+    /// The `unit_label` can be used to indicate what the unit of the value is, e.g. "kb" or "seconds"
+    fn create_gauge(&self, label: String, unit_label: Option<String>) -> Box<dyn Gauge>;
+    /// Create a [`Histogram`] with an optional `unit_label`.
+    ///
+    /// The `unit_label` can be used to indicate what the unit of the value is, e.g. "kb" or "seconds"
+    fn create_histogram(&self, label: String, unit_label: Option<String>) -> Box<dyn Histogram>;
+    /// Create a [`Label`].
+    fn create_label(&self, label: String) -> Box<dyn Label>;
+
     /// Create a subgroup with a specified prefix.
-    fn subgroup(&self, subgroup_name: &str) -> Arc<dyn Metrics>;
+    fn subgroup(&self, subgroup_name: String) -> Box<dyn Metrics>;
+}
+
+/// An ever-incrementing counter
+pub trait Counter {
+    /// Add a value to the counter
+    fn add(&self, amount: usize);
+}
+/// A gauge that stores the latest value.
+pub trait Gauge {
+    /// Set the gauge value
+    fn set(&self, amount: usize);
+}
+
+/// A histogram which will record a series of points.
+pub trait Histogram {
+    /// Add a point to this histogram.
+    fn add_point(&self, point: f64);
+}
+
+/// A label that stores the last string value.
+pub trait Label {
+    /// Set the gauge value
+    fn set(&self, value: String);
 }
 
 #[cfg(test)]
 mod test {
-    use super::Metrics;
-    use std::collections::hash_map::Entry;
+    use super::*;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     struct TestMetrics {
         prefix: String,
-        values: Arc<Mutex<HashMap<String, MetricValue>>>,
+        values: Arc<Mutex<Inner>>,
     }
 
     impl TestMetrics {
-        fn label(&self, name: &str) -> String {
-            if self.prefix.is_empty() {
-                name.to_owned()
+        fn sub(&self, name: String) -> Self {
+            let prefix = if self.prefix.is_empty() {
+                name
             } else {
                 format!("{}-{}", self.prefix, name)
+            };
+            Self {
+                prefix,
+                values: Arc::clone(&self.values),
             }
         }
     }
 
     impl Metrics for TestMetrics {
-        #[allow(clippy::significant_drop_in_scrutinee)]
-        fn add_counter(&self, label: &str, amount: usize) {
-            let label = self.label(label);
-            let mut values = self.values.lock().unwrap();
-            match values.entry(label) {
-                Entry::Occupied(v) => {
-                    v.into_mut().add_counter(amount);
-                }
-                Entry::Vacant(v) => {
-                    v.insert(MetricValue::Counter(amount));
-                }
-            }
+        fn create_counter(
+            &self,
+            label: String,
+            _unit_label: Option<String>,
+        ) -> Box<dyn super::Counter> {
+            Box::new(self.sub(label))
         }
 
-        #[allow(clippy::significant_drop_in_scrutinee)]
-        fn set_gauge(&self, label: &str, amount: usize) {
-            let label = self.label(label);
-            let mut values = self.values.lock().unwrap();
-            match values.entry(label) {
-                Entry::Occupied(v) => {
-                    v.into_mut().set_gauge(amount);
-                }
-                Entry::Vacant(v) => {
-                    v.insert(MetricValue::Gauge(amount));
-                }
-            }
+        fn create_gauge(
+            &self,
+            label: String,
+            _unit_label: Option<String>,
+        ) -> Box<dyn super::Gauge> {
+            Box::new(self.sub(label))
         }
 
-        #[allow(clippy::significant_drop_in_scrutinee)]
-        fn add_histogram_point(&self, label: &str, value: f64) {
-            let label = self.label(label);
-            let mut values = self.values.lock().unwrap();
-            match values.entry(label) {
-                Entry::Occupied(v) => {
-                    v.into_mut().add_histogram_point(value);
-                }
-                Entry::Vacant(v) => {
-                    v.insert(MetricValue::Histogram(vec![value]));
-                }
-            }
+        fn create_histogram(
+            &self,
+            label: String,
+            _unit_label: Option<String>,
+        ) -> Box<dyn super::Histogram> {
+            Box::new(self.sub(label))
         }
 
-        #[allow(clippy::significant_drop_in_scrutinee)]
-        fn set_label(&self, label: &str, value: String) {
-            let label = self.label(label);
-            let mut values = self.values.lock().unwrap();
-            match values.entry(label) {
-                Entry::Occupied(v) => {
-                    v.into_mut().set_label(value);
-                }
-                Entry::Vacant(v) => {
-                    v.insert(MetricValue::Label(value));
-                }
-            }
+        fn create_label(&self, label: String) -> Box<dyn super::Label> {
+            Box::new(self.sub(label))
         }
 
-        fn subgroup(&self, subgroup_name: &str) -> Arc<dyn Metrics> {
-            Arc::new(Self {
-                prefix: self.label(subgroup_name),
-                values: Arc::clone(&self.values),
-            })
+        fn subgroup(&self, subgroup_name: String) -> Box<dyn Metrics> {
+            Box::new(self.sub(subgroup_name))
         }
     }
 
-    #[derive(Debug, PartialEq)]
-    enum MetricValue {
-        Counter(usize),
-        Gauge(usize),
-        Histogram(Vec<f64>),
-        Label(String),
+    impl Counter for TestMetrics {
+        fn add(&self, amount: usize) {
+            *self
+                .values
+                .lock()
+                .unwrap()
+                .counters
+                .entry(self.prefix.clone())
+                .or_default() += amount;
+        }
     }
 
-    impl MetricValue {
-        fn add_counter(&mut self, value: usize) {
-            if let Self::Counter(val) = self {
-                *val += value;
-            } else {
-                eprintln!("Switching from {:?} to Counter", self);
-                *self = Self::Counter(value);
-            }
+    impl Gauge for TestMetrics {
+        fn set(&self, amount: usize) {
+            *self
+                .values
+                .lock()
+                .unwrap()
+                .gauges
+                .entry(self.prefix.clone())
+                .or_default() = amount;
         }
+    }
 
-        fn set_gauge(&mut self, value: usize) {
-            if let Self::Gauge(val) = self {
-                *val = value;
-            } else {
-                eprintln!("Switching from {:?} to Gauge", self);
-                *self = Self::Gauge(value);
-            }
+    impl Histogram for TestMetrics {
+        fn add_point(&self, point: f64) {
+            self.values
+                .lock()
+                .unwrap()
+                .histograms
+                .entry(self.prefix.clone())
+                .or_default()
+                .push(point);
         }
+    }
 
-        fn add_histogram_point(&mut self, value: f64) {
-            if let Self::Histogram(val) = self {
-                val.push(value);
-            } else {
-                eprintln!("Switching from {:?} to Histogram", self);
-                *self = Self::Histogram(vec![value]);
-            }
+    impl Label for TestMetrics {
+        fn set(&self, value: String) {
+            *self
+                .values
+                .lock()
+                .unwrap()
+                .labels
+                .entry(self.prefix.clone())
+                .or_default() = value;
         }
+    }
 
-        fn set_label(&mut self, value: String) {
-            if let Self::Label(val) = self {
-                *val = value;
-            } else {
-                eprintln!("Switching from {:?} to Label", self);
-                *self = Self::Label(value);
-            }
-        }
+    #[derive(Default, Debug)]
+    struct Inner {
+        counters: HashMap<String, usize>,
+        gauges: HashMap<String, usize>,
+        histograms: HashMap<String, Vec<f64>>,
+        labels: HashMap<String, String>,
     }
 
     #[test]
     fn test() {
         let values = Arc::default();
-        let metrics: Arc<dyn Metrics> = Arc::new(TestMetrics {
-            prefix: String::new(),
-            values: Arc::clone(&values),
-        });
+        // This is all scoped so all the arcs should go out of scope
+        {
+            let metrics: Box<dyn Metrics> = Box::new(TestMetrics {
+                prefix: String::new(),
+                values: Arc::clone(&values),
+            });
 
-        metrics.set_gauge("foo", 5);
+            let gauge = metrics.create_gauge("foo".to_string(), None);
+            let counter = metrics.create_counter("bar".to_string(), None);
+            let histogram = metrics.create_histogram("baz".to_string(), None);
 
-        for i in 0..5 {
-            metrics.add_counter("bar", i);
+            gauge.set(5);
+
+            for i in 0..5 {
+                counter.add(i);
+            }
+
+            for i in 0..10 {
+                histogram.add_point(f64::from(i));
+            }
+
+            let sub = metrics.subgroup("child".to_string());
+
+            let sub_gauge = sub.create_gauge("foo".to_string(), None);
+            let sub_counter = sub.create_counter("bar".to_string(), None);
+            let sub_histogram = sub.create_histogram("baz".to_string(), None);
+
+            sub_gauge.set(10);
+
+            for i in 0..5 {
+                sub_counter.add(i * 2);
+            }
+
+            for i in 0..10 {
+                sub_histogram.add_point(f64::from(i) * 2.0);
+            }
         }
 
-        for i in 0..10 {
-            metrics.add_histogram_point("baz", f64::from(i));
-        }
-
-        let sub = metrics.subgroup("child");
-
-        sub.set_gauge("foo", 10);
-
-        for i in 0..5 {
-            sub.add_counter("bar", i * 2);
-        }
-
-        for i in 0..10 {
-            sub.add_histogram_point("baz", f64::from(i) * 2.0);
-        }
-
-        drop(sub);
-        drop(metrics);
+        // The above variables are scoped so they should be dropped at this point
+        // One of the rare times we can use `Arc::try_unwrap`!
         let values = Arc::try_unwrap(values).unwrap().into_inner().unwrap();
-        assert_eq!(values["foo"], MetricValue::Gauge(5));
-        assert_eq!(values["bar"], MetricValue::Counter(10)); // 0..5
+        assert_eq!(values.gauges["foo"], 5);
+        assert_eq!(values.counters["bar"], 10); // 0..5
         assert_eq!(
-            values["baz"],
-            MetricValue::Histogram(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+            values.histograms["baz"],
+            vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
         );
-        assert_eq!(values["child-foo"], MetricValue::Gauge(10));
-        assert_eq!(values["child-bar"], MetricValue::Counter(20)); // 0..5 *2
+
+        assert_eq!(values.gauges["child-foo"], 10);
+        assert_eq!(values.counters["child-bar"], 20); // 0..5 *2
         assert_eq!(
-            values["child-baz"],
-            MetricValue::Histogram(vec![0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0])
+            values.histograms["child-baz"],
+            vec![0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0]
         );
     }
 }
