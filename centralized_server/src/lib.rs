@@ -1,55 +1,120 @@
 use async_std::{
     io::{ReadExt, WriteExt},
     net::{TcpListener, TcpStream},
+    prelude::FutureExt,
 };
 use bincode::Options;
 use flume::{Receiver, Sender};
-use hotshot::{
-    traits::{BlockContents, NodeImplementation},
-    types::SignatureKey,
-};
+use futures::FutureExt as _;
+use hotshot::types::SignatureKey;
 use hotshot_centralized_server_shared::{FromServer, ToServer};
-use hotshot_types::traits::{node_implementation::TypeMap, signature_key::EncodedPublicKey};
+use hotshot_types::traits::signature_key::EncodedPublicKey;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    marker::PhantomData,
     net::{IpAddr, SocketAddr},
+    time::Duration,
 };
 
-pub async fn run<I: NodeImplementation<N>, const N: usize>(host: IpAddr, port: u16) {
-    let listener = TcpListener::bind((host, port))
-        .await
-        .expect("Could not bind to address");
+pub struct Server<K: SignatureKey + 'static> {
+    listener: TcpListener,
+    shutdown: Option<Receiver<()>>,
+    _k: PhantomData<&'static K>,
+}
 
-    let (sender, receiver) = flume::unbounded();
-
-    async_std::task::spawn({
-        async move {
-            if let Err(e) = background_task(receiver).await {
-                eprintln!("Background processing thread encountered an error: {:?}", e);
-            }
+impl<K: SignatureKey + 'static> Server<K> {
+    /// Create a new instance of the centralized server.
+    pub async fn new(host: IpAddr, port: u16) -> Self {
+        let listener = TcpListener::bind((host, port))
+            .await
+            .expect("Could not bind to address");
+        Self {
+            listener,
+            shutdown: None,
+            _k: PhantomData,
         }
-    });
+    }
 
-    while let Ok((stream, addr)) = listener.accept().await {
-        async_std::task::spawn({
-            let sender = sender.clone();
+    /// Register a signal that can be used to shut down this server
+    pub fn with_shutdown_signal(mut self, shutdown_listener: Receiver<()>) -> Self {
+        self.shutdown = Some(shutdown_listener);
+        self
+    }
+
+    /// Get the address that this server is running on
+    pub fn addr(&self) -> SocketAddr {
+        self.listener.local_addr().unwrap()
+    }
+
+    /// Run the server.
+    ///
+    /// If `with_shutdown_signal` is called before, this server will stop when that signal is called. Otherwise this server will run forever.
+    pub async fn run(self) {
+        let (sender, receiver) = flume::unbounded();
+
+        let background_task_handle = async_std::task::spawn({
             async move {
-                let mut key = None;
-                if let Err(e) = spawn_client::<I, N>(addr, stream, &mut key, sender.clone()).await {
-                    println!("Client from {:?} encountered an error: {:?}", addr, e);
-                } else {
-                    println!("Client from {:?} shut down", addr);
+                if let Err(e) = background_task(receiver).await {
+                    eprintln!("Background processing thread encountered an error: {:?}", e);
                 }
-                if let Some(key) = key {
-                    let _ = sender
-                        .send_async(ToBackground::ClientDisconnected { key })
-                        .await;
-                }
+                eprintln!("Background thread ended");
             }
         });
+        let shutdown_future;
+        let mut shutdown = if let Some(shutdown) = self.shutdown {
+            shutdown_future = shutdown;
+            shutdown_future.recv_async().boxed().fuse()
+        } else {
+            futures::future::pending().boxed().fuse()
+        };
+
+        loop {
+            futures::select! {
+                result = self.listener.accept().fuse() => {
+                    match result {
+                        Ok((stream, addr)) => {
+                            async_std::task::spawn({
+                                let sender = sender.clone();
+                                async move {
+                                    let mut key = None;
+                                    if let Err(e) =
+                                        spawn_client::<K>(addr, stream, &mut key, sender.clone()).await
+                                    {
+                                        println!("Client from {:?} encountered an error: {:?}", addr, e);
+                                    } else {
+                                        println!("Client from {:?} shut down", addr);
+                                    }
+                                    if let Some(key) = key {
+                                        let _ = sender
+                                            .send_async(ToBackground::ClientDisconnected { key })
+                                            .await;
+                                    }
+                                }
+                            });
+                        },
+                        Err(e) => {
+                            eprintln!("Could not accept new client: {:?}", e);
+                            break;
+                        }
+                    }
+                }
+                _ = shutdown => {
+                    eprintln!("Received shutdown signal");
+                    break;
+                }
+            }
+        }
+        eprintln!("Server shutting down");
+        sender
+            .send_async(ToBackground::Shutdown)
+            .await
+            .expect("Could not notify background thread that we're shutting down");
+        background_task_handle
+            .timeout(Duration::from_secs(5))
+            .await
+            .expect("Could not join on the background thread");
     }
-    eprintln!("Server shutting down");
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -76,21 +141,10 @@ impl<K: SignatureKey> Ord for OrdKey<K> {
     }
 }
 
-async fn background_task<I: NodeImplementation<N>, const N: usize>(
-    receiver: Receiver<ToBackground<I, N>>,
+async fn background_task<K: SignatureKey>(
+    receiver: Receiver<ToBackground<K>>,
 ) -> Result<(), Error> {
-    let mut clients = BTreeMap::<
-        OrdKey<I::SignatureKey>,
-        Sender<
-            FromServer<
-                I::Block,
-                <I::Block as BlockContents<N>>::Transaction,
-                I::State,
-                I::SignatureKey,
-                N,
-            >,
-        >,
-    >::new();
+    let mut clients = BTreeMap::<OrdKey<K>, Sender<FromServer<K>>>::new();
     loop {
         let msg = receiver
             .recv_async()
@@ -99,8 +153,12 @@ async fn background_task<I: NodeImplementation<N>, const N: usize>(
 
         // if we fail to delivery a message to other clients, we store them in this vec
         // at the end we'll clean up the clients that we failed to `.send_async` to
-        let mut clients_with_error = BTreeSet::<OrdKey<I::SignatureKey>>::new();
+        let mut clients_with_error = BTreeSet::<OrdKey<K>>::new();
         match msg {
+            ToBackground::Shutdown => {
+                eprintln!("Background thread shutting down");
+                break Ok(());
+            }
             ToBackground::NewClient { key, sender } => {
                 // notify everyone else of the new client
                 for (id, sender) in &mut clients {
@@ -129,12 +187,9 @@ async fn background_task<I: NodeImplementation<N>, const N: usize>(
                     }
                 }
             }
-            ToBackground::IncomingBroadcast { message } => {
+            ToBackground::IncomingBroadcast { message, sender } => {
                 // Notify everyone but ourself of this message
-                for (id, sender) in clients
-                    .iter_mut()
-                    .filter(|(key, _)| key.key != message.sender)
-                {
+                for (id, sender) in clients.iter_mut().filter(|(key, _)| key.key != sender) {
                     if sender
                         .send_async(FromServer::Broadcast {
                             message: message.clone(),
@@ -147,14 +202,14 @@ async fn background_task<I: NodeImplementation<N>, const N: usize>(
                 }
             }
             ToBackground::IncomingDirectMessage { receiver, message } => {
-                if let Some(sender) = clients.get_mut(&OrdKey::from(receiver)) {
-                    let message_sender = message.sender.clone();
-                    if sender
+                let receiver = OrdKey::from(receiver);
+                if let Some(channel) = clients.get_mut(&receiver) {
+                    if channel
                         .send_async(FromServer::Direct { message })
                         .await
                         .is_err()
                     {
-                        clients_with_error.insert(OrdKey::from(message_sender));
+                        clients_with_error.insert(receiver);
                     }
                 }
             }
@@ -187,11 +242,11 @@ async fn background_task<I: NodeImplementation<N>, const N: usize>(
     }
 }
 
-async fn spawn_client<I: NodeImplementation<N>, const N: usize>(
+async fn spawn_client<K: SignatureKey + 'static>(
     address: SocketAddr,
     mut stream: TcpStream,
-    parent_key: &mut Option<I::SignatureKey>,
-    to_background: Sender<ToBackground<I, N>>,
+    parent_key: &mut Option<K>,
+    to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (sender, receiver) = flume::unbounded();
     let mut sender = Some(sender);
@@ -215,13 +270,8 @@ async fn spawn_client<I: NodeImplementation<N>, const N: usize>(
         if n == 0 {
             break; // disconnected
         }
-        match hotshot_centralized_server_shared::bincode_opts().deserialize::<ToServer<
-            I::Block,
-            <I::Block as BlockContents<N>>::Transaction,
-            I::State,
-            I::SignatureKey,
-            N,
-        >>(&buffer[..n])
+        match hotshot_centralized_server_shared::bincode_opts()
+            .deserialize::<ToServer<K>>(&buffer[..n])
         {
             Ok(ToServer::Identify { key }) if parent_key.is_none() && sender.is_some() => {
                 *parent_key = Some(key.clone());
@@ -235,8 +285,9 @@ async fn spawn_client<I: NodeImplementation<N>, const N: usize>(
                 eprintln!("{:?} tried to identify twice", address);
             }
             Ok(ToServer::Broadcast { message }) if parent_key.is_some() => {
+                let sender = parent_key.clone().unwrap();
                 to_background
-                    .send_async(ToBackground::IncomingBroadcast { message })
+                    .send_async(ToBackground::IncomingBroadcast { sender, message })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -260,28 +311,22 @@ async fn spawn_client<I: NodeImplementation<N>, const N: usize>(
     Ok(())
 }
 
-enum ToBackground<I: NodeImplementation<N>, const N: usize> {
+enum ToBackground<K: SignatureKey> {
+    Shutdown,
     NewClient {
-        key: I::SignatureKey,
-        sender: Sender<
-            FromServer<
-                I::Block,
-                <I::Block as BlockContents<N>>::Transaction,
-                I::State,
-                I::SignatureKey,
-                N,
-            >,
-        >,
+        key: K,
+        sender: Sender<FromServer<K>>,
     },
     ClientDisconnected {
-        key: I::SignatureKey,
+        key: K,
     },
     IncomingBroadcast {
-        message: <I as TypeMap<N>>::Message,
+        sender: K,
+        message: Vec<u8>,
     },
     IncomingDirectMessage {
-        receiver: I::SignatureKey,
-        message: <I as TypeMap<N>>::Message,
+        receiver: K,
+        message: Vec<u8>,
     },
 }
 

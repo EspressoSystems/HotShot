@@ -1630,6 +1630,7 @@ dependencies = [
  "bincode",
  "clap 3.2.17",
  "flume",
+ "futures",
  "hotshot",
  "hotshot-centralized-server-shared",
  "hotshot-types",

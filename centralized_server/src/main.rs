@@ -1,16 +1,15 @@
 use clap::Parser;
-use hotshot::{
-    demos::dentry::DEntryNode, traits::implementations::CentralizedServerNetwork, H_256,
-};
+use hotshot::types::ed25519::Ed25519Pub;
+use hotshot_centralized_server::Server;
 use std::net::IpAddr;
 
 #[async_std::main]
 async fn main() {
     let args = Args::parse();
-    hotshot_centralized_server::run::<DEntryNode<CentralizedServerNetwork>, H_256>(
-        args.host, args.port,
-    )
-    .await;
+    Server::<Ed25519Pub>::new(args.host, args.port)
+        .await
+        .run()
+        .await;
 }
 
 #[derive(Parser)]
