@@ -124,6 +124,8 @@ pub struct Proposal<BLOCK, STATE, const N: usize> {
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
     pub leaf: Leaf<BLOCK, STATE, N>,
+    /// The proposal must be signed by the view leader
+    pub signature: EncodedSignature,
 }
 
 /// A nodes vote on the prepare field.

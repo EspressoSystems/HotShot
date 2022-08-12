@@ -284,8 +284,6 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
-    consensus.collect_garbage().await;
-    // GC consensus step based on success of view
     Ok(())
 }
 

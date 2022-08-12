@@ -105,7 +105,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
-        qcs: Vec<VecQuorumCertificate>,
+        qcs: Vec<QuorumCertificate<N>>,
     ) {
         self.send_event(Event {
             view_number,
@@ -134,6 +134,13 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         let hash = self.create_verify_hash(leaf_hash, view_number);
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         (self.public_key().to_bytes(), signature)
+    }
+
+    /// Signs a proposal
+    fn sign_proposal(&self, leaf_hash: &LeafHash<N>, view_number: ViewNumber) -> EncodedSignature {
+        let hash = self.create_verify_hash(leaf_hash, view_number);
+        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        signature
     }
 
     /// Validate a quorum certificate

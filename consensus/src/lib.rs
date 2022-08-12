@@ -41,7 +41,7 @@ use hotshot_types::{
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::Storage,
         BlockContents, State,
     },
@@ -119,7 +119,7 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
 
     pub undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
 
-    locked_qc: QuorumCertificate<N>,
+    locked_view: ViewNumber,
     pub high_qc: QuorumCertificate<N>,
     // msg_channel: Receiver<ConsensusMessage<>>,
     dummy_leaf: Leaf<I::Block, I::State, N>,
@@ -142,40 +142,65 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// returns the high_qc
     pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
         let consensus = self.consensus.upgradable_read().await;
-        let _ = self.proposal_collection_chan.recv_async().await;
+        let view_leader_key = api.get_leader(self.cur_view).await;
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
             match msg {
                 Ok(msg) => {
-                    // drop stale/newer view messages
+                    // stale/newer view messages should never reach this specific task's receive channel
                     if msg.view_number() != self.cur_view {
                         continue;
                     }
                     match msg {
                         ConsensusMessage::Proposal(p) => {
-                            api.validate_qc(&p.leaf.justify_qc, p.leaf.justify_qc.view_number);
-                            // vote
-                            // let vote = ConsensusMessage::Vote(Vote {
-                            //     block_hash: nll_todo(),
-                            //     justify_qc: nll_todo(),
-                            //     signature: nll_todo(),
-                            //     leaf_hash: nll_todo(),
-                            //     current_view: nll_todo(),
-                            // });
+                            if !view_leader_key.validate(&p.signature, &p.leaf.hash().to_vec()) {
+                                continue;
+                            }
+                            let justify_qc = p.leaf.justify_qc;
+                            let parent = if let Some(parent) =
+                                consensus.undecided_leaves.get(&p.leaf.parent)
+                            {
+                                parent
+                            } else {
+                                continue;
+                            };
+                            if justify_qc.view_number != parent.view_number
+                                || !api.validate_qc(&justify_qc, parent.view_number)
+                            {
+                                continue;
+                            }
+                            let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                                Leaf::new(
+                                    state,
+                                    p.leaf.deltas,
+                                    p.leaf.parent,
+                                    justify_qc,
+                                    self.cur_view,
+                                )
+                            } else {
+                                continue;
+                            };
+                            let leaf_hash = leaf.hash();
+                            let signature = api.sign_vote(&leaf_hash, self.cur_view);
 
-                            api.sign_vote(nll_todo(), self.cur_view);
+                            let vote = ConsensusMessage::<I::Block, I::State, N>::Vote(Vote {
+                                block_hash: leaf.deltas.hash(),
+                                justify_qc: leaf.justify_qc.clone(),
+                                signature,
+                                leaf_hash,
+                                current_view: self.cur_view,
+                            });
 
                             // send out vote
 
                             let next_leader = api.get_leader(self.cur_view + 1).await;
 
-                            let _result = api.send_direct_message(next_leader, nll_todo());
+                            let _result = api.send_direct_message(next_leader, vote);
 
                             // break
 
                             // return leaf
-                            let leaf: Leaf<I::Block, I::State, N> = nll_todo();
                             break leaf;
                         }
                         ConsensusMessage::NextViewInterrupt(_view_number) => {
@@ -206,12 +231,75 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
             }
         };
 
-        error!("{:?}", leaf);
-
-        let consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         // promote lock here
 
-        nll_todo()
+        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        consensus.state_map.insert(
+            self.cur_view,
+            View {
+                view_inner: ViewInner::Leaf { leaf: leaf.hash() },
+            },
+        );
+        let high_qc = leaf.justify_qc.clone();
+        consensus.undecided_leaves.insert(leaf.hash(), leaf);
+        let mut new_anchor_view = consensus.last_decided_view;
+        let mut new_locked_view = consensus.locked_view;
+        let mut last_view_number_visited = self.cur_view;
+        let mut current_chain_length = 0usize;
+        let mut new_decide_reached = false;
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
+        let mut qcs = Vec::new();
+        let last_decided_view = consensus.last_decided_view;
+        let _outcome = consensus.visit_leaf_ancestors(
+            self.cur_view,
+            Terminator::Exclusive(last_decided_view),
+            |leaf| {
+                if !new_decide_reached && last_view_number_visited == leaf.view_number + 1 {
+                    current_chain_length += 1;
+                    if current_chain_length == 2 {
+                        new_locked_view = leaf.view_number;
+                    }
+                    if current_chain_length == 3 {
+                        new_anchor_view = leaf.view_number;
+                        new_decide_reached = true;
+                        blocks.push(leaf.deltas.clone());
+                        states.push(leaf.state.clone());
+                        qcs.push(leaf.justify_qc.clone());
+                    }
+                    last_view_number_visited = leaf.view_number;
+                } else if new_decide_reached {
+                    // collecting chain elements for the decide
+                    blocks.push(leaf.deltas.clone());
+                    states.push(leaf.state.clone());
+                    qcs.push(leaf.justify_qc.clone());
+                } else {
+                    // nothing more to do here... we don't have a new chain extension
+                    return false;
+                }
+                true
+            },
+        );
+        let mut included_txns = Vec::new();
+        blocks.iter().for_each(|block| {
+            let mut txns = block.contained_transactions();
+            included_txns.append(&mut txns);
+        });
+        let included_txns_set: HashSet<_> = included_txns.into_iter().collect();
+        {
+            let mut txns = consensus.transactions.write().await;
+            *txns = txns
+                .drain(..)
+                .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
+                .collect();
+        }
+        let decide_sent = api.send_decide(consensus.last_decided_view, blocks, states, qcs);
+        let old_anchor_view = consensus.last_decided_view;
+        consensus
+            .collect_garbage(old_anchor_view, new_anchor_view)
+            .await;
+        decide_sent.await;
+        high_qc
     }
 }
 
@@ -293,15 +381,15 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
         });
 
         if let Ok(new_state) = starting_state.append(&block) {
-            let message = ConsensusMessage::Proposal(Proposal {
-                leaf: Leaf {
-                    view_number: self.cur_view,
-                    justify_qc: self.high_qc.clone(),
-                    parent: original_parent_hash,
-                    deltas: block,
-                    state: new_state,
-                },
-            });
+            let leaf = Leaf {
+                view_number: self.cur_view,
+                justify_qc: self.high_qc.clone(),
+                parent: original_parent_hash,
+                deltas: block,
+                state: new_state,
+            };
+            let signature = api.sign_proposal(&leaf.hash(), self.cur_view);
+            let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             // TODO add erroring stuff
             let _ = api.send_broadcast_message(message).await;
         }
@@ -469,20 +557,44 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         ViewIterator::new(&self, start_from, terminator)
     }
 
-    /// filler
-    pub fn visit_leaf_ancestors<F>(&self, first_leaf: &LeafHash<N>, f: F) -> Result<()>
+    /// gather information from the parent chain of leafs
+    pub fn visit_leaf_ancestors<F>(
+        &self,
+        start_from: ViewNumber,
+        terminator: Terminator,
+        mut f: F,
+    ) -> Result<()>
     where
-        F: Fn(&Leaf<I::Block, I::State, N>) -> bool,
+        F: FnMut(&Leaf<I::Block, I::State, N>) -> bool,
     {
-        let mut next_leaf = first_leaf;
+        let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
+            if let ViewInner::Leaf { leaf } = view.view_inner {
+                leaf
+            } else {
+                return Err(HotShotError::InvalidState {
+                    context: String::default(),
+                });
+            }
+        } else {
+            return Err(HotShotError::InvalidState {
+                context: String::default(),
+            });
+        };
         loop {
-            if let Some(leaf) = self.undecided_leaves.get(next_leaf) {
-                next_leaf = &leaf.parent;
+            if let Some(leaf) = self.undecided_leaves.get(&next_leaf) {
+                if let Terminator::Exclusive(stop_before) = terminator {
+                    if stop_before == leaf.view_number {
+                        return Ok(());
+                    }
+                }
+                next_leaf = leaf.parent;
                 if !f(leaf) {
                     return Ok(());
                 }
-                if leaf.view_number <= self.locked_qc.view_number {
-                    break;
+                if let Terminator::Inclusive(stop_after) = terminator {
+                    if stop_after == leaf.view_number {
+                        return Ok(());
+                    }
                 }
             } else {
                 return Err(HotShotError::ItemNotFound {
@@ -491,11 +603,15 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
                 });
             }
         }
-        Ok(())
     }
 
     /// garbage collects based on state change
-    pub async fn collect_garbage(&mut self) {}
+    pub async fn collect_garbage(
+        &mut self,
+        _old_anchor_view: ViewNumber,
+        _new_anchor_view: ViewNumber,
+    ) {
+    }
 
     /// Returns channels that may be used to send/receive received proposals
     /// to the Replica task.
@@ -566,7 +682,7 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
             last_decided_view: nll_todo(),
             state_map: nll_todo(),
             undecided_leaves: nll_todo(),
-            locked_qc: nll_todo(),
+            locked_view: nll_todo(),
             high_qc: nll_todo(),
             dummy_leaf: nll_todo(),
         }

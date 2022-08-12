@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{VecQuorumCertificate, ViewNumber},
+    data::{QuorumCertificate, VecQuorumCertificate, ViewNumber},
     error::HotShotError,
     traits::BlockContents,
 };
@@ -53,7 +53,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
         /// The quorum certificates that accompy this Decide
-        qcs: Arc<Vec<VecQuorumCertificate>>,
+        qcs: Arc<Vec<QuorumCertificate<N>>>,
     },
     /// A new view was started by this node
     NewView {
