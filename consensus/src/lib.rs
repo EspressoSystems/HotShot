@@ -52,6 +52,7 @@ use std::{
         btree_map::{Entry, OccupiedEntry},
         BTreeMap, BTreeSet, HashMap, HashSet, VecDeque,
     },
+    ops::Bound::{Excluded, Included},
     time::{Duration, Instant},
 };
 use tracing::{debug, error, instrument, warn};
@@ -121,8 +122,6 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
 
     locked_view: ViewNumber,
     pub high_qc: QuorumCertificate<N>,
-    // msg_channel: Receiver<ConsensusMessage<>>,
-    dummy_leaf: Leaf<I::Block, I::State, N>,
 }
 
 #[derive(Debug, Clone)]
@@ -489,72 +488,12 @@ pub struct ViewIterator<'a, I: NodeImplementation<N>, const N: usize> {
     leaf: &'a Leaf<I::Block, I::State, N>,
 }
 
-impl<'a, I: NodeImplementation<N>, const N: usize> Iterator for ViewIterator<'a, I, N> {
-    type Item = Result<&'a Leaf<I::Block, I::State, N>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.is_error {
-            return None;
-        }
-        if let Terminator::Inclusive(stop_after) = self.terminator {
-            if stop_after == self.leaf.view_number {
-                return None;
-            }
-        }
-        if let Some(parent_leaf) = self.consensus.undecided_leaves.get(&self.leaf.parent) {
-            if let Terminator::Exclusive(stop_before) = self.terminator {
-                if stop_before == parent_leaf.view_number {
-                    return None;
-                }
-            }
-            self.leaf = parent_leaf;
-            Some(Ok(self.leaf))
-        } else {
-            Some(Err(HotShotError::ItemNotFound {
-                type_name: "Leaf",
-                hash: self.leaf.parent.to_vec(),
-            }))
-        }
-    }
-}
-
-impl<'a, I: NodeImplementation<N>, const N: usize> ViewIterator<'a, I, N> {
-    fn new(consensus: &'a Consensus<I, N>, begin: ViewNumber, terminator: Terminator) -> Self {
-        if let Some(view) = consensus.state_map.get(&begin) {
-            if let ViewInner::Leaf { leaf } = view.view_inner {
-                if let Some(leaf) = consensus.undecided_leaves.get(&leaf) {
-                    return ViewIterator {
-                        consensus,
-                        terminator,
-                        is_error: false,
-                        leaf,
-                    };
-                }
-            }
-        }
-        ViewIterator {
-            consensus,
-            terminator,
-            is_error: true,
-            leaf: &consensus.dummy_leaf,
-        }
-    }
-}
-
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> ViewNumber {
         self.cur_view += 1;
         self.cur_view
-    }
-
-    pub fn leaf_parent_iterator(
-        &self,
-        start_from: ViewNumber,
-        terminator: Terminator,
-    ) -> ViewIterator<'_, I, N> {
-        ViewIterator::new(&self, start_from, terminator)
     }
 
     /// gather information from the parent chain of leafs
@@ -608,9 +547,26 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// garbage collects based on state change
     pub async fn collect_garbage(
         &mut self,
-        _old_anchor_view: ViewNumber,
-        _new_anchor_view: ViewNumber,
+        old_anchor_view: ViewNumber,
+        new_anchor_view: ViewNumber,
     ) {
+        if let Some(entry) = self.state_map.iter().next() {
+            if *entry.0 != old_anchor_view {
+                error!("useful error message here");
+            }
+        }
+        self.state_map
+            .range((Included(&old_anchor_view), Excluded(&new_anchor_view)))
+            .filter_map(|(view_number, view)| {
+                if let ViewInner::Leaf { leaf } = &view.view_inner {
+                    Some((view_number, leaf))
+                } else {
+                    None
+                }
+            })
+            .for_each(|(_view_number, leaf)| {
+                let _removed = self.undecided_leaves.remove(leaf);
+            });
     }
 
     /// Returns channels that may be used to send/receive received proposals
@@ -684,7 +640,6 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
             undecided_leaves: nll_todo(),
             locked_view: nll_todo(),
             high_qc: nll_todo(),
-            dummy_leaf: nll_todo(),
         }
     }
 }
