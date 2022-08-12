@@ -9,6 +9,7 @@ use hotshot::{
     traits::{BlockContents, State, Transaction},
     types::SignatureKey,
 };
+use hotshot_centralized_server_shared::MAX_MESSAGE_SIZE;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
 use std::{
     fmt,
@@ -114,11 +115,19 @@ impl TestClient {
         let bytes = hotshot_centralized_server_shared::bincode_opts()
             .serialize(&data)
             .unwrap();
+        if bytes.len() > MAX_MESSAGE_SIZE {
+            eprintln!(
+                "Send message is {} bytes but we only support {} bytes",
+                bytes.len(),
+                MAX_MESSAGE_SIZE
+            );
+            panic!("Please increase the value of `MAX_MESSAGE_SIZE`");
+        }
         self.stream.write_all(&bytes).await
     }
 
     pub async fn receive(&mut self) -> std::io::Result<FromServer> {
-        let mut buffer = [0u8; 1024];
+        let mut buffer = [0u8; MAX_MESSAGE_SIZE];
         let n = self.stream.read(&mut buffer).await?;
         let result = hotshot_centralized_server_shared::bincode_opts()
             .deserialize(&buffer[..n])

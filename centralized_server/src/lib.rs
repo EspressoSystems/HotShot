@@ -7,7 +7,7 @@ use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use hotshot::types::SignatureKey;
-use hotshot_centralized_server_shared::{FromServer, ToServer};
+use hotshot_centralized_server_shared::{FromServer, ToServer, MAX_MESSAGE_SIZE};
 use hotshot_types::traits::signature_key::EncodedPublicKey;
 use snafu::ResultExt;
 use std::{
@@ -257,6 +257,14 @@ async fn spawn_client<K: SignatureKey + 'static>(
                 let bytes = hotshot_centralized_server_shared::bincode_opts()
                     .serialize(&msg)
                     .expect("Could not serialize message");
+                if bytes.len() > MAX_MESSAGE_SIZE {
+                    eprintln!(
+                        "Send message is {} bytes but we only support {} bytes",
+                        bytes.len(),
+                        MAX_MESSAGE_SIZE
+                    );
+                    panic!("Please increase the value of `MAX_MESSAGE_SIZE`");
+                }
                 if let Err(e) = stream.write_all(&bytes).await {
                     eprintln!("Lost connection to {:?}: {:?}", address, e);
                     break;
@@ -265,7 +273,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
         }
     });
     loop {
-        let mut buffer = [0u8; 1024];
+        let mut buffer = [0u8; MAX_MESSAGE_SIZE];
         let n = stream.read(&mut buffer).await.context(IoSnafu)?;
         if n == 0 {
             break; // disconnected

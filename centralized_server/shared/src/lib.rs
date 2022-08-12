@@ -1,6 +1,8 @@
 use bincode::config::*;
 use hotshot_types::traits::signature_key::SignatureKey;
 
+pub const MAX_MESSAGE_SIZE: usize = 10240; // 10kb
+
 /// For the wire format, we use bincode with the following options:
 ///   - No upper size limit
 ///   - Litte endian encoding
