@@ -1,0 +1,15 @@
+[package]
+name = "hotshot-centralized-server"
+version = "0.1.1"
+edition = "2021"
+
+[dependencies]
+hotshot-centralized-server-shared = { path = "shared" }
+async-std = { version = "1.12.0", features = ["attributes"] }
+clap = { version = "3.2.16", features = ["derive", "env"] }
+hotshot = { path = "../" }
+hotshot-types = { path = "../types" }
+flume = "0.10.14"
+bincode = "1.3.3"
+snafu = "0.7.1"
+serde = "1.0.143"

@@ -64,6 +64,8 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
 /// <I as TypeMap<N>>::Message
 /// ```
 pub trait TypeMap<const N: usize> {
+    /// Type alias for the [`Message`] enum.
+    type Message;
     /// Type alias for the [`MessageKind`] enum.
     type MessageKind;
     /// Type alias for the [`ConsensusMessage`] enum.
@@ -78,6 +80,7 @@ impl<I, const N: usize> TypeMap<N> for I
 where
     I: NodeImplementation<N>,
 {
+    type Message = Message<I::Block, <I as TypeMap<N>>::Transaction, I::State, I::SignatureKey, N>;
     type MessageKind = MessageKind<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
     type DataMessage = DataMessage<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
