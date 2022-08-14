@@ -17,59 +17,55 @@
 )]
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
-// mod phase;
 mod traits;
 mod utils;
-// pub mod message_processing;
 
+use flume::{Receiver, Sender};
 use hotshot_utils::hack::nll_todo;
-
-use flume::{Receiver, RecvError, Sender};
 pub use traits::ConsensusApi;
 
-use async_std::{
-    sync::{Arc, RwLock, RwLockUpgradableReadGuard},
-    task::{sleep, spawn, JoinHandle},
-};
-use futures::{future::join, select, FutureExt};
+use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use hotshot_types::{
     data::{
         create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, TransactionHash,
         ViewNumber,
     },
-    error::{FailedToMessageLeaderSnafu, HotShotError, RoundTimedoutState, StorageSnafu},
+    error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        storage::Storage,
         BlockContents, State,
     },
 };
-use snafu::ResultExt;
 use std::{
-    collections::{
-        btree_map::{Entry, OccupiedEntry},
-        BTreeMap, BTreeSet, HashMap, HashSet, VecDeque,
-    },
+    collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
-    time::{Duration, Instant},
+    time::Instant,
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::{error, warn};
 
+/// A view's state
 #[derive(Debug)]
 pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
+    /// A view in the future, We collect network events here
     Future {
+        /// to send networking events
         sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
+        /// to recv networking events
         receiver_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
     },
+    /// Undecided view
     Leaf {
+        /// Proposed leaf
         leaf: LeafHash<N>,
     },
+    /// Leaf has failed
     Failed,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
+    /// Create a new View
     pub fn new() -> Self {
         let (sender_chan, receiver_chan) = flume::unbounded();
         Self {
@@ -84,6 +80,7 @@ impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
 pub(crate) struct View<I: NodeImplementation<N>, const N: usize> {
+    /// The view data. Wrapped in a struct so we can mutate
     view_inner: ViewInner<I, N>,
 }
 
@@ -112,12 +109,15 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// TODO we should flush out the logic here more
     pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 
+    /// Map of undecided leaf hash -> leaf
     pub undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
-
+    /// The `locked_qc` view number
     locked_view: ViewNumber,
+    /// the highqc per spec
     pub high_qc: QuorumCertificate<N>,
 }
 
+/// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// Reference to consensus. Replica will require a write lock on this.
@@ -134,96 +134,93 @@ pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usi
 
 impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A, I, N> {
     /// run one view of replica
-    /// returns the high_qc
+    /// returns the `high_qc`
+    #[allow(clippy::too_many_lines)]
     pub async fn run_view(self) -> QuorumCertificate<N> {
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
-            match msg {
-                Ok(msg) => {
-                    // stale/newer view messages should never reach this specific task's receive channel
-                    if msg.view_number() != self.cur_view {
-                        continue;
-                    }
-                    match msg {
-                        ConsensusMessage::Proposal(p) => {
-                            if !view_leader_key.validate(&p.signature, &p.leaf.hash().to_vec()) {
-                                continue;
-                            }
-                            let justify_qc = p.leaf.justify_qc;
-                            let parent = if let Some(parent) =
-                                consensus.undecided_leaves.get(&p.leaf.parent)
-                            {
+            if let Ok(msg) = msg {
+                // stale/newer view messages should never reach this specific task's receive channel
+                if msg.view_number() != self.cur_view {
+                    continue;
+                }
+                match msg {
+                    ConsensusMessage::Proposal(p) => {
+                        if !view_leader_key.validate(&p.signature, &p.leaf.hash().to_vec()) {
+                            continue;
+                        }
+                        let justify_qc = p.leaf.justify_qc;
+                        let parent =
+                            if let Some(parent) = consensus.undecided_leaves.get(&p.leaf.parent) {
                                 parent
                             } else {
                                 continue;
                             };
-                            if justify_qc.view_number != parent.view_number
-                                || !self.api.validate_qc(&justify_qc, parent.view_number)
-                            {
-                                continue;
-                            }
-                            let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
-                                Leaf::new(
-                                    state,
-                                    p.leaf.deltas,
-                                    p.leaf.parent,
-                                    justify_qc,
-                                    self.cur_view,
-                                )
-                            } else {
-                                continue;
-                            };
-                            let leaf_hash = leaf.hash();
-                            let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
-
-                            let vote = ConsensusMessage::<I::Block, I::State, N>::Vote(Vote {
-                                block_hash: leaf.deltas.hash(),
-                                justify_qc: leaf.justify_qc.clone(),
-                                signature,
-                                leaf_hash,
-                                current_view: self.cur_view,
-                            });
-
-                            // send out vote
-
-                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
-
-                            let _result = self.api.send_direct_message(next_leader, vote);
-
-                            break leaf;
-                        }
-                        ConsensusMessage::NextViewInterrupt(_view_number) => {
-                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
-
-                            let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
-                                current_view: self.cur_view,
-                                justify: self.high_qc.clone(),
-                            });
-
-                            // send timedout message to the next leader
-                            let _result = self
-                                .api
-                                .send_direct_message(next_leader, timed_out_msg)
-                                .await;
-
-                            // exits from entire function
-                            return self.high_qc;
-                        }
-                        ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
-                            // should only be for leader, never
-                            error!("useful error goes here");
+                        if justify_qc.view_number != parent.view_number
+                            || !self.api.validate_qc(&justify_qc, parent.view_number)
+                        {
                             continue;
                         }
+                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                            Leaf::new(
+                                state,
+                                p.leaf.deltas,
+                                p.leaf.parent,
+                                justify_qc,
+                                self.cur_view,
+                            )
+                        } else {
+                            continue;
+                        };
+                        let leaf_hash = leaf.hash();
+                        let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
+
+                        let vote = ConsensusMessage::<I::Block, I::State, N>::Vote(Vote {
+                            block_hash: leaf.deltas.hash(),
+                            justify_qc: leaf.justify_qc.clone(),
+                            signature,
+                            leaf_hash,
+                            current_view: self.cur_view,
+                        });
+
+                        // send out vote
+
+                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                        let _result = self.api.send_direct_message(next_leader, vote);
+
+                        break leaf;
+                    }
+                    ConsensusMessage::NextViewInterrupt(_view_number) => {
+                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                        let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
+                            current_view: self.cur_view,
+                            justify: self.high_qc.clone(),
+                        });
+
+                        // send timedout message to the next leader
+                        let _result = self
+                            .api
+                            .send_direct_message(next_leader, timed_out_msg)
+                            .await;
+
+                        // exits from entire function
+                        return self.high_qc;
+                    }
+                    ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
+                        // should only be for leader, never replica
+                        error!("Replica receieved a vote or timed out message. This is not what the replica expects. Skipping.");
+                        continue;
                     }
                 }
-                Err(_) => {
-                    error!("useful error goes here");
-                    return self.high_qc;
-                }
             }
+            // fall through logic if we did not received successfully from channel
+            error!("Replica did not received successfully from channel. Terminating Replica.");
+            return self.high_qc;
         };
 
         // promote lock here
@@ -276,10 +273,11 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             },
         );
         let mut included_txns = Vec::new();
-        blocks.iter().for_each(|block| {
+        for block in &blocks {
             let mut txns = block.contained_transactions();
             included_txns.append(&mut txns);
-        });
+        }
+
         let included_txns_set: HashSet<_> = included_txns.into_iter().collect();
         {
             let mut txns = consensus.transactions.write().await;
@@ -300,13 +298,18 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
     }
 }
 
+/// This view's Leader
 #[derive(Debug, Clone)]
 pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
+    /// The `high_qc` per spec
     pub high_qc: QuorumCertificate<N>,
+    /// The view number we're running on
     pub cur_view: ViewNumber,
+    /// Lock over the transactions list
     pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    /// Limited access to the consensus protocol
     pub api: A,
 }
 
@@ -348,14 +351,12 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
 
         let next_parent_hash = original_parent_hash;
 
-        while !reached_decided {
-            if let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
+        if !reached_decided {
+            while let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
                 let mut next_parent_txns = next_parent_leaf.deltas.contained_transactions();
                 previous_used_txns_vec.append(&mut next_parent_txns);
-            } else {
-                // TODO do some sort of sanity check on the view number that it matches decided
-                break;
             }
+            // TODO do some sort of sanity check on the view number that it matches decided
         }
 
         let previous_used_txns = previous_used_txns_vec
@@ -369,14 +370,14 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             .collect();
 
         let mut block = starting_state.next_block();
-        unclaimed_txns.iter().for_each(|txn| {
+        for txn in &unclaimed_txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
                 if starting_state.validate_block(&new_block) {
                     block = new_block;
                 }
             }
-        });
+        }
 
         if let Ok(new_state) = starting_state.append(&block) {
             let leaf = Leaf {
@@ -389,19 +390,25 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             // TODO add erroring stuff
-            let _ = self.api.send_broadcast_message(message).await;
+            if self.api.send_broadcast_message(message).await.is_err() {
+                error!("Leader task failed to broadcast to network");
+            };
         }
 
         self.high_qc.clone()
     }
 }
 
+/// The next view's leader
 #[derive(Debug, Clone)]
 pub struct NextLeader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<N>,
+    /// channel through which the leader collects votes
     pub vote_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+    /// The view number we're running on
     pub cur_view: ViewNumber,
+    /// Limited access to the consensus protocol
     pub api: A,
 }
 
@@ -409,7 +416,10 @@ pub struct NextLeader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: 
 pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
 
 impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader<A, I, N> {
-    /// run one view of the next leader task
+    /// Run one view of the next leader task
+    /// # Panics
+    /// While we are unwrapping, this function can logically never panic
+    /// unless there is a bug in std
     pub async fn run_view(self) -> QuorumCertificate<N> {
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
@@ -462,16 +472,14 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                                 genesis: false,
                             };
                             return qc;
-                        } else {
-                            continue;
                         }
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
                     break;
                 }
-                ConsensusMessage::Proposal(p) => {
-                    error!("useful error goes here");
+                ConsensusMessage::Proposal(_p) => {
+                    error!("The next leader has received an unexpected proposal!");
                 }
             }
         }
@@ -480,11 +488,16 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     }
 }
 
+/// Iterator over views
 #[derive(Debug, Clone)]
 pub struct ViewIterator<'a, I: NodeImplementation<N>, const N: usize> {
+    /// reference to consensus strut
     consensus: &'a Consensus<I, N>,
+    /// when to terminate iteration
     terminator: Terminator,
+    /// if we have encountered an error
     is_error: bool,
+    /// current leaf
     leaf: &'a Leaf<I::Block, I::State, N>,
 }
 
@@ -497,6 +510,8 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     }
 
     /// gather information from the parent chain of leafs
+    /// # Errors
+    /// If the leaf or its ancestors are not found in storage
     pub fn visit_leaf_ancestors<F>(
         &self,
         start_from: ViewNumber,
@@ -575,6 +590,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// insert into `self.state_map` if the view has not been constructed NOTE: requires write
     /// access to `Consensus` because may
     /// insert into `self.state_map` if the view has not been constructed
+    #[allow(clippy::type_complexity)]
     pub fn get_future_view_pair(
         &mut self,
         msg_view_number: ViewNumber,
@@ -586,7 +602,10 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
             return None;
         }
 
-        let view = self.state_map.entry(msg_view_number).or_insert(View::new());
+        let view = self
+            .state_map
+            .entry(msg_view_number)
+            .or_insert_with(View::new);
         if let ViewInner::Future {
             sender_chan,
             receiver_chan,
@@ -729,8 +748,11 @@ impl<K> OptionUtils<K> for Option<K> {
     }
 }
 
+/// Whether or not to stop inclusively or exclusively when walking
 #[derive(Copy, Clone, Debug)]
 pub enum Terminator {
+    /// Stop right before this view number
     Exclusive(ViewNumber),
+    /// Stop including this view number
     Inclusive(ViewNumber),
 }

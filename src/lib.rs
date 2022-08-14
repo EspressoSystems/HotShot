@@ -107,6 +107,7 @@ pub enum ExecutionType {
 /// Holds configuration for a `HotShot`
 #[derive(Debug, Clone)]
 pub struct HotShotConfig<P: SignatureKey> {
+    /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
@@ -314,13 +315,19 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
+    /// # Panics
+    /// Panics if the current view is not in the channel map
     pub async fn timeout_view(&self, current_view: ViewNumber) {
         let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
-        let _ = self.send_next_leader.send_async(msg.clone()).await;
+        if self.send_next_leader.send_async(msg.clone()).await.is_err() {
+            error!("Error timing out next leader");
+        };
         // NOTE this should always exist
         let chan_map = self.channel_map.read().await;
         let send_replica = chan_map.get(&current_view).unwrap();
-        let _ = send_replica.send_async(msg).await;
+        if send_replica.send_async(msg).await.is_err() {
+            error!("Error timing out replica");
+        };
     }
 
     /// Publishes a transaction to the network
@@ -670,7 +677,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 }
 
 /// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
-/// TODO potentially remove I::State since can obtain from leaf
+/// TODO potentially remove [`I::State`] since can obtain from leaf
 async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
     storage: &I::Storage,
 ) -> std::result::Result<

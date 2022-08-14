@@ -2,17 +2,15 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, VecQuorumCertificate, VerifyHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
-    message::ConsensusMessage,
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.

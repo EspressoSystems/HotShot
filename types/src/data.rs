@@ -9,7 +9,7 @@ use crate::traits::{
 };
 use blake3::Hasher;
 use hex_fmt::HexFmt;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -306,7 +306,7 @@ pub fn create_verify_hash<const N: usize>(
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: T is constrainted to implementing BlockContents, is TypeMap::Block
+/// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
 pub struct Leaf<BLOCK, STATE, const N: usize> {
     /// CurView from leader when proposing leaf

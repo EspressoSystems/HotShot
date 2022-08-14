@@ -178,6 +178,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     handle
 }
 
+/// Executes one view of consensus
 pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     hotshot: HotShot<I, N>,
 ) -> Result<(), ()> {
@@ -240,7 +241,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     let children_finished = futures::future::join_all(task_handles);
 
     spawn({
-        let next_view_timeout = next_view_timeout.clone();
+        let next_view_timeout = next_view_timeout;
         let hotshot: HotShot<I, N> = hotshot.clone();
         async move {
             sleep(Duration::from_millis(next_view_timeout)).await;

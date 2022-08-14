@@ -169,6 +169,8 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// successfully
     /// # Errors
     /// Errors if unable to obtain storage
+    /// # Panics
+    /// Panics if the event stream is shut down while this is running
     pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out

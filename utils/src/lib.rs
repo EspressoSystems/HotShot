@@ -27,6 +27,8 @@ pub mod bincode;
 /// Collection of hacks
 pub mod hack {
     /// Satisfies type checker without breaking non lexical lifetimes
+    /// # Panics
+    /// Always panics.
     #[deprecated]
     pub fn nll_todo<S>() -> S {
         None.unwrap()

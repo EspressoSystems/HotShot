@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{QuorumCertificate, VecQuorumCertificate, ViewNumber},
+    data::{QuorumCertificate, ViewNumber},
     error::HotShotError,
     traits::BlockContents,
 };

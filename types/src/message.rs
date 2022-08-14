@@ -5,15 +5,11 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
-    traits::{
-        signature_key::{EncodedPublicKey, EncodedSignature},
-        State,
-    },
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
 use hex_fmt::HexFmt;
-use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -34,13 +30,13 @@ pub enum MessageKind<B, T, S, const N: usize> {
     Data(DataMessage<B, T, S, N>),
 }
 
-impl<'a, B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
+impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: ConsensusMessage<B, S, N>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<'a, B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
+impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
     fn from(m: DataMessage<B, T, S, N>) -> Self {
         Self::Data(m)
     }
