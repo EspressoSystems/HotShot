@@ -693,14 +693,15 @@ async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
-struct HotShotConsensusApi<'a, I: NodeImplementation<N>, const N: usize> {
+#[derive(Clone)]
+struct HotShotConsensusApi<I: NodeImplementation<N>, const N: usize> {
     /// Reference to the [`HotShotInner`]
-    inner: &'a HotShotInner<I, N>,
+    inner: Arc<HotShotInner<I, N>>,
 }
 
 #[async_trait]
-impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I, N>
-    for HotShotConsensusApi<'a, I, N>
+impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I, N>
+    for HotShotConsensusApi<I, N>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes

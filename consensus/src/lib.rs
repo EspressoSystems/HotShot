@@ -70,12 +70,6 @@ pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
-    pub fn transition(&mut self) {
-        nll_todo()
-    }
-}
-
-impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
     pub fn new() -> Self {
         let (sender_chan, receiver_chan) = flume::unbounded();
         Self {
@@ -125,7 +119,7 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Replica<I: NodeImplementation<N>, const N: usize> {
+pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
     /// channel for accepting leader proposals and timeouts messages
@@ -134,14 +128,16 @@ pub struct Replica<I: NodeImplementation<N>, const N: usize> {
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
     pub high_qc: QuorumCertificate<N>,
+    /// hotshot consensus api
+    pub api: A,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
+impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A, I, N> {
     /// run one view of replica
     /// returns the high_qc
-    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view(self) -> QuorumCertificate<N> {
         let consensus = self.consensus.upgradable_read().await;
-        let view_leader_key = api.get_leader(self.cur_view).await;
+        let view_leader_key = self.api.get_leader(self.cur_view).await;
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
@@ -165,7 +161,7 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                                 continue;
                             };
                             if justify_qc.view_number != parent.view_number
-                                || !api.validate_qc(&justify_qc, parent.view_number)
+                                || !self.api.validate_qc(&justify_qc, parent.view_number)
                             {
                                 continue;
                             }
@@ -181,7 +177,7 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                                 continue;
                             };
                             let leaf_hash = leaf.hash();
-                            let signature = api.sign_vote(&leaf_hash, self.cur_view);
+                            let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
 
                             let vote = ConsensusMessage::<I::Block, I::State, N>::Vote(Vote {
                                 block_hash: leaf.deltas.hash(),
@@ -193,14 +189,14 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
 
                             // send out vote
 
-                            let next_leader = api.get_leader(self.cur_view + 1).await;
+                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                            let _result = api.send_direct_message(next_leader, vote);
+                            let _result = self.api.send_direct_message(next_leader, vote);
 
                             break leaf;
                         }
                         ConsensusMessage::NextViewInterrupt(_view_number) => {
-                            let next_leader = api.get_leader(self.cur_view + 1).await;
+                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                             let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
                                 current_view: self.cur_view,
@@ -208,7 +204,10 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                             });
 
                             // send timedout message to the next leader
-                            let _result = api.send_direct_message(next_leader, timed_out_msg).await;
+                            let _result = self
+                                .api
+                                .send_direct_message(next_leader, timed_out_msg)
+                                .await;
 
                             // exits from entire function
                             return self.high_qc;
@@ -289,7 +288,9 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                 .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
                 .collect();
         }
-        let decide_sent = api.send_decide(consensus.last_decided_view, blocks, states, qcs);
+        let decide_sent = self
+            .api
+            .send_decide(consensus.last_decided_view, blocks, states, qcs);
         let old_anchor_view = consensus.last_decided_view;
         consensus
             .collect_garbage(old_anchor_view, new_anchor_view)
@@ -300,17 +301,18 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Leader<I: NodeImplementation<N>, const N: usize> {
+pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
     pub high_qc: QuorumCertificate<N>,
     pub cur_view: ViewNumber,
     pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    pub api: A,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
+impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, I, N> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
-    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view(self) -> QuorumCertificate<N> {
         let parent_view_number = self.high_qc.view_number;
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
@@ -384,10 +386,10 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
                 deltas: block,
                 state: new_state,
             };
-            let signature = api.sign_proposal(&leaf.hash(), self.cur_view);
+            let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             // TODO add erroring stuff
-            let _ = api.send_broadcast_message(message).await;
+            let _ = self.api.send_broadcast_message(message).await;
         }
 
         self.high_qc.clone()
@@ -395,25 +397,26 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NextLeader<I: NodeImplementation<N>, const N: usize> {
+pub struct NextLeader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<N>,
     pub vote_collection_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
     pub cur_view: ViewNumber,
+    pub api: A,
 }
 
 /// type alias for a less ugly mapping of signatures
 pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
 
-impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
+impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader<A, I, N> {
     /// run one view of the next leader task
-    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view(self) -> QuorumCertificate<N> {
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut vote_outcomes: HashMap<LeafHash<N>, (BlockHash<N>, Signatures)> = HashMap::new();
         // NOTE will need to refactor this during VRF integration
-        let threshold = api.threshold();
+        let threshold = self.api.threshold();
 
         while let Ok(msg) = self.vote_collection_chan.recv_async().await {
             if msg.view_number() != self.cur_view {
@@ -445,7 +448,7 @@ impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
 
                     if map.len() >= threshold.into() {
                         // NOTE this is slow, shouldn't check all the signatures EVERY time
-                        let result = api.get_valid_signatures(
+                        let result = self.api.get_valid_signatures(
                             map.clone(),
                             create_verify_hash(&vote.leaf_hash, self.cur_view),
                         );

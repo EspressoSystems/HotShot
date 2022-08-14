@@ -33,18 +33,6 @@ pub struct TaskHandle {
     inner: RwLock<Option<TaskHandleInner>>,
 }
 impl TaskHandle {
-    // /// Get the internal state of the [`round_runner_task`].
-    // ///
-    // /// This will time out after two seconds.
-    // pub async fn get_round_runner_state(&self) -> Result<(), Box<dyn std::error::Error>> {
-    //     let (_sender, receiver) = oneshot_channel();
-    //     // self.send_to_round_runner(ToRoundRunner::GetState(sender))
-    //     //     .await?;
-    //     let _state = receiver.timeout(Duration::from_millis(30000)).await??;
-    //     nll_todo()
-    //     // Ok(state)
-    // }
-
     /// Start the round runner. This will make it run until `pause` is called
     pub async fn start(&self) {
         let handle = self.inner.read().await;
@@ -206,64 +194,47 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 
     // let block = consensus.undecided_leaves.get(consensus.high_qc.leaf_hash);
 
+    let c_api = HotShotConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
+
     // TODO repalce these with sensible values
-    let mut next_leader: NextLeader<I, N> = NextLeader {
+    let next_leader = NextLeader {
         generic_qc: consensus.high_qc.clone(),
         vote_collection_chan: hotshot.recv_next_leader.clone(),
         cur_view,
+        api: c_api.clone(),
     };
-    let mut leader: Leader<I, N> = Leader {
+    let leader = Leader {
         consensus: hotshot.hotstuff.clone(),
         high_qc: consensus.high_qc.clone(),
         cur_view,
         transactions: consensus.transactions.clone(),
+        api: c_api.clone(),
     };
-    let mut replica: Replica<I, N> = Replica {
+    let replica = Replica {
         consensus: hotshot.hotstuff.clone(),
         proposal_collection_chan: recv_replica,
         cur_view,
         high_qc: consensus.high_qc.clone(),
+        api: c_api.clone(),
     };
     // DROP write lock on consensus
     drop(consensus);
 
     let mut task_handles = Vec::new();
 
-    // TODO move &api into struct such that we avoid this ugly code path
-
-    let c_api = HotShotConsensusApi {
-        inner: &hotshot.inner,
-    };
-
-    {
-        let inner = hotshot.inner.clone();
-        let replica_handle = spawn(async move {
-            let c_api = &HotShotConsensusApi { inner: &inner };
-            replica.run_view(c_api).await
-        });
-        task_handles.push(replica_handle);
-    }
+    let replica_handle = spawn(async move { replica.run_view().await });
+    task_handles.push(replica_handle);
 
     if c_api.is_leader(cur_view).await {
-        {
-            let inner = hotshot.inner.clone();
-            let leader_handle = spawn(async move {
-                let c_api = &HotShotConsensusApi { inner: &inner };
-                leader.run_view(c_api).await
-            });
-            task_handles.push(leader_handle);
-        }
+        let leader_handle = spawn(async move { leader.run_view().await });
+        task_handles.push(leader_handle);
     }
 
     if c_api.is_leader(cur_view + 1).await {
-        {
-            let inner = hotshot.inner.clone();
-            let next_leader_handle = spawn(async move {
-                let c_api = &HotShotConsensusApi { inner: &inner };
-                next_leader.run_view(c_api).await
-            });
-            task_handles.push(next_leader_handle);
-        }
+        let next_leader_handle = spawn(async move { next_leader.run_view().await });
+        task_handles.push(next_leader_handle);
     }
 
     let children_finished = futures::future::join_all(task_handles);
