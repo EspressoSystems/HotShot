@@ -139,7 +139,7 @@ pub struct Replica<I: NodeImplementation<N>, const N: usize> {
 impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
     /// run one view of replica
     /// returns the high_qc
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = api.get_leader(self.cur_view).await;
 
@@ -197,9 +197,6 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
 
                             let _result = api.send_direct_message(next_leader, vote);
 
-                            // break
-
-                            // return leaf
                             break leaf;
                         }
                         ConsensusMessage::NextViewInterrupt(_view_number) => {
@@ -214,7 +211,7 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                             let _result = api.send_direct_message(next_leader, timed_out_msg).await;
 
                             // exits from entire function
-                            return self.high_qc.clone();
+                            return self.high_qc;
                         }
                         ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
                             // should only be for leader, never
@@ -225,7 +222,7 @@ impl<I: NodeImplementation<N>, const N: usize> Replica<I, N> {
                 }
                 Err(_) => {
                     error!("useful error goes here");
-                    return self.high_qc.clone();
+                    return self.high_qc;
                 }
             }
         };
@@ -313,7 +310,7 @@ pub struct Leader<I: NodeImplementation<N>, const N: usize> {
 
 impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
         let parent_view_number = self.high_qc.view_number;
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
@@ -328,26 +325,26 @@ impl<I: NodeImplementation<N>, const N: usize> Leader<I, N> {
                         leaf
                     } else {
                         error!("error goes here");
-                        return self.high_qc.clone();
+                        return self.high_qc;
                     }
                 }
                 // can happen if future api is whacked
                 ViewInner::Future { .. } | ViewInner::Failed => {
                     error!("error goes here");
-                    return self.high_qc.clone();
+                    return self.high_qc;
                 }
             }
         } else {
             error!("error goes here");
-            return self.high_qc.clone();
+            return self.high_qc;
         };
 
         let original_parent_hash = parent_leaf.hash();
-        let starting_state = parent_leaf.state.clone();
+        let starting_state = &parent_leaf.state;
 
         let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
 
-        let next_parent_hash = original_parent_hash.clone();
+        let next_parent_hash = original_parent_hash;
 
         while !reached_decided {
             if let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
@@ -410,7 +407,7 @@ pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
 
 impl<I: NodeImplementation<N>, const N: usize> NextLeader<I, N> {
     /// run one view of the next leader task
-    pub async fn run_view<A: ConsensusApi<I, N>>(&mut self, api: &A) -> QuorumCertificate<N> {
+    pub async fn run_view<A: ConsensusApi<I, N>>(self, api: &A) -> QuorumCertificate<N> {
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
 
