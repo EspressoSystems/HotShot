@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["dentry","Double entry accounting demo"]]});
+window.SIDEBAR_ITEMS = {"mod":[["dentry","Double entry accounting demo"]]};

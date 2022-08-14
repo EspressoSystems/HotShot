@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["main",""]],"struct":[["CliOpt","command line arguments"]]});
+window.SIDEBAR_ITEMS = {"fn":[["main",""]],"struct":[["CliOpt","command line arguments"]]};

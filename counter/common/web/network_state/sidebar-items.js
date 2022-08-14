@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["ConnectionState",""],["NetworkConfig",""],["State",""]]});
+window.SIDEBAR_ITEMS = {"struct":[["ConnectionState",""],["NetworkConfig",""],["State",""]]};

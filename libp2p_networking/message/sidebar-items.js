@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Message","example message that may be sent to the swarm. Used in the UI"]]});
+window.SIDEBAR_ITEMS = {"struct":[["Message","example message that may be sent to the swarm. Used in the UI"]]};

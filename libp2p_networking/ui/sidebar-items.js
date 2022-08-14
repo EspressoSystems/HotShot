@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["InputMode",""]],"fn":[["run_app",""]],"struct":[["TableApp","Struct for the TUI app"]]});
+window.SIDEBAR_ITEMS = {"enum":[["InputMode",""]],"fn":[["run_app",""]],"struct":[["TableApp","Struct for the TUI app"]]};

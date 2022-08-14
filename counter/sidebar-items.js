@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["main",""]],"mod":[["common",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["main",""]],"mod":[["common",""]]};

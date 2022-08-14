@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["GossipEvent","Output event"]],"struct":[["GossipBehaviour","wrapper metadata around libp2p’s gossip protocol"]]});
+window.SIDEBAR_ITEMS = {"enum":[["GossipEvent","Output event"]],"struct":[["GossipBehaviour","wrapper metadata around libp2p’s gossip protocol"]]};
