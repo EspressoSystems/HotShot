@@ -244,7 +244,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             justify_qc: genesis_qc.clone(),
             // NOTE: view number might be different
             parent: [0_u8; { N }].into(),
-            deltas: genesis.clone(), 
+            deltas: genesis.clone(),
         };
         let election = {
             let state =
@@ -284,11 +284,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         let (send_next_leader, recv_next_leader) = flume::unbounded();
         let hotstuff: Arc<RwLock<Consensus<I, N>>> = Arc::default();
-        let _txns = hotstuff.read().await.get_transactions();
+        let txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {
             inner: Arc::new(inner),
-            transactions: Arc::default(),
+            transactions: txns,
             // TODO check this is what we want.
             hotstuff,
             channel_map: Arc::default(),
