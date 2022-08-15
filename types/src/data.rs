@@ -241,6 +241,18 @@ pub struct QuorumCertificate<const N: usize> {
     pub genesis: bool,
 }
 
+impl<const N: usize> Default for QuorumCertificate<N> {
+    fn default() -> Self {
+        Self {
+            block_hash: BlockHash::<N>::default(),
+            leaf_hash: LeafHash::<N>::default(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::default(),
+            genesis: false,
+        }
+    }
+}
+
 impl<const N: usize> QuorumCertificate<N> {
     /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
     /// array.

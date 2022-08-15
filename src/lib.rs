@@ -50,7 +50,6 @@ use crate::{
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
-
 use hotshot_consensus::Consensus;
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
@@ -64,7 +63,7 @@ use hotshot_types::{
         stateful_handler::StatefulHandler,
     },
 };
-use hotshot_utils::{broadcast::BroadcastSender, hack::nll_todo};
+use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
     collections::{btree_map::Entry, BTreeMap, HashSet},
@@ -245,7 +244,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             justify_qc: genesis_qc.clone(),
             // NOTE: view number might be different
             parent: [0_u8; { N }].into(),
-            deltas: nll_todo(),
+            deltas: genesis.clone(), 
         };
         let election = {
             let state =
