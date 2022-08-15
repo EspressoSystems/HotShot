@@ -46,7 +46,7 @@ pub trait Histogram {
 
 /// A label that stores the last string value.
 pub trait Label {
-    /// Set the gauge value
+    /// Set the label value
     fn set(&self, value: String);
 }
 
