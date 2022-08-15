@@ -1,21 +1,12 @@
-use async_std::{
-    io::{ReadExt, WriteExt},
-    net::TcpStream,
-    prelude::FutureExt,
-};
-use bincode::Options;
+use async_std::prelude::FutureExt;
 use hotshot::{
     data::{BlockHash, TransactionHash},
     traits::{BlockContents, State, Transaction},
     types::SignatureKey,
 };
-use hotshot_centralized_server::MAX_MESSAGE_SIZE;
+use hotshot_centralized_server::TcpStreamUtil;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
-use std::{
-    fmt,
-    net::{Ipv4Addr, SocketAddr},
-    time::Duration,
-};
+use std::{fmt, net::Ipv4Addr, time::Duration};
 
 type Server = hotshot_centralized_server::Server<TestSignatureKey>;
 type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
@@ -30,7 +21,7 @@ async fn multiple_clients() {
     let server_addr = server.addr();
     let server_join_handle = async_std::task::spawn(server.run());
 
-    let mut first_client = TestClient::connect(server_addr).await.unwrap();
+    let mut first_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     first_client
         .send(ToServer::Identify {
             key: TestSignatureKey { idx: 1 },
@@ -38,7 +29,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
-    let mut second_client = TestClient::connect(server_addr).await.unwrap();
+    let mut second_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     second_client
         .send(ToServer::Identify {
             key: TestSignatureKey { idx: 2 },
@@ -46,7 +37,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
-    let msg = first_client.receive().await.unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
         FromServer::NodeConnected {
@@ -62,7 +53,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
-    let msg = second_client.receive().await.unwrap();
+    let msg = second_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
         FromServer::Direct {
@@ -77,7 +68,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
-    let msg = first_client.receive().await.unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
         FromServer::Broadcast {
@@ -86,7 +77,7 @@ async fn multiple_clients() {
     );
 
     drop(second_client);
-    let msg = first_client.receive().await.unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
         FromServer::NodeDisconnected {
@@ -98,49 +89,6 @@ async fn multiple_clients() {
         .timeout(Duration::from_secs(5))
         .await
         .expect("Could not shut down server");
-}
-
-struct TestClient {
-    stream: TcpStream,
-}
-
-impl TestClient {
-    pub async fn connect(addr: SocketAddr) -> std::io::Result<Self> {
-        let stream = TcpStream::connect(addr).await?;
-        Ok(Self { stream })
-    }
-
-    pub async fn send(&mut self, data: ToServer) -> std::io::Result<()> {
-        let bytes = hotshot_centralized_server::bincode_opts()
-            .serialize(&data)
-            .unwrap();
-        if bytes.len() > MAX_MESSAGE_SIZE {
-            eprintln!(
-                "Send message is {} bytes but we only support {} bytes",
-                bytes.len(),
-                MAX_MESSAGE_SIZE
-            );
-            panic!("Please increase the value of `MAX_MESSAGE_SIZE`");
-        }
-        self.stream.write_all(&bytes).await
-    }
-
-    pub async fn receive(&mut self) -> std::io::Result<FromServer> {
-        let mut buffer = [0u8; MAX_MESSAGE_SIZE];
-        let n = self.stream.read(&mut buffer).await?;
-        let result = hotshot_centralized_server::bincode_opts()
-            .deserialize(&buffer[..n])
-            .expect("Invalid data received");
-        Ok(result)
-    }
-}
-
-impl Drop for TestClient {
-    fn drop(&mut self) {
-        if !std::thread::panicking() {
-            self.stream.shutdown(std::net::Shutdown::Both).unwrap();
-        }
-    }
 }
 
 #[derive(Debug)]

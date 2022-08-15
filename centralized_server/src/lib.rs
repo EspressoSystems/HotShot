@@ -11,14 +11,12 @@ use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
     marker::PhantomData,
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Shutdown, SocketAddr},
     time::Duration,
 };
 
 use bincode::config::*;
 use hotshot_types::traits::signature_key::SignatureKey;
-
-pub const MAX_MESSAGE_SIZE: usize = 10240; // 10kb
 
 /// For the wire format, we use bincode with the following options:
 ///   - No upper size limit
@@ -284,42 +282,28 @@ async fn background_task<K: SignatureKey>(
 
 async fn spawn_client<K: SignatureKey + 'static>(
     address: SocketAddr,
-    mut stream: TcpStream,
+    stream: TcpStream,
     parent_key: &mut Option<K>,
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (sender, receiver) = flume::unbounded();
     let mut sender = Some(sender);
     async_std::task::spawn({
-        let mut stream = stream.clone();
+        let mut stream = TcpStreamUtil::new(stream.clone());
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                let bytes = bincode_opts()
-                    .serialize(&msg)
-                    .expect("Could not serialize message");
-                if bytes.len() > MAX_MESSAGE_SIZE {
-                    eprintln!(
-                        "Send message is {} bytes but we only support {} bytes",
-                        bytes.len(),
-                        MAX_MESSAGE_SIZE
-                    );
-                    panic!("Please increase the value of `MAX_MESSAGE_SIZE`");
-                }
-                if let Err(e) = stream.write_all(&bytes).await {
+                if let Err(e) = stream.send(msg).await {
                     eprintln!("Lost connection to {:?}: {:?}", address, e);
                     break;
                 }
             }
         }
     });
+    let mut stream = TcpStreamUtil::new(stream);
     loop {
-        let mut buffer = [0u8; MAX_MESSAGE_SIZE];
-        let n = stream.read(&mut buffer).await.context(IoSnafu)?;
-        if n == 0 {
-            break; // disconnected
-        }
-        match bincode_opts().deserialize::<ToServer<K>>(&buffer[..n]) {
-            Ok(ToServer::Identify { key }) if parent_key.is_none() && sender.is_some() => {
+        let msg = stream.recv::<ToServer<K>>().await?;
+        match msg {
+            ToServer::Identify { key } if parent_key.is_none() && sender.is_some() => {
                 *parent_key = Some(key.clone());
                 let sender = sender.take().unwrap();
                 to_background
@@ -327,17 +311,17 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            Ok(ToServer::Identify { .. }) => {
+            ToServer::Identify { .. } => {
                 eprintln!("{:?} tried to identify twice", address);
             }
-            Ok(ToServer::Broadcast { message }) if parent_key.is_some() => {
+            ToServer::Broadcast { message } if parent_key.is_some() => {
                 let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingBroadcast { sender, message })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            Ok(ToServer::Direct { message, target }) if parent_key.is_some() => {
+            ToServer::Direct { message, target } if parent_key.is_some() => {
                 to_background
                     .send_async(ToBackground::IncomingDirectMessage {
                         receiver: target,
@@ -346,15 +330,11 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            Ok(_) => {
+            _ => {
                 eprintln!("{:?} received message but is not identified yet", address);
-            }
-            Err(e) => {
-                eprintln!("{:?} send invalid data: {:?}", address, e);
             }
         }
     }
-    Ok(())
 }
 
 enum ToBackground<K: SignatureKey> {
@@ -380,4 +360,63 @@ enum ToBackground<K: SignatureKey> {
 pub enum Error {
     Io { source: std::io::Error },
     BackgroundShutdown,
+    Disconnected,
+    Decode { source: bincode::Error },
+}
+
+/// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
+pub struct TcpStreamUtil {
+    stream: TcpStream,
+    buffer: Vec<u8>,
+}
+
+impl TcpStreamUtil {
+    pub fn new(stream: TcpStream) -> Self {
+        Self {
+            stream,
+            buffer: Vec::new(),
+        }
+    }
+    pub async fn connect(addr: SocketAddr) -> std::io::Result<Self> {
+        let stream = TcpStream::connect(addr).await?;
+        Ok(Self::new(stream))
+    }
+
+    pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
+        loop {
+            if self.buffer.len() > 4 {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&self.buffer[..4]);
+                let len = u32::from_le_bytes(bytes) as usize;
+                if self.buffer.len() >= 4 + len {
+                    let bytes: Vec<u8> = self.buffer.drain(..len + 4).skip(4).collect();
+                    return bincode_opts().deserialize::<M>(&bytes).context(DecodeSnafu);
+                }
+            }
+            let mut buffer = [0u8; 1024];
+            let n = self.stream.read(&mut buffer).await.context(IoSnafu)?;
+            if n == 0 {
+                return Err(Error::Disconnected);
+            }
+            self.buffer.extend(&buffer[..n]);
+        }
+    }
+
+    pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
+        let bytes = bincode_opts()
+            .serialize(&m)
+            .expect("Could not serialize message");
+        let len_bytes = (bytes.len() as u32).to_le_bytes();
+        self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
+        self.stream.write_all(&bytes).await.context(IoSnafu)?;
+        Ok(())
+    }
+}
+
+impl Drop for TcpStreamUtil {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            let _ = self.stream.shutdown(Shutdown::Both);
+        }
+    }
 }

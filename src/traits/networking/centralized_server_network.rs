@@ -2,16 +2,12 @@
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
 
-use async_std::{
-    io::{ReadExt, WriteExt},
-    net::TcpStream,
-    sync::RwLock,
-};
+use async_std::{net::TcpStream, sync::RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt;
-use hotshot_centralized_server::{FromServer, ToServer};
+use hotshot_centralized_server::{FromServer, TcpStreamUtil, ToServer};
 use hotshot_types::traits::{
     network::{
         FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
@@ -228,7 +224,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
                     )
                     .await
                     {
-                        error!("Background thread exited: {:?}", e);
+                        error!(?key, ?e, "background thread exited");
                     }
                     inner.connected.store(false, Ordering::Relaxed);
                 }
@@ -252,29 +248,21 @@ async fn run_background<K: SignatureKey>(
     from_background_sender: Sender<FromServer<K>>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
-    let mut socket = TcpStream::connect(addr).await.context(StreamSnafu)?;
+    let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
     // send identify
-    let bytes = hotshot_centralized_server::bincode_opts()
-        .serialize(&ToServer::Identify { key })
-        .expect("Could not serialize msg");
-    assert!(bytes.len() <= hotshot_centralized_server::MAX_MESSAGE_SIZE);
-    socket.write_all(&bytes).await.context(StreamSnafu)?;
+    stream.send(ToServer::Identify { key: key.clone() }).await?;
     connection.connected.store(true, Ordering::Relaxed);
 
-    let mut buffer = [0u8; hotshot_centralized_server::MAX_MESSAGE_SIZE];
     loop {
         futures::select! {
-            res = socket.read(&mut buffer).fuse() => {
-                let count = res.context(StreamSnafu)?;
-                let msg = hotshot_centralized_server::bincode_opts().deserialize(&buffer[..count]).context(CouldNotDeserializeSnafu)?;
+            res = stream.recv().fuse() => {
+                let msg = res?;
                 from_background_sender.send_async(msg).await.map_err(|_| Error::FailedToReceive)?;
             },
             msg = to_background.recv_async().fuse() => {
                 let msg: ToServer<K> = msg.map_err(|_| Error::FailedToSend)?;
-                let bytes = hotshot_centralized_server::bincode_opts().serialize(&msg).expect("Could not serialize msg");
-                assert!(bytes.len() <= hotshot_centralized_server::MAX_MESSAGE_SIZE);
-                socket.write_all(&bytes).await.context(StreamSnafu)?;
+                stream.send(msg).await?;
             }
         }
     }
@@ -297,6 +285,21 @@ enum Error {
         /// The inner error
         source: bincode::Error,
     },
+    /// We lost connection to the server
+    Disconnected,
+}
+
+impl From<hotshot_centralized_server::Error> for Error {
+    fn from(e: hotshot_centralized_server::Error) -> Self {
+        match e {
+            hotshot_centralized_server::Error::Io { source } => Self::Stream { source },
+            hotshot_centralized_server::Error::Decode { source } => {
+                Self::CouldNotDeserialize { source }
+            }
+            hotshot_centralized_server::Error::Disconnected => Self::Disconnected,
+            hotshot_centralized_server::Error::BackgroundShutdown => unreachable!(), // should never be reached
+        }
+    }
 }
 
 #[async_trait]
