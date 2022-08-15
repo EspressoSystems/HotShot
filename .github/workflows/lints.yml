@@ -28,7 +28,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
-          sharedKey: HotShot
+          sharedKey: HotShot163
 
       - name: Format Check
         run: cargo fmt -- --check

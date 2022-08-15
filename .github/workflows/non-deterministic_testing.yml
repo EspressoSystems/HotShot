@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
-          sharedKey: HotShot
+          sharedKey: HotShot163
 
       - name: Test
         run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --all-features --no-fail-fast -- --ignored
