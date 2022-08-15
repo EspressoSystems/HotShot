@@ -621,7 +621,6 @@
 <span id="615">615</span>
 <span id="616">616</span>
 <span id="617">617</span>
-<span id="618">618</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -839,7 +838,6 @@
     <span class="doccomment">/// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT</span>
     <span class="doccomment">/// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key</span>
     <span class="doccomment">/// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::explicit_auto_deref</span>)]</span> <span class="comment">// False positive, that reborrow actually does something</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_record</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
