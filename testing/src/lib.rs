@@ -32,7 +32,6 @@ use hotshot_types::traits::{
     state::TestableState,
     storage::StorageState,
 };
-use hotshot_utils::hack::nll_todo;
 use snafu::Snafu;
 use std::{
     collections::{HashMap, HashSet},

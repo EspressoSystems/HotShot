@@ -21,7 +21,6 @@ mod traits;
 mod utils;
 
 use flume::{Receiver, Sender};
-use hotshot_utils::hack::nll_todo;
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
@@ -653,12 +652,12 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: nll_todo(),
-            last_decided_view: nll_todo(),
-            state_map: nll_todo(),
-            undecided_leaves: nll_todo(),
-            locked_view: nll_todo(),
-            high_qc: nll_todo(),
+            cur_view: ViewNumber::genesis(),
+            last_decided_view: ViewNumber::genesis(),
+            state_map: BTreeMap::default(),
+            undecided_leaves: HashMap::default(),
+            locked_view: ViewNumber::genesis(),
+            high_qc: QuorumCertificate::default(),
         }
     }
 }
