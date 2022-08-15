@@ -290,6 +290,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
         consensus
             .collect_garbage(old_anchor_view, new_anchor_view)
             .await;
+        consensus.last_decided_view = new_anchor_view;
+        consensus.locked_view = new_locked_view;
         decide_sent.await;
         high_qc
     }
@@ -667,6 +669,23 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     #[must_use]
     pub fn get_transactions(&self) -> Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>> {
         self.transactions.clone()
+    }
+
+    /// Gets the last decided state
+    /// # Panics
+    /// if the last decided view's state does not exist in the state map
+    /// this should never happen.
+    #[must_use]
+    pub fn get_decided_state(&self) -> I::State {
+        let decided_view_num = self.last_decided_view;
+        let view = self.state_map.get(&decided_view_num).unwrap();
+        if let View {
+            view_inner: ViewInner::Leaf { leaf },
+        } = view
+        {
+            return self.undecided_leaves.get(leaf).unwrap().state.clone();
+        };
+        panic!("Decided state not found! Consensus internally inconsistent");
     }
 }
 

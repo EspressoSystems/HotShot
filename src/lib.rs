@@ -356,30 +356,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
     /// Returns a copy of the state
     ///
-    /// # Errors
-    ///
-    /// Returns an error if an error occured with the storage interface, or if there is no QC or valid State in the storage.
-    pub async fn get_state(&self) -> Result<Option<I::State>> {
-        let qc = match self
-            .inner
-            .storage
-            .get_newest_qc()
-            .await
-            .context(StorageSnafu)?
-        {
-            Some(qc) => qc,
-            None => return Ok(None),
-        };
-        match self
-            .inner
-            .storage
-            .get_state(&qc.leaf_hash)
-            .await
-            .context(StorageSnafu)?
-        {
-            Some(state) => Ok(Some(state)),
-            None => Ok(None),
-        }
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_state(&self) -> I::State {
+        self.hotstuff.read().await.get_decided_state()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks

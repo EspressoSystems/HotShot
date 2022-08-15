@@ -391,7 +391,7 @@ async fn main() {
         let num_submitted = {
             if own_id == (view % num_nodes) {
                 info!("Generating txn for view {}", view);
-                let state = hotshot.get_state().await.unwrap().unwrap();
+                let state = hotshot.get_state().await;
 
                 for _ in 0..10 {
                     let txn = <State as TestableState<H_256>>::create_random_transaction(&state);

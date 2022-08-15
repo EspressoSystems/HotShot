@@ -111,7 +111,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> Result<Option<I::State>> {
+    pub async fn get_state(&self) -> I::State {
         self.hotshot.get_state().await
     }
 

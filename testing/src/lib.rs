@@ -639,9 +639,7 @@ impl<
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
-        let state = async_std::task::block_on(self.nodes[0].handle.get_state())
-            .unwrap()
-            .unwrap();
+        let state = async_std::task::block_on(self.nodes[0].handle.get_state());
 
         let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
 
