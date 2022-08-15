@@ -14,14 +14,14 @@ blake3 = "1.3.1"
 color-eyre = "0.6.2"
 crossterm = { version = "0.25.0", features = ["event-stream"] }
 flume = "0.10.14"
-futures = "0.3.21"
+futures = "0.3.23"
 libp2p = { version = "0.46.1", features = ["serde"] }
 parking_lot = "0.12.0"
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.83"
 snafu = "0.7.0"
 tracing = "0.1.36"
-tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
+tui = { version = "0.19.0", features = ["crossterm"], default-features = false }
 rand = "0.8.5"
 async-trait = "0.1.57"
 derive_builder = "0.11.1"
@@ -37,7 +37,7 @@ tide = { version = "0.16", optional = true, default-features = false, features =
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies
-nix = { version = "0.24.2", optional = true }
+nix = { version = "0.25.0", optional = true }
 rtnetlink = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.1", features = ["smol_socket"], default-features = false, optional = true}
 netlink-packet-route = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.11.0", optional = true}
 netlink-packet-utils = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.5.1", optional = true}
@@ -52,4 +52,4 @@ webui = ["tide"]
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
 
 [dev-dependencies]
-clap = { version = "3.2.16", features = [ "derive", "env" ] }
+clap = { version = "3.2.17", features = [ "derive", "env" ] }
