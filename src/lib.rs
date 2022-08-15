@@ -50,10 +50,10 @@ use crate::{
 use async_std::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
-use hotshot_consensus::Consensus;
+use hotshot_consensus::{Consensus, View, ViewInner};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
-    error::{NetworkFaultSnafu, StorageSnafu},
+    error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -66,7 +66,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, HashSet},
+    collections::{btree_map::Entry, BTreeMap, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -271,19 +271,46 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let leaf_hash = genesis_leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
 
-        inner
-            .storage
-            .update(|mut m| async move {
-                m.insert_qc(genesis_qc).await?;
-                m.insert_leaf(genesis_leaf).await?;
-                m.insert_state(starting_state, leaf_hash).await?;
-                Ok(())
-            })
-            .await
-            .context(StorageSnafu)?;
+        // TODO should we be putting things in storage now?
+        // inner
+        //     .storage
+        //     .update(|mut m| async move {
+        //         m.insert_qc(genesis_qc).await?;
+        //         m.insert_leaf(genesis_leaf.clone()).await?;
+        //         m.insert_state(starting_state, leaf_hash).await?;
+        //         Ok(())
+        //     })
+        //     .await
+        //     .context(StorageSnafu)?;
 
         let (send_next_leader, recv_next_leader) = flume::unbounded();
-        let hotstuff: Arc<RwLock<Consensus<I, N>>> = Arc::default();
+
+        let mut genesis_map = BTreeMap::default();
+
+        genesis_map.insert(
+            ViewNumber(0),
+            View {
+                view_inner: ViewInner::Leaf { leaf: leaf_hash },
+            },
+        );
+
+        let mut genesis_leaves = HashMap::new();
+        genesis_leaves.insert(leaf_hash, genesis_leaf);
+
+        // TODO jr add constructor and private the consensus fields
+        // and also ViewNumber's contained number
+        let hotstuff = Consensus {
+            state_map: genesis_map,
+            cur_view: ViewNumber(1),
+            last_decided_view: ViewNumber(0),
+            transactions: Arc::default(),
+            undecided_leaves: genesis_leaves,
+            // TODO unclear if this is correct
+            // maybe we need 3 views?
+            locked_view: ViewNumber(0),
+            high_qc: genesis_qc,
+        };
+        let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {

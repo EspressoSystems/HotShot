@@ -61,9 +61,10 @@ pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
     Failed,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
+impl<I: NodeImplementation<N>, const N: usize> Default for View<I, N> {
     /// Create a new View
-    pub fn new() -> Self {
+    #[must_use]
+    fn default() -> Self {
         let (sender_chan, receiver_chan) = flume::unbounded();
         Self {
             view_inner: ViewInner::Future {
@@ -76,9 +77,9 @@ impl<I: NodeImplementation<N>, const N: usize> View<I, N> {
 
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
-pub(crate) struct View<I: NodeImplementation<N>, const N: usize> {
+pub struct View<I: NodeImplementation<N>, const N: usize> {
     /// The view data. Wrapped in a struct so we can mutate
-    view_inner: ViewInner<I, N>,
+    pub view_inner: ViewInner<I, N>,
 }
 
 /// The result used in this crate
@@ -91,13 +92,13 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    state_map: BTreeMap<ViewNumber, View<I, N>>,
+    pub state_map: BTreeMap<ViewNumber, View<I, N>>,
 
     /// cur_view from pseudocode
-    cur_view: ViewNumber,
+    pub cur_view: ViewNumber,
 
     /// last view had a successful decide event
-    last_decided_view: ViewNumber,
+    pub last_decided_view: ViewNumber,
 
     // /// Listeners to be called when a round ends
     // /// TODO we can probably nuke this soon
@@ -107,9 +108,10 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 
     /// Map of undecided leaf hash -> leaf
+    /// NOTE: this also includes the MOST RECENT decided leaf
     pub undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
     /// The `locked_qc` view number
-    locked_view: ViewNumber,
+    pub locked_view: ViewNumber,
     /// the highqc per spec
     pub high_qc: QuorumCertificate<N>,
 }
@@ -561,6 +563,8 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     }
 
     /// garbage collects based on state change
+    /// right now, this removes from both the `undecided_leaves`
+    /// and `state_map` fields of `Consensus`
     pub async fn collect_garbage(
         &mut self,
         old_anchor_view: ViewNumber,
@@ -606,7 +610,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         let view = self
             .state_map
             .entry(msg_view_number)
-            .or_insert_with(View::new);
+            .or_insert_with(View::default);
         if let ViewInner::Future {
             sender_chan,
             receiver_chan,
@@ -617,16 +621,6 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
             None
         }
     }
-
-    // pub fn spawn_network_handler() -> Sender<ConsensusMessage<I::Block, I::State, N>> {
-    //     let (send_network_handler, recv_network_handler) = flume::unbounded();
-    //     spawn(async move {
-    //         // TODO use this somehow
-    //         // TODO shutdown
-    //         drop(recv_network_handler);
-    //     });
-    //     send_network_handler
-    // }
 }
 
 /// A struct containing information about a finished round.
