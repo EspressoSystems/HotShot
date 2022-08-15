@@ -1605,7 +1605,7 @@ dependencies = [
  "embed-doc-image",
  "flume",
  "futures",
- "hotshot-centralized-server-shared",
+ "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
@@ -1628,21 +1628,23 @@ version = "0.1.1"
 dependencies = [
  "async-std",
  "bincode",
- "clap 3.2.17",
  "flume",
  "futures",
- "hotshot",
- "hotshot-centralized-server-shared",
  "hotshot-types",
  "serde",
  "snafu",
 ]
 
 [[package]]
-name = "hotshot-centralized-server-shared"
+name = "hotshot-centralized-server-bin"
 version = "0.1.1"
 dependencies = [
+ "async-std",
  "bincode",
+ "clap 3.2.17",
+ "flume",
+ "hotshot",
+ "hotshot-centralized-server",
  "hotshot-types",
  "serde",
 ]

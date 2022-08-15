@@ -44,7 +44,7 @@ tracing-unwrap = "0.9.2"
 tempfile = "3.3.0"
 embed-doc-image = "0.1.4"
 rand_chacha = "0.3.1"
-hotshot-centralized-server-shared = { version = "0.1.0", path = "centralized_server/shared" }
+hotshot-centralized-server = { version = "0.1.1", path = "centralized_server" }
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
@@ -89,5 +89,5 @@ members = [
         "types",
         "utils",
         "centralized_server",
-        "centralized_server/shared",
+        "centralized_server/bin",
 ]

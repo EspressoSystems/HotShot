@@ -6,8 +6,6 @@ use async_std::{
 use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use hotshot::types::SignatureKey;
-use hotshot_centralized_server_shared::{FromServer, ToServer, MAX_MESSAGE_SIZE};
 use hotshot_types::traits::signature_key::EncodedPublicKey;
 use snafu::ResultExt;
 use std::{
@@ -16,6 +14,48 @@ use std::{
     net::{IpAddr, SocketAddr},
     time::Duration,
 };
+
+use bincode::config::*;
+use hotshot_types::traits::signature_key::SignatureKey;
+
+pub const MAX_MESSAGE_SIZE: usize = 10240; // 10kb
+
+/// For the wire format, we use bincode with the following options:
+///   - No upper size limit
+///   - Litte endian encoding
+///   - Varint encoding
+///   - Reject trailing bytes
+#[allow(clippy::type_complexity)]
+pub fn bincode_opts() -> WithOtherTrailing<
+    WithOtherIntEncoding<
+        WithOtherEndian<WithOtherLimit<DefaultOptions, bincode::config::Infinite>, LittleEndian>,
+        VarintEncoding,
+    >,
+    RejectTrailing,
+> {
+    bincode::DefaultOptions::new()
+        .with_no_limit()
+        .with_little_endian()
+        .with_varint_encoding()
+        .reject_trailing_bytes()
+}
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
+#[serde(bound(deserialize = ""))]
+pub enum ToServer<K: SignatureKey> {
+    Identify { key: K },
+    Broadcast { message: Vec<u8> },
+    Direct { target: K, message: Vec<u8> },
+}
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
+#[serde(bound(deserialize = ""))]
+pub enum FromServer<K: SignatureKey> {
+    NodeConnected { key: K },
+    NodeDisconnected { key: K },
+    Broadcast { message: Vec<u8> },
+    Direct { message: Vec<u8> },
+}
 
 pub struct Server<K: SignatureKey + 'static> {
     listener: TcpListener,
@@ -254,7 +294,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
         let mut stream = stream.clone();
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                let bytes = hotshot_centralized_server_shared::bincode_opts()
+                let bytes = bincode_opts()
                     .serialize(&msg)
                     .expect("Could not serialize message");
                 if bytes.len() > MAX_MESSAGE_SIZE {
@@ -278,9 +318,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
         if n == 0 {
             break; // disconnected
         }
-        match hotshot_centralized_server_shared::bincode_opts()
-            .deserialize::<ToServer<K>>(&buffer[..n])
-        {
+        match bincode_opts().deserialize::<ToServer<K>>(&buffer[..n]) {
             Ok(ToServer::Identify { key }) if parent_key.is_none() && sender.is_some() => {
                 *parent_key = Some(key.clone());
                 let sender = sender.take().unwrap();

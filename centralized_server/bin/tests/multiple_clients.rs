@@ -9,7 +9,7 @@ use hotshot::{
     traits::{BlockContents, State, Transaction},
     types::SignatureKey,
 };
-use hotshot_centralized_server_shared::MAX_MESSAGE_SIZE;
+use hotshot_centralized_server::MAX_MESSAGE_SIZE;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
 use std::{
     fmt,
@@ -18,9 +18,8 @@ use std::{
 };
 
 type Server = hotshot_centralized_server::Server<TestSignatureKey>;
-type ToServer = hotshot_centralized_server_shared::ToServer<TestSignatureKey>;
-
-type FromServer = hotshot_centralized_server_shared::FromServer<TestSignatureKey>;
+type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
+type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
 
 #[async_std::test]
 async fn multiple_clients() {
@@ -112,7 +111,7 @@ impl TestClient {
     }
 
     pub async fn send(&mut self, data: ToServer) -> std::io::Result<()> {
-        let bytes = hotshot_centralized_server_shared::bincode_opts()
+        let bytes = hotshot_centralized_server::bincode_opts()
             .serialize(&data)
             .unwrap();
         if bytes.len() > MAX_MESSAGE_SIZE {
@@ -129,7 +128,7 @@ impl TestClient {
     pub async fn receive(&mut self) -> std::io::Result<FromServer> {
         let mut buffer = [0u8; MAX_MESSAGE_SIZE];
         let n = self.stream.read(&mut buffer).await?;
-        let result = hotshot_centralized_server_shared::bincode_opts()
+        let result = hotshot_centralized_server::bincode_opts()
             .deserialize(&buffer[..n])
             .expect("Invalid data received");
         Ok(result)
