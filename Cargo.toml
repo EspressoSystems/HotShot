@@ -5,6 +5,7 @@ edition = "2021"
 name = "hotshot"
 readme = "README.md"
 version = "0.1.1"
+rust-version = "1.63.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]
@@ -31,8 +32,8 @@ flume = "0.10.14"
 futures = "0.3.23"
 hotshot-consensus = { path = "./consensus", version = "0.1.0" }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
-hotshot-utils = { path = "./utils", version = "0.1.0"}
-libp2p-networking = {path = "./libp2p-networking", version = "0.1.0"}
+hotshot-utils = { path = "./utils", version = "0.1.0" }
+libp2p-networking = { path = "./libp2p-networking", version = "0.1.0" }
 libp2p = { version = "0.46.1", features = ["serde"] }
 bimap = "0.6.2"
 rand = "0.8.5"
@@ -46,7 +47,9 @@ rand_chacha = "0.3.1"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
-hotshot-utils = { path = "./utils", version = "0.1.0", features = ["logging-utils"] }
+hotshot-utils = { path = "./utils", version = "0.1.0", features = [
+        "logging-utils",
+] }
 rand_xoshiro = "0.6.0"
 clap = { version = "3.2.17", features = [ "derive", "env" ] }
 toml = "0.5.8"
@@ -77,10 +80,4 @@ lto = "thin"
 # when implementing traits externally
 [workspace]
 
-members = [
-        "libp2p-networking",
-        "consensus",
-        "testing",
-        "types",
-        "utils",
-]
+members = ["libp2p-networking", "consensus", "testing", "types", "utils"]

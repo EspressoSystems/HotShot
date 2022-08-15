@@ -21,27 +21,20 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix, rust-overlay }:
+  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        # rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17";
-        rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17".override {
-          extensions = [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" ];
-        };
+        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
 
         rustOverlay = final: prev:
           {
-            rustc = rustNightly;
-            cargo = rustNightly;
-            rust-src = rustNightly;
+            rustc = fenixStable;
+            cargo = fenixStable;
+            rust-src = fenixStable;
           };
 
         pkgs = import nixpkgs {
@@ -128,11 +121,13 @@
       {
         devShell = pkgs.mkShell {
           buildInputs =
-            with pkgs; [ rustNightly ] ++ buildDeps;
+            with pkgs; [ fenixStable ] ++ buildDeps;
         };
 
 
         devShells = {
+
+          # usage: build documentation
           docsShell = pkgs.mkShell {
             buildInputs = [
               pkgs.glibcLocales
@@ -141,6 +136,7 @@
               pkgs.haskellPackages.pandoc-crossref
             ];
           };
+
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
             shellHook = ''
@@ -152,9 +148,10 @@
               with pkgs; [ fenixMusl ] ++ buildDeps;
           };
 
+          # usage: link with mold
           moldShell = pkgs.mkShell {
             LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
-            buildInputs = with pkgs; [ zlib.out fd fenixNightly ] ++ buildDeps;
+            buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
@@ -162,14 +159,14 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov rustNightly ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
+             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
             buildInputs =
-              with pkgs; [ rustNightly lldb ] ++ buildDeps;
+              with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };
 
         };

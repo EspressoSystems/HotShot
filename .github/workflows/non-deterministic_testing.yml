@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     runs-on: [self-hosted, X64]
     container:
-      image: ghcr.io/espressosystems/devops-rust:nightly
+      image: ghcr.io/espressosystems/devops-rust:1.63
     timeout-minutes: 140
     steps:
       - uses: actions/checkout@v3
@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
-          sharedKey: HotShot
+          sharedKey: HotShot163
 
       - name: Test
         run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --all-features --no-fail-fast -- --ignored
