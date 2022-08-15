@@ -537,7 +537,7 @@ impl<
 
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self, strictness: ValidateStrictness) {
-        let mut states = Vec::<(StorageState<BLOCK, STATE, N>)>::new();
+        let mut states = Vec::<StorageState<BLOCK, STATE, N>>::new();
         for (idx, node) in self.nodes.iter().enumerate() {
             if let Some(message_count) = node.handle.networking().in_flight_message_count() {
                 if message_count > 0 {
@@ -597,7 +597,7 @@ impl<
                 } else {
                     unimplemented!()
                 };
-                if Self::validate_storage_states(&left, &right, 0, strictness).is_err() {
+                if Self::validate_storage_states(left, right, 0, strictness).is_err() {
                     all_other_nodes_match = false;
                 }
             }

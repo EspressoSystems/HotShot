@@ -18,7 +18,6 @@
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod traits;
-mod utils;
 
 use flume::{Receiver, Sender};
 pub use traits::ConsensusApi;
@@ -40,7 +39,6 @@ use hotshot_types::{
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
-    time::Instant,
 };
 use tracing::{error, warn};
 
@@ -487,7 +485,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     }
 }
 
+/// TODO `@NathanY` do we want to keep this?
 /// Iterator over views
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ViewIterator<'a, I: NodeImplementation<N>, const N: usize> {
     /// reference to consensus strut
@@ -664,86 +664,9 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// return a clone of the internal storage of unclaimed transactions
+    #[must_use]
     pub fn get_transactions(&self) -> Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>> {
         self.transactions.clone()
-    }
-}
-
-/// The state of a [`Transaction`].
-#[derive(Debug)]
-struct TransactionState<I: NodeImplementation<N>, const N: usize> {
-    /// The transaction
-    transaction: <I as TypeMap<N>>::Transaction,
-    /// If this is `Some`, the transaction was proposed in the given round
-    propose: Option<TransactionLink>,
-    /// If this is `Some`, the transaction was rejected on the given timestamp
-    rejected: Option<Instant>,
-}
-
-impl<I: NodeImplementation<N>, const N: usize> TransactionState<I, N> {
-    /// Create a new [`TransactionState`]
-    fn new(transaction: <I as TypeMap<N>>::Transaction) -> TransactionState<I, N> {
-        Self {
-            transaction,
-            propose: None,
-            rejected: None,
-        }
-    }
-
-    /// returns `true` if this transaction has not been proposed or rejected yet.
-    async fn is_unclaimed(&self) -> bool {
-        self.propose.is_none() && self.rejected.is_none()
-    }
-}
-
-/// A link to a view number at a given time
-// TODO(https://github.com/EspressoSystems/hotshot/issues/257): These fields are not used. In the future we can use this for:
-// - debugging
-// - persistent storage
-// - cleaning up old transactions out of memory
-#[allow(dead_code)]
-#[derive(Debug)]
-struct TransactionLink {
-    /// The time this link was made
-    pub timestamp: Instant,
-    /// The view number
-    pub view_number: ViewNumber,
-}
-
-/// Check if the given iterator is sorted. Use internally to make sure some assumptions are correct.
-fn is_sorted<'a>(mut iter: impl Iterator<Item = &'a ViewNumber> + 'a) -> bool {
-    match iter.next() {
-        // An empty list is always sorted
-        None => true,
-
-        Some(mut previous) => {
-            // iterate through 1..n view numbers
-            for item in iter {
-                if item <= previous {
-                    return false;
-                }
-                previous = item;
-            }
-            true
-        }
-    }
-}
-
-/// A utility function that will return `HotShotError::ItemNotFound` if a value is `None`
-trait OptionUtils<K> {
-    /// Return `ItemNotFound` with the given hash if `self` is `None`.
-    fn or_not_found<Ref: AsRef<[u8]>>(self, hash: Ref) -> Result<K>;
-}
-
-impl<K> OptionUtils<K> for Option<K> {
-    fn or_not_found<Ref: AsRef<[u8]>>(self, hash: Ref) -> Result<K> {
-        match self {
-            Some(v) => Ok(v),
-            None => Err(HotShotError::ItemNotFound {
-                type_name: std::any::type_name::<Ref>(),
-                hash: hash.as_ref().to_vec(),
-            }),
-        }
     }
 }
 
