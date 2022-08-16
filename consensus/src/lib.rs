@@ -40,7 +40,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
-use tracing::{error, warn, instrument};
+use tracing::{error, warn};
 
 /// A view's state
 #[derive(Debug)]
@@ -145,6 +145,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
+
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
@@ -450,7 +451,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                     qcs.insert(t.justify);
                 }
                 ConsensusMessage::Vote(vote) => {
-                    qcs.insert(vote.justify_qc);
+                    qcs.insert(vote.justify_qc.clone());
 
                     match vote_outcomes.entry(vote.leaf_hash) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
@@ -474,6 +475,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                         let result = self.api.get_valid_signatures(
                             map.clone(),
                             create_verify_hash(&vote.leaf_hash, self.cur_view),
+                            vote.justify_qc.genesis,
                         );
                         if let Ok(valid_signatures) = result {
                             // construct QC
@@ -517,6 +519,11 @@ pub struct ViewIterator<'a, I: NodeImplementation<N>, const N: usize> {
 }
 
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
+    /// Get the current view number
+    pub fn get_cur_view(&self) -> ViewNumber {
+        self.cur_view
+    }
+
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> ViewNumber {

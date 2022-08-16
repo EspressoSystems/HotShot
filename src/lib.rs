@@ -203,7 +203,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     recv_next_leader: Receiver<ConsensusMessage<I::Block, I::State, N>>,
 
     /// uid for instrumentation
-    id: u64
+    id: u64,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -431,7 +431,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             networking,
             storage,
             handler,
-            election
+            election,
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
@@ -829,7 +829,7 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
             warn!(?qc, ?view_number, "Failing on view_number equality check");
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number);
-        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
+        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash, qc.genesis);
         match valid_signatures {
             Ok(_) => true,
             Err(_e) => false,
@@ -841,8 +841,12 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
         hash: VerifyHash<32>,
+        genesis: bool,
     ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
         let mut valid_signatures = BTreeMap::new();
+        if genesis {
+            return Ok(valid_signatures);
+        }
 
         for (encoded_key, encoded_signature) in signatures {
             if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
