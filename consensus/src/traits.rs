@@ -156,5 +156,6 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
         hash: VerifyHash<32>,
+        genesis: bool,
     ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
 }
