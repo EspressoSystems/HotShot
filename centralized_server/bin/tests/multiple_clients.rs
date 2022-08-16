@@ -21,6 +21,7 @@ async fn multiple_clients() {
     let server_addr = server.addr();
     let server_join_handle = async_std::task::spawn(server.run());
 
+    // Connect first client
     let mut first_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     first_client
         .send(ToServer::Identify {
@@ -29,6 +30,15 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
+    // Assert that there is 1 client connected
+    first_client
+        .send(ToServer::RequestClientCount)
+        .await
+        .unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
+    assert_eq!(msg, FromServer::ClientCount(1));
+
+    // Connect second client
     let mut second_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     second_client
         .send(ToServer::Identify {
@@ -37,6 +47,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
+    // Assert that the first client gets a notification of this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
@@ -44,7 +55,21 @@ async fn multiple_clients() {
             key: TestSignatureKey { idx: 2 }
         }
     );
+    // Assert that there are 2 clients connected
+    first_client
+        .send(ToServer::RequestClientCount)
+        .await
+        .unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
+    assert_eq!(msg, FromServer::ClientCount(2));
+    second_client
+        .send(ToServer::RequestClientCount)
+        .await
+        .unwrap();
+    let msg = second_client.recv::<FromServer>().await.unwrap();
+    assert_eq!(msg, FromServer::ClientCount(2));
 
+    // Send a direct message from 1 -> 2
     first_client
         .send(ToServer::Direct {
             target: TestSignatureKey { idx: 2 },
@@ -53,6 +78,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
+    // Check that 2 received this
     let msg = second_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
@@ -61,6 +87,7 @@ async fn multiple_clients() {
         }
     );
 
+    // Send a broadcast from 2
     second_client
         .send(ToServer::Broadcast {
             message: vec![50, 40, 30, 20, 10],
@@ -68,6 +95,7 @@ async fn multiple_clients() {
         .await
         .unwrap();
 
+    // Check that 1 received this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
@@ -76,7 +104,10 @@ async fn multiple_clients() {
         }
     );
 
+    // Disconnect the second client
     drop(second_client);
+
+    // Assert that the first client received a notification of the second client disconnecting
     let msg = first_client.recv::<FromServer>().await.unwrap();
     assert_eq!(
         msg,
@@ -84,6 +115,15 @@ async fn multiple_clients() {
             key: TestSignatureKey { idx: 2 }
         }
     );
+    // Assert that the server reports 1 client being connected
+    first_client
+        .send(ToServer::RequestClientCount)
+        .await
+        .unwrap();
+    let msg = first_client.recv::<FromServer>().await.unwrap();
+    assert_eq!(msg, FromServer::ClientCount(1));
+
+    // Shut down the server
     shutdown.send(()).unwrap();
     server_join_handle
         .timeout(Duration::from_secs(5))

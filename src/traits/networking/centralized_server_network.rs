@@ -42,6 +42,8 @@ struct Inner<K: SignatureKey> {
     receiving: Receiver<FromServer<K>>,
     /// An internal queue of messages that have been received but not yet processed.
     incoming_queue: RwLock<Vec<FromServer<K>>>,
+    /// a sender used to immediately broadcast the amount of clients connected
+    request_client_count_sender: RwLock<Vec<Sender<usize>>>,
 }
 
 impl<K: SignatureKey> Inner<K> {
@@ -56,6 +58,15 @@ impl<K: SignatureKey> Inner<K> {
     async fn direct_message(&self, target: K, message: Vec<u8>) {
         self.sending
             .send_async(ToServer::Direct { target, message })
+            .await
+            .expect("Background thread exited");
+    }
+
+    /// Request the client count from the server
+    async fn request_client_count(&self, sender: Sender<usize>) {
+        self.request_client_count_sender.write().await.push(sender);
+        self.sending
+            .send_async(ToServer::RequestClientCount)
             .await
             .expect("Background thread exited");
     }
@@ -210,6 +221,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             sending: to_background_sender,
             receiving: from_background,
             incoming_queue: RwLock::default(),
+            request_client_count_sender: RwLock::default(),
         });
         async_std::task::spawn({
             let inner = Arc::clone(&inner);
@@ -235,6 +247,16 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             server_shutdown_signal: None,
         }
     }
+
+    /// Get the amount of clients that are connected
+    pub async fn get_connected_client_count(&self) -> usize {
+        let (sender, receiver) = flume::bounded(1);
+        self.inner.request_client_count(sender).await;
+        receiver
+            .recv_async()
+            .await
+            .expect("Could not request client count from server")
+    }
 }
 
 /// Connect to a TCP stream on address `addr`. On connection, this will send an identify with key `key`.
@@ -254,11 +276,31 @@ async fn run_background<K: SignatureKey>(
     stream.send(ToServer::Identify { key: key.clone() }).await?;
     connection.connected.store(true, Ordering::Relaxed);
 
+    // If we were in the middle of requesting # of clients, re-send that request
+    if !connection
+        .request_client_count_sender
+        .read()
+        .await
+        .is_empty()
+    {
+        stream.send(ToServer::<K>::RequestClientCount).await?;
+    }
+
     loop {
         futures::select! {
             res = stream.recv().fuse() => {
                 let msg = res?;
-                from_background_sender.send_async(msg).await.map_err(|_| Error::FailedToReceive)?;
+                match msg {
+                    x @ (FromServer:: NodeConnected { .. } | FromServer:: NodeDisconnected { .. } | FromServer:: Broadcast { .. } | FromServer:: Direct { .. }) => {
+                        from_background_sender.send_async(x).await.map_err(|_| Error::FailedToReceive)?;
+                    },
+                    FromServer::ClientCount(count) => {
+                        let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                        for sender in senders {
+                            let _ = sender.try_send(count);
+                        }
+                    }
+                }
             },
             msg = to_background.recv_async().fuse() => {
                 let msg: ToServer<K> = msg.map_err(|_| Error::FailedToSend)?;

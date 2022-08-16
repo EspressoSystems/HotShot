@@ -44,6 +44,7 @@ pub enum ToServer<K: SignatureKey> {
     Identify { key: K },
     Broadcast { message: Vec<u8> },
     Direct { target: K, message: Vec<u8> },
+    RequestClientCount,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
@@ -53,6 +54,7 @@ pub enum FromServer<K: SignatureKey> {
     NodeDisconnected { key: K },
     Broadcast { message: Vec<u8> },
     Direct { message: Vec<u8> },
+    ClientCount(usize),
 }
 
 pub struct Server<K: SignatureKey + 'static> {
@@ -192,6 +194,7 @@ async fn background_task<K: SignatureKey>(
         // if we fail to delivery a message to other clients, we store them in this vec
         // at the end we'll clean up the clients that we failed to `.send_async` to
         let mut clients_with_error = BTreeSet::<OrdKey<K>>::new();
+        let client_count = clients.len();
         match msg {
             ToBackground::Shutdown => {
                 eprintln!("Background thread shutting down");
@@ -251,6 +254,19 @@ async fn background_task<K: SignatureKey>(
                     }
                 }
             }
+            ToBackground::RequestClientCount { sender } => {
+                let sender = OrdKey::from(sender);
+                let client_count = clients.len();
+                if let Some(channel) = clients.get_mut(&sender) {
+                    if channel
+                        .send_async(FromServer::ClientCount(client_count))
+                        .await
+                        .is_err()
+                    {
+                        clients_with_error.insert(sender);
+                    }
+                }
+            }
         }
 
         // While notifying the clients of other clients disconnecting, those clients can be disconnected too
@@ -277,6 +293,9 @@ async fn background_task<K: SignatureKey>(
                 }
             }
         }
+        if client_count != clients.len() {
+            println!("Clients connected: {}", clients.len());
+        }
     }
 }
 
@@ -302,8 +321,9 @@ async fn spawn_client<K: SignatureKey + 'static>(
     let mut stream = TcpStreamUtil::new(stream);
     loop {
         let msg = stream.recv::<ToServer<K>>().await?;
-        match msg {
-            ToServer::Identify { key } if parent_key.is_none() && sender.is_some() => {
+        let parent_key_is_some = parent_key.is_some();
+        match (msg, parent_key_is_some) {
+            (ToServer::Identify { key }, false) if sender.is_some() => {
                 *parent_key = Some(key.clone());
                 let sender = sender.take().unwrap();
                 to_background
@@ -311,17 +331,20 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            ToServer::Identify { .. } => {
+            (ToServer::Identify { .. }, true) => {
                 eprintln!("{:?} tried to identify twice", address);
             }
-            ToServer::Broadcast { message } if parent_key.is_some() => {
+            (_, false) => {
+                eprintln!("{:?} received message but is not identified yet", address);
+            }
+            (ToServer::Broadcast { message }, true) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingBroadcast { sender, message })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            ToServer::Direct { message, target } if parent_key.is_some() => {
+            (ToServer::Direct { message, target }, true) => {
                 to_background
                     .send_async(ToBackground::IncomingDirectMessage {
                         receiver: target,
@@ -330,8 +353,13 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
-            _ => {
-                eprintln!("{:?} received message but is not identified yet", address);
+            (ToServer::RequestClientCount, true) => {
+                to_background
+                    .send_async(ToBackground::RequestClientCount {
+                        sender: parent_key.clone().unwrap(),
+                    })
+                    .await
+                    .map_err(|_| Error::BackgroundShutdown)?;
             }
         }
     }
@@ -353,6 +381,9 @@ enum ToBackground<K: SignatureKey> {
     IncomingDirectMessage {
         receiver: K,
         message: Vec<u8>,
+    },
+    RequestClientCount {
+        sender: K,
     },
 }
 
