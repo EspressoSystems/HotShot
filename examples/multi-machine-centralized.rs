@@ -160,8 +160,7 @@ async fn main() {
         .collect();
 
     // Get networking information
-    // TODO: read `PubKey`s from files.
-    let own_pub = known_nodes[own_id as usize].clone();
+    let own_pub = known_nodes[own_id as usize];
     println!("Own ID: {:?}", own_pub);
     let network = CentralizedServerNetwork::connect(
         known_nodes,
