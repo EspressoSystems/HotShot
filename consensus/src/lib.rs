@@ -40,7 +40,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
-use tracing::{error, warn, instrument};
+use tracing::{error, instrument, warn};
 
 /// A view's state
 #[derive(Debug)]
@@ -152,7 +152,10 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 }
                 match msg {
                     ConsensusMessage::Proposal(p) => {
-                        if !view_leader_key.validate(&p.signature, &p.leaf.hash().to_vec()) {
+                        if !view_leader_key.validate(
+                            &p.signature,
+                            &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
+                        ) {
                             continue;
                         }
                         let justify_qc = p.leaf.justify_qc;
