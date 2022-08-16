@@ -14,7 +14,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ViewNumber(pub u64);
+pub struct ViewNumber(u64);
 
 impl ViewNumber {
     /// Create a genesis view number (0)

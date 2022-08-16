@@ -288,7 +288,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let mut genesis_map = BTreeMap::default();
 
         genesis_map.insert(
-            ViewNumber(0),
+            ViewNumber::new(0),
             View {
                 view_inner: ViewInner::Leaf { leaf: leaf_hash },
             },
@@ -301,13 +301,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         // and also ViewNumber's contained number
         let hotstuff = Consensus {
             state_map: genesis_map,
-            cur_view: ViewNumber(1),
-            last_decided_view: ViewNumber(0),
+            cur_view: ViewNumber::new(1),
+            last_decided_view: ViewNumber::new(0),
             transactions: Arc::default(),
             undecided_leaves: genesis_leaves,
             // TODO unclear if this is correct
             // maybe we need 3 views?
-            locked_view: ViewNumber(0),
+            locked_view: ViewNumber::new(0),
             high_qc: genesis_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
