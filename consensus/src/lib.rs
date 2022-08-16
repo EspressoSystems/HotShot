@@ -40,7 +40,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
-use tracing::{error, warn};
+use tracing::{error, warn, instrument};
 
 /// A view's state
 #[derive(Debug)]
