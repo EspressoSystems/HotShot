@@ -40,7 +40,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
-use tracing::{error, warn};
+use tracing::{error, warn, instrument};
 
 /// A view's state
 #[derive(Debug)]
@@ -119,6 +119,8 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
+    /// id of node
+    pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
     /// channel for accepting leader proposals and timeouts messages
@@ -135,7 +137,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
     /// run one view of replica
     /// returns the `high_qc`
     #[allow(clippy::too_many_lines)]
+    #[instrument(skip(self), fields(id = self.id), name = "Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
+        error!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
@@ -302,6 +306,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 /// This view's Leader
 #[derive(Debug, Clone)]
 pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
+    /// id of node
+    pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I, N>>>,
     /// The `high_qc` per spec
@@ -316,7 +322,9 @@ pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usiz
 
 impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, I, N> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
+    #[instrument(skip(self), fields(id = self.id), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
+        error!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
@@ -403,6 +411,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
 /// The next view's leader
 #[derive(Debug, Clone)]
 pub struct NextLeader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> {
+    /// id of node
+    pub id: u64,
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<N>,
     /// channel through which the leader collects votes
@@ -421,7 +431,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
+    #[instrument(skip(self), fields(id = self.id), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
+        error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
 

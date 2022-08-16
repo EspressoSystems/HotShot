@@ -24,7 +24,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info, info_span, trace, Instrument, instrument};
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
@@ -182,9 +182,11 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Executes one view of consensus
+#[instrument(skip(hotshot), fields(id = hotshot.id), name = "Next Leader Task", level = "error")]
 pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     hotshot: HotShot<I, N>,
 ) -> Result<(), ()> {
+    error!("Running View!");
     let next_view_timeout = hotshot.inner.config.next_view_timeout;
 
     // OBTAIN write lock on consensus
@@ -196,20 +198,19 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     // Unwrap is fine b/c getting none here shouldn't be possible
     let (_, recv_replica) = consensus.get_future_view_pair(cur_view).unwrap();
 
-    // let block = consensus.undecided_leaves.get(consensus.high_qc.leaf_hash);
-
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
 
-    // TODO repalce these with sensible values
     let next_leader = NextLeader {
+        id: hotshot.id,
         generic_qc: consensus.high_qc.clone(),
         vote_collection_chan: hotshot.recv_next_leader.clone(),
         cur_view,
         api: c_api.clone(),
     };
     let leader = Leader {
+        id: hotshot.id,
         consensus: hotshot.hotstuff.clone(),
         high_qc: consensus.high_qc.clone(),
         cur_view,
@@ -217,6 +218,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
         api: c_api.clone(),
     };
     let replica = Replica {
+        id: hotshot.id,
         consensus: hotshot.hotstuff.clone(),
         proposal_collection_chan: recv_replica,
         cur_view,
@@ -271,11 +273,8 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
 ) {
     while !shut_down.load(Ordering::Relaxed) {
         while started.load(Ordering::Relaxed) {
-            error!("started!");
             if let Some(ref recv) = run_once {
-                error!("waiting for msg");
                 let _ = recv.recv_async().await;
-                error!("recv-ed msg, starting view");
                 let _ = run_view(hotshot.clone()).await;
             }
         }

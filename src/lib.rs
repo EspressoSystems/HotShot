@@ -201,6 +201,9 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
 
     /// for recv-ing consensus messages from handle_direct_consensus_message task
     recv_next_leader: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+
+    /// uid for instrumentation
+    id: u64
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -314,6 +317,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {
+            id: nonce,
             inner: Arc::new(inner),
             transactions: txns,
             // TODO check this is what we want.
@@ -427,7 +431,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             networking,
             storage,
             handler,
-            election,
+            election
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
