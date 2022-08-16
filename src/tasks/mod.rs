@@ -49,7 +49,10 @@ impl TaskHandle {
         if handle.is_some() {
             let handle = handle.as_ref().unwrap();
             if let Some(s) = &handle.run_view_channels {
+                handle.started.store(true, Ordering::Relaxed);
                 let _ = s.send_async(()).await;
+            } else {
+                error!("Run one view channel not configured for this hotshot instance");
             }
         }
     }
@@ -266,10 +269,15 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     shut_down: Arc<AtomicBool>,
     run_once: Option<Receiver<()>>,
 ) {
-    while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
-        if let Some(ref recv) = run_once {
-            let _ = recv.recv_async().await;
-            let _ = run_view(hotshot.clone()).await;
+    while !shut_down.load(Ordering::Relaxed) {
+        while started.load(Ordering::Relaxed) {
+            error!("started!");
+            if let Some(ref recv) = run_once {
+                error!("waiting for msg");
+                let _ = recv.recv_async().await;
+                error!("recv-ed msg, starting view");
+                let _ = run_view(hotshot.clone()).await;
+            }
         }
     }
 }
