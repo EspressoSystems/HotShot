@@ -12,13 +12,11 @@ use hotshot_types::{
     traits::network::NetworkingImplementation,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-
-use tracing::{debug, error};
-
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tracing::{debug, error};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///

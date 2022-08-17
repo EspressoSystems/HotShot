@@ -9,7 +9,7 @@ use tracing::{debug, instrument, warn};
 /// Public key type for an ed25519 [`SignatureKey`] pair
 ///
 /// This type makes use of noise for non-determinisitc signatures.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Copy)]
 pub struct Ed25519Pub {
     /// The public key for this keypair
     pub_key: PublicKey,

@@ -68,7 +68,7 @@ async fn get_networking<
     port: u16,
 ) -> (WNetwork<T, Ed25519Pub>, Ed25519Pub) {
     debug!(?pub_key);
-    let network = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
+    let network = WNetwork::new(pub_key, listen_addr, port, None).await;
     if let Ok(n) = network {
         let (c, sync) = futures::channel::oneshot::channel();
         match n.generate_task(c) {
@@ -98,10 +98,10 @@ async fn init_state_and_hotshot(
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 0),
+        ("Nathan M", 500_000_000),
+        ("John", 400_000_000),
+        ("Nathan Y", 600_000_000),
+        ("Ian", 300_000_000),
     ]
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
@@ -213,7 +213,7 @@ async fn main() {
     // Connect the networking implementations
     for (id, key, ip, port) in other_nodes {
         let socket = format!("{}:{}", ip, port);
-        while own_network.connect_to(key.clone(), &socket).await.is_err() {
+        while own_network.connect_to(key, &socket).await.is_err() {
             println!("  - Retrying");
             debug!("Retrying");
             async_std::task::sleep(std::time::Duration::from_millis(10_000)).await;

@@ -28,7 +28,7 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         match self.leaders.get(*view_number as usize) {
             Some(leader) => {
                 info!("Round {:?} has leader {:?}", view_number, leader);
-                leader.clone()
+                *leader
             }
             None => {
                 panic!("Round {:?} has no leader", view_number);

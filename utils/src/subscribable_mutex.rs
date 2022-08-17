@@ -156,8 +156,8 @@ impl<T> SubscribableMutex<T> {
         let mut result = FuturesOrdered::new();
         let f1 = r.map(|_| ()).left_future();
         let f2 = self.wait_until_with_trigger_inner(f, s).right_future();
-        result.push(f1);
-        result.push(f2);
+        result.push_back(f1);
+        result.push_back(f2);
         result
     }
 

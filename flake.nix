@@ -1,6 +1,11 @@
 {
   description = "HotShot consensus library";
 
+  nixConfig = {
+    extra-substituters = ["https://espresso-systems-private.cachix.org"];
+    extra-trusted-public-keys = ["espresso-systems-private.cachix.org-1:LHYk03zKQCeZ4dvg3NctyCq88e44oBZVug5LpYKjPRI="];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     utils.url = "github:numtide/flake-utils";
@@ -16,29 +21,20 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix, rust-overlay }:
+  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
     utils.lib.eachDefaultSystem (system:
       let
-        # rustNightly = rust-overlay.packages.${system}."rust-nightly_2022-07-17";
-        # rustNightly = rust-overlay.packages.${system}.latest.stable/* "rust-nightly_2022-07-17" */.override {
-        #   extensions = [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" ];
-        # };
-
-        rustNightly = fenix.packages.${system}.stable.withComponents [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" "cargo" "rustc" ];
+        fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
 
         rustOverlay = final: prev:
           {
-            rustc = rustNightly;
-            cargo = rustNightly;
-            rust-src = rustNightly;
+            rustc = fenixStable;
+            cargo = fenixStable;
+            rust-src = fenixStable;
           };
 
         pkgs = import nixpkgs {
@@ -121,67 +117,26 @@
           zlib.out
           fenix.packages.${system}.rust-analyzer
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
-
-        # hotstuff spec docs build dependencies
-        texlive = pkgs.texlive.combine {
-          inherit (pkgs.texlive)
-            scheme-small multirow xstring totpages environ ncctools comment
-            hyperxmp ifmtarg preprint latexmk libertine inconsolata shade newtx
-            algorithm2e ifoddpage relsize geometry parskip graphics latex amsmath mathtools pgf hyperref ec
-            ;
-        };
-        hotshot-paper = pkgs.stdenv.mkDerivation {
-          name = "hotshot-paper";
-          src = ./docs/pandoc-based-spec/src;
-          buildInputs = [
-            texlive
-            pkgs.glibcLocales
-            pkgs.pandoc
-            pkgs.fontconfig
-            pkgs.haskellPackages.pandoc-crossref
-          ];
-          FONTCONFIG_FILE =
-            pkgs.makeFontsConf { fontDirectories = [ pkgs.lmodern ]; };
-          buildPhase = "make";
-          installPhase = "cp *.pdf $out";
-        };
-        hotshot-analysis = pkgs.stdenv.mkDerivation {
-          name = "hotshot-analysis";
-          src = ./docs/hotshot-analysis;
-          buildInputs = [
-            texlive
-            pkgs.fontconfig
-          ];
-          FONTCONFIG_FILE =
-            pkgs.makeFontsConf { fontDirectories = [ pkgs.lmodern ]; };
-          buildPhase = ''
-            mkdir -p .cache/texmf-var
-            env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var latexmk -interaction=nonstopmode -pdf -lualatex analysis.tex
-          '';
-          installPhase = "cp *.pdf $out";
-        };
-
       in
       {
-        packages = {
-          inherit hotshot-analysis hotshot-paper;
-        };
         devShell = pkgs.mkShell {
           buildInputs =
-            with pkgs; [ rustNightly ] ++ buildDeps;
+            with pkgs; [ fenixStable ] ++ buildDeps;
         };
 
 
         devShells = {
+
+          # usage: build documentation
           docsShell = pkgs.mkShell {
             buildInputs = [
-              texlive
               pkgs.glibcLocales
               pkgs.pandoc
               pkgs.fontconfig
               pkgs.haskellPackages.pandoc-crossref
             ];
           };
+
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
             shellHook = ''
@@ -193,9 +148,10 @@
               with pkgs; [ fenixMusl ] ++ buildDeps;
           };
 
+          # usage: link with mold
           moldShell = pkgs.mkShell {
             LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
-            buildInputs = with pkgs; [ zlib.out fd fenixNightly ] ++ buildDeps;
+            buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
@@ -203,14 +159,14 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov rustNightly ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
+             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
             buildInputs =
-              with pkgs; [ rustNightly lldb ] ++ buildDeps;
+              with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };
 
         };
