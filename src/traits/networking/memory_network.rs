@@ -344,7 +344,6 @@ impl<
                 Ok(_) => trace!(?key, "Delivered message to remote"),
                 Err(e) => {
                     error!(?e, ?key, "Error sending broadcast message to node");
-                    return Err(NetworkError::CouldNotDeliver);
                 }
             }
         }

@@ -248,6 +248,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             .await;
 
                         // exits from entire function
+                        self.api.send_replica_timeout(self.cur_view).await;
+
                         return self.high_qc;
                     }
                     ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
@@ -259,6 +261,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             }
             // fall through logic if we did not received successfully from channel
             error!("Replica did not received successfully from channel. Terminating Replica.");
+            self.api.send_replica_timeout(self.cur_view).await;
             return self.high_qc;
         };
 
@@ -527,6 +530,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
+                    self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
                 }
                 ConsensusMessage::Proposal(_p) => {
