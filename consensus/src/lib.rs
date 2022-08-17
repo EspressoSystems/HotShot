@@ -44,14 +44,7 @@ use tracing::{error, instrument, warn};
 
 /// A view's state
 #[derive(Debug)]
-pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
-    /// A view in the future, We collect network events here
-    Future {
-        /// to send networking events
-        sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
-        /// to recv networking events
-        receiver_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
-    },
+pub enum ViewInner<const N: usize> {
     /// Undecided view
     Leaf {
         /// Proposed leaf
@@ -61,25 +54,52 @@ pub enum ViewInner<I: NodeImplementation<N>, const N: usize> {
     Failed,
 }
 
-impl<I: NodeImplementation<N>, const N: usize> Default for View<I, N> {
-    /// Create a new View
-    #[must_use]
+/// struct containing messages for a view to send to replica
+pub struct ViewQueue<I: NodeImplementation<N>, const N: usize> {
+    /// to send networking events to Replica
+    pub sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
+
+    /// to recv networking events for Replica
+    pub receiver_chan: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+}
+
+impl<I: NodeImplementation<N>, const N: usize> Default for ViewQueue<I, N> {
+    /// create new view queue
     fn default() -> Self {
-        let (sender_chan, receiver_chan) = flume::unbounded();
-        Self {
-            view_inner: ViewInner::Future {
-                sender_chan,
-                receiver_chan,
-            },
+        let (s, r) = flume::unbounded();
+        ViewQueue {
+            sender_chan: s,
+            receiver_chan: r,
+        }
+    }
+}
+
+/// metadata for sending information to replica (and in the future, the leader)
+pub struct SendToTasks<I: NodeImplementation<N>, const N: usize> {
+    /// the current view number
+    /// this should always be in sync with `Consensus`
+    pub cur_view: ViewNumber,
+
+    /// a map from view number to ViewQueue
+    pub replica_channel_map: BTreeMap<ViewNumber, ViewQueue<I, N>>,
+}
+
+impl<I: NodeImplementation<N>, const N: usize> SendToTasks<I, N> {
+    /// create new sendtosasks
+    #[must_use]
+    pub fn new(view_num: ViewNumber) -> Self {
+        SendToTasks {
+            cur_view: view_num,
+            replica_channel_map: BTreeMap::default(),
         }
     }
 }
 
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
-pub struct View<I: NodeImplementation<N>, const N: usize> {
+pub struct View<const N: usize> {
     /// The view data. Wrapped in a struct so we can mutate
-    pub view_inner: ViewInner<I, N>,
+    pub view_inner: ViewInner<N>,
 }
 
 /// The result used in this crate
@@ -92,7 +112,7 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<ViewNumber, View<I, N>>,
+    pub state_map: BTreeMap<ViewNumber, View<N>>,
 
     /// cur_view from pseudocode
     pub cur_view: ViewNumber,
@@ -137,7 +157,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
     /// run one view of replica
     /// returns the `high_qc`
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self), fields(id = self.id), name = "Replica Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
         error!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
@@ -145,6 +165,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
+            error!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
@@ -163,11 +184,16 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             if let Some(parent) = consensus.undecided_leaves.get(&p.leaf.parent) {
                                 parent
                             } else {
+                                error!("Parent missing from storage");
                                 continue;
                             };
                         if justify_qc.view_number != parent.view_number
                             || !self.api.validate_qc(&justify_qc, parent.view_number)
                         {
+                            error!(
+                                "Proposal failure at qc verification {:?} vs {:?}",
+                                justify_qc.view_number, parent.view_number
+                            );
                             continue;
                         }
                         let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
@@ -179,6 +205,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                                 self.cur_view,
                             )
                         } else {
+                            error!("State didn't match");
                             continue;
                         };
                         let leaf_hash = leaf.hash();
@@ -196,6 +223,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
+                        error!("Sending vote to next leader {:?}", vote);
+
                         let _result = self.api.send_direct_message(next_leader, vote);
 
                         break leaf;
@@ -207,6 +236,10 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             current_view: self.cur_view,
                             justify: self.high_qc.clone(),
                         });
+                        error!(
+                            "Timed out! Sending timeout to next leader {:?}",
+                            timed_out_msg
+                        );
 
                         // send timedout message to the next leader
                         let _result = self
@@ -325,7 +358,7 @@ pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usiz
 
 impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, I, N> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
-    #[instrument(skip(self), fields(id = self.id), name = "Leader Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
         error!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
@@ -341,18 +374,18 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
                         }
                         leaf
                     } else {
-                        error!("error goes here");
+                        error!("Failed to find parent.");
                         return self.high_qc;
                     }
                 }
                 // can happen if future api is whacked
-                ViewInner::Future { .. } | ViewInner::Failed => {
-                    error!("error goes here");
+                ViewInner::Failed => {
+                    error!("Parent of high QC points to a failed QC");
                     return self.high_qc;
                 }
             }
         } else {
-            error!("error goes here");
+            error!("Couldn't find high_qc parent in state map.");
             return self.high_qc;
         };
 
@@ -401,6 +434,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             };
             let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
+            error!("Leader sending out proposal {:?}", message);
             // TODO add erroring stuff
             if self.api.send_broadcast_message(message).await.is_err() {
                 error!("Leader task failed to broadcast to network");
@@ -434,7 +468,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    #[instrument(skip(self), fields(id = self.id), name = "Next Leader Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
         error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
@@ -445,6 +479,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
         let threshold = self.api.threshold();
 
         while let Ok(msg) = self.vote_collection_chan.recv_async().await {
+            error!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }
@@ -603,39 +638,6 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
                 let _removed = self.undecided_leaves.remove(leaf);
             });
     }
-
-    /// Returns channels that may be used to send/receive received proposals
-    /// to the Replica task.
-    /// NOTE: requires write access to `Consensus` because may
-    /// insert into `self.state_map` if the view has not been constructed NOTE: requires write
-    /// access to `Consensus` because may
-    /// insert into `self.state_map` if the view has not been constructed
-    #[allow(clippy::type_complexity)]
-    pub fn get_future_view_pair(
-        &mut self,
-        msg_view_number: ViewNumber,
-    ) -> Option<(
-        Sender<ConsensusMessage<I::Block, I::State, N>>,
-        Receiver<ConsensusMessage<I::Block, I::State, N>>,
-    )> {
-        if msg_view_number < self.cur_view {
-            return None;
-        }
-
-        let view = self
-            .state_map
-            .entry(msg_view_number)
-            .or_insert_with(View::default);
-        if let ViewInner::Future {
-            sender_chan,
-            receiver_chan,
-        } = &view.view_inner
-        {
-            Some((sender_chan.clone(), receiver_chan.clone()))
-        } else {
-            None
-        }
-    }
 }
 
 /// A struct containing information about a finished round.
@@ -685,14 +687,15 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_state(&self) -> I::State {
+    #[allow(clippy::panic)]
+    pub fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         if let View {
             view_inner: ViewInner::Leaf { leaf },
         } = view
         {
-            return self.undecided_leaves.get(leaf).unwrap().state.clone();
+            return self.undecided_leaves.get(leaf).unwrap().clone();
         };
         panic!("Decided state not found! Consensus internally inconsistent");
     }

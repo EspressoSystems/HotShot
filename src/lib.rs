@@ -47,10 +47,10 @@ use crate::{
 
 // mod state_machine;
 
-use async_std::sync::{Mutex, RwLock};
+use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
-use hotshot_consensus::{Consensus, View, ViewInner};
+use hotshot_consensus::{Consensus, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::NetworkFaultSnafu,
@@ -66,7 +66,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{btree_map::Entry, BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -190,9 +190,9 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
 
-    /// for sending received proposals from handle_broadcast_consensus_message task
-    /// to the replica task
-    channel_map: Arc<RwLock<BTreeMap<ViewNumber, Sender<ConsensusMessage<I::Block, I::State, N>>>>>,
+    /// for sending things to the task
+    /// right now only the replica task
+    send_to_tasks: Arc<RwLock<SendToTasks<I, N>>>,
 
     /// for sending consensus messages from handle_direct_consensus_message task
     /// to the next leader task. NOTE: only Vote, NextView should be sent over this channel
@@ -203,7 +203,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     recv_next_leader: Receiver<ConsensusMessage<I::Block, I::State, N>>,
 
     /// uid for instrumentation
-    id: u64
+    id: u64,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -274,18 +274,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let leaf_hash = genesis_leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
 
-        // TODO should we be putting things in storage now?
-        // inner
-        //     .storage
-        //     .update(|mut m| async move {
-        //         m.insert_qc(genesis_qc).await?;
-        //         m.insert_leaf(genesis_leaf.clone()).await?;
-        //         m.insert_state(starting_state, leaf_hash).await?;
-        //         Ok(())
-        //     })
-        //     .await
-        //     .context(StorageSnafu)?;
-
         let (send_next_leader, recv_next_leader) = flume::unbounded();
 
         let mut genesis_map = BTreeMap::default();
@@ -300,11 +288,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let mut genesis_leaves = HashMap::new();
         genesis_leaves.insert(leaf_hash, genesis_leaf);
 
+        let start_view = ViewNumber::new(1);
+
         // TODO jr add constructor and private the consensus fields
         // and also ViewNumber's contained number
         let hotstuff = Consensus {
             state_map: genesis_map,
-            cur_view: ViewNumber::new(1),
+            cur_view: start_view,
             last_decided_view: ViewNumber::new(0),
             transactions: Arc::default(),
             undecided_leaves: genesis_leaves,
@@ -322,9 +312,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             transactions: txns,
             // TODO check this is what we want.
             hotstuff,
-            channel_map: Arc::default(),
             send_next_leader,
             recv_next_leader,
+            send_to_tasks: Arc::new(RwLock::new(SendToTasks::new(start_view))),
         })
     }
 
@@ -347,14 +337,16 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
     /// # Panics
     /// Panics if the current view is not in the channel map
-    pub async fn timeout_view(&self, current_view: ViewNumber) {
+    pub async fn timeout_view(
+        &self,
+        current_view: ViewNumber,
+        send_replica: Sender<ConsensusMessage<I::Block, I::State, N>>,
+    ) {
         let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
         if self.send_next_leader.send_async(msg.clone()).await.is_err() {
             error!("Error timing out next leader");
         };
         // NOTE this should always exist
-        let chan_map = self.channel_map.read().await;
-        let send_replica = chan_map.get(&current_view).unwrap();
         if send_replica.send_async(msg).await.is_err() {
             error!("Error timing out replica");
         };
@@ -390,7 +382,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_state(&self) -> I::State {
-        self.hotstuff.read().await.get_decided_state()
+        self.hotstuff.read().await.get_decided_leaf().state
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -431,7 +423,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             networking,
             storage,
             handler,
-            election
+            election,
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
@@ -495,27 +487,38 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
         match msg {
             ConsensusMessage::Proposal(_) => {
-                let mut channel_map = self.channel_map.write().await;
-                // either obtains channel or creates one
-                let chan = match channel_map.entry(msg_view_number) {
-                    Entry::Vacant(location) => {
-                        // access consensus
-                        let mut consensus = self.hotstuff.write().await;
-                        if let Some((send, _)) = consensus.get_future_view_pair(msg_view_number) {
-                            Some(location.insert(send).clone())
-                        } else {
-                            None
-                        }
-                    }
-                    Entry::Occupied(entry) => Some(entry.get().clone()),
+                let channel_map = self.send_to_tasks.upgradable_read().await;
+
+                // skip if the proposal is stale
+                if msg_view_number < channel_map.cur_view {
+                    return;
+                }
+
+                // check if we have the entry
+                // if we don't, insert
+                let chan = if let Some(vq) = channel_map.replica_channel_map.get(&msg_view_number) {
+                    vq.sender_chan.clone()
+                } else {
+                    let mut channel_map =
+                        RwLockUpgradableReadGuard::<'_, SendToTasks<I, N>>::upgrade(channel_map)
+                            .await;
+                    let new_view_queue = ViewQueue::default();
+                    let s_chan = new_view_queue.sender_chan.clone();
+                    // NOTE: the read lock is held until all other read locks are DROPPED and
+                    // the read lock may be turned into a write lock.
+                    // This means that the `channel_map` will not change. So we don't need
+                    // to check again to see if a channel was added
+
+                    channel_map
+                        .replica_channel_map
+                        .insert(msg_view_number, new_view_queue);
+                    s_chan
                 };
 
                 // sends the message if not stale
-                if let Some(chan) = chan {
-                    if chan.send_async(msg).await.is_err() {
-                        error!("Failed to replica task!");
-                    }
-                };
+                if chan.send_async(msg).await.is_err() {
+                    error!("Failed to replica task!");
+                }
             }
             ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a next view interrupt. This shouldn't be possible.");
@@ -647,32 +650,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Handle a change in the network
     async fn handle_network_change(&self, node: NetworkChange<I::SignatureKey>) {
         match node {
-            NetworkChange::NodeConnected(peer) => {
-                info!("Connected to node {:?}", peer);
-
-                match load_latest_state::<I, N>(&self.inner.storage).await {
-                    Ok(Some((quorum_certificate, leaf, state))) => {
-                        let hotshot = self.clone();
-                        let msg = DataMessage::NewestQuorumCertificate {
-                            quorum_certificate,
-                            state,
-                            block: leaf.deltas,
-                        };
-
-                        if let Err(e) = hotshot.send_direct_message(msg, peer.clone()).await {
-                            error!(
-                                ?e,
-                                "Could not send newest quorumcertificate to node {:?}", peer
-                            );
-                        }
-                    }
-                    Ok(None) => {
-                        error!("Node connected but we have no QC yet");
-                    }
-                    Err(e) => {
-                        error!(?e, "Could not retrieve newest QC");
-                    }
-                }
+            NetworkChange::NodeConnected(_peer) => {
+                // do nothing, passive catchup is disabled for now
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);
@@ -684,29 +663,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
-}
-
-/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
-/// TODO potentially remove [`I::State`] since can obtain from leaf
-async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
-    storage: &I::Storage,
-) -> std::result::Result<
-    Option<(QuorumCertificate<N>, Leaf<I::Block, I::State, N>, I::State)>,
-    Box<dyn std::error::Error + Send + Sync + 'static>,
-> {
-    let qc = match storage.get_newest_qc().await? {
-        Some(qc) => qc,
-        None => return Ok(None),
-    };
-    let leaf = match storage.get_leaf(&qc.leaf_hash).await? {
-        Some(leaf) => leaf,
-        None => return Ok(None),
-    };
-    let state = match storage.get_state(&qc.leaf_hash).await? {
-        Some(state) => state,
-        None => return Ok(None),
-    };
-    Ok(Some((qc, leaf, state)))
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
