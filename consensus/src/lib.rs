@@ -411,7 +411,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
         let txns = self.transactions.read().await;
         let unclaimed_txns: Vec<_> = txns
             .iter()
-            .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(*txn)))
+            .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(txn)))
             .collect();
 
         let mut block = starting_state.next_block();
