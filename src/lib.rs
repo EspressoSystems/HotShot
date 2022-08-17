@@ -784,7 +784,7 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
         if qc.view_number != view_number {
             warn!(?qc, ?view_number, "Failing on view_number equality check");
         }
-        if qc.genesis {
+        if qc.genesis || qc.view_number == ViewNumber::genesis() {
             return true;
         }
         let hash = create_verify_hash(&qc.leaf_hash, view_number);
