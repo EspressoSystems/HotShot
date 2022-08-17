@@ -53,7 +53,7 @@ use flume::{Receiver, Sender};
 use hotshot_consensus::Consensus;
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
-    error::{NetworkFaultSnafu, StorageSnafu},
+    error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -61,6 +61,7 @@ use hotshot_types::{
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         stateful_handler::StatefulHandler,
+        storage::{StoredView, ViewAppend},
     },
 };
 use hotshot_utils::broadcast::BroadcastSender;
@@ -230,22 +231,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         election: I::Election,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
-        let genesis_hash = BlockContents::hash(&genesis);
-        let genesis_qc = QuorumCertificate {
-            block_hash: genesis_hash,
-            leaf_hash: [0_u8; { N }].into(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::new(),
-            genesis: true,
-        };
-        let genesis_leaf = Leaf {
-            state: starting_state.clone(),
-            view_number: ViewNumber::genesis(),
-            justify_qc: genesis_qc.clone(),
-            // NOTE: view number might be different
-            parent: [0_u8; { N }].into(),
-            deltas: genesis.clone(),
-        };
+
         let election = {
             let state =
                 <<I as NodeImplementation<N>>::Election as Election<I::SignatureKey, N>>::State::default();
@@ -268,19 +254,37 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             background_task_handle: tasks::TaskHandle::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
-        let leaf_hash = genesis_leaf.hash();
-        trace!("Genesis leaf hash: {:?}", leaf_hash);
+
+        let genesis_hash = BlockContents::hash(&genesis);
+        let genesis_qc = QuorumCertificate {
+            block_hash: genesis_hash,
+            leaf_hash: [0_u8; { N }].into(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::new(),
+            genesis: true,
+        };
+        let genesis_leaf = Leaf {
+            state: starting_state.clone(),
+            view_number: ViewNumber::genesis(),
+            justify_qc: genesis_qc.clone(),
+            // NOTE: view number might be different
+            parent: [0_u8; { N }].into(),
+            deltas: genesis.clone(),
+        };
+        let genesis_leaf_hash = genesis_leaf.hash();
+        trace!("Genesis leaf hash: {:?}", genesis_leaf_hash);
 
         inner
             .storage
-            .update(|mut m| async move {
-                m.insert_qc(genesis_qc).await?;
-                m.insert_leaf(genesis_leaf).await?;
-                m.insert_state(starting_state, leaf_hash).await?;
-                Ok(())
+            .insert_single_view(StoredView {
+                append: genesis.into(),
+                view_number: ViewNumber::genesis(),
+                parent: LeafHash::default(),
+                qc: genesis_qc,
+                state: starting_state.clone(),
             })
             .await
-            .context(StorageSnafu)?;
+            .expect("Could not insert genesis block");
 
         let (send_next_leader, recv_next_leader) = flume::unbounded();
         let hotstuff: Arc<RwLock<Consensus<I, N>>> = Arc::default();
@@ -359,27 +363,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// # Errors
     ///
     /// Returns an error if an error occured with the storage interface, or if there is no QC or valid State in the storage.
-    pub async fn get_state(&self) -> Result<Option<I::State>> {
-        let qc = match self
+    pub async fn get_state(&self) -> I::State {
+        let anchored_view = self
             .inner
             .storage
-            .get_newest_qc()
+            .get_anchored_view()
             .await
-            .context(StorageSnafu)?
-        {
-            Some(qc) => qc,
-            None => return Ok(None),
-        };
-        match self
-            .inner
-            .storage
-            .get_state(&qc.leaf_hash)
-            .await
-            .context(StorageSnafu)?
-        {
-            Some(state) => Ok(Some(state)),
-            None => Ok(None),
-        }
+            .expect("Could not load anchored view");
+        anchored_view.state
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -569,11 +560,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         match msg {
             DataMessage::NewestQuorumCertificate {
                 quorum_certificate: qc,
-                block,
                 state,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
-                let own_newest = match self.inner.storage.get_newest_qc().await {
+                let anchored = match self.inner.storage.get_anchored_view().await {
                     Err(e) => {
                         error!(?e, "Could not load QC");
                         return;
@@ -582,45 +572,25 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 };
                 // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
                 // we should be getting multiple data messages soon
-                let should_save = if let Some(own) = own_newest {
-                    own.view_number < qc.view_number // incoming view is newer
-                } else {
-                    true // we have no QC yet
-                };
+                let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
-                    let new_view_number = qc.view_number;
-                    let block_hash = BlockContents::hash(&block);
-                    let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(
-                        state.clone(),
-                        block.clone(),
-                        leaf_hash,
-                        qc.clone(),
-                        qc.view_number,
-                    );
-                    debug!(?leaf, ?block, ?qc, "Saving");
+                    let view_number = qc.view_number;
+                    let new_view = StoredView {
+                        append: ViewAppend::UnknownParent,
+                        view_number,
+                        parent: LeafHash::default(), // TODO: Should we sync the parent leaf hash? Do we care?
+                        qc,
+                        state,
+                    };
 
-                    if let Err(e) = self
-                        .inner
-                        .storage
-                        .update(|mut m| async move {
-                            m.insert_leaf(leaf).await?;
-                            m.insert_block(block_hash, block).await?;
-                            m.insert_state(state, leaf_hash).await?;
-                            m.insert_qc(qc).await?;
-                            Ok(())
-                        })
-                        .await
-                    {
+                    if let Err(e) = self.inner.storage.insert_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
                     }
 
                     // Broadcast that we're updated
                     self.send_event(Event {
-                        view_number: new_view_number,
-                        event: EventType::Synced {
-                            view_number: new_view_number,
-                        },
+                        view_number,
+                        event: EventType::Synced { view_number },
                     })
                     .await;
                 }
@@ -639,28 +609,22 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
 
-                match load_latest_state::<I, N>(&self.inner.storage).await {
-                    Ok(Some((quorum_certificate, leaf, state))) => {
-                        let hotshot = self.clone();
-                        let msg = DataMessage::NewestQuorumCertificate {
-                            quorum_certificate,
-                            state,
-                            block: leaf.deltas,
-                        };
-
-                        if let Err(e) = hotshot.send_direct_message(msg, peer.clone()).await {
-                            error!(
-                                ?e,
-                                "Could not send newest quorumcertificate to node {:?}", peer
-                            );
-                        }
-                    }
-                    Ok(None) => {
-                        error!("Node connected but we have no QC yet");
-                    }
+                let anchor = match self.inner.storage.get_anchored_view().await {
+                    Ok(anchor) => anchor,
                     Err(e) => {
                         error!(?e, "Could not retrieve newest QC");
+                        return;
                     }
+                };
+                let msg = DataMessage::NewestQuorumCertificate {
+                    quorum_certificate: anchor.qc,
+                    state: anchor.state,
+                };
+                if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
+                    error!(
+                        ?e,
+                        "Could not send newest quorumcertificate to node {:?}", peer
+                    );
                 }
             }
             NetworkChange::NodeDisconnected(peer) => {
@@ -673,29 +637,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
-}
-
-/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
-/// TODO potentially remove [`I::State`] since can obtain from leaf
-async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
-    storage: &I::Storage,
-) -> std::result::Result<
-    Option<(QuorumCertificate<N>, Leaf<I::Block, I::State, N>, I::State)>,
-    Box<dyn std::error::Error + Send + Sync + 'static>,
-> {
-    let qc = match storage.get_newest_qc().await? {
-        Some(qc) => qc,
-        None => return Ok(None),
-    };
-    let leaf = match storage.get_leaf(&qc.leaf_hash).await? {
-        Some(leaf) => leaf,
-        None => return Ok(None),
-    };
-    let state = match storage.get_state(&qc.leaf_hash).await? {
-        Some(state) => state,
-        None => return Ok(None),
-    };
-    Ok(Some((qc, leaf, state)))
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]

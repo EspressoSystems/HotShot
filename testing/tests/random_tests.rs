@@ -7,7 +7,7 @@ use common::{get_tolerance, AppliedTestRunner, TestRoundResult, TestTransaction}
 use hotshot::{
     demos::dentry::{DEntryBlock, State},
     traits::{
-        implementations::{AtomicStorage, Libp2pNetwork, MemoryNetwork, MemoryStorage},
+        implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
         Storage,
     },
 };
@@ -214,7 +214,7 @@ pub async fn test_harness() {
     let safety_check_pre = |runner: &AppliedTestRunner| -> Result<(), ConsensusRoundError> {
         block_on(async move {
             for node in runner.nodes() {
-                let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+                let qc = node.storage().get_anchored_view().await.unwrap();
                 assert_eq!(qc.view_number, ViewNumber::new(0));
             }
         });
@@ -224,7 +224,7 @@ pub async fn test_harness() {
     let safety_check_post = |runner: &AppliedTestRunner, _results: TestRoundResult| {
         block_on(async move {
             for node in runner.nodes() {
-                let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+                let qc = node.storage().get_anchored_view().await.unwrap();
                 assert_eq!(qc.view_number, ViewNumber::new(1));
             }
         });

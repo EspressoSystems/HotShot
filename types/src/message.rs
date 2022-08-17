@@ -27,7 +27,7 @@ pub enum MessageKind<B, T, S, const N: usize> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<B, S, N>),
     /// Messages relating to sharing data between nodes
-    Data(DataMessage<B, T, S, N>),
+    Data(DataMessage<T, S, N>),
 }
 
 impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
@@ -36,8 +36,8 @@ impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B,
     }
 }
 
-impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
-    fn from(m: DataMessage<B, T, S, N>) -> Self {
+impl<B, T, S, const N: usize> From<DataMessage<T, S, N>> for MessageKind<B, T, S, N> {
+    fn from(m: DataMessage<T, S, N>) -> Self {
         Self::Data(m)
     }
 }
@@ -83,16 +83,11 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to sending data between nodes
-pub enum DataMessage<B, T, S, const N: usize> {
+pub enum DataMessage<T, S, const N: usize> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
         quorum_certificate: QuorumCertificate<N>,
-
-        /// The relevant [`BlockContents`]
-        ///
-        /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
-        block: B,
 
         /// The relevant [`State`]
         ///

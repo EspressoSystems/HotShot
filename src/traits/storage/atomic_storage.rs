@@ -16,7 +16,7 @@ use futures::Future;
 use hotshot_types::{
     data::ViewNumber,
     traits::storage::{
-        AtomicStoreSnafu, Storage, StorageError, StorageResult, StorageState, StorageUpdater,
+        AtomicStoreSnafu, Result, Storage, StorageError, StorageState, StorageUpdater,
         TestableStorage,
     },
 };
@@ -68,7 +68,7 @@ where
 impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
     TestableStorage<B, S, N> for AtomicStorage<B, S, N>
 {
-    fn construct_tmp_storage() -> StorageResult<Self> {
+    fn construct_tmp_storage() -> Result<Self> {
         let tempdir = tempdir().map_err(|e| StorageError::InconsistencyError {
             description: e.to_string(),
         })?;
@@ -155,30 +155,27 @@ impl<
     > Storage<BLOCK, STATE, N> for AtomicStorage<BLOCK, STATE, N>
 {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
+    async fn get_block(&self, hash: &BlockHash<N>) -> Result<Option<BLOCK>> {
         Ok(self.inner.blocks.get(hash).await)
     }
 
     #[instrument(name = "AtomicStorage::get_qc", skip_all)]
-    async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_qc(&self, hash: &BlockHash<N>) -> Result<Option<QuorumCertificate<N>>> {
         Ok(self.inner.qcs.load_by_key_1_ref(hash).await)
     }
 
     #[instrument(name = "AtomicStorage::get_newest_qc", skip_all)]
-    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_newest_qc(&self) -> Result<Option<QuorumCertificate<N>>> {
         Ok(self.inner.qcs.load_latest(|qc| qc.view_number).await)
     }
 
     #[instrument(name = "AtomicStorage::get_qc_for_view", skip_all)]
-    async fn get_qc_for_view(
-        &self,
-        view: ViewNumber,
-    ) -> StorageResult<Option<QuorumCertificate<N>>> {
+    async fn get_qc_for_view(&self, view: ViewNumber) -> Result<Option<QuorumCertificate<N>>> {
         Ok(self.inner.qcs.load_by_key_2(view).await)
     }
 
     #[instrument(name = "AtomicStorage::get_leaf", skip_all)]
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> Result<Option<Leaf<BLOCK, STATE, N>>> {
         Ok(self.inner.leaves.load_by_key_1_ref(hash).await)
     }
 
@@ -186,19 +183,19 @@ impl<
     async fn get_leaf_by_block(
         &self,
         hash: &BlockHash<N>,
-    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
+    ) -> Result<Option<Leaf<BLOCK, STATE, N>>> {
         Ok(self.inner.leaves.load_by_key_2_ref(hash).await)
     }
 
     #[instrument(name = "AtomicStorage::get_state", skip_all)]
-    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>> {
+    async fn get_state(&self, hash: &LeafHash<N>) -> Result<Option<STATE>> {
         Ok(self.inner.states.get(hash).await)
     }
 
-    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
+    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> Result
     where
         F: FnOnce(Box<dyn StorageUpdater<'a, BLOCK, STATE, N> + 'a>) -> FUT + Send + 'a,
-        FUT: Future<Output = StorageResult> + Send + 'a,
+        FUT: Future<Output = Result> + Send + 'a,
     {
         let updater = Box::new(AtomicStorageUpdater { inner: &self.inner });
         update_fn(updater).await?;
@@ -280,7 +277,7 @@ impl<
     > StorageUpdater<'a, BLOCK, STATE, N> for AtomicStorageUpdater<'a, BLOCK, STATE, N>
 {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
-    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {
+    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> Result {
         trace!(?block, "inserting block");
         self.inner
             .blocks
@@ -291,17 +288,17 @@ impl<
     }
 
     #[instrument(name = "AtomicStorage::insert_leaf", skip_all)]
-    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> StorageResult {
+    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> Result {
         self.inner.leaves.insert(leaf).await
     }
 
     #[instrument(name = "AtomicStorage::insert_qc", skip_all)]
-    async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> StorageResult {
+    async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> Result {
         self.inner.qcs.insert(qc).await
     }
 
     #[instrument(name = "AtomicStorage::insert_state", skip_all)]
-    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> StorageResult {
+    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> Result {
         trace!(?hash, "Inserting state");
         self.inner
             .states

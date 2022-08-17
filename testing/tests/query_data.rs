@@ -7,15 +7,13 @@ use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
     TestRoundResult, TestTransaction,
 };
-use hotshot_testing::{ConsensusRoundError, Round};
-
 use hotshot::{
-    traits::NodeImplementation,
+    traits::{NodeImplementation, Storage},
     types::{EventType, HotShotHandle},
     HotShotError,
 };
-use hotshot_types::{data::ViewNumber, traits::storage::Storage};
-
+use hotshot_testing::{ConsensusRoundError, Round};
+use hotshot_types::data::ViewNumber;
 use snafu::Snafu;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -107,9 +105,8 @@ async fn validate_qc_numbers<I: NodeImplementation<N>, const N: usize>(
     for (index, hotshot) in hotshots.enumerate() {
         let newest_view_number = hotshot
             .storage()
-            .get_newest_qc()
+            .get_anchored_view()
             .await
-            .unwrap()
             .unwrap()
             .view_number;
         info!(

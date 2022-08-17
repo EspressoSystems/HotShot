@@ -154,7 +154,7 @@ impl GeneralTestDescriptionBuilder {
                 Ed25519Pub,
             > + Clone
             + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     >(
@@ -175,7 +175,7 @@ impl<
                 Ed25519Pub,
             > + Clone
             + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
@@ -395,7 +395,7 @@ impl<
                 Ed25519Pub,
             > + Clone
             + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
+        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
@@ -653,7 +653,7 @@ macro_rules! cross_all_types_proptest {
 
             cross_tests!(
                 [ MemoryNetwork Libp2pNetwork ],
-                [ MemoryStorage AtomicStorage ],
+                [ MemoryStorage ], // AtomicStorage
                 [ DEntryBlock  ],
                 [ State ],
                 $fn_name,

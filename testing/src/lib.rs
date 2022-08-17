@@ -30,16 +30,10 @@ use hotshot_types::traits::{
         SignatureKey,
     },
     state::TestableState,
-    storage::StorageState,
+    storage::{StorageState, TestableStorage},
 };
 use snafu::Snafu;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-    marker::PhantomData,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, fmt, marker::PhantomData, sync::Arc, time::Duration};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -409,130 +403,64 @@ pub enum ValidateStrictness {
     Strict,
 }
 
-impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
-    > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
+impl<NETWORK, STORAGE, BLOCK, STATE> TestRunner<NETWORK, STORAGE, BLOCK, STATE>
+where
+    NETWORK: TestableNetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
+    STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
 {
-    /// Check if two vectors match.
-    /// If there is a mismatch, return a string containing details
-    /// about the mismatch
-    fn validate_vecs<T: Eq + std::fmt::Debug + std::hash::Hash>(
-        field_name: &str,
-        first: &[T],
-        other: &[T],
-        other_idx: usize,
-    ) -> Result<(), String> {
-        if first != other {
-            let mut err_str: String = "".to_string();
-            if first.len() != other.len() {
-                err_str.push_str(
-                    format!(
-                        "{} lengths did not match. Expected {}, got {}\n",
-                        field_name,
-                        first.len(),
-                        other.len()
-                    )
-                    .as_str(),
-                );
-            }
-            let mut mismatched_first: HashSet<_> = first.iter().collect();
-            mismatched_first = mismatched_first
-                .difference(&other.iter().collect())
-                .cloned()
-                .collect();
-            if mismatched_first.is_empty() {
-                err_str.push_str(
-                    format!(
-                        "All elements of {} in first replica are present in replica {}\n",
-                        field_name, other_idx
-                    )
-                    .as_str(),
-                );
-            } else {
-                err_str.push_str(
-                    format!(
-                        "Elements of {} in first replica not present in replica {}: \n{:#?}\n",
-                        field_name, other_idx, mismatched_first
-                    )
-                    .as_str(),
-                );
-            }
-
-            let mut mismatched_other: HashSet<_> = other.iter().collect();
-            mismatched_other = mismatched_other
-                .difference(&first.iter().collect())
-                .cloned()
-                .collect();
-
-            if mismatched_other.is_empty() {
-                err_str.push_str(
-                    format!(
-                        "All elements of {} in replica {} are present in the first replica\n",
-                        field_name, other_idx
-                    )
-                    .as_str(),
-                );
-            } else {
-                err_str.push_str(
-                    format!(
-                        "Elements of {} in replica {} not present in the first replica: \n{:#?}\n",
-                        field_name, other_idx, mismatched_other
-                    )
-                    .as_str(),
-                );
-            }
-            return Err(err_str);
-        }
-        Ok(())
-    }
-
     /// Check if two storage states match.
     /// If there is a mismatch, return a string containing details
     /// about the mismatch
     fn validate_storage_states(
         first: &StorageState<BLOCK, STATE, N>,
         other: &StorageState<BLOCK, STATE, N>,
-        other_idx: usize,
-        strictness: ValidateStrictness,
+        _other_idx: usize,
+        _strictness: ValidateStrictness,
     ) -> Result<(), String> {
-        let blocks_ok =
-            Self::validate_vecs("Storage Blocks", &first.blocks, &other.blocks, other_idx);
-        let qcs_ok = Self::validate_vecs(
-            "Storage QCs",
-            &first.quorum_certificates,
-            &other.quorum_certificates,
-            other_idx,
-        );
-        let leafs_ok = Self::validate_vecs("Storage Leafs", &first.leafs, &other.leafs, other_idx);
-        let states_ok =
-            Self::validate_vecs("Storage State", &first.states, &other.states, other_idx);
-
-        let (ok_err, ok_warn) = match strictness {
-            ValidateStrictness::Relaxed => (vec![states_ok, qcs_ok], vec![blocks_ok, leafs_ok]),
-            ValidateStrictness::Strict => (vec![states_ok, qcs_ok, blocks_ok, leafs_ok], vec![]),
-        };
-
-        for is_ok in ok_warn {
-            if let Err(e) = is_ok {
-                error!("{}", e);
-            }
+        // TODO(vko): re-implement this
+        if first != other {
+            Err("Do not match".to_owned())
+        } else {
+            Ok(())
         }
+        // let stored_ok = Self::validate_vecs(
+        //     "Storage Blocks",
+        //     first.stored.values(),
+        //     other.stored.iter(),
+        //     other_idx,
+        // );
+        // let failed_ok = Self::validate_vecs(
+        //     "Storage QCs",
+        //     first.failed.values(),
+        //     other.failed.iter(),
+        //     other_idx,
+        // );
 
-        let mut result = Ok(());
-        for is_ok in ok_err {
-            result = match is_ok {
-                Err(e) => result.map_or_else(|acc| Err(format!("{acc}{e}")), |_| Err(e.clone())),
-                Ok(_) => result,
-            }
-        }
-        result
+        // let (ok_err, ok_warn) = match strictness {
+        //     ValidateStrictness::Relaxed => (vec![stored_ok, failed_ok], vec![stored_ok, leafs_ok]),
+        //     ValidateStrictness::Strict => (vec![states_ok, failed_ok, stored_ok, leafs_ok], vec![]),
+        // };
+
+        // for is_ok in ok_warn {
+        //     if let Err(e) = is_ok {
+        //         error!("{}", e);
+        //     }
+        // }
+
+        // let mut result = Ok(());
+        // for is_ok in ok_err {
+        //     result = match is_ok {
+        //         Err(e) => result.map_or_else(|acc| Err(format!("{acc}{e}")), |_| Err(e.clone())),
+        //         Ok(_) => result,
+        //     }
+        // }
+        // result
     }
 
     /// Will validate that all nodes are on exactly the same state.
@@ -547,7 +475,7 @@ impl<
                 }
             }
 
-            let storage_state = node.handle.storage().get_internal_state().await;
+            let storage_state = node.handle.storage().get_full_state().await;
             states.push(storage_state);
         }
 
@@ -616,16 +544,16 @@ impl<
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<
-        NETWORK: NetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static + TestableState<N>,
-    > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
+impl<NETWORK, STORAGE, BLOCK, STATE> TestRunner<NETWORK, STORAGE, BLOCK, STATE>
+where
+    NETWORK: NetworkingImplementation<
+            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
+            Ed25519Pub,
+        > + Clone
+        + 'static,
+    STORAGE: Storage<BLOCK, STATE, N> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static + TestableState<N>,
 {
     /// Add a random transaction to this runner.
     pub fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
@@ -639,9 +567,7 @@ impl<
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
-        let state = async_std::task::block_on(self.nodes[0].handle.get_state())
-            .unwrap()
-            .unwrap();
+        let state = async_std::task::block_on(self.nodes[0].handle.get_state());
 
         let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
 
