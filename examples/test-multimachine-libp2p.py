@@ -26,7 +26,7 @@ def gen_invocation(
         f' --num_txn_per_round=10 '\
         f' --seed={seed} '\
         f' --node_idx={node_id} '\
-        f' --online_time=1 '\
+        f' --online_time=3 '\
         f' --bound_addr={bound_addr} '\
         f' --bootstrap_mesh_n_high=50 '\
         f' --bootstrap_mesh_n_low=10 '\
@@ -36,9 +36,9 @@ def gen_invocation(
         f' --mesh_n_low=8 '\
         f' --mesh_outbound_min=4 '\
         f' --mesh_n=12 '\
-        f' --next_view_timeout=30 '\
+        f' --next_view_timeout=5 '\
         f' --propose_min_round_time=1 '\
-        f' --propose_max_round_time=10 '
+        f' --propose_max_round_time=3 '
     ];
     return (fmt_cmd, out_file_name)
 
