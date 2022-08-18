@@ -93,4 +93,10 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// The transaction that has been rejected.
         transaction: B::Transaction,
     },
+
+    /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
+    ViewFinished {
+        /// The view number that has just finished
+        view_number: ViewNumber,
+    },
 }

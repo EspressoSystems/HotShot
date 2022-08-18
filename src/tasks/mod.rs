@@ -13,6 +13,7 @@ use flume::{Receiver, Sender};
 
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
+    event::{Event, EventType},
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
@@ -298,6 +299,14 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
+    c_api
+        .send_event(Event {
+            view_number: consensus.cur_view,
+            event: EventType::ViewFinished {
+                view_number: consensus.cur_view,
+            },
+        })
+        .await;
     error!("returning!");
     Ok(())
 }
@@ -313,10 +322,8 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
         if let Some(ref recv) = run_once {
-            error!("WAITING FOR RUN");
             let _ = recv.recv_async().await;
         }
-        error!("STARTING VIEW");
         let _ = run_view(hotshot.clone()).await;
     }
 }

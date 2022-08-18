@@ -169,7 +169,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// Errors if unable to obtain storage
     /// # Panics
     /// Panics if the event stream is shut down while this is running
-    pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
+    pub async fn collect_round_events(&mut self) -> Result<Option<(Vec<I::State>, Vec<I::Block>)>> {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against
@@ -177,7 +177,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         // drain all events from this node
         loop {
             // unwrap is fine here since the thing hasn't been shut down
-            error!("WAITING FOR EVENTs!");
             let event = self.next_event().await.unwrap();
             match event.event {
                 EventType::ReplicaViewTimeout { view_number } => {
@@ -188,11 +187,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
                     });
                 }
                 EventType::Decide { block, state, .. } => {
-                    return Ok((
+                    return Ok(Some((
                         state.iter().cloned().collect(),
                         block.iter().cloned().collect(),
-                    ));
+                    )));
                 }
+                EventType::ViewFinished { view_number: _ } => return Ok(None),
                 event => {
                     debug!("recv-ed event {:?}", event);
                 }
