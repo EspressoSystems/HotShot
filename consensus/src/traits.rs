@@ -139,7 +139,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         self.send_event(Event {
             view_number: view_number,
             event: EventType::ViewFinished {
-                view_number: view_number,
+                view_number
             },
         })
         .await;
