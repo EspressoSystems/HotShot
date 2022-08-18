@@ -227,6 +227,11 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     let mut consensus = hotshot.hotstuff.write().await;
 
     let cur_view = consensus.increment_view();
+
+    // make sure consistent
+    assert_eq!(cur_view, next_leader_cur_view);
+    assert_eq!(cur_view, replica_cur_view);
+
     let mut task_handles = Vec::new();
 
     let high_qc = consensus.high_qc.clone();
