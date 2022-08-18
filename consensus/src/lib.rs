@@ -262,8 +262,61 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             return self.high_qc;
         };
 
-        // promote lock here
+        let mut new_anchor_view = consensus.last_decided_view;
+        let mut new_locked_view = consensus.locked_view;
+        let mut last_view_number_visited = self.cur_view;
+        let mut new_commit_reached: bool = false;
+        let mut new_decide_reached = false;
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
+        let mut included_txns = Vec::new();
+        let mut qcs = Vec::new();
+        let old_anchor_view = consensus.last_decided_view;
+        let parent_view = leaf.justify_qc.view_number;
+        if parent_view + 1 == self.cur_view {
+            let mut current_chain_length = 1usize;
+            let _outcome = consensus.visit_leaf_ancestors(
+                parent_view,
+                Terminator::Exclusive(old_anchor_view),
+                |leaf| {
+                    if !new_decide_reached {
+                        if last_view_number_visited == leaf.view_number + 1 {
+                            last_view_number_visited = leaf.view_number;
+                            current_chain_length += 1;
+                            if current_chain_length == 2 {
+                                new_locked_view = leaf.view_number;
+                                new_commit_reached = true;
+                            } else if current_chain_length == 3 {
+                                new_anchor_view = leaf.view_number;
+                                new_decide_reached = true;
+                            }
+                        } else {
+                            // nothing more to do here... we don't have a new chain extension
+                            return false;
+                        }
+                    }
+                    // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
+                    if new_decide_reached {
+                        // collecting chain elements for the decide
+                        blocks.push(leaf.deltas.clone());
+                        states.push(leaf.state.clone());
+                        qcs.push(leaf.justify_qc.clone());
+                        let mut txns = leaf.deltas.contained_transactions();
+                        included_txns.append(&mut txns);
+                    }
+                    true
+                },
+            );
+        }
+        let high_qc = leaf.justify_qc.clone();
 
+        let included_txns_set: HashSet<_> = if new_decide_reached {
+            included_txns.into_iter().collect()
+        } else {
+            HashSet::new()
+        };
+
+        // promote lock here
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         consensus.state_map.insert(
             self.cur_view,
@@ -271,70 +324,28 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 view_inner: ViewInner::Leaf { leaf: leaf.hash() },
             },
         );
-        let high_qc = leaf.justify_qc.clone();
         consensus.undecided_leaves.insert(leaf.hash(), leaf);
-        let mut new_anchor_view = consensus.last_decided_view;
-        let mut new_locked_view = consensus.locked_view;
-        let mut last_view_number_visited = self.cur_view;
-        let mut current_chain_length = 0usize;
-        let mut new_decide_reached = false;
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
-        let mut qcs = Vec::new();
-        let last_decided_view = consensus.last_decided_view;
-        let _outcome = consensus.visit_leaf_ancestors(
-            self.cur_view,
-            Terminator::Exclusive(last_decided_view),
-            |leaf| {
-                if !new_decide_reached && last_view_number_visited == leaf.view_number + 1 {
-                    current_chain_length += 1;
-                    if current_chain_length == 2 {
-                        new_locked_view = leaf.view_number;
-                    }
-                    if current_chain_length == 3 {
-                        new_anchor_view = leaf.view_number;
-                        new_decide_reached = true;
-                        blocks.push(leaf.deltas.clone());
-                        states.push(leaf.state.clone());
-                        qcs.push(leaf.justify_qc.clone());
-                    }
-                    last_view_number_visited = leaf.view_number;
-                } else if new_decide_reached {
-                    // collecting chain elements for the decide
-                    blocks.push(leaf.deltas.clone());
-                    states.push(leaf.state.clone());
-                    qcs.push(leaf.justify_qc.clone());
-                } else {
-                    // nothing more to do here... we don't have a new chain extension
-                    return false;
-                }
-                true
-            },
-        );
-        let mut included_txns = Vec::new();
-        for block in &blocks {
-            let mut txns = block.contained_transactions();
-            included_txns.append(&mut txns);
+        if new_commit_reached {
+            consensus.locked_view = new_locked_view;
         }
-
-        let included_txns_set: HashSet<_> = included_txns.into_iter().collect();
-        {
-            let mut txns = consensus.transactions.write().await;
-            *txns = txns
-                .drain(..)
-                .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
-                .collect();
+        if new_decide_reached {
+            {
+                let mut txns = consensus.transactions.write().await;
+                *txns = txns
+                    .drain(..)
+                    .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
+                    .collect();
+            }
+            let decide_sent =
+                self.api
+                    .send_decide(consensus.last_decided_view, blocks, states, qcs);
+            let old_anchor_view = consensus.last_decided_view;
+            consensus
+                .collect_garbage(old_anchor_view, new_anchor_view)
+                .await;
+            consensus.last_decided_view = new_anchor_view;
+            decide_sent.await;
         }
-        let decide_sent = self
-            .api
-            .send_decide(consensus.last_decided_view, blocks, states, qcs);
-        let old_anchor_view = consensus.last_decided_view;
-        consensus
-            .collect_garbage(old_anchor_view, new_anchor_view)
-            .await;
-        consensus.last_decided_view = new_anchor_view;
-        consensus.locked_view = new_locked_view;
-        decide_sent.await;
         high_qc
     }
 }
