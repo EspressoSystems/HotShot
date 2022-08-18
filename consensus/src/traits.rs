@@ -134,6 +134,17 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
+    /// Sends a `ViewFinished` event
+    async fn send_view_finished(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number: view_number,
+            event: EventType::ViewFinished {
+                view_number: view_number,
+            },
+        })
+        .await;
+    }
+
     /// Create a [`VerifyHash`] for a given [`LeafHash`], and [`ViewNumber`]
     fn create_verify_hash(
         &self,

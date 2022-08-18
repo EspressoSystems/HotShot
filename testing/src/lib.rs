@@ -327,11 +327,8 @@ impl<
                 result
             );
             match result {
-                Ok(Some((state, block))) => {
+                Ok((state, block)) => {
                     results.insert(node.node_id, (state, block));
-                }
-                Ok(None) => {
-                    results.insert(node.node_id, (Vec::new(), Vec::new()));
                 }
                 Err(e) => {
                     failures.insert(node.node_id, e);
