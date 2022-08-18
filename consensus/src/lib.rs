@@ -225,7 +225,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
                         error!("Sending vote to next leader {:?}", vote);
 
-                        let _result = self.api.send_direct_message(next_leader, vote);
+                        let _result = self.api.send_direct_message(next_leader, vote).await;
 
                         break leaf;
                     }
