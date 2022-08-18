@@ -55,6 +55,7 @@ pub enum ViewInner<const N: usize> {
 }
 
 /// struct containing messages for a view to send to replica
+#[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation<N>, const N: usize> {
     /// to send networking events to Replica
     pub sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
@@ -81,7 +82,8 @@ pub struct SendToTasks<I: NodeImplementation<N>, const N: usize> {
     pub cur_view: ViewNumber,
 
     /// a map from view number to ViewQueue
-    pub replica_channel_map: BTreeMap<ViewNumber, ViewQueue<I, N>>,
+    /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
+    pub channel_map: BTreeMap<ViewNumber, ViewQueue<I, N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> SendToTasks<I, N> {
@@ -90,7 +92,7 @@ impl<I: NodeImplementation<N>, const N: usize> SendToTasks<I, N> {
     pub fn new(view_num: ViewNumber) -> Self {
         SendToTasks {
             cur_view: view_num,
-            replica_channel_map: BTreeMap::default(),
+            channel_map: BTreeMap::default(),
         }
     }
 }
