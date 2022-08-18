@@ -65,7 +65,7 @@ impl TaskHandle {
         // in case the round_runner task is running for `view_timeout`
         // (exponential timeout maxed out)
         // then this needs to be slightly longer such that it ends up being checked
-        let long_timeout = inner.shutdown_timeout + Duration::new(1, 0);
+        let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
         for (handle, name) in [
             (
                 inner.network_broadcast_task_handle,
@@ -182,7 +182,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Executes one view of consensus
-#[instrument(skip(hotshot), fields(id = hotshot.id), name = "Next Leader Task", level = "error")]
+#[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
 pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     hotshot: HotShot<I, N>,
 ) -> Result<(), ()> {
@@ -296,13 +296,15 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     shut_down: Arc<AtomicBool>,
     run_once: Option<Receiver<()>>,
 ) {
-    while !shut_down.load(Ordering::Relaxed) {
-        while started.load(Ordering::Relaxed) {
-            if let Some(ref recv) = run_once {
-                let _ = recv.recv_async().await;
-                let _ = run_view(hotshot.clone()).await;
-            }
+    while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {}
+
+    while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
+        if let Some(ref recv) = run_once {
+            error!("WAITING FOR RUN");
+            let _ = recv.recv_async().await;
         }
+        error!("STARTING VIEW");
+        let _ = run_view(hotshot.clone()).await;
     }
 }
 

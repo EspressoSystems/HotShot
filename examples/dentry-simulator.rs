@@ -157,7 +157,7 @@ async fn main() {
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
+                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
@@ -223,7 +223,7 @@ async fn main() {
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
+                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }

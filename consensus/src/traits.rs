@@ -97,6 +97,24 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
+    /// notifies client of a replica timeout
+    async fn send_replica_timeout(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number,
+            event: EventType::ReplicaViewTimeout { view_number },
+        })
+        .await;
+    }
+
+    /// notifies client of a next leader timeout
+    async fn send_next_leader_timeout(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number,
+            event: EventType::NextLeaderViewTimeout { view_number },
+        })
+        .await;
+    }
+
     /// sends a decide event down the channel
     async fn send_decide(
         &self,

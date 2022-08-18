@@ -60,8 +60,13 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// The view being started
         view_number: ViewNumber,
     },
-    /// A view was canceled by a timeout interrupt
-    ViewTimeout {
+    /// A replica task was canceled by a timeout interrupt
+    ReplicaViewTimeout {
+        /// The view that timed out
+        view_number: ViewNumber,
+    },
+    /// A next leader task was canceled by a timeout interrupt
+    NextLeaderViewTimeout {
         /// The view that timed out
         view_number: ViewNumber,
     },

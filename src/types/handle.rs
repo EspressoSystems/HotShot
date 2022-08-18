@@ -177,10 +177,11 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         // drain all events from this node
         loop {
             // unwrap is fine here since the thing hasn't been shut down
+            error!("WAITING FOR EVENTs!");
             let event = self.next_event().await.unwrap();
             match event.event {
-                EventType::ViewTimeout { view_number } => {
-                    error!(?event, "Round timed out!");
+                EventType::ReplicaViewTimeout { view_number } => {
+                    error!(?event, "Replica timed out!");
                     return Err(HotShotError::ViewTimeoutError {
                         view_number,
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
