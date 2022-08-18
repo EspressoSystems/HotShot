@@ -20,7 +20,7 @@ use hotshot_types::traits::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::HashSet, sync::Arc};
-use tracing::{info, error};
+use tracing::{error, info};
 use Either::{Left, Right};
 
 pub const N: usize = 32_usize;
