@@ -298,6 +298,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
+    c_api.send_view_finished(consensus.cur_view).await;
     error!("returning!");
     Ok(())
 }
@@ -313,10 +314,8 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
         if let Some(ref recv) = run_once {
-            error!("WAITING FOR RUN");
             let _ = recv.recv_async().await;
         }
-        error!("STARTING VIEW");
         let _ = run_view(hotshot.clone()).await;
     }
 }

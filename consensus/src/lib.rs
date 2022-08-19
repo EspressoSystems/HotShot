@@ -378,7 +378,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
     pub async fn run_view(self) -> QuorumCertificate<N> {
         error!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
+
         let consensus = self.consensus.read().await;
+
         let mut reached_decided = false;
 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
@@ -410,12 +412,16 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
 
         let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
 
-        let next_parent_hash = original_parent_hash;
+        let mut next_parent_hash = original_parent_hash;
 
         if !reached_decided {
             while let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                    break;
+                }
                 let mut next_parent_txns = next_parent_leaf.deltas.contained_transactions();
                 previous_used_txns_vec.append(&mut next_parent_txns);
+                next_parent_hash = next_parent_leaf.parent;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
         }
@@ -425,6 +431,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             .collect::<HashSet<TransactionHash<N>>>();
 
         let txns = self.transactions.read().await;
+
         let unclaimed_txns: Vec<_> = txns
             .iter()
             .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(txn)))
