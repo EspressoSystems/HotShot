@@ -379,6 +379,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         self.hotstuff.read().await.get_decided_leaf().state
     }
 
+    /// Returns a copy of the last decided leaf
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+        self.hotstuff.read().await.get_decided_leaf()
+    }
+
     /// Initializes a new hotshot and does the work of setting up all the background tasks
     ///
     /// Assumes networking implementation is already primed.

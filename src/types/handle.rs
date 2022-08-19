@@ -7,6 +7,7 @@ use crate::{
 };
 use async_std::task::block_on;
 use hotshot_types::{
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::network::NetworkingImplementation,
@@ -111,6 +112,14 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// Returns an error if the underlying `Storage` returns an error
     pub async fn get_state(&self) -> I::State {
         self.hotshot.get_state().await
+    }
+
+    /// Gets most recent decided leaf
+    /// # Panics
+    ///
+    /// Panics if internal consensus is in an inconsistent state.
+    pub async fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+        self.hotshot.get_decided_leaf().await
     }
 
     /// Submits a transaction to the backing [`HotShot`] instance.
