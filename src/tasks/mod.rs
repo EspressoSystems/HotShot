@@ -288,7 +288,6 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     });
 
     let results = children_finished.await;
-    error!("finished children tasks!");
 
     // unwrap is fine since results must have >= 1 item(s)
     let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
@@ -296,7 +295,8 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
     c_api.send_view_finished(consensus.cur_view).await;
-    error!("returning!");
+
+    error!("Returning from view {:?}!", cur_view);
     Ok(())
 }
 

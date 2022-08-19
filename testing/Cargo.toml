@@ -21,3 +21,5 @@ either = { version = "1.7.0" }
 tempfile = "3.3.0"
 proptest = "1.0.0"
 
+[features]
+slow-tests = []

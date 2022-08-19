@@ -24,7 +24,9 @@ cross_all_types!(
         failure_threshold: 5,
         ..GeneralTestDescriptionBuilder::default()
     },
-    keep: true
+    keep: true,
+    slow: false
+
 );
 
 // This test simulates two permanent failed nodes
@@ -42,5 +44,7 @@ cross_all_types!(
         failure_threshold: 5,
         ..GeneralTestDescriptionBuilder::default()
     },
-    keep: true
+    keep: true,
+    slow: false
+
 );

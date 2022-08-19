@@ -464,6 +464,7 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         async_std::task::block_on(async move {
+            hotshot_utils::test_util::setup_logging();
             let description: $crate::GeneralTestDescriptionBuilder = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -481,7 +482,7 @@ macro_rules! gen_inner_fn {
 #[macro_export]
 macro_rules! cross_test {
     // base case
-    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, args: $($args:tt)+) => {
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: false, args: $($args:tt)+) => {
         proptest::prelude::proptest!{
             #![proptest_config(
                 proptest::prelude::ProptestConfig {
@@ -496,7 +497,23 @@ macro_rules! cross_test {
             }
         }
     };
-    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, args: $($args:tt)+) => {
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: true, args: $($args:tt)+) => {
+        proptest::prelude::proptest!{
+            #![proptest_config(
+                proptest::prelude::ProptestConfig {
+                    timeout: 300000,
+                    cases: 10,
+                    .. proptest::prelude::ProptestConfig::default()
+                }
+            )]
+            #[cfg(feature = "slow-tests")]
+            #[test]
+            fn $fn_name($($args)+) {
+                gen_inner_fn!($TEST_TYPE, $e);
+            }
+        }
+    };
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: false, args: $($args:tt)+) => {
         proptest::prelude::proptest!{
             #![proptest_config(
                 proptest::prelude::ProptestConfig {
@@ -512,13 +529,45 @@ macro_rules! cross_test {
             }
         }
     };
-    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, args: ) => {
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: true, args: $($args:tt)+) => {
+        proptest::prelude::proptest!{
+            #![proptest_config(
+                proptest::prelude::ProptestConfig {
+                    timeout: 300000,
+                    cases: 10,
+                    .. proptest::prelude::ProptestConfig::default()
+                }
+            )]
+            #[cfg(feature = "slow-tests")]
+            #[test]
+            #[ignore]
+            fn $fn_name($($args)+) {
+                gen_inner_fn!($TEST_TYPE, $e);
+            }
+        }
+    };
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: false, args: ) => {
         #[test]
         fn $fn_name() {
             gen_inner_fn!($TEST_TYPE, $e);
         }
     };
-    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, args: ) => {
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: true, args: ) => {
+        #[cfg(feature = "slow-tests")]
+        #[test]
+        fn $fn_name() {
+            gen_inner_fn!($TEST_TYPE, $e);
+        }
+    };
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: false, args: ) => {
+        #[test]
+        #[ignore]
+        fn $fn_name() {
+            gen_inner_fn!($TEST_TYPE, $e);
+        }
+    };
+    ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: true, args: ) => {
+        #[cfg(feature = "slow-tests")]
         #[test]
         #[ignore]
         fn $fn_name() {
@@ -542,66 +591,78 @@ macro_rules! cross_test {
 #[macro_export]
 macro_rules! cross_tests {
     // reduce networks -> individual network modules
-    ([ $NETWORK:tt $($NETWORKS:tt)* ], [ $($STORAGES:tt)+ ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ([ $NETWORK:tt $($NETWORKS:tt)* ], [ $($STORAGES:tt)+ ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $NETWORK {
             use $crate::*;
-            cross_tests!($NETWORK, [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
+            cross_tests!($NETWORK, [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
         }
-        cross_tests!([ $($NETWORKS)*  ], [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)* );
+        cross_tests!([ $($NETWORKS)*  ], [ $($STORAGES)+ ], [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)* );
     };
     // catchall for empty network list (base case)
-    ([  ], [ $($STORAGE:tt)+ ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ([  ], [ $($STORAGE:tt)+ ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
     };
     // reduce storages -> individual storage modules
-    ($NETWORK:tt, [ $STORAGE:tt $($STORAGES:tt)* ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, [ $STORAGE:tt $($STORAGES:tt)* ], [ $($BLOCKS:tt)+ ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $STORAGE {
             use $crate::*;
-            cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
+            cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS)+ ], [ $($STATES)+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
         }
-        cross_tests!($NETWORK, [ $($STORAGES),* ], [ $($BLOCKS),+ ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, args: $($args)*);
+        cross_tests!($NETWORK, [ $($STORAGES),* ], [ $($BLOCKS),+ ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
     };
     // catchall for empty storage list (base case)
-    ($NETWORK:tt, [  ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, [  ], [ $($BLOCKS:tt)+ ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
     };
     // reduce blocks -> individual block modules
-    ($NETWORK:tt, $STORAGE:tt, [ $BLOCK:tt $($BLOCKS:tt)* ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, $STORAGE:tt, [ $BLOCK:tt $($BLOCKS:tt)* ], [ $($STATES:tt)+ ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $BLOCK {
             use $crate::*;
-            cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)+ ], $fn_name, $e, keep: $keep, args: $($args)*);
+            cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
         }
-        cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS),* ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, args: $($args)*);
+        cross_tests!($NETWORK, $STORAGE, [ $($BLOCKS),* ], [ $($STATES),+ ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
     };
     // catchall for empty block list (base case)
-    ($NETWORK:tt, $STORAGE:tt, [  ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, $STORAGE:tt, [  ], [  $($STATES:tt)*  ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
     };
     // reduce states -> individual state modules
-    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [ $STATE:tt $( $STATES:tt)* ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [ $STATE:tt $( $STATES:tt)* ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
         #[ macro_use ]
         #[ allow(non_snake_case) ]
         mod $STATE {
             use $crate::*;
-            cross_tests!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e, keep: $keep, args: $($args)*);
+            cross_tests!($NETWORK, $STORAGE, $BLOCK, $STATE, $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
         }
-        cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)* ], $fn_name, $e, keep: $keep, args: $($args)*);
+        cross_tests!($NETWORK, $STORAGE, $BLOCK, [ $($STATES)* ], $fn_name, $e, keep: $keep, slow: $slow, args: $($args)*);
     };
     // catchall for empty state list (base case)
-    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [  ], $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, [  ], $fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)*) => {
     };
     // base reduction
     // NOTE: unclear why `tt` is needed instead of `ty`
-    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)*) => {
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: false, args: $($args:tt)*) => {
         type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message<$BLOCK, <$BLOCK as hotshot::traits::BlockContents< { hotshot::H_256 } > > ::Transaction, $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub ,{ hotshot::H_256 } >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
             $STORAGE<$BLOCK, $STATE, { hotshot::H_256 } >,
             $BLOCK,
             $STATE
         >;
-        cross_test!(TestType, $fn_name, $e, keep: $keep, args: $($args)*);
+        cross_test!(TestType, $fn_name, $e, keep: $keep, slow: false, args: $($args)*);
+    };
+    // base reduction
+    // NOTE: unclear why `tt` is needed instead of `ty`
+    ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: true, args: $($args:tt)*) => {
+        #[cfg(feature = "slow-tests")]
+        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message<$BLOCK, <$BLOCK as hotshot::traits::BlockContents< { hotshot::H_256 } > > ::Transaction, $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub ,{ hotshot::H_256 } >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
+            $STORAGE<$BLOCK, $STATE, { hotshot::H_256 } >,
+            $BLOCK,
+            $STATE
+        >;
+
+        cross_test!(TestType, $fn_name, $e, keep: $keep, slow: true, args: $($args)*);
     };
 }
 
@@ -614,7 +675,7 @@ macro_rules! cross_tests {
 ///   - false forces test to be ignored
 #[macro_export]
 macro_rules! cross_all_types {
-    ($fn_name:ident, $e:expr, keep: $keep:tt) => {
+    ($fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt) => {
         #[cfg(test)]
         #[macro_use]
         pub mod $fn_name {
@@ -628,6 +689,7 @@ macro_rules! cross_all_types {
                 $fn_name,
                 $e,
                 keep: $keep,
+                slow: $slow,
                 args:
             );
         }
@@ -647,7 +709,7 @@ macro_rules! cross_all_types {
 ///          these arguments are available for usage in $expr
 #[macro_export]
 macro_rules! cross_all_types_proptest {
-    ($fn_name:ident, $e:expr, keep: $keep:tt, args: $($args:tt)+) => {
+    ($fn_name:ident, $e:expr, keep: $keep:tt, slow: $slow:tt, args: $($args:tt)+) => {
         #[cfg(test)]
         #[macro_use]
         pub mod $fn_name {
@@ -661,6 +723,7 @@ macro_rules! cross_all_types_proptest {
                 $fn_name,
                 $e,
                 keep: $keep,
+                slow: $slow,
                 args: $($args)+
             );
         }

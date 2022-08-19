@@ -225,7 +225,10 @@ async fn test_happy_path_leaves() {
     }
 }
 
+// TODO rewrite this test to not use storage?
+// or, nuke. Unclear how we would restart without using nonvolatile storage though
 #[async_std::test]
+#[ignore]
 async fn restart() {
     use std::path::Path;
 
