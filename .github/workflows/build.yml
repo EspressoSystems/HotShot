@@ -36,7 +36,7 @@ jobs:
           sharedKey: HotShot163
 
       - name: Audit
-        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040 --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check
