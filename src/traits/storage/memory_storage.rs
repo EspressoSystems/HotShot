@@ -157,22 +157,17 @@ mod test {
     use hotshot_types::traits::block_contents::dummy::*;
 
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyBlock, DummyState, 32> {
-        StoredView {
-            append: ViewAppend::Block {
-                block: DummyBlock::random(),
-                rejected_transactions: BTreeSet::new(),
-            },
-            view_number: number,
-            parent: LeafHash::random(),
-            qc: QuorumCertificate {
+        StoredView::from_qc_block_and_state(
+            QuorumCertificate {
                 block_hash: BlockHash::random(),
                 genesis: number == ViewNumber::genesis(),
                 leaf_hash: LeafHash::random(),
                 signatures: BTreeMap::new(),
                 view_number: number,
             },
-            state: DummyState::random(),
-        }
+            DummyBlock::random(),
+            DummyState::random(),
+        )
     }
 
     #[async_std::test]

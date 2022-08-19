@@ -61,13 +61,13 @@ use hotshot_types::{
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         stateful_handler::StatefulHandler,
-        storage::{StoredView, ViewAppend},
+        storage::StoredView,
     },
 };
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -269,19 +269,19 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let mut genesis_leaves = HashMap::new();
         genesis_leaves.insert(anchored.qc.leaf_hash, anchored.clone().into());
 
-        let start_view = ViewNumber::new(1);
+        let start_view = anchored.view_number + 1;
 
         // TODO jr add constructor and private the consensus fields
         // and also ViewNumber's contained number
         let hotstuff = Consensus {
             state_map: genesis_map,
             cur_view: start_view,
-            last_decided_view: ViewNumber::new(0),
+            last_decided_view: anchored.view_number,
             transactions: Arc::default(),
             undecided_leaves: genesis_leaves,
             // TODO unclear if this is correct
             // maybe we need 3 views?
-            locked_view: ViewNumber::new(0),
+            locked_view: anchored.view_number,
             high_qc: anchored.qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
@@ -577,16 +577,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
                     let view_number = qc.view_number;
-                    let new_view = StoredView {
-                        append: ViewAppend::Block {
-                            block,
-                            rejected_transactions: BTreeSet::new(),
-                        },
-                        view_number,
-                        parent: LeafHash::default(), // TODO: Should we sync the parent leaf hash? Do we care?
-                        qc,
-                        state,
-                    };
+                    let new_view = StoredView::from_qc_block_and_state(qc, block, state);
 
                     if let Err(e) = self.inner.storage.insert_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");

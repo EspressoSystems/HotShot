@@ -100,10 +100,30 @@ pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
     pub state: S,
     pub append: ViewAppend<B, N>,
 }
+impl<B, S, const N: usize> StoredView<B, S, N>
+where
+    B: BlockContents<N>,
+    S: State<N>,
+{
+    /// Create a new `StoredView` from the given QC, Block and State.
+    ///
+    /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
+    pub fn from_qc_block_and_state(qc: QuorumCertificate<N>, block: B, state: S) -> Self {
+        Self {
+            append: ViewAppend::Block {
+                block,
+                rejected_transactions: BTreeSet::new(),
+            },
+            view_number: qc.view_number,
+            parent: LeafHash::default(),
+            qc,
+            state,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ViewAppend<B: BlockContents<N>, const N: usize> {
-    // UnknownParent,
     Block {
         block: B,
         rejected_transactions: BTreeSet<TransactionHash<N>>,
@@ -115,7 +135,6 @@ where
 {
     pub fn into_deltas(self) -> B {
         match self {
-            // Self::UnknownParent => Default::default(),
             Self::Block { block, .. } => block,
         }
     }

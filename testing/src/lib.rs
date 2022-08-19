@@ -218,13 +218,11 @@ impl<
         let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
         let public_key = Ed25519Pub::from_private(&private_key);
         let handle = HotShot::init(
-            // block,
             known_nodes.clone(),
             public_key,
             private_key,
             node_id,
             config,
-            // state,
             network,
             storage,
             Stateless::default(),
