@@ -24,13 +24,22 @@ jobs:
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
 
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: default
+          toolchain: stable
+          override: true
+          default: true
+
+
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
           sharedKey: HotShot163
 
       - name: Audit
-        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040 --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check
