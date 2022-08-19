@@ -13,8 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/espressosystems/devops-rust:1.63
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
@@ -38,7 +36,7 @@ jobs:
           sharedKey: HotShot163
 
       - name: Audit
-        run: cargo audit --deny warnings
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040 --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check
