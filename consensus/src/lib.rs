@@ -56,6 +56,7 @@ pub enum ViewInner<const N: usize> {
 }
 
 /// struct containing messages for a view to send to replica
+#[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation<N>, const N: usize> {
     /// to send networking events to Replica
     pub sender_chan: Sender<ConsensusMessage<I::Block, I::State, N>>,
@@ -82,7 +83,8 @@ pub struct SendToTasks<I: NodeImplementation<N>, const N: usize> {
     pub cur_view: ViewNumber,
 
     /// a map from view number to ViewQueue
-    pub replica_channel_map: BTreeMap<ViewNumber, ViewQueue<I, N>>,
+    /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
+    pub channel_map: BTreeMap<ViewNumber, ViewQueue<I, N>>,
 }
 
 impl<I: NodeImplementation<N>, const N: usize> SendToTasks<I, N> {
@@ -91,7 +93,7 @@ impl<I: NodeImplementation<N>, const N: usize> SendToTasks<I, N> {
     pub fn new(view_num: ViewNumber) -> Self {
         SendToTasks {
             cur_view: view_num,
-            replica_channel_map: BTreeMap::default(),
+            channel_map: BTreeMap::default(),
         }
     }
 }
@@ -225,7 +227,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
                         error!("Sending vote to next leader {:?}", vote);
 
-                        let _result = self.api.send_direct_message(next_leader, vote);
+                        let _result = self.api.send_direct_message(next_leader, vote).await;
 
                         break leaf;
                     }
@@ -248,6 +250,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             .await;
 
                         // exits from entire function
+                        self.api.send_replica_timeout(self.cur_view).await;
+
                         return self.high_qc;
                     }
                     ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
@@ -259,11 +263,65 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             }
             // fall through logic if we did not received successfully from channel
             error!("Replica did not received successfully from channel. Terminating Replica.");
+            self.api.send_replica_timeout(self.cur_view).await;
             return self.high_qc;
         };
 
-        // promote lock here
+        let mut new_anchor_view = consensus.last_decided_view;
+        let mut new_locked_view = consensus.locked_view;
+        let mut last_view_number_visited = self.cur_view;
+        let mut new_commit_reached: bool = false;
+        let mut new_decide_reached = false;
+        let mut blocks = Vec::new();
+        let mut states = Vec::new();
+        let mut included_txns = Vec::new();
+        let mut qcs = Vec::new();
+        let old_anchor_view = consensus.last_decided_view;
+        let parent_view = leaf.justify_qc.view_number;
+        if parent_view + 1 == self.cur_view {
+            let mut current_chain_length = 1usize;
+            let _outcome = consensus.visit_leaf_ancestors(
+                parent_view,
+                Terminator::Exclusive(old_anchor_view),
+                |leaf| {
+                    if !new_decide_reached {
+                        if last_view_number_visited == leaf.view_number + 1 {
+                            last_view_number_visited = leaf.view_number;
+                            current_chain_length += 1;
+                            if current_chain_length == 2 {
+                                new_locked_view = leaf.view_number;
+                                new_commit_reached = true;
+                            } else if current_chain_length == 3 {
+                                new_anchor_view = leaf.view_number;
+                                new_decide_reached = true;
+                            }
+                        } else {
+                            // nothing more to do here... we don't have a new chain extension
+                            return false;
+                        }
+                    }
+                    // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
+                    if new_decide_reached {
+                        // collecting chain elements for the decide
+                        blocks.push(leaf.deltas.clone());
+                        states.push(leaf.state.clone());
+                        qcs.push(leaf.justify_qc.clone());
+                        let mut txns = leaf.deltas.contained_transactions();
+                        included_txns.append(&mut txns);
+                    }
+                    true
+                },
+            );
+        }
+        let high_qc = leaf.justify_qc.clone();
 
+        let included_txns_set: HashSet<_> = if new_decide_reached {
+            included_txns.into_iter().collect()
+        } else {
+            HashSet::new()
+        };
+
+        // promote lock here
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         consensus.state_map.insert(
             self.cur_view,
@@ -271,111 +329,65 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 view_inner: ViewInner::Leaf { leaf: leaf.hash() },
             },
         );
-        let high_qc = leaf.justify_qc.clone();
         consensus.undecided_leaves.insert(leaf.hash(), leaf);
-        let mut new_anchor_view = consensus.last_decided_view;
-        let mut new_locked_view = consensus.locked_view;
-        let mut last_view_number_visited = self.cur_view;
-        let mut current_chain_length = 0usize;
-        let mut new_decide_reached = false;
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
-        let mut qcs = Vec::new();
-        let last_decided_view = consensus.last_decided_view;
-        let _outcome = consensus.visit_leaf_ancestors(
-            self.cur_view,
-            Terminator::Exclusive(last_decided_view),
-            |leaf| {
-                if !new_decide_reached && last_view_number_visited == leaf.view_number + 1 {
-                    current_chain_length += 1;
-                    if current_chain_length == 2 {
-                        new_locked_view = leaf.view_number;
-                    }
-                    if current_chain_length == 3 {
-                        new_anchor_view = leaf.view_number;
-                        new_decide_reached = true;
-                        blocks.push(leaf.deltas.clone());
-                        states.push(leaf.state.clone());
-                        qcs.push(leaf.justify_qc.clone());
-                    }
-                    last_view_number_visited = leaf.view_number;
-                } else if new_decide_reached {
-                    // collecting chain elements for the decide
-                    blocks.push(leaf.deltas.clone());
-                    states.push(leaf.state.clone());
-                    qcs.push(leaf.justify_qc.clone());
-                } else {
-                    // nothing more to do here... we don't have a new chain extension
-                    return false;
-                }
-                true
-            },
-        );
-        let mut included_txns = Vec::new();
-        for block in &blocks {
-            let mut txns = block.contained_transactions();
-            included_txns.append(&mut txns);
+        if new_commit_reached {
+            consensus.locked_view = new_locked_view;
+        }
+        if new_decide_reached {
+            {
+                let mut txns = consensus.transactions.write().await;
+                *txns = txns
+                    .drain(..)
+                    .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
+                    .collect();
+            }
+            let (last_qc, second_to_last_qc) = match qcs.as_slice() {
+                [.., second_last, last] => (second_last.clone(), last.clone()),
+                _ => panic!(
+                    "Expected QCS to have at least 2 entries, it only has {}",
+                    qcs.len()
+                ),
+            };
+            let last_state = states.last().unwrap().clone();
+            let last_block = blocks.last().unwrap().clone();
+            let decide_sent =
+                self.api
+                    .send_decide(consensus.last_decided_view, blocks, states, qcs);
+            let old_anchor_view = consensus.last_decided_view;
+            consensus
+                .collect_garbage(old_anchor_view, new_anchor_view)
+                .await;
+            consensus.last_decided_view = new_anchor_view;
+
+            // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+            let storage = self.api.storage();
+            if let Err(e) = storage
+                .insert_single_view(StoredView {
+                    append: ViewAppend::Block {
+                        block: last_block,
+                        rejected_transactions: BTreeSet::new(), // TODO: Fill this
+                    },
+                    parent: second_to_last_qc.leaf_hash,
+                    qc: last_qc,
+                    state: last_state,
+                    view_number: new_anchor_view,
+                })
+                .await
+            {
+                error!("Could not insert new anchor into the storage API: {:?}", e);
+            }
+            if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
+                error!(
+                    "Could not clean up storage to view {:?}: {:?}",
+                    old_anchor_view, e
+                );
+            }
+            if let Err(e) = storage.commit().await {
+                error!("Could not commit storage: {:?}", e);
+            }
+            decide_sent.await;
         }
 
-        let included_txns_set: HashSet<_> = included_txns.into_iter().collect();
-        {
-            let mut txns = consensus.transactions.write().await;
-            *txns = txns
-                .drain(..)
-                .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
-                .collect();
-        }
-
-        let (last_qc, second_to_last_qc) = match qcs.as_slice() {
-            [.., second_last, last] => (second_last.clone(), last.clone()),
-            _ => panic!(
-                "Expected QCS to have at least 2 entries, it only has {}",
-                qcs.len()
-            ),
-        };
-        let last_state = states.last().unwrap().clone();
-        let last_block = blocks.last().unwrap().clone();
-
-        let decide_sent = self
-            .api
-            .send_decide(consensus.last_decided_view, blocks, states, qcs);
-
-        let old_anchor_view = consensus.last_decided_view;
-
-        // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-        let storage = self.api.storage();
-        if let Err(e) = storage
-            .insert_single_view(StoredView {
-                append: ViewAppend::Block {
-                    block: last_block,
-                    rejected_transactions: BTreeSet::new(), // TODO: Fill this
-                },
-                parent: second_to_last_qc.leaf_hash,
-                qc: last_qc,
-                state: last_state,
-                view_number: new_anchor_view,
-            })
-            .await
-        {
-            error!("Could not insert new anchor into the storage API: {:?}", e);
-        }
-        if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
-            error!(
-                "Could not clean up storage to view {:?}: {:?}",
-                old_anchor_view, e
-            );
-        }
-        if let Err(e) = storage.commit().await {
-            error!("Could not commit storage: {:?}", e);
-        }
-
-        consensus
-            .collect_garbage(old_anchor_view, new_anchor_view)
-            .await;
-
-        consensus.last_decided_view = new_anchor_view;
-        consensus.locked_view = new_locked_view;
-        decide_sent.await;
         high_qc
     }
 }
@@ -403,7 +415,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
     pub async fn run_view(self) -> QuorumCertificate<N> {
         error!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
+
         let consensus = self.consensus.read().await;
+
         let mut reached_decided = false;
 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
@@ -435,12 +449,16 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
 
         let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
 
-        let next_parent_hash = original_parent_hash;
+        let mut next_parent_hash = original_parent_hash;
 
         if !reached_decided {
             while let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                    break;
+                }
                 let mut next_parent_txns = next_parent_leaf.deltas.contained_transactions();
                 previous_used_txns_vec.append(&mut next_parent_txns);
+                next_parent_hash = next_parent_leaf.parent;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
         }
@@ -450,9 +468,10 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             .collect::<HashSet<TransactionHash<N>>>();
 
         let txns = self.transactions.read().await;
+
         let unclaimed_txns: Vec<_> = txns
             .iter()
-            .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(*txn)))
+            .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(txn)))
             .collect();
 
         let mut block = starting_state.next_block();
@@ -568,6 +587,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
+                    self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
                 }
                 ConsensusMessage::Proposal(_p) => {

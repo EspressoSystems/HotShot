@@ -616,6 +616,9 @@ pub enum ConsensusRoundError {
     /// View times out with any node as the leader.
     TimedOutWithoutAnyLeader,
 
+    /// replicas timed out
+    ReplicasTimedOut,
+
     /// States after a round of consensus is inconsistent.
     InconsistentAfterTxn,
 

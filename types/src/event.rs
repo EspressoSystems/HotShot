@@ -60,8 +60,13 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// The view being started
         view_number: ViewNumber,
     },
-    /// A view was canceled by a timeout interrupt
-    ViewTimeout {
+    /// A replica task was canceled by a timeout interrupt
+    ReplicaViewTimeout {
+        /// The view that timed out
+        view_number: ViewNumber,
+    },
+    /// A next leader task was canceled by a timeout interrupt
+    NextLeaderViewTimeout {
         /// The view that timed out
         view_number: ViewNumber,
     },
@@ -87,5 +92,11 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     TransactionRejected {
         /// The transaction that has been rejected.
         transaction: B::Transaction,
+    },
+
+    /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
+    ViewFinished {
+        /// The view number that has just finished
+        view_number: ViewNumber,
     },
 }

@@ -187,6 +187,11 @@ mod test {
             .cleanup_storage_up_to_view(genesis.view_number)
             .await
             .unwrap();
+        assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
+        storage
+            .cleanup_storage_up_to_view(genesis.view_number + 1)
+            .await
+            .unwrap();
         assert!(storage.get_anchored_view().await.is_err())
     }
 }

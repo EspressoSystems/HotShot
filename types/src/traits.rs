@@ -1,6 +1,7 @@
 //! Common traits for the `HotShot` protocol
 pub mod block_contents;
 pub mod election;
+pub mod metrics;
 pub mod network;
 pub mod node_implementation;
 pub mod signature_key;

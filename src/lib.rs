@@ -47,10 +47,10 @@ use crate::{
 
 // mod state_machine;
 
-use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use flume::{Receiver, Sender};
-use hotshot_consensus::{Consensus, SendToTasks, View, ViewInner, ViewQueue};
+use flume::Sender;
+use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
     error::{NetworkFaultSnafu, StorageSnafu},
@@ -191,17 +191,11 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
 
-    /// for sending things to the task
-    /// right now only the replica task
-    send_to_tasks: Arc<RwLock<SendToTasks<I, N>>>,
+    /// for sending/recv-ing things with the replica task
+    replica_channel_map: Arc<RwLock<SendToTasks<I, N>>>,
 
-    /// for sending consensus messages from handle_direct_consensus_message task
-    /// to the next leader task. NOTE: only Vote, NextView should be sent over this channel
-    /// TODO is there a way to enforce this with type safety
-    send_next_leader: Sender<ConsensusMessage<I::Block, I::State, N>>,
-
-    /// for recv-ing consensus messages from handle_direct_consensus_message task
-    recv_next_leader: Receiver<ConsensusMessage<I::Block, I::State, N>>,
+    /// for sending/recv-ing things with the next leader task
+    next_leader_channel_map: Arc<RwLock<SendToTasks<I, N>>>,
 
     /// uid for instrumentation
     id: u64,
@@ -248,8 +242,6 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
 
-        let (send_next_leader, recv_next_leader) = flume::unbounded();
-
         let anchored = inner
             .storage
             .get_anchored_view()
@@ -293,9 +285,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             transactions: txns,
             // TODO check this is what we want.
             hotstuff,
-            send_next_leader,
-            recv_next_leader,
-            send_to_tasks: Arc::new(RwLock::new(SendToTasks::new(cur_view))),
+            replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(cur_view))),
+            next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(cur_view))),
         })
     }
 
@@ -322,10 +313,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         &self,
         current_view: ViewNumber,
         send_replica: Sender<ConsensusMessage<I::Block, I::State, N>>,
+        send_next_leader: Option<Sender<ConsensusMessage<I::Block, I::State, N>>>,
     ) {
         let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
-        if self.send_next_leader.send_async(msg.clone()).await.is_err() {
-            error!("Error timing out next leader");
+        if let Some(chan) = send_next_leader {
+            if chan.send_async(msg.clone()).await.is_err() {
+                error!("Error timing out next leader");
+            }
         };
         // NOTE this should always exist
         if send_replica.send_async(msg).await.is_err() {
@@ -455,6 +449,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
+    #[instrument(
+        skip(self, _sender),
+        name = "Handle broadcast consensus message",
+        level = "error"
+    )]
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
@@ -464,34 +463,18 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let msg_view_number = msg.view_number();
 
         match msg {
+            // this is ONLY intended for replica
             ConsensusMessage::Proposal(_) => {
-                let channel_map = self.send_to_tasks.upgradable_read().await;
+                let channel_map = self.replica_channel_map.upgradable_read().await;
 
                 // skip if the proposal is stale
                 if msg_view_number < channel_map.cur_view {
                     return;
                 }
 
-                // check if we have the entry
-                // if we don't, insert
-                let chan = if let Some(vq) = channel_map.replica_channel_map.get(&msg_view_number) {
-                    vq.sender_chan.clone()
-                } else {
-                    let mut channel_map =
-                        RwLockUpgradableReadGuard::<'_, SendToTasks<I, N>>::upgrade(channel_map)
-                            .await;
-                    let new_view_queue = ViewQueue::default();
-                    let s_chan = new_view_queue.sender_chan.clone();
-                    // NOTE: the read lock is held until all other read locks are DROPPED and
-                    // the read lock may be turned into a write lock.
-                    // This means that the `channel_map` will not change. So we don't need
-                    // to check again to see if a channel was added
-
-                    channel_map
-                        .replica_channel_map
-                        .insert(msg_view_number, new_view_queue);
-                    s_chan
-                };
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
+                    .await
+                    .sender_chan;
 
                 // sends the message if not stale
                 if chan.send_async(msg).await.is_err() {
@@ -508,20 +491,50 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
+    #[instrument(
+        skip(self, _sender),
+        name = "Handle direct consensus message",
+        level = "error"
+    )]
     async fn handle_direct_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
         _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
+
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
             ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
+            // this is ONLY intended for next leader
             c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
-                if self.send_next_leader.send_async(c).await.is_err() {
+                let msg_view_number = c.view_number();
+
+                let channel_map = self.next_leader_channel_map.upgradable_read().await;
+
+                // check if
+                // - is in fact, actually is the next leader
+                // - the message is not stale
+                if !ConsensusApi::is_leader(
+                    &HotShotConsensusApi {
+                        inner: self.inner.clone(),
+                    },
+                    msg_view_number + 1,
+                )
+                .await
+                    && msg_view_number >= channel_map.cur_view
+                {
+                    return;
+                }
+
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
+                    .await
+                    .sender_chan;
+
+                if chan.send_async(c).await.is_err() {
                     warn!("Failed to send to next leader!");
                 }
             }
@@ -633,6 +646,48 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// return the timeout for a view for `self`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
+    }
+}
+
+/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
+/// doesn't exist, or creates entry. Then returns a clone of the entry
+pub async fn create_or_obtain_chan_from_read<I: NodeImplementation<N>, const N: usize>(
+    view_num: ViewNumber,
+    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<I, N>>,
+) -> ViewQueue<I, N> {
+    // check if we have the entry
+    // if we don't, insert
+    if let Some(vq) = channel_map.channel_map.get(&view_num) {
+        vq.clone()
+    } else {
+        let mut channel_map =
+            RwLockUpgradableReadGuard::<'_, SendToTasks<I, N>>::upgrade(channel_map).await;
+        let new_view_queue = ViewQueue::default();
+        let vq = new_view_queue.clone();
+        // NOTE: the read lock is held until all other read locks are DROPPED and
+        // the read lock may be turned into a write lock.
+        // This means that the `channel_map` will not change. So we don't need
+        // to check again to see if a channel was added
+
+        channel_map.channel_map.insert(view_num, new_view_queue);
+        vq
+    }
+}
+
+/// given a view number and a write lock on a channel map, inserts entry into map if it
+/// doesn't exist, or creates entry. Then returns a clone of the entry
+pub async fn create_or_obtain_chan_from_write<I: NodeImplementation<N>, const N: usize>(
+    view_num: ViewNumber,
+    mut channel_map: RwLockWriteGuard<'_, SendToTasks<I, N>>,
+) -> ViewQueue<I, N> {
+    match channel_map.channel_map.entry(view_num) {
+        std::collections::btree_map::Entry::Vacant(v) => {
+            let vq = ViewQueue::default();
+            let vq_dup = vq.clone();
+            v.insert(vq);
+            vq_dup
+        }
+        std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
     }
 }
 

@@ -45,19 +45,7 @@ ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FO
 ```
 # Documentation
 
-To build documentation, run:
-
-```
-nix build .#hotshot-analysis -o analysis.pdf
-nix build .#hotshot-paper -o paper.pdf
-```
-
-To bring in dependencies and develop:
-
-```
-nix develop .#docsShell
-```
-
+The specification and research paper is available in the [papers](https://github.com/EspressoSystems/papers/tree/main/hotshot-paper) repository.
 
 # Resource Usage Statistics
 

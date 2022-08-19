@@ -344,7 +344,6 @@ impl<
                 Ok(_) => trace!(?key, "Delivered message to remote"),
                 Err(e) => {
                     error!(?e, ?key, "Error sending broadcast message to node");
-                    return Err(NetworkError::CouldNotDeliver);
                 }
             }
         }
@@ -531,15 +530,15 @@ mod tests {
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
+        let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
 
         // Test 1 -> 2
         // Send messages
         for message in &messages {
             network1
-                .message_node(message.clone(), pub_key_2.clone())
+                .message_node(message.clone(), pub_key_2)
                 .await
                 .expect("Failed to message node");
         }
@@ -559,7 +558,7 @@ mod tests {
         // Send messages
         for message in &messages {
             network2
-                .message_node(message.clone(), pub_key_1.clone())
+                .message_node(message.clone(), pub_key_1)
                 .await
                 .expect("Failed to message node");
         }
@@ -587,9 +586,9 @@ mod tests {
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
+        let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
 
         // Test 1 -> 2
         // Send messages
@@ -640,16 +639,16 @@ mod tests {
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1.clone(), group.clone(), Option::None);
+        let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2.clone(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
 
         assert_eq!(network1.in_flight_message_count(), Some(0));
         assert_eq!(network2.in_flight_message_count(), Some(0));
 
         for (count, message) in messages.iter().enumerate() {
             network1
-                .message_node(message.clone(), pub_key_2.clone())
+                .message_node(message.clone(), pub_key_2)
                 .await
                 .unwrap();
             // network 2 has received `count` broadcast messages and `count + 1` direct messages

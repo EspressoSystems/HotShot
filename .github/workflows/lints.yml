@@ -14,7 +14,7 @@ jobs:
   lints:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/espressosystems/devops-rust:nightly
+      image: ghcr.io/espressosystems/devops-rust:1.63
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v3
@@ -28,10 +28,10 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
-          sharedKey: HotShot
+          sharedKey: HotShot163
 
       - name: Format Check
         run: cargo fmt -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features --bins --tests -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --bins --tests --examples -- -D warnings

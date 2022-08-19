@@ -12,13 +12,11 @@ use hotshot_types::{
     traits::network::NetworkingImplementation,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
-
-use tracing::{debug, error};
-
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tracing::{debug, error};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -177,23 +175,25 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         // to check against
 
         // drain all events from this node
+        let mut results = Ok((Vec::new(), Vec::new()));
         loop {
             // unwrap is fine here since the thing hasn't been shut down
             let event = self.next_event().await.unwrap();
             match event.event {
-                EventType::ViewTimeout { view_number } => {
-                    error!(?event, "Round timed out!");
-                    return Err(HotShotError::ViewTimeoutError {
+                EventType::ReplicaViewTimeout { view_number } => {
+                    error!(?event, "Replica timed out!");
+                    results = Err(HotShotError::ViewTimeoutError {
                         view_number,
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
                 EventType::Decide { block, state, .. } => {
-                    return Ok((
+                    results = Ok((
                         state.iter().cloned().collect(),
                         block.iter().cloned().collect(),
                     ));
                 }
+                EventType::ViewFinished { view_number: _ } => return results,
                 event => {
                     debug!("recv-ed event {:?}", event);
                 }
