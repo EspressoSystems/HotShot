@@ -343,6 +343,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             }
             let (last_qc, second_to_last_qc) = match qcs.as_slice() {
                 [.., second_last, last] => (second_last.clone(), last.clone()),
+                #[allow(clippy::panic)] // this is a bug in the consensus logic
                 _ => panic!(
                     "Expected QCS to have at least 2 entries, it only has {}",
                     qcs.len()

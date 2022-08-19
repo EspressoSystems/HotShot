@@ -137,10 +137,8 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Sends a `ViewFinished` event
     async fn send_view_finished(&self, view_number: ViewNumber) {
         self.send_event(Event {
-            view_number: view_number,
-            event: EventType::ViewFinished {
-                view_number
-            },
+            view_number,
+            event: EventType::ViewFinished { view_number },
         })
         .await;
     }

@@ -79,12 +79,18 @@ where
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq, Eq)]
 pub struct StorageState<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> {
+    /// The views that have been successful
     pub stored: BTreeMap<ViewNumber, StoredView<BLOCK, STATE, N>>,
+    /// The views that have failed
     pub failed: BTreeSet<ViewNumber>,
 }
+
+/// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
 #[derive(Debug, PartialEq, Eq)]
 pub enum ViewEntry<B: BlockContents<N>, S: State<N>, const N: usize> {
+    /// A succeeded view
     Success(StoredView<B, S, N>),
+    /// A failed view
     Failed(ViewNumber),
     // future improvement:
     // InProgress(InProgressView),
@@ -100,14 +106,21 @@ where
     }
 }
 
+/// A view stored in the [`Storage`]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
+    /// The view number of this view
     pub view_number: ViewNumber,
+    /// The parent of this view
     pub parent: LeafHash<N>,
+    /// The QC of this view
     pub qc: QuorumCertificate<N>,
+    /// The state of this view
     pub state: S,
+    /// The history of how this view came to be
     pub append: ViewAppend<B, N>,
 }
+
 impl<B, S, const N: usize> StoredView<B, S, N>
 where
     B: BlockContents<N>,
@@ -130,17 +143,23 @@ where
     }
 }
 
+/// Indicates how a view came to be
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ViewAppend<B: BlockContents<N>, const N: usize> {
+    /// The view was created by appending a block to the previous view
     Block {
+        /// The block that was appended
         block: B,
+        /// A set of transactions that were rejected while trying to establish the above block
         rejected_transactions: BTreeSet<TransactionHash<N>>,
     },
 }
+
 impl<B, const N: usize> ViewAppend<B, N>
 where
     B: BlockContents<N>,
 {
+    /// Get the block deltas from this append
     pub fn into_deltas(self) -> B {
         match self {
             Self::Block { block, .. } => block,

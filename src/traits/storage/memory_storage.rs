@@ -7,7 +7,10 @@ use async_std::sync::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
-    traits::storage::*,
+    traits::storage::{
+        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
+        ViewEntry,
+    },
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -20,7 +23,9 @@ where
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
 {
+    /// The views that have been stored
     stored: BTreeMap<ViewNumber, StoredView<BLOCK, STATE, N>>,
+    /// The views that have failed
     failed: BTreeSet<ViewNumber>,
 }
 
@@ -192,6 +197,6 @@ mod test {
             .cleanup_storage_up_to_view(genesis.view_number + 1)
             .await
             .unwrap();
-        assert!(storage.get_anchored_view().await.is_err())
+        assert!(storage.get_anchored_view().await.is_err());
     }
 }
