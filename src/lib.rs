@@ -326,6 +326,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
     /// # Panics
     /// Panics if the current view is not in the channel map
+    #[instrument(
+        skip_all,
+        fields(id = self.id, view = *current_view),
+        name = "Timeout consensus tasks",
+        level = "warn"
+    )]
     pub async fn timeout_view(
         &self,
         current_view: ViewNumber,
@@ -335,12 +341,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
             if chan.send_async(msg.clone()).await.is_err() {
-                error!("Error timing out next leader");
+                warn!("Error timing out next leader task");
             }
         };
         // NOTE this should always exist
         if send_replica.send_async(msg).await.is_err() {
-            error!("Error timing out replica");
+            warn!("Error timing out replica task");
         };
     }
 
