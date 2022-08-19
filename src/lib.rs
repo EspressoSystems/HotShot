@@ -255,9 +255,9 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             .get_anchored_view()
             .await
             .context(StorageSnafu)?;
-        let mut genesis_map = BTreeMap::default();
 
-        genesis_map.insert(
+        let mut state_map = BTreeMap::default();
+        state_map.insert(
             anchored.view_number,
             View {
                 view_inner: ViewInner::Leaf {
@@ -266,19 +266,19 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             },
         );
 
-        let mut genesis_leaves = HashMap::new();
-        genesis_leaves.insert(anchored.qc.leaf_hash, anchored.clone().into());
+        let mut undecided_leaves = HashMap::new();
+        undecided_leaves.insert(anchored.qc.leaf_hash, anchored.clone().into());
 
-        let start_view = anchored.view_number + 1;
+        let cur_view = anchored.view_number + 1;
 
         // TODO jr add constructor and private the consensus fields
         // and also ViewNumber's contained number
         let hotstuff = Consensus {
-            state_map: genesis_map,
-            cur_view: start_view,
+            state_map,
+            cur_view,
             last_decided_view: anchored.view_number,
             transactions: Arc::default(),
-            undecided_leaves: genesis_leaves,
+            undecided_leaves,
             // TODO unclear if this is correct
             // maybe we need 3 views?
             locked_view: anchored.view_number,
@@ -295,7 +295,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             hotstuff,
             send_next_leader,
             recv_next_leader,
-            send_to_tasks: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            send_to_tasks: Arc::new(RwLock::new(SendToTasks::new(cur_view))),
         })
     }
 
