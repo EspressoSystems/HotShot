@@ -19,10 +19,10 @@
 
 mod traits;
 
-use flume::{Receiver, Sender};
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
+use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{
         create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, TransactionHash,
@@ -40,7 +40,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
-use tracing::{error, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 /// A view's state
 #[derive(Debug)]
@@ -122,18 +122,17 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// last view had a successful decide event
     pub last_decided_view: ViewNumber,
 
-    // /// Listeners to be called when a round ends
-    // /// TODO we can probably nuke this soon
-    // new_round_finished_listeners: Vec<Sender<RoundFinishedEvent>>,
-    /// A list of transactions
-    /// TODO we should flush out the logic here more
+    /// A list of undecided transactions
     pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
 
-    /// Map of undecided leaf hash -> leaf
-    /// NOTE: this also includes the MOST RECENT decided leaf
-    pub undecided_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
+    /// Map of leaf hash -> leaf
+    /// - contains undecided leaves
+    /// - includes the MOST RECENT decided leaf
+    pub saved_leaves: HashMap<LeafHash<N>, Leaf<I::Block, I::State, N>>,
+
     /// The `locked_qc` view number
     pub locked_view: ViewNumber,
+
     /// the highqc per spec
     pub high_qc: QuorumCertificate<N>,
 }
@@ -161,13 +160,13 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
     #[allow(clippy::too_many_lines)]
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
-        error!("Replica task started!");
+        info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
-            error!("recv-ed message {:?}", msg.clone());
+            info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
@@ -179,20 +178,21 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             &p.signature,
                             &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
                         ) {
+                            warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }
                         let justify_qc = p.leaf.justify_qc;
                         let parent =
-                            if let Some(parent) = consensus.undecided_leaves.get(&p.leaf.parent) {
+                            if let Some(parent) = consensus.saved_leaves.get(&p.leaf.parent) {
                                 parent
                             } else {
-                                error!("Parent missing from storage");
+                                warn!("Proposal's parent missing from storage");
                                 continue;
                             };
                         if justify_qc.view_number != parent.view_number
                             || !self.api.validate_qc(&justify_qc, parent.view_number)
                         {
-                            error!(
+                            warn!(
                                 "Proposal failure at qc verification {:?} vs {:?}",
                                 justify_qc.view_number, parent.view_number
                             );
@@ -207,7 +207,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                                 self.cur_view,
                             )
                         } else {
-                            error!("State didn't match");
+                            warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
                         let leaf_hash = leaf.hash();
@@ -225,9 +225,16 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                        error!("Sending vote to next leader {:?}", vote);
+                        info!("Sending vote to next leader {:?}", vote);
 
-                        let _result = self.api.send_direct_message(next_leader, vote).await;
+                        if self
+                            .api
+                            .send_direct_message(next_leader, vote)
+                            .await
+                            .is_err()
+                        {
+                            warn!("Failed to send vote to next leader");
+                        };
 
                         break leaf;
                     }
@@ -238,7 +245,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                             current_view: self.cur_view,
                             justify: self.high_qc.clone(),
                         });
-                        error!(
+                        warn!(
                             "Timed out! Sending timeout to next leader {:?}",
                             timed_out_msg
                         );
@@ -256,13 +263,13 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                     }
                     ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
                         // should only be for leader, never replica
-                        error!("Replica receieved a vote or timed out message. This is not what the replica expects. Skipping.");
+                        warn!("Replica receieved a vote or timed out message. This is not what the replica expects. Skipping.");
                         continue;
                     }
                 }
             }
             // fall through logic if we did not received successfully from channel
-            error!("Replica did not received successfully from channel. Terminating Replica.");
+            warn!("Replica did not received successfully from channel. Terminating Replica.");
             self.api.send_replica_timeout(self.cur_view).await;
             return self.high_qc;
         };
@@ -329,7 +336,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 view_inner: ViewInner::Leaf { leaf: leaf.hash() },
             },
         );
-        consensus.undecided_leaves.insert(leaf.hash(), leaf);
+        consensus.saved_leaves.insert(leaf.hash(), leaf);
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
         }
@@ -376,7 +383,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
-        error!("Leader task started!");
+        info!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
 
         let consensus = self.consensus.read().await;
@@ -386,24 +393,24 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
             match &parent_view.view_inner {
                 ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.undecided_leaves.get(leaf) {
+                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
                         if leaf.view_number == consensus.last_decided_view {
                             reached_decided = true;
                         }
                         leaf
                     } else {
-                        error!("Failed to find parent.");
+                        warn!("Failed to find high QC parent.");
                         return self.high_qc;
                     }
                 }
                 // can happen if future api is whacked
                 ViewInner::Failed => {
-                    error!("Parent of high QC points to a failed QC");
+                    warn!("Parent of high QC points to a failed QC");
                     return self.high_qc;
                 }
             }
         } else {
-            error!("Couldn't find high_qc parent in state map.");
+            warn!("Couldn't find high QC parent in state map.");
             return self.high_qc;
         };
 
@@ -415,7 +422,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
         let mut next_parent_hash = original_parent_hash;
 
         if !reached_decided {
-            while let Some(next_parent_leaf) = consensus.undecided_leaves.get(&next_parent_hash) {
+            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
                 }
@@ -457,11 +464,12 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             };
             let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
-            error!("Leader sending out proposal {:?}", message);
-            // TODO add erroring stuff
+            info!("Sending out proposal {:?}", message);
             if self.api.send_broadcast_message(message).await.is_err() {
-                error!("Leader task failed to broadcast to network");
+                warn!("Failed to broadcast to network");
             };
+        } else {
+            error!("Could not append state in high qc for proposal. Failed to send out proposal.");
         }
 
         self.high_qc.clone()
@@ -493,7 +501,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
-        error!("Next Leader task started!");
+        info!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<N>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -502,7 +510,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
         let threshold = self.api.threshold();
 
         while let Ok(msg) = self.vote_collection_chan.recv_async().await {
-            error!("recv-ed message {:?}", msg.clone());
+            info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }
@@ -517,7 +525,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                         std::collections::hash_map::Entry::Occupied(mut o) => {
                             let (bh, map) = o.get_mut();
                             if *bh != vote.block_hash {
-                                error!("Mismatch between blockhash in received votes. This is probably an error without byzantine nodes.");
+                                warn!("Mismatch between blockhash in received votes. This is probably an error without byzantine nodes.");
                             }
                             map.insert(vote.signature.0.clone(), vote.signature.1.clone());
                         }
@@ -554,7 +562,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
                     break;
                 }
                 ConsensusMessage::Proposal(_p) => {
-                    error!("The next leader has received an unexpected proposal!");
+                    warn!("The next leader has received an unexpected proposal!");
                 }
             }
         }
@@ -603,52 +611,48 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
                 leaf
             } else {
                 return Err(HotShotError::InvalidState {
-                    context: String::default(),
+                    context: format!(
+                        "Visited failed view {:?} leaf. Expected successfuil leaf",
+                        start_from
+                    ),
                 });
             }
         } else {
             return Err(HotShotError::InvalidState {
-                context: String::default(),
+                context: format!("View {:?} leaf does not exist in state map ", start_from),
             });
         };
-        loop {
-            if let Some(leaf) = self.undecided_leaves.get(&next_leaf) {
-                if let Terminator::Exclusive(stop_before) = terminator {
-                    if stop_before == leaf.view_number {
-                        return Ok(());
-                    }
-                }
-                next_leaf = leaf.parent;
-                if !f(leaf) {
+
+        while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
+            if let Terminator::Exclusive(stop_before) = terminator {
+                if stop_before == leaf.view_number {
                     return Ok(());
                 }
-                if let Terminator::Inclusive(stop_after) = terminator {
-                    if stop_after == leaf.view_number {
-                        return Ok(());
-                    }
+            }
+            next_leaf = leaf.parent;
+            if !f(leaf) {
+                return Ok(());
+            }
+            if let Terminator::Inclusive(stop_after) = terminator {
+                if stop_after == leaf.view_number {
+                    return Ok(());
                 }
-            } else {
-                return Err(HotShotError::ItemNotFound {
-                    type_name: "Leaf",
-                    hash: next_leaf.to_vec(),
-                });
             }
         }
+        Err(HotShotError::ItemNotFound {
+            type_name: "Leaf",
+            hash: next_leaf.to_vec(),
+        })
     }
 
     /// garbage collects based on state change
-    /// right now, this removes from both the `undecided_leaves`
+    /// right now, this removes from both the `saved_leaves`
     /// and `state_map` fields of `Consensus`
     pub async fn collect_garbage(
         &mut self,
         old_anchor_view: ViewNumber,
         new_anchor_view: ViewNumber,
     ) {
-        if let Some(entry) = self.state_map.iter().next() {
-            if *entry.0 != old_anchor_view {
-                error!("useful error message here");
-            }
-        }
         self.state_map
             .range((Included(&old_anchor_view), Excluded(&new_anchor_view)))
             .filter_map(|(view_number, view)| {
@@ -659,7 +663,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
                 }
             })
             .for_each(|(_view_number, leaf)| {
-                let _removed = self.undecided_leaves.remove(leaf);
+                let _removed = self.saved_leaves.remove(leaf);
             });
         self.state_map = self.state_map.split_off(&new_anchor_view);
     }
@@ -693,7 +697,7 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
             cur_view: ViewNumber::genesis(),
             last_decided_view: ViewNumber::genesis(),
             state_map: BTreeMap::default(),
-            undecided_leaves: HashMap::default(),
+            saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),
             high_qc: QuorumCertificate::default(),
         }
@@ -720,7 +724,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
             view_inner: ViewInner::Leaf { leaf },
         } = view
         {
-            return self.undecided_leaves.get(leaf).unwrap().clone();
+            return self.saved_leaves.get(leaf).unwrap().clone();
         };
         panic!("Decided state not found! Consensus internally inconsistent");
     }

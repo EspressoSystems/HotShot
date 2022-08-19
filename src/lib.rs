@@ -45,8 +45,6 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
-// mod state_machine;
-
 use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use flume::Sender;
@@ -289,7 +287,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             cur_view: start_view,
             last_decided_view: ViewNumber::new(0),
             transactions: Arc::default(),
-            undecided_leaves: genesis_leaves,
+            saved_leaves: genesis_leaves,
             // TODO unclear if this is correct
             // maybe we need 3 views?
             locked_view: ViewNumber::new(0),
@@ -489,6 +487,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
+        // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_view_number = msg.view_number();
 
         match msg {
@@ -845,6 +844,7 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
     fn validate_qc(&self, qc: &QuorumCertificate<N>, view_number: ViewNumber) -> bool {
         if qc.view_number != view_number {
             warn!(?qc, ?view_number, "Failing on view_number equality check");
+            return false;
         }
         if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
@@ -857,6 +857,7 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
         }
     }
 
+    // TODO <github.com/EspressoSystems/HotShot/issues/419>
     // s/get_valid_signatures/get_valid_signature(signature, hash)
     fn get_valid_signatures(
         &self,

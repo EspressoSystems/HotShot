@@ -144,7 +144,7 @@ async fn main() {
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.run_one_round().await;
+            hotshot.start_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
@@ -210,7 +210,7 @@ async fn main() {
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.run_one_round().await;
+            hotshot.start_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");

@@ -1,16 +1,12 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-// mod round_runner;
-
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_std::{
     prelude::FutureExt,
     sync::RwLock,
     task::{sleep, spawn, JoinHandle},
 };
-
 use flume::{Receiver, Sender};
-
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     message::MessageKind,
@@ -43,8 +39,8 @@ impl TaskHandle {
     }
 
     /// Make the round runner run 1 round.
-    /// TODO should this block?
-    pub async fn run_one_round(&self) {
+    /// Does/should not block.
+    pub async fn start_one_round(&self) {
         let handle = self.inner.read().await;
         if handle.is_some() {
             let handle = handle.as_ref().unwrap();
@@ -220,24 +216,24 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     };
 
     // increment consensus and start tasks
-    error!("Running View!");
-    let next_view_timeout = hotshot.inner.config.next_view_timeout;
 
-    // OBTAIN write lock on consensus
-    let mut consensus = hotshot.hotstuff.write().await;
+    let (cur_view, high_qc, txns) = {
+        // OBTAIN write lock on consensus
+        let mut consensus = hotshot.hotstuff.write().await;
+        let cur_view = consensus.increment_view();
+        // make sure consistent
+        assert_eq!(cur_view, next_leader_cur_view);
+        assert_eq!(cur_view, replica_cur_view);
+        let high_qc = consensus.high_qc.clone();
+        let txns = consensus.transactions.clone();
+        // DROP write lock on consensus
+        drop(consensus);
+        (cur_view, high_qc, txns)
+    };
 
-    let cur_view = consensus.increment_view();
-
-    // make sure consistent
-    assert_eq!(cur_view, next_leader_cur_view);
-    assert_eq!(cur_view, replica_cur_view);
+    info!("Starting tasks for View {:?}!", cur_view);
 
     let mut task_handles = Vec::new();
-
-    let high_qc = consensus.high_qc.clone();
-    let txns = consensus.transactions.clone();
-    // DROP write lock on consensus
-    drop(consensus);
 
     // replica always runs? TODO this will change once vrf integration is added
     let replica = Replica {
@@ -280,6 +276,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     let children_finished = futures::future::join_all(task_handles);
 
     spawn({
+        let next_view_timeout = hotshot.inner.config.next_view_timeout;
         let next_view_timeout = next_view_timeout;
         let hotshot: HotShot<I, N> = hotshot.clone();
         async move {

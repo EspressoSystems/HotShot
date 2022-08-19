@@ -309,7 +309,7 @@ impl<
 
         info!("EXECUTOR: running one round");
         for handle in self.nodes() {
-            handle.run_one_round().await;
+            handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();

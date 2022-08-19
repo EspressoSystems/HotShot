@@ -159,17 +159,12 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// Signals the underlying [`HotShot`] to run one round, if paused.
     ///
     /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
-    pub async fn run_one_round(&self) {
+    pub async fn start_one_round(&self) {
         self.hotshot
             .inner
             .background_task_handle
-            .run_one_round()
+            .start_one_round()
             .await;
-    }
-
-    /// Synchronously signals the underlying [`HotShot`] to run one round, if paused
-    pub fn run_one_round_sync(&self) {
-        block_on(self.run_one_round());
     }
 
     /// iterate through all events on a [`NodeImplementation`] and determine if the node finished
