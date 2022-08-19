@@ -60,7 +60,7 @@ where
     /// Will be deleted/lost immediately after storage is dropped
     /// # Errors
     /// Errors if it is not possible to construct temporary storage.
-    fn construct_tmp_storage() -> Result<Self>;
+    fn construct_tmp_storage(block: B, storage: S) -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
     async fn get_full_state(&self) -> StorageState<B, S, N>;
@@ -103,11 +103,22 @@ pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ViewAppend<B: BlockContents<N>, const N: usize> {
-    UnknownParent,
+    // UnknownParent,
     Block {
         block: B,
         rejected_transactions: BTreeSet<TransactionHash<N>>,
     },
+}
+impl<B, const N: usize> ViewAppend<B, N>
+where
+    B: BlockContents<N>,
+{
+    pub fn into_deltas(self) -> B {
+        match self {
+            // Self::UnknownParent => Default::default(),
+            Self::Block { block, .. } => block,
+        }
+    }
 }
 
 impl<B, const N: usize> From<B> for ViewAppend<B, N>

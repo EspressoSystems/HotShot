@@ -139,15 +139,13 @@ async fn init_state_and_hotshot(
     let pub_key = Ed25519Pub::from_private(&priv_key);
     let genesis = DEntryBlock::default();
     let hotshot = HotShot::init(
-        genesis,
         known_nodes.clone(),
         pub_key,
         priv_key,
         node_id,
         config,
-        state.clone(),
         networking,
-        MemoryStorage::default(),
+        MemoryStorage::new(genesis, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )

@@ -111,7 +111,6 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 #[derive(Debug)]
 pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     /// The phases that are currently loaded in memory
-    // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
     pub state_map: BTreeMap<ViewNumber, View<N>>,
 
     /// cur_view from pseudocode

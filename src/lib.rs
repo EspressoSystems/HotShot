@@ -40,7 +40,7 @@ mod tasks;
 mod utils;
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate},
+    data::{LeafHash, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, EventType, HotShotHandle},
 };
@@ -53,7 +53,7 @@ use flume::{Receiver, Sender};
 use hotshot_consensus::{Consensus, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     data::{create_verify_hash, VerifyHash, ViewNumber},
-    error::NetworkFaultSnafu,
+    error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -67,7 +67,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -211,23 +211,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-    #[instrument(skip(
-        genesis,
-        private_key,
-        cluster_public_keys,
-        starting_state,
-        networking,
-        storage,
-        election
-    ))]
+    #[instrument(skip(private_key, cluster_public_keys, networking, storage, election))]
     pub async fn new(
-        genesis: I::Block,
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<I::SignatureKey>,
-        starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
@@ -258,52 +248,26 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
 
-        let genesis_hash = BlockContents::hash(&genesis);
-        let genesis_qc = QuorumCertificate {
-            block_hash: genesis_hash,
-            leaf_hash: [0_u8; { N }].into(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::new(),
-            genesis: true,
-        };
-        let genesis_leaf = Leaf {
-            state: starting_state.clone(),
-            view_number: ViewNumber::genesis(),
-            justify_qc: genesis_qc.clone(),
-            // NOTE: view number might be different
-            parent: [0_u8; { N }].into(),
-            deltas: genesis.clone(),
-        };
-        let genesis_leaf_hash = genesis_leaf.hash();
-        trace!("Genesis leaf hash: {:?}", genesis_leaf_hash);
-
-        inner
-            .storage
-            .insert_single_view(StoredView {
-                append: genesis.into(),
-                view_number: ViewNumber::genesis(),
-                parent: LeafHash::default(),
-                qc: genesis_qc.clone(),
-                state: starting_state.clone(),
-            })
-            .await
-            .expect("Could not insert genesis block");
-
         let (send_next_leader, recv_next_leader) = flume::unbounded();
 
+        let anchored = inner
+            .storage
+            .get_anchored_view()
+            .await
+            .context(StorageSnafu)?;
         let mut genesis_map = BTreeMap::default();
 
         genesis_map.insert(
-            ViewNumber::new(0),
+            anchored.view_number,
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: genesis_leaf_hash,
+                    leaf: anchored.qc.leaf_hash,
                 },
             },
         );
 
         let mut genesis_leaves = HashMap::new();
-        genesis_leaves.insert(genesis_leaf_hash, genesis_leaf);
+        genesis_leaves.insert(anchored.qc.leaf_hash, anchored.clone().into());
 
         let start_view = ViewNumber::new(1);
 
@@ -318,7 +282,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             // TODO unclear if this is correct
             // maybe we need 3 views?
             locked_view: ViewNumber::new(0),
-            high_qc: genesis_qc,
+            high_qc: anchored.qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -417,13 +381,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
-        genesis: I::Block,
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<I::SignatureKey>,
-        starting_state: I::State,
         networking: I::Networking,
         storage: I::Storage,
         handler: I::StatefulHandler,
@@ -431,13 +393,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ) -> Result<HotShotHandle<I, N>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
-            genesis,
             cluster_public_keys,
             public_key,
             private_key,
             node_id,
             config,
-            starting_state,
             networking,
             storage,
             handler,
@@ -601,6 +561,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         match msg {
             DataMessage::NewestQuorumCertificate {
                 quorum_certificate: qc,
+                block,
                 state,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
@@ -617,7 +578,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 if should_save {
                     let view_number = qc.view_number;
                     let new_view = StoredView {
-                        append: ViewAppend::UnknownParent,
+                        append: ViewAppend::Block {
+                            block,
+                            rejected_transactions: BTreeSet::new(),
+                        },
                         view_number,
                         parent: LeafHash::default(), // TODO: Should we sync the parent leaf hash? Do we care?
                         qc,
@@ -659,6 +623,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 };
                 let msg = DataMessage::NewestQuorumCertificate {
                     quorum_certificate: anchor.qc,
+                    block: anchor.append.into_deltas(),
                     state: anchor.state,
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {

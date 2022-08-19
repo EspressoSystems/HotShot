@@ -63,7 +63,11 @@ impl<
         Self {
             network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
+                <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage(
+                    <BLOCK as Default>::default(),
+                    <STATE as TestableState<N>>::get_starting_state(),
+                )
+                .unwrap()
             }),
             block: Box::new(|_| <BLOCK as Default>::default()),
             state: Box::new(|_| <STATE as TestableState<N>>::get_starting_state()),

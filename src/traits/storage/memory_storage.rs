@@ -5,7 +5,10 @@
 use crate::traits::{BlockContents, State};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use hotshot_types::{data::ViewNumber, traits::storage::*};
+use hotshot_types::{
+    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    traits::storage::*,
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -32,17 +35,46 @@ where
     inner: Arc<RwLock<MemoryStorageInternal<BLOCK, STATE, N>>>,
 }
 
-impl<BLOCK, STATE, const N: usize> Default for MemoryStorage<BLOCK, STATE, N>
+impl<B, S, const N: usize> MemoryStorage<B, S, N>
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    B: BlockContents<N> + 'static,
+    S: State<N, Block = B> + 'static,
 {
-    fn default() -> Self {
+    /// Create a new instance of the memory storage with the given block and state
+    pub fn new(block: B, state: S) -> Self {
+        let mut inner = MemoryStorageInternal {
+            stored: BTreeMap::new(),
+            failed: BTreeSet::new(),
+        };
+        let qc = QuorumCertificate {
+            block_hash: BlockContents::hash(&block),
+            genesis: true,
+            leaf_hash: Leaf {
+                deltas: block.clone(),
+                justify_qc: QuorumCertificate::default(),
+                parent: LeafHash::default(),
+                state: state.clone(),
+                view_number: ViewNumber::genesis(),
+            }
+            .hash(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::new(),
+        };
+        inner.stored.insert(
+            ViewNumber::genesis(),
+            StoredView {
+                append: ViewAppend::Block {
+                    block,
+                    rejected_transactions: BTreeSet::new(),
+                },
+                parent: LeafHash::default(),
+                qc,
+                state,
+                view_number: ViewNumber::genesis(),
+            },
+        );
         Self {
-            inner: Arc::new(RwLock::new(MemoryStorageInternal {
-                stored: BTreeMap::new(),
-                failed: BTreeSet::new(),
-            })),
+            inner: Arc::new(RwLock::new(inner)),
         }
     }
 }
@@ -53,8 +85,8 @@ where
     B: BlockContents<N> + 'static,
     S: State<N, Block = B> + 'static,
 {
-    fn construct_tmp_storage() -> Result<Self> {
-        Ok(Self::default())
+    fn construct_tmp_storage(block: B, state: S) -> Result<Self> {
+        Ok(Self::new(block, state))
     }
 
     async fn get_full_state(&self) -> StorageState<B, S, N> {
@@ -145,7 +177,9 @@ mod test {
 
     #[async_std::test]
     async fn memory_storage() {
-        let storage = MemoryStorage::default();
+        let storage =
+            MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
+                .unwrap();
         let genesis = random_stored_view(ViewNumber::genesis());
         storage
             .insert_single_view(genesis.clone())

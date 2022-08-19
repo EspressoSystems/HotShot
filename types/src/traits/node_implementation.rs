@@ -80,6 +80,6 @@ where
 {
     type MessageKind = MessageKind<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
-    type DataMessage = DataMessage<<I as TypeMap<N>>::Transaction, I::State, N>;
+    type DataMessage = DataMessage<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
     type Transaction = <I::Block as BlockContents<N>>::Transaction;
 }

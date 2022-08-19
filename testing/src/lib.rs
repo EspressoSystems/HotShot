@@ -124,8 +124,6 @@ pub struct TestRunner<
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
-    block_generator: Generator<BLOCK>,
-    state_generator: Generator<STATE>,
     default_node_config: HotShotConfig<Ed25519Pub>,
     nodes: Vec<Node<NETWORK, STORAGE, BLOCK, STATE>>,
     next_node_id: u64,
@@ -162,8 +160,6 @@ impl<
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
-            block_generator: launcher.block,
-            state_generator: launcher.state,
             default_node_config: launcher.config,
             nodes: Vec::new(),
             next_node_id: 0,
@@ -185,12 +181,8 @@ impl<
             let node_id = self.next_node_id;
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
-            let block = (self.block_generator)(node_id);
-            let state = (self.state_generator)(node_id);
             let config = self.default_node_config.clone();
-            let node_id = self
-                .add_node_with_config(network, storage, block, state, config)
-                .await;
+            let node_id = self.add_node_with_config(network, storage, config).await;
             results.push(node_id);
         }
 
@@ -217,8 +209,6 @@ impl<
         &mut self,
         network: NETWORK,
         storage: STORAGE,
-        block: BLOCK,
-        state: STATE,
         config: HotShotConfig<Ed25519Pub>,
     ) -> u64 {
         let node_id = self.next_node_id;
@@ -228,13 +218,13 @@ impl<
         let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
         let public_key = Ed25519Pub::from_private(&private_key);
         let handle = HotShot::init(
-            block,
+            // block,
             known_nodes.clone(),
             public_key,
             private_key,
             node_id,
             config,
-            state,
+            // state,
             network,
             storage,
             Stateless::default(),
