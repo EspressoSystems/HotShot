@@ -19,10 +19,10 @@
 
 mod traits;
 
-use flume::{Receiver, Sender};
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
+use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{
         create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, TransactionHash,
@@ -33,11 +33,12 @@ use hotshot_types::{
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::{Storage, StoredView, ViewAppend},
         BlockContents, State,
     },
 };
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     ops::Bound::{Excluded, Included},
 };
 use tracing::{error, instrument, warn};
@@ -324,13 +325,54 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
                 .collect();
         }
+
+        let (last_qc, second_to_last_qc) = match qcs.as_slice() {
+            [.., second_last, last] => (second_last.clone(), last.clone()),
+            _ => panic!(
+                "Expected QCS to have at least 2 entries, it only has {}",
+                qcs.len()
+            ),
+        };
+        let last_state = states.last().unwrap().clone();
+        let last_block = blocks.last().unwrap().clone();
+
         let decide_sent = self
             .api
             .send_decide(consensus.last_decided_view, blocks, states, qcs);
+
         let old_anchor_view = consensus.last_decided_view;
+
+        // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+        let storage = self.api.storage();
+        if let Err(e) = storage
+            .insert_single_view(StoredView {
+                append: ViewAppend::Block {
+                    block: last_block,
+                    rejected_transactions: BTreeSet::new(), // TODO: Fill this
+                },
+                parent: second_to_last_qc.leaf_hash,
+                qc: last_qc,
+                state: last_state,
+                view_number: new_anchor_view,
+            })
+            .await
+        {
+            error!("Could not insert new anchor into the storage API: {:?}", e);
+        }
+        if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
+            error!(
+                "Could not clean up storage to view {:?}: {:?}",
+                old_anchor_view, e
+            );
+        }
+        if let Err(e) = storage.commit().await {
+            error!("Could not commit storage: {:?}", e);
+        }
+
         consensus
             .collect_garbage(old_anchor_view, new_anchor_view)
             .await;
+
         consensus.last_decided_view = new_anchor_view;
         consensus.locked_view = new_locked_view;
         decide_sent.await;

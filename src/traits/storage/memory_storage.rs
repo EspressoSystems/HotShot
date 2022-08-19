@@ -123,14 +123,12 @@ where
         let mut inner = self.inner.write().await;
 
         // .split_off will return everything after the given key, including the key.
-        // we want to remove `view` so we split_off on next_view
-        let next_view = view + 1;
-        let stored_after = inner.stored.split_off(&next_view);
+        let stored_after = inner.stored.split_off(&view);
         // .split_off will return the map we want to keep stored, so we need to swap them
         let old_stored = std::mem::replace(&mut inner.stored, stored_after);
 
         // same for the BTreeSet
-        let failed_after = inner.failed.split_off(&next_view);
+        let failed_after = inner.failed.split_off(&view);
         let old_failed = std::mem::replace(&mut inner.failed, failed_after);
 
         Ok(old_stored.len() + old_failed.len())
@@ -144,6 +142,10 @@ where
             .next_back()
             .ok_or(StorageError::NoGenesisView)?;
         Ok(last.clone())
+    }
+
+    async fn commit(&self) -> Result {
+        Ok(()) // do nothing
     }
 }
 

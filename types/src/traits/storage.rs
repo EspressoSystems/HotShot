@@ -33,11 +33,19 @@ where
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
 {
-    // required
+    /// Append the list of views to this storage
     async fn append(&self, views: Vec<ViewEntry<BLOCK, STATE, N>>) -> Result;
+    /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
     async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize>;
+    /// Get the latest anchored view
     async fn get_anchored_view(&self) -> Result<StoredView<BLOCK, STATE, N>>;
+    /// Commit this storage.
+    async fn commit(&self) -> Result;
 
+    /// Insert a single view. Shorthand for
+    /// ```rust,ignore
+    /// storage.append(vec![ViewEntry::Success(view)]).await
+    /// ```
     async fn insert_single_view(&self, view: StoredView<BLOCK, STATE, N>) -> Result {
         self.append(vec![ViewEntry::Success(view)]).await
     }
