@@ -8,7 +8,7 @@ use common::{
     TestRoundResult, TestTransaction,
 };
 use either::Either::Right;
-use hotshot_testing::{ConsensusRoundError, Round, TestRunner, ValidateStrictness};
+use hotshot_testing::{ConsensusRoundError, Round, TestRunner};
 
 use hotshot::{
     data::{Leaf, QuorumCertificate, StateHash},
@@ -244,9 +244,7 @@ async fn restart() {
     >|
      -> Result<(), ConsensusRoundError> {
         block_on(async move {
-            runner
-                .validate_node_states(ValidateStrictness::Strict)
-                .await;
+            runner.validate_node_states().await;
             // nodes should start at view_number 0
             for node in runner.nodes() {
                 assert_eq!(
@@ -278,9 +276,7 @@ async fn restart() {
          _results: TestRoundResult|
          -> Result<(), ConsensusRoundError> {
             block_on(async move {
-                runner
-                    .validate_node_states(ValidateStrictness::Strict)
-                    .await;
+                runner.validate_node_states().await;
 
                 // nodes should now be at view_number 1
                 for node in runner.nodes() {
@@ -360,9 +356,7 @@ async fn restart() {
     >|
      -> Result<(), ConsensusRoundError> {
         block_on(async move {
-            runner
-                .validate_node_states(ValidateStrictness::Strict)
-                .await;
+            runner.validate_node_states().await;
             // nodes should start at view_number 1
             for node in runner.nodes() {
                 assert_eq!(
@@ -394,9 +388,7 @@ async fn restart() {
          _results: TestRoundResult|
          -> Result<(), ConsensusRoundError> {
             block_on(async move {
-                runner
-                    .validate_node_states(ValidateStrictness::Strict)
-                    .await;
+                runner.validate_node_states().await;
 
                 // nodes should now be at view_number 2
                 for node in runner.nodes() {

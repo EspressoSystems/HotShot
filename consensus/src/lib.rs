@@ -661,6 +661,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
             .for_each(|(_view_number, leaf)| {
                 let _removed = self.undecided_leaves.remove(leaf);
             });
+        self.state_map = self.state_map.split_off(&new_anchor_view);
     }
 }
 
