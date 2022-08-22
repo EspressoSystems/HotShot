@@ -2,16 +2,8 @@
 
 mod common;
 
-use async_std::task::block_on;
-use common::{AppliedTestRunner, TestRoundResult, TestTransaction};
-use common::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder};
-use hotshot::traits::Storage;
-use hotshot_testing::{ConsensusRoundError, Round};
-use hotshot_types::data::ViewNumber;
-use std::sync::Arc;
-
 #[cfg(feature = "slow-tests")]
-use common::{get_tolerance, TestDescription};
+use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
 #[cfg(feature = "slow-tests")]
 use either::Either::{Left, Right};
 #[cfg(feature = "slow-tests")]
@@ -217,48 +209,48 @@ cross_all_types_proptest!(
 
 // TODO rewrite this test to not use storage?
 // or, nuke.
-#[async_std::test]
-#[ignore]
-pub async fn test_harness() {
-    let run_round = |runner: &mut AppliedTestRunner| -> Vec<TestTransaction> {
-        runner
-            .add_random_transactions(2)
-            .expect("Could not add a random transaction")
-    };
-
-    let safety_check_pre = |runner: &AppliedTestRunner| -> Result<(), ConsensusRoundError> {
-        block_on(async move {
-            for node in runner.nodes() {
-                let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
-                assert_eq!(qc.view_number, ViewNumber::new(0));
-            }
-        });
-        Ok(())
-    };
-
-    let safety_check_post = |runner: &AppliedTestRunner, _results: TestRoundResult| {
-        block_on(async move {
-            for node in runner.nodes() {
-                let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
-                assert_eq!(qc.view_number, ViewNumber::new(1));
-            }
-        });
-        Ok(())
-    };
-
-    let test_description = DetailedTestDescriptionBuilder {
-        rounds: Some(vec![Round {
-            safety_check_post: Some(Arc::new(safety_check_post)),
-            setup_round: Some(Arc::new(run_round)),
-            safety_check_pre: Some(Arc::new(safety_check_pre)),
-        }]),
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 30,
-            start_nodes: 30,
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        gen_runner: None,
-    };
-
-    test_description.build().execute().await.unwrap();
-}
+// #[async_std::test]
+// #[ignore]
+// pub async fn test_harness() {
+//     let run_round = |runner: &mut AppliedTestRunner| -> Vec<TestTransaction> {
+//         runner
+//             .add_random_transactions(2)
+//             .expect("Could not add a random transaction")
+//     };
+//
+//     let safety_check_pre = |runner: &AppliedTestRunner| -> Result<(), ConsensusRoundError> {
+//         block_on(async move {
+//             for node in runner.nodes() {
+//                 let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+//                 assert_eq!(qc.view_number, ViewNumber::new(0));
+//             }
+//         });
+//         Ok(())
+//     };
+//
+//     let safety_check_post = |runner: &AppliedTestRunner, _results: TestRoundResult| {
+//         block_on(async move {
+//             for node in runner.nodes() {
+//                 let qc = node.storage().get_newest_qc().await.unwrap().unwrap();
+//                 assert_eq!(qc.view_number, ViewNumber::new(1));
+//             }
+//         });
+//         Ok(())
+//     };
+//
+//     let test_description = DetailedTestDescriptionBuilder {
+//         rounds: Some(vec![Round {
+//             safety_check_post: Some(Arc::new(safety_check_post)),
+//             setup_round: Some(Arc::new(run_round)),
+//             safety_check_pre: Some(Arc::new(safety_check_pre)),
+//         }]),
+//         general_info: GeneralTestDescriptionBuilder {
+//             total_nodes: 30,
+//             start_nodes: 30,
+//             ..GeneralTestDescriptionBuilder::default()
+//         },
+//         gen_runner: None,
+//     };
+//
+//     test_description.build().execute().await.unwrap();
+// }
