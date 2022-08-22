@@ -36,7 +36,10 @@ use hotshot_types::{
         BlockContents, State,
     },
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    ops::Deref,
+};
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -49,6 +52,26 @@ pub enum ViewInner<const N: usize> {
     },
     /// Leaf has failed
     Failed,
+}
+
+impl<const N: usize> ViewInner<N> {
+    /// return the underlying leaf hash if it exists
+    #[must_use]
+    pub fn get_leaf_hash(&self) -> Option<&LeafHash<N>> {
+        if let Self::Leaf { leaf } = self {
+            Some(leaf)
+        } else {
+            None
+        }
+    }
+}
+
+impl<const N: usize> Deref for View<N> {
+    type Target = ViewInner<N>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.view_inner
+    }
 }
 
 /// struct containing messages for a view to send to replica
@@ -612,16 +635,14 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         F: FnMut(&Leaf<I::Block, I::State, N>) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
-            if let ViewInner::Leaf { leaf } = view.view_inner {
-                leaf
-            } else {
-                return Err(HotShotError::InvalidState {
+            *view
+                .get_leaf_hash()
+                .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {:?} leaf. Expected successfuil leaf",
                         start_from
                     ),
-                });
-            }
+                })?
         } else {
             return Err(HotShotError::InvalidState {
                 context: format!("View {:?} leaf does not exist in state map ", start_from),
@@ -660,14 +681,8 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     ) {
         self.state_map
             .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(view_number, view)| {
-                if let ViewInner::Leaf { leaf } = &view.view_inner {
-                    Some((view_number, leaf))
-                } else {
-                    None
-                }
-            })
-            .for_each(|(_view_number, leaf)| {
+            .filter_map(|(_view_number, view)| view.get_leaf_hash())
+            .for_each(|leaf| {
                 let _removed = self.saved_leaves.remove(leaf);
             });
         self.state_map = self.state_map.split_off(&new_anchor_view);
@@ -723,17 +738,13 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    #[allow(clippy::panic)]
     pub fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
-        if let View {
-            view_inner: ViewInner::Leaf { leaf },
-        } = view
-        {
-            return self.saved_leaves.get(leaf).unwrap().clone();
-        };
-        panic!("Decided state not found! Consensus internally inconsistent");
+        let leaf = view
+            .get_leaf_hash()
+            .expect("Decided state not found! Consensus internally inconsistent");
+        self.saved_leaves.get(leaf).unwrap().clone()
     }
 }
 
