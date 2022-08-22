@@ -65,16 +65,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
             Err(_) => Err(NetworkFault { source: ShutDown }),
         }
     }
-    /// Synchronous version of `next_event`
-    ///
-    /// Will internally call `block_on` on `next_event`
-    ///
-    /// # Errors
-    ///
-    /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State, N>> {
-        block_on(self.next_event())
-    }
     /// Will attempt to immediately pull an event out of the queue
     ///
     /// # Errors
@@ -135,18 +125,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
     ) -> Result<()> {
         self.hotshot.publish_transaction_async(tx).await
-    }
-
-    /// Synchronously submits a transaction to the backing [`HotShot`] instance.
-    ///
-    /// # Errors
-    ///
-    /// See documentation for `submit_transaction`
-    pub fn submit_transaction_sync(
-        &self,
-        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<()> {
-        block_on(self.submit_transaction(tx))
     }
 
     /// Signals to the underlying [`HotShot`] to unpause

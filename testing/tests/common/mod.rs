@@ -384,7 +384,7 @@ pub fn default_randomized_ids_to_round<
             async move {
                 if let Some(to_shut_down) = to_kill.clone() {
                     for idx in to_shut_down {
-                        block_on(runner.shutdown(idx)).unwrap();
+                        runner.shutdown(idx).await.unwrap();
                     }
                 }
 

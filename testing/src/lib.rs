@@ -507,7 +507,7 @@ impl<
         };
 
         node.handle
-            .submit_transaction_sync(txn.clone())
+            .submit_transaction(txn.clone()).await
             .expect("Could not send transaction");
         txn
     }
