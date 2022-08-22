@@ -155,15 +155,17 @@ pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usi
 }
 
 impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A, I, N> {
-    /// run one view of replica
-    /// returns the `high_qc`
-    #[allow(clippy::too_many_lines)]
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<N> {
-        info!("Replica task started!");
-        let consensus = self.consensus.upgradable_read().await;
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
-
+    /// portion of the replica task that spins until a valid QC can be signed or
+    /// timeout is hit.
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
+    async fn find_valid_msg<'a>(
+        &self,
+        view_leader_key: <I as NodeImplementation<N>>::SignatureKey,
+        consensus: RwLockUpgradableReadGuard<'a, Consensus<I, N>>,
+    ) -> (
+        RwLockUpgradableReadGuard<'a, Consensus<I, N>>,
+        std::result::Result<Leaf<I::Block, I::State, N>, ()>,
+    ) {
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
             info!("recv-ed message {:?}", msg.clone());
@@ -259,7 +261,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                         // exits from entire function
                         self.api.send_replica_timeout(self.cur_view).await;
 
-                        return self.high_qc;
+                        return (consensus, Err(()));
                     }
                     ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
                         // should only be for leader, never replica
@@ -271,9 +273,26 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             // fall through logic if we did not received successfully from channel
             warn!("Replica did not received successfully from channel. Terminating Replica.");
             self.api.send_replica_timeout(self.cur_view).await;
-            return self.high_qc;
+            return (consensus, Err(()));
         };
+        (consensus, Ok(leaf))
+    }
 
+    /// run one view of replica
+    /// returns the `high_qc`
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
+    pub async fn run_view(self) -> QuorumCertificate<N> {
+        info!("Replica task started!");
+        let consensus = self.consensus.upgradable_read().await;
+        let view_leader_key = self.api.get_leader(self.cur_view).await;
+
+        let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
+
+        if maybe_leaf.is_err() {
+            return self.high_qc;
+        }
+
+        let leaf = maybe_leaf.unwrap();
         let mut new_anchor_view = consensus.last_decided_view;
         let mut new_locked_view = consensus.locked_view;
         let mut last_view_number_visited = self.cur_view;
