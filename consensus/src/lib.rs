@@ -36,10 +36,7 @@ use hotshot_types::{
         BlockContents, State,
     },
 };
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ops::Bound::{Excluded, Included},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -590,21 +587,6 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> NextLeader
     }
 }
 
-/// TODO `@NathanY` do we want to keep this?
-/// Iterator over views
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct ViewIterator<'a, I: NodeImplementation<N>, const N: usize> {
-    /// reference to consensus strut
-    consensus: &'a Consensus<I, N>,
-    /// when to terminate iteration
-    terminator: Terminator,
-    /// if we have encountered an error
-    is_error: bool,
-    /// current leaf
-    leaf: &'a Leaf<I::Block, I::State, N>,
-}
-
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// increment the current view
     /// NOTE may need to do gc here
@@ -673,7 +655,7 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         new_anchor_view: ViewNumber,
     ) {
         self.state_map
-            .range((Included(&old_anchor_view), Excluded(&new_anchor_view)))
+            .range(old_anchor_view..new_anchor_view)
             .filter_map(|(view_number, view)| {
                 if let ViewInner::Leaf { leaf } = &view.view_inner {
                     Some((view_number, leaf))
