@@ -724,15 +724,7 @@ pub async fn create_or_obtain_chan_from_write<I: NodeImplementation<N>, const N:
     view_num: ViewNumber,
     mut channel_map: RwLockWriteGuard<'_, SendToTasks<I, N>>,
 ) -> ViewQueue<I, N> {
-    match channel_map.channel_map.entry(view_num) {
-        std::collections::btree_map::Entry::Vacant(v) => {
-            let vq = ViewQueue::default();
-            let vq_dup = vq.clone();
-            v.insert(vq);
-            vq_dup
-        }
-        std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
-    }
+    channel_map.channel_map.entry(view_num).or_default().clone()
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
@@ -849,7 +841,7 @@ impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I
         create_verify_hash(leaf_hash, view_number)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<N>, view_number: ViewNumber) -> bool {
         if qc.view_number != view_number {
             warn!(?qc, ?view_number, "Failing on view_number equality check");
