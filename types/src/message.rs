@@ -54,6 +54,7 @@ pub enum ConsensusMessage<B, S, const N: usize> {
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
+    #[serde(skip)]
     NextViewInterrupt(ViewNumber),
 }
 

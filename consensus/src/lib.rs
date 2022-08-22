@@ -679,6 +679,13 @@ impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
         old_anchor_view: ViewNumber,
         new_anchor_view: ViewNumber,
     ) {
+        if let Some(entry) = self.state_map.iter().next() {
+            if *entry.0 != old_anchor_view {
+                error!("Something about GC has failed. Older leaf exists than the previous anchor leaf.");
+            }
+        } else {
+            error!("INCONSISTENT STATE: anchor leaf not in state map!");
+        }
         self.state_map
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_hash())
