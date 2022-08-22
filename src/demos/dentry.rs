@@ -15,7 +15,7 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -374,7 +374,7 @@ impl BlockContents<H_256> for DEntryBlock {
         x.into()
     }
 
-    fn contained_transactions(&self) -> Vec<TransactionHash<H_256>> {
+    fn contained_transactions(&self) -> HashSet<TransactionHash<H_256>> {
         self.transactions
             .clone()
             .into_iter()

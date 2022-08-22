@@ -297,7 +297,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
         let mut new_decide_reached = false;
         let mut blocks = Vec::new();
         let mut states = Vec::new();
-        let mut included_txns = Vec::new();
+        let mut included_txns = HashSet::new();
         let mut qcs = Vec::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
@@ -329,8 +329,10 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                         blocks.push(leaf.deltas.clone());
                         states.push(leaf.state.clone());
                         qcs.push(leaf.justify_qc.clone());
-                        let mut txns = leaf.deltas.contained_transactions();
-                        included_txns.append(&mut txns);
+                        let txns = leaf.deltas.contained_transactions();
+                        for txn in txns {
+                            included_txns.insert(txn);
+                        }
                     }
                     true
                 },
@@ -442,8 +444,10 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
                 if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
                 }
-                let mut next_parent_txns = next_parent_leaf.deltas.contained_transactions();
-                previous_used_txns_vec.append(&mut next_parent_txns);
+                let next_parent_txns = next_parent_leaf.deltas.contained_transactions();
+                for next_parent_txn in next_parent_txns {
+                    previous_used_txns_vec.insert(next_parent_txn);
+                }
                 next_parent_hash = next_parent_leaf.parent;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
