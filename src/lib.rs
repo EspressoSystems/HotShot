@@ -50,7 +50,7 @@ use async_trait::async_trait;
 use flume::Sender;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
-    data::{create_verify_hash, VerifyHash, ViewNumber},
+    data::{create_verify_hash, TransactionHash, VerifyHash, ViewNumber},
     error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -183,7 +183,7 @@ pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: us
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I, N>>>,
@@ -588,7 +588,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                self.transactions.write().await.push(transaction);
+                self.transactions
+                    .write()
+                    .await
+                    .insert(I::Block::hash_transaction(&transaction), transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed

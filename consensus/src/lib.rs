@@ -123,7 +123,7 @@ pub struct Consensus<I: NodeImplementation<N>, const N: usize> {
     pub last_decided_view: ViewNumber,
 
     /// A list of undecided transactions
-    pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    pub transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
@@ -344,8 +344,8 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             {
                 let mut txns = consensus.transactions.write().await;
                 *txns = txns
-                    .drain(..)
-                    .filter(|txn| !included_txns_set.contains(&I::Block::hash_transaction(txn)))
+                    .drain()
+                    .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                     .collect();
             }
             let decide_sent =
@@ -374,7 +374,7 @@ pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usiz
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Lock over the transactions list
-    pub transactions: Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>>,
+    pub transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
 }
@@ -441,11 +441,11 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
 
         let unclaimed_txns: Vec<_> = txns
             .iter()
-            .filter(|txn| !previous_used_txns.contains(&I::Block::hash_transaction(txn)))
+            .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
             .collect();
 
         let mut block = starting_state.next_block();
-        for txn in &unclaimed_txns {
+        for (_txn_hash, txn) in &unclaimed_txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
                 if starting_state.validate_block(&new_block) {
@@ -707,7 +707,9 @@ impl<I: NodeImplementation<N>, const N: usize> Default for Consensus<I, N> {
 impl<I: NodeImplementation<N>, const N: usize> Consensus<I, N> {
     /// return a clone of the internal storage of unclaimed transactions
     #[must_use]
-    pub fn get_transactions(&self) -> Arc<RwLock<Vec<<I as TypeMap<N>>::Transaction>>> {
+    pub fn get_transactions(
+        &self,
+    ) -> Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>> {
         self.transactions.clone()
     }
 
