@@ -15,6 +15,7 @@ pub mod network_reliability;
 
 pub use self::{impls::TestElection, launcher::TestLauncher};
 
+use async_std::task::spawn;
 use hotshot::{
     data::Leaf,
     traits::{
@@ -356,11 +357,13 @@ impl<
     /// returns [`ConsensusRoundError::NoSuchNode`] if the node idx is either
     /// - already shut down
     /// - does not exist
-    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
+    pub fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
-            node.handle.shut_down().await;
+            spawn(async {
+                node.handle.shut_down().await;
+            });
             Ok(())
         } else {
             Err(ConsensusRoundError::NoSuchNode {

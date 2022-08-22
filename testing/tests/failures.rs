@@ -41,7 +41,7 @@ cross_all_types!(
         txn_ids: Right(1),
         next_view_timeout: 1000,
         ids_to_shut_down: vec![vec![5, 6].into_iter().collect::<HashSet<_>>()],
-        failure_threshold: 5,
+        failure_threshold: 20,
         ..GeneralTestDescriptionBuilder::default()
     },
     keep: true,

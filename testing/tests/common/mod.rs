@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use async_std::task::block_on;
 use either::Either;
 use hotshot::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
@@ -324,7 +323,7 @@ pub fn default_submitter_id_to_round<
     for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
         let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| -> Vec<BLOCK::Transaction> {
             for id in shutdown_ids.clone() {
-                block_on(runner.shutdown(id)).unwrap();
+                runner.shutdown(id).unwrap();
             }
             let mut txns = Vec::new();
             for id in round_ids.clone() {
@@ -372,7 +371,7 @@ pub fn default_randomized_ids_to_round<
         let run_round = move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| {
             if let Some(to_shut_down) = to_kill.clone() {
                 for idx in to_shut_down {
-                    block_on(runner.shutdown(idx)).unwrap();
+                    runner.shutdown(idx).unwrap();
                 }
             }
 
