@@ -15,6 +15,7 @@ pub mod network_reliability;
 
 pub use self::{impls::TestElection, launcher::TestLauncher};
 
+use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{
@@ -33,7 +34,7 @@ use hotshot_types::traits::{
     state::TestableState,
 };
 use snafu::Snafu;
-use std::{collections::HashMap, fmt, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fmt, marker::PhantomData};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -53,8 +54,30 @@ pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     pub failures: HashMap<u64, HotShotError>,
 }
 
+/// Type of function used for checking results after running a view of consensus
+pub type RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+        RoundResult<BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
+/// Type of function used for configuring a round of consensus
+pub type RoundSetup<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>>,
+>;
+
+/// Type of function used for checking safety before beginnning consensus
+pub type RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
 /// functions to run a round of consensus
-#[derive(Clone)]
+/// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<
     NETWORK: NetworkingImplementation<
             Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
@@ -67,27 +90,13 @@ pub struct Round<
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    #[allow(clippy::type_complexity)]
-    pub safety_check_post: Option<
-        Arc<
-            dyn Fn(
-                &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-                RoundResult<BLOCK, STATE>,
-            ) -> Result<(), ConsensusRoundError>,
-        >,
-    >,
+    pub safety_check_post: Option<RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Round set up
-    #[allow(clippy::type_complexity)]
-    pub setup_round: Option<
-        Arc<dyn Fn(&mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Vec<BLOCK::Transaction>>,
-    >,
+    pub setup_round: Option<RoundSetup<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Safety check after round is complete
-    #[allow(clippy::type_complexity)]
-    pub safety_check_pre: Option<
-        Arc<dyn Fn(&TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Result<(), ConsensusRoundError>>,
-    >,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
 impl<
@@ -285,17 +294,17 @@ impl<
     pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
         if let Some(round) = self.rounds.pop() {
             if let Some(safety_check_pre) = round.safety_check_pre {
-                safety_check_pre(self)?;
+                safety_check_pre(self).await?;
             }
 
             let txns = if let Some(setup_fn) = round.setup_round {
-                setup_fn(self)
+                setup_fn(self).await
             } else {
                 vec![]
             };
             let results = self.run_one_round(txns).await;
             if let Option::Some(safety_check_post) = round.safety_check_post {
-                safety_check_post(self, results)?;
+                safety_check_post(self, results).await?;
             }
         }
         Ok(())
@@ -476,7 +485,7 @@ impl<
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
-    pub fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
+    pub async fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
@@ -487,7 +496,7 @@ impl<
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
-        let state = async_std::task::block_on(self.nodes[0].handle.get_state());
+        let state = self.nodes[0].handle.get_state().await;
 
         let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
 
@@ -499,17 +508,18 @@ impl<
         };
 
         node.handle
-            .submit_transaction_sync(txn.clone())
+            .submit_transaction(txn.clone())
+            .await
             .expect("Could not send transaction");
         txn
     }
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
+    pub async fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.push(self.add_random_transaction(None));
+            result.push(self.add_random_transaction(None).await);
         }
         Some(result)
     }

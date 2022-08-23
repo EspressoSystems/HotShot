@@ -1642,6 +1642,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "either",
+ "futures",
  "hotshot",
  "hotshot-types",
  "hotshot-utils",

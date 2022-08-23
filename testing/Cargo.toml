@@ -16,6 +16,7 @@ tracing = "0.1.36"
 rand = "0.8.5"
 snafu = { version = "0.7.0", features = ["backtraces"] }
 either = { version = "1.7.0" }
+futures = "0.3.23"
 
 [dev-dependencies]
 tempfile = "3.3.0"
