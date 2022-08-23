@@ -5,7 +5,6 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::task::block_on;
 use hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
@@ -204,13 +203,11 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
         self.hotshot.inner.networking.shut_down().await;
-        error!("SHUTTING DOWN!");
         self.hotshot
             .inner
             .background_task_handle
             .wait_shutdown()
             .await;
-        error!("SHUT DOWN!");
     }
 
     /// return the timeout for a view of the underlying `HotShot`

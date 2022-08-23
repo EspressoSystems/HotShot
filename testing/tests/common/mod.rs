@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use async_std::task::block_on;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
@@ -10,7 +9,7 @@ use hotshot::{
         BlockContents, NetworkReliability, NetworkingImplementation, State, Storage,
     },
     types::Message,
-    HotShotConfig,
+    HotShotConfig, HotShotError,
 };
 use hotshot_testing::{ConsensusRoundError, Round, RoundResult, TestLauncher, TestRunner};
 use hotshot_types::traits::{
@@ -18,9 +17,15 @@ use hotshot_types::traits::{
     state::TestableState, storage::TestableStorage,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use snafu::Snafu;
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info};
 use Either::{Left, Right};
+
+#[derive(Debug, Snafu)]
+enum RoundError {
+    HotShot { source: HotShotError },
+}
 
 pub const N: usize = 32_usize;
 
