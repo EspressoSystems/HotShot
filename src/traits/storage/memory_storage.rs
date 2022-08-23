@@ -21,9 +21,9 @@ use std::sync::Arc;
 use tracing::{instrument, trace};
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<Block, State, const N: usize> {
+struct MemoryStorageInternal<BLOCK, STATE, const N: usize> {
     /// The Blocks stored by this [`MemoryStorage`]
-    blocks: DashMap<BlockHash<N>, Block>,
+    blocks: DashMap<BlockHash<N>, BLOCK>,
     /// The [`QuorumCertificate`]s stored by this [`MemoryStorage`]
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
@@ -37,13 +37,13 @@ struct MemoryStorageInternal<Block, State, const N: usize> {
     ///
     /// In order to maintain the struct constraints, this list must be append only. Once a QC is
     /// inserted, it index _must not_ change
-    leaves: RwLock<Vec<Leaf<Block, N>>>,
+    leaves: RwLock<Vec<Leaf<BLOCK, STATE, N>>>,
     /// Index of the [`Leaf`]s by their hashes
     hash_to_leaf: DashMap<LeafHash<N>, usize>,
     /// Index of the [`Leaf`]s by their block's hashes
     block_to_leaf: DashMap<BlockHash<N>, usize>,
     /// The store of states
-    states: DashMap<LeafHash<N>, State>,
+    states: DashMap<LeafHash<N>, STATE>,
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
@@ -87,11 +87,14 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
 }
 
 #[async_trait]
-impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
-    Storage<B, S, N> for MemoryStorage<B, S, N>
+impl<
+        BLOCK: BlockContents<N> + 'static,
+        STATE: State<N, Block = BLOCK> + 'static,
+        const N: usize,
+    > Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
 {
     #[instrument(name = "MemoryStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<B>> {
+    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
         Ok(if let Some(r) = self.inner.blocks.get(hash) {
             trace!("Block found");
             let block = r.value().clone();
@@ -147,7 +150,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         trace!(?self.inner.hash_to_leaf, ?hash);
         // Check to see if we have the leaf
         let index = self.inner.hash_to_leaf.get(hash);
@@ -162,7 +165,10 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
     }
 
     #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>> {
+    async fn get_leaf_by_block(
+        &self,
+        hash: &BlockHash<N>,
+    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
         // Check to see if we have the leaf
         let index = self.inner.block_to_leaf.get(hash);
         Ok(if let Some(index) = index {
@@ -175,7 +181,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         })
     }
 
-    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>> {
+    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>> {
         let maybe_state = self.inner.states.get(hash);
         Ok(if let Some(state) = maybe_state {
             let state = state.value().clone();
@@ -187,7 +193,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 
     async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
     where
-        F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
+        F: FnOnce(Box<dyn StorageUpdater<'a, BLOCK, STATE, N> + 'a>) -> FUT + Send + 'a,
         FUT: Future<Output = StorageResult> + Send + 'a,
     {
         let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
@@ -195,8 +201,8 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         Ok(())
     }
 
-    async fn get_internal_state(&self) -> StorageState<B, S, N> {
-        let mut blocks: Vec<(BlockHash<N>, B)> = self
+    async fn get_internal_state(&self) -> StorageState<BLOCK, STATE, N> {
+        let mut blocks: Vec<(BlockHash<N>, BLOCK)> = self
             .inner
             .blocks
             .iter()
@@ -208,13 +214,13 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
         blocks.sort_by_key(|(hash, _)| *hash);
         let blocks = blocks.into_iter().map(|(_, block)| block).collect();
 
-        let mut leafs: Vec<Leaf<B, N>> = self.inner.leaves.read().await.clone();
+        let mut leafs: Vec<Leaf<BLOCK, STATE, N>> = self.inner.leaves.read().await.clone();
         leafs.sort_by_cached_key(Leaf::hash);
 
         let mut quorum_certificates = self.inner.qcs.read().await.clone();
         quorum_certificates.sort_by_key(|qc| qc.view_number);
 
-        let mut states: Vec<(LeafHash<N>, S)> = self
+        let mut states: Vec<(LeafHash<N>, STATE)> = self
             .inner
             .states
             .iter()
@@ -242,13 +248,14 @@ struct MemoryStorageUpdater<'a, B, S, const N: usize> {
 }
 
 #[async_trait]
-impl<'a, B, S, const N: usize> StorageUpdater<'a, B, S, N> for MemoryStorageUpdater<'a, B, S, N>
+impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N>
+    for MemoryStorageUpdater<'a, BLOCK, STATE, N>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 {
     #[instrument(name = "MemoryStorage::insert_block", skip_all)]
-    async fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> StorageResult {
+    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {
         trace!(?block, "inserting block");
         self.inner.blocks.insert(hash, block);
         Ok(())
@@ -295,10 +302,10 @@ where
     }
 
     #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
-    async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult {
+    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> StorageResult {
         let hash = leaf.hash();
         trace!(?leaf, ?hash, "Inserting");
-        let block_hash = BlockContents::hash(&leaf.item);
+        let block_hash = BlockContents::hash(&leaf.deltas);
         let mut leaves = self.inner.leaves.write().await;
         let index = leaves.len();
         trace!(?leaf, ?index, "Inserting leaf");
@@ -309,7 +316,7 @@ where
     }
 
     #[instrument(name = "MemoryStorage::insert_state", skip_all)]
-    async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult {
+    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> StorageResult {
         trace!(?hash, "Inserting state");
         self.inner.states.insert(hash, state);
         Ok(())
@@ -321,7 +328,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::data::Stage;
+    use crate::demos::dentry::random_quorom_certificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_utils::test_util::setup_logging;
@@ -331,13 +338,11 @@ mod test {
         hash_block: BlockHash<32>,
         hash_leaf: LeafHash<32>,
         view: ViewNumber,
-        valid: bool,
     ) -> QuorumCertificate<32> {
         QuorumCertificate {
             block_hash: hash_block,
             leaf_hash: hash_leaf,
             view_number: view,
-            stage: if valid { Stage::Decide } else { Stage::None },
             signatures: BTreeMap::new(),
             genesis: true,
         }
@@ -394,10 +399,10 @@ mod test {
         // Create a few dummy qcs
         let qc_1_hash_block = BlockHash::<32>::random();
         let qc_1_hash_leaf = LeafHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1, true);
+        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1);
         let qc_2_hash_block = BlockHash::<32>::random();
         let qc_2_hash_leaf = LeafHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2, true);
+        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2);
         // Attempt to insert them
         storage
             .update(|mut m| {
@@ -442,14 +447,24 @@ mod test {
         let block_2 = DummyBlock::random();
         let parent_1 = LeafHash::<32>::random();
         let parent_2 = LeafHash::<32>::random();
+        let state_1 = DummyState::random();
+        let state_2 = DummyState::random();
+        let qc_1 = random_quorom_certificate();
+        let qc_2 = random_quorom_certificate();
         let leaf_1 = Leaf {
             parent: parent_1,
-            item: block_1.clone(),
+            deltas: block_1.clone(),
+            view_number: qc_1.view_number,
+            justify_qc: qc_1,
+            state: state_1,
         };
         let hash_1 = leaf_1.hash();
         let leaf_2 = Leaf {
             parent: parent_2,
-            item: block_2.clone(),
+            deltas: block_2.clone(),
+            view_number: qc_2.view_number,
+            justify_qc: qc_2,
+            state: state_2,
         };
         let hash_2 = leaf_2.hash();
         // Attempt to insert them
@@ -470,9 +485,9 @@ mod test {
         let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap().unwrap();
         // Make sure they are the right leaves
         assert_eq!(h_leaf_1.parent, leaf_1.parent);
-        assert_eq!(h_leaf_1.item, leaf_1.item);
+        assert_eq!(h_leaf_1.deltas, leaf_1.deltas);
         assert_eq!(h_leaf_2.parent, leaf_2.parent);
-        assert_eq!(h_leaf_2.item, leaf_2.item);
+        assert_eq!(h_leaf_2.deltas, leaf_2.deltas);
         // Attempt to get them back by block hash
         let b_leaf_1 = storage
             .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_1))
@@ -486,9 +501,9 @@ mod test {
             .unwrap();
         // Make sure they are the right leaves
         assert_eq!(b_leaf_1.parent, leaf_1.parent);
-        assert_eq!(b_leaf_1.item, leaf_1.item);
+        assert_eq!(b_leaf_1.deltas, leaf_1.deltas);
         assert_eq!(b_leaf_2.parent, leaf_2.parent);
-        assert_eq!(b_leaf_2.item, leaf_2.item);
+        assert_eq!(b_leaf_2.deltas, leaf_2.deltas);
         // Getting a bunk leaf by hash fails
         assert!(storage
             .get_leaf(&LeafHash::<32>::random())

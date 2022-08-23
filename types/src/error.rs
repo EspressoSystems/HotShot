@@ -13,41 +13,29 @@ use snafu::Snafu;
 #[non_exhaustive]
 pub enum HotShotError {
     /// Failed to Message the leader in the given stage
-    #[snafu(display("Failed to message leader in stage {stage:?}: {source}"))]
+    #[snafu(display("Failed to message leader with error: {source}"))]
     FailedToMessageLeader {
-        /// The stage the failure occurred in
-        stage: crate::data::Stage,
         /// The underlying network fault
         source: crate::traits::network::NetworkError,
     },
     /// Failed to broadcast a message on the network
-    #[snafu(display("Failed to broadcast a message in stage {stage:?}: {source}"))]
+    #[snafu(display("Failed to broadcast a message"))]
     FailedToBroadcast {
-        /// The stage the failure occurred in
-        stage: crate::data::Stage,
         /// The underlying network fault
         source: crate::traits::network::NetworkError,
     },
     /// Bad or forged quorum certificate
-    #[snafu(display("Bad or forged QC in stage {:?}", stage))]
+    #[snafu(display("Bad or forged QC"))]
     BadOrForgedQC {
-        /// The stage the failure occurred in
-        stage: crate::data::Stage,
         /// The bad quorum certificate
         bad_qc: crate::data::VecQuorumCertificate,
     },
     /// A block failed verification
-    #[snafu(display("Bad block in stage: {:?}", stage))]
-    BadBlock {
-        /// The stage the error occurred in
-        stage: crate::data::Stage,
-    },
+    #[snafu(display("Failed verification of block"))]
+    BadBlock {},
     /// A block was not consistent with the existing state
-    #[snafu(display("Inconsistent block in stage: {:?}", stage))]
-    InconsistentBlock {
-        /// The stage the error occurred in
-        stage: crate::data::Stage,
-    },
+    #[snafu(display("Inconsistent block"))]
+    InconsistentBlock {},
     /// Failure in networking layer
     #[snafu(display("Failure in networking layer: {source}"))]
     NetworkFault {
@@ -102,20 +90,6 @@ pub enum HotShotError {
     },
     /// Internal value used to drive the state machine
     Continue,
-}
-
-impl HotShotError {
-    /// Returns the stage this error happened in, if such information exists
-    pub fn get_stage(&self) -> Option<crate::data::Stage> {
-        match self {
-            HotShotError::FailedToMessageLeader { stage, .. }
-            | HotShotError::FailedToBroadcast { stage, .. }
-            | HotShotError::BadOrForgedQC { stage, .. }
-            | HotShotError::BadBlock { stage }
-            | HotShotError::InconsistentBlock { stage } => Some(*stage),
-            _ => None,
-        }
-    }
 }
 
 /// Contains information about what the state of the hotshot-consensus was when a round timed out

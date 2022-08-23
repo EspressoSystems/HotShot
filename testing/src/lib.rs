@@ -15,13 +15,15 @@ pub mod network_reliability;
 
 pub use self::{impls::TestElection, launcher::TestLauncher};
 
+use futures::future::LocalBoxFuture;
 use hotshot::{
+    data::Leaf,
     traits::{
         election::StaticCommittee, implementations::Stateless, BlockContents,
         NetworkingImplementation, NodeImplementation, State, Storage,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotConfig, HotShotError, RoundRunnerState, H_256,
+    HotShot, HotShotConfig, HotShotError, H_256,
 };
 use hotshot_types::traits::{
     network::TestableNetworkingImplementation,
@@ -30,16 +32,9 @@ use hotshot_types::traits::{
         SignatureKey,
     },
     state::TestableState,
-    storage::StorageState,
 };
 use snafu::Snafu;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-    marker::PhantomData,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, fmt, marker::PhantomData};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -59,8 +54,30 @@ pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     pub failures: HashMap<u64, HotShotError>,
 }
 
+/// Type of function used for checking results after running a view of consensus
+pub type RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+        RoundResult<BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
+/// Type of function used for configuring a round of consensus
+pub type RoundSetup<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>>,
+>;
+
+/// Type of function used for checking safety before beginnning consensus
+pub type RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
 /// functions to run a round of consensus
-#[derive(Clone)]
+/// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<
     NETWORK: NetworkingImplementation<
             Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
@@ -73,27 +90,13 @@ pub struct Round<
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    #[allow(clippy::type_complexity)]
-    pub safety_check_post: Option<
-        Arc<
-            dyn Fn(
-                &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-                RoundResult<BLOCK, STATE>,
-            ) -> Result<(), ConsensusRoundError>,
-        >,
-    >,
+    pub safety_check_post: Option<RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Round set up
-    #[allow(clippy::type_complexity)]
-    pub setup_round: Option<
-        Arc<dyn Fn(&mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Vec<BLOCK::Transaction>>,
-    >,
+    pub setup_round: Option<RoundSetup<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Safety check after round is complete
-    #[allow(clippy::type_complexity)]
-    pub safety_check_pre: Option<
-        Arc<dyn Fn(&TestRunner<NETWORK, STORAGE, BLOCK, STATE>) -> Result<(), ConsensusRoundError>>,
-    >,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
 impl<
@@ -291,17 +294,17 @@ impl<
     pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
         if let Some(round) = self.rounds.pop() {
             if let Some(safety_check_pre) = round.safety_check_pre {
-                safety_check_pre(self)?;
+                safety_check_pre(self).await?;
             }
 
             let txns = if let Some(setup_fn) = round.setup_round {
-                setup_fn(self)
+                setup_fn(self).await
             } else {
                 vec![]
             };
             let results = self.run_one_round(txns).await;
             if let Option::Some(safety_check_post) = round.safety_check_post {
-                safety_check_post(self, results)?;
+                safety_check_post(self, results).await?;
             }
         }
         Ok(())
@@ -315,7 +318,7 @@ impl<
 
         info!("EXECUTOR: running one round");
         for handle in self.nodes() {
-            handle.run_one_round().await;
+            handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
@@ -397,18 +400,6 @@ impl<
     }
 }
 
-/// Defines the level of strictness to have
-/// when validating [`StorageStage`] across all nodes
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ValidateStrictness {
-    /// checks for matching:
-    ///   states and qcs
-    Relaxed,
-    /// checks for matching:
-    ///   states, blocks, qcs, and leaves
-    Strict,
-}
-
 impl<
         NETWORK: TestableNetworkingImplementation<
                 Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
@@ -420,181 +411,32 @@ impl<
         STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
-    /// Check if two vectors match.
-    /// If there is a mismatch, return a string containing details
-    /// about the mismatch
-    fn validate_vecs<T: Eq + std::fmt::Debug + std::hash::Hash>(
-        field_name: &str,
-        first: &[T],
-        other: &[T],
-        other_idx: usize,
-    ) -> Result<(), String> {
-        if first != other {
-            let mut err_str: String = "".to_string();
-            if first.len() != other.len() {
-                err_str.push_str(
-                    format!(
-                        "{} lengths did not match. Expected {}, got {}\n",
-                        field_name,
-                        first.len(),
-                        other.len()
-                    )
-                    .as_str(),
-                );
-            }
-            let mut mismatched_first: HashSet<_> = first.iter().collect();
-            mismatched_first = mismatched_first
-                .difference(&other.iter().collect())
-                .cloned()
-                .collect();
-            if mismatched_first.is_empty() {
-                err_str.push_str(
-                    format!(
-                        "All elements of {} in first replica are present in replica {}\n",
-                        field_name, other_idx
-                    )
-                    .as_str(),
-                );
-            } else {
-                err_str.push_str(
-                    format!(
-                        "Elements of {} in first replica not present in replica {}: \n{:#?}\n",
-                        field_name, other_idx, mismatched_first
-                    )
-                    .as_str(),
-                );
-            }
-
-            let mut mismatched_other: HashSet<_> = other.iter().collect();
-            mismatched_other = mismatched_other
-                .difference(&first.iter().collect())
-                .cloned()
-                .collect();
-
-            if mismatched_other.is_empty() {
-                err_str.push_str(
-                    format!(
-                        "All elements of {} in replica {} are present in the first replica\n",
-                        field_name, other_idx
-                    )
-                    .as_str(),
-                );
-            } else {
-                err_str.push_str(
-                    format!(
-                        "Elements of {} in replica {} not present in the first replica: \n{:#?}\n",
-                        field_name, other_idx, mismatched_other
-                    )
-                    .as_str(),
-                );
-            }
-            return Err(err_str);
-        }
-        Ok(())
-    }
-
-    /// Check if two storage states match.
-    /// If there is a mismatch, return a string containing details
-    /// about the mismatch
-    fn validate_storage_states(
-        first: &StorageState<BLOCK, STATE, N>,
-        other: &StorageState<BLOCK, STATE, N>,
-        other_idx: usize,
-        strictness: ValidateStrictness,
-    ) -> Result<(), String> {
-        let blocks_ok =
-            Self::validate_vecs("Storage Blocks", &first.blocks, &other.blocks, other_idx);
-        let qcs_ok = Self::validate_vecs(
-            "Storage QCs",
-            &first.quorum_certificates,
-            &other.quorum_certificates,
-            other_idx,
-        );
-        let leafs_ok = Self::validate_vecs("Storage Leafs", &first.leafs, &other.leafs, other_idx);
-        let states_ok =
-            Self::validate_vecs("Storage State", &first.states, &other.states, other_idx);
-
-        let (ok_err, ok_warn) = match strictness {
-            ValidateStrictness::Relaxed => (vec![states_ok, qcs_ok], vec![blocks_ok, leafs_ok]),
-            ValidateStrictness::Strict => (vec![states_ok, qcs_ok, blocks_ok, leafs_ok], vec![]),
-        };
-
-        for is_ok in ok_warn {
-            if let Err(e) = is_ok {
-                error!("{}", e);
-            }
-        }
-
-        let mut result = Ok(());
-        for is_ok in ok_err {
-            result = match is_ok {
-                Err(e) => result.map_or_else(|acc| Err(format!("{acc}{e}")), |_| Err(e.clone())),
-                Ok(_) => result,
-            }
-        }
-        result
-    }
-
     /// Will validate that all nodes are on exactly the same state.
-    pub async fn validate_node_states(&self, strictness: ValidateStrictness) {
-        let mut states = Vec::<(RoundRunnerState, StorageState<BLOCK, STATE, N>)>::new();
-        for (idx, node) in self.nodes.iter().enumerate() {
-            if let Some(message_count) = node.handle.networking().in_flight_message_count() {
-                if message_count > 0 {
-                    eprintln!("Node {} has {} unprocessed messages", idx, message_count);
-                    // Hack to see if this fixes https://github.com/EspressoSystems/HotShot/issues/295
-                    async_std::task::sleep(Duration::from_secs(1)).await;
-                }
-            }
-
-            let runner_state = match node.handle.get_round_runner_state().await {
-                Ok(state) => state,
-                Err(e) => {
-                    panic!("Could not get state of node {}: {:?}", idx, e);
-                }
-            };
-            let storage_state = node.handle.storage().get_internal_state().await;
-            states.push((runner_state, storage_state));
+    pub async fn validate_node_states(&self) {
+        let mut leaves = Vec::<Leaf<BLOCK, STATE, N>>::new();
+        for node in self.nodes.iter() {
+            let decide_leaf = node.handle.get_decided_leaf().await;
+            leaves.push(decide_leaf);
         }
 
-        let ((first_runner_state, first_storage_state), remaining) = states.split_first().unwrap();
+        let (first_leaf, remaining) = leaves.split_first().unwrap();
         // Hack, needs to be fixed: https://github.com/EspressoSystems/HotShot/issues/295
         // Sometimes 1 of the nodes is not in sync with the rest
         // For now we simply check if n-2 nodes match the first node
         let mut mismatch_count = 0;
 
-        for (idx, (runner_state, storage_state)) in remaining.iter().enumerate() {
-            let mut is_valid = true;
-            if runner_state != first_runner_state {
-                eprintln!(
-                    "Node {} runner state does not match the first node",
-                    idx + 1
-                );
-                eprintln!("  expected: {:#?}", first_runner_state);
-                eprintln!("  got:      {:#?}", runner_state);
-                is_valid = false;
-            }
-            if let Err(error) = Self::validate_storage_states(
-                storage_state,
-                first_storage_state,
-                idx + 1,
-                strictness,
-            ) {
-                eprintln!("Storage State dump for {:?}", idx);
-                eprintln!("\texpected: {:#?}", first_storage_state);
-                eprintln!("\tgot:      {:#?}", storage_state);
+        for (idx, leaf) in remaining.iter().enumerate() {
+            if first_leaf != leaf {
+                eprintln!("Leaf dump for {:?}", idx);
+                eprintln!("\texpected: {:#?}", first_leaf);
+                eprintln!("\tgot:      {:#?}", remaining);
                 eprintln!("Node {} storage state does not match the first node", idx);
-                eprintln!("{}", error);
-                is_valid = false;
-            }
-
-            if !is_valid {
                 mismatch_count += 1;
             }
         }
 
         if mismatch_count == 0 {
-            info!("All nodes are on the same state.");
+            info!("All nodes are on the same decided leaf.");
             return;
         } else if mismatch_count == 1 {
             // Hack, needs to be fixed: https://github.com/EspressoSystems/HotShot/issues/295
@@ -612,10 +454,7 @@ impl<
                 } else {
                     unimplemented!()
                 };
-                if left.0 != right.0 {
-                    all_other_nodes_match = false;
-                }
-                if Self::validate_storage_states(&left.1, &right.1, 0, strictness).is_err() {
+                if left == right {
                     all_other_nodes_match = false;
                 }
             }
@@ -646,7 +485,7 @@ impl<
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
-    pub fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
+    pub async fn add_random_transaction(&self, node_id: Option<usize>) -> BLOCK::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
@@ -657,9 +496,7 @@ impl<
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
-        let state = async_std::task::block_on(self.nodes[0].handle.get_state())
-            .unwrap()
-            .unwrap();
+        let state = self.nodes[0].handle.get_state().await;
 
         let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
 
@@ -671,17 +508,18 @@ impl<
         };
 
         node.handle
-            .submit_transaction_sync(txn.clone())
+            .submit_transaction(txn.clone())
+            .await
             .expect("Could not send transaction");
         txn
     }
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
+    pub async fn add_random_transactions(&self, n: usize) -> Option<Vec<BLOCK::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.push(self.add_random_transaction(None));
+            result.push(self.add_random_transaction(None).await);
         }
         Some(result)
     }
@@ -719,6 +557,9 @@ pub enum ConsensusRoundError {
 
     /// View times out with any node as the leader.
     TimedOutWithoutAnyLeader,
+
+    /// replicas timed out
+    ReplicasTimedOut,
 
     /// States after a round of consensus is inconsistent.
     InconsistentAfterTxn,

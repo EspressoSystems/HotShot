@@ -19,10 +19,21 @@ pub mod subscribable_mutex;
 pub mod subscribable_rwlock;
 
 /// Provides types useful for waiting on certain values to arrive
-pub mod waitqueue;
+// pub mod waitqueue;
 
 /// Provides bincode options
 pub mod bincode;
+
+/// Collection of hacks
+pub mod hack {
+    /// Satisfies type checker without breaking non lexical lifetimes
+    /// # Panics
+    /// Always panics.
+    #[deprecated]
+    pub fn nll_todo<S>() -> S {
+        None.unwrap()
+    }
+}
 
 /// Provides utility functions used for testing
 #[cfg(feature = "logging-utils")]

@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{Stage, VecQuorumCertificate, ViewNumber},
+    data::{QuorumCertificate, ViewNumber},
     error::HotShotError,
     traits::BlockContents,
 };
@@ -15,8 +15,6 @@ use std::sync::Arc;
 pub struct Event<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
-    /// The stage that this event originates from
-    pub stage: Stage,
     /// The underlying event
     pub event: EventType<B, S, N>,
 }
@@ -55,15 +53,20 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
         /// The quorum certificates that accompy this Decide
-        qcs: Arc<Vec<VecQuorumCertificate>>,
+        qcs: Arc<Vec<QuorumCertificate<N>>>,
     },
     /// A new view was started by this node
     NewView {
         /// The view being started
         view_number: ViewNumber,
     },
-    /// A view was canceled by a timeout interrupt
-    ViewTimeout {
+    /// A replica task was canceled by a timeout interrupt
+    ReplicaViewTimeout {
+        /// The view that timed out
+        view_number: ViewNumber,
+    },
+    /// A next leader task was canceled by a timeout interrupt
+    NextLeaderViewTimeout {
         /// The view that timed out
         view_number: ViewNumber,
     },
@@ -89,5 +92,11 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     TransactionRejected {
         /// The transaction that has been rejected.
         transaction: B::Transaction,
+    },
+
+    /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
+    ViewFinished {
+        /// The view number that has just finished
+        view_number: ViewNumber,
     },
 }

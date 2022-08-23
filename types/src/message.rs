@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
 use hex_fmt::HexFmt;
@@ -45,38 +45,39 @@ impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<B, S, const N: usize> {
-    /// Signals start of a new view
-    NewView(NewView<N>),
-    /// Contains the prepare qc from the leader
-    Prepare(Prepare<B, S, N>),
-    /// A nodes vote on the prepare stage
-    PrepareVote(PrepareVote<N>),
-    /// Contains the precommit qc from the leader
-    PreCommit(PreCommit<N>),
-    /// A node's vote on the precommit stage
-    PreCommitVote(PreCommitVote<N>),
-    /// Contains the commit qc from the leader
-    Commit(Commit<N>),
-    /// A node's vote on the commit stage
-    CommitVote(CommitVote<N>),
-    /// Contains the decide qc from the leader
-    Decide(Decide<N>),
+    /// Leader's proposal
+    Proposal(Proposal<B, S, N>),
+    /// Replica timed out
+    TimedOut(TimedOut<N>),
+    /// Replica votes
+    Vote(Vote<N>),
+    /// Internal ONLY message indicating a NextView interrupt
+    /// View number this nextview interrupt was generated for
+    /// used so we ignore stale nextview interrupts within a task
+    #[serde(skip)]
+    NextViewInterrupt(ViewNumber),
 }
 
 impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
-    /// Get the current view number from this message.
-    /// If this message is `SubmitTransaction` the returned value will be `None`.
-    /// Otherwise the return value will be the `current_view` of the inner struct.
+    /// The view number of the (leader|replica) when the message was sent
+    /// or the view of the timeout
     pub fn view_number(&self) -> ViewNumber {
         match self {
-            Self::NewView(view) => view.current_view,
-            Self::Prepare(prepare) => prepare.current_view,
-            Self::PrepareVote(vote) => vote.current_view,
-            Self::PreCommit(precommit) => precommit.current_view,
-            Self::PreCommitVote(vote) => vote.current_view,
-            Self::Commit(commit) => commit.current_view,
-            Self::CommitVote(vote) => vote.current_view,
-            Self::Decide(decide) => decide.current_view,
+            ConsensusMessage::Proposal(p) => {
+                // view of leader in the leaf when proposal
+                // this should match replica upon receipt
+                p.leaf.view_number
+            }
+            ConsensusMessage::TimedOut(t) => {
+                // view number on which the replica timed out waiting for proposal
+                t.current_view
+            }
+            ConsensusMessage::Vote(v) => {
+                // view number on which the replica votes for a proposal for
+                // the leaf should have this view number
+                v.current_view
+            }
+            ConsensusMessage::NextViewInterrupt(view_number) => *view_number,
         }
     }
 }
@@ -88,22 +89,25 @@ pub enum DataMessage<B, T, S, const N: usize> {
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
         quorum_certificate: QuorumCertificate<N>,
+
         /// The relevant [`BlockContents`]
         ///
         /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
         block: B,
+
         /// The relevant [`State`]
         ///
         /// [`State`]: ../traits/state/trait.State.html
         state: S,
     },
+
     /// Contains a transaction to be submitted
     SubmitTransaction(T),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Signals the start of a new view
-pub struct NewView<const N: usize> {
+pub struct TimedOut<const N: usize> {
     /// The current view
     pub current_view: ViewNumber,
     /// The justification qc for this view
@@ -112,96 +116,33 @@ pub struct NewView<const N: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
-pub struct Prepare<B, S, const N: usize> {
-    /// The current view
-    pub current_view: ViewNumber,
-    /// The item being proposed
-    pub leaf: Leaf<B, N>,
-    /// The state this proposal results in
-    pub state: S,
-    /// The current high qc
-    pub high_qc: QuorumCertificate<N>,
+pub struct Proposal<BLOCK, STATE, const N: usize> {
+    // NOTE: optimization could include view number to help look up parent leaf
+    // could even do 16 bit numbers if we want
+    /// The leaf being proposed (see pseudocode)
+    pub leaf: Leaf<BLOCK, STATE, N>,
+    /// The proposal must be signed by the view leader
+    pub signature: EncodedSignature,
 }
 
 /// A nodes vote on the prepare field.
 ///
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-/// A nodes vote on the prepare field
 pub struct Vote<const N: usize> {
+    /// hash of the block being proposed
+    /// TODO delete this when we delete block hash from the QC
+    pub block_hash: BlockHash<N>,
+    /// TODO we should remove this
+    /// this is correct, but highly inefficient
+    /// we should check a cache, and if that fails request the qc
+    pub justify_qc: QuorumCertificate<N>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
     #[debug(with = "fmt_leaf_hash")]
     pub leaf_hash: LeafHash<N>,
     /// The view this vote was cast for
-    pub current_view: ViewNumber,
-}
-
-/// Generate a wrapper for [`Vote`] for type safety.
-macro_rules! vote_wrapper {
-    ($name:ident) => {
-        /// Wrapper around [`Vote`], used for type safety.
-        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, std::hash::Hash)]
-        pub struct $name<const N: usize>(pub Vote<N>);
-        impl<const N: usize> std::ops::Deref for $name<N> {
-            type Target = Vote<N>;
-            fn deref(&self) -> &Vote<N> {
-                &self.0
-            }
-        }
-
-        impl<const N: usize> From<Vote<N>> for $name<N> {
-            fn from(v: Vote<N>) -> Self {
-                Self(v)
-            }
-        }
-
-        impl<const N: usize> From<$name<N>> for Vote<N> {
-            fn from(wrapper: $name<N>) -> Self {
-                wrapper.0
-            }
-        }
-    };
-}
-
-vote_wrapper!(PrepareVote);
-vote_wrapper!(PreCommitVote);
-vote_wrapper!(CommitVote);
-
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-/// Pre-commit qc from the leader
-pub struct PreCommit<const N: usize> {
-    /// Hash of the item being worked on
-    #[debug(with = "fmt_leaf_hash")]
-    pub leaf_hash: LeafHash<N>,
-    /// The pre commit qc
-    pub qc: QuorumCertificate<N>,
-    /// The current view
-    pub current_view: ViewNumber,
-}
-
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-/// `Commit` qc from the leader
-pub struct Commit<const N: usize> {
-    /// Hash of the thing being worked on
-    #[debug(with = "fmt_leaf_hash")]
-    pub leaf_hash: LeafHash<N>,
-    /// The `Commit` qc
-    pub qc: QuorumCertificate<N>,
-    /// The current view
-    pub current_view: ViewNumber,
-}
-
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-/// Final decision
-pub struct Decide<const N: usize> {
-    /// Hash of the thing we just decided on
-    #[debug(with = "fmt_leaf_hash")]
-    pub leaf_hash: LeafHash<N>,
-    /// final qc for the round
-    pub qc: QuorumCertificate<N>,
-    /// the current view
     pub current_view: ViewNumber,
 }
 

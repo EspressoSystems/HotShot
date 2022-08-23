@@ -5,7 +5,7 @@
 
 use serde::{de::DeserializeOwned, Serialize};
 
-use std::{error::Error, fmt::Debug, hash::Hash};
+use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
 use crate::data::{BlockHash, LeafHash, TransactionHash};
 
@@ -47,6 +47,9 @@ pub trait BlockContents<const N: usize>:
     ///
     /// Used to produce hashes for internal `HotShot` control structures
     fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
+
+    /// returns hashes of all the transactions in this block
+    fn contained_transactions(&self) -> HashSet<TransactionHash<N>>;
 }
 
 /// A transaction trait for [`BlockContents`]
@@ -124,6 +127,10 @@ pub mod dummy {
             hasher.update(bytes);
             let x = *hasher.finalize().as_bytes();
             x.into()
+        }
+
+        fn contained_transactions(&self) -> HashSet<TransactionHash<32>> {
+            HashSet::new()
         }
     }
 }

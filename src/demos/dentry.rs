@@ -8,14 +8,14 @@
 
 use blake3::Hasher;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, Stage, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -99,7 +99,7 @@ impl Transaction {
 }
 
 /// The state for the dentry demo
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
 pub struct State {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
@@ -373,6 +373,14 @@ impl BlockContents<H_256> for DEntryBlock {
         let x = *blake3::hash(bytes).as_bytes();
         x.into()
     }
+
+    fn contained_transactions(&self) -> HashSet<TransactionHash<H_256>> {
+        self.transactions
+            .clone()
+            .into_iter()
+            .map(|tx| Self::hash_transaction(&tx))
+            .collect()
+    }
 }
 
 /// The node implementation for the dentry demo
@@ -463,14 +471,6 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
 /// Provides a random [`QuorumCertificate`]
 pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
     let mut rng = thread_rng();
-    let stage = match rng.gen_range(0u8..5) {
-        0 => Stage::None,
-        1 => Stage::Prepare,
-        2 => Stage::PreCommit,
-        3 => Stage::Commit,
-        4 => Stage::Decide,
-        _ => unreachable!(),
-    };
 
     // TODO: Generate a tc::Signature
     QuorumCertificate {
@@ -478,13 +478,20 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
         genesis: rng.gen(),
         leaf_hash: LeafHash::random(),
         signatures: BTreeMap::new(),
-        stage,
         view_number: ViewNumber::new(rng.gen()),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<const N: usize>(item: DEntryBlock) -> Leaf<DEntryBlock, N> {
+pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, State, N> {
     let parent = LeafHash::random();
-    Leaf { parent, item }
+    let justify_qc = random_quorom_certificate();
+    Leaf {
+        parent,
+        deltas,
+        view_number: justify_qc.view_number,
+        justify_qc,
+        // TODO we should add in a random
+        state: State::default(),
+    }
 }

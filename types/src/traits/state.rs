@@ -18,6 +18,8 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     ([`validate_block`](State::validate_block))
 ///   * The ability to produce a new state, with the modifications from the block applied
 ///     ([`append`](State::append))
+///     TODO add hash function to trait
+///     NOTE (see hash)
 pub trait State<const N: usize>:
     Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
 {

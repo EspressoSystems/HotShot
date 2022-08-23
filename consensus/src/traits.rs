@@ -2,10 +2,9 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, Stage, VecQuorumCertificate, VerifyHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
-    message::ConsensusMessage,
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
@@ -39,7 +38,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn leader_acts_as_replica(&self) -> bool;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey;
+    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
@@ -48,19 +47,19 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     /// Send a direct message to the given recipient
     async fn send_direct_message(
-        &mut self,
+        &self,
         recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
-        &mut self,
+        &self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&mut self, event: Event<I::Block, I::State, N>);
+    async fn send_event(&self, event: Event<I::Block, I::State, N>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
@@ -77,16 +76,20 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
 
     // Utility functions
 
-    /// returns `true` if the current node is a leader for the given `view_number` and `stage`
-    async fn is_leader(&self, view_number: ViewNumber, stage: Stage) -> bool {
-        &self.get_leader(view_number, stage).await == self.public_key()
+    /// returns `true` if the current node is a leader for the given `view_number`
+    async fn is_leader(&self, view_number: ViewNumber) -> bool {
+        &self.get_leader(view_number).await == self.public_key()
+    }
+
+    /// returns `true` if the current node should act as a replica for the given `view_number`
+    async fn is_replica(&self, view_number: ViewNumber) -> bool {
+        self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&mut self, view_number: ViewNumber, block: I::Block) {
+    async fn send_propose(&self, view_number: ViewNumber, block: I::Block) {
         self.send_event(Event {
             view_number,
-            stage: Stage::Prepare,
             event: EventType::Propose {
                 block: Arc::new(block),
             },
@@ -94,17 +97,34 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
+    /// notifies client of a replica timeout
+    async fn send_replica_timeout(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number,
+            event: EventType::ReplicaViewTimeout { view_number },
+        })
+        .await;
+    }
+
+    /// notifies client of a next leader timeout
+    async fn send_next_leader_timeout(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number,
+            event: EventType::NextLeaderViewTimeout { view_number },
+        })
+        .await;
+    }
+
     /// sends a decide event down the channel
     async fn send_decide(
-        &mut self,
+        &self,
         view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
-        qcs: Vec<VecQuorumCertificate>,
+        qcs: Vec<QuorumCertificate<N>>,
     ) {
         self.send_event(Event {
             view_number,
-            stage: Stage::Prepare,
             event: EventType::Decide {
                 block: Arc::new(blocks),
                 state: Arc::new(states),
@@ -114,11 +134,19 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
-    /// Create a [`VerifyHash`] for a given [`LeafHash`], [`Stage`] and [`ViewNumber`]
+    /// Sends a `ViewFinished` event
+    async fn send_view_finished(&self, view_number: ViewNumber) {
+        self.send_event(Event {
+            view_number,
+            event: EventType::ViewFinished { view_number },
+        })
+        .await;
+    }
+
+    /// Create a [`VerifyHash`] for a given [`LeafHash`], and [`ViewNumber`]
     fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> VerifyHash<32>;
 
@@ -126,12 +154,18 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     fn sign_vote(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let hash = self.create_verify_hash(leaf_hash, stage, view_number);
+        let hash = self.create_verify_hash(leaf_hash, view_number);
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         (self.public_key().to_bytes(), signature)
+    }
+
+    /// Signs a proposal
+    fn sign_proposal(&self, leaf_hash: &LeafHash<N>, view_number: ViewNumber) -> EncodedSignature {
+        let hash = self.create_verify_hash(leaf_hash, view_number);
+        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        signature
     }
 
     /// Validate a quorum certificate
@@ -139,35 +173,12 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         &self,
         quorum_certificate: &QuorumCertificate<N>,
         view_number: ViewNumber,
-        stage: Stage,
     ) -> bool;
-
-    /// Validate this message on if the QC is correct, if it has one
-    ///
-    /// If this message has no QC then this will return `true`
-    fn validate_qc_in_message(&self, message: &ConsensusMessage<I::Block, I::State, N>) -> bool {
-        let (qc, view_number, stage) = match message {
-            ConsensusMessage::PreCommit(pre_commit) => {
-                // PreCommit QC has the votes of the Prepare phase, therefor we must compare against Prepare and not PreCommit
-                (&pre_commit.qc, pre_commit.current_view, Stage::Prepare)
-            }
-            // Same as PreCommit, we compare with 1 stage earlier
-            ConsensusMessage::Commit(commit) => (&commit.qc, commit.current_view, Stage::PreCommit),
-            ConsensusMessage::Decide(decide) => (&decide.qc, decide.current_view, Stage::Commit),
-
-            ConsensusMessage::NewView(_)
-            | ConsensusMessage::Prepare(_)
-            | ConsensusMessage::CommitVote(_)
-            | ConsensusMessage::PreCommitVote(_)
-            | ConsensusMessage::PrepareVote(_) => return true,
-        };
-
-        self.validate_qc(qc, view_number, stage)
-    }
 
     /// Validate the signatures of a QC
     ///
     /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
+    /// TODO this should really take in a reference to the map. No need to clone it on every check.
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,

@@ -1625,10 +1625,13 @@ dependencies = [
 name = "hotshot-consensus"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "async-trait",
  "custom_debug",
+ "flume",
  "futures",
  "hotshot-types",
+ "hotshot-utils",
  "snafu",
  "tracing",
 ]
@@ -1639,6 +1642,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "either",
+ "futures",
  "hotshot",
  "hotshot-types",
  "hotshot-utils",
@@ -1664,6 +1668,7 @@ dependencies = [
  "espresso-systems-common",
  "futures",
  "hex_fmt",
+ "hotshot-utils",
  "rand 0.8.5",
  "serde",
  "serde_bytes",

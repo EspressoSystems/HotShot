@@ -46,6 +46,7 @@ impl<
             })
             .collect();
         let config = HotShotConfig {
+            execution_type: hotshot::ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
             threshold: NonZeroUsize::new(threshold).unwrap(),

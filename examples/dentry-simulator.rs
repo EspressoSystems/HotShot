@@ -144,7 +144,7 @@ async fn main() {
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.run_one_round().await;
+            hotshot.start_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
@@ -157,7 +157,7 @@ async fn main() {
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
+                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
@@ -210,7 +210,7 @@ async fn main() {
         println!("  - Unlocking round");
         debug!("Unlocking round");
         for hotshot in &hotshots {
-            hotshot.run_one_round().await;
+            hotshot.start_one_round().await;
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
@@ -223,7 +223,7 @@ async fn main() {
                 .await
                 .expect("HotShot unexpectedly closed");
             while !matches!(event.event, EventType::Decide { .. }) {
-                if matches!(event.event, EventType::ViewTimeout { .. }) {
+                if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
                     error!(?event, "Round timed out!");
                     panic!("Round failed");
                 }
@@ -348,6 +348,7 @@ async fn get_hotshot(
         })
         .collect();
     let config = HotShotConfig {
+        execution_type: hotshot::ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

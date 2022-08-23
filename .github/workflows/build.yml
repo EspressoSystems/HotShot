@@ -46,18 +46,10 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace --no-fail-fast -- --test-threads=1
+          cargo test --verbose --release --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
         timeout-minutes: 30
         env:
           RUST_BACKTRACE: full
-
-      # - name: Stress tests for all crates in workspace
-      #   run: |
-      #     ulimit -n 16384
-      #     cargo test --verbose --release --workspace --all-features --no-fail-fast -- test_stress --test-threads=1 --ignored
-      #   timeout-minutes: 30
-      #   env:
-      #     RUST_BACKTRACE: 1
 
       - name: Setup Docker BuildKit (buildx)
         uses: docker/setup-buildx-action@v2

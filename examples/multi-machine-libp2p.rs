@@ -213,6 +213,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
+        execution_type: hotshot::ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -382,37 +383,34 @@ async fn main() {
 
     let online_time = Duration::from_secs(60 * args.online_time);
 
-    let mut total_successful_txns = 0;
     let mut total_txns = 0;
 
     while start_time + online_time > Instant::now() {
         info!("Beginning view {}", view);
-        let num_submitted = {
-            if own_id == (view % num_nodes) {
-                info!("Generating txn for view {}", view);
-                let state = hotshot.get_state().await.unwrap().unwrap();
+        if own_id == (view % num_nodes) {
+            info!("Generating txn for view {}", view);
+            let state = hotshot.get_state().await;
 
-                for _ in 0..10 {
-                    let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                    info!("Submitting txn on view {}", view);
-                    hotshot.submit_transaction(txn).await.unwrap();
-                }
-                total_txns += 10;
-                10
-            } else {
-                0
+            for _ in 0..10 {
+                let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                info!("Submitting txn on view {}", view);
+                hotshot.submit_transaction(txn).await.unwrap();
             }
-        };
+        }
         info!("Running the view {}", view);
-        hotshot.run_one_round().await;
+        hotshot.start().await;
         info!("Collection for view {}", view);
         let result = hotshot.collect_round_events().await;
         match result {
-            Ok(state) => {
-                total_successful_txns += num_submitted;
-                info!(
+            Ok((state, blocks)) => {
+                let mut num_tnxs = 0;
+                for block in blocks {
+                    num_tnxs += block.transactions.len();
+                }
+                total_txns += num_tnxs;
+                error!(
                     "View {:?}: successful with {:?}, and total successful txns {:?}",
-                    view, state, total_successful_txns
+                    view, state, total_txns
                 );
             }
             Err(e) => {
@@ -424,12 +422,11 @@ async fn main() {
     }
 
     error!(
-        "All rounds completed, {} views with {} failures. This node (id: {:?}) submitted {:?} txns, and {:?} were successful. Ran for {:?} from {:?} to {:?}",
+        "All rounds completed, {} views with {} failures. This node {:?} has {:?} total txns successfully committed overall. Ran for {:?} from {:?} to {:?}",
         view,
         num_failed_views,
         own_id,
         total_txns,
-        total_successful_txns,
         online_time,
         start_time,
         Instant::now()

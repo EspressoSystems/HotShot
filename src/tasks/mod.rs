@@ -1,24 +1,18 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-mod round_runner;
-
-pub use round_runner::RoundRunnerState;
-
-use crate::{types::HotShotHandle, HotShot};
+use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_std::{
-    prelude::FutureExt as _,
+    prelude::FutureExt,
     sync::RwLock,
-    task::{spawn, JoinHandle},
+    task::{sleep, spawn, yield_now, JoinHandle},
 };
-use flume::Sender;
-use futures::channel::oneshot::channel as oneshot_channel;
+use flume::{Receiver, Sender};
+use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
-    data::ViewNumber,
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
 use hotshot_utils::broadcast::channel;
-use round_runner::ToRoundRunner;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -26,7 +20,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
@@ -35,79 +29,39 @@ pub struct TaskHandle {
     inner: RwLock<Option<TaskHandleInner>>,
 }
 impl TaskHandle {
-    /// Helper function to send a given message to the round runner
-    async fn send_to_round_runner(
-        &self,
-        to_round_runner: ToRoundRunner,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.inner
-            .read()
-            .await
-            .as_ref()
-            .unwrap()
-            .round_runner
-            .send_async(to_round_runner)
-            .await?;
-        Ok(())
-    }
-
-    /// Send a message to the [`round_runner_task`].
-    pub async fn set_round_runner_view_number(
-        &self,
-        view_number: ViewNumber,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.send_to_round_runner(ToRoundRunner::NewViewNumber(view_number))
-            .await
-    }
-
-    /// Get the internal state of the [`round_runner_task`].
-    ///
-    /// This will time out after two seconds.
-    pub async fn get_round_runner_state(
-        &self,
-    ) -> Result<RoundRunnerState, Box<dyn std::error::Error>> {
-        let (sender, receiver) = oneshot_channel();
-        self.send_to_round_runner(ToRoundRunner::GetState(sender))
-            .await?;
-        let state = receiver.timeout(Duration::from_millis(30000)).await??;
-        Ok(state)
-    }
-
     /// Start the round runner. This will make it run until `pause` is called
     pub async fn start(&self) {
-        self.send_to_round_runner(ToRoundRunner::Run)
-            .await
-            .expect("Could not start the round runner");
+        let handle = self.inner.read().await;
+        if handle.is_some() {
+            let handle = handle.as_ref().unwrap();
+            handle.started.store(true, Ordering::Relaxed);
+        }
     }
 
     /// Make the round runner run 1 round.
-    pub async fn run_one_round(&self) {
-        self.send_to_round_runner(ToRoundRunner::RunOnce)
-            .await
-            .expect("Could not start the round runner");
-    }
-
-    /// Pause the round runner.
-    pub async fn pause(&self) {
-        self.send_to_round_runner(ToRoundRunner::Pause)
-            .await
-            .expect("Could not pause the round runner");
+    /// Does/should not block.
+    pub async fn start_one_round(&self) {
+        let handle = self.inner.read().await;
+        if handle.is_some() {
+            let handle = handle.as_ref().unwrap();
+            if let Some(s) = &handle.run_view_channels {
+                handle.started.store(true, Ordering::Relaxed);
+                let _ = s.send_async(()).await;
+            } else {
+                error!("Run one view channel not configured for this hotshot instance");
+            }
+        }
     }
 
     /// Wait until all underlying handles are shut down
     pub async fn wait_shutdown(&self) {
         let inner = self.inner.write().await.take().unwrap();
-        inner
-            .round_runner
-            .send_async(ToRoundRunner::ShutDown)
-            .await
-            .expect("Could not tell the round runner to shut down");
 
         // shutdown_timeout == the hotshot's view timeout
         // in case the round_runner task is running for `view_timeout`
         // (exponential timeout maxed out)
         // then this needs to be slightly longer such that it ends up being checked
-        let long_timeout = inner.shutdown_timeout + Duration::new(1, 0);
+        let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
         for (handle, name) in [
             (
                 inner.network_broadcast_task_handle,
@@ -121,7 +75,7 @@ impl TaskHandle {
                 inner.network_change_task_handle,
                 "network_change_task_handle",
             ),
-            (inner.round_runner_join_handle, "round_runner_task_handle"),
+            (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
                 handle.timeout(long_timeout).await.is_ok(),
@@ -133,9 +87,10 @@ impl TaskHandle {
 }
 /// Inner struct of the [`TaskHandle`]
 struct TaskHandleInner {
-    /// The sender for the [`round_runner_task`].
-    pub round_runner: Sender<ToRoundRunner>,
-
+    /// for the client to indicate "increment a view"
+    /// only Some in Continuous exeuction mode
+    /// otherwise None
+    pub run_view_channels: Option<Sender<()>>,
     /// Join handle for `network_broadcast_task`
     pub network_broadcast_task_handle: JoinHandle<()>,
 
@@ -145,8 +100,11 @@ struct TaskHandleInner {
     /// Join handle for `network_change_task`
     pub network_change_task_handle: JoinHandle<()>,
 
-    /// Join handle for `round_runner`
-    pub round_runner_join_handle: JoinHandle<()>,
+    /// Join handle for `consensus_task`
+    pub consensus_task_handle: JoinHandle<()>,
+
+    /// Global to signify the `HotShot` should be started
+    pub(crate) started: Arc<AtomicBool>,
 
     /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
@@ -160,6 +118,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     hotshot: &HotShot<I, N>,
 ) -> HotShotHandle<I, N> {
     let shut_down = Arc::new(AtomicBool::new(false));
+    let started = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = spawn(
         network_broadcast_task(hotshot.clone(), shut_down.clone())
@@ -174,35 +133,190 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
             .instrument(info_span!("HotShot network change listener task",)),
     );
 
-    let (broadcast_sender, broadcast_receiver) = channel();
-
-    let round_runner = round_runner::RoundRunner::new(hotshot.clone()).await;
-    let (round_runner, round_runner_join_handle) = {
-        let sender = round_runner.sender.clone();
-        let join_handle = async_std::task::spawn(round_runner.run());
-        (sender, join_handle)
+    let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
+        crate::ExecutionType::Continuous => (None, None),
+        crate::ExecutionType::Incremental => {
+            let (send_consensus_start, recv_consensus_start) = flume::unbounded();
+            (Some(send_consensus_start), Some(recv_consensus_start))
+        }
     };
+
+    let consensus_task_handle = spawn(
+        view_runner(
+            hotshot.clone(),
+            started.clone(),
+            shut_down.clone(),
+            task_channels,
+        )
+        .instrument(info_span!("Consensus task handle",)),
+    );
+
+    let (broadcast_sender, broadcast_receiver) = channel();
 
     let handle = HotShotHandle {
         sender_handle: Arc::new(broadcast_sender.clone()),
         hotshot: hotshot.clone(),
         stream_output: broadcast_receiver,
         storage: hotshot.inner.storage.clone(),
+        // TODO this should really be in the same place as started...
         shut_down,
     };
     *hotshot.inner.event_sender.write().await = Some(broadcast_sender);
 
     let mut background_task_handle = hotshot.inner.background_task_handle.inner.write().await;
     *background_task_handle = Some(TaskHandleInner {
-        round_runner,
-        round_runner_join_handle,
         network_broadcast_task_handle,
         network_direct_task_handle,
         network_change_task_handle,
+        consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
+        run_view_channels: handle_channels,
+        started,
     });
 
     handle
+}
+
+/// Executes one view of consensus
+#[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
+pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
+    hotshot: HotShot<I, N>,
+) -> Result<(), ()> {
+    let c_api = HotShotConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
+
+    // do book keeping on channel map
+    // TODO probably cleaner to separate this into a function
+    // e.g. insert the view and remove the last view
+    let mut send_to_replica = hotshot.replica_channel_map.write().await;
+    let replica_last_view = send_to_replica.cur_view;
+    // gc previous view's channel map
+    send_to_replica.channel_map.remove(&replica_last_view);
+    send_to_replica.cur_view += 1;
+    let replica_cur_view = send_to_replica.cur_view;
+    let ViewQueue {
+        sender_chan: send_replica,
+        receiver_chan: recv_replica,
+    } = create_or_obtain_chan_from_write(replica_cur_view, send_to_replica).await;
+
+    let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+    let next_leader_last_view = send_to_next_leader.cur_view;
+    // gc previous view's channel map
+    send_to_next_leader
+        .channel_map
+        .remove(&next_leader_last_view);
+    send_to_next_leader.cur_view += 1;
+    let next_leader_cur_view = send_to_next_leader.cur_view;
+    let (send_next_leader, recv_next_leader) = if c_api.is_leader(next_leader_cur_view + 1).await {
+        let vq = create_or_obtain_chan_from_write(next_leader_cur_view, send_to_next_leader).await;
+        (Some(vq.sender_chan), Some(vq.receiver_chan))
+    } else {
+        (None, None)
+    };
+
+    // increment consensus and start tasks
+
+    let (cur_view, high_qc, txns) = {
+        // OBTAIN write lock on consensus
+        let mut consensus = hotshot.hotstuff.write().await;
+        let cur_view = consensus.increment_view();
+        // make sure consistent
+        assert_eq!(cur_view, next_leader_cur_view);
+        assert_eq!(cur_view, replica_cur_view);
+        let high_qc = consensus.high_qc.clone();
+        let txns = consensus.transactions.clone();
+        // DROP write lock on consensus
+        drop(consensus);
+        (cur_view, high_qc, txns)
+    };
+
+    info!("Starting tasks for View {:?}!", cur_view);
+
+    let mut task_handles = Vec::new();
+
+    // replica always runs? TODO this will change once vrf integration is added
+    let replica = Replica {
+        id: hotshot.id,
+        consensus: hotshot.hotstuff.clone(),
+        proposal_collection_chan: recv_replica,
+        cur_view,
+        high_qc: high_qc.clone(),
+        api: c_api.clone(),
+    };
+    let replica_handle = spawn(async move { replica.run_view().await });
+    task_handles.push(replica_handle);
+
+    if c_api.is_leader(cur_view).await {
+        let leader = Leader {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            high_qc: high_qc.clone(),
+            cur_view,
+            transactions: txns,
+            api: c_api.clone(),
+        };
+        let leader_handle = spawn(async move { leader.run_view().await });
+        task_handles.push(leader_handle);
+    }
+
+    if c_api.is_leader(cur_view + 1).await {
+        let next_leader = NextLeader {
+            id: hotshot.id,
+            generic_qc: high_qc,
+            // should be fine to unwrap here since the view numbers must be the same
+            vote_collection_chan: recv_next_leader.unwrap(),
+            cur_view,
+            api: c_api.clone(),
+        };
+        let next_leader_handle = spawn(async move { next_leader.run_view().await });
+        task_handles.push(next_leader_handle);
+    }
+
+    let children_finished = futures::future::join_all(task_handles);
+
+    spawn({
+        let next_view_timeout = hotshot.inner.config.next_view_timeout;
+        let next_view_timeout = next_view_timeout;
+        let hotshot: HotShot<I, N> = hotshot.clone();
+        async move {
+            sleep(Duration::from_millis(next_view_timeout)).await;
+            hotshot
+                .timeout_view(cur_view, send_replica, send_next_leader)
+                .await;
+        }
+    });
+
+    let results = children_finished.await;
+
+    // unwrap is fine since results must have >= 1 item(s)
+    let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+
+    let mut consensus = hotshot.hotstuff.write().await;
+    consensus.high_qc = high_qc;
+    c_api.send_view_finished(consensus.cur_view).await;
+
+    error!("Returning from view {:?}!", cur_view);
+    Ok(())
+}
+
+/// main thread driving consensus
+pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
+    hotshot: HotShot<I, N>,
+    started: Arc<AtomicBool>,
+    shut_down: Arc<AtomicBool>,
+    run_once: Option<Receiver<()>>,
+) {
+    while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
+        yield_now().await;
+    }
+
+    while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
+        if let Some(ref recv) = run_once {
+            let _ = recv.recv_async().await;
+        }
+        let _ = run_view(hotshot.clone()).await;
+    }
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.

@@ -8,7 +8,7 @@ use hotshot_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::{
         storage::{AtomicStoreSnafu, InconsistencySnafu, StorageError},
-        BlockContents,
+        BlockContents, State,
     },
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -194,9 +194,10 @@ impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
     }
 }
 
-impl<Block, const N: usize> DualKeyValue for Leaf<Block, N>
+impl<BLOCK, STATE, const N: usize> DualKeyValue for Leaf<BLOCK, STATE, N>
 where
-    Block: Clone + Serialize + DeserializeOwned + BlockContents<N>,
+    BLOCK: Clone + Serialize + DeserializeOwned + BlockContents<N>,
+    STATE: State<N>,
 {
     type Key1 = LeafHash<N>;
     type Key2 = BlockHash<N>;
@@ -209,6 +210,6 @@ where
     }
 
     fn key_2(&self) -> Self::Key2 {
-        BlockContents::hash(&self.item)
+        BlockContents::hash(&self.deltas)
     }
 }

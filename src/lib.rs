@@ -40,19 +40,19 @@ mod tasks;
 mod utils;
 
 use crate::{
-    data::{Leaf, LeafHash, QuorumCertificate, Stage},
+    data::{Leaf, LeafHash, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, EventType, HotShotHandle},
 };
 
-use async_std::sync::{Mutex, RwLock};
+use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use futures::channel::oneshot;
-use hotshot_consensus::{Consensus, RoundFinishedEventState};
+use flume::Sender;
+use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
-    data::{create_verify_hash, VerifyHash, ViewNumber},
-    error::{NetworkFaultSnafu, StorageSnafu},
-    message::{DataMessage, Message},
+    data::{create_verify_hash, TransactionHash, VerifyHash, ViewNumber},
+    error::NetworkFaultSnafu,
+    message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
@@ -64,7 +64,7 @@ use hotshot_types::{
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
@@ -79,7 +79,6 @@ pub use rand;
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
-pub use tasks::RoundRunnerState;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -89,9 +88,24 @@ pub const H_256: usize = 32;
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotShotError>;
 
+/// the type of consensus to run. Either:
+/// wait for a signal to start a view,
+/// or constantly run
+/// you almost always want continuous
+/// incremental is just for testing
+#[derive(Debug, Clone, Copy)]
+pub enum ExecutionType {
+    /// constantly increment view as soon as view finishes
+    Continuous,
+    /// wait for a signal
+    Incremental,
+}
+
 /// Holds configuration for a `HotShot`
 #[derive(Debug, Clone)]
 pub struct HotShotConfig<P: SignatureKey> {
+    /// Whether to run one view or continuous views
+    pub execution_type: ExecutionType,
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
@@ -148,9 +162,6 @@ pub struct HotShotInner<I: NodeImplementation<N>, const N: usize> {
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
-
-    /// The hotstuff implementation
-    hotstuff: Mutex<Consensus<I, N>>,
 }
 
 /// Contains the state of the election of the current [`HotShot`].
@@ -169,6 +180,22 @@ struct HotShotElectionState<P: SignatureKey, E: Election<P, N>, const N: usize> 
 pub struct HotShot<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<I, N>>,
+
+    /// Transactions
+    /// (this is shared btwn hotshot and `Consensus`)
+    transactions: Arc<RwLock<HashMap<TransactionHash<N>, <I as TypeMap<N>>::Transaction>>>,
+
+    /// The hotstuff implementation
+    hotstuff: Arc<RwLock<Consensus<I, N>>>,
+
+    /// for sending/recv-ing things with the replica task
+    replica_channel_map: Arc<RwLock<SendToTasks<I, N>>>,
+
+    /// for sending/recv-ing things with the next leader task
+    next_leader_channel_map: Arc<RwLock<SendToTasks<I, N>>>,
+
+    /// uid for instrumentation
+    id: u64,
 }
 
 impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I, N> {
@@ -199,9 +226,20 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     ) -> Result<Self> {
         info!("Creating a new hotshot");
         let genesis_hash = BlockContents::hash(&genesis);
-        let leaf = Leaf {
+        let genesis_qc = QuorumCertificate {
+            block_hash: genesis_hash,
+            leaf_hash: [0_u8; { N }].into(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::new(),
+            genesis: true,
+        };
+        let genesis_leaf = Leaf {
+            state: starting_state.clone(),
+            view_number: ViewNumber::genesis(),
+            justify_qc: genesis_qc.clone(),
+            // NOTE: view number might be different
             parent: [0_u8; { N }].into(),
-            item: genesis.clone(),
+            deltas: genesis.clone(),
         };
         let election = {
             let state =
@@ -223,85 +261,50 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
-            hotstuff: Mutex::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
-        let leaf_hash = leaf.hash();
+        let leaf_hash = genesis_leaf.hash();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
 
-        inner
-            .storage
-            .update(|mut m| async move {
-                m.insert_qc(QuorumCertificate {
-                    block_hash: genesis_hash,
-                    leaf_hash,
-                    view_number: ViewNumber::genesis(),
-                    stage: Stage::Decide,
-                    signatures: BTreeMap::new(),
-                    genesis: true,
-                })
-                .await?;
-                m.insert_leaf(Leaf {
-                    parent: [0_u8; { N }].into(),
-                    item: genesis,
-                })
-                .await?;
-                m.insert_state(starting_state, leaf_hash).await?;
-                Ok(())
-            })
-            .await
-            .context(StorageSnafu)?;
+        let mut genesis_map = BTreeMap::default();
+
+        genesis_map.insert(
+            ViewNumber::new(0),
+            View {
+                view_inner: ViewInner::Leaf { leaf: leaf_hash },
+            },
+        );
+
+        let mut genesis_leaves = HashMap::new();
+        genesis_leaves.insert(leaf_hash, genesis_leaf);
+
+        let start_view = ViewNumber::new(1);
+
+        // TODO jr add constructor and private the consensus fields
+        // and also ViewNumber's contained number
+        let hotstuff = Consensus {
+            state_map: genesis_map,
+            cur_view: start_view,
+            last_decided_view: ViewNumber::new(0),
+            transactions: Arc::default(),
+            saved_leaves: genesis_leaves,
+            // TODO unclear if this is correct
+            // maybe we need 3 views?
+            locked_view: ViewNumber::new(0),
+            high_qc: genesis_qc,
+        };
+        let hotstuff = Arc::new(RwLock::new(hotstuff));
+        let txns = hotstuff.read().await.get_transactions();
 
         Ok(Self {
+            id: nonce,
             inner: Arc::new(inner),
+            transactions: txns,
+            // TODO check this is what we want.
+            hotstuff,
+            replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
         })
-    }
-
-    /// Returns true if the proposed leaf extends from the given block
-    #[instrument(skip(self))]
-    pub async fn extends_from(&self, leaf: &Leaf<I::Block, N>, node: &LeafHash<N>) -> bool {
-        let mut parent = leaf.parent;
-        // Short circuit to enable blocks that don't have parents
-        if &parent == node {
-            trace!("leaf extends from node through short-circuit");
-            return true;
-        }
-        while parent != LeafHash::from_array([0_u8; { N }]) {
-            if &parent == node {
-                trace!(?parent, "Leaf extends from");
-                return true;
-            }
-            let next_parent = self.inner.storage.get_leaf(&parent).await;
-            if let Ok(Some(next_parent)) = next_parent {
-                parent = next_parent.parent;
-            } else {
-                error!("Leaf does not extend from node");
-                return false;
-            }
-        }
-        trace!("Leaf extends from node by default");
-        true
-    }
-
-    /// Sends out the next view message
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The phase already exists
-    /// - INTERNAL: Phases are not properly sorted
-    /// - The storage layer returned an error
-    /// - There were no QCs in the storage
-    /// - A broadcast message could not be send
-    #[instrument(skip(self), err)]
-    pub async fn next_view(&self, current_view: ViewNumber) -> Result<()> {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
-        hotstuff
-            .next_view(
-                current_view,
-                &mut HotShotConsensusApi { inner: &self.inner },
-            )
-            .await
     }
 
     /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
@@ -318,46 +321,33 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         false
     }
 
-    /// Runs a single round of consensus
-    ///
-    /// Returns the view number of the round that was completed.
-    ///
-    /// # Panics
-    ///
-    /// Panics if consensus hits a bad round
-    #[instrument(skip(self), err)]
-    pub async fn run_round(&self, current_view: ViewNumber) -> Result<ViewNumber> {
-        let (sender, receiver) = oneshot::channel();
-        self.inner
-            .hotstuff
-            .lock()
-            .await
-            .register_round_finished_listener(current_view, sender);
-        let result = match receiver.await {
-            Ok(result) => result,
-            Err(e) => {
-                return Err(HotShotError::InvalidState {
-                    context: format!("Could not wait for round to end: {:?}", e),
-                })
-            }
-        };
-        match result.state {
-            RoundFinishedEventState::Success => Ok(result.view_number),
-            RoundFinishedEventState::Interrupted(state) => Err(HotShotError::ViewTimeoutError {
-                view_number: result.view_number,
-                state,
-            }),
-            x => Err(HotShotError::InvalidState {
-                context: format!("Round finished in an unknown state: {:?}", x),
-            }),
-        }
-    }
-
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
     ///
     /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
-    pub async fn mark_round_as_timed_out(&self, current_view: ViewNumber) {
-        self.inner.hotstuff.lock().await.round_timeout(current_view);
+    /// # Panics
+    /// Panics if the current view is not in the channel map
+    #[instrument(
+        skip_all,
+        fields(id = self.id, view = *current_view),
+        name = "Timeout consensus tasks",
+        level = "warn"
+    )]
+    pub async fn timeout_view(
+        &self,
+        current_view: ViewNumber,
+        send_replica: Sender<ConsensusMessage<I::Block, I::State, N>>,
+        send_next_leader: Option<Sender<ConsensusMessage<I::Block, I::State, N>>>,
+    ) {
+        let msg = ConsensusMessage::<I::Block, I::State, N>::NextViewInterrupt(current_view);
+        if let Some(chan) = send_next_leader {
+            if chan.send_async(msg.clone()).await.is_err() {
+                warn!("Error timing out next leader task");
+            }
+        };
+        // NOTE this should always exist
+        if send_replica.send_async(msg).await.is_err() {
+            warn!("Error timing out replica task");
+        };
     }
 
     /// Publishes a transaction to the network
@@ -368,18 +358,12 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
-        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+        transaction: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
-        self.inner
-            .hotstuff
-            .lock()
-            .await
-            .add_transaction(tx.clone(), &mut HotShotConsensusApi { inner: &self.inner })
-            .await?;
         // Wrap up a message
-        let message = DataMessage::SubmitTransaction(tx);
+        let message = DataMessage::SubmitTransaction(transaction);
         let network_result = self
             .send_broadcast_message(message.clone())
             .await
@@ -393,30 +377,17 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
     /// Returns a copy of the state
     ///
-    /// # Errors
-    ///
-    /// Returns an error if an error occured with the storage interface, or if there is no QC or valid State in the storage.
-    pub async fn get_state(&self) -> Result<Option<I::State>> {
-        let qc = match self
-            .inner
-            .storage
-            .get_newest_qc()
-            .await
-            .context(StorageSnafu)?
-        {
-            Some(qc) => qc,
-            None => return Ok(None),
-        };
-        match self
-            .inner
-            .storage
-            .get_state(&qc.leaf_hash)
-            .await
-            .context(StorageSnafu)?
-        {
-            Some(state) => Ok(Some(state)),
-            None => Ok(None),
-        }
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_state(&self) -> I::State {
+        self.hotstuff.read().await.get_decided_leaf().state
+    }
+
+    /// Returns a copy of the last decided leaf
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    pub async fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+        self.hotstuff.read().await.get_decided_leaf()
     }
 
     /// Initializes a new hotshot and does the work of setting up all the background tasks
@@ -461,6 +432,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
+        // TODO this is where we should spin up
 
         Ok(handle)
     }
@@ -510,42 +482,96 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
+    #[instrument(
+        skip(self, _sender),
+        name = "Handle broadcast consensus message",
+        level = "error"
+    )]
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: I::SignatureKey,
+        _sender: I::SignatureKey,
     ) {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
-        let hotstuff = &mut *hotstuff;
-        if let Err(e) = hotstuff
-            .add_consensus_message(
-                msg.clone(),
-                &mut HotShotConsensusApi { inner: &self.inner },
-                sender,
-            )
-            .await
-        {
-            error!(?e, ?msg, ?hotstuff, "Could not execute hotstuff");
-        }
+        // TODO validate incoming data message based on sender signature key
+        // <github.com/ExpressoSystems/HotShot/issues/418>
+        let msg_view_number = msg.view_number();
+
+        match msg {
+            // this is ONLY intended for replica
+            ConsensusMessage::Proposal(_) => {
+                let channel_map = self.replica_channel_map.upgradable_read().await;
+
+                // skip if the proposal is stale
+                if msg_view_number < channel_map.cur_view {
+                    return;
+                }
+
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
+                    .await
+                    .sender_chan;
+
+                // sends the message if not stale
+                if chan.send_async(msg).await.is_err() {
+                    error!("Failed to replica task!");
+                }
+            }
+            ConsensusMessage::NextViewInterrupt(_) => {
+                warn!("Received a next view interrupt. This shouldn't be possible.");
+            }
+            ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
+                warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
+            }
+        };
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
+    #[instrument(
+        skip(self, _sender),
+        name = "Handle direct consensus message",
+        level = "error"
+    )]
     async fn handle_direct_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        sender: I::SignatureKey,
+        _sender: I::SignatureKey,
     ) {
-        let mut hotstuff = self.inner.hotstuff.lock().await;
-        let hotstuff = &mut *hotstuff;
-        if let Err(e) = hotstuff
-            .add_consensus_message(
-                msg.clone(),
-                &mut HotShotConsensusApi { inner: &self.inner },
-                sender,
-            )
-            .await
-        {
-            warn!(?e, ?msg, ?hotstuff, "Could not handle direct message");
+        // TODO validate incoming data message based on sender signature key
+
+        // We can only recv from a replicas
+        // replicas should only send votes or if they timed out, timeouts
+        match msg {
+            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
+                warn!("Received a direct message for a proposal. This shouldn't be possible.");
+            }
+            // this is ONLY intended for next leader
+            c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
+                let msg_view_number = c.view_number();
+
+                let channel_map = self.next_leader_channel_map.upgradable_read().await;
+
+                // check if
+                // - is in fact, actually is the next leader
+                // - the message is not stale
+                if !ConsensusApi::is_leader(
+                    &HotShotConsensusApi {
+                        inner: self.inner.clone(),
+                    },
+                    msg_view_number + 1,
+                )
+                .await
+                    && msg_view_number >= channel_map.cur_view
+                {
+                    return;
+                }
+
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
+                    .await
+                    .sender_chan;
+
+                if chan.send_async(c).await.is_err() {
+                    warn!("Failed to send to next leader!");
+                }
+            }
         }
     }
 
@@ -555,19 +581,17 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::DataMessage,
         _sender: I::SignatureKey,
     ) {
+        // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
-                let mut hotstuff = self.inner.hotstuff.lock().await;
-                let hotstuff = &mut *hotstuff;
-                if let Err(e) = hotstuff
-                    .add_transaction(
-                        transaction.clone(),
-                        &mut HotShotConsensusApi { inner: &self.inner },
-                    )
+                // The API contract requires the hash to be unique
+                // so we can assume entry == incoming txn
+                // even if eq not satisfied
+                // so insert is an idempotent operation
+                self.transactions
+                    .write()
                     .await
-                {
-                    error!(?e, ?transaction, ?hotstuff, "Could not add transaction");
-                }
+                    .insert(I::Block::hash_transaction(&transaction), transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -582,6 +606,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         msg: <I as TypeMap<N>>::DataMessage,
         _sender: I::SignatureKey,
     ) {
+        // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
             DataMessage::NewestQuorumCertificate {
@@ -589,6 +614,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 block,
                 state,
             } => {
+                // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let own_newest = match self.inner.storage.get_newest_qc().await {
                     Err(e) => {
                         error!(?e, "Could not load QC");
@@ -607,8 +633,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     let new_view_number = qc.view_number;
                     let block_hash = BlockContents::hash(&block);
                     let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(block.clone(), leaf_hash);
-                    debug!(?leaf, ?block, ?state, ?qc, "Saving");
+                    let leaf = Leaf::new(
+                        state.clone(),
+                        block.clone(),
+                        leaf_hash,
+                        qc.clone(),
+                        qc.view_number,
+                    );
+                    debug!(?leaf, ?block, ?qc, "Saving");
 
                     if let Err(e) = self
                         .inner
@@ -624,23 +656,10 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     {
                         error!(?e, "Could not insert incoming QC");
                     }
-                    // Make sure to update the background round runner
-                    if let Err(e) = self
-                        .inner
-                        .background_task_handle
-                        .set_round_runner_view_number(new_view_number)
-                        .await
-                    {
-                        error!(
-                            ?e,
-                            "Could not update the background round runner of a new view number"
-                        );
-                    }
 
                     // Broadcast that we're updated
                     self.send_event(Event {
                         view_number: new_view_number,
-                        stage: Stage::None,
                         event: EventType::Synced {
                             view_number: new_view_number,
                         },
@@ -659,32 +678,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     /// Handle a change in the network
     async fn handle_network_change(&self, node: NetworkChange<I::SignatureKey>) {
         match node {
-            NetworkChange::NodeConnected(peer) => {
-                info!("Connected to node {:?}", peer);
-
-                match load_latest_state::<I, N>(&self.inner.storage).await {
-                    Ok(Some((quorum_certificate, leaf, state))) => {
-                        let hotshot = self.clone();
-                        let msg = DataMessage::NewestQuorumCertificate {
-                            quorum_certificate,
-                            state,
-                            block: leaf.item,
-                        };
-
-                        if let Err(e) = hotshot.send_direct_message(msg, peer.clone()).await {
-                            error!(
-                                ?e,
-                                "Could not send newest quorumcertificate to node {:?}", peer
-                            );
-                        }
-                    }
-                    Ok(None) => {
-                        error!("Node connected but we have no QC yet");
-                    }
-                    Err(e) => {
-                        error!(?e, "Could not retrieve newest QC");
-                    }
-                }
+            NetworkChange::NodeConnected(_peer) => {
+                // do nothing, passive catchup is disabled for now
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);
@@ -698,37 +693,50 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
     }
 }
 
-/// Load the latest [`QuorumCertificate`] and the relevant [`Leaf`] and [`hotshot_types::traits::State`] from the given [`Storage`]
-async fn load_latest_state<I: NodeImplementation<N>, const N: usize>(
-    storage: &I::Storage,
-) -> std::result::Result<
-    Option<(QuorumCertificate<N>, Leaf<I::Block, N>, I::State)>,
-    Box<dyn std::error::Error + Send + Sync + 'static>,
-> {
-    let qc = match storage.get_newest_qc().await? {
-        Some(qc) => qc,
-        None => return Ok(None),
-    };
-    let leaf = match storage.get_leaf(&qc.leaf_hash).await? {
-        Some(leaf) => leaf,
-        None => return Ok(None),
-    };
-    let state = match storage.get_state(&qc.leaf_hash).await? {
-        Some(state) => state,
-        None => return Ok(None),
-    };
-    Ok(Some((qc, leaf, state)))
+/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
+/// doesn't exist, or creates entry. Then returns a clone of the entry
+pub async fn create_or_obtain_chan_from_read<I: NodeImplementation<N>, const N: usize>(
+    view_num: ViewNumber,
+    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<I, N>>,
+) -> ViewQueue<I, N> {
+    // check if we have the entry
+    // if we don't, insert
+    if let Some(vq) = channel_map.channel_map.get(&view_num) {
+        vq.clone()
+    } else {
+        let mut channel_map =
+            RwLockUpgradableReadGuard::<'_, SendToTasks<I, N>>::upgrade(channel_map).await;
+        let new_view_queue = ViewQueue::default();
+        let vq = new_view_queue.clone();
+        // NOTE: the read lock is held until all other read locks are DROPPED and
+        // the read lock may be turned into a write lock.
+        // This means that the `channel_map` will not change. So we don't need
+        // to check again to see if a channel was added
+
+        channel_map.channel_map.insert(view_num, new_view_queue);
+        vq
+    }
+}
+
+/// given a view number and a write lock on a channel map, inserts entry into map if it
+/// doesn't exist, or creates entry. Then returns a clone of the entry
+pub async fn create_or_obtain_chan_from_write<I: NodeImplementation<N>, const N: usize>(
+    view_num: ViewNumber,
+    mut channel_map: RwLockWriteGuard<'_, SendToTasks<I, N>>,
+) -> ViewQueue<I, N> {
+    channel_map.channel_map.entry(view_num).or_default().clone()
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
-struct HotShotConsensusApi<'a, I: NodeImplementation<N>, const N: usize> {
+#[derive(Clone)]
+struct HotShotConsensusApi<I: NodeImplementation<N>, const N: usize> {
     /// Reference to the [`HotShotInner`]
-    inner: &'a HotShotInner<I, N>,
+    inner: Arc<HotShotInner<I, N>>,
 }
 
 #[async_trait]
-impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I, N>
-    for HotShotConsensusApi<'a, I, N>
+impl<I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusApi<I, N>
+    for HotShotConsensusApi<I, N>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -754,11 +762,11 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         true
     }
 
-    async fn get_leader(&self, view_number: ViewNumber, stage: Stage) -> I::SignatureKey {
+    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let election = &self.inner.election;
         election
             .election
-            .get_leader(&election.stake_table, view_number, stage)
+            .get_leader(&election.stake_table, view_number)
     }
 
     async fn should_start_round(&self, _: ViewNumber) -> bool {
@@ -766,7 +774,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     }
 
     async fn send_direct_message(
-        &mut self,
+        &self,
         recipient: I::SignatureKey,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
@@ -784,7 +792,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     }
 
     async fn send_broadcast_message(
-        &mut self,
+        &self,
         message: <I as TypeMap<N>>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
@@ -797,7 +805,7 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
             .await
     }
 
-    async fn send_event(&mut self, event: Event<I::Block, I::State, N>) {
+    async fn send_event(&self, event: Event<I::Block, I::State, N>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -828,28 +836,21 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
     fn create_verify_hash(
         &self,
         leaf_hash: &LeafHash<N>,
-        stage: Stage,
         view_number: ViewNumber,
     ) -> VerifyHash<32> {
-        create_verify_hash(leaf_hash, view_number, stage)
+        create_verify_hash(leaf_hash, view_number)
     }
 
-    #[instrument(skip(self))]
-    fn validate_qc(
-        &self,
-        qc: &QuorumCertificate<N>,
-        view_number: ViewNumber,
-        stage: Stage,
-    ) -> bool {
-        if qc.view_number != view_number || qc.stage != stage {
-            warn!(
-                ?qc,
-                ?view_number,
-                ?stage,
-                "Failing on stage/view_number equality check"
-            );
+    #[instrument(skip(self, qc))]
+    fn validate_qc(&self, qc: &QuorumCertificate<N>, view_number: ViewNumber) -> bool {
+        if qc.view_number != view_number {
+            warn!(?qc, ?view_number, "Failing on view_number equality check");
+            return false;
         }
-        let hash = create_verify_hash(&qc.leaf_hash, view_number, stage);
+        if qc.genesis && qc.view_number == ViewNumber::genesis() {
+            return true;
+        }
+        let hash = create_verify_hash(&qc.leaf_hash, view_number);
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
         match valid_signatures {
             Ok(_) => true,
@@ -857,6 +858,8 @@ impl<'a, I: NodeImplementation<N>, const N: usize> hotshot_consensus::ConsensusA
         }
     }
 
+    // TODO <github.com/EspressoSystems/HotShot/issues/419>
+    // s/get_valid_signatures/get_valid_signature(signature, hash)
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,

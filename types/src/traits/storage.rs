@@ -36,11 +36,14 @@ pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>:
-    Clone + Send + Sync
+pub trait Storage<
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+    const N: usize,
+>: Clone + Send + Sync
 {
     /// Retrieves a block from storage, returning `None` if it could not be found in local storage
-    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<B>>;
+    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>>;
 
     /// Retrieves a Quorum Certificate from storage, by the hash of the block it refers to
     async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>>;
@@ -52,26 +55,29 @@ pub trait Storage<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'stati
     ) -> StorageResult<Option<QuorumCertificate<N>>>;
 
     /// Retrieves a leaf by its hash
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>>;
 
     /// Retrieves a leaf by the hash of its block
-    async fn get_leaf_by_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<Leaf<B, N>>>;
+    async fn get_leaf_by_block(
+        &self,
+        hash: &BlockHash<N>,
+    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>>;
 
     /// Retrieves a `State`, indexed by the hash of the `Leaf` that created it
-    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<S>>;
+    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>>;
 
     /// Calls the given `update_fn` for a list of modifications, then stores these.
     ///
     /// If an error occurs somewhere, the caller can assume that no data is stored at all.
     async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
     where
-        F: FnOnce(Box<dyn StorageUpdater<'a, B, S, N> + 'a>) -> FUT + Send + 'a,
+        F: FnOnce(Box<dyn StorageUpdater<'a, BLOCK, STATE, N> + 'a>) -> FUT + Send + 'a,
         FUT: Future<Output = StorageResult> + Send + 'a;
 
     /// Get the internal state of this storage system.
     ///
     /// This function should only be used for testing, never in production code.
-    async fn get_internal_state(&self) -> StorageState<B, S, N>;
+    async fn get_internal_state(&self) -> StorageState<BLOCK, STATE, N>;
 
     /// Retrieves the newest Quorum Certificate
     async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>>;
@@ -114,35 +120,35 @@ pub trait TestableStorage<
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq, Eq)]
-pub struct StorageState<B, S, const N: usize> {
+pub struct StorageState<BLOCK, STATE, const N: usize> {
     /// A list of all the blocks in the storage, sorted by [`BlockHash`].
-    pub blocks: Vec<B>,
+    pub blocks: Vec<BLOCK>,
     /// A list of all the [`QuorumCertificate`] in the storage, sorted by view_number.
     pub quorum_certificates: Vec<QuorumCertificate<N>>,
     /// A list of all the [`Leaf`] in the storage, sorted by [`LeafHash`].
-    pub leafs: Vec<Leaf<B, N>>,
+    pub leafs: Vec<Leaf<BLOCK, STATE, N>>,
     /// A list of all the states in the storage, storted by [`LeafHash`]
-    pub states: Vec<S>,
+    pub states: Vec<STATE>,
 }
 
 /// Trait to be used with [`Storage`]'s `update` function.
 #[async_trait]
 pub trait StorageUpdater<
     'a,
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
     const N: usize,
 >: Send
 {
     /// Inserts a block into storage.
-    async fn insert_block(&mut self, hash: BlockHash<N>, block: B) -> StorageResult;
+    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult;
     /// Inserts a Quorum Certificate into the storage. Should reject the QC if it is malformed or
     /// not from a decide stage.
     async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> StorageResult;
     /// Inserts a leaf.
-    async fn insert_leaf(&mut self, leaf: Leaf<B, N>) -> StorageResult;
+    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> StorageResult;
     /// Inserts a `State`, indexed by the hash of the `Leaf` that created it.
-    async fn insert_state(&mut self, state: S, hash: LeafHash<N>) -> StorageResult;
+    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> StorageResult;
 }
 
 /// State of a single hotshot-consensus  view

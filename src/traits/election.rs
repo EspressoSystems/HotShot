@@ -1,6 +1,6 @@
 use crate::data::StateHash;
 use hotshot_types::{
-    data::{Stage, ViewNumber},
+    data::ViewNumber,
     traits::{
         election::Election,
         signature_key::{
@@ -48,12 +48,7 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(
-        &self,
-        table: &Self::StakeTable,
-        view_number: ViewNumber,
-        _: Stage,
-    ) -> Ed25519Pub {
+    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
         let index = (*view_number % table.len() as u64) as usize;
         table[index]
     }

@@ -1,14 +1,5 @@
 mod common;
-
-use std::sync::Arc;
-
-use async_std::task::block_on;
-use common::{
-    DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestDescription, TestNetwork,
-    TestRoundResult, TestTransaction,
-};
-use either::Either::Right;
-use hotshot_testing::{ConsensusRoundError, Round, TestRunner, ValidateStrictness};
+use hotshot::demos::dentry::State;
 
 use hotshot::{
     data::{Leaf, QuorumCertificate, StateHash},
@@ -16,16 +7,10 @@ use hotshot::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
     },
     traits::{BlockContents, Storage},
-    HotShotConfig, H_256,
+    H_256,
 };
-use hotshot_testing::TestLauncher;
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
-};
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_types::{data::ViewNumber, traits::state::TestableState};
 use rand::thread_rng;
-use tracing::debug_span;
 
 type AtomicStorage = hotshot::traits::implementations::AtomicStorage<DEntryBlock, DemoState, H_256>;
 
@@ -169,7 +154,7 @@ async fn test_happy_path_leaves() {
     let mut store = AtomicStorage::open(path).expect("Could not open atomic store");
 
     // Add some leaves
-    let mut leaves = Vec::<Leaf<DEntryBlock, H_256>>::new();
+    let mut leaves = Vec::<Leaf<DEntryBlock, State, H_256>>::new();
     for _ in 0..10 {
         let leaf = random_leaf(DEntryBlock {
             previous_block: StateHash::random(),
@@ -209,7 +194,7 @@ async fn test_happy_path_leaves() {
                     panic!("Could not read leaf hash {:?}: {:?}", leaf.hash(), leaf)
                 }
             }
-            let hash = BlockContents::hash(&leaf.item);
+            let hash = BlockContents::hash(&leaf.deltas);
             match store
                 .get_leaf_by_block(&hash)
                 .await
@@ -223,218 +208,4 @@ async fn test_happy_path_leaves() {
             }
         }
     }
-}
-
-#[async_std::test]
-async fn restart() {
-    use std::path::Path;
-
-    setup_logging();
-    setup_backtrace();
-
-    const PATH: &str = "target/test/restart";
-    // make sure PATH doesn't exist
-    let _ = async_std::fs::remove_dir_all(PATH).await;
-
-    let round_one_pre_check = |runner: &TestRunner<
-        TestNetwork,
-        AtomicStorage,
-        DEntryBlock,
-        DemoState,
-    >|
-     -> Result<(), ConsensusRoundError> {
-        block_on(async move {
-            runner
-                .validate_node_states(ValidateStrictness::Strict)
-                .await;
-            // nodes should start at view_number 0
-            for node in runner.nodes() {
-                assert_eq!(
-                    node.storage()
-                        .get_newest_qc()
-                        .await
-                        .unwrap()
-                        .unwrap()
-                        .view_number,
-                    ViewNumber::new(0)
-                );
-            }
-        });
-        Ok(())
-    };
-
-    let round_one_setup = |runner: &mut TestRunner<
-        TestNetwork,
-        AtomicStorage,
-        DEntryBlock,
-        DemoState,
-    >|
-     -> Vec<TestTransaction> {
-        runner.add_random_transactions(1).unwrap()
-    };
-
-    let round_one_post_check =
-        |runner: &TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>,
-         _results: TestRoundResult|
-         -> Result<(), ConsensusRoundError> {
-            block_on(async move {
-                runner
-                    .validate_node_states(ValidateStrictness::Strict)
-                    .await;
-
-                // nodes should now be at view_number 1
-                for node in runner.nodes() {
-                    assert_eq!(
-                        node.storage()
-                            .get_newest_qc()
-                            .await
-                            .unwrap()
-                            .unwrap()
-                            .view_number,
-                        ViewNumber::new(1)
-                    );
-                }
-            });
-            Ok(())
-        };
-
-    let gen_runner = Arc::new(
-        |desc: &TestDescription<TestNetwork, AtomicStorage, DEntryBlock, DemoState>| {
-            let launcher = TestLauncher::<TestNetwork, AtomicStorage, DEntryBlock, DemoState>::new(
-                desc.total_nodes,
-                desc.num_bootstrap_nodes,
-            );
-
-            // modify runner to recognize timing params
-            let set_timing_params = |a: &mut HotShotConfig<Ed25519Pub>| {
-                a.next_view_timeout = desc.timing_config.next_view_timeout;
-                a.timeout_ratio = desc.timing_config.timeout_ratio;
-                a.round_start_delay = desc.timing_config.round_start_delay;
-                a.start_delay = desc.timing_config.start_delay;
-            };
-
-            // create runner from launcher
-            launcher
-                // insert timing parameters
-                .modify_default_config(set_timing_params)
-                .with_storage(|idx| {
-                    let span = debug_span!("Storage", idx);
-                    let _guard = span;
-                    let path = format!("{}/{}", PATH, idx);
-                    AtomicStorage::open(Path::new(&path)).unwrap()
-                })
-                .launch()
-        },
-    );
-
-    let desc = DetailedTestDescriptionBuilder::<TestNetwork, AtomicStorage, DEntryBlock, DemoState> {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 1,
-            num_bootstrap_nodes: 5,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            next_view_timeout: 1000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            ids_to_shut_down: Vec::new(),
-            network_reliability: None,
-        },
-        rounds: Some(vec![Round {
-            setup_round: Some(Arc::new(round_one_setup)),
-            safety_check_pre: Some(Arc::new(round_one_pre_check)),
-            safety_check_post: Some(Arc::new(round_one_post_check)),
-        }]),
-        gen_runner: Some(gen_runner.clone()),
-    };
-
-    desc.build().execute().await.unwrap();
-
-    let round_two_pre_check = |runner: &TestRunner<
-        TestNetwork,
-        AtomicStorage,
-        DEntryBlock,
-        DemoState,
-    >|
-     -> Result<(), ConsensusRoundError> {
-        block_on(async move {
-            runner
-                .validate_node_states(ValidateStrictness::Strict)
-                .await;
-            // nodes should start at view_number 1
-            for node in runner.nodes() {
-                assert_eq!(
-                    node.storage()
-                        .get_newest_qc()
-                        .await
-                        .unwrap()
-                        .unwrap()
-                        .view_number,
-                    ViewNumber::new(1)
-                );
-            }
-        });
-        Ok(())
-    };
-
-    let round_two_setup = |runner: &mut TestRunner<
-        TestNetwork,
-        AtomicStorage,
-        DEntryBlock,
-        DemoState,
-    >|
-     -> Vec<TestTransaction> {
-        runner.add_random_transactions(1).unwrap()
-    };
-
-    let round_two_post_check =
-        |runner: &TestRunner<TestNetwork, AtomicStorage, DEntryBlock, DemoState>,
-         _results: TestRoundResult|
-         -> Result<(), ConsensusRoundError> {
-            block_on(async move {
-                runner
-                    .validate_node_states(ValidateStrictness::Strict)
-                    .await;
-
-                // nodes should now be at view_number 2
-                for node in runner.nodes() {
-                    assert_eq!(
-                        node.storage()
-                            .get_newest_qc()
-                            .await
-                            .unwrap()
-                            .unwrap()
-                            .view_number,
-                        ViewNumber::new(2)
-                    );
-                }
-            });
-            Ok(())
-        };
-
-    let desc = DetailedTestDescriptionBuilder::<TestNetwork, AtomicStorage, DEntryBlock, DemoState> {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 1,
-            num_bootstrap_nodes: 5,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            next_view_timeout: 1000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            ids_to_shut_down: Vec::new(),
-            network_reliability: None,
-        },
-        rounds: Some(vec![Round {
-            setup_round: Some(Arc::new(round_two_setup)),
-            safety_check_pre: Some(Arc::new(round_two_pre_check)),
-            safety_check_post: Some(Arc::new(round_two_post_check)),
-        }]),
-        gen_runner: Some(gen_runner),
-    };
-    desc.build().execute().await.unwrap();
 }

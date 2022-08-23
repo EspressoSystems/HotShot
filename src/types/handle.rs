@@ -1,13 +1,12 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    tasks::RoundRunnerState,
     traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use async_std::task::block_on;
 use hotshot_types::{
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::network::NetworkingImplementation,
@@ -65,16 +64,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
             Err(_) => Err(NetworkFault { source: ShutDown }),
         }
     }
-    /// Synchronous version of `next_event`
-    ///
-    /// Will internally call `block_on` on `next_event`
-    ///
-    /// # Errors
-    ///
-    /// See documentation for `next_event`
-    pub fn next_event_sync(&mut self) -> Result<Event<I::Block, I::State, N>> {
-        block_on(self.next_event())
-    }
     /// Will attempt to immediately pull an event out of the queue
     ///
     /// # Errors
@@ -110,8 +99,16 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> Result<Option<I::State>> {
+    pub async fn get_state(&self) -> I::State {
         self.hotshot.get_state().await
+    }
+
+    /// Gets most recent decided leaf
+    /// # Panics
+    ///
+    /// Panics if internal consensus is in an inconsistent state.
+    pub async fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+        self.hotshot.get_decided_leaf().await
     }
 
     /// Submits a transaction to the backing [`HotShot`] instance.
@@ -129,18 +126,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         self.hotshot.publish_transaction_async(tx).await
     }
 
-    /// Synchronously submits a transaction to the backing [`HotShot`] instance.
-    ///
-    /// # Errors
-    ///
-    /// See documentation for `submit_transaction`
-    pub fn submit_transaction_sync(
-        &self,
-        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
-    ) -> Result<()> {
-        block_on(self.submit_transaction(tx))
-    }
-
     /// Signals to the underlying [`HotShot`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
@@ -148,72 +133,48 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         self.hotshot.inner.background_task_handle.start().await;
     }
 
-    /// Synchronously signals the underlying [`HotShot`] to unpause
-    pub fn start_sync(&self) {
-        block_on(self.start());
-    }
-
-    /// Signals the underlying [`HotShot`] to pause
-    ///
-    /// This will cause the background task to stop driving consensus after the completion of the
-    /// current view.
-    pub async fn pause(&self) {
-        self.hotshot.inner.background_task_handle.pause().await;
-    }
-
-    /// Synchronously signals the underlying `HotShot` to pause
-    pub fn pause_sync(&self) {
-        block_on(self.pause());
-    }
-
     /// Signals the underlying [`HotShot`] to run one round, if paused.
     ///
     /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
-    pub async fn run_one_round(&self) {
+    pub async fn start_one_round(&self) {
         self.hotshot
             .inner
             .background_task_handle
-            .run_one_round()
+            .start_one_round()
             .await;
-    }
-
-    /// Synchronously signals the underlying [`HotShot`] to run one round, if paused
-    pub fn run_one_round_sync(&self) {
-        block_on(self.run_one_round());
     }
 
     /// iterate through all events on a [`NodeImplementation`] and determine if the node finished
     /// successfully
     /// # Errors
     /// Errors if unable to obtain storage
+    /// # Panics
+    /// Panics if the event stream is shut down while this is running
     pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
-        let cur_view = self
-            .get_round_runner_state()
-            .await
-            .map_err(|e| HotShotError::Misc {
-                context: e.to_string(),
-            })?
-            .view;
+        // TODO we should probably do a view check
+        // but we can do that later. It's non-obvious how to get the view number out
+        // to check against
 
         // drain all events from this node
+        let mut results = Ok((Vec::new(), Vec::new()));
         loop {
-            let event = self.next_event().await?;
+            // unwrap is fine here since the thing hasn't been shut down
+            let event = self.next_event().await.unwrap();
             match event.event {
-                EventType::ViewTimeout { view_number } => {
-                    if view_number >= cur_view {
-                        error!(?event, "Round timed out!");
-                        return Err(HotShotError::ViewTimeoutError {
-                            view_number,
-                            state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                        });
-                    }
+                EventType::ReplicaViewTimeout { view_number } => {
+                    error!(?event, "Replica timed out!");
+                    results = Err(HotShotError::ViewTimeoutError {
+                        view_number,
+                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                    });
                 }
                 EventType::Decide { block, state, .. } => {
-                    return Ok((
+                    results = Ok((
                         state.iter().cloned().collect(),
                         block.iter().cloned().collect(),
                     ));
                 }
+                EventType::ViewFinished { view_number: _ } => return results,
                 event => {
                     debug!("recv-ed event {:?}", event);
                 }
@@ -247,21 +208,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
             .background_task_handle
             .wait_shutdown()
             .await;
-    }
-
-    /// Get the state of the internal round runner. This is used for testing purposes.
-    ///
-    /// # Errors
-    ///
-    /// Will return an error when the background thread is unable to respond within a second.
-    pub async fn get_round_runner_state(
-        &self,
-    ) -> std::result::Result<RoundRunnerState, Box<dyn std::error::Error>> {
-        self.hotshot
-            .inner
-            .background_task_handle
-            .get_round_runner_state()
-            .await
     }
 
     /// return the timeout for a view of the underlying `HotShot`

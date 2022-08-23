@@ -5,7 +5,7 @@
 //! signatures fundamental to consensus.
 use crate::traits::{
     signature_key::{EncodedPublicKey, EncodedSignature},
-    BlockContents,
+    BlockContents, State,
 };
 use blake3::Hasher;
 use hex_fmt::HexFmt;
@@ -199,21 +199,6 @@ mod serde_bytes_array {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
-/// Represents the stages of consensus
-pub enum Stage {
-    /// Between rounds
-    None,
-    /// Prepare Phase
-    Prepare,
-    /// PreCommit Phase
-    PreCommit,
-    /// Commit Phase
-    Commit,
-    /// Decide Phase
-    Decide,
-}
-
 /// The type used for Quorum Certificates
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
@@ -227,19 +212,17 @@ pub struct QuorumCertificate<const N: usize> {
     /// the referenced leaf.
     #[debug(with = "fmt_blockhash")]
     pub block_hash: BlockHash<N>,
+
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
     pub leaf_hash: LeafHash<N>,
+
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
     pub view_number: ViewNumber,
-    /// The [`Stage`] of consensus that this Quorum Certificate was generated during
-    ///
-    /// This value is covered by the threshold signature.
-    pub stage: Stage,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -258,6 +241,18 @@ pub struct QuorumCertificate<const N: usize> {
     pub genesis: bool,
 }
 
+impl<const N: usize> Default for QuorumCertificate<N> {
+    fn default() -> Self {
+        Self {
+            block_hash: BlockHash::<N>::default(),
+            leaf_hash: LeafHash::<N>::default(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::default(),
+            genesis: false,
+        }
+    }
+}
+
 impl<const N: usize> QuorumCertificate<N> {
     /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
     /// array.
@@ -268,7 +263,6 @@ impl<const N: usize> QuorumCertificate<N> {
         VecQuorumCertificate {
             block_hash: self.block_hash.as_ref().to_vec(),
             view_number: self.view_number,
-            stage: self.stage,
             signatures: self.signatures.clone(),
             genesis: self.genesis,
         }
@@ -289,8 +283,6 @@ pub struct VecQuorumCertificate {
     pub block_hash: Vec<u8>,
     /// The view we were on when we made this certificate
     pub view_number: ViewNumber,
-    /// The stage of consensus we were on when we made this certificate
-    pub stage: Stage,
     /// The signature portion of this QC
     pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
     /// Temporary bypass for boostrapping
@@ -303,7 +295,6 @@ impl VecQuorumCertificate {
         Self {
             block_hash: BlockHash::<N>::random().to_vec(),
             view_number: ViewNumber::genesis(),
-            stage: Stage::None,
             signatures: BTreeMap::default(),
             genesis: false,
         }
@@ -315,12 +306,10 @@ impl VecQuorumCertificate {
 pub fn create_verify_hash<const N: usize>(
     leaf_hash: &LeafHash<N>,
     view: ViewNumber,
-    stage: Stage,
 ) -> VerifyHash<32> {
     let mut hasher = Hasher::new();
     hasher.update(leaf_hash.as_ref());
     hasher.update(&view.to_be_bytes());
-    hasher.update(&(stage as u64).to_be_bytes());
     let hash = hasher.finalize();
     VerifyHash::from_array(*hash.as_bytes())
 }
@@ -329,34 +318,59 @@ pub fn create_verify_hash<const N: usize>(
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
-pub struct Leaf<T, const N: usize> {
+/// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
+#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+pub struct Leaf<BLOCK, STATE, const N: usize> {
+    /// CurView from leader when proposing leaf
+    pub view_number: ViewNumber,
+
+    /// Per spec, justification
+    pub justify_qc: QuorumCertificate<N>,
+
     /// The hash of the parent `Leaf`
+    /// So we can ask if it extends
     #[debug(with = "fmt_leaf_hash")]
     pub parent: LeafHash<N>,
-    /// The block contained in this `Leaf`
-    pub item: T,
+
+    /// Block leaf wants to apply
+    pub deltas: BLOCK,
+
+    /// What the state should be after applying `self.deltas`
+    pub state: STATE,
 }
 
-impl<T: BlockContents<N>, const N: usize> Leaf<T, N> {
+impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE, N> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
-    pub fn new(item: T, parent: LeafHash<N>) -> Self {
-        Leaf { parent, item }
+    pub fn new(
+        state: STATE,
+        deltas: BLOCK,
+        parent: LeafHash<N>,
+        qc: QuorumCertificate<N>,
+        view_number: ViewNumber,
+    ) -> Self {
+        Leaf {
+            view_number,
+            justify_qc: qc,
+            parent,
+            deltas,
+            state,
+        }
     }
 
     /// Hashes the leaf with the hashing algorithm provided by the [`BlockContents`] implementation
     ///
     /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
     /// contained block, and then return the hash of the resulting concatenated byte string.
+    /// NOTE: are we sure this is hashing correctly
     pub fn hash(&self) -> LeafHash<N> {
         let mut bytes = Vec::<u8>::new();
         bytes.extend_from_slice(self.parent.as_ref());
-        bytes.extend_from_slice(BlockContents::hash(&self.item).as_ref());
-        T::hash_leaf(&bytes)
+        bytes.extend_from_slice(<BLOCK as BlockContents<N>>::hash(&self.deltas).as_ref());
+        <BLOCK as BlockContents<N>>::hash_leaf(&bytes)
     }
 }
 

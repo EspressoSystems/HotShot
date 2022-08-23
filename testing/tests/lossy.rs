@@ -8,6 +8,7 @@ use common::{
     TestRoundResult,
 };
 use either::Either::Right;
+use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError,
@@ -19,29 +20,32 @@ use tracing::{error, instrument, warn};
 pub fn check_safety(
     runner: &AppliedTestRunner,
     results: TestRoundResult,
-) -> Result<(), ConsensusRoundError> {
-    let num_nodes = runner.ids().len();
-    if results.results.len() <= (2 * num_nodes) / 3 + 1 {
-        return Err(ConsensusRoundError::TimedOutWithoutAnyLeader);
-    }
-    let (first_node_idx, (first_states, first_blocks)) = results.results.iter().next().unwrap();
-
-    for (i_idx, (i_states, i_blocks)) in results.results.clone() {
-        // first block/state most recent
-        if first_blocks.get(0) != i_blocks.get(0) || first_states.get(0) != i_states.get(0) {
-            error!(
-                ?first_blocks,
-                ?i_blocks,
-                ?first_states,
-                ?i_states,
-                ?first_node_idx,
-                ?i_idx,
-                "SAFETY ERROR: most recent block or state does not match"
-            );
-            panic!("safety check failed");
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+    async move {
+        let num_nodes = runner.ids().len();
+        if results.results.len() <= (2 * num_nodes) / 3 + 1 {
+            return Err(ConsensusRoundError::TimedOutWithoutAnyLeader);
         }
+        let (first_node_idx, (first_states, first_blocks)) = results.results.iter().next().unwrap();
+
+        for (i_idx, (i_states, i_blocks)) in results.results.clone() {
+            // first block/state most recent
+            if first_blocks.get(0) != i_blocks.get(0) || first_states.get(0) != i_states.get(0) {
+                error!(
+                    ?first_blocks,
+                    ?i_blocks,
+                    ?first_states,
+                    ?i_states,
+                    ?first_node_idx,
+                    ?i_idx,
+                    "SAFETY ERROR: most recent block or state does not match"
+                );
+                panic!("safety check failed");
+            }
+        }
+        Ok(())
     }
-    Ok(())
+    .boxed_local()
 }
 
 // tests base level of working synchronous network
@@ -59,7 +63,7 @@ async fn test_no_loss_network() {
         gen_runner: None,
     };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
     test.execute().await.unwrap();
 }
 
@@ -79,8 +83,8 @@ async fn test_synchronous_network() {
         gen_runner: None,
     };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
     test.execute().await.unwrap();
 }
 
@@ -103,8 +107,8 @@ async fn test_asynchronous_network() {
         gen_runner: None,
     };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
     test.execute().await.unwrap();
 }
 
@@ -130,7 +134,7 @@ async fn test_partially_synchronous_network() {
         gen_runner: None,
     };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Arc::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Arc::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
     test.execute().await.unwrap();
 }
