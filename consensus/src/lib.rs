@@ -364,7 +364,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
         let high_qc = leaf.justify_qc.clone();
 
         let included_txns_set: HashSet<_> = if new_decide_reached {
-            included_txns.into_iter().collect()
+            included_txns
         } else {
             HashSet::new()
         };

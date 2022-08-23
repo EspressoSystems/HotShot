@@ -3,10 +3,10 @@ name: Non-deterministic tests
 on:
   schedule:
   # Run every night at midnight
-    - cron: '0 0 * * *' 
-  workflow_dispatch: 
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
-jobs: 
+jobs:
   build-and-test:
     runs-on: [self-hosted, X64]
     container:
@@ -20,14 +20,14 @@ jobs:
         run: |
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
-  
+
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
         with:
           sharedKey: HotShot163
 
       - name: Test
-        run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --all-features --no-fail-fast -- --ignored
+        run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --no-fail-fast -- --ignored
         timeout-minutes: 120
         env:
           RUST_BACKTRACE: 1

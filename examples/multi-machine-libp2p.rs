@@ -387,21 +387,16 @@ async fn main() {
 
     while start_time + online_time > Instant::now() {
         info!("Beginning view {}", view);
-        let _num_submitted = {
-            if own_id == (view % num_nodes) {
-                info!("Generating txn for view {}", view);
-                let state = hotshot.get_state().await;
+        if own_id == (view % num_nodes) {
+            info!("Generating txn for view {}", view);
+            let state = hotshot.get_state().await;
 
-                for _ in 0..10 {
-                    let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                    info!("Submitting txn on view {}", view);
-                    hotshot.submit_transaction(txn).await.unwrap();
-                }
-                10
-            } else {
-                0
+            for _ in 0..10 {
+                let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                info!("Submitting txn on view {}", view);
+                hotshot.submit_transaction(txn).await.unwrap();
             }
-        };
+        }
         info!("Running the view {}", view);
         hotshot.start().await;
         info!("Collection for view {}", view);
