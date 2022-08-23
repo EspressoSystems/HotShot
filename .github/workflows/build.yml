@@ -13,8 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/espressosystems/devops-rust:1.63
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
@@ -31,7 +29,6 @@ jobs:
           toolchain: stable
           override: true
           default: true
-
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching
