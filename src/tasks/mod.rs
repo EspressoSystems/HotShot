@@ -307,7 +307,9 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     shut_down: Arc<AtomicBool>,
     run_once: Option<Receiver<()>>,
 ) {
-    while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {}
+    while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
+        async_std::task::sleep(Duration::new(0, 500)).await;
+    }
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
         if let Some(ref recv) = run_once {
