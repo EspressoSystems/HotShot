@@ -88,6 +88,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
+        execution_type: hotshot::ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -193,7 +194,7 @@ async fn main() {
 
         let num_submitted = if own_id == (round % opts.total_nodes as u64) {
             tracing::info!("Generating txn for round {}", round);
-            let state = hotshot.get_state().await.unwrap().unwrap();
+            let state = hotshot.get_state().await;
 
             for _ in 0..10 {
                 let txn = <State as TestableState<H_256>>::create_random_transaction(&state);

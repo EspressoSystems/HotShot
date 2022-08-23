@@ -6,7 +6,7 @@ use hotshot::{
 };
 use hotshot_centralized_server::TcpStreamUtil;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
-use std::{fmt, net::Ipv4Addr, time::Duration};
+use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
 
 type Server = hotshot_centralized_server::Server<TestSignatureKey>;
 type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
@@ -168,6 +168,10 @@ impl<const N: usize> BlockContents<N> for TestBlock {
         let mut arr = [0u8; N];
         arr.copy_from_slice(bytes);
         arr.into()
+    }
+
+    fn contained_transactions(&self) -> HashSet<TransactionHash<N>> {
+        HashSet::default()
     }
 }
 
