@@ -54,7 +54,30 @@ pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
     pub failures: HashMap<u64, HotShotError>,
 }
 
+/// Type of function used for checking results after running a view of consensus
+pub type RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+        RoundResult<BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
+/// Type of function used for configuring a round of consensus
+pub type RoundSetup<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>>,
+>;
+
+/// Type of function used for checking safety before beginnning consensus
+pub type RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
+    dyn FnOnce(
+        &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
+    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+>;
+
 /// functions to run a round of consensus
+/// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<
     NETWORK: NetworkingImplementation<
             Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
@@ -68,34 +91,15 @@ pub struct Round<
     /// Safety check before round is set up and run
     /// to ensure consistent state
     #[allow(clippy::type_complexity)]
-    pub safety_check_post: Option<
-        Box<
-            dyn FnOnce(
-                &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-                RoundResult<BLOCK, STATE>,
-            ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
-        >,
-    >,
+    pub safety_check_post: Option<RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Round set up
     #[allow(clippy::type_complexity)]
-    pub setup_round: Option<
-        Box<
-            dyn FnOnce(
-                &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-            ) -> LocalBoxFuture<Vec<BLOCK::Transaction>>,
-        >,
-    >,
+    pub setup_round: Option<RoundSetup<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Safety check after round is complete
     #[allow(clippy::type_complexity)]
-    pub safety_check_pre: Option<
-        Box<
-            dyn FnOnce(
-                &TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-            ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
-        >,
-    >,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
 impl<
