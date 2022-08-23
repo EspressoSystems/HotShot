@@ -8,7 +8,7 @@ use libp2p::{
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction},
     Multiaddr, PeerId,
 };
 use tracing::{error, info};
@@ -42,6 +42,7 @@ pub struct DMBehaviour {
 }
 
 /// Lilst of direct message output events
+#[derive(Debug)]
 pub enum DMEvent {
     /// We received as Direct Request
     DirectRequest(Vec<u8>, PeerId, ResponseChannel<DirectMessageResponse>),
@@ -49,10 +50,8 @@ pub enum DMEvent {
     DirectResponse(Vec<u8>, PeerId),
 }
 
-impl NetworkBehaviourEventProcess<RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>>
-    for DMBehaviour
-{
-    fn inject_event(
+impl DMBehaviour {
+    fn handle_dm_event(
         &mut self,
         event: RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>,
     ) {
@@ -157,7 +156,7 @@ impl NetworkBehaviour for DMBehaviour {
             match ready {
                 // NOTE: this generates request
                 NetworkBehaviourAction::GenerateEvent(e) => {
-                    NetworkBehaviourEventProcess::inject_event(self, e);
+                    self.handle_dm_event(e);
                 }
                 NetworkBehaviourAction::Dial { opts, handler } => {
                     return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });

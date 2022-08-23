@@ -8,7 +8,7 @@ use libp2p::{
     gossipsub::{Gossipsub, GossipsubEvent, IdentTopic, TopicHash},
     swarm::{
         ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction,
-        NetworkBehaviourEventProcess, PollParameters,
+        PollParameters,
     },
     PeerId,
 };
@@ -32,13 +32,14 @@ pub struct GossipBehaviour {
 }
 
 /// Output event
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GossipEvent {
     /// We received a gossip
     GossipMsg(Vec<u8>, TopicHash),
 }
 
-impl NetworkBehaviourEventProcess<GossipsubEvent> for GossipBehaviour {
-    fn inject_event(&mut self, event: GossipsubEvent) {
+impl GossipBehaviour {
+    fn gossip_handle_event(&mut self, event: GossipsubEvent) {
         match event {
             GossipsubEvent::Message { message, .. } => {
                 // if we get an event from the gossipsub behaviour, push it
@@ -93,7 +94,7 @@ impl NetworkBehaviour for GossipBehaviour {
             match ready {
                 NetworkBehaviourAction::GenerateEvent(e) => {
                     // add event to event queue which will be subsequently popped off.
-                    NetworkBehaviourEventProcess::inject_event(self, e);
+                    self.gossip_handle_event(e);
                 }
                 NetworkBehaviourAction::Dial { opts, handler } => {
                     return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
