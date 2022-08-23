@@ -230,7 +230,7 @@ impl<S> NetworkNodeHandle<S> {
 
         match r.await.context(CancelledRequestSnafu) {
             Ok(result) => bincode_opts()
-                .deserialize(&*result)
+                .deserialize(&result)
                 .context(DeserializationSnafu),
             Err(e) => Err(e).context(DHTSnafu),
         }

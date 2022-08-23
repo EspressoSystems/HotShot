@@ -1,3 +1,5 @@
+#![cfg(foo)]
+
 mod common;
 use hotshot::demos::dentry::State;
 

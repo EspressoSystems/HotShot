@@ -374,6 +374,22 @@ impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE
     }
 }
 
+impl<B, S, const N: usize> From<crate::traits::storage::StoredView<B, S, N>> for Leaf<B, S, N>
+where
+    S: State<N>,
+    B: BlockContents<N>,
+{
+    fn from(append: crate::traits::storage::StoredView<B, S, N>) -> Self {
+        Leaf::new(
+            append.state,
+            append.append.into_deltas(),
+            append.parent,
+            append.qc,
+            append.view_number,
+        )
+    }
+}
+
 /// Format a fixed-size array with [`HexFmt`]
 fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", HexFmt(n))

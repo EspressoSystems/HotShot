@@ -54,7 +54,7 @@ impl ExponentialBackoff {
     /// Whether or not the timeout is expired
     pub fn is_expired(&self) -> bool {
         if let Some(then) = self.started {
-            Instant::now() - then > self.timeout
+            then.elapsed() > self.timeout
         } else {
             true
         }
