@@ -742,7 +742,7 @@ macro_rules! cross_all_types_proptest {
 
             cross_tests!(
                 [ MemoryNetwork Libp2pNetwork ],
-                [ MemoryStorage AtomicStorage ],
+                [ MemoryStorage ], // AtomicStorage
                 [ DEntryBlock  ],
                 [ State ],
                 $fn_name,
