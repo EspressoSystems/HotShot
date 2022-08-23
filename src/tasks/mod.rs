@@ -4,7 +4,7 @@ use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, Hot
 use async_std::{
     prelude::FutureExt,
     sync::RwLock,
-    task::{sleep, spawn, JoinHandle},
+    task::{sleep, spawn, yield_now, JoinHandle},
 };
 use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
@@ -308,7 +308,7 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     run_once: Option<Receiver<()>>,
 ) {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
-        async_std::task::sleep(Duration::new(0, 500)).await;
+        yield_now().await;
     }
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
