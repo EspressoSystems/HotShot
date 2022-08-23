@@ -90,15 +90,12 @@ pub struct Round<
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    #[allow(clippy::type_complexity)]
     pub safety_check_post: Option<RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Round set up
-    #[allow(clippy::type_complexity)]
     pub setup_round: Option<RoundSetup<NETWORK, STORAGE, BLOCK, STATE>>,
 
     /// Safety check after round is complete
-    #[allow(clippy::type_complexity)]
     pub safety_check_pre: Option<RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
