@@ -681,7 +681,6 @@
 <span id="675">675</span>
 <span id="676">676</span>
 <span id="677">677</span>
-<span id="678">678</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
@@ -1028,7 +1027,6 @@
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">key</span>, <span class="string">&quot;Delivered message to remote&quot;</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                     <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="question-mark">?</span><span class="ident">key</span>, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">NetworkError::CouldNotDeliver</span>);
                 }
             }
         }

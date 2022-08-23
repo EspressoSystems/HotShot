@@ -221,70 +221,15 @@
 <span id="215">215</span>
 <span id="216">216</span>
 <span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">tasks::RoundRunnerState</span>,
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotError::NetworkFault</span>},
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
-<span class="kw">use</span> <span class="ident">async_std::task::block_on</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">data::Leaf</span>,
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
     <span class="ident">event::EventType</span>,
     <span class="ident">traits::network::NetworkingImplementation</span>,
@@ -342,16 +287,6 @@
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkFault</span> { <span class="ident">source</span>: <span class="ident">ShutDown</span> }),
         }
     }
-    <span class="doccomment">/// Synchronous version of `next_event`</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will internally call `block_on` on `next_event`</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See documentation for `next_event`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next_event_sync</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">next_event</span>())
-    }
     <span class="doccomment">/// Will attempt to immediately pull an event out of the queue</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
@@ -387,8 +322,16 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an error if the underlying `Storage` returns an error</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::State</span> {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Gets most recent decided leaf</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Panics if internal consensus is in an inconsistent state.</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_decided_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::Block</span>, <span class="ident">I::State</span>, <span class="ident">N</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_decided_leaf</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Submits a transaction to the backing [`HotShot`] instance.</span>
@@ -406,18 +349,6 @@
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>).<span class="kw">await</span>
     }
 
-    <span class="doccomment">/// Synchronously submits a transaction to the backing [`HotShot`] instance.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See documentation for `submit_transaction`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">submit_transaction_sync</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">submit_transaction</span>(<span class="ident">tx</span>))
-    }
-
     <span class="doccomment">/// Signals to the underlying [`HotShot`] to unpause</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This will cause the background task to start running consensus again.</span>
@@ -425,72 +356,48 @@
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">background_task_handle</span>.<span class="ident">start</span>().<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// Synchronously signals the underlying [`HotShot`] to unpause</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">start_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">start</span>());
-    }
-
-    <span class="doccomment">/// Signals the underlying [`HotShot`] to pause</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will cause the background task to stop driving consensus after the completion of the</span>
-    <span class="doccomment">/// current view.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">pause</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">background_task_handle</span>.<span class="ident">pause</span>().<span class="kw">await</span>;
-    }
-
-    <span class="doccomment">/// Synchronously signals the underlying `HotShot` to pause</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pause_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">pause</span>());
-    }
-
     <span class="doccomment">/// Signals the underlying [`HotShot`] to run one round, if paused.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">run_one_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_one_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="ident">hotshot</span>
             .<span class="ident">inner</span>
             .<span class="ident">background_task_handle</span>
-            .<span class="ident">run_one_round</span>()
+            .<span class="ident">start_one_round</span>()
             .<span class="kw">await</span>;
-    }
-
-    <span class="doccomment">/// Synchronously signals the underlying [`HotShot`] to run one round, if paused</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_one_round_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">run_one_round</span>());
     }
 
     <span class="doccomment">/// iterate through all events on a [`NodeImplementation`] and determine if the node finished</span>
     <span class="doccomment">/// successfully</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">/// Errors if unable to obtain storage</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// Panics if the event stream is shut down while this is running</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">collect_round_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::Block</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">cur_view</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">get_round_runner_state</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">HotShotError::Misc</span> {
-                <span class="ident">context</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
-            })<span class="question-mark">?</span>
-            .<span class="ident">view</span>;
+        <span class="comment">// TODO we should probably do a view check</span>
+        <span class="comment">// but we can do that later. It&#39;s non-obvious how to get the view number out</span>
+        <span class="comment">// to check against</span>
 
         <span class="comment">// drain all events from this node</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((<span class="ident">Vec::new</span>(), <span class="ident">Vec::new</span>()));
         <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_event</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down</span>
+            <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_event</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
             <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">event</span> {
-                <span class="ident">EventType::ViewTimeout</span> { <span class="ident">view_number</span> } =&gt; {
-                    <span class="kw">if</span> <span class="ident">view_number</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">cur_view</span> {
-                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;Round timed out!&quot;</span>);
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">HotShotError::ViewTimeoutError</span> {
-                            <span class="ident">view_number</span>,
-                            <span class="ident">state</span>: <span class="ident">RoundTimedoutState::TestCollectRoundEventsTimedOut</span>,
-                        });
-                    }
+                <span class="ident">EventType::ReplicaViewTimeout</span> { <span class="ident">view_number</span> } =&gt; {
+                    <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;Replica timed out!&quot;</span>);
+                    <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">HotShotError::ViewTimeoutError</span> {
+                        <span class="ident">view_number</span>,
+                        <span class="ident">state</span>: <span class="ident">RoundTimedoutState::TestCollectRoundEventsTimedOut</span>,
+                    });
                 }
                 <span class="ident">EventType::Decide</span> { <span class="ident">block</span>, <span class="ident">state</span>, .. } =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>((
+                    <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
                         <span class="ident">state</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>(),
                         <span class="ident">block</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>(),
                     ));
                 }
+                <span class="ident">EventType::ViewFinished</span> { <span class="ident">view_number</span>: <span class="kw">_</span> } =&gt; <span class="kw">return</span> <span class="ident">results</span>,
                 <span class="ident">event</span> =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;recv-ed event {:?}&quot;</span>, <span class="ident">event</span>);
                 }
@@ -524,21 +431,6 @@
             .<span class="ident">background_task_handle</span>
             .<span class="ident">wait_shutdown</span>()
             .<span class="kw">await</span>;
-    }
-
-    <span class="doccomment">/// Get the state of the internal round runner. This is used for testing purposes.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return an error when the background thread is unable to respond within a second.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_round_runner_state</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">RoundRunnerState</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">background_task_handle</span>
-            .<span class="ident">get_round_runner_state</span>()
-            .<span class="kw">await</span>
     }
 
     <span class="doccomment">/// return the timeout for a view of the underlying `HotShot`</span>

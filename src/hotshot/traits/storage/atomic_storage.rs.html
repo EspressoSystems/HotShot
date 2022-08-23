@@ -307,6 +307,16 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
 </pre><pre class="rust"><code><span class="doccomment">//! On-disk storage of node state. Based on [`atomic_store`](https://github.com/EspressoSystems/atomicstore).</span>
 
 <span class="kw">mod</span> <span class="ident">dual_key_value_store</span>;
@@ -336,10 +346,10 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">instrument</span>, <span class="ident">trace</span>};
 
 <span class="doccomment">/// Inner state of an atomic storage</span>
-<span class="kw">struct</span> <span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
+<span class="kw">struct</span> <span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
-    <span class="ident">State</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
+    <span class="ident">BLOCK</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
+    <span class="ident">STATE</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
 {
     <span class="doccomment">/// Temporary directory storage might live in</span>
     <span class="doccomment">/// (we want to delete the temporary directory when storage is droppped)</span>
@@ -348,7 +358,7 @@
     <span class="ident">atomic_store</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">AtomicStore</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The Blocks stored by this [`AtomicStorage`]</span>
-    <span class="ident">blocks</span>: <span class="ident">HashMapStore</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">Block</span><span class="op">&gt;</span>,
+    <span class="ident">blocks</span>: <span class="ident">HashMapStore</span><span class="op">&lt;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">BLOCK</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The [`QuorumCertificate`]s stored by this [`AtomicStorage`]</span>
     <span class="ident">qcs</span>: <span class="ident">DualKeyValueStore</span><span class="op">&lt;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -357,21 +367,21 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// In order to maintain the struct constraints, this list must be append only. Once a QC is</span>
     <span class="doccomment">/// inserted, it index _must not_ change</span>
-    <span class="ident">leaves</span>: <span class="ident">DualKeyValueStore</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">leaves</span>: <span class="ident">DualKeyValueStore</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The store of states</span>
-    <span class="ident">states</span>: <span class="ident">HashMapStore</span><span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">State</span><span class="op">&gt;</span>,
+    <span class="ident">states</span>: <span class="ident">HashMapStore</span><span class="op">&lt;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">STATE</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Persistent [`Storage`] implementation, based upon [`atomic_store`].</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
-    <span class="ident">State</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
+    <span class="ident">BLOCK</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span>,
+    <span class="ident">STATE</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
 {
     <span class="doccomment">/// Inner state of the atomic storage</span>
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicStorageInner</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
@@ -391,10 +401,10 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">Block</span>, <span class="ident">State</span>, <span class="ident">N</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">Block</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
-    <span class="ident">State</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
+    <span class="ident">BLOCK</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span>,
+    <span class="ident">STATE</span>: <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
 {
     <span class="doccomment">/// Creates an atomic storage at a given path. If files exist, will back up existing directory before creating.</span>
     <span class="doccomment">///</span>
@@ -457,11 +467,14 @@
 }
 
 <span class="attribute">#[<span class="ident">async_trait</span>]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
-    <span class="ident">Storage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span>
+        <span class="ident">BLOCK</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">BLOCK</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span>,
+    <span class="op">&gt;</span> <span class="ident">Storage</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorage</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span>
 {
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::get_block&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">B</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BLOCK</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">get</span>(<span class="ident">hash</span>).<span class="kw">await</span>)
     }
 
@@ -484,23 +497,26 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::get_leaf&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">load_by_key_1_ref</span>(<span class="ident">hash</span>).<span class="kw">await</span>)
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::get_leaf_by_block&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leaf_by_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leaf_by_block</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">load_by_key_2_ref</span>(<span class="ident">hash</span>).<span class="kw">await</span>)
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::get_state&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">get</span>(<span class="ident">hash</span>).<span class="kw">await</span>)
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">update</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">F</span>, <span class="ident">FUT</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">update_fn</span>: <span class="ident">F</span>) -&gt; <span class="ident">StorageResult</span>
     <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>) -&gt; <span class="ident">FUT</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
+        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>) -&gt; <span class="ident">FUT</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
         <span class="ident">FUT</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">StorageResult</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>,
     {
         <span class="kw">let</span> <span class="ident">updater</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">AtomicStorageUpdater</span> { <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span> });
@@ -537,19 +553,19 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_internal_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StorageState</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">blocks</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">B</span>)<span class="op">&gt;</span> <span class="op">=</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_internal_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StorageState</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">blocks</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">BLOCK</span>)<span class="op">&gt;</span> <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">blocks</span>.<span class="ident">load_all</span>().<span class="kw">await</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>();
         <span class="ident">blocks</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span>(<span class="ident">hash</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">hash</span>);
         <span class="kw">let</span> <span class="ident">blocks</span> <span class="op">=</span> <span class="ident">blocks</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">block</span>)<span class="op">|</span> <span class="ident">block</span>).<span class="ident">collect</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">leafs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">load_all</span>().<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">leafs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">load_all</span>().<span class="kw">await</span>;
         <span class="ident">leafs</span>.<span class="ident">sort_by_cached_key</span>(<span class="ident">Leaf::hash</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">quorum_certificates</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">qcs</span>.<span class="ident">load_all</span>().<span class="kw">await</span>;
         <span class="ident">quorum_certificates</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span><span class="ident">qc</span><span class="op">|</span> <span class="ident">qc</span>.<span class="ident">view_number</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">S</span>)<span class="op">&gt;</span> <span class="op">=</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">STATE</span>)<span class="op">&gt;</span> <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">states</span>.<span class="ident">load_all</span>().<span class="kw">await</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>();
         <span class="ident">states</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span>(<span class="ident">hash</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">hash</span>);
         <span class="kw">let</span> <span class="ident">states</span> <span class="op">=</span> <span class="ident">states</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">state</span>)<span class="op">|</span> <span class="ident">state</span>).<span class="ident">collect</span>();
@@ -575,11 +591,15 @@
 }
 
 <span class="attribute">#[<span class="ident">async_trait</span>]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">S</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">B</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>
-    <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">B</span>, <span class="ident">S</span>, <span class="ident">N</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span>
+        <span class="lifetime">&#39;a</span>,
+        <span class="ident">BLOCK</span>: <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">N</span>, <span class="ident">Block</span> <span class="op">=</span> <span class="ident">BLOCK</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span>,
+    <span class="op">&gt;</span> <span class="ident">StorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AtomicStorageUpdater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span>
 {
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::get_block&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">B</span>) -&gt; <span class="ident">StorageResult</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_block</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">hash</span>: <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="ident">block</span>: <span class="ident">BLOCK</span>) -&gt; <span class="ident">StorageResult</span> {
         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">block</span>, <span class="string">&quot;inserting block&quot;</span>);
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">blocks</span>
@@ -590,7 +610,7 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::insert_leaf&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">B</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_leaf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">BLOCK</span>, <span class="ident">STATE</span>, <span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">leaves</span>.<span class="ident">insert</span>(<span class="ident">leaf</span>).<span class="kw">await</span>
     }
 
@@ -600,7 +620,7 @@
     }
 
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;AtomicStorage::insert_state&quot;</span>, <span class="ident">skip_all</span>)]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">state</span>: <span class="ident">S</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">insert_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">state</span>: <span class="ident">STATE</span>, <span class="ident">hash</span>: <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>) -&gt; <span class="ident">StorageResult</span> {
         <span class="macro">trace!</span>(<span class="question-mark">?</span><span class="ident">hash</span>, <span class="string">&quot;Inserting state&quot;</span>);
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">states</span>

@@ -23,7 +23,9 @@
 <li>The ability to validate that a block is actually a valid extension of this state
 (<a href="trait.State.html#tymethod.validate_block"><code>validate_block</code></a>)</li>
 <li>The ability to produce a new state, with the modifications from the block applied
-(<a href="trait.State.html#tymethod.append"><code>append</code></a>)</li>
+(<a href="trait.State.html#tymethod.append"><code>append</code></a>)
+TODO add hash function to trait
+NOTE (see hash)</li>
 </ul>
 </div></details><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor"></a></h2><div class="methods"><details class="rustdoc-toggle" open><summary><div id="associatedtype.Error" class="method has-srclink"><div class="rightside"></div><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.63.0/std/error/trait.Error.html" title="trait std::error::Error">Error</a> + <a class="trait" href="https://doc.rust-lang.org/1.63.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.63.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.63.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></div></summary><div class="docblock"><p>The error type for this particular type of ledger state</p>
 </div></details><details class="rustdoc-toggle" open><summary><div id="associatedtype.Block" class="method has-srclink"><div class="rightside"></div><h4 class="code-header">type <a href="#associatedtype.Block" class="associatedtype">Block</a>: <a class="trait" href="trait.BlockContents.html" title="trait hotshot::traits::BlockContents">BlockContents</a>&lt;N&gt;</h4></div></summary><div class="docblock"><p>The type of block this state is associated with</p>

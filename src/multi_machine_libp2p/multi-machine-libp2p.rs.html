@@ -438,9 +438,6 @@
 <span id="432">432</span>
 <span id="433">433</span>
 <span id="434">434</span>
-<span id="435">435</span>
-<span id="436">436</span>
-<span id="437">437</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
@@ -656,6 +653,7 @@
         .<span class="ident">collect</span>();
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
+        <span class="ident">execution_type</span>: <span class="ident">hotshot::ExecutionType::Continuous</span>,
         <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
         <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
         <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
@@ -825,37 +823,34 @@
 
     <span class="kw">let</span> <span class="ident">online_time</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">60</span> <span class="op">*</span> <span class="ident">args</span>.<span class="ident">online_time</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_successful_txns</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_txns</span> <span class="op">=</span> <span class="number">0</span>;
 
     <span class="kw">while</span> <span class="ident">start_time</span> <span class="op">+</span> <span class="ident">online_time</span> <span class="op">&gt;</span> <span class="ident">Instant::now</span>() {
         <span class="macro">info!</span>(<span class="string">&quot;Beginning view {}&quot;</span>, <span class="ident">view</span>);
-        <span class="kw">let</span> <span class="ident">num_submitted</span> <span class="op">=</span> {
-            <span class="kw">if</span> <span class="ident">own_id</span> <span class="op">==</span> (<span class="ident">view</span> <span class="op">%</span> <span class="ident">num_nodes</span>) {
-                <span class="macro">info!</span>(<span class="string">&quot;Generating txn for view {}&quot;</span>, <span class="ident">view</span>);
-                <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+        <span class="kw">if</span> <span class="ident">own_id</span> <span class="op">==</span> (<span class="ident">view</span> <span class="op">%</span> <span class="ident">num_nodes</span>) {
+            <span class="macro">info!</span>(<span class="string">&quot;Generating txn for view {}&quot;</span>, <span class="ident">view</span>);
+            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>;
 
-                <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
-                    <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">State</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
-                    <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, <span class="ident">view</span>);
-                    <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-                }
-                <span class="ident">total_txns</span> <span class="op">+</span><span class="op">=</span> <span class="number">10</span>;
-                <span class="number">10</span>
-            } <span class="kw">else</span> {
-                <span class="number">0</span>
+            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
+                <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">State</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
+                <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, <span class="ident">view</span>);
+                <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
             }
-        };
+        }
         <span class="macro">info!</span>(<span class="string">&quot;Running the view {}&quot;</span>, <span class="ident">view</span>);
-        <span class="ident">hotshot</span>.<span class="ident">run_one_round</span>().<span class="kw">await</span>;
+        <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
         <span class="macro">info!</span>(<span class="string">&quot;Collection for view {}&quot;</span>, <span class="ident">view</span>);
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">collect_round_events</span>().<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">state</span>) =&gt; {
-                <span class="ident">total_successful_txns</span> <span class="op">+</span><span class="op">=</span> <span class="ident">num_submitted</span>;
-                <span class="macro">info!</span>(
+            <span class="prelude-val">Ok</span>((<span class="ident">state</span>, <span class="ident">blocks</span>)) =&gt; {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_tnxs</span> <span class="op">=</span> <span class="number">0</span>;
+                <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="ident">blocks</span> {
+                    <span class="ident">num_tnxs</span> <span class="op">+</span><span class="op">=</span> <span class="ident">block</span>.<span class="ident">transactions</span>.<span class="ident">len</span>();
+                }
+                <span class="ident">total_txns</span> <span class="op">+</span><span class="op">=</span> <span class="ident">num_tnxs</span>;
+                <span class="macro">error!</span>(
                     <span class="string">&quot;View {:?}: successful with {:?}, and total successful txns {:?}&quot;</span>,
-                    <span class="ident">view</span>, <span class="ident">state</span>, <span class="ident">total_successful_txns</span>
+                    <span class="ident">view</span>, <span class="ident">state</span>, <span class="ident">total_txns</span>
                 );
             }
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
@@ -867,12 +862,11 @@
     }
 
     <span class="macro">error!</span>(
-        <span class="string">&quot;All rounds completed, {} views with {} failures. This node (id: {:?}) submitted {:?} txns, and {:?} were successful. Ran for {:?} from {:?} to {:?}&quot;</span>,
+        <span class="string">&quot;All rounds completed, {} views with {} failures. This node {:?} has {:?} total txns successfully committed overall. Ran for {:?} from {:?} to {:?}&quot;</span>,
         <span class="ident">view</span>,
         <span class="ident">num_failed_views</span>,
         <span class="ident">own_id</span>,
         <span class="ident">total_txns</span>,
-        <span class="ident">total_successful_txns</span>,
         <span class="ident">online_time</span>,
         <span class="ident">start_time</span>,
         <span class="ident">Instant::now</span>()
