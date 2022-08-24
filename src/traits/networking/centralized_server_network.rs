@@ -38,6 +38,8 @@ struct Inner<K: SignatureKey> {
     running: AtomicBool,
     /// A queue of messages to be send to the server. This is emptied by `run_background`.
     sending: Sender<ToServer<K>>,
+    /// A loopback sender that will send to `receiving`, for broadcasting to self.
+    receiving_loopback: Sender<FromServer<K>>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
     receiving: Receiver<FromServer<K>>,
     /// An internal queue of messages that have been received but not yet processed.
@@ -50,9 +52,12 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
-            .send_async(ToServer::Broadcast { message })
+            .send_async(ToServer::Broadcast {
+                message: message.clone(),
+            })
             .await
             .expect("Background thread exited");
+        self.receiving_loopback.send_async(FromServer::Broadcast { message }).await.expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
     }
     /// Send a direct message to the server.
     async fn direct_message(&self, target: K, message: Vec<u8>) {
@@ -214,11 +219,14 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     pub fn connect(known_nodes: Vec<K>, addr: SocketAddr, key: K) -> Self {
         let (to_background_sender, to_background) = flume::unbounded();
         let (from_background_sender, from_background) = flume::unbounded();
+        let receiving_loopback = from_background_sender.clone();
+
         let inner = Arc::new(Inner {
             connected: AtomicBool::new(false),
             running: AtomicBool::new(true),
             known_nodes,
             sending: to_background_sender,
+            receiving_loopback,
             receiving: from_background,
             incoming_queue: RwLock::default(),
             request_client_count_sender: RwLock::default(),
