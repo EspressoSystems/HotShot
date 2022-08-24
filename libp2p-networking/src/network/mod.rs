@@ -15,7 +15,10 @@ pub use self::{
 };
 
 use self::{
-    behaviours::direct_message_codec::DirectMessageResponse,
+    behaviours::{
+        dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
+        gossip::GossipEvent,
+    },
     node::network_node_handle_error::TimeoutSnafu,
 };
 use async_std::{prelude::FutureExt as _, task::spawn};
@@ -27,6 +30,7 @@ use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
     dns,
     gossipsub::TopicHash,
+    identify::IdentifyEvent,
     identity::Keypair,
     noise,
     request_response::ResponseChannel,
@@ -154,6 +158,21 @@ pub enum NetworkEvent {
     DirectResponse(Vec<u8>, PeerId),
     /// Report that kademlia has successfully bootstrapped into the network
     IsBootstrapped,
+}
+
+#[derive(Debug)]
+/// internal representation of the network events
+/// only used for event processing before relaying to client
+pub enum NetworkEventInternal {
+    /// a DHT event
+    DHTEvent(DHTEvent),
+    /// a identify event. Is boxed because this event is much larger than the other ones so we want
+    /// to store it on the heap.
+    IdentifyEvent(Box<IdentifyEvent>),
+    /// a gossip  event
+    GossipEvent(GossipEvent),
+    /// a direct message event
+    DMEvent(DMEvent),
 }
 
 /// Bind all interfaces on port `port`

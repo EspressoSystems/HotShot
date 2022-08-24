@@ -7,6 +7,53 @@ VRF committee elections.
 
 Please see the rustdoc for API documentation, and the examples directory for usage.
 
+## Dependencies
+
+### Unix-like
+
+#### Nix (macos and linux)
+
+```
+nix develop
+```
+
+#### Brew (macos)
+
+```
+brew install cmake protobuf
+```
+
+#### Apt-get (linux)
+
+```
+apt-get install cmake protobuf
+```
+
+### Windows
+
+#### Chocolatey
+
+```
+choco install cmake protoc
+```
+
+#### Scoop
+
+```
+scoop bucket add extras
+scoop install protobuf cmake
+```
+
+## Building
+
+Once dependencies have been installed, to build everything:
+
+```
+cargo build --examples  --bins --tests --all-features --all-targets --release --workspace
+```
+
+
+
 # Static linking
 
 HotShot supports static linking for its examples:

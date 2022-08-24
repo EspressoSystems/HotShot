@@ -17,8 +17,5 @@
 /// Example message used by the UI library
 pub mod message;
 
-/// UI library for clichat example
-pub mod ui;
-
 /// Network logic
 pub mod network;

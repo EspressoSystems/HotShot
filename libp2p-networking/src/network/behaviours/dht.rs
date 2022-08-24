@@ -13,7 +13,7 @@ use libp2p::{
         GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
         Record,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction},
     Multiaddr, PeerId,
 };
 use tracing::{error, info, warn};
@@ -86,6 +86,7 @@ pub enum State {
 }
 
 /// DHT event enum
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DHTEvent {
     /// Only event tracked currently is when we successfully bootstrap into the network
     IsBootstrapped,
@@ -331,9 +332,9 @@ impl DHTBehaviour {
     }
 }
 
-impl NetworkBehaviourEventProcess<KademliaEvent> for DHTBehaviour {
+impl DHTBehaviour {
     #![allow(clippy::too_many_lines)]
-    fn inject_event(&mut self, event: KademliaEvent) {
+    fn dht_handle_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::OutboundQueryCompleted {
                 result: QueryResult::PutRecord(record_results),
@@ -565,7 +566,7 @@ impl NetworkBehaviour for DHTBehaviour {
         while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx, params) {
             match ready {
                 NetworkBehaviourAction::GenerateEvent(e) => {
-                    NetworkBehaviourEventProcess::inject_event(self, e);
+                    self.dht_handle_event(e);
                 }
                 NetworkBehaviourAction::Dial { opts, handler } => {
                     return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });

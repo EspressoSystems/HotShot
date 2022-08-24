@@ -3,10 +3,11 @@ mod handle;
 
 use crate::network::{
     behaviours::{
-        dht::{DHTBehaviour, DHTProgress, KadPutQuery},
-        direct_message::DMBehaviour,
+        dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
+        direct_message::{DMBehaviour, DMEvent},
         direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
         exponential_backoff::ExponentialBackoff,
+        gossip::GossipEvent,
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
@@ -20,7 +21,7 @@ pub use self::{
 use super::{
     behaviours::gossip::GossipBehaviour,
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkNodeType,
+    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
 };
 use async_std::task::spawn;
 use flume::{unbounded, Receiver, Sender};
@@ -31,7 +32,7 @@ use libp2p::{
         error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
         MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
-    identify::{Identify, IdentifyConfig},
+    identify::{Identify, IdentifyConfig, IdentifyEvent, IdentifyInfo},
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
@@ -394,7 +395,7 @@ impl NetworkNode {
     async fn handle_swarm_events(
         &mut self,
         event: SwarmEvent<
-            NetworkEvent,
+            NetworkEventInternal,
             EitherError<
                 EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
                 ConnectionHandlerUpgrErr<Error>,
@@ -465,11 +466,63 @@ impl NetworkNode {
                 send_back_addr: _,
             } => {}
             Behaviour(b) => {
-                // forward messages directly to Client
-                send_to_client
-                    .send_async(b)
-                    .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
+                let maybe_event = match b {
+                    NetworkEventInternal::DHTEvent(e) => match e {
+                        DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
+                    },
+                    NetworkEventInternal::IdentifyEvent(e) => {
+                        // NOTE feed identified peers into kademlia's routing table for peer discovery.
+                        if let IdentifyEvent::Received {
+                            peer_id,
+                            info:
+                                IdentifyInfo {
+                                    listen_addrs,
+                                    protocols: _,
+                                    public_key: _,
+                                    protocol_version: _,
+                                    agent_version: _,
+                                    observed_addr,
+                                },
+                        } = *e
+                        {
+                            let behaviour = self.swarm.behaviour_mut();
+                            // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
+                            // NOTE I manually checked and peer_id corresponds to listen_addrs.
+                            // NOTE Once we've tested on DNS addresses, this should be swapped out to play nicely
+                            // with autonat
+                            info!(
+                                "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
+                                behaviour.dht.peer_id, peer_id, listen_addrs, observed_addr
+                                );
+                            // into hashset to delete duplicates (I checked: there are duplicates)
+                            for addr in listen_addrs.iter().collect::<HashSet<_>>() {
+                                behaviour.dht.add_address(&peer_id, addr.clone());
+                            }
+                        }
+                        None
+                    }
+                    NetworkEventInternal::GossipEvent(e) => match e {
+                        GossipEvent::GossipMsg(data, topic) => {
+                            Some(NetworkEvent::GossipMsg(data, topic))
+                        }
+                    },
+                    NetworkEventInternal::DMEvent(e) => Some(match e {
+                        DMEvent::DirectRequest(data, pid, chan) => {
+                            NetworkEvent::DirectRequest(data, pid, chan)
+                        }
+                        DMEvent::DirectResponse(data, pid) => {
+                            NetworkEvent::DirectResponse(data, pid)
+                        }
+                    }),
+                };
+
+                if let Some(event) = maybe_event {
+                    // forward messages directly to Client
+                    send_to_client
+                        .send_async(event)
+                        .await
+                        .map_err(|_e| NetworkError::StreamClosed)?;
+                }
             }
             OutgoingConnectionError { peer_id: _, error } => {
                 info!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);

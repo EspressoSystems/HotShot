@@ -1,28 +1,22 @@
-use crate::network::NetworkEvent;
-
 use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::IdentTopic as Topic,
-    identify::{Identify, IdentifyEvent, IdentifyInfo},
+    identify::{Identify, IdentifyEvent},
     request_response::ResponseChannel,
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
-    },
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use std::{
-    collections::HashSet,
-    num::NonZeroUsize,
-    task::{Context, Poll},
-};
-use tracing::{debug, info};
+use std::{collections::HashSet, num::NonZeroUsize};
+use tracing::debug;
 
-use super::behaviours::{
-    dht::{DHTBehaviour, DHTEvent, KadPutQuery},
-    direct_message::{DMBehaviour, DMEvent, DMRequest},
-    direct_message_codec::DirectMessageResponse,
-    exponential_backoff::ExponentialBackoff,
-    gossip::{GossipBehaviour, GossipEvent},
+use super::{
+    behaviours::{
+        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
+        direct_message::{DMBehaviour, DMEvent, DMRequest},
+        direct_message_codec::DirectMessageResponse,
+        exponential_backoff::ExponentialBackoff,
+        gossip::{GossipBehaviour, GossipEvent},
+    },
+    NetworkEventInternal,
 };
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
@@ -33,7 +27,7 @@ pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 /// - p2p broadcast
 /// - connection management
 #[derive(NetworkBehaviour, custom_debug::Debug)]
-#[behaviour(out_event = "NetworkEvent", poll_method = "poll", event_process = true)]
+#[behaviour(out_event = "NetworkEventInternal")]
 pub struct NetworkDef {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messsages right now
@@ -54,11 +48,6 @@ pub struct NetworkDef {
     /// purpose: directly messaging peer
     #[debug(skip)]
     pub request_response: DMBehaviour,
-
-    /// set of events to send to behaviour on poll
-    #[behaviour(ignore)]
-    #[debug(skip)]
-    client_event_queue: Vec<NetworkEvent>,
 
     /// Addresses to connect to at init
     /// DEPRECATED to be removed
@@ -81,26 +70,8 @@ impl NetworkDef {
             dht,
             identify,
             request_response,
-            client_event_queue: Vec::new(),
             to_connect_addrs,
         }
-    }
-
-    fn poll(
-        &mut self,
-        _cx: &mut Context<'_>,
-        _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<NetworkEvent, <Self as NetworkBehaviour>::ConnectionHandler>>
-    {
-        // push events that must be relayed back to client onto queue
-        // to be consumed by client event handler
-        if !self.client_event_queue.is_empty() {
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                self.client_event_queue.remove(0),
-            ));
-        }
-
-        Poll::Pending
     }
 }
 
@@ -177,66 +148,26 @@ impl NetworkDef {
     }
 }
 
-impl NetworkBehaviourEventProcess<GossipEvent> for NetworkDef {
-    fn inject_event(&mut self, event: GossipEvent) {
-        match event {
-            GossipEvent::GossipMsg(data, topic) => {
-                self.client_event_queue
-                    .push(NetworkEvent::GossipMsg(data, topic));
-            }
-        }
+impl From<DMEvent> for NetworkEventInternal {
+    fn from(event: DMEvent) -> Self {
+        Self::DMEvent(event)
     }
 }
 
-impl NetworkBehaviourEventProcess<DHTEvent> for NetworkDef {
-    fn inject_event(&mut self, event: DHTEvent) {
-        match event {
-            DHTEvent::IsBootstrapped => {
-                self.client_event_queue.push(NetworkEvent::IsBootstrapped);
-            }
-        }
+impl From<GossipEvent> for NetworkEventInternal {
+    fn from(event: GossipEvent) -> Self {
+        Self::GossipEvent(event)
     }
 }
 
-impl NetworkBehaviourEventProcess<IdentifyEvent> for NetworkDef {
-    fn inject_event(&mut self, event: IdentifyEvent) {
-        // NOTE feed identified peers into kademlia's routing table for peer discovery.
-        if let IdentifyEvent::Received {
-            peer_id,
-            info:
-                IdentifyInfo {
-                    listen_addrs,
-                    protocols: _,
-                    public_key: _,
-                    protocol_version: _,
-                    agent_version: _,
-                    observed_addr,
-                },
-        } = event
-        {
-            // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
-            // NOTE I manually checked and peer_id corresponds to listen_addrs.
-            // NOTE Once we've tested on DNS addresses, this should be swapped out to play nicely
-            // with autonat
-            info!(
-                "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
-                self.dht.peer_id, peer_id, listen_addrs, observed_addr
-            );
-            // into hashset to delete duplicates (I checked: there are duplicates)
-            for addr in listen_addrs.iter().collect::<HashSet<_>>() {
-                self.dht.add_address(&peer_id, addr.clone());
-            }
-        }
+impl From<DHTEvent> for NetworkEventInternal {
+    fn from(event: DHTEvent) -> Self {
+        Self::DHTEvent(event)
     }
 }
 
-impl NetworkBehaviourEventProcess<DMEvent> for NetworkDef {
-    fn inject_event(&mut self, event: DMEvent) {
-        let out_event = match event {
-            DMEvent::DirectRequest(data, pid, chan) => NetworkEvent::DirectRequest(data, pid, chan),
-            DMEvent::DirectResponse(data, pid) => NetworkEvent::DirectResponse(data, pid),
-        };
-
-        self.client_event_queue.push(out_event);
+impl From<IdentifyEvent> for NetworkEventInternal {
+    fn from(event: IdentifyEvent) -> Self {
+        Self::IdentifyEvent(Box::new(event))
     }
 }
