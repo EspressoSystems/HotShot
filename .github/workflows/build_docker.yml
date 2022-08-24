@@ -23,6 +23,10 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
+      - name: Install dependencies
+        run: |
+          apt-get install -y protobuf-compiler
+
       - uses: actions/checkout@v3
         name: Checkout Repository
 

@@ -19,6 +19,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies
+        run: |
+          apt-get install -y protobuf-compiler
+
       - name: Configure Git
         run: |
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/

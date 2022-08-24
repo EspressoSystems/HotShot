@@ -13,12 +13,14 @@ on:
 jobs:
   lints:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/espressosystems/devops-rust:1.63
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
+
+      - name: Install dependencies
+        run: |
+          apt-get install -y protobuf-compiler
 
       - name: Configure Git
         run: |
