@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler
 
       - name: Configure Git
         run: |
