@@ -40,6 +40,7 @@ choco install cmake protoc
 #### Scoop
 
 ```
+scoop bucket add extras
 scoop install protobuf cmake
 ```
 
