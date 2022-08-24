@@ -40,13 +40,13 @@ where
     inner: Arc<RwLock<MemoryStorageInternal<BLOCK, STATE, N>>>,
 }
 
-impl<B, S, const N: usize> MemoryStorage<B, S, N>
+impl<BLOCK, STATE, const N: usize> MemoryStorage<BLOCK, STATE, N>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 {
     /// Create a new instance of the memory storage with the given block and state
-    pub fn new(block: B, state: S) -> Self {
+    pub fn new(block: BLOCK, state: STATE) -> Self {
         let mut inner = MemoryStorageInternal {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
@@ -85,16 +85,17 @@ where
 }
 
 #[async_trait]
-impl<B, S, const N: usize> TestableStorage<B, S, N> for MemoryStorage<B, S, N>
+impl<BLOCK, STATE, const N: usize> TestableStorage<BLOCK, STATE, N>
+    for MemoryStorage<BLOCK, STATE, N>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 {
-    fn construct_tmp_storage(block: B, state: S) -> Result<Self> {
+    fn construct_tmp_storage(block: BLOCK, state: STATE) -> Result<Self> {
         Ok(Self::new(block, state))
     }
 
-    async fn get_full_state(&self) -> StorageState<B, S, N> {
+    async fn get_full_state(&self) -> StorageState<BLOCK, STATE, N> {
         let inner = self.inner.read().await;
         StorageState {
             stored: inner.stored.clone(),

@@ -59,19 +59,20 @@ where
 
 /// Extra requirements on Storage implementations required for testing
 #[async_trait]
-pub trait TestableStorage<B, S, const N: usize>: Clone + Send + Sync + Storage<B, S, N>
+pub trait TestableStorage<BLOCK, STATE, const N: usize>:
+    Clone + Send + Sync + Storage<BLOCK, STATE, N>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
     /// # Errors
     /// Errors if it is not possible to construct temporary storage.
-    fn construct_tmp_storage(block: B, storage: S) -> Result<Self>;
+    fn construct_tmp_storage(block: BLOCK, storage: STATE) -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(&self) -> StorageState<B, S, N>;
+    async fn get_full_state(&self) -> StorageState<BLOCK, STATE, N>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].
@@ -87,21 +88,25 @@ pub struct StorageState<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
 #[derive(Debug, PartialEq, Eq)]
-pub enum ViewEntry<B: BlockContents<N>, S: State<N>, const N: usize> {
+pub enum ViewEntry<BLOCK, STATE, const N: usize>
+where
+    BLOCK: BlockContents<N>,
+    STATE: State<N>,
+{
     /// A succeeded view
-    Success(StoredView<B, S, N>),
+    Success(StoredView<BLOCK, STATE, N>),
     /// A failed view
     Failed(ViewNumber),
     // future improvement:
     // InProgress(InProgressView),
 }
 
-impl<B, S, const N: usize> From<StoredView<B, S, N>> for ViewEntry<B, S, N>
+impl<BLOCK, STATE, const N: usize> From<StoredView<BLOCK, STATE, N>> for ViewEntry<BLOCK, STATE, N>
 where
-    B: BlockContents<N>,
-    S: State<N>,
+    BLOCK: BlockContents<N>,
+    STATE: State<N>,
 {
-    fn from(view: StoredView<B, S, N>) -> Self {
+    fn from(view: StoredView<BLOCK, STATE, N>) -> Self {
         Self::Success(view)
     }
 }
@@ -121,15 +126,15 @@ pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
     pub append: ViewAppend<B, N>,
 }
 
-impl<B, S, const N: usize> StoredView<B, S, N>
+impl<BLOCK, STATE, const N: usize> StoredView<BLOCK, STATE, N>
 where
-    B: BlockContents<N>,
-    S: State<N>,
+    BLOCK: BlockContents<N>,
+    STATE: State<N>,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
-    pub fn from_qc_block_and_state(qc: QuorumCertificate<N>, block: B, state: S) -> Self {
+    pub fn from_qc_block_and_state(qc: QuorumCertificate<N>, block: BLOCK, state: STATE) -> Self {
         Self {
             append: ViewAppend::Block {
                 block,

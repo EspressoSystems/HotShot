@@ -5,6 +5,7 @@
 //! signatures fundamental to consensus.
 use crate::traits::{
     signature_key::{EncodedPublicKey, EncodedSignature},
+    storage::StoredView,
     BlockContents, State,
 };
 use blake3::Hasher;
@@ -374,12 +375,12 @@ impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE
     }
 }
 
-impl<B, S, const N: usize> From<crate::traits::storage::StoredView<B, S, N>> for Leaf<B, S, N>
+impl<BLOCK, STATE, const N: usize> From<StoredView<BLOCK, STATE, N>> for Leaf<BLOCK, STATE, N>
 where
-    S: State<N>,
-    B: BlockContents<N>,
+    STATE: State<N>,
+    BLOCK: BlockContents<N>,
 {
-    fn from(append: crate::traits::storage::StoredView<B, S, N>) -> Self {
+    fn from(append: StoredView<BLOCK, STATE, N>) -> Self {
         Leaf::new(
             append.state,
             append.append.into_deltas(),
