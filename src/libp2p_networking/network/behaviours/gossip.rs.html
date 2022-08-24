@@ -295,6 +295,7 @@
 <span id="289">289</span>
 <span id="290">290</span>
 <span id="291">291</span>
+<span id="292">292</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">HashSet</span>, <span class="ident">VecDeque</span>},
     <span class="ident">task::Poll</span>,
@@ -305,7 +306,7 @@
     <span class="ident">gossipsub</span>::{<span class="ident">Gossipsub</span>, <span class="ident">GossipsubEvent</span>, <span class="ident">IdentTopic</span>, <span class="ident">TopicHash</span>},
     <span class="ident">swarm</span>::{
         <span class="ident">ConnectionHandler</span>, <span class="ident">IntoConnectionHandler</span>, <span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>,
-        <span class="ident">NetworkBehaviourEventProcess</span>, <span class="ident">PollParameters</span>,
+        <span class="ident">PollParameters</span>,
     },
     <span class="ident">PeerId</span>,
 };
@@ -329,13 +330,14 @@
 }
 
 <span class="doccomment">/// Output event</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GossipEvent</span> {
     <span class="doccomment">/// We received a gossip</span>
     <span class="ident">GossipMsg</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">TopicHash</span>),
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviourEventProcess</span><span class="op">&lt;</span><span class="ident">GossipsubEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">GossipBehaviour</span> {
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">GossipsubEvent</span>) {
+<span class="kw">impl</span> <span class="ident">GossipBehaviour</span> {
+    <span class="kw">fn</span> <span class="ident">gossip_handle_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">GossipsubEvent</span>) {
         <span class="kw">match</span> <span class="ident">event</span> {
             <span class="ident">GossipsubEvent::Message</span> { <span class="ident">message</span>, .. } =&gt; {
                 <span class="comment">// if we get an event from the gossipsub behaviour, push it</span>
@@ -390,7 +392,7 @@
             <span class="kw">match</span> <span class="ident">ready</span> {
                 <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
                     <span class="comment">// add event to event queue which will be subsequently popped off.</span>
-                    <span class="ident">NetworkBehaviourEventProcess::inject_event</span>(<span class="self">self</span>, <span class="ident">e</span>);
+                    <span class="self">self</span>.<span class="ident">gossip_handle_event</span>(<span class="ident">e</span>);
                 }
                 <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
                     <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });

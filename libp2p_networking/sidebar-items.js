@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["message","Example message used by the UI library"],["network","Network logic"],["ui","UI library for clichat example"]]};
+window.SIDEBAR_ITEMS = {"mod":[["message","Example message used by the UI library"],["network","Network logic"]]};

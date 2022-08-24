@@ -346,7 +346,6 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
-<span id="343">343</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">VecDeque</span>},
     <span class="ident">task::Poll</span>,
@@ -357,7 +356,7 @@
     <span class="ident">request_response</span>::{
         <span class="ident">RequestId</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseEvent</span>, <span class="ident">RequestResponseMessage</span>, <span class="ident">ResponseChannel</span>,
     },
-    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>, <span class="ident">NetworkBehaviourEventProcess</span>},
+    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>},
     <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>,
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>};
@@ -391,6 +390,7 @@
 }
 
 <span class="doccomment">/// Lilst of direct message output events</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DMEvent</span> {
     <span class="doccomment">/// We received as Direct Request</span>
     <span class="ident">DirectRequest</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>, <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>),
@@ -398,10 +398,8 @@
     <span class="ident">DirectResponse</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>),
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviourEventProcess</span><span class="op">&lt;</span><span class="ident">RequestResponseEvent</span><span class="op">&lt;</span><span class="ident">DirectMessageRequest</span>, <span class="ident">DirectMessageResponse</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">for</span> <span class="ident">DMBehaviour</span>
-{
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(
+<span class="kw">impl</span> <span class="ident">DMBehaviour</span> {
+    <span class="kw">fn</span> <span class="ident">handle_dm_event</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">event</span>: <span class="ident">RequestResponseEvent</span><span class="op">&lt;</span><span class="ident">DirectMessageRequest</span>, <span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
     ) {
@@ -506,7 +504,7 @@
             <span class="kw">match</span> <span class="ident">ready</span> {
                 <span class="comment">// NOTE: this generates request</span>
                 <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="ident">NetworkBehaviourEventProcess::inject_event</span>(<span class="self">self</span>, <span class="ident">e</span>);
+                    <span class="self">self</span>.<span class="ident">handle_dm_event</span>(<span class="ident">e</span>);
                 }
                 <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
                     <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });

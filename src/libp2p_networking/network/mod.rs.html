@@ -278,6 +278,25 @@
 <span id="272">272</span>
 <span id="273">273</span>
 <span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -295,7 +314,10 @@
 };
 
 <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>,
+    <span class="ident">behaviours</span>::{
+        <span class="ident">dht::DHTEvent</span>, <span class="ident">direct_message::DMEvent</span>, <span class="ident">direct_message_codec::DirectMessageResponse</span>,
+        <span class="ident">gossip::GossipEvent</span>,
+    },
     <span class="ident">node::network_node_handle_error::TimeoutSnafu</span>,
 };
 <span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">prelude::FutureExt</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">task::spawn</span>};
@@ -307,6 +329,7 @@
     <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},
     <span class="ident">dns</span>,
     <span class="ident">gossipsub::TopicHash</span>,
+    <span class="ident">identify::IdentifyEvent</span>,
     <span class="ident">identity::Keypair</span>,
     <span class="ident">noise</span>,
     <span class="ident">request_response::ResponseChannel</span>,
@@ -434,6 +457,21 @@
     <span class="ident">DirectResponse</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>),
     <span class="doccomment">/// Report that kademlia has successfully bootstrapped into the network</span>
     <span class="ident">IsBootstrapped</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="doccomment">/// internal representation of the network events</span>
+<span class="doccomment">/// only used for event processing before relaying to client</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkEventInternal</span> {
+    <span class="doccomment">/// a DHT event</span>
+    <span class="ident">DHTEvent</span>(<span class="ident">DHTEvent</span>),
+    <span class="doccomment">/// a identify event. Is boxed because this event is much larger than the other ones so we want</span>
+    <span class="doccomment">/// to store it on the heap.</span>
+    <span class="ident">IdentifyEvent</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">IdentifyEvent</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// a gossip  event</span>
+    <span class="ident">GossipEvent</span>(<span class="ident">GossipEvent</span>),
+    <span class="doccomment">/// a direct message event</span>
+    <span class="ident">DMEvent</span>(<span class="ident">DMEvent</span>),
 }
 
 <span class="doccomment">/// Bind all interfaces on port `port`</span>

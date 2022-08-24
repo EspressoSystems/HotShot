@@ -708,6 +708,7 @@
 <span id="702">702</span>
 <span id="703">703</span>
 <span id="704">704</span>
+<span id="705">705</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>, <span class="ident">VecDeque</span>},
     <span class="ident">num::NonZeroUsize</span>,
@@ -723,7 +724,7 @@
         <span class="ident">GetRecordResult</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaEvent</span>, <span class="ident">PutRecordResult</span>, <span class="ident">QueryId</span>, <span class="ident">QueryResult</span>, <span class="ident">Quorum</span>,
         <span class="ident">Record</span>,
     },
-    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>, <span class="ident">NetworkBehaviourEventProcess</span>},
+    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>},
     <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>,
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
@@ -796,6 +797,7 @@
 }
 
 <span class="doccomment">/// DHT event enum</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DHTEvent</span> {
     <span class="doccomment">/// Only event tracked currently is when we successfully bootstrap into the network</span>
     <span class="ident">IsBootstrapped</span>,
@@ -1041,9 +1043,9 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviourEventProcess</span><span class="op">&lt;</span><span class="ident">KademliaEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">DHTBehaviour</span> {
+<span class="kw">impl</span> <span class="ident">DHTBehaviour</span> {
     <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">KademliaEvent</span>) {
+    <span class="kw">fn</span> <span class="ident">dht_handle_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">KademliaEvent</span>) {
         <span class="kw">match</span> <span class="ident">event</span> {
             <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
                 <span class="ident">result</span>: <span class="ident">QueryResult::PutRecord</span>(<span class="ident">record_results</span>),
@@ -1275,7 +1277,7 @@
         <span class="kw">while</span> <span class="kw">let</span> <span class="ident">Poll::Ready</span>(<span class="ident">ready</span>) <span class="op">=</span> <span class="ident">NetworkBehaviour::poll</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">kadem</span>, <span class="ident">cx</span>, <span class="ident">params</span>) {
             <span class="kw">match</span> <span class="ident">ready</span> {
                 <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="ident">NetworkBehaviourEventProcess::inject_event</span>(<span class="self">self</span>, <span class="ident">e</span>);
+                    <span class="self">self</span>.<span class="ident">dht_handle_event</span>(<span class="ident">e</span>);
                 }
                 <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
                     <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });

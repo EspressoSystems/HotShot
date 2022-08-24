@@ -537,15 +537,69 @@
 <span id="531">531</span>
 <span id="532">532</span>
 <span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours</span>::{
-        <span class="ident">dht</span>::{<span class="ident">DHTBehaviour</span>, <span class="ident">DHTProgress</span>, <span class="ident">KadPutQuery</span>},
-        <span class="ident">direct_message::DMBehaviour</span>,
+        <span class="ident">dht</span>::{<span class="ident">DHTBehaviour</span>, <span class="ident">DHTEvent</span>, <span class="ident">DHTProgress</span>, <span class="ident">KadPutQuery</span>},
+        <span class="ident">direct_message</span>::{<span class="ident">DMBehaviour</span>, <span class="ident">DMEvent</span>},
         <span class="ident">direct_message_codec</span>::{<span class="ident">DirectMessageCodec</span>, <span class="ident">DirectMessageProtocol</span>, <span class="ident">MAX_MSG_SIZE_DM</span>},
         <span class="ident">exponential_backoff::ExponentialBackoff</span>,
+        <span class="ident">gossip::GossipEvent</span>,
     },
     <span class="ident">def::NUM_REPLICATED_TO_TRUST</span>,
 };
@@ -559,7 +613,7 @@
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">behaviours::gossip::GossipBehaviour</span>,
     <span class="ident">error</span>::{<span class="ident">GossipsubBuildSnafu</span>, <span class="ident">GossipsubConfigSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">TransportSnafu</span>},
-    <span class="ident">gen_transport</span>, <span class="ident">ClientRequest</span>, <span class="ident">NetworkDef</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNodeType</span>,
+    <span class="ident">gen_transport</span>, <span class="ident">ClientRequest</span>, <span class="ident">NetworkDef</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkEventInternal</span>, <span class="ident">NetworkNodeType</span>,
 };
 <span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">unbounded</span>, <span class="ident">Receiver</span>, <span class="ident">Sender</span>};
@@ -570,7 +624,7 @@
         <span class="ident">error::GossipsubHandlerError</span>, <span class="ident">Gossipsub</span>, <span class="ident">GossipsubConfigBuilder</span>, <span class="ident">GossipsubMessage</span>,
         <span class="ident">MessageAuthenticity</span>, <span class="ident">MessageId</span>, <span class="ident">Topic</span>, <span class="ident">ValidationMode</span>,
     },
-    <span class="ident">identify</span>::{<span class="ident">Identify</span>, <span class="ident">IdentifyConfig</span>},
+    <span class="ident">identify</span>::{<span class="ident">Identify</span>, <span class="ident">IdentifyConfig</span>, <span class="ident">IdentifyEvent</span>, <span class="ident">IdentifyInfo</span>},
     <span class="ident">identity::Keypair</span>,
     <span class="ident">kad</span>::{<span class="ident">store::MemoryStore</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaConfig</span>},
     <span class="ident">request_response</span>::{<span class="ident">ProtocolSupport</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseConfig</span>},
@@ -933,7 +987,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_swarm_events</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">event</span>: <span class="ident">SwarmEvent</span><span class="op">&lt;</span>
-            <span class="ident">NetworkEvent</span>,
+            <span class="ident">NetworkEventInternal</span>,
             <span class="ident">EitherError</span><span class="op">&lt;</span>
                 <span class="ident">EitherError</span><span class="op">&lt;</span><span class="ident">EitherError</span><span class="op">&lt;</span><span class="ident">GossipsubHandlerError</span>, <span class="ident">Error</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span>,
                 <span class="ident">ConnectionHandlerUpgrErr</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span>,
@@ -1004,11 +1058,63 @@
                 <span class="ident">send_back_addr</span>: <span class="kw">_</span>,
             } =&gt; {}
             <span class="ident">Behaviour</span>(<span class="ident">b</span>) =&gt; {
-                <span class="comment">// forward messages directly to Client</span>
-                <span class="ident">send_to_client</span>
-                    .<span class="ident">send_async</span>(<span class="ident">b</span>)
-                    .<span class="kw">await</span>
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">NetworkError::StreamClosed</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">maybe_event</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">b</span> {
+                    <span class="ident">NetworkEventInternal::DHTEvent</span>(<span class="ident">e</span>) =&gt; <span class="kw">match</span> <span class="ident">e</span> {
+                        <span class="ident">DHTEvent::IsBootstrapped</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">NetworkEvent::IsBootstrapped</span>),
+                    },
+                    <span class="ident">NetworkEventInternal::IdentifyEvent</span>(<span class="ident">e</span>) =&gt; {
+                        <span class="comment">// NOTE feed identified peers into kademlia&#39;s routing table for peer discovery.</span>
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">IdentifyEvent::Received</span> {
+                            <span class="ident">peer_id</span>,
+                            <span class="ident">info</span>:
+                                <span class="ident">IdentifyInfo</span> {
+                                    <span class="ident">listen_addrs</span>,
+                                    <span class="ident">protocols</span>: <span class="kw">_</span>,
+                                    <span class="ident">public_key</span>: <span class="kw">_</span>,
+                                    <span class="ident">protocol_version</span>: <span class="kw">_</span>,
+                                    <span class="ident">agent_version</span>: <span class="kw">_</span>,
+                                    <span class="ident">observed_addr</span>,
+                                },
+                        } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">e</span>
+                        {
+                            <span class="kw">let</span> <span class="ident">behaviour</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>();
+                            <span class="comment">// NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs</span>
+                            <span class="comment">// NOTE I manually checked and peer_id corresponds to listen_addrs.</span>
+                            <span class="comment">// NOTE Once we&#39;ve tested on DNS addresses, this should be swapped out to play nicely</span>
+                            <span class="comment">// with autonat</span>
+                            <span class="macro">info!</span>(
+                                <span class="string">&quot;local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} &quot;</span>,
+                                <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">listen_addrs</span>, <span class="ident">observed_addr</span>
+                                );
+                            <span class="comment">// into hashset to delete duplicates (I checked: there are duplicates)</span>
+                            <span class="kw">for</span> <span class="ident">addr</span> <span class="kw">in</span> <span class="ident">listen_addrs</span>.<span class="ident">iter</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>() {
+                                <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">add_address</span>(<span class="kw-2">&amp;</span><span class="ident">peer_id</span>, <span class="ident">addr</span>.<span class="ident">clone</span>());
+                            }
+                        }
+                        <span class="prelude-val">None</span>
+                    }
+                    <span class="ident">NetworkEventInternal::GossipEvent</span>(<span class="ident">e</span>) =&gt; <span class="kw">match</span> <span class="ident">e</span> {
+                        <span class="ident">GossipEvent::GossipMsg</span>(<span class="ident">data</span>, <span class="ident">topic</span>) =&gt; {
+                            <span class="prelude-val">Some</span>(<span class="ident">NetworkEvent::GossipMsg</span>(<span class="ident">data</span>, <span class="ident">topic</span>))
+                        }
+                    },
+                    <span class="ident">NetworkEventInternal::DMEvent</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">e</span> {
+                        <span class="ident">DMEvent::DirectRequest</span>(<span class="ident">data</span>, <span class="ident">pid</span>, <span class="ident">chan</span>) =&gt; {
+                            <span class="ident">NetworkEvent::DirectRequest</span>(<span class="ident">data</span>, <span class="ident">pid</span>, <span class="ident">chan</span>)
+                        }
+                        <span class="ident">DMEvent::DirectResponse</span>(<span class="ident">data</span>, <span class="ident">pid</span>) =&gt; {
+                            <span class="ident">NetworkEvent::DirectResponse</span>(<span class="ident">data</span>, <span class="ident">pid</span>)
+                        }
+                    }),
+                };
+
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">maybe_event</span> {
+                    <span class="comment">// forward messages directly to Client</span>
+                    <span class="ident">send_to_client</span>
+                        .<span class="ident">send_async</span>(<span class="ident">event</span>)
+                        .<span class="kw">await</span>
+                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">NetworkError::StreamClosed</span>)<span class="question-mark">?</span>;
+                }
             }
             <span class="ident">OutgoingConnectionError</span> { <span class="ident">peer_id</span>: <span class="kw">_</span>, <span class="ident">error</span> } =&gt; {
                 <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">error</span>, <span class="string">&quot;OUTGOING CONNECTION ERROR, {:?}&quot;</span>, <span class="ident">error</span>);
