@@ -831,7 +831,7 @@
             <span class="macro">info!</span>(<span class="string">&quot;Generating txn for view {}&quot;</span>, <span class="ident">view</span>);
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>;
 
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
+            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">args</span>.<span class="ident">num_txn_per_round</span> {
                 <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">State</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
                 <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, <span class="ident">view</span>);
                 <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
