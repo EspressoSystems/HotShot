@@ -420,7 +420,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             let storage = self.api.storage();
             if let Err(e) = storage
-                .insert_single_view(StoredView {
+                .append_single_view(StoredView {
                     append: ViewAppend::Block {
                         block: last_block,
                         // TODO(https://github.com/espressoSystems/hotshot/issues/411)
@@ -429,7 +429,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                         rejected_transactions: BTreeSet::new(),
                     },
                     parent: parent_of_last_qc.leaf_hash,
-                    qc: last_qc,
+                    justify_qc: last_qc,
                     state: last_state,
                     view_number: new_anchor_view,
                 })

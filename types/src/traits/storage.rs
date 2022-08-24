@@ -46,7 +46,7 @@ where
     /// ```rust,ignore
     /// storage.append(vec![ViewEntry::Success(view)]).await
     /// ```
-    async fn insert_single_view(&self, view: StoredView<BLOCK, STATE, N>) -> Result {
+    async fn append_single_view(&self, view: StoredView<BLOCK, STATE, N>) -> Result {
         self.append(vec![ViewEntry::Success(view)]).await
     }
     // future improvement:
@@ -118,8 +118,8 @@ pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
     pub view_number: ViewNumber,
     /// The parent of this view
     pub parent: LeafHash<N>,
-    /// The QC of this view
-    pub qc: QuorumCertificate<N>,
+    /// The justify QC of this view. See the hotstuff paper for more information on this.
+    pub justify_qc: QuorumCertificate<N>,
     /// The state of this view
     pub state: S,
     /// The history of how this view came to be
@@ -142,7 +142,7 @@ where
             },
             view_number: qc.view_number,
             parent: LeafHash::default(),
-            qc,
+            justify_qc: qc,
             state,
         }
     }

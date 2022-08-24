@@ -385,7 +385,7 @@ where
             append.state,
             append.append.into_deltas(),
             append.parent,
-            append.qc,
+            append.justify_qc,
             append.view_number,
         )
     }

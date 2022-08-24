@@ -251,13 +251,13 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             anchored.view_number,
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: anchored.qc.leaf_hash,
+                    leaf: anchored.justify_qc.leaf_hash,
                 },
             },
         );
 
         let mut saved_leaves = HashMap::new();
-        saved_leaves.insert(anchored.qc.leaf_hash, anchored.clone().into());
+        saved_leaves.insert(anchored.justify_qc.leaf_hash, anchored.clone().into());
 
         let start_view = anchored.view_number + 1;
 
@@ -272,7 +272,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
             // TODO unclear if this is correct
             // maybe we need 3 views?
             locked_view: ViewNumber::new(0),
-            high_qc: anchored.qc,
+            high_qc: anchored.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -607,7 +607,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     let view_number = qc.view_number;
                     let new_view = StoredView::from_qc_block_and_state(qc, block, state);
 
-                    if let Err(e) = self.inner.storage.insert_single_view(new_view).await {
+                    if let Err(e) = self.inner.storage.append_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
                     }
 
@@ -641,7 +641,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     }
                 };
                 let msg = DataMessage::NewestQuorumCertificate {
-                    quorum_certificate: anchor.qc,
+                    quorum_certificate: anchor.justify_qc,
                     block: anchor.append.into_deltas(),
                     state: anchor.state,
                 };

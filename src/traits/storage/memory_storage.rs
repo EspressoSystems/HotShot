@@ -73,7 +73,7 @@ where
                     rejected_transactions: BTreeSet::new(),
                 },
                 parent: LeafHash::default(),
-                qc,
+                justify_qc: qc,
                 state,
                 view_number: ViewNumber::genesis(),
             },
@@ -185,7 +185,7 @@ mod test {
                 .unwrap();
         let genesis = random_stored_view(ViewNumber::genesis());
         storage
-            .insert_single_view(genesis.clone())
+            .append_single_view(genesis.clone())
             .await
             .expect("Could not append block");
         assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
