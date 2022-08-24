@@ -36,7 +36,8 @@ jobs:
           sharedKey: HotShot163
 
       - name: Audit
-        run: cargo audit --deny warnings  --ignore RUSTSEC-2022-0040
+        # TODO remove when ansiterm cve fixed
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check
