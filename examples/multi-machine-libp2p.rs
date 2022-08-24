@@ -391,7 +391,7 @@ async fn main() {
             info!("Generating txn for view {}", view);
             let state = hotshot.get_state().await;
 
-            for _ in 0..10 {
+            for _ in 0..args.num_txn_per_round {
                 let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
