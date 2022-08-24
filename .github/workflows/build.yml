@@ -42,7 +42,7 @@ jobs:
         run: cargo check
 
       - name: Build all crates in workspace
-        run: cargo build --verbose --release --lib --bins --tests --benches --workspace
+        run: cargo build --verbose --release --lib --bins --tests --benches --workspace --examples
 
       - name: Unit and integration tests for all crates in workspace
         run: |
