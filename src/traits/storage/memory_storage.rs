@@ -254,21 +254,21 @@ where
     async fn insert_qc(&mut self, qc: QuorumCertificate<STATE>) -> StorageResult {
         // Insert the qc into the main vec and the add the references
         let view = qc.view_number;
-        let hash = qc.block_hash;
+        let commitment = qc.block_commitment;
         let mut qcs = self.inner.qcs.write().await;
 
         match (
             self.inner.view_to_qc.get(&view),
-            self.inner.hash_to_qc.get(&hash),
+            self.inner.hash_to_qc.get(&commitment),
         ) {
-            (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
+            (Some(view_idx), Some(commitment_idx)) if view_idx.value() == commitment_idx.value() => {
                 let index: usize = *view_idx.value() as usize;
                 trace!(?qc, ?index, "Updating qc");
                 qcs[index] = qc;
                 Ok(())
             }
             (Some(_), Some(_)) => InconsistencySnafu {
-                description: String::from("the view_number and block_hash already exists"),
+                description: String::from("the view_number and block_commitment already exists"),
             }
             .fail(),
             (Some(_), None) => InconsistencySnafu {
@@ -276,7 +276,7 @@ where
             }
             .fail(),
             (None, Some(_)) => InconsistencySnafu {
-                description: String::from("the block_hash already exists"),
+                description: String::from("the block_commitment already exists"),
             }
             .fail(),
             (None, None) => {
@@ -284,7 +284,7 @@ where
                 trace!(?qc, ?index, "Inserting qc");
                 qcs.push(qc);
                 self.inner.view_to_qc.insert(view, index);
-                self.inner.hash_to_qc.insert(hash, index);
+                self.inner.hash_to_qc.insert(commitment, index);
                 Ok(())
             }
         }
@@ -294,13 +294,13 @@ where
     async fn insert_leaf(&mut self, leaf: Leaf<STATE>) -> StorageResult {
         let hash = leaf.commit();
         trace!(?leaf, ?hash, "Inserting");
-        let block_hash = <STATE::Block as Committable>::commit(&leaf.deltas);
+        let block_commitment = <STATE::Block as Committable>::commit(&leaf.deltas);
         let mut leaves = self.inner.leaves.write().await;
         let index = leaves.len();
         trace!(?leaf, ?index, "Inserting leaf");
         leaves.push(leaf);
         self.inner.hash_to_leaf.insert(hash, index);
-        self.inner.block_to_leaf.insert(block_hash, index);
+        self.inner.block_to_leaf.insert(block_commitment, index);
         Ok(())
     }
 
@@ -330,8 +330,8 @@ mod test {
         view: ViewNumber,
     ) -> QuorumCertificate<DummyState> {
         QuorumCertificate {
-            block_hash: hash_block,
-            leaf_hash: hash_leaf,
+            block_commitment: hash_block,
+            leaf_commitment: hash_leaf,
             view_number: view,
             signatures: BTreeMap::new(),
             genesis: true,

@@ -56,7 +56,7 @@ impl<STATE: StateContents> ViewInner<STATE> {
     /// return the underlying leaf hash if it exists
     #[must_use]
     // TODO rename to commitment
-    pub fn get_leaf_hash(&self) -> Option<&Commitment<Leaf<STATE>>> {
+    pub fn get_leaf_commitment(&self) -> Option<&Commitment<Leaf<STATE>>> {
         if let Self::Leaf { leaf } = self {
             Some(leaf)
         } else {
@@ -235,14 +235,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
-                        let leaf_hash = leaf.commit();
-                        let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
+                        let leaf_commitment = leaf.commit();
+                        let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                         let vote = ConsensusMessage::<I::State>::Vote(Vote {
-                            block_hash: <I::Block as Committable>::commit(&leaf.deltas),
+                            block_commitment: <I::Block as Committable>::commit(&leaf.deltas),
                             justify_qc: leaf.justify_qc.clone(),
                             signature,
-                            leaf_hash,
+                            leaf_commitment,
                             current_view: self.cur_view,
                         });
 
@@ -268,7 +268,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
                         let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
                             current_view: self.cur_view,
-                            justify: self.high_qc.clone(),
+                            justify_qc: self.high_qc.clone(),
                         });
                         warn!(
                             "Timed out! Sending timeout to next leader {:?}",
@@ -574,15 +574,15 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
             }
             match msg {
                 ConsensusMessage::TimedOut(t) => {
-                    qcs.insert(t.justify);
+                    qcs.insert(t.justify_qc);
                 }
                 ConsensusMessage::Vote(vote) => {
                     qcs.insert(vote.justify_qc);
 
-                    match vote_outcomes.entry(vote.leaf_hash) {
+                    match vote_outcomes.entry(vote.leaf_commitment) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
                             let (bh, map) = o.get_mut();
-                            if *bh != vote.block_hash {
+                            if *bh != vote.block_commitment {
                                 warn!("Mismatch between commitments in received votes. This is probably an error without byzantine nodes.");
                             }
                             map.insert(vote.signature.0.clone(), vote.signature.1.clone());
@@ -590,20 +590,22 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         std::collections::hash_map::Entry::Vacant(location) => {
                             let mut map = BTreeMap::new();
                             map.insert(vote.signature.0, vote.signature.1);
-                            location.insert((vote.block_hash, map));
+                            location.insert((vote.block_commitment, map));
                         }
                     }
 
-                    let (block_hash, map) = vote_outcomes.get(&vote.leaf_hash).unwrap();
+                    let (block_commitment, map) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
 
                     if map.len() >= threshold.into() {
                         // NOTE this is slow, shouldn't check all the signatures EVERY time
-                        let result = self.api.get_valid_signatures(map.clone(), vote.leaf_hash);
+                        let result = self
+                            .api
+                            .get_valid_signatures(map.clone(), vote.leaf_commitment);
                         if let Ok(valid_signatures) = result {
                             // construct QC
                             let qc = QuorumCertificate {
-                                block_hash: *block_hash,
-                                leaf_hash: vote.leaf_hash,
+                                block_commitment: *block_commitment,
+                                leaf_commitment: vote.leaf_commitment,
                                 view_number: self.cur_view,
                                 signatures: valid_signatures,
                                 genesis: false,
@@ -648,7 +650,7 @@ impl<I: NodeImplementation> Consensus<I> {
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
-                .get_leaf_hash()
+                .get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {:?} leaf. Expected successfuil leaf",
@@ -702,7 +704,7 @@ impl<I: NodeImplementation> Consensus<I> {
         // perform gc
         self.state_map
             .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(_view_number, view)| view.get_leaf_hash())
+            .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
                 let _removed = self.saved_leaves.remove(leaf);
             });
@@ -770,7 +772,7 @@ impl<I: NodeImplementation> Consensus<I> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view
-            .get_leaf_hash()
+            .get_leaf_commitment()
             .expect("Decided state not found! Consensus internally inconsistent");
         self.saved_leaves.get(leaf).unwrap().clone()
     }

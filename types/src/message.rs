@@ -131,7 +131,7 @@ pub struct TimedOut<State: StateContents> {
     pub current_view: ViewNumber,
     /// The justification qc for this view
     #[serde(deserialize_with = "<QuorumCertificate<State> as Deserialize>::deserialize")]
-    pub justify: QuorumCertificate<State>,
+    pub justify_qc: QuorumCertificate<State>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
@@ -155,7 +155,7 @@ pub struct Vote<STATE: StateContents> {
     /// TODO delete this when we delete block hash from the QC
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
-    pub block_hash: Commitment<STATE::Block>,
+    pub block_commitment: Commitment<STATE::Block>,
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
@@ -166,7 +166,7 @@ pub struct Vote<STATE: StateContents> {
     /// Hash of the item being voted on
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub leaf_hash: Commitment<Leaf<STATE>>,
+    pub leaf_commitment: Commitment<Leaf<STATE>>,
     /// The view this vote was cast for
     pub current_view: ViewNumber,
 }

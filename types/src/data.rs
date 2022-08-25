@@ -199,8 +199,8 @@ mod serde_bytes_array {
 impl<STATE: StateContents> Default for QuorumCertificate<STATE> {
     fn default() -> Self {
         Self {
-            block_hash: nll_todo(),
-            leaf_hash: nll_todo(),
+            block_commitment: nll_todo(),
+            leaf_commitment: nll_todo(),
             view_number: nll_todo(),
             signatures: nll_todo(),
             genesis: nll_todo(),
@@ -221,14 +221,14 @@ pub struct QuorumCertificate<STATE: StateContents> {
     /// the referenced leaf.
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
-    pub block_hash: Commitment<STATE::Block>,
+    pub block_commitment: Commitment<STATE::Block>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub leaf_hash: Commitment<Leaf<STATE>>,
+    pub leaf_commitment: Commitment<Leaf<STATE>>,
 
     /// The view number this quorum certificate was generated during
     ///
@@ -257,8 +257,8 @@ impl<STATE: StateContents> Committable for QuorumCertificate<STATE> {
         commit::RawCommitmentBuilder::new("QC Comm")
             .constant_str("view_number")
             .u64(*self.view_number)
-            .field("block commitment", self.block_hash)
-            .field("leaf commitment", self.leaf_hash)
+            .field("block commitment", self.block_commitment)
+            .field("leaf commitment", self.leaf_commitment)
             .constant_str("signatures")
             // TODO not sure what to for this
             // do we need to hash this?. I think other fields should be enough.

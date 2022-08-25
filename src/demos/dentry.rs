@@ -472,9 +472,9 @@ pub fn random_quorom_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 
     // TODO: Generate a tc::Signature
     QuorumCertificate {
-        block_hash: nll_todo(),
+        block_commitment: nll_todo(),
         genesis: rng.gen(),
-        leaf_hash: nll_todo(),
+        leaf_commitment: nll_todo(),
         signatures: BTreeMap::new(),
         view_number: ViewNumber::new(rng.gen()),
     }

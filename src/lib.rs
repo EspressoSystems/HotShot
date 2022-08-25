@@ -235,8 +235,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         info!("Creating a new hotshot");
         let genesis_hash = genesis.commit();
         let genesis_qc = QuorumCertificate {
-            block_hash: genesis_hash,
-            leaf_hash: nll_todo(),
+            block_commitment: genesis_hash,
+            leaf_commitment: nll_todo(),
             view_number: ViewNumber::genesis(),
             signatures: BTreeMap::new(),
             genesis: true,
@@ -271,20 +271,20 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             background_task_handle: tasks::TaskHandle::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
-        let leaf_hash = genesis_leaf.commit();
-        trace!("Genesis leaf hash: {:?}", leaf_hash);
+        let leaf_commitment = genesis_leaf.commit();
+        trace!("Genesis leaf commitment: {:?}", leaf_commitment);
 
         let mut genesis_map = BTreeMap::default();
 
         genesis_map.insert(
             ViewNumber::new(0),
             View {
-                view_inner: ViewInner::Leaf { leaf: leaf_hash },
+                view_inner: ViewInner::Leaf { leaf: leaf_commitment },
             },
         );
 
         let mut genesis_leaves = HashMap::new();
-        genesis_leaves.insert(leaf_hash, genesis_leaf);
+        genesis_leaves.insert(leaf_commitment, genesis_leaf);
 
         let start_view = ViewNumber::new(1);
 
@@ -618,62 +618,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         debug!(?msg, "Incoming direct data message");
         match msg {
             DataMessage::NewestQuorumCertificate {
-                quorum_certificate: qc,
-                block,
-                state,
+                ..
             } => {
-                // TODO https://github.com/EspressoSystems/HotShot/issues/387
-                let own_newest = match self.inner.storage.get_newest_qc().await {
-                    Err(e) => {
-                        error!(?e, "Could not load QC");
-                        return;
-                    }
-                    Ok(n) => n,
-                };
-                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
-                // we should be getting multiple data messages soon
-                let should_save = if let Some(own) = own_newest {
-                    own.view_number < qc.view_number // incoming view is newer
-                } else {
-                    true // we have no QC yet
-                };
-                if should_save {
-                    let new_view_number = qc.view_number;
-                    let block_hash = block.commit();
-                    let leaf_hash = qc.leaf_hash;
-                    let leaf = Leaf::new(
-                        state.clone(),
-                        block.clone(),
-                        leaf_hash,
-                        qc.clone(),
-                        qc.view_number,
-                    );
-                    debug!(?leaf, ?block, ?qc, "Saving");
-
-                    // if let Err(e) = self
-                    //     .inner
-                    //     .storage
-                    //     .update(|mut m| async move {
-                    //         m.insert_leaf(leaf).await?;
-                    //         m.insert_block(block_hash, block).await?;
-                    //         m.insert_state(state, leaf_hash).await?;
-                    //         m.insert_qc(qc).await?;
-                    //         Ok(())
-                    //     })
-                    //     .await
-                    // {
-                    //     error!(?e, "Could not insert incoming QC");
-                    // }
-
-                    // Broadcast that we're updated
-                    self.send_event(Event {
-                        view_number: new_view_number,
-                        event: EventType::Synced {
-                            view_number: new_view_number,
-                        },
-                    })
-                    .await;
-                }
+                // NOTE No-op until we get the storage API v2 merged.
             }
 
             DataMessage::SubmitTransaction(_) => {
@@ -850,8 +797,8 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         }
         // TODO before this was lopping on *our* view number.
         // what if the leaf doesn't have the right view number?
-        // let hash = create_verify_hash(&qc.leaf_hash, view_number);
-        let hash = qc.leaf_hash;
+        // let hash = create_verify_hash(&qc.leaf_commitment, view_number);
+        let hash = qc.leaf_commitment;
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
         match valid_signatures {
             Ok(_) => true,

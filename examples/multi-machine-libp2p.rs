@@ -8,7 +8,7 @@ use hotshot::{
         NetworkError,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},

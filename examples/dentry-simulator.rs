@@ -24,7 +24,7 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, HotShotConfig,
 };
 
 type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;

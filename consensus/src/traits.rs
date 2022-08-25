@@ -148,22 +148,20 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_hash: &Commitment<Leaf<I::State>>,
-        view_number: ViewNumber,
+        leaf_commitment: &Commitment<Leaf<I::State>>,
+        _view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let signature = I::SignatureKey::sign(self.private_key(), leaf_hash.as_ref());
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         (self.public_key().to_bytes(), signature)
     }
 
     /// Signs a proposal
     fn sign_proposal(
         &self,
-        leaf_hash: &Commitment<Leaf<I::State>>,
-        view_number: ViewNumber,
+        leaf_commitment: &Commitment<Leaf<I::State>>,
+        _view_number: ViewNumber,
     ) -> EncodedSignature {
-        // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let signature = I::SignatureKey::sign(self.private_key(), leaf_hash.as_ref());
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
