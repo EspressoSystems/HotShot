@@ -33,12 +33,12 @@ use hotshot_types::{
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        storage::{Storage, StoredView, ViewAppend},
+        storage::Storage,
         BlockContents, State,
     },
 };
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
 };
 use tracing::{error, info, instrument, warn};
@@ -378,7 +378,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 view_inner: ViewInner::Leaf { leaf: leaf.hash() },
             },
         );
-        consensus.saved_leaves.insert(leaf.hash(), leaf);
+        consensus.saved_leaves.insert(leaf.hash(), leaf.clone());
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
         }
@@ -390,23 +390,6 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                     .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                     .collect();
             }
-            let (parent_of_last_qc, last_qc) = match qcs.as_slice() {
-                [.., parent_of_last, last] => (parent_of_last.clone(), last.clone()),
-                #[allow(clippy::panic)]
-                _ => {
-                    // this is a bug in the consensus logic. QC should have at least 2 entries:
-                    // - the previous anchor qc (at init this is the genesis QC)
-                    // - The proposed QC
-                    panic!(
-                        "Expected QCS to have at least 2 entries, it only has {}",
-                        qcs.len()
-                    );
-                }
-            };
-            // The `states` and `blocks` should also have at least 1 entry, just like the `qcs` above
-            // We need to store a clone of this because we want to store this later
-            let last_state = states.last().unwrap().clone();
-            let last_block = blocks.last().unwrap().clone();
 
             let decide_sent =
                 self.api
@@ -419,22 +402,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             let storage = self.api.storage();
-            if let Err(e) = storage
-                .append_single_view(StoredView {
-                    append: ViewAppend::Block {
-                        block: last_block,
-                        // TODO(https://github.com/espressoSystems/hotshot/issues/411)
-                        // we want to track the rejected transaction list
-                        // for now this is empty
-                        rejected_transactions: BTreeSet::new(),
-                    },
-                    parent: parent_of_last_qc.leaf_hash,
-                    justify_qc: last_qc,
-                    state: last_state,
-                    view_number: new_anchor_view,
-                })
-                .await
-            {
+            if let Err(e) = storage.append_single_view(leaf.into()).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
             }
             if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {

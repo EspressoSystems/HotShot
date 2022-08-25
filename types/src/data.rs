@@ -391,6 +391,22 @@ where
     }
 }
 
+impl<BLOCK, STATE, const N: usize> From<Leaf<BLOCK, STATE, N>> for StoredView<BLOCK, STATE, N>
+where
+    STATE: State<N>,
+    BLOCK: BlockContents<N>,
+{
+    fn from(val: Leaf<BLOCK, STATE, N>) -> Self {
+        StoredView {
+            view_number: val.view_number,
+            parent: val.parent,
+            justify_qc: val.justify_qc,
+            state: val.state,
+            append: val.deltas.into(),
+        }
+    }
+}
+
 /// Format a fixed-size array with [`HexFmt`]
 fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", HexFmt(n))
