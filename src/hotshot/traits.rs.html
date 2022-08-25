@@ -35,6 +35,7 @@
 <span id="29">29</span>
 <span id="30">30</span>
 <span id="31">31</span>
+<span id="32">32</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Sortition trait</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">election</span>;
 <span class="kw">mod</span> <span class="ident">networking</span>;
@@ -52,6 +53,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">implementations</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::{
         <span class="ident">networking</span>::{
+            <span class="ident">centralized_server_network::CentralizedServerNetwork</span>,
             <span class="ident">libp2p_network</span>::{<span class="ident">Libp2pNetwork</span>, <span class="ident">PeerInfoVec</span>},
             <span class="ident">memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>},
             <span class="ident">w_network::WNetwork</span>,

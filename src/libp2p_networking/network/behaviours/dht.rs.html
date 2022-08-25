@@ -1120,7 +1120,7 @@
             } =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;DHT: Bootstrap attempt failed. Retrying shortly.&quot;</span>);
                 <span class="kw">let</span> <span class="ident">BootstrapError::Timeout</span> { <span class="ident">num_remaining</span>, .. } <span class="op">=</span> <span class="ident">e</span>;
-                <span class="kw">if</span> <span class="ident">num_remaining</span> <span class="op">==</span> <span class="prelude-val">None</span> {
+                <span class="kw">if</span> <span class="ident">num_remaining</span>.<span class="ident">is_none</span>() {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT. Readding bootstrap nodes {:?}&quot;</span>,
                         <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">e</span>, <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>

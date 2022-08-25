@@ -22,6 +22,7 @@
 <span id="16">16</span>
 <span id="17">17</span>
 <span id="18">18</span>
+<span id="19">19</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access abstraction</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module contains a trait abstracting over network access, as well as implementations of that</span>
@@ -30,6 +31,7 @@
 <span class="doccomment">//! - [`WNetwork`](w_network::WNetwork), a prototype/testing websockets implementation.</span>
 <span class="doccomment">//! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.</span>
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">centralized_server_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">libp2p_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">w_network</span>;

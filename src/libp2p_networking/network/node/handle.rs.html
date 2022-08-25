@@ -853,7 +853,7 @@
 
         <span class="kw">match</span> <span class="ident">r</span>.<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">CancelledRequestSnafu</span>) {
             <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="ident">bincode_opts</span>()
-                .<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">result</span>)
+                .<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>)
                 .<span class="ident">context</span>(<span class="ident">DeserializationSnafu</span>),
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="ident">DHTSnafu</span>),
         }
