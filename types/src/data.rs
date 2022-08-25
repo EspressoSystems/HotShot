@@ -5,6 +5,7 @@
 //! signatures fundamental to consensus.
 use crate::traits::{
     signature_key::{EncodedPublicKey, EncodedSignature},
+    storage::StoredView,
     BlockContents, State,
 };
 use blake3::Hasher;
@@ -371,6 +372,38 @@ impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE
         bytes.extend_from_slice(self.parent.as_ref());
         bytes.extend_from_slice(<BLOCK as BlockContents<N>>::hash(&self.deltas).as_ref());
         <BLOCK as BlockContents<N>>::hash_leaf(&bytes)
+    }
+}
+
+impl<BLOCK, STATE, const N: usize> From<StoredView<BLOCK, STATE, N>> for Leaf<BLOCK, STATE, N>
+where
+    STATE: State<N>,
+    BLOCK: BlockContents<N>,
+{
+    fn from(append: StoredView<BLOCK, STATE, N>) -> Self {
+        Leaf::new(
+            append.state,
+            append.append.into_deltas(),
+            append.parent,
+            append.justify_qc,
+            append.view_number,
+        )
+    }
+}
+
+impl<BLOCK, STATE, const N: usize> From<Leaf<BLOCK, STATE, N>> for StoredView<BLOCK, STATE, N>
+where
+    STATE: State<N>,
+    BLOCK: BlockContents<N>,
+{
+    fn from(val: Leaf<BLOCK, STATE, N>) -> Self {
+        StoredView {
+            view_number: val.view_number,
+            parent: val.parent,
+            justify_qc: val.justify_qc,
+            state: val.state,
+            append: val.deltas.into(),
+        }
     }
 }
 

@@ -2,324 +2,153 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::{
-    data::{BlockHash, Leaf, LeafHash},
-    traits::{BlockContents, State},
-    QuorumCertificate,
-};
+use crate::traits::{BlockContents, State};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use dashmap::DashMap;
-use futures::Future;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::storage::{
-        InconsistencySnafu, Storage, StorageResult, StorageState, StorageUpdater, TestableStorage,
+        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
+        ViewEntry,
     },
 };
-use std::sync::Arc;
-use tracing::{instrument, trace};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<BLOCK, STATE, const N: usize> {
-    /// The Blocks stored by this [`MemoryStorage`]
-    blocks: DashMap<BlockHash<N>, BLOCK>,
-    /// The [`QuorumCertificate`]s stored by this [`MemoryStorage`]
-    ///
-    /// In order to maintain the struct constraints, this list must be append only. Once a QC is
-    /// inserted, it index _must not_ change
-    qcs: RwLock<Vec<QuorumCertificate<N>>>,
-    /// Index of the [`QuorumCertificate`]s by hash
-    hash_to_qc: DashMap<BlockHash<N>, usize>,
-    /// Index of the [`QuorumCertificate`]s by view number
-    view_to_qc: DashMap<ViewNumber, usize>,
-    /// The [`Leaf`s stored by this [`MemoryStorage`]
-    ///
-    /// In order to maintain the struct constraints, this list must be append only. Once a QC is
-    /// inserted, it index _must not_ change
-    leaves: RwLock<Vec<Leaf<BLOCK, STATE, N>>>,
-    /// Index of the [`Leaf`]s by their hashes
-    hash_to_leaf: DashMap<LeafHash<N>, usize>,
-    /// Index of the [`Leaf`]s by their block's hashes
-    block_to_leaf: DashMap<BlockHash<N>, usize>,
-    /// The store of states
-    states: DashMap<LeafHash<N>, STATE>,
-}
-
-/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
-#[derive(Clone)]
-pub struct MemoryStorage<Block, State, const N: usize> {
-    /// The inner state of this [`MemoryStorage`]
-    inner: Arc<MemoryStorageInternal<Block, State, N>>,
-}
-
-impl<Block, State, const N: usize> Default for MemoryStorage<Block, State, N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
-    TestableStorage<B, S, N> for MemoryStorage<B, S, N>
-{
-    fn construct_tmp_storage() -> StorageResult<Self> {
-        Ok(Self::new())
-    }
-}
-
-impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
-    /// Creates a new, empty [`MemoryStorage`]
-    pub fn new() -> Self {
-        let inner = MemoryStorageInternal {
-            blocks: DashMap::new(),
-            qcs: RwLock::new(Vec::new()),
-            hash_to_qc: DashMap::new(),
-            view_to_qc: DashMap::new(),
-            leaves: RwLock::new(Vec::new()),
-            hash_to_leaf: DashMap::new(),
-            block_to_leaf: DashMap::new(),
-            states: DashMap::new(),
-        };
-        MemoryStorage {
-            inner: Arc::new(inner),
-        }
-    }
-}
-
-#[async_trait]
-impl<
-        BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
-        const N: usize,
-    > Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
-{
-    #[instrument(name = "MemoryStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &BlockHash<N>) -> StorageResult<Option<BLOCK>> {
-        Ok(if let Some(r) = self.inner.blocks.get(hash) {
-            trace!("Block found");
-            let block = r.value().clone();
-            Some(block)
-        } else {
-            trace!("Block not found");
-            None
-        })
-    }
-
-    #[instrument(name = "MemoryStorage::get_qc", skip_all)]
-    async fn get_qc(&self, hash: &BlockHash<N>) -> StorageResult<Option<QuorumCertificate<N>>> {
-        // Check to see if we have the qc
-        let index = self.inner.hash_to_qc.get(hash);
-        Ok(if let Some(index) = index {
-            trace!("Found qc");
-            let qcs = self.inner.qcs.read().await;
-            let qc = qcs[*index.value()].clone();
-            Some(qc)
-        } else {
-            trace!("Did not find qc");
-            None
-        })
-    }
-
-    #[instrument(name = "MemoryStorage::get_newest_qc", skip_all)]
-    async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<N>>> {
-        let iter = self.inner.view_to_qc.iter();
-        let idx = match iter.max_by_key(|pair| *pair.key()) {
-            Some(pair) => *pair.value(),
-            None => return Ok(None),
-        };
-        let qcs = self.inner.qcs.read().await;
-        Ok(Some(qcs[idx].clone()))
-    }
-
-    #[instrument(name = "MemoryStorage::get_qc_for_view", skip_all)]
-    async fn get_qc_for_view(
-        &self,
-        view: ViewNumber,
-    ) -> StorageResult<Option<QuorumCertificate<N>>> {
-        // Check to see if we have the qc
-        let index = self.inner.view_to_qc.get(&view);
-        Ok(if let Some(index) = index {
-            trace!("Found qc");
-            let qcs = self.inner.qcs.read().await;
-            let qc = qcs[*index.value()].clone();
-            Some(qc)
-        } else {
-            trace!("Did not find qc");
-            None
-        })
-    }
-
-    #[instrument(name = "MemoryStorage::get_leaf", skip_all)]
-    async fn get_leaf(&self, hash: &LeafHash<N>) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
-        trace!(?self.inner.hash_to_leaf, ?hash);
-        // Check to see if we have the leaf
-        let index = self.inner.hash_to_leaf.get(hash);
-        Ok(if let Some(index) = index {
-            trace!("Found leaf");
-            let leaves = self.inner.leaves.read().await;
-            Some(leaves[*index.value()].clone())
-        } else {
-            trace!("Did not find leaf");
-            None
-        })
-    }
-
-    #[instrument(name = "MemoryStorage::get_by_block", skip_all)]
-    async fn get_leaf_by_block(
-        &self,
-        hash: &BlockHash<N>,
-    ) -> StorageResult<Option<Leaf<BLOCK, STATE, N>>> {
-        // Check to see if we have the leaf
-        let index = self.inner.block_to_leaf.get(hash);
-        Ok(if let Some(index) = index {
-            trace!("Found leaf");
-            let leaves = self.inner.leaves.read().await;
-            Some(leaves[*index.value()].clone())
-        } else {
-            trace!("Did not find leaf");
-            None
-        })
-    }
-
-    async fn get_state(&self, hash: &LeafHash<N>) -> StorageResult<Option<STATE>> {
-        let maybe_state = self.inner.states.get(hash);
-        Ok(if let Some(state) = maybe_state {
-            let state = state.value().clone();
-            Some(state)
-        } else {
-            None
-        })
-    }
-
-    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
-    where
-        F: FnOnce(Box<dyn StorageUpdater<'a, BLOCK, STATE, N> + 'a>) -> FUT + Send + 'a,
-        FUT: Future<Output = StorageResult> + Send + 'a,
-    {
-        let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
-        update_fn(updater).await?;
-        Ok(())
-    }
-
-    async fn get_internal_state(&self) -> StorageState<BLOCK, STATE, N> {
-        let mut blocks: Vec<(BlockHash<N>, BLOCK)> = self
-            .inner
-            .blocks
-            .iter()
-            .map(|pair| {
-                let (hash, block) = pair.pair();
-                (*hash, block.clone())
-            })
-            .collect();
-        blocks.sort_by_key(|(hash, _)| *hash);
-        let blocks = blocks.into_iter().map(|(_, block)| block).collect();
-
-        let mut leafs: Vec<Leaf<BLOCK, STATE, N>> = self.inner.leaves.read().await.clone();
-        leafs.sort_by_cached_key(Leaf::hash);
-
-        let mut quorum_certificates = self.inner.qcs.read().await.clone();
-        quorum_certificates.sort_by_key(|qc| qc.view_number);
-
-        let mut states: Vec<(LeafHash<N>, STATE)> = self
-            .inner
-            .states
-            .iter()
-            .map(|pair| {
-                let (hash, state) = pair.pair();
-                (*hash, state.clone())
-            })
-            .collect();
-        states.sort_by_key(|(hash, _)| *hash);
-        let states = states.into_iter().map(|(_, state)| state).collect();
-
-        StorageState {
-            blocks,
-            quorum_certificates,
-            leafs,
-            states,
-        }
-    }
-}
-
-/// An implementation of [`StorageUpdater`] for [`MemoryStorage`]
-struct MemoryStorageUpdater<'a, B, S, const N: usize> {
-    /// Reference to the internals of the memory storage
-    inner: &'a MemoryStorageInternal<B, S, N>,
-}
-
-#[async_trait]
-impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N>
-    for MemoryStorageUpdater<'a, BLOCK, STATE, N>
+struct MemoryStorageInternal<BLOCK, STATE, const N: usize>
 where
     BLOCK: BlockContents<N> + 'static,
     STATE: State<N, Block = BLOCK> + 'static,
 {
-    #[instrument(name = "MemoryStorage::insert_block", skip_all)]
-    async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {
-        trace!(?block, "inserting block");
-        self.inner.blocks.insert(hash, block);
-        Ok(())
-    }
+    /// The views that have been stored
+    stored: BTreeMap<ViewNumber, StoredView<BLOCK, STATE, N>>,
+    /// The views that have failed
+    failed: BTreeSet<ViewNumber>,
+}
 
-    #[instrument(name = "MemoryStorage::insert_qc", skip_all)]
-    async fn insert_qc(&mut self, qc: QuorumCertificate<N>) -> StorageResult {
-        // Insert the qc into the main vec and the add the references
-        let view = qc.view_number;
-        let hash = qc.block_hash;
-        let mut qcs = self.inner.qcs.write().await;
+/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
+#[derive(Clone)]
+pub struct MemoryStorage<BLOCK, STATE, const N: usize>
+where
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+{
+    /// The inner state of this [`MemoryStorage`]
+    inner: Arc<RwLock<MemoryStorageInternal<BLOCK, STATE, N>>>,
+}
 
-        match (
-            self.inner.view_to_qc.get(&view),
-            self.inner.hash_to_qc.get(&hash),
-        ) {
-            (Some(view_idx), Some(hash_idx)) if view_idx.value() == hash_idx.value() => {
-                let index: usize = *view_idx.value() as usize;
-                trace!(?qc, ?index, "Updating qc");
-                qcs[index] = qc;
-                Ok(())
+impl<BLOCK, STATE, const N: usize> MemoryStorage<BLOCK, STATE, N>
+where
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+{
+    /// Create a new instance of the memory storage with the given block and state
+    pub fn new(block: BLOCK, state: STATE) -> Self {
+        let mut inner = MemoryStorageInternal {
+            stored: BTreeMap::new(),
+            failed: BTreeSet::new(),
+        };
+        let qc = QuorumCertificate {
+            block_hash: BlockContents::hash(&block),
+            genesis: true,
+            leaf_hash: Leaf {
+                deltas: block.clone(),
+                justify_qc: QuorumCertificate::default(),
+                parent: LeafHash::default(),
+                state: state.clone(),
+                view_number: ViewNumber::genesis(),
             }
-            (Some(_), Some(_)) => InconsistencySnafu {
-                description: String::from("the view_number and block_hash already exists"),
-            }
-            .fail(),
-            (Some(_), None) => InconsistencySnafu {
-                description: String::from("the view_number already exists"),
-            }
-            .fail(),
-            (None, Some(_)) => InconsistencySnafu {
-                description: String::from("the block_hash already exists"),
-            }
-            .fail(),
-            (None, None) => {
-                let index = qcs.len();
-                trace!(?qc, ?index, "Inserting qc");
-                qcs.push(qc);
-                self.inner.view_to_qc.insert(view, index);
-                self.inner.hash_to_qc.insert(hash, index);
-                Ok(())
-            }
+            .hash(),
+            view_number: ViewNumber::genesis(),
+            signatures: BTreeMap::new(),
+        };
+        inner.stored.insert(
+            ViewNumber::genesis(),
+            StoredView {
+                append: ViewAppend::Block { block },
+                parent: LeafHash::default(),
+                justify_qc: qc,
+                state,
+                view_number: ViewNumber::genesis(),
+            },
+        );
+        Self {
+            inner: Arc::new(RwLock::new(inner)),
         }
     }
+}
 
-    #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
-    async fn insert_leaf(&mut self, leaf: Leaf<BLOCK, STATE, N>) -> StorageResult {
-        let hash = leaf.hash();
-        trace!(?leaf, ?hash, "Inserting");
-        let block_hash = BlockContents::hash(&leaf.deltas);
-        let mut leaves = self.inner.leaves.write().await;
-        let index = leaves.len();
-        trace!(?leaf, ?index, "Inserting leaf");
-        leaves.push(leaf);
-        self.inner.hash_to_leaf.insert(hash, index);
-        self.inner.block_to_leaf.insert(block_hash, index);
+#[async_trait]
+impl<BLOCK, STATE, const N: usize> TestableStorage<BLOCK, STATE, N>
+    for MemoryStorage<BLOCK, STATE, N>
+where
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+{
+    fn construct_tmp_storage(block: BLOCK, state: STATE) -> Result<Self> {
+        Ok(Self::new(block, state))
+    }
+
+    async fn get_full_state(&self) -> StorageState<BLOCK, STATE, N> {
+        let inner = self.inner.read().await;
+        StorageState {
+            stored: inner.stored.clone(),
+            failed: inner.failed.clone(),
+        }
+    }
+}
+
+#[async_trait]
+impl<BLOCK, STATE, const N: usize> Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
+where
+    BLOCK: BlockContents<N> + 'static,
+    STATE: State<N, Block = BLOCK> + 'static,
+{
+    async fn append(&self, views: Vec<ViewEntry<BLOCK, STATE, N>>) -> Result {
+        let mut inner = self.inner.write().await;
+        for view in views {
+            match view {
+                ViewEntry::Failed(num) => {
+                    inner.failed.insert(num);
+                }
+                ViewEntry::Success(view) => {
+                    inner.stored.insert(view.view_number, view);
+                }
+            }
+        }
         Ok(())
     }
 
-    #[instrument(name = "MemoryStorage::insert_state", skip_all)]
-    async fn insert_state(&mut self, state: STATE, hash: LeafHash<N>) -> StorageResult {
-        trace!(?hash, "Inserting state");
-        self.inner.states.insert(hash, state);
-        Ok(())
+    async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize> {
+        let mut inner = self.inner.write().await;
+
+        // .split_off will return everything after the given key, including the key.
+        let stored_after = inner.stored.split_off(&view);
+        // .split_off will return the map we want to keep stored, so we need to swap them
+        let old_stored = std::mem::replace(&mut inner.stored, stored_after);
+
+        // same for the BTreeSet
+        let failed_after = inner.failed.split_off(&view);
+        let old_failed = std::mem::replace(&mut inner.failed, failed_after);
+
+        Ok(old_stored.len() + old_failed.len())
+    }
+
+    async fn get_anchored_view(&self) -> Result<StoredView<BLOCK, STATE, N>> {
+        let inner = self.inner.read().await;
+        let last = inner
+            .stored
+            .values()
+            .next_back()
+            .ok_or(StorageError::NoGenesisView)?;
+        Ok(last.clone())
+    }
+
+    async fn commit(&self) -> Result {
+        Ok(()) // do nothing
     }
 }
 
@@ -328,193 +157,44 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::demos::dentry::random_quorom_certificate;
+    use hotshot_types::data::{BlockHash, LeafHash, QuorumCertificate};
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
-    use hotshot_utils::test_util::setup_logging;
-    use tracing::instrument;
 
-    fn dummy_qc(
-        hash_block: BlockHash<32>,
-        hash_leaf: LeafHash<32>,
-        view: ViewNumber,
-    ) -> QuorumCertificate<32> {
-        QuorumCertificate {
-            block_hash: hash_block,
-            leaf_hash: hash_leaf,
-            view_number: view,
-            signatures: BTreeMap::new(),
-            genesis: true,
-        }
+    fn random_stored_view(number: ViewNumber) -> StoredView<DummyBlock, DummyState, 32> {
+        StoredView::from_qc_block_and_state(
+            QuorumCertificate {
+                block_hash: BlockHash::random(),
+                genesis: number == ViewNumber::genesis(),
+                leaf_hash: LeafHash::random(),
+                signatures: BTreeMap::new(),
+                view_number: number,
+            },
+            DummyBlock::random(),
+            DummyState::random(),
+        )
     }
 
     #[async_std::test]
-    #[instrument]
-    async fn blocks() {
-        setup_logging();
-        // Get our storage and dummy block
-        let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
-        let test_block_1 = DummyBlock::random();
-        let hash_1 = <DummyBlock as BlockContents<32>>::hash(&test_block_1);
-        let test_block_2 = DummyBlock::random();
-        let hash_2 = <DummyBlock as BlockContents<32>>::hash(&test_block_2);
-        // Attempt to insert the blocks
-        let res = storage
-            .update(|mut m| {
-                let test_block_1 = test_block_1.clone();
-                async move { m.insert_block(hash_1, test_block_1).await }
-            })
-            .await;
-        assert!(res.is_ok());
-        let res = storage
-            .update(|mut m| {
-                let test_block_2 = test_block_2.clone();
-                async move {
-                    m.insert_block(hash_2, test_block_2).await?;
-                    Ok(())
-                }
-            })
-            .await;
-        assert!(res.is_ok());
-        // Then attempt to get the blocks
-        let block_1 = storage.get_block(&hash_1).await.unwrap().unwrap();
-        let block_2 = storage.get_block(&hash_2).await.unwrap().unwrap();
-        // Make sure we got the right blocks
-        assert_eq!(block_1, test_block_1);
-        assert_eq!(block_2, test_block_2);
-        // Try to get an invalid block and make sure it is nothing
-        let bad_hash = BlockHash::<32>::random();
-        let res = storage.get_block(&bad_hash).await.unwrap();
-        assert!(res.is_none());
-    }
-
-    #[async_std::test]
-    #[instrument]
-    async fn qcs() {
-        setup_logging();
-        let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
-        let view_1 = ViewNumber::new(1);
-        let view_2 = ViewNumber::new(2);
-        let view_3 = ViewNumber::new(3);
-        // Create a few dummy qcs
-        let qc_1_hash_block = BlockHash::<32>::random();
-        let qc_1_hash_leaf = LeafHash::<32>::random();
-        let qc_1 = dummy_qc(qc_1_hash_block, qc_1_hash_leaf, view_1);
-        let qc_2_hash_block = BlockHash::<32>::random();
-        let qc_2_hash_leaf = LeafHash::<32>::random();
-        let qc_2 = dummy_qc(qc_2_hash_block, qc_2_hash_leaf, view_2);
-        // Attempt to insert them
+    async fn memory_storage() {
+        let storage =
+            MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
+                .unwrap();
+        let genesis = random_stored_view(ViewNumber::genesis());
         storage
-            .update(|mut m| {
-                let qc_1 = qc_1.clone();
-                let qc_2 = qc_2.clone();
-                async move {
-                    m.insert_qc(qc_1).await?;
-                    m.insert_qc(qc_2).await?;
-                    Ok(())
-                }
-            })
+            .append_single_view(genesis.clone())
             .await
-            .unwrap();
-        // Attempt to get them back by hash
-        let h_qc_1 = storage.get_qc(&qc_1_hash_block).await.unwrap().unwrap();
-        let h_qc_2 = storage.get_qc(&qc_2_hash_block).await.unwrap().unwrap();
-        // Check to make sure we got the right QCs back
-        assert_eq!(h_qc_1, qc_1);
-        assert_eq!(h_qc_2, qc_2);
-        // Attempt to get them back by view number
-        let v_qc_1 = storage.get_qc_for_view(view_1).await.unwrap().unwrap();
-        let v_qc_2 = storage.get_qc_for_view(view_2).await.unwrap().unwrap();
-        // Check to make sure we got the right QCs back
-        assert_eq!(v_qc_1, qc_1);
-        assert_eq!(v_qc_2, qc_2);
-        // Make sure trying to get bunk QCs fails
-        let bunk_hash = BlockHash::<32>::random();
-        assert!(storage.get_qc(&bunk_hash).await.unwrap().is_none());
-        assert!(storage.get_qc_for_view(view_3).await.unwrap().is_none());
-        // Make sure inserting a bunk QC fails
-        //let bad_qc = dummy_qc(bunk_hash, 3, false);
-        //assert!(!storage.insert_qc(bad_qc).await.is_some());
-    }
-
-    #[async_std::test]
-    #[instrument]
-    async fn leaves() {
-        setup_logging();
-        let storage = MemoryStorage::<DummyBlock, DummyState, 32>::default();
-        // Create a few dummy leaves
-        let block_1 = DummyBlock::random();
-        let block_2 = DummyBlock::random();
-        let parent_1 = LeafHash::<32>::random();
-        let parent_2 = LeafHash::<32>::random();
-        let state_1 = DummyState::random();
-        let state_2 = DummyState::random();
-        let qc_1 = random_quorom_certificate();
-        let qc_2 = random_quorom_certificate();
-        let leaf_1 = Leaf {
-            parent: parent_1,
-            deltas: block_1.clone(),
-            view_number: qc_1.view_number,
-            justify_qc: qc_1,
-            state: state_1,
-        };
-        let hash_1 = leaf_1.hash();
-        let leaf_2 = Leaf {
-            parent: parent_2,
-            deltas: block_2.clone(),
-            view_number: qc_2.view_number,
-            justify_qc: qc_2,
-            state: state_2,
-        };
-        let hash_2 = leaf_2.hash();
-        // Attempt to insert them
+            .expect("Could not append block");
+        assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
         storage
-            .update(|mut m| {
-                let leaf_1 = leaf_1.clone();
-                let leaf_2 = leaf_2.clone();
-                async move {
-                    m.insert_leaf(leaf_1).await?;
-                    m.insert_leaf(leaf_2).await?;
-                    Ok(())
-                }
-            })
+            .cleanup_storage_up_to_view(genesis.view_number)
             .await
             .unwrap();
-        // Attempt to get them back by hash
-        let h_leaf_1 = storage.get_leaf(&hash_1).await.unwrap().unwrap();
-        let h_leaf_2 = storage.get_leaf(&hash_2).await.unwrap().unwrap();
-        // Make sure they are the right leaves
-        assert_eq!(h_leaf_1.parent, leaf_1.parent);
-        assert_eq!(h_leaf_1.deltas, leaf_1.deltas);
-        assert_eq!(h_leaf_2.parent, leaf_2.parent);
-        assert_eq!(h_leaf_2.deltas, leaf_2.deltas);
-        // Attempt to get them back by block hash
-        let b_leaf_1 = storage
-            .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_1))
+        assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
+        storage
+            .cleanup_storage_up_to_view(genesis.view_number + 1)
             .await
-            .unwrap()
             .unwrap();
-        let b_leaf_2 = storage
-            .get_leaf_by_block(&<DummyBlock as BlockContents<32>>::hash(&block_2))
-            .await
-            .unwrap()
-            .unwrap();
-        // Make sure they are the right leaves
-        assert_eq!(b_leaf_1.parent, leaf_1.parent);
-        assert_eq!(b_leaf_1.deltas, leaf_1.deltas);
-        assert_eq!(b_leaf_2.parent, leaf_2.parent);
-        assert_eq!(b_leaf_2.deltas, leaf_2.deltas);
-        // Getting a bunk leaf by hash fails
-        assert!(storage
-            .get_leaf(&LeafHash::<32>::random())
-            .await
-            .unwrap()
-            .is_none());
-        // Getting a bunk leaf by block hash fails
-        assert!(storage
-            .get_leaf_by_block(&BlockHash::<32>::random())
-            .await
-            .unwrap()
-            .is_none());
+        assert!(storage.get_anchored_view().await.is_err());
     }
 }

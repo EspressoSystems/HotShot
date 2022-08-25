@@ -9,7 +9,7 @@ pub use hotshot_types::traits::{
 };
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
-pub use storage::{Storage, StorageResult};
+pub use storage::{Result as StorageResult, Storage};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
@@ -20,7 +20,7 @@ pub mod implementations {
             memory_network::{DummyReliability, MasterMap, MemoryNetwork},
             w_network::WNetwork,
         },
-        storage::{atomic_storage::AtomicStorage, memory_storage::MemoryStorage},
+        storage::memory_storage::MemoryStorage, // atomic_storage::AtomicStorage,
     };
     pub use hotshot_types::traits::stateful_handler::Stateless;
 }
