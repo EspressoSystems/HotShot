@@ -279,7 +279,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         genesis_map.insert(
             ViewNumber::new(0),
             View {
-                view_inner: ViewInner::Leaf { leaf: leaf_commitment },
+                view_inner: ViewInner::Leaf {
+                    leaf: leaf_commitment,
+                },
             },
         );
 
@@ -617,9 +619,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate {
-                ..
-            } => {
+            DataMessage::NewestQuorumCertificate { .. } => {
                 // NOTE No-op until we get the storage API v2 merged.
             }
 

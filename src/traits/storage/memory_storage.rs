@@ -261,7 +261,9 @@ where
             self.inner.view_to_qc.get(&view),
             self.inner.hash_to_qc.get(&commitment),
         ) {
-            (Some(view_idx), Some(commitment_idx)) if view_idx.value() == commitment_idx.value() => {
+            (Some(view_idx), Some(commitment_idx))
+                if view_idx.value() == commitment_idx.value() =>
+            {
                 let index: usize = *view_idx.value() as usize;
                 trace!(?qc, ?index, "Updating qc");
                 qcs[index] = qc;
