@@ -14,7 +14,7 @@ pub trait Election<P: SignatureKey>: Send + Sync {
     /// The threshold for membership selection.
     type SelectionThreshold;
     /// The state type this election implementation is bound to
-    type State: Send + Sync + Default + Committable;
+    type State: Send + Sync + Committable;
     /// A membership proof
     type VoteToken;
     /// A type stated, validated membership proof

@@ -20,13 +20,14 @@
 mod traits;
 
 use commit::{Committable, Commitment};
+use hotshot_utils::hack::nll_todo;
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{
-        create_verify_hash, Leaf, QuorumCertificate,
+        Leaf, QuorumCertificate,
         ViewNumber,
     },
     error::{HotShotError, RoundTimedoutState},
@@ -45,21 +46,21 @@ use tracing::{error, info, instrument, warn};
 
 /// A view's state
 #[derive(Debug)]
-pub enum ViewInner<BLOCK: BlockContents, STATE: StateContents> {
+pub enum ViewInner<STATE: StateContents> {
     /// Undecided view
     Leaf {
         /// Proposed leaf
-        leaf: Commitment<Leaf<BLOCK, STATE>>,
+        leaf: Commitment<Leaf<STATE>>,
     },
     /// Leaf has failed
     Failed,
 }
 
-impl<BLOCK: BlockContents, STATE: StateContents> ViewInner<BLOCK, STATE> {
+impl<STATE: StateContents> ViewInner<STATE> {
     /// return the underlying leaf hash if it exists
     #[must_use]
     // TODO rename to commitment
-    pub fn get_leaf_hash(&self) -> Option<&Commitment<Leaf<BLOCK, STATE>>> {
+    pub fn get_leaf_hash(&self) -> Option<&Commitment<Leaf<STATE>>> {
         if let Self::Leaf { leaf } = self {
             Some(leaf)
         } else {
@@ -68,8 +69,8 @@ impl<BLOCK: BlockContents, STATE: StateContents> ViewInner<BLOCK, STATE> {
     }
 }
 
-impl<BLOCK: BlockContents, STATE: StateContents> ViewInner<BLOCK, STATE> {
-    type Target = ViewInner<BLOCK, STATE>;
+impl<STATE: StateContents> Deref for View<STATE> {
+    type Target = ViewInner<STATE>;
 
     fn deref(&self) -> &Self::Target {
         &self.view_inner
@@ -80,10 +81,10 @@ impl<BLOCK: BlockContents, STATE: StateContents> ViewInner<BLOCK, STATE> {
 #[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation> {
     /// to send networking events to Replica
-    pub sender_chan: Sender<ConsensusMessage<I::Block, I::State>>,
+    pub sender_chan: Sender<ConsensusMessage<I::State>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: Receiver<ConsensusMessage<I::Block, I::State>>,
+    pub receiver_chan: Receiver<ConsensusMessage<I::State>>,
 }
 
 impl<I: NodeImplementation> Default for ViewQueue<I> {
@@ -121,9 +122,9 @@ impl<I: NodeImplementation> SendToTasks<I> {
 
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
-pub struct View<BLOCK: BlockContents, STATE: StateContents> {
+pub struct View<STATE: StateContents> {
     /// The view data. Wrapped in a struct so we can mutate
-    pub view_inner: ViewInner<BLOCK, STATE>,
+    pub view_inner: ViewInner<STATE>,
 }
 
 /// The result used in this crate
@@ -136,7 +137,7 @@ pub type Result<T = ()> = std::result::Result<T, HotShotError>;
 pub struct Consensus<I: NodeImplementation> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<ViewNumber, View<BLOCK, STATE>>,
+    pub state_map: BTreeMap<ViewNumber, View<I::State>>,
 
     /// cur_view from pseudocode
     pub cur_view: ViewNumber,
@@ -145,18 +146,18 @@ pub struct Consensus<I: NodeImplementation> {
     pub last_decided_view: ViewNumber,
 
     /// A list of undecided transactions
-    pub transactions: Arc<RwLock<HashMap<Commitment<I::Block::Transaction>, <I as TypeMap>::Transaction>>>,
+    pub transactions: Arc<RwLock<HashMap<Commitment<<I::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: HashMap<Commitment<Leaf<I::Block, I::State>>, Leaf<I::Block, I::State>>,
+    pub saved_leaves: HashMap<Commitment<Leaf<I::State>>, Leaf<I::State>>,
 
     /// The `locked_qc` view number
     pub locked_view: ViewNumber,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<I::Block, I::State>,
+    pub high_qc: QuorumCertificate<I::State>,
 }
 
 /// This view's replica
@@ -165,13 +166,13 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<I, N>>>,
+    pub consensus: Arc<RwLock<Consensus<I>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: Receiver<ConsensusMessage<I::Block, I::State>>,
+    pub proposal_collection_chan: Receiver<ConsensusMessage<I::State>>,
     /// view number this view is executing in
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
-    pub high_qc: QuorumCertificate<I::Block, I::State>,
+    pub high_qc: QuorumCertificate<I::State>,
     /// hotshot consensus api
     pub api: A,
 }
@@ -186,7 +187,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         consensus: RwLockUpgradableReadGuard<'a, Consensus<I>>,
     ) -> (
         RwLockUpgradableReadGuard<'a, Consensus<I>>,
-        std::result::Result<Leaf<I::Block, I::State>, ()>,
+        std::result::Result<Leaf<I::State>, ()>,
     ) {
         let leaf = loop {
             let msg = self.proposal_collection_chan.recv_async().await;
@@ -200,7 +201,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     ConsensusMessage::Proposal(p) => {
                         if !view_leader_key.validate(
                             &p.signature,
-                            &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
+                            // TODO what are we using instead of verify hash?
+                            // &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
+                            &[nll_todo()]
                         ) {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
@@ -237,7 +240,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let leaf_hash = leaf.hash();
                         let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
 
-                        let vote = ConsensusMessage::<I::Block, I::State, N>::Vote(Vote {
+                        let vote = ConsensusMessage::<I::State>::Vote(Vote {
                             block_hash: <I::Block as Committable>::commit(&leaf.deltas),
                             justify_qc: leaf.justify_qc.clone(),
                             signature,
@@ -303,7 +306,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::Block, I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::State> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
@@ -413,11 +416,11 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<I::Block, I::State>,
+    pub high_qc: QuorumCertificate<I::State>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Lock over the transactions list
-    pub transactions: Arc<RwLock<HashMap<Commitment<I::Block::Transaction>, <I as TypeMap>::Transaction>>>,
+    pub transactions: Arc<RwLock<HashMap<Commitment<<I::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
 }
@@ -425,7 +428,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
 impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::Block, I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::State> {
         info!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
 
@@ -480,7 +483,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         let previous_used_txns = previous_used_txns_vec
             .into_iter()
-            .collect::<HashSet<Commitment<I::Block::Transaction>>>();
+            .collect::<HashSet<Commitment<<I::Block as BlockContents>::Transaction>>>();
 
         let txns = self.transactions.read().await;
 
@@ -527,9 +530,9 @@ pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<I::Block, I::State>,
+    pub generic_qc: QuorumCertificate<I::State>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Receiver<ConsensusMessage<I::Block, I::State>>,
+    pub vote_collection_chan: Receiver<ConsensusMessage<I::State>>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Limited access to the consensus protocol
@@ -545,12 +548,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::Block, I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::State> {
         info!("Next Leader task started!");
-        let mut qcs = HashSet::<QuorumCertificate<N>>::new();
+        let mut qcs = HashSet::<QuorumCertificate<I::State>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut vote_outcomes: HashMap<Commitment<Leaf<I::Block, I::State, N>>, (Commitment<I::Block>, Signatures)> = HashMap::new();
+        let mut vote_outcomes: HashMap<Commitment<Leaf<I::State>>, (Commitment<I::Block>, Signatures)> = HashMap::new();
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
@@ -587,7 +590,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         // NOTE this is slow, shouldn't check all the signatures EVERY time
                         let result = self.api.get_valid_signatures(
                             map.clone(),
-                            create_verify_hash(&vote.leaf_hash, self.cur_view),
+                            // TODO
+                            // create_verify_hash(&vote.leaf_hash, self.cur_view),
+                            nll_todo()
                         );
                         if let Ok(valid_signatures) = result {
                             // construct QC
@@ -634,7 +639,7 @@ impl<I: NodeImplementation> Consensus<I> {
         mut f: F,
     ) -> Result<()>
     where
-        F: FnMut(&Leaf<I::Block, I::State>) -> bool,
+        F: FnMut(&Leaf<I::State>) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
@@ -669,7 +674,7 @@ impl<I: NodeImplementation> Consensus<I> {
         }
         Err(HotShotError::ItemNotFound {
             type_name: "Leaf",
-            hash: next_leaf.to_vec(),
+            hash: nll_todo()/* next_leaf.to_vec(), */
         })
     }
 
@@ -743,7 +748,8 @@ impl<I: NodeImplementation> Consensus<I> {
     #[must_use]
     pub fn get_transactions(
         &self,
-    ) -> Arc<RwLock<HashMap<I::Block::Transaction, <I as TypeMap>::Transaction>>> {
+    ) ->
+Arc<RwLock<HashMap<Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>> {
         self.transactions.clone()
     }
 
@@ -752,7 +758,7 @@ impl<I: NodeImplementation> Consensus<I> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+    pub fn get_decided_leaf(&self) -> Leaf<I::State> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view

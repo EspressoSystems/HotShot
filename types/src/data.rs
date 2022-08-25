@@ -10,7 +10,7 @@ use crate::traits::{
 use blake3::Hasher;
 use commit::{Committable, Commitment};
 use hex_fmt::HexFmt;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -205,20 +205,22 @@ mod serde_bytes_array {
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
-pub struct QuorumCertificate<'a, STATE: StateContents<'a>> {
+pub struct QuorumCertificate<STATE: StateContents> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
-    #[debug(with = "fmt_blockhash")]
+    #[debug(skip)]
+    #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
     pub block_hash: Commitment<STATE::Block>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
-    pub leaf_hash: Commitment<Leaf<'a, STATE>>,
+    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
+    pub leaf_hash: Commitment<Leaf<STATE>>,
 
     /// The view number this quorum certificate was generated during
     ///
@@ -242,7 +244,7 @@ pub struct QuorumCertificate<'a, STATE: StateContents<'a>> {
     pub genesis: bool,
 }
 
-impl<'a, STATE: StateContents<'a>> Default for QuorumCertificate<'a, STATE> {
+impl<'a, STATE: StateContents> Default for QuorumCertificate<STATE> {
     fn default() -> Self {
         Self {
             block_hash: todo!(),
@@ -254,7 +256,7 @@ impl<'a, STATE: StateContents<'a>> Default for QuorumCertificate<'a, STATE> {
     }
 }
 
-impl<'a, STATE: StateContents<'a>> QuorumCertificate<'a, STATE> {
+impl<'a, STATE: StateContents> QuorumCertificate<STATE> {
     /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
     /// array.
     ///
@@ -302,51 +304,42 @@ impl VecQuorumCertificate {
     }
 }
 
-/// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in
-/// that order, and hashes the result.
-pub fn create_verify_hash<const N: usize>(
-    leaf_hash: &LeafHash<N>,
-    view: ViewNumber,
-) -> VerifyHash<32> {
-    let mut hasher = Hasher::new();
-    hasher.update(leaf_hash.as_ref());
-    hasher.update(&view.to_be_bytes());
-    let hash = hasher.finalize();
-    VerifyHash::from_array(*hash.as_bytes())
-}
-
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
-pub struct Leaf<'a, STATE: StateContents<'a>> {
-    /// CurView from leader when proposing leaf
+pub struct Leaf<STATE: StateContents> {
+    // /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
-    /// Per spec, justification
-    pub justify_qc: QuorumCertificate<'a, STATE>,
+    // /// Per spec, justification
+    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
+    pub justify_qc: QuorumCertificate<STATE>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(with = "fmt_leaf_hash")]
-    pub parent: Commitment<Leaf<'a, STATE>>,
+    #[debug(skip)]
+    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
+    pub parent: Commitment<Leaf<STATE>>,
 
     /// Block leaf wants to apply
+    #[serde(deserialize_with = "STATE::Block::deserialize")]
     pub deltas: STATE::Block,
 
     /// What the state should be after applying `self.deltas`
+    #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
 }
 
-impl<'a, STATE: StateContents<'a>> Committable for Leaf<'a, STATE> {
+impl<STATE: StateContents> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
         todo!()
     }
 }
 
-impl<'a, STATE: StateContents<'a>> Leaf<'a, STATE> {
+impl<STATE: StateContents> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -355,8 +348,8 @@ impl<'a, STATE: StateContents<'a>> Leaf<'a, STATE> {
     pub fn new(
         state: STATE,
         deltas: STATE::Block,
-        parent: Commitment<Leaf<'a, STATE>>,
-        qc: QuorumCertificate<'a, STATE>,
+        parent: Commitment<Leaf<STATE>>,
+        qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
     ) -> Self {
         Leaf {
@@ -373,7 +366,7 @@ impl<'a, STATE: StateContents<'a>> Leaf<'a, STATE> {
     /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
     /// contained block, and then return the hash of the resulting concatenated byte string.
     /// NOTE: are we sure this is hashing correctly
-    pub fn hash(&self) -> Commitment<Leaf<'a, STATE>> {
+    pub fn hash(&self) -> Commitment<Leaf<STATE>> {
         todo!()
         // let mut bytes = Vec::<u8>::new();
         // bytes.extend_from_slice(self.parent.as_ref());

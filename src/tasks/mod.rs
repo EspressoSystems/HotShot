@@ -114,9 +114,9 @@ struct TaskHandleInner {
 /// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
-    hotshot: &HotShot<I, N>,
-) -> HotShotHandle<I, N> {
+pub async fn spawn_all<I: NodeImplementation>(
+    hotshot: &HotShot<I>,
+) -> HotShotHandle<I> {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
@@ -179,8 +179,8 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 
 /// Executes one view of consensus
 #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
-pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn run_view<I: NodeImplementation>(
+    hotshot: HotShot<I>,
 ) -> Result<(), ()> {
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
@@ -278,7 +278,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     spawn({
         let next_view_timeout = hotshot.inner.config.next_view_timeout;
         let next_view_timeout = next_view_timeout;
-        let hotshot: HotShot<I, N> = hotshot.clone();
+        let hotshot: HotShot<I> = hotshot.clone();
         async move {
             sleep(Duration::from_millis(next_view_timeout)).await;
             hotshot
@@ -301,8 +301,8 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// main thread driving consensus
-pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn view_runner<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<Receiver<()>>,
@@ -320,8 +320,8 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
-pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_broadcast_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching broadcast processing task");
@@ -365,8 +365,8 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
-pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_direct_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching direct processing task");
@@ -408,8 +408,8 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
-pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_change_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network change handler task");

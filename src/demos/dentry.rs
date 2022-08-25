@@ -7,10 +7,12 @@
 //! production use.
 
 use blake3::Hasher;
+use commit::{Committable, Commitment};
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
+    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState, StateContents},
 };
+use hotshot_utils::hack::nll_todo;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -87,8 +89,6 @@ pub struct Transaction {
     pub nonce: u64,
 }
 
-impl crate::traits::Transaction<H_256> for Transaction {}
-
 impl Transaction {
     /// Ensures that this transaction is at least consistent with itself
     pub fn validate_independence(&self) -> bool {
@@ -107,28 +107,35 @@ pub struct State {
     pub nonces: BTreeSet<u64>,
 }
 
-impl State {
-    /// Produces a hash of the current state
-    fn hash_state(&self) -> StateHash<H_256> {
-        // BTreeMap sorts so this will be in a consistent order
-        let mut hasher = Hasher::new();
-        for (account, balance) in &self.balances {
-            // account first
-            hasher.update(account.as_bytes());
-            // then balance
-            hasher.update(&balance.to_be_bytes());
-        }
-        // Add nonces to hash
-        for nonce in &self.nonces {
-            hasher.update(&nonce.to_be_bytes());
-        }
-        let x = *hasher.finalize().as_bytes();
-        x.into()
+impl Committable for State {
+    fn commit(&self) -> Commitment<Self> {
+        nll_todo()
     }
 }
 
-impl TestableState<H_256> for State {
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents<H_256>>::Transaction {
+
+// impl State {
+//     /// Produces a hash of the current state
+//     fn hash_state(&self) -> StateHash<H_256> {
+//         // BTreeMap sorts so this will be in a consistent order
+//         let mut hasher = Hasher::new();
+//         for (account, balance) in &self.balances {
+//             // account first
+//             hasher.update(account.as_bytes());
+//             // then balance
+//             hasher.update(&balance.to_be_bytes());
+//         }
+//         // Add nonces to hash
+//         for nonce in &self.nonces {
+//             hasher.update(&nonce.to_be_bytes());
+//         }
+//         let x = *hasher.finalize().as_bytes();
+//         x.into()
+//     }
+// }
+
+impl TestableState for State {
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction {
         use rand::seq::IteratorRandom;
         let mut rng = thread_rng();
 
@@ -178,14 +185,14 @@ impl TestableState<H_256> for State {
     }
 }
 
-impl crate::traits::StateContents<H_256> for State {
+impl crate::traits::StateContents for State {
     type Error = DEntryError;
 
     type Block = DEntryBlock;
 
     fn next_block(&self) -> Self::Block {
         DEntryBlock {
-            previous_block: self.hash_state(),
+            previous_state: self.commit(),
             transactions: Vec::new(),
         }
     }
@@ -240,12 +247,12 @@ impl crate::traits::StateContents<H_256> for State {
         }
         // This block has now passed all our tests, and thus has not done anything bad, so the block
         // is valid if its previous state hash matches that of the previous state
-        let result = block.previous_block == state.hash_state();
+        let result = block.previous_state == state.commit();
         if !result {
             error!(
                 "hash failure. previous_block: {:?} hash_state: {:?}",
-                block.previous_block,
-                state.hash_state()
+                block.previous_state,
+                state.commit()
             );
         }
         result
@@ -291,7 +298,7 @@ impl crate::traits::StateContents<H_256> for State {
             }
         }
         // Make sure our previous state commitment matches the provided state
-        if block.previous_block == state.hash_state() {
+        if block.previous_state == state.commit() {
             // This block has now passed all our tests, and thus has not done anything bad
             // Add the nonces from this block
             let mut nonces = state.nonces.clone();
@@ -313,15 +320,29 @@ impl crate::traits::StateContents<H_256> for State {
 }
 
 /// The block for the dentry demo
-#[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
     /// Block state commitment
-    pub previous_block: StateHash<H_256>,
+    pub previous_state: Commitment<State>,
     /// Transaction vector
     pub transactions: Vec<Transaction>,
 }
 
-impl BlockContents<H_256> for DEntryBlock {
+
+impl Committable for DEntryBlock {
+    fn commit(&self) -> Commitment<Self> {
+        nll_todo()
+    }
+}
+
+impl Committable for Transaction {
+    fn commit(&self) -> Commitment<Self> {
+        nll_todo()
+    }
+}
+
+
+impl BlockContents for DEntryBlock {
     type Transaction = Transaction;
 
     type Error = DEntryError;
@@ -345,40 +366,11 @@ impl BlockContents<H_256> for DEntryBlock {
         }
     }
 
-    // Note: this is really used for indexing the block in storage
-    fn hash(&self) -> BlockHash<H_256> {
-        let mut hasher = Hasher::new();
-        hasher.update(self.previous_block.as_ref());
-        self.transactions.iter().for_each(|tx| {
-            hasher.update(Self::hash_transaction(tx).as_ref());
-        });
-        let x = *hasher.finalize().as_bytes();
-        x.into()
-    }
-
-    // Note: This is used for indexing the transaction in storage
-    fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<H_256> {
-        assert!(tx.validate_independence());
-        let mut hasher = Hasher::new();
-        hasher.update(tx.add.account.as_bytes());
-        hasher.update(&tx.add.amount.to_be_bytes());
-        hasher.update(tx.sub.account.as_bytes());
-        hasher.update(&tx.sub.amount.to_be_bytes());
-        hasher.update(&tx.nonce.to_be_bytes());
-        let x = *hasher.finalize().as_bytes();
-        x.into()
-    }
-
-    fn hash_leaf(bytes: &[u8]) -> LeafHash<H_256> {
-        let x = *blake3::hash(bytes).as_bytes();
-        x.into()
-    }
-
-    fn contained_transactions(&self) -> HashSet<TransactionHash<H_256>> {
+    fn contained_transactions(&self) -> HashSet<Commitment<Transaction>> {
         self.transactions
             .clone()
             .into_iter()
-            .map(|tx| Self::hash_transaction(&tx))
+            .map(|tx| tx.commit())
             .collect()
     }
 }
@@ -413,10 +405,10 @@ impl<NET> Default for DEntryNode<NET> {
     }
 }
 
-impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
+impl<NET> NodeImplementation for DEntryNode<NET>
 where
     NET: NetworkingImplementation<
-            Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
+            Message<State, Ed25519Pub>,
             Ed25519Pub,
         > + Clone
         + Debug
@@ -424,10 +416,10 @@ where
 {
     type Block = DEntryBlock;
     type State = State;
-    type Storage = MemoryStorage<DEntryBlock, State, H_256>;
+    type Storage = MemoryStorage<State>;
     type Networking = NET;
-    type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
-    type Election = StaticCommittee<Self::State, H_256>;
+    type StatefulHandler = crate::traits::implementations::Stateless<<Self::State as StateContents>::Block, State>;
+    type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
 }
 
@@ -469,22 +461,23 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
+pub fn random_quorom_certificate<STATE: StateContents>() -> QuorumCertificate<STATE> {
     let mut rng = thread_rng();
 
     // TODO: Generate a tc::Signature
     QuorumCertificate {
-        block_hash: BlockHash::random(),
+        block_hash: nll_todo(),
         genesis: rng.gen(),
-        leaf_hash: LeafHash::random(),
+        leaf_hash: nll_todo(),
         signatures: BTreeMap::new(),
         view_number: ViewNumber::new(rng.gen()),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, State, N> {
-    let parent = LeafHash::random();
+pub fn random_leaf(deltas: DEntryBlock) -> Leaf<State> {
+    // let parent = Commitment::<Leaf<State>>::random();
+    let parent = nll_todo();
     let justify_qc = random_quorom_certificate();
     Leaf {
         parent,

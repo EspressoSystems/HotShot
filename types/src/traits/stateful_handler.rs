@@ -11,11 +11,11 @@ use crate::traits::{BlockContents, StateContents};
 ///
 /// A do-nothing implementation ([`Stateless`]) is provided, as a convince for implementations that
 /// do not need this functionality.
-pub trait StatefulHandler<'a>: Send + Sync + Debug + 'static {
+pub trait StatefulHandler: Send + Sync + Debug + 'static {
     /// Block type for this consensus implementation
-    type Block: BlockContents<'a> + 'static;
+    type Block: BlockContents + 'static;
     /// State type for this consensus implementation
-    type State: StateContents<'a, Block = Self::Block>;
+    type State: StateContents<Block = Self::Block>;
 
     /// The `HotShot` implementation will call this method, with the series of blocks and states
     /// that are being committed, whenever a commit action takes place.
@@ -51,9 +51,10 @@ impl<B, S> Default for Stateless<B, S> {
     }
 }
 
-impl<'a, B, S> StatefulHandler<'a> for Stateless<B, S>
+impl<B, S> StatefulHandler for Stateless<B, S>
 where
-    S: StateContents<'a, Block = B> + 'static,
+    B: BlockContents + 'static,
+    S: StateContents<Block = B> + 'static,
 {
     type Block = B;
 

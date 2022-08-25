@@ -12,11 +12,11 @@ use std::sync::Arc;
 /// This includes some metadata, such as the stage and view number that the event was generated in,
 /// as well as an inner [`EventType`] describing the event proper.
 #[derive(Clone, Debug)]
-pub struct Event<'a, S: StateContents<'a> + Send + Sync> {
+pub struct Event<S: StateContents + Send + Sync> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
     /// The underlying event
-    pub event: EventType<'a, S>,
+    pub event: EventType<S>,
 }
 
 /// The type and contents of a status event emitted by a `HotShot` instance
@@ -25,7 +25,7 @@ pub struct Event<'a, S: StateContents<'a> + Send + Sync> {
 /// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum EventType<'b, S: StateContents<'b>> {
+pub enum EventType<S: StateContents> {
     /// A view encountered an error and was interrupted
     Error {
         /// The underlying error
@@ -53,7 +53,7 @@ pub enum EventType<'b, S: StateContents<'b>> {
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
         /// The quorum certificates that accompy this Decide
-        qcs: Arc<Vec<QuorumCertificate<'b, S>>>,
+        qcs: Arc<Vec<QuorumCertificate<S>>>,
     },
     /// A new view was started by this node
     NewView {
@@ -91,7 +91,7 @@ pub enum EventType<'b, S: StateContents<'b>> {
     /// Currently HotShot does not know if a transaction is rejected because it is a duplicate, or because the transaction is invalid.
     TransactionRejected {
         /// The transaction that has been rejected.
-        transaction: <<S as state::StateContents<'b>>::Block as BlockContents<'b>>::Transaction,
+        transaction: <<S as state::StateContents>::Block as BlockContents>::Transaction,
     },
 
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.

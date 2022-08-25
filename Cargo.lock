@@ -1625,6 +1625,7 @@ dependencies = [
  "bincode",
  "blake3",
  "clap 3.2.17",
+ "commit",
  "custom_debug",
  "dashmap",
  "embed-doc-image",

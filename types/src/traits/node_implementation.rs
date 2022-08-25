@@ -21,24 +21,23 @@ use std::fmt::Debug;
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
-pub trait NodeImplementation<'b>: Send + Sync + Debug + Clone + 'static {
+pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Block type for this consensus implementation
-    type Block: BlockContents<'b> + 'static;
+    type Block: BlockContents + 'static;
     /// State type for this consensus implementation
-    type State: crate::traits::StateContents<'b, Block = Self::Block>;
+    type State: crate::traits::StateContents<Block = Self::Block>;
     /// Storage type for this consensus implementation
-    type Storage: Storage<'b, Self::State> + Clone;
+    type Storage: Storage<Self::State> + Clone;
     /// Networking type for this consensus implementation
     type Networking: NetworkingImplementation<
             Message<
-                'b,
                 Self::State,
                 Self::SignatureKey,
             >,
             Self::SignatureKey,
         > + Clone;
     /// Stateful call back handler for this consensus implementation
-    type StatefulHandler: StatefulHandler<'b, Block = Self::Block, State = Self::State>;
+    type StatefulHandler: StatefulHandler<Block = Self::Block, State = Self::State>;
     /// The election algorithm
     type Election: Election<Self::SignatureKey>;
     /// The signature key type for this implementation
@@ -63,7 +62,7 @@ pub trait NodeImplementation<'b>: Send + Sync + Debug + Clone + 'static {
 /// ```ignore
 /// <I as TypeMap<N>>::Message
 /// ```
-pub trait TypeMap<'a> {
+pub trait TypeMap {
     /// Type alias for the [`MessageKind`] enum.
     type MessageKind;
     /// Type alias for the [`ConsensusMessage`] enum.
@@ -74,11 +73,11 @@ pub trait TypeMap<'a> {
     type Transaction;
 }
 
-impl<'a, I: NodeImplementation<'a> > TypeMap<'a> for I
+impl<I: NodeImplementation > TypeMap for I
 where
 {
-    type MessageKind = MessageKind<'a, I::State>;
-    type ConsensusMessage = ConsensusMessage<'a, I::State>;
-    type DataMessage = DataMessage<'a, I::State>;
-    type Transaction = <I::Block as BlockContents<'a>>::Transaction;
+    type MessageKind = MessageKind<I::State>;
+    type ConsensusMessage = ConsensusMessage<I::State>;
+    type DataMessage = DataMessage<I::State>;
+    type Transaction = <I::Block as BlockContents>::Transaction;
 }

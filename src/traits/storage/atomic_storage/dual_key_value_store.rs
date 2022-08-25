@@ -4,6 +4,7 @@
 
 use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
+use commit::{Commitment, Committable};
 use hotshot_types::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
     traits::{
@@ -179,8 +180,8 @@ pub trait DualKeyValue: Serialize + DeserializeOwned + Clone {
     fn key_2(&self) -> Self::Key2;
 }
 
-impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
-    type Key1 = BlockHash<N>;
+impl<STATE: StateContents> DualKeyValue for QuorumCertificate<STATE> {
+    type Key1 = Commitment<STATE::Block>;
     type Key2 = ViewNumber;
 
     const KEY_1_NAME: &'static str = "block_hash";
@@ -194,13 +195,12 @@ impl<const N: usize> DualKeyValue for QuorumCertificate<N> {
     }
 }
 
-impl<BLOCK, STATE, const N: usize> DualKeyValue for Leaf<BLOCK, STATE, N>
+impl<STATE> DualKeyValue for Leaf<STATE>
 where
-    BLOCK: Clone + Serialize + DeserializeOwned + BlockContents<N>,
-    STATE: StateContents<N>,
+    STATE: StateContents,
 {
-    type Key1 = LeafHash<N>;
-    type Key2 = BlockHash<N>;
+    type Key1 = Commitment<Leaf<STATE>>;
+    type Key2 = Commitment<STATE::Block>;
 
     const KEY_1_NAME: &'static str = "leaf_hash";
     const KEY_2_NAME: &'static str = "block_hash";
@@ -210,6 +210,6 @@ where
     }
 
     fn key_2(&self) -> Self::Key2 {
-        BlockContents::hash(&self.deltas)
+        <STATE::Block as Committable>::commit(&self.deltas)
     }
 }

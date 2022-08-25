@@ -21,13 +21,13 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     ([`append`](State::append))
 ///     TODO add hash function to trait
 ///     NOTE (see hash)
-pub trait StateContents<'a>:
-    Serialize + Deserialize<'a> + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin + Committable
+pub trait StateContents:
+    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin + Committable
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
-    type Block: BlockContents<'a>;
+    type Block: BlockContents;
 
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::Block;
@@ -44,10 +44,10 @@ pub trait StateContents<'a>:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState<'a>: StateContents<'a> {
+pub trait TestableState: StateContents {
     /// Creates random transaction if possible
     /// otherwise panics
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents<'a>>::Transaction;
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction;
     /// Provides a common starting state
     fn get_starting_state() -> Self;
 }
@@ -81,7 +81,7 @@ pub mod dummy {
         }
     }
 
-    impl<'a> StateContents<'a> for DummyState {
+    impl<'a> StateContents for DummyState {
         type Error = DummyError;
 
         type Block = DummyBlock;

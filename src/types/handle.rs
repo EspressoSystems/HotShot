@@ -23,23 +23,23 @@ use tracing::{debug, error};
 /// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct HotShotHandle<I: NodeImplementation<N> + Send + Sync + 'static, const N: usize> {
+pub struct HotShotHandle<I: NodeImplementation + Send + Sync + 'static> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::Block, I::State, N>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::State>>>,
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: HotShot<I, N>,
+    pub(crate) hotshot: HotShot<I>,
     /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<I::Block, I::State, N>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<I::State>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
 
-impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for HotShotHandle<B, N> {
+impl<I: NodeImplementation + 'static> Clone for HotShotHandle<I> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -51,13 +51,13 @@ impl<B: NodeImplementation<N> + 'static, const N: usize> Clone for HotShotHandle
     }
 }
 
-impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
+impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// Will return the next event in the queue
     ///
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<I::Block, I::State, N>> {
+    pub async fn next_event(&mut self) -> Result<Event<I::State>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -69,7 +69,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<I::Block, I::State, N>>> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::State>>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -80,7 +80,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(&mut self) -> Result<Vec<Event<I::Block, I::State, N>>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<I::State>>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -107,7 +107,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    pub async fn get_decided_leaf(&self) -> Leaf<I::Block, I::State, N> {
+    pub async fn get_decided_leaf(&self) -> Leaf<I::State> {
         self.hotshot.get_decided_leaf().await
     }
 
@@ -121,7 +121,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// [`HotShot`] instance.
     pub async fn submit_transaction(
         &self,
-        tx: <<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction,
+        tx: <<I as NodeImplementation>::Block as BlockContents>::Transaction,
     ) -> Result<()> {
         self.hotshot.publish_transaction_async(tx).await
     }
