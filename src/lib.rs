@@ -559,7 +559,7 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     msg_view_number + 1,
                 )
                 .await
-                    && msg_view_number >= channel_map.cur_view
+                    || msg_view_number < channel_map.cur_view
                 {
                     return;
                 }
