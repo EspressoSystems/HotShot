@@ -30,7 +30,7 @@ use tracing::debug;
 
 const TRANSACTION_COUNT: u64 = 10;
 
-type Node = DEntryNode<WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -95,8 +95,8 @@ async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
-) -> (State, HotShotHandle<Node>) {
+    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -108,7 +108,7 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = State {
+    let state = DEntryState {
         balances,
         nonces: BTreeSet::default(),
     };
@@ -248,7 +248,7 @@ async fn main() {
         // Start consensus
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<State> = hotshot
+        let mut event: Event<DEntryState> = hotshot
             .next_event()
             .await
             .expect("HotShot unexpectedly closed");

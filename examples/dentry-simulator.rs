@@ -27,7 +27,7 @@ use hotshot::{
     HotShot, HotShotConfig, H_256,
 };
 
-type Node = DEntryNode<WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -93,7 +93,7 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
+        WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
         u16,
         Ed25519Pub,
         u64,
@@ -154,7 +154,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<State> = hotshot
+            let mut event: Event<DEntryState> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -220,7 +220,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<State> = hotshot
+            let mut event: Event<DEntryState> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -275,7 +275,7 @@ async fn main() {
 }
 
 /// Provides the initial state for the simulation
-fn inital_state() -> State {
+fn inital_state() -> DEntryState {
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
@@ -286,7 +286,7 @@ fn inital_state() -> State {
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    State {
+    DEntryState {
         balances,
         nonces: BTreeSet::default(),
     }
@@ -339,8 +339,8 @@ async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
-    state: &State,
+    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    state: &DEntryState,
 ) -> HotShotHandle<Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {

@@ -1,11 +1,12 @@
 mod common;
 use commit::Committable;
-use hotshot::demos::dentry::State;
+use hotshot::demos::dentry::DEntryState;
 
 use hotshot::{
     data::{Leaf, QuorumCertificate},
     demos::dentry::{
-        random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
+        random_leaf, random_quorom_certificate, random_transaction, DEntryBlock,
+        DEntryState as DemoState,
     },
     traits::{BlockContents, Storage},
     H_256,
@@ -14,7 +15,7 @@ use hotshot_types::{data::ViewNumber, traits::state::TestableState};
 use hotshot_utils::hack::nll_todo;
 use rand::thread_rng;
 
-type AtomicStorage = hotshot::traits::implementations::AtomicStorage<DemoState>;
+type AtomicStorage = hotshot::traits::implementations::AtomicStorage<DEntryState>;
 
 #[async_std::test]
 async fn test_happy_path_blocks() {

@@ -5,13 +5,9 @@ use common::*;
 use either::Either::Right;
 
 use hotshot::{
-    demos::dentry::{DEntryBlock, State as DemoState},
-    traits::{
-        implementations::{Libp2pNetwork, MemoryStorage},
-        BlockContents,
-    },
+    demos::dentry::{DEntryBlock, DEntryState},
+    traits::implementations::{Libp2pNetwork, MemoryStorage},
     types::Message,
-    H_256,
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
@@ -36,11 +32,11 @@ async fn libp2p_network() {
     description
         .build::<Libp2pNetwork<
             Message<
-                DemoState,
+                DEntryState,
                 Ed25519Pub,
             >,
             Ed25519Pub,
-        >, MemoryStorage<DemoState>, DEntryBlock, DemoState>()
+        >, MemoryStorage<DEntryState>, DEntryBlock, DEntryState>()
         .execute()
         .await
         .unwrap();
@@ -67,11 +63,11 @@ async fn test_stress_libp2p_network() {
     description
         .build::<Libp2pNetwork<
             Message<
-                DemoState,
+                DEntryState,
                 Ed25519Pub,
             >,
             Ed25519Pub,
-        >, MemoryStorage<DemoState>, DEntryBlock, DemoState>()
+        >, MemoryStorage<DEntryState>, DEntryBlock, DEntryState>()
         .execute()
         .await
         .unwrap();

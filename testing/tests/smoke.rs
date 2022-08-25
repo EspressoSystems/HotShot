@@ -4,7 +4,7 @@ use common::*;
 use either::Either::Right;
 
 use hotshot::{
-    demos::dentry::{DEntryBlock, State},
+    demos::dentry::{DEntryBlock, DEntryState},
     traits::implementations::{MemoryNetwork, MemoryStorage},
 };
 

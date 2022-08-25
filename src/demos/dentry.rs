@@ -99,14 +99,14 @@ impl Transaction {
 
 /// The state for the dentry demo
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
-pub struct State {
+pub struct DEntryState {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
     /// Set of previously seen nonces
     pub nonces: BTreeSet<u64>,
 }
 
-impl Committable for State {
+impl Committable for DEntryState {
     fn commit(&self) -> Commitment<Self> {
         nll_todo()
     }
@@ -132,7 +132,7 @@ impl Committable for State {
 //     }
 // }
 
-impl TestableState for State {
+impl TestableState for DEntryState {
     fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction {
         use rand::seq::IteratorRandom;
         let mut rng = thread_rng();
@@ -183,7 +183,7 @@ impl TestableState for State {
     }
 }
 
-impl crate::traits::StateContents for State {
+impl crate::traits::StateContents for DEntryState {
     type Error = DEntryError;
 
     type Block = DEntryBlock;
@@ -303,7 +303,7 @@ impl crate::traits::StateContents for State {
             for tx in &block.transactions {
                 nonces.insert(tx.nonce);
             }
-            Ok(State {
+            Ok(DEntryState {
                 balances: trial_balances,
                 nonces,
             })
@@ -330,7 +330,7 @@ impl Default for DEntryBlock {
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
     /// Block state commitment
-    pub previous_state: Commitment<State>,
+    pub previous_state: Commitment<DEntryState>,
     /// Transaction vector
     pub transactions: Vec<Transaction>,
 }
@@ -412,14 +412,19 @@ impl<NET> Default for DEntryNode<NET> {
 
 impl<NET> NodeImplementation for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<Message<State, Ed25519Pub>, Ed25519Pub> + Clone + Debug + 'static,
+    NET: NetworkingImplementation<Message<DEntryState, Ed25519Pub>, Ed25519Pub>
+        + Clone
+        + Debug
+        + 'static,
 {
     type Block = DEntryBlock;
-    type State = State;
-    type Storage = MemoryStorage<State>;
+    type State = DEntryState;
+    type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
-    type StatefulHandler =
-        crate::traits::implementations::Stateless<<Self::State as StateContents>::Block, State>;
+    type StatefulHandler = crate::traits::implementations::Stateless<
+        <Self::State as StateContents>::Block,
+        DEntryState,
+    >;
     type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
 }
@@ -427,7 +432,7 @@ where
 /// Provides a random valid transaction from the current state
 /// # Panics
 /// panics if state has no balances
-pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
+pub fn random_transaction<R: rand::Rng>(state: &DEntryState, mut rng: &mut R) -> Transaction {
     use rand::seq::IteratorRandom;
     let mut attempts = 0;
     #[allow(clippy::panic)]
@@ -476,7 +481,7 @@ pub fn random_quorom_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf(deltas: DEntryBlock) -> Leaf<State> {
+pub fn random_leaf(deltas: DEntryBlock) -> Leaf<DEntryState> {
     // let parent = Commitment::<Leaf<State>>::random();
     let parent = nll_todo();
     let justify_qc = random_quorom_certificate();
@@ -486,6 +491,6 @@ pub fn random_leaf(deltas: DEntryBlock) -> Leaf<State> {
         view_number: justify_qc.view_number,
         justify_qc,
         // TODO we should add in a random
-        state: State::default(),
+        state: DEntryState::default(),
     }
 }

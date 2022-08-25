@@ -3,7 +3,7 @@
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    demos::dentry::{DEntryBlock, State as DemoState, Transaction},
+    demos::dentry::{DEntryBlock, DEntryState},
     traits::{
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
         BlockContents, NetworkReliability, NetworkingImplementation, StateContents, Storage,
@@ -247,15 +247,15 @@ pub type TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec<
 >;
 
 /// type alias for the typical network we use
-pub type TestNetwork = MemoryNetwork<Message<DemoState, Ed25519Pub>, Ed25519Pub>;
+pub type TestNetwork = MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>;
 /// type alias for in memory storage we use
-pub type TestStorage = MemoryStorage<DemoState>;
+pub type TestStorage = MemoryStorage<DEntryState>;
 /// type alias for the test transaction type
 pub type TestTransaction = <DEntryBlock as BlockContents>::Transaction;
 /// type alias for the test runner type
-pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState>;
+pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, DEntryState>;
 /// type alias for the result of a test round
-pub type TestRoundResult = RoundResult<DEntryBlock, DemoState>;
+pub type TestRoundResult = RoundResult<DEntryBlock, DEntryState>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -278,7 +278,7 @@ impl Default for GeneralTestDescriptionBuilder {
     }
 }
 
-pub type TestLibp2pNetwork = Libp2pNetwork<Message<DemoState, Ed25519Pub>, Ed25519Pub>;
+pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>;
 
 /// given a description of rounds, generates such rounds
 /// args
@@ -676,7 +676,7 @@ macro_rules! cross_all_types {
                 [ MemoryNetwork ],
                 [ MemoryStorage ],
                 [ DEntryBlock  ],
-                [ State ],
+                [ DEntryState ],
                 $fn_name,
                 $e,
                 keep: $keep,
@@ -710,7 +710,7 @@ macro_rules! cross_all_types_proptest {
                 [ MemoryNetwork Libp2pNetwork ],
                 [ MemoryStorage AtomicStorage ],
                 [ DEntryBlock  ],
-                [ State ],
+                [ DEntryState ],
                 $fn_name,
                 $e,
                 keep: $keep,
