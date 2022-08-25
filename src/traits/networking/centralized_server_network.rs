@@ -15,6 +15,7 @@ use hotshot_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
+use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
@@ -142,7 +143,7 @@ impl<K: SignatureKey> Inner<K> {
     ) -> Vec<Result<M, bincode::Error>> {
         self.remove_messages_from_queue(|msg| {
             if let FromServer::Broadcast { message } = msg {
-                Some(hotshot_centralized_server::bincode_opts().deserialize(message))
+                Some(bincode_opts().deserialize(message))
             } else {
                 None
             }
@@ -155,7 +156,7 @@ impl<K: SignatureKey> Inner<K> {
     ) -> Result<M, bincode::Error> {
         self.remove_next_message_from_queue(|msg| {
             if let FromServer::Broadcast { message } = msg {
-                Some(hotshot_centralized_server::bincode_opts().deserialize(message))
+                Some(bincode_opts().deserialize(message))
             } else {
                 None
             }
@@ -170,7 +171,7 @@ impl<K: SignatureKey> Inner<K> {
     ) -> Vec<Result<M, bincode::Error>> {
         self.remove_messages_from_queue(|msg| {
             if let FromServer::Direct { message } = msg {
-                Some(hotshot_centralized_server::bincode_opts().deserialize(message))
+                Some(bincode_opts().deserialize(message))
             } else {
                 None
             }
@@ -185,7 +186,7 @@ impl<K: SignatureKey> Inner<K> {
     ) -> Result<M, bincode::Error> {
         self.remove_next_message_from_queue(|msg| {
             if let FromServer::Direct { message } = msg {
-                Some(hotshot_centralized_server::bincode_opts().deserialize(message))
+                Some(bincode_opts().deserialize(message))
             } else {
                 None
             }
@@ -368,7 +369,7 @@ where
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
-                hotshot_centralized_server::bincode_opts()
+                bincode_opts()
                     .serialize(&message)
                     .context(FailedToSerializeSnafu)?,
             )
@@ -380,7 +381,7 @@ where
         self.inner
             .direct_message(
                 recipient,
-                hotshot_centralized_server::bincode_opts()
+                bincode_opts()
                     .serialize(&message)
                     .context(FailedToSerializeSnafu)?,
             )

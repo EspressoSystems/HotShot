@@ -11,3 +11,4 @@ serde = { version = "1.0.143", features = ["derive"] }
 snafu = "0.7.1"
 flume = "0.10.14"
 futures = "0.3.21"
+hotshot-utils = { path = "../utils" }

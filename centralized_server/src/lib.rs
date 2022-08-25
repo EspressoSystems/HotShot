@@ -7,6 +7,8 @@ use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use hotshot_types::traits::signature_key::EncodedPublicKey;
+use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -15,30 +17,7 @@ use std::{
     time::Duration,
 };
 
-use bincode::config::*;
-use hotshot_types::traits::signature_key::SignatureKey;
-
-/// For the wire format, we use bincode with the following options:
-///   - No upper size limit
-///   - Litte endian encoding
-///   - Varint encoding
-///   - Reject trailing bytes
-#[allow(clippy::type_complexity)]
-pub fn bincode_opts() -> WithOtherTrailing<
-    WithOtherIntEncoding<
-        WithOtherEndian<WithOtherLimit<DefaultOptions, bincode::config::Infinite>, LittleEndian>,
-        VarintEncoding,
-    >,
-    RejectTrailing,
-> {
-    bincode::DefaultOptions::new()
-        .with_no_limit()
-        .with_little_endian()
-        .with_varint_encoding()
-        .reject_trailing_bytes()
-}
-
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(bound(deserialize = ""))]
 pub enum ToServer<K: SignatureKey> {
     Identify { key: K },
@@ -47,7 +26,7 @@ pub enum ToServer<K: SignatureKey> {
     RequestClientCount,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(bound(deserialize = ""))]
 pub enum FromServer<K: SignatureKey> {
     NodeConnected { key: K },
@@ -77,7 +56,14 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 
     /// Register a signal that can be used to shut down this server
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the shutdown signal is already configured.
     pub fn with_shutdown_signal(mut self, shutdown_listener: Receiver<()>) -> Self {
+        if self.shutdown.is_some() {
+            panic!("A shutdown signal is already registered and can not be registered twice");
+        }
         self.shutdown = Some(shutdown_listener);
         self
     }
@@ -184,16 +170,13 @@ impl<K: SignatureKey> Ord for OrdKey<K> {
 async fn background_task<K: SignatureKey>(
     receiver: Receiver<ToBackground<K>>,
 ) -> Result<(), Error> {
-    let mut clients = BTreeMap::<OrdKey<K>, Sender<FromServer<K>>>::new();
+    let mut clients = Clients::new();
     loop {
         let msg = receiver
             .recv_async()
             .await
             .map_err(|_| Error::BackgroundShutdown)?;
 
-        // if we fail to delivery a message to other clients, we store them in this vec
-        // at the end we'll clean up the clients that we failed to `.send_async` to
-        let mut clients_with_error = BTreeSet::<OrdKey<K>>::new();
         let client_count = clients.len();
         match msg {
             ToBackground::Shutdown => {
@@ -202,100 +185,132 @@ async fn background_task<K: SignatureKey>(
             }
             ToBackground::NewClient { key, sender } => {
                 // notify everyone else of the new client
-                for (id, sender) in &mut clients {
-                    if sender
-                        .send_async(FromServer::NodeConnected { key: key.clone() })
-                        .await
-                        .is_err()
-                    {
-                        clients_with_error.insert(id.clone());
-                    }
-                }
+                clients
+                    .broadcast(FromServer::NodeConnected { key: key.clone() })
+                    .await;
                 // add the client
                 clients.insert(key.into(), sender);
             }
             ToBackground::ClientDisconnected { key } => {
                 // remove the client
-                clients.remove(&OrdKey::from(key.clone()));
+                clients.remove(key.clone().into());
                 // notify everyone of the client disconnecting
-                for (id, sender) in &mut clients {
-                    if sender
-                        .send_async(FromServer::NodeDisconnected { key: key.clone() })
-                        .await
-                        .is_err()
-                    {
-                        clients_with_error.insert(id.clone());
-                    }
-                }
+                clients
+                    .broadcast(FromServer::NodeDisconnected { key })
+                    .await;
             }
             ToBackground::IncomingBroadcast { message, sender } => {
-                // Notify everyone but ourself of this message
-                for (id, sender) in clients.iter_mut().filter(|(key, _)| key.key != sender) {
-                    if sender
-                        .send_async(FromServer::Broadcast {
-                            message: message.clone(),
-                        })
-                        .await
-                        .is_err()
-                    {
-                        clients_with_error.insert(id.clone());
-                    }
-                }
+                clients
+                    .broadcast_except_self(sender, FromServer::Broadcast { message })
+                    .await;
             }
             ToBackground::IncomingDirectMessage { receiver, message } => {
-                let receiver = OrdKey::from(receiver);
-                if let Some(channel) = clients.get_mut(&receiver) {
-                    if channel
-                        .send_async(FromServer::Direct { message })
-                        .await
-                        .is_err()
-                    {
-                        clients_with_error.insert(receiver);
-                    }
-                }
+                clients
+                    .direct_message(receiver, FromServer::Direct { message })
+                    .await;
             }
             ToBackground::RequestClientCount { sender } => {
-                let sender = OrdKey::from(sender);
                 let client_count = clients.len();
-                if let Some(channel) = clients.get_mut(&sender) {
-                    if channel
-                        .send_async(FromServer::ClientCount(client_count))
-                        .await
-                        .is_err()
-                    {
-                        clients_with_error.insert(sender);
-                    }
-                }
+                clients
+                    .direct_message(sender, FromServer::ClientCount(client_count))
+                    .await;
             }
         }
 
+        if client_count != clients.len() {
+            println!("Clients connected: {}", clients.len());
+        }
+    }
+}
+
+struct Clients<K: SignatureKey>(BTreeMap<OrdKey<K>, Sender<FromServer<K>>>);
+
+impl<K: SignatureKey + PartialEq> Clients<K> {
+    fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    pub async fn broadcast(&mut self, msg: FromServer<K>) {
+        let futures = futures::future::join_all(self.0.iter().map(|(id, sender)| {
+            sender
+                .send_async(msg.clone())
+                .map(move |res| (id, res.is_ok()))
+        }))
+        .await;
+        let keys_to_remove = futures
+            .into_iter()
+            .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
+            .collect();
+        self.prune_nodes(keys_to_remove).await;
+    }
+
+    async fn broadcast_except_self(&mut self, sender_key: K, message: FromServer<K>) {
+        let futures = futures::future::join_all(self.0.iter().filter_map(|(id, sender)| {
+            if id.key != sender_key {
+                Some(
+                    sender
+                        .send_async(message.clone())
+                        .map(move |res| (id, res.is_ok())),
+                )
+            } else {
+                None
+            }
+        }))
+        .await;
+        let keys_to_remove = futures
+            .into_iter()
+            .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
+            .collect();
+        self.prune_nodes(keys_to_remove).await;
+    }
+
+    async fn direct_message(&mut self, receiver: K, msg: FromServer<K>) {
+        let receiver = OrdKey::from(receiver);
+        if let Some(sender) = self.0.get_mut(&receiver) {
+            if sender.send_async(msg).await.is_err() {
+                let mut tree = BTreeSet::new();
+                tree.insert(receiver);
+                self.prune_nodes(tree).await;
+            }
+        }
+    }
+
+    async fn prune_nodes(&mut self, mut clients_with_error: BTreeSet<OrdKey<K>>) {
         // While notifying the clients of other clients disconnecting, those clients can be disconnected too
         // we solve this by looping over this until we've removed all failing nodes and have successfully notified everyone else.
         while !clients_with_error.is_empty() {
             let clients_to_remove = std::mem::take(&mut clients_with_error);
             for client in &clients_to_remove {
                 eprintln!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
-                clients.remove(client);
+                self.0.remove(client);
             }
+            let mut futures = Vec::with_capacity(self.0.len() * clients_to_remove.len());
             for client in clients_to_remove {
-                for (id, sender) in clients.iter_mut() {
-                    if sender
-                        .send_async(FromServer::NodeDisconnected {
-                            key: client.key.clone(),
-                        })
-                        .await
-                        .is_err()
-                    {
-                        // note: push to `clients_with_error`, NOT `clients_to_remove`
-                        // clients_with_error will be attempted to be purged next loop
-                        clients_with_error.insert(id.clone());
-                    }
-                }
+                let message = FromServer::NodeDisconnected { key: client.key };
+                futures.extend(self.0.iter().map(|(id, sender)| {
+                    sender
+                        .send_async(message.clone())
+                        .map(move |result| (id, result.is_ok()))
+                }));
             }
+            let results = futures::future::join_all(futures).await;
+            clients_with_error = results
+                .into_iter()
+                .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
+                .collect();
         }
-        if client_count != clients.len() {
-            println!("Clients connected: {}", clients.len());
-        }
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn insert(&mut self, key: OrdKey<K>, sender: Sender<FromServer<K>>) {
+        self.0.insert(key, sender);
+    }
+
+    fn remove(&mut self, key: OrdKey<K>) {
+        self.0.remove(&key);
     }
 }
 

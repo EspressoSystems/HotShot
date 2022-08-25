@@ -1631,6 +1631,7 @@ dependencies = [
  "flume",
  "futures",
  "hotshot-types",
+ "hotshot-utils",
  "serde",
  "snafu",
 ]
@@ -1646,6 +1647,7 @@ dependencies = [
  "hotshot",
  "hotshot-centralized-server",
  "hotshot-types",
+ "hotshot-utils",
  "serde",
 ]
 
