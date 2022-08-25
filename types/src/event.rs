@@ -3,7 +3,7 @@
 use crate::{
     data::{QuorumCertificate, ViewNumber},
     error::HotShotError,
-    traits::BlockContents,
+    traits::{BlockContents, StateContents, state},
 };
 use std::sync::Arc;
 
@@ -12,11 +12,11 @@ use std::sync::Arc;
 /// This includes some metadata, such as the stage and view number that the event was generated in,
 /// as well as an inner [`EventType`] describing the event proper.
 #[derive(Clone, Debug)]
-pub struct Event<B: BlockContents<N>, S: Send + Sync, const N: usize> {
+pub struct Event<'a, S: StateContents<'a> + Send + Sync> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
     /// The underlying event
-    pub event: EventType<B, S, N>,
+    pub event: EventType<'a, S>,
 }
 
 /// The type and contents of a status event emitted by a `HotShot` instance
@@ -25,7 +25,7 @@ pub struct Event<B: BlockContents<N>, S: Send + Sync, const N: usize> {
 /// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
+pub enum EventType<'b, S: StateContents<'b>> {
     /// A view encountered an error and was interrupted
     Error {
         /// The underlying error
@@ -34,7 +34,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// A new block was proposed
     Propose {
         /// The block that was proposed
-        block: Arc<B>,
+        block: Arc<S::Block>,
     },
     /// A new decision event was issued
     Decide {
@@ -44,7 +44,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// block first in the list.
         ///
         /// This list may be incomplete if the node is currently performing catchup.
-        block: Arc<Vec<B>>,
+        block: Arc<Vec<S::Block>>,
         /// The list of states that were committed by this decision
         ///
         /// This list is sorted in reverse view number order, with the newest (highest view number)
@@ -53,7 +53,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// This list may be incomplete if the node is currently performing catchup.
         state: Arc<Vec<S>>,
         /// The quorum certificates that accompy this Decide
-        qcs: Arc<Vec<QuorumCertificate<N>>>,
+        qcs: Arc<Vec<QuorumCertificate<'b, S>>>,
     },
     /// A new view was started by this node
     NewView {
@@ -91,7 +91,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
     /// Currently HotShot does not know if a transaction is rejected because it is a duplicate, or because the transaction is invalid.
     TransactionRejected {
         /// The transaction that has been rejected.
-        transaction: B::Transaction,
+        transaction: <<S as state::StateContents<'b>>::Block as BlockContents<'b>>::Transaction,
     },
 
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.

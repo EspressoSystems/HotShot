@@ -4,7 +4,7 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
-    traits::{BlockContents, State},
+    traits::{BlockContents, StateContents},
     QuorumCertificate,
 };
 use async_std::sync::RwLock;
@@ -59,7 +59,7 @@ impl<Block, State, const N: usize> Default for MemoryStorage<Block, State, N> {
     }
 }
 
-impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+impl<B: BlockContents<N> + 'static, S: StateContents<N, Block = B> + 'static, const N: usize>
     TestableStorage<B, S, N> for MemoryStorage<B, S, N>
 {
     fn construct_tmp_storage() -> StorageResult<Self> {
@@ -89,7 +89,7 @@ impl<Block, State, const N: usize> MemoryStorage<Block, State, N> {
 #[async_trait]
 impl<
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + 'static,
         const N: usize,
     > Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
 {
@@ -252,7 +252,7 @@ impl<'a, BLOCK, STATE, const N: usize> StorageUpdater<'a, BLOCK, STATE, N>
     for MemoryStorageUpdater<'a, BLOCK, STATE, N>
 where
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + 'static,
 {
     #[instrument(name = "MemoryStorage::insert_block", skip_all)]
     async fn insert_block(&mut self, hash: BlockHash<N>, block: BLOCK) -> StorageResult {

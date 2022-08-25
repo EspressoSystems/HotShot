@@ -6,7 +6,7 @@ use hotshot::{
     demos::dentry::{DEntryBlock, State as DemoState, Transaction},
     traits::{
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
-        BlockContents, NetworkReliability, NetworkingImplementation, State, Storage,
+        BlockContents, NetworkReliability, NetworkingImplementation, StateContents, Storage,
     },
     types::Message,
     HotShotConfig, HotShotError,
@@ -82,7 +82,7 @@ pub struct DetailedTestDescriptionBuilder<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -101,7 +101,7 @@ impl<
             + 'static,
         STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + Default + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestDescription<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// default implementation of generate runner
@@ -163,7 +163,7 @@ impl GeneralTestDescriptionBuilder {
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     >(
         self,
     ) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -184,7 +184,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub fn build(self) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -223,7 +223,7 @@ pub struct TestDescription<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -315,7 +315,7 @@ pub fn default_submitter_id_to_round<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
@@ -371,7 +371,7 @@ pub fn default_randomized_ids_to_round<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
@@ -411,7 +411,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// create rounds of consensus based on the data in `self`

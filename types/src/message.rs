@@ -5,52 +5,53 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
-    traits::signature_key::{EncodedPublicKey, EncodedSignature},
+    traits::{signature_key::{EncodedPublicKey, EncodedSignature}, BlockContents, StateContents},
 };
+use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Message<B, T, S, K, const N: usize> {
+pub struct Message<'b, S: StateContents<'b>, K> {
     /// The sender of this message
     pub sender: K,
 
     /// The message kind
-    pub kind: MessageKind<B, T, S, N>,
+    pub kind: MessageKind<'b, S>,
 }
 
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum MessageKind<B, T, S, const N: usize> {
+pub enum MessageKind<'b, STATE: StateContents<'b>> {
     /// Messages related to the consensus protocol
-    Consensus(ConsensusMessage<B, S, N>),
+    Consensus(ConsensusMessage<'b, STATE>),
     /// Messages relating to sharing data between nodes
-    Data(DataMessage<B, T, S, N>),
+    Data(DataMessage<'b, STATE>),
 }
 
-impl<B, T, S, const N: usize> From<ConsensusMessage<B, S, N>> for MessageKind<B, T, S, N> {
-    fn from(m: ConsensusMessage<B, S, N>) -> Self {
+impl<'b, S: StateContents<'b>> From<ConsensusMessage<'b, S>> for MessageKind<'b, S> {
+    fn from(m: ConsensusMessage<'b, S>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<B, T, S, const N: usize> From<DataMessage<B, T, S, N>> for MessageKind<B, T, S, N> {
-    fn from(m: DataMessage<B, T, S, N>) -> Self {
+impl<'b, S: StateContents<'b>> From<DataMessage<'b, S>> for MessageKind<'b, S> {
+    fn from(m: DataMessage<'b, S>) -> Self {
         Self::Data(m)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<B, S, const N: usize> {
+pub enum ConsensusMessage<'b, STATE: StateContents<'b>> {
     /// Leader's proposal
-    Proposal(Proposal<B, S, N>),
+    Proposal(Proposal<'b, STATE>),
     /// Replica timed out
-    TimedOut(TimedOut<N>),
+    TimedOut(TimedOut<'b, STATE>),
     /// Replica votes
-    Vote(Vote<N>),
+    Vote(Vote<'b, STATE>),
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
@@ -58,7 +59,7 @@ pub enum ConsensusMessage<B, S, const N: usize> {
     NextViewInterrupt(ViewNumber),
 }
 
-impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
+impl<'b, STATE: StateContents<'b>> ConsensusMessage<'b, STATE> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
     pub fn view_number(&self) -> ViewNumber {
@@ -82,18 +83,18 @@ impl<B, S, const N: usize> ConsensusMessage<B, S, N> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
+#[derive(Serialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to sending data between nodes
-pub enum DataMessage<B, T, S, const N: usize> {
+pub enum DataMessage<'b, S: StateContents<'b>> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
-        quorum_certificate: QuorumCertificate<N>,
+        quorum_certificate: QuorumCertificate<'b, S>,
 
         /// The relevant [`BlockContents`]
         ///
         /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
-        block: B,
+        block: S::Block,
 
         /// The relevant [`State`]
         ///
@@ -102,25 +103,25 @@ pub enum DataMessage<B, T, S, const N: usize> {
     },
 
     /// Contains a transaction to be submitted
-    SubmitTransaction(T),
+    SubmitTransaction(<S::Block as BlockContents<'b>>::Transaction),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Signals the start of a new view
-pub struct TimedOut<const N: usize> {
+pub struct TimedOut<'b, State: StateContents<'b>> {
     /// The current view
     pub current_view: ViewNumber,
     /// The justification qc for this view
-    pub justify: QuorumCertificate<N>,
+    pub justify: QuorumCertificate<'b, State>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
-pub struct Proposal<BLOCK, STATE, const N: usize> {
+pub struct Proposal<'b, STATE: StateContents<'b>> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    pub leaf: Leaf<BLOCK, STATE, N>,
+    pub leaf: Leaf<'b, STATE>,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
 }
@@ -129,19 +130,19 @@ pub struct Proposal<BLOCK, STATE, const N: usize> {
 ///
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-pub struct Vote<const N: usize> {
+pub struct Vote<'b, STATE: StateContents<'b>> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
-    pub block_hash: BlockHash<N>,
+    pub block_hash: Commitment<STATE::Block>,
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc: QuorumCertificate<N>,
+    pub justify_qc: QuorumCertificate<'b, STATE>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
     #[debug(with = "fmt_leaf_hash")]
-    pub leaf_hash: LeafHash<N>,
+    pub leaf_hash: Commitment<Leaf<'b, STATE>>,
     /// The view this vote was cast for
     pub current_view: ViewNumber,
 }

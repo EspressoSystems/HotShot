@@ -1,6 +1,7 @@
 //! Contains the [`ConsensusApi`] trait.
 
 use async_trait::async_trait;
+use commit::Commitment;
 use hotshot_types::{
     data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
     error::HotShotError,
@@ -17,7 +18,7 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 ///
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
-pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
+pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -49,17 +50,17 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn send_direct_message(
         &self,
         recipient: I::SignatureKey,
-        message: <I as TypeMap<N>>::ConsensusMessage,
+        message: <I as TypeMap>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: <I as TypeMap<N>>::ConsensusMessage,
+        message: <I as TypeMap>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<I::Block, I::State, N>);
+    async fn send_event(&self, event: Event<I::Block, I::State>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
@@ -121,7 +122,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         view_number: ViewNumber,
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
-        qcs: Vec<QuorumCertificate<N>>,
+        qcs: Vec<QuorumCertificate<I::Block, I::State>>,
     ) {
         self.send_event(Event {
             view_number,
@@ -146,14 +147,14 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Create a [`VerifyHash`] for a given [`LeafHash`], and [`ViewNumber`]
     fn create_verify_hash(
         &self,
-        leaf_hash: &LeafHash<N>,
+        leaf_hash: &Commitment<Leaf<I::Block, I::State>>,
         view_number: ViewNumber,
     ) -> VerifyHash<32>;
 
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_hash: &LeafHash<N>,
+        leaf_hash: &Commitment<Leaf<I::Block, I::State>>,
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let hash = self.create_verify_hash(leaf_hash, view_number);
@@ -162,7 +163,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     }
 
     /// Signs a proposal
-    fn sign_proposal(&self, leaf_hash: &LeafHash<N>, view_number: ViewNumber) -> EncodedSignature {
+    fn sign_proposal(&self, leaf_hash: &Commitment<Leaf<I::Block, I::State>>, view_number: ViewNumber) -> EncodedSignature {
         let hash = self.create_verify_hash(leaf_hash, view_number);
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         signature
@@ -171,7 +172,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// Validate a quorum certificate
     fn validate_qc(
         &self,
-        quorum_certificate: &QuorumCertificate<N>,
+        quorum_certificate: &QuorumCertificate<I::Block, I::State>,
         view_number: ViewNumber,
     ) -> bool;
 

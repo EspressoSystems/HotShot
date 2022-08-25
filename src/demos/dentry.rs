@@ -178,7 +178,7 @@ impl TestableState<H_256> for State {
     }
 }
 
-impl crate::traits::State<H_256> for State {
+impl crate::traits::StateContents<H_256> for State {
     type Error = DEntryError;
 
     type Block = DEntryBlock;

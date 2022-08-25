@@ -84,7 +84,7 @@ pub enum NetworkError {
 #[async_trait]
 pub trait NetworkingImplementation<M, P>: Send + Sync
 where
-    M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    M: Serialize + DeserializeOwned + Send + Clone,
     P: SignatureKey + 'static,
 {
     /// Returns true when node is successfully initialized

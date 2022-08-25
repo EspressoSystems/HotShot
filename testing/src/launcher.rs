@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner, N};
 use hotshot::{
-    traits::{State, Storage},
+    traits::{StateContents, Storage},
     types::Message,
     HotShotConfig,
 };
@@ -162,7 +162,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N>,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:

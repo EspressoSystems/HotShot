@@ -3,11 +3,12 @@
 //! This module provides the [`BlockContents`] trait, which describes the behaviors that a block is
 //! expected to have.
 
-use serde::{de::DeserializeOwned, Serialize};
+use commit::{Committable, Commitment};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-use crate::data::{BlockHash, LeafHash, TransactionHash};
+use crate::data::{BlockHash, LeafHash, TransactionHash, Leaf};
 
 /// Abstraction over the contents of a block
 ///
@@ -19,14 +20,15 @@ use crate::data::{BlockHash, LeafHash, TransactionHash};
 ///   * Must be able to be produced incrementally by appending transactions
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
-pub trait BlockContents<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
+pub trait BlockContents<'a>:
+    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin + Committable + Deserialize<'a>
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
-    type Transaction: Transaction<N>;
+    type Transaction:
+        Clone + Serialize + Deserialize<'a> + Debug + PartialEq + Eq + Sync + Send + Committable;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -37,28 +39,16 @@ pub trait BlockContents<const N: usize>:
     fn add_transaction_raw(&self, tx: &Self::Transaction)
         -> std::result::Result<Self, Self::Error>;
 
-    /// Produces a hash for the contents of the block
-    fn hash(&self) -> BlockHash<N>;
     /// Produces a hash for a transaction
     ///
     /// TODO: Abstract out into transaction trait
-    fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<N>;
-    /// Produces a hash for an arbitrary sequence of bytes
-    ///
-    /// Used to produce hashes for internal `HotShot` control structures
-    fn hash_leaf(bytes: &[u8]) -> LeafHash<N>;
+    fn hash_transaction(tx: &Self::Transaction) -> Commitment<Self::Transaction>;
 
     /// returns hashes of all the transactions in this block
-    fn contained_transactions(&self) -> HashSet<TransactionHash<N>>;
+    fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 }
 
-/// A transaction trait for [`BlockContents`]
-pub trait Transaction<const N: usize>:
-    Clone + Serialize + DeserializeOwned + Debug + Hash + PartialEq + Eq + Sync + Send
-{
-}
-
-impl<const N: usize> Transaction<N> for () {}
+// impl<const N: usize> Transaction<N> for () {}
 
 /// Dummy implementation of `BlockContents` for unit tests
 pub mod dummy {
@@ -89,6 +79,17 @@ pub mod dummy {
     #[derive(Debug)]
     pub struct DummyError;
 
+    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+    pub enum DummyTransaction {
+        Dummy
+    }
+
+    impl Committable for DummyTransaction {
+        fn commit(&self) -> commit::Commitment<Self> {
+            todo!()
+        }
+    }
+
     impl std::error::Error for DummyError {}
 
     impl std::fmt::Display for DummyError {
@@ -97,10 +98,10 @@ pub mod dummy {
         }
     }
 
-    impl BlockContents<32> for DummyBlock {
+    impl BlockContents<'_> for DummyBlock {
         type Error = DummyError;
 
-        type Transaction = ();
+        type Transaction = DummyTransaction;
 
         fn add_transaction_raw(
             &self,
@@ -108,13 +109,6 @@ pub mod dummy {
         ) -> std::result::Result<Self, Self::Error> {
             Err(DummyError)
         }
-        fn hash(&self) -> BlockHash<32> {
-            let mut hasher = Hasher::new();
-            hasher.update(&self.nonce.to_le_bytes());
-            let x = *hasher.finalize().as_bytes();
-            x.into()
-        }
-
         fn hash_transaction(_tx: &Self::Transaction) -> TransactionHash<32> {
             let mut hasher = Hasher::new();
             hasher.update(&[1_u8]);
@@ -122,15 +116,15 @@ pub mod dummy {
             x.into()
         }
 
-        fn hash_leaf(bytes: &[u8]) -> LeafHash<32> {
-            let mut hasher = Hasher::new();
-            hasher.update(bytes);
-            let x = *hasher.finalize().as_bytes();
-            x.into()
-        }
 
         fn contained_transactions(&self) -> HashSet<TransactionHash<32>> {
             HashSet::new()
+        }
+    }
+
+    impl Committable for DummyBlock {
+        fn commit(&self) -> commit::Commitment<Self> {
+            todo!()
         }
     }
 }

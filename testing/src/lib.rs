@@ -20,7 +20,7 @@ use hotshot::{
     data::Leaf,
     traits::{
         election::StaticCommittee, implementations::Stateless, BlockContents,
-        NetworkingImplementation, NodeImplementation, State, Storage,
+        NetworkingImplementation, NodeImplementation, StateContents, Storage,
     },
     types::{HotShotHandle, Message},
     HotShot, HotShotConfig, HotShotError, H_256,
@@ -86,7 +86,7 @@ pub struct Round<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -107,7 +107,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > Default for Round<NETWORK, STORAGE, BLOCK, STATE>
 {
     fn default() -> Self {
@@ -129,7 +129,7 @@ pub struct TestRunner<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
@@ -150,7 +150,7 @@ struct Node<
         + 'static,
     STORAGE: Storage<BLOCK, STATE, N> + 'static,
     BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
 > {
     pub node_id: u64,
     pub handle: HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
@@ -164,7 +164,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N>,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
@@ -408,7 +408,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Will validate that all nodes are on exactly the same state.
@@ -481,7 +481,7 @@ impl<
             + 'static,
         STORAGE: Storage<BLOCK, STATE, N> + 'static,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static + TestableState<N>,
+        STATE: StateContents<N, Block = BLOCK> + 'static + TestableState<N>,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
@@ -592,11 +592,10 @@ impl<
         NETWORK: NetworkingImplementation<
                 Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
                 Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
+            > + Clone,
+        STORAGE: Storage<BLOCK, STATE, N>,
+        BLOCK: BlockContents<N>,
+        STATE: StateContents<N, Block = BLOCK> + TestableState<N>,
     > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
     type Block = BLOCK;

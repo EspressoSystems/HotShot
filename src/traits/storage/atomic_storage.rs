@@ -6,7 +6,7 @@ mod hash_map_store;
 use self::{dual_key_value_store::DualKeyValueStore, hash_map_store::HashMapStore};
 use crate::{
     data::{BlockHash, Leaf, LeafHash},
-    traits::{BlockContents, State},
+    traits::{BlockContents, StateContents},
     QuorumCertificate,
 };
 use async_std::sync::Mutex;
@@ -30,7 +30,7 @@ use tracing::{instrument, trace};
 struct AtomicStorageInner<BLOCK, STATE, const N: usize>
 where
     BLOCK: BlockContents<N> + DeserializeOwned + Serialize,
-    STATE: DeserializeOwned + Serialize + State<N>,
+    STATE: DeserializeOwned + Serialize + StateContents<N>,
 {
     /// Temporary directory storage might live in
     /// (we want to delete the temporary directory when storage is droppped)
@@ -59,13 +59,13 @@ where
 pub struct AtomicStorage<BLOCK, STATE, const N: usize>
 where
     BLOCK: BlockContents<N> + DeserializeOwned + Serialize,
-    STATE: DeserializeOwned + Serialize + State<N>,
+    STATE: DeserializeOwned + Serialize + StateContents<N>,
 {
     /// Inner state of the atomic storage
     inner: Arc<AtomicStorageInner<BLOCK, STATE, N>>,
 }
 
-impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: usize>
+impl<B: BlockContents<N> + 'static, S: StateContents<N, Block = B> + 'static, const N: usize>
     TestableStorage<B, S, N> for AtomicStorage<B, S, N>
 {
     fn construct_tmp_storage() -> StorageResult<Self> {
@@ -85,7 +85,7 @@ impl<B: BlockContents<N> + 'static, S: State<N, Block = B> + 'static, const N: u
 impl<BLOCK, STATE, const N: usize> AtomicStorage<BLOCK, STATE, N>
 where
     BLOCK: BlockContents<N> + DeserializeOwned + Serialize + Clone,
-    STATE: DeserializeOwned + Serialize + Clone + State<N>,
+    STATE: DeserializeOwned + Serialize + Clone + StateContents<N>,
 {
     /// Creates an atomic storage at a given path. If files exist, will back up existing directory before creating.
     ///
@@ -150,7 +150,7 @@ where
 #[async_trait]
 impl<
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + 'static,
         const N: usize,
     > Storage<BLOCK, STATE, N> for AtomicStorage<BLOCK, STATE, N>
 {
@@ -264,7 +264,7 @@ impl<
 struct AtomicStorageUpdater<
     'a,
     B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    S: StateContents<N, Block = B> + 'static,
     const N: usize,
 > {
     /// A reference to the internals of the [`AtomicStorage`]
@@ -275,7 +275,7 @@ struct AtomicStorageUpdater<
 impl<
         'a,
         BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + 'static,
+        STATE: StateContents<N, Block = BLOCK> + 'static,
         const N: usize,
     > StorageUpdater<'a, BLOCK, STATE, N> for AtomicStorageUpdater<'a, BLOCK, STATE, N>
 {

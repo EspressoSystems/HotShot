@@ -5,7 +5,7 @@ mod node_implementation;
 mod storage;
 
 pub use hotshot_types::traits::{
-    stateful_handler::StatefulHandler, BlockContents, State, Transaction,
+    stateful_handler::StatefulHandler, BlockContents, StateContents, Transaction,
 };
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;

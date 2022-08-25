@@ -1,18 +1,20 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
+use commit::{Committable, Commitment};
+
 use crate::{
     data::{StateHash, ViewNumber},
     traits::signature_key::SignatureKey,
 };
 
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<P: SignatureKey, const N: usize>: Send + Sync {
+pub trait Election<P: SignatureKey>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
     /// The threshold for membership selection.
     type SelectionThreshold;
     /// The state type this election implementation is bound to
-    type State: Send + Sync + Default;
+    type State: Send + Sync + Default + Committable;
     /// A membership proof
     type VoteToken;
     /// A type stated, validated membership proof
@@ -34,7 +36,7 @@ pub trait Election<P: SignatureKey, const N: usize>: Send + Sync {
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
-        next_state: StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken>;
 
     /// Returns the number of votes the validated vote token has
@@ -49,7 +51,7 @@ pub trait Election<P: SignatureKey, const N: usize>: Send + Sync {
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
-        next_state: StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken>;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block

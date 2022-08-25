@@ -14,3 +14,4 @@ async-std = "1.12.0"
 tracing = "0.1.36"
 flume = "0.10.14"
 hotshot-utils = { path = "../utils", features = ["logging-utils"] }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
