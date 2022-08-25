@@ -47,7 +47,7 @@
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">networking</span>::{<span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">node_implementation::NodeImplementation</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">storage</span>::{<span class="ident">Storage</span>, <span class="ident">StorageResult</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">storage</span>::{<span class="prelude-ty">Result</span> <span class="kw">as</span> <span class="ident">StorageResult</span>, <span class="ident">Storage</span>};
 
 <span class="doccomment">/// Module for publicly usable implementations of the traits</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">implementations</span> {
@@ -58,7 +58,7 @@
             <span class="ident">memory_network</span>::{<span class="ident">DummyReliability</span>, <span class="ident">MasterMap</span>, <span class="ident">MemoryNetwork</span>},
             <span class="ident">w_network::WNetwork</span>,
         },
-        <span class="ident">storage</span>::{<span class="ident">atomic_storage::AtomicStorage</span>, <span class="ident">memory_storage::MemoryStorage</span>},
+        <span class="ident">storage::memory_storage::MemoryStorage</span>, <span class="comment">// atomic_storage::AtomicStorage,</span>
     };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::traits::stateful_handler::Stateless</span>;
 }
