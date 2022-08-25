@@ -68,10 +68,7 @@ where
         inner.stored.insert(
             ViewNumber::genesis(),
             StoredView {
-                append: ViewAppend::Block {
-                    block,
-                    rejected_transactions: BTreeSet::new(),
-                },
+                append: ViewAppend::Block { block },
                 parent: LeafHash::default(),
                 justify_qc: qc,
                 state,

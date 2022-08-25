@@ -1,14 +1,13 @@
 //! Abstraction over on-disk storage of node state
 #![allow(missing_docs)]
 
-use std::collections::{BTreeMap, BTreeSet};
-
 use crate::{
-    data::{LeafHash, QuorumCertificate, TransactionHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, ViewNumber},
     traits::{BlockContents, State},
 };
 use async_trait::async_trait;
 use snafu::Snafu;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Errors that can occur in the storage layer.
 #[derive(Snafu, Debug)]
@@ -136,10 +135,7 @@ where
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(qc: QuorumCertificate<N>, block: BLOCK, state: STATE) -> Self {
         Self {
-            append: ViewAppend::Block {
-                block,
-                rejected_transactions: BTreeSet::new(),
-            },
+            append: ViewAppend::Block { block },
             view_number: qc.view_number,
             parent: LeafHash::default(),
             justify_qc: qc,
@@ -155,8 +151,6 @@ pub enum ViewAppend<B: BlockContents<N>, const N: usize> {
     Block {
         /// The block that was appended
         block: B,
-        /// A set of transactions that were rejected while trying to establish the above block
-        rejected_transactions: BTreeSet<TransactionHash<N>>,
     },
 }
 
@@ -177,9 +171,6 @@ where
     B: BlockContents<N>,
 {
     fn from(block: B) -> Self {
-        Self::Block {
-            block,
-            rejected_transactions: BTreeSet::new(),
-        }
+        Self::Block { block }
     }
 }
