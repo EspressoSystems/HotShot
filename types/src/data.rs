@@ -8,9 +8,9 @@ use crate::traits::{
     BlockContents, StateContents,
 };
 use blake3::Hasher;
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.

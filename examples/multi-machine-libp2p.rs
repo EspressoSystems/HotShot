@@ -14,7 +14,10 @@ use hotshot_types::traits::{
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    hack::nll_todo,
+    test_util::{setup_backtrace, setup_logging},
+};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
@@ -171,9 +174,7 @@ pub struct CliOpt {
     pub next_view_timeout: u64,
 }
 
-type Node = DEntryNode<
-    Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
->;
+type Node = DEntryNode<Libp2pNetwork<Message<State, Ed25519Pub>, Ed25519Pub>>;
 
 /// Creates the initial state and hotshot for simulation.
 async fn init_state_and_hotshot(
@@ -181,11 +182,8 @@ async fn init_state_and_hotshot(
     threshold: usize,
     node_id: u64,
     config: &CliOpt,
-    networking: Libp2pNetwork<
-        Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
-        Ed25519Pub,
-    >,
-) -> (State, HotShotHandle<Node, H_256>) {
+    networking: Libp2pNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
+) -> (State, HotShotHandle<Node>) {
     // Create the initial state
     // NOTE: all balances must be positive
     // so we avoid a negative balance
@@ -229,7 +227,8 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
+    // let genesis = DEntryBlock::default();
+    let genesis = nll_todo();
     let hotshot = HotShot::init(
         genesis,
         known_nodes.clone(),
@@ -258,10 +257,7 @@ pub async fn new_libp2p_network(
     bound_addr: Multiaddr,
     identity: Option<Keypair>,
     opts: &CliOpt,
-) -> Result<
-    Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-    NetworkError,
-> {
+) -> Result<Libp2pNetwork<Message<State, Ed25519Pub>, Ed25519Pub>, NetworkError> {
     assert!(node_id < opts.num_nodes);
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
@@ -392,7 +388,7 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..10 {
-                let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                let txn = <State as TestableState>::create_random_transaction(&state);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }

@@ -1,3 +1,4 @@
+use commit::{Commitment, Committable};
 use hotshot::data::StateHash;
 use hotshot_types::{
     data::ViewNumber,
@@ -6,6 +7,7 @@ use hotshot_types::{
         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     },
 };
+use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
@@ -15,10 +17,14 @@ pub struct TestElection {
     pub leaders: Vec<Ed25519Pub>,
 }
 
-impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
+pub enum DummyState {
+    Dummy,
+}
+
+impl Election<Ed25519Pub> for TestElection {
     type StakeTable = ();
     type SelectionThreshold = ();
-    type State = ();
+    type State = DummyState;
     type VoteToken = ();
     type ValidatedVoteToken = ();
 
@@ -44,7 +50,7 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken> {
         None
     }
@@ -61,8 +67,14 @@ impl<const N: usize> Election<Ed25519Pub, N> for TestElection {
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         _private_key: &Ed25519Priv,
-        next_state: hotshot::data::StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         unimplemented!()
+    }
+}
+
+impl Committable for DummyState {
+    fn commit(&self) -> Commitment<Self> {
+        nll_todo()
     }
 }

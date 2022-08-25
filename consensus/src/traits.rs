@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber, Leaf},
+    data::{Leaf, LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -152,15 +152,19 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
         // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let hash : VerifyHash<32> = nll_todo();
+        let hash: VerifyHash<32> = nll_todo();
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         (self.public_key().to_bytes(), signature)
     }
 
     /// Signs a proposal
-    fn sign_proposal(&self, leaf_hash: &Commitment<Leaf<I::State>>, view_number: ViewNumber) -> EncodedSignature {
+    fn sign_proposal(
+        &self,
+        leaf_hash: &Commitment<Leaf<I::State>>,
+        view_number: ViewNumber,
+    ) -> EncodedSignature {
         // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let hash : VerifyHash<32> = nll_todo();
+        let hash: VerifyHash<32> = nll_todo();
         let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
         signature
     }

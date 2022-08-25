@@ -5,7 +5,7 @@
 
 use crate::traits::BlockContents;
 use commit::Committable;
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
 /// Abstraction over the state that blocks modify
@@ -22,7 +22,17 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     TODO add hash function to trait
 ///     NOTE (see hash)
 pub trait StateContents:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin + Committable
+    Serialize
+    + DeserializeOwned
+    + Clone
+    + Debug
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + Unpin
+    + Committable
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;

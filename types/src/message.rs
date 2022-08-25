@@ -5,7 +5,10 @@
 
 use crate::{
     data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
-    traits::{signature_key::{EncodedPublicKey, EncodedSignature}, BlockContents, StateContents},
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature},
+        BlockContents, StateContents,
+    },
 };
 use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
@@ -29,12 +32,13 @@ pub enum MessageKind<STATE: StateContents> {
     /// Messages related to the consensus protocol
     Consensus(
         #[serde(deserialize_with = "<ConsensusMessage<STATE> as Deserialize>::deserialize")]
-        ConsensusMessage<STATE>
-        ),
+        ConsensusMessage<STATE>,
+    ),
     /// Messages relating to sharing data between nodes
     Data(
         #[serde(deserialize_with = "<DataMessage<STATE> as Deserialize>::deserialize")]
-        DataMessage<STATE>),
+        DataMessage<STATE>,
+    ),
 }
 
 impl<'b, S: StateContents> From<ConsensusMessage<S>> for MessageKind<S> {
@@ -55,17 +59,15 @@ pub enum ConsensusMessage<STATE: StateContents> {
     /// Leader's proposal
     Proposal(
         #[serde(deserialize_with = "<Proposal<STATE> as Deserialize>::deserialize")]
-        Proposal<STATE>
-        ),
+        Proposal<STATE>,
+    ),
     /// Replica timed out
     TimedOut(
         #[serde(deserialize_with = "<TimedOut<STATE> as Deserialize>::deserialize")]
-        TimedOut<STATE>
-        ),
+        TimedOut<STATE>,
+    ),
     /// Replica votes
-    Vote(
-        #[serde(deserialize_with = "<Vote<STATE> as Deserialize>::deserialize")]
-        Vote<STATE>),
+    Vote(#[serde(deserialize_with = "<Vote<STATE> as Deserialize>::deserialize")] Vote<STATE>),
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task

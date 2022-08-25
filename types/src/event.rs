@@ -3,7 +3,7 @@
 use crate::{
     data::{QuorumCertificate, ViewNumber},
     error::HotShotError,
-    traits::{BlockContents, StateContents, state},
+    traits::{state, BlockContents, StateContents},
 };
 use std::sync::Arc;
 

@@ -4,7 +4,10 @@ use hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    hack::nll_todo,
+    test_util::{setup_backtrace, setup_logging},
+};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -24,8 +27,7 @@ use hotshot::{
     HotShot, HotShotConfig, H_256,
 };
 
-type Node =
-    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -91,7 +93,7 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
+        WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
         u16,
         Ed25519Pub,
         u64,
@@ -119,7 +121,7 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_, H_256>> =
+    let mut hotshots: Vec<HotShotHandle<_>> =
         join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
             get_hotshot(nodes, threshold, node_id, network, &inital_state)
         }))
@@ -152,7 +154,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State, H_256> = hotshot
+            let mut event: Event<State> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -218,7 +220,7 @@ async fn main() {
         let mut states = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State, H_256> = hotshot
+            let mut event: Event<State> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -337,9 +339,9 @@ async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
+    networking: WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
     state: &State,
-) -> HotShotHandle<Node, H_256> {
+) -> HotShotHandle<Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
             Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
@@ -364,7 +366,8 @@ async fn get_hotshot(
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
-    let genesis = DEntryBlock::default();
+    // let genesis = DEntryBlock::default();
+    let genesis = nll_todo();
     let h = HotShot::init(
         genesis,
         known_nodes.clone(),

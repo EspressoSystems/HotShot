@@ -60,9 +60,7 @@ impl<State: StateContents> Default for MemoryStorage<State> {
     }
 }
 
-impl<S: StateContents + 'static>
-    TestableStorage<S> for MemoryStorage<S>
-{
+impl<S: StateContents + 'static> TestableStorage<S> for MemoryStorage<S> {
     fn construct_tmp_storage() -> StorageResult<Self> {
         Ok(Self::new())
     }
@@ -88,12 +86,12 @@ impl<State: StateContents> MemoryStorage<State> {
 }
 
 #[async_trait]
-impl<
-        STATE: StateContents,
-    > Storage<STATE> for MemoryStorage<STATE>
-{
+impl<STATE: StateContents> Storage<STATE> for MemoryStorage<STATE> {
     #[instrument(name = "MemoryStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<STATE::Block>> {
+    async fn get_block(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<STATE::Block>> {
         Ok(if let Some(r) = self.inner.blocks.get(hash) {
             trace!("Block found");
             let block = r.value().clone();
@@ -105,7 +103,10 @@ impl<
     }
 
     #[instrument(name = "MemoryStorage::get_qc", skip_all)]
-    async fn get_qc(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<QuorumCertificate<STATE>>> {
+    async fn get_qc(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<QuorumCertificate<STATE>>> {
         // Check to see if we have the qc
         let index = self.inner.hash_to_qc.get(hash);
         Ok(if let Some(index) = index {
@@ -190,16 +191,6 @@ impl<
         })
     }
 
-    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
-    where
-        F: FnOnce(Box<dyn StorageUpdater<'a, STATE> + 'a>) -> FUT + Send + 'a,
-        FUT: Future<Output = StorageResult> + Send + 'a,
-    {
-        let updater = Box::new(MemoryStorageUpdater { inner: &self.inner });
-        update_fn(updater).await?;
-        Ok(())
-    }
-
     async fn get_internal_state(&self) -> StorageState<STATE> {
         let mut blocks: Vec<(Commitment<STATE::Block>, STATE::Block)> = self
             .inner
@@ -249,13 +240,16 @@ struct MemoryStorageUpdater<'a, STATE: StateContents> {
 }
 
 #[async_trait]
-impl<'a, STATE> StorageUpdater<'a, STATE>
-    for MemoryStorageUpdater<'a, STATE>
+impl<'a, STATE> StorageUpdater<'a, STATE> for MemoryStorageUpdater<'a, STATE>
 where
     STATE: StateContents + 'static,
 {
     #[instrument(name = "MemoryStorage::insert_block", skip_all)]
-    async fn insert_block(&mut self, hash: Commitment<STATE::Block>, block: STATE::Block) -> StorageResult {
+    async fn insert_block(
+        &mut self,
+        hash: Commitment<STATE::Block>,
+        block: STATE::Block,
+    ) -> StorageResult {
         trace!(?block, "inserting block");
         self.inner.blocks.insert(hash, block);
         Ok(())

@@ -29,13 +29,8 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Storage type for this consensus implementation
     type Storage: Storage<Self::State> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<
-            Message<
-                Self::State,
-                Self::SignatureKey,
-            >,
-            Self::SignatureKey,
-        > + Clone;
+    type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
+        + Clone;
     /// Stateful call back handler for this consensus implementation
     type StatefulHandler: StatefulHandler<Block = Self::Block, State = Self::State>;
     /// The election algorithm
@@ -73,9 +68,7 @@ pub trait TypeMap {
     type Transaction;
 }
 
-impl<I: NodeImplementation > TypeMap for I
-where
-{
+impl<I: NodeImplementation> TypeMap for I {
     type MessageKind = MessageKind<I::State>;
     type ConsensusMessage = ConsensusMessage<I::State>;
     type DataMessage = DataMessage<I::State>;

@@ -3,12 +3,12 @@
 //! This module provides the [`BlockContents`] trait, which describes the behaviors that a block is
 //! expected to have.
 
-use commit::{Committable, Commitment};
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use commit::{Commitment, Committable};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-use crate::data::{BlockHash, LeafHash, TransactionHash, Leaf};
+use crate::data::{BlockHash, Leaf, LeafHash, TransactionHash};
 
 /// Abstraction over the contents of a block
 ///
@@ -21,14 +21,31 @@ use crate::data::{BlockHash, LeafHash, TransactionHash, Leaf};
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait BlockContents:
-    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin + Committable + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + Unpin
+    + Committable
+    + DeserializeOwned
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
-    type Transaction :
-        Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable;
+    type Transaction: Clone
+        + Serialize
+        + DeserializeOwned
+        + Debug
+        + PartialEq
+        + Eq
+        + Sync
+        + Send
+        + Committable;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -42,7 +59,6 @@ pub trait BlockContents:
     /// returns hashes of all the transactions in this block
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 }
-
 
 /// Dummy implementation of `BlockContents` for unit tests
 pub mod dummy {
@@ -75,7 +91,7 @@ pub mod dummy {
 
     #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
     pub enum DummyTransaction {
-        Dummy
+        Dummy,
     }
 
     impl Committable for DummyTransaction {
@@ -103,7 +119,6 @@ pub mod dummy {
         ) -> std::result::Result<Self, Self::Error> {
             Err(DummyError)
         }
-
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
             HashSet::new()

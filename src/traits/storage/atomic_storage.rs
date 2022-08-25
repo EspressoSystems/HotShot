@@ -64,9 +64,7 @@ where
     inner: Arc<AtomicStorageInner<STATE>>,
 }
 
-impl<S: StateContents + 'static>
-    TestableStorage<S> for AtomicStorage<S>
-{
+impl<S: StateContents + 'static> TestableStorage<S> for AtomicStorage<S> {
     fn construct_tmp_storage() -> StorageResult<Self> {
         let tempdir = tempdir().map_err(|e| StorageError::InconsistencyError {
             description: e.to_string(),
@@ -146,17 +144,20 @@ where
 }
 
 #[async_trait]
-impl<
-        STATE: StateContents,
-    > Storage<STATE> for AtomicStorage<STATE>
-{
+impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
-    async fn get_block(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<STATE::Block>> {
+    async fn get_block(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<STATE::Block>> {
         Ok(self.inner.blocks.get(hash).await)
     }
 
     #[instrument(name = "AtomicStorage::get_qc", skip_all)]
-    async fn get_qc(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<QuorumCertificate<STATE>>> {
+    async fn get_qc(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<QuorumCertificate<STATE>>> {
         Ok(self.inner.qcs.load_by_key_1_ref(hash).await)
     }
 
@@ -191,45 +192,6 @@ impl<
         Ok(self.inner.states.get(hash).await)
     }
 
-    async fn update<'a, F, FUT>(&'a self, update_fn: F) -> StorageResult
-    where
-        F: FnOnce(Box<dyn StorageUpdater<'a, STATE> + 'a>) -> FUT + Send + 'a,
-        FUT: Future<Output = StorageResult> + Send + 'a,
-    {
-        let updater = Box::new(AtomicStorageUpdater { inner: &self.inner });
-        update_fn(updater).await?;
-
-        // Make sure to commit everything
-        self.inner
-            .blocks
-            .commit_version()
-            .await
-            .context(AtomicStoreSnafu)?;
-        self.inner
-            .qcs
-            .commit_version()
-            .await
-            .context(AtomicStoreSnafu)?;
-        self.inner
-            .leaves
-            .commit_version()
-            .await
-            .context(AtomicStoreSnafu)?;
-        self.inner
-            .states
-            .commit_version()
-            .await
-            .context(AtomicStoreSnafu)?;
-        self.inner
-            .atomic_store
-            .lock()
-            .await
-            .commit_version()
-            .context(AtomicStoreSnafu)?;
-
-        Ok(())
-    }
-
     async fn get_internal_state(&self) -> StorageState<STATE> {
         let mut blocks: Vec<(Commitment<STATE::Block>, STATE::Block)> =
             self.inner.blocks.load_all().await.into_iter().collect();
@@ -259,22 +221,21 @@ impl<
 }
 
 /// Implementation of [`StorageUpdater`] for the [`AtomicStorage`]
-struct AtomicStorageUpdater<
-    'a,
-    S: StateContents,
-> {
+struct AtomicStorageUpdater<'a, S: StateContents> {
     /// A reference to the internals of the [`AtomicStorage`]
     inner: &'a AtomicStorageInner<S>,
 }
 
 #[async_trait]
-impl<
-        'a,
-        STATE: StateContents + 'static,
-    > StorageUpdater<'a, STATE> for AtomicStorageUpdater<'a, STATE>
+impl<'a, STATE: StateContents + 'static> StorageUpdater<'a, STATE>
+    for AtomicStorageUpdater<'a, STATE>
 {
     #[instrument(name = "AtomicStorage::get_block", skip_all)]
-    async fn insert_block(&mut self, hash: Commitment<STATE::Block>, block: STATE::Block) -> StorageResult {
+    async fn insert_block(
+        &mut self,
+        hash: Commitment<STATE::Block>,
+        block: STATE::Block,
+    ) -> StorageResult {
         trace!(?block, "inserting block");
         self.inner
             .blocks

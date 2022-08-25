@@ -7,7 +7,8 @@ use hotshot_types::{
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
-        }, StateContents,
+        },
+        StateContents,
     },
 };
 use std::marker::PhantomData;

@@ -45,7 +45,7 @@ pub const N: usize = H_256;
 
 /// Result of running a round of consensus
 #[derive(Debug)]
-pub struct RoundResult<BLOCK: BlockContents<N> + 'static, STATE> {
+pub struct RoundResult<BLOCK: BlockContents + 'static, STATE> {
     /// Transactions that were submitted
     pub txns: Vec<BLOCK::Transaction>,
     /// Nodes that committed this round
@@ -66,7 +66,7 @@ pub type RoundPostSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
 pub type RoundSetup<NETWORK, STORAGE, BLOCK, STATE> = Box<
     dyn FnOnce(
         &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-    ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>>,
+    ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents>::Transaction>>,
 >;
 
 /// Type of function used for checking safety before beginnning consensus
@@ -79,14 +79,10 @@ pub type RoundPreSafetyCheck<NETWORK, STORAGE, BLOCK, STATE> = Box<
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -100,14 +96,10 @@ pub struct Round<
 }
 
 impl<
-        NETWORK: NetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > Default for Round<NETWORK, STORAGE, BLOCK, STATE>
 {
     fn default() -> Self {
@@ -122,14 +114,10 @@ impl<
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 > {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
@@ -143,28 +131,20 @@ pub struct TestRunner<
 
 #[allow(dead_code)]
 struct Node<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 > {
     pub node_id: u64,
-    pub handle: HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>,
+    pub handle: HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>>,
 }
 
 impl<
-        NETWORK: NetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N>,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub(self) fn new(launcher: TestLauncher<NETWORK, STORAGE, BLOCK, STATE>) -> Self {
@@ -258,7 +238,7 @@ impl<
     /// Iterate over the [`HotShotHandle`] nodes in this runner.
     pub fn nodes(
         &self,
-    ) -> impl Iterator<Item = &HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> + '_
+    ) -> impl Iterator<Item = &HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>>> + '_
     {
         self.nodes.iter().map(|node| &node.handle)
     }
@@ -384,7 +364,7 @@ impl<
     pub fn get_handle(
         &self,
         id: u64,
-    ) -> Option<HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>, N>> {
+    ) -> Option<HotShotHandle<TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())
@@ -401,19 +381,15 @@ impl<
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
-        let mut leaves = Vec::<Leaf<BLOCK, STATE, N>>::new();
+        let mut leaves = Vec::<Leaf<STATE>>::new();
         for node in self.nodes.iter() {
             let decide_leaf = node.handle.get_decided_leaf().await;
             leaves.push(decide_leaf);
@@ -474,14 +450,10 @@ impl<
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
 impl<
-        NETWORK: NetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + 'static + TestableState<N>,
+        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + 'static + TestableState,
     > TestRunner<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Add a random transaction to this runner.
@@ -498,7 +470,7 @@ impl<
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let state = self.nodes[0].handle.get_state().await;
 
-        let txn = <STATE as TestableState<N>>::create_random_transaction(&state);
+        let txn = <STATE as TestableState>::create_random_transaction(&state);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
@@ -589,21 +561,18 @@ pub struct TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE> {
 }
 
 impl<
-        NETWORK: NetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone,
-        STORAGE: Storage<BLOCK, STATE, N>,
-        BLOCK: BlockContents<N>,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N>,
-    > NodeImplementation<N> for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
+        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
+    > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
     type Block = BLOCK;
     type State = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
-    type StatefulHandler = Stateless<BLOCK, STATE, N>;
-    type Election = StaticCommittee<STATE, N>;
+    type StatefulHandler = Stateless<STATE::Block, STATE>;
+    type Election = StaticCommittee<STATE>;
     type SignatureKey = Ed25519Pub;
 }
 

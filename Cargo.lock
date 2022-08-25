@@ -1668,6 +1668,7 @@ name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "commit",
  "either",
  "futures",
  "hotshot",

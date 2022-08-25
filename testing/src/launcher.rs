@@ -24,14 +24,10 @@ pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + Default + 'static,
-        STATE: TestableState<N, Block = BLOCK> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: TestableStorage<STATE> + 'static,
+        BLOCK: BlockContents + Default + 'static,
+        STATE: TestableState + 'static,
     > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// Create a new launcher.
@@ -63,10 +59,10 @@ impl<
         Self {
             network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage().unwrap()
+                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage().unwrap()
             }),
             block: Box::new(|_| <BLOCK as Default>::default()),
-            state: Box::new(|_| <STATE as TestableState<N>>::get_starting_state()),
+            state: Box::new(|_| <STATE as TestableState>::get_starting_state()),
             config,
         }
     }
@@ -155,15 +151,10 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N>,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE>,
+        STATE: StateContents + TestableState + 'static,
+    > TestLauncher<NETWORK, STORAGE, STATE::Block, STATE>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
@@ -171,7 +162,7 @@ impl<
     /// - `STORAGE` implements [`Storage`]
     /// - `BLOCK` implements [`BlockContents`]
     /// - `STATE` implements [`State`] and [`TestableState`]
-    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
+    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, STATE::Block, STATE> {
         TestRunner::new(self)
     }
 }

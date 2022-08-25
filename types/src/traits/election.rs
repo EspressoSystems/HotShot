@@ -1,6 +1,6 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
 
 use crate::{
     data::{StateHash, ViewNumber},

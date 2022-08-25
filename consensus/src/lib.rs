@@ -19,17 +19,14 @@
 
 mod traits;
 
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
 use hotshot_utils::hack::nll_todo;
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    data::{
-        Leaf, QuorumCertificate,
-        ViewNumber,
-    },
+    data::{Leaf, QuorumCertificate, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
@@ -146,7 +143,14 @@ pub struct Consensus<I: NodeImplementation> {
     pub last_decided_view: ViewNumber,
 
     /// A list of undecided transactions
-    pub transactions: Arc<RwLock<HashMap<Commitment<<I::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>>,
+    pub transactions: Arc<
+        RwLock<
+            HashMap<
+                Commitment<<I::Block as BlockContents>::Transaction>,
+                <I as TypeMap>::Transaction,
+            >,
+        >,
+    >,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
@@ -203,7 +207,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             &p.signature,
                             // TODO what are we using instead of verify hash?
                             // &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
-                            &[nll_todo()]
+                            &[nll_todo()],
                         ) {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
@@ -420,7 +424,14 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Lock over the transactions list
-    pub transactions: Arc<RwLock<HashMap<Commitment<<I::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>>,
+    pub transactions: Arc<
+        RwLock<
+            HashMap<
+                Commitment<<I::Block as BlockContents>::Transaction>,
+                <I as TypeMap>::Transaction,
+            >,
+        >,
+    >,
     /// Limited access to the consensus protocol
     pub api: A,
 }
@@ -553,7 +564,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         let mut qcs = HashSet::<QuorumCertificate<I::State>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut vote_outcomes: HashMap<Commitment<Leaf<I::State>>, (Commitment<I::Block>, Signatures)> = HashMap::new();
+        let mut vote_outcomes: HashMap<
+            Commitment<Leaf<I::State>>,
+            (Commitment<I::Block>, Signatures),
+        > = HashMap::new();
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
@@ -592,7 +606,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                             map.clone(),
                             // TODO
                             // create_verify_hash(&vote.leaf_hash, self.cur_view),
-                            nll_todo()
+                            nll_todo(),
                         );
                         if let Ok(valid_signatures) = result {
                             // construct QC
@@ -674,7 +688,7 @@ impl<I: NodeImplementation> Consensus<I> {
         }
         Err(HotShotError::ItemNotFound {
             type_name: "Leaf",
-            hash: nll_todo()/* next_leaf.to_vec(), */
+            hash: nll_todo(), /* next_leaf.to_vec(), */
         })
     }
 
@@ -748,8 +762,14 @@ impl<I: NodeImplementation> Consensus<I> {
     #[must_use]
     pub fn get_transactions(
         &self,
-    ) ->
-Arc<RwLock<HashMap<Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>> {
+    ) -> Arc<
+        RwLock<
+            HashMap<
+                Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>,
+                <I as TypeMap>::Transaction,
+            >,
+        >,
+    > {
         self.transactions.clone()
     }
 

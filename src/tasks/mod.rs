@@ -114,9 +114,7 @@ struct TaskHandleInner {
 /// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<I: NodeImplementation>(
-    hotshot: &HotShot<I>,
-) -> HotShotHandle<I> {
+pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHandle<I> {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
@@ -179,9 +177,7 @@ pub async fn spawn_all<I: NodeImplementation>(
 
 /// Executes one view of consensus
 #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
-pub async fn run_view<I: NodeImplementation>(
-    hotshot: HotShot<I>,
-) -> Result<(), ()> {
+pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), ()> {
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };

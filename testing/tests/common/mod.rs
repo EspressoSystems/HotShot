@@ -75,14 +75,10 @@ pub struct GeneralTestDescriptionBuilder {
 }
 
 pub struct DetailedTestDescriptionBuilder<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 > {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -94,14 +90,10 @@ pub struct DetailedTestDescriptionBuilder<
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + Default + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: TestableStorage<STATE> + 'static,
+        BLOCK: BlockContents + Default + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > TestDescription<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// default implementation of generate runner
@@ -156,14 +148,10 @@ impl<
 
 impl GeneralTestDescriptionBuilder {
     pub fn build<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     >(
         self,
     ) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -177,14 +165,10 @@ impl GeneralTestDescriptionBuilder {
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     pub fn build(self) -> TestDescription<NETWORK, STORAGE, BLOCK, STATE> {
@@ -216,14 +200,10 @@ impl<
 
 /// Description of a test. Contains all metadata necessary to execute test
 pub struct TestDescription<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 > {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -262,17 +242,16 @@ pub type TestSetup<NETWORK, STORAGE, BLOCK, STATE> = Vec<
     Box<
         dyn FnOnce(
             &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>,
-        ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>>,
+        ) -> LocalBoxFuture<Vec<<BLOCK as BlockContents>::Transaction>>,
     >,
 >;
 
 /// type alias for the typical network we use
-pub type TestNetwork =
-    MemoryNetwork<Message<DEntryBlock, Transaction, DemoState, Ed25519Pub, N>, Ed25519Pub>;
+pub type TestNetwork = MemoryNetwork<Message<DemoState, Ed25519Pub>, Ed25519Pub>;
 /// type alias for in memory storage we use
-pub type TestStorage = MemoryStorage<DEntryBlock, DemoState, N>;
+pub type TestStorage = MemoryStorage<DemoState>;
 /// type alias for the test transaction type
-pub type TestTransaction = <DEntryBlock as BlockContents<N>>::Transaction;
+pub type TestTransaction = <DEntryBlock as BlockContents>::Transaction;
 /// type alias for the test runner type
 pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryBlock, DemoState>;
 /// type alias for the result of a test round
@@ -299,8 +278,7 @@ impl Default for GeneralTestDescriptionBuilder {
     }
 }
 
-pub type TestLibp2pNetwork =
-    Libp2pNetwork<Message<DEntryBlock, Transaction, DemoState, Ed25519Pub, N>, Ed25519Pub>;
+pub type TestLibp2pNetwork = Libp2pNetwork<Message<DemoState, Ed25519Pub>, Ed25519Pub>;
 
 /// given a description of rounds, generates such rounds
 /// args
@@ -308,14 +286,10 @@ pub type TestLibp2pNetwork =
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
 pub fn default_submitter_id_to_round<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
@@ -364,14 +338,10 @@ pub fn default_submitter_id_to_round<
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
-    NETWORK: NetworkingImplementation<
-            Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-            Ed25519Pub,
-        > + Clone
-        + 'static,
-    STORAGE: Storage<BLOCK, STATE, N> + 'static,
-    BLOCK: BlockContents<N> + 'static,
-    STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE> + 'static,
+    BLOCK: BlockContents + 'static,
+    STATE: StateContents<Block = BLOCK> + TestableState + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
@@ -382,7 +352,7 @@ pub fn default_randomized_ids_to_round<
     for round_idx in 0..num_rounds {
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
         let run_round : RoundSetup<NETWORK, STORAGE, BLOCK, STATE>
-            = Box::new(move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| -> LocalBoxFuture<Vec<<BLOCK as BlockContents<N>>::Transaction>> {
+            = Box::new(move |runner: &mut TestRunner<NETWORK, STORAGE, BLOCK, STATE>| -> LocalBoxFuture<Vec<<BLOCK as BlockContents>::Transaction>> {
             async move {
                 if let Some(to_shut_down) = to_kill.clone() {
                     for idx in to_shut_down {
@@ -404,14 +374,10 @@ pub fn default_randomized_ids_to_round<
 }
 
 impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: StateContents<N, Block = BLOCK> + TestableState<N> + 'static,
+        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        STORAGE: Storage<STATE> + 'static,
+        BLOCK: BlockContents + 'static,
+        STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, BLOCK, STATE>
 {
     /// create rounds of consensus based on the data in `self`
@@ -670,8 +636,8 @@ macro_rules! cross_tests {
     // base reduction
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: false, args: $($args:tt)*) => {
-        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message<$BLOCK, <$BLOCK as hotshot::traits::BlockContents< { hotshot::H_256 } > > ::Transaction, $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub ,{ hotshot::H_256 } >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
-        $STORAGE<$BLOCK, $STATE, { hotshot::H_256 } >,
+        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message< $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
+        $STORAGE<$STATE >,
         $BLOCK,
         $STATE
             >;

@@ -11,7 +11,10 @@ use hotshot::{
 use hotshot_types::traits::signature_key::{
     ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    hack::nll_todo,
+    test_util::{setup_backtrace, setup_logging},
+};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -27,8 +30,7 @@ use tracing::debug;
 
 const TRANSACTION_COUNT: u64 = 10;
 
-type Node =
-    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -93,8 +95,8 @@ async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-) -> (State, HotShotHandle<Node, H_256>) {
+    networking: WNetwork<Message<State, Ed25519Pub>, Ed25519Pub>,
+) -> (State, HotShotHandle<Node>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -137,7 +139,8 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
+    // let genesis = DEntryBlock::default();
+    let genesis = nll_todo();
     let hotshot = HotShot::init(
         genesis,
         known_nodes.clone(),
@@ -245,7 +248,7 @@ async fn main() {
         // Start consensus
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<DEntryBlock, State, H_256> = hotshot
+        let mut event: Event<State> = hotshot
             .next_event()
             .await
             .expect("HotShot unexpectedly closed");

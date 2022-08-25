@@ -7,7 +7,7 @@
 //! production use.
 
 use blake3::Hasher;
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     traits::{signature_key::ed25519::Ed25519Pub, state::TestableState, StateContents},
@@ -112,7 +112,6 @@ impl Committable for State {
         nll_todo()
     }
 }
-
 
 // impl State {
 //     /// Produces a hash of the current state
@@ -319,6 +318,15 @@ impl crate::traits::StateContents for State {
     }
 }
 
+impl Default for DEntryBlock {
+    fn default() -> Self {
+        Self {
+            previous_state: nll_todo(),
+            transactions: nll_todo(),
+        }
+    }
+}
+
 /// The block for the dentry demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryBlock {
@@ -327,7 +335,6 @@ pub struct DEntryBlock {
     /// Transaction vector
     pub transactions: Vec<Transaction>,
 }
-
 
 impl Committable for DEntryBlock {
     fn commit(&self) -> Commitment<Self> {
@@ -340,7 +347,6 @@ impl Committable for Transaction {
         nll_todo()
     }
 }
-
 
 impl BlockContents for DEntryBlock {
     type Transaction = Transaction;
@@ -407,18 +413,14 @@ impl<NET> Default for DEntryNode<NET> {
 
 impl<NET> NodeImplementation for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<
-            Message<State, Ed25519Pub>,
-            Ed25519Pub,
-        > + Clone
-        + Debug
-        + 'static,
+    NET: NetworkingImplementation<Message<State, Ed25519Pub>, Ed25519Pub> + Clone + Debug + 'static,
 {
     type Block = DEntryBlock;
     type State = State;
     type Storage = MemoryStorage<State>;
     type Networking = NET;
-    type StatefulHandler = crate::traits::implementations::Stateless<<Self::State as StateContents>::Block, State>;
+    type StatefulHandler =
+        crate::traits::implementations::Stateless<<Self::State as StateContents>::Block, State>;
     type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
 }

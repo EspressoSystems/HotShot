@@ -51,7 +51,7 @@ use commit::{Commitment, Committable};
 use flume::Sender;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
-    data::{ViewNumber, VerifyHash},
+    data::{VerifyHash, ViewNumber},
     error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -184,9 +184,14 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions:
-        Arc<RwLock<HashMap<Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>, <I as TypeMap>::Transaction>>>,
-
+    transactions: Arc<
+        RwLock<
+            HashMap<
+                Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>,
+                <I as TypeMap>::Transaction,
+            >,
+        >,
+    >,
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I>>>,
@@ -246,7 +251,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         };
         let election = {
             let state = nll_todo();
-                // <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default();
+            // <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default();
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
                 election,
@@ -645,20 +650,20 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     );
                     debug!(?leaf, ?block, ?qc, "Saving");
 
-                    if let Err(e) = self
-                        .inner
-                        .storage
-                        .update(|mut m| async move {
-                            m.insert_leaf(leaf).await?;
-                            m.insert_block(block_hash, block).await?;
-                            m.insert_state(state, leaf_hash).await?;
-                            m.insert_qc(qc).await?;
-                            Ok(())
-                        })
-                        .await
-                    {
-                        error!(?e, "Could not insert incoming QC");
-                    }
+                    // if let Err(e) = self
+                    //     .inner
+                    //     .storage
+                    //     .update(|mut m| async move {
+                    //         m.insert_leaf(leaf).await?;
+                    //         m.insert_block(block_hash, block).await?;
+                    //         m.insert_state(state, leaf_hash).await?;
+                    //         m.insert_qc(qc).await?;
+                    //         Ok(())
+                    //     })
+                    //     .await
+                    // {
+                    //     error!(?e, "Could not insert incoming QC");
+                    // }
 
                     // Broadcast that we're updated
                     self.send_event(Event {
@@ -723,7 +728,7 @@ pub async fn create_or_obtain_chan_from_read<I: NodeImplementation>(
 
 /// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<I: NodeImplementation,>(
+pub async fn create_or_obtain_chan_from_write<I: NodeImplementation>(
     view_num: ViewNumber,
     mut channel_map: RwLockWriteGuard<'_, SendToTasks<I>>,
 ) -> ViewQueue<I> {
@@ -738,9 +743,7 @@ struct HotShotConsensusApi<I: NodeImplementation> {
 }
 
 #[async_trait]
-impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I>
-    for HotShotConsensusApi<I>
-{
+impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsensusApi<I> {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
     }

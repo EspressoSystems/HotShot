@@ -36,14 +36,11 @@ async fn libp2p_network() {
     description
         .build::<Libp2pNetwork<
             Message<
-                DEntryBlock,
-                <DEntryBlock as BlockContents<H_256>>::Transaction,
                 DemoState,
                 Ed25519Pub,
-                H_256,
             >,
             Ed25519Pub,
-        >, MemoryStorage<DEntryBlock, DemoState, H_256>, DEntryBlock, DemoState>()
+        >, MemoryStorage<DemoState>, DEntryBlock, DemoState>()
         .execute()
         .await
         .unwrap();
@@ -70,14 +67,11 @@ async fn test_stress_libp2p_network() {
     description
         .build::<Libp2pNetwork<
             Message<
-                DEntryBlock,
-                <DEntryBlock as BlockContents<H_256>>::Transaction,
                 DemoState,
                 Ed25519Pub,
-                H_256,
             >,
             Ed25519Pub,
-        >, MemoryStorage<DEntryBlock, DemoState, H_256>, DEntryBlock, DemoState>()
+        >, MemoryStorage<DemoState>, DEntryBlock, DemoState>()
         .execute()
         .await
         .unwrap();

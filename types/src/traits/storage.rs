@@ -6,7 +6,7 @@ use crate::{
     traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
 use futures::Future;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -37,15 +37,18 @@ pub type StorageResult<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<
-    STATE: StateContents,
->: Clone + Send + Sync
-{
+pub trait Storage<STATE: StateContents>: Clone + Send + Sync {
     /// Retrieves a block from storage, returning `None` if it could not be found in local storage
-    async fn get_block(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<STATE::Block>>;
+    async fn get_block(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<STATE::Block>>;
 
     /// Retrieves a Quorum Certificate from storage, by the hash of the block it refers to
-    async fn get_qc(&self, hash: &Commitment<STATE::Block>) -> StorageResult<Option<QuorumCertificate<STATE>>>;
+    async fn get_qc(
+        &self,
+        hash: &Commitment<STATE::Block>,
+    ) -> StorageResult<Option<QuorumCertificate<STATE>>>;
 
     /// Retrieves the Quorum Certificate associated with a particular view number
     async fn get_qc_for_view(
@@ -68,10 +71,10 @@ pub trait Storage<
     /// Calls the given `update_fn` for a list of modifications, then stores these.
     ///
     /// If an error occurs somewhere, the caller can assume that no data is stored at all.
-    async fn update<'b, F, FUT>(&'b self, update_fn: F) -> StorageResult
-    where
-        F: FnOnce(Box<dyn StorageUpdater<'b, STATE> + 'b>) -> FUT + Send + 'b,
-        FUT: Future<Output = StorageResult> + Send + 'b;
+    // async fn update<'b, F, FUT>(&'b self, update_fn: F) -> StorageResult
+    // where
+    //     F: FnOnce(Box<dyn StorageUpdater<'_, STATE> + 'b>) -> FUT + Send + 'b,
+    //     FUT: Future<Output = StorageResult> + Send + 'b;
 
     /// Get the internal state of this storage system.
     ///
@@ -102,10 +105,7 @@ pub trait Storage<
 }
 
 /// Extra requirements on Storage implementations required for testing
-pub trait TestableStorage<
-    S: StateContents + 'static,
->: Clone + Send + Sync + Storage<S>
-{
+pub trait TestableStorage<S: StateContents + 'static>: Clone + Send + Sync + Storage<S> {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
     /// # Errors
@@ -130,13 +130,13 @@ pub struct StorageState<STATE: StateContents> {
 
 /// Trait to be used with [`Storage`]'s `update` function.
 #[async_trait]
-pub trait StorageUpdater<
-    'a,
-    STATE: StateContents + 'static,
->: Send
-{
+pub trait StorageUpdater<'a, STATE: StateContents + 'static>: Send {
     /// Inserts a block into storage.
-    async fn insert_block(&mut self, hash: Commitment<STATE::Block>, block: STATE::Block) -> StorageResult;
+    async fn insert_block(
+        &mut self,
+        hash: Commitment<STATE::Block>,
+        block: STATE::Block,
+    ) -> StorageResult;
     /// Inserts a Quorum Certificate into the storage. Should reject the QC if it is malformed or
     /// not from a decide stage.
     async fn insert_qc(&mut self, qc: QuorumCertificate<STATE>) -> StorageResult;
