@@ -14,6 +14,8 @@ use crate::{
 };
 use std::fmt::Debug;
 
+use super::StateContents;
+
 /// Node implementation aggregate trait
 ///
 /// This trait exists to collect multiple behavior implementations into one type, to allow
@@ -22,17 +24,18 @@ use std::fmt::Debug;
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
 pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
-    /// Block type for this consensus implementation
-    type Block: BlockContents + 'static;
     /// State type for this consensus implementation
-    type State: crate::traits::StateContents<Block = Self::Block>;
+    type State: StateContents;
     /// Storage type for this consensus implementation
     type Storage: Storage<Self::State> + Clone;
     /// Networking type for this consensus implementation
     type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
         + Clone;
     /// Stateful call back handler for this consensus implementation
-    type StatefulHandler: StatefulHandler<Block = Self::Block, State = Self::State>;
+    type StatefulHandler: StatefulHandler<
+        Block = <Self::State as StateContents>::Block,
+        State = Self::State,
+    >;
     /// The election algorithm
     type Election: Election<Self::SignatureKey>;
     /// The signature key type for this implementation
@@ -72,5 +75,5 @@ impl<I: NodeImplementation> TypeMap for I {
     type MessageKind = MessageKind<I::State>;
     type ConsensusMessage = ConsensusMessage<I::State>;
     type DataMessage = DataMessage<I::State>;
-    type Transaction = <I::Block as BlockContents>::Transaction;
+    type Transaction = <<I::State as StateContents>::Block as BlockContents>::Transaction;
 }

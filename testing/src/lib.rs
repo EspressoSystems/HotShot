@@ -567,7 +567,6 @@ impl<
         STATE: StateContents<Block = BLOCK> + TestableState + 'static,
     > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, BLOCK, STATE>
 {
-    type Block = BLOCK;
     type State = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;

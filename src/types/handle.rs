@@ -9,7 +9,7 @@ use hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    traits::network::NetworkingImplementation,
+    traits::{network::NetworkingImplementation, StateContents},
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
@@ -121,7 +121,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// [`HotShot`] instance.
     pub async fn submit_transaction(
         &self,
-        tx: <<I as NodeImplementation>::Block as BlockContents>::Transaction,
+        tx: <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
     ) -> Result<()> {
         self.hotshot.publish_transaction_async(tx).await
     }
@@ -150,7 +150,9 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// Errors if unable to obtain storage
     /// # Panics
     /// Panics if the event stream is shut down while this is running
-    pub async fn collect_round_events(&mut self) -> Result<(Vec<I::State>, Vec<I::Block>)> {
+    pub async fn collect_round_events(
+        &mut self,
+    ) -> Result<(Vec<I::State>, Vec<<I::State as StateContents>::Block>)> {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against

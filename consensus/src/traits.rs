@@ -10,6 +10,7 @@ use hotshot_types::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        StateContents,
     },
 };
 use hotshot_utils::hack::nll_todo;
@@ -74,7 +75,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     ///
     /// The provided states and blocks are guaranteed to be in ascending order of age (newest to
     /// oldest).
-    async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>);
+    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>);
 
     // Utility functions
 
@@ -89,7 +90,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&self, view_number: ViewNumber, block: I::Block) {
+    async fn send_propose(
+        &self,
+        view_number: ViewNumber,
+        block: <I::State as StateContents>::Block,
+    ) {
         self.send_event(Event {
             view_number,
             event: EventType::Propose {
@@ -121,7 +126,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     async fn send_decide(
         &self,
         view_number: ViewNumber,
-        blocks: Vec<I::Block>,
+        blocks: Vec<<I::State as StateContents>::Block>,
         states: Vec<I::State>,
         qcs: Vec<QuorumCertificate<I::State>>,
     ) {

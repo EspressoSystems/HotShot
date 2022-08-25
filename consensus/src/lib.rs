@@ -145,7 +145,7 @@ pub struct Consensus<I: NodeImplementation> {
     pub transactions: Arc<
         RwLock<
             HashMap<
-                Commitment<<I::Block as BlockContents>::Transaction>,
+                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
                 <I as TypeMap>::Transaction,
             >,
         >,
@@ -239,7 +239,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                         let vote = ConsensusMessage::<I::State>::Vote(Vote {
-                            block_commitment: <I::Block as Committable>::commit(&leaf.deltas),
+                            block_commitment:
+                                <<I::State as StateContents>::Block as Committable>::commit(
+                                    &leaf.deltas,
+                                ),
                             justify_qc: leaf.justify_qc.clone(),
                             signature,
                             leaf_commitment,
@@ -423,7 +426,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
     pub transactions: Arc<
         RwLock<
             HashMap<
-                Commitment<<I::Block as BlockContents>::Transaction>,
+                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
                 <I as TypeMap>::Transaction,
             >,
         >,
@@ -488,9 +491,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
-        let previous_used_txns = previous_used_txns_vec
-            .into_iter()
-            .collect::<HashSet<Commitment<<I::Block as BlockContents>::Transaction>>>();
+        let previous_used_txns =
+            previous_used_txns_vec.into_iter().collect::<HashSet<
+                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
+            >>();
 
         let txns = self.transactions.read().await;
 
@@ -562,7 +566,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
         let mut vote_outcomes: HashMap<
             Commitment<Leaf<I::State>>,
-            (Commitment<I::Block>, Signatures),
+            (Commitment<<I::State as StateContents>::Block>, Signatures),
         > = HashMap::new();
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
@@ -755,11 +759,11 @@ impl<I: NodeImplementation> Consensus<I> {
     ) -> Arc<
         RwLock<
             HashMap<
-                Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>,
+                Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
                 <I as TypeMap>::Transaction,
             >,
         >,
-    > {
+    >{
         self.transactions.clone()
     }
 

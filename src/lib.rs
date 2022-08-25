@@ -60,6 +60,7 @@ use hotshot_types::{
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         stateful_handler::StatefulHandler,
+        StateContents,
     },
 };
 use hotshot_utils::{broadcast::BroadcastSender, hack::nll_todo};
@@ -187,7 +188,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     transactions: Arc<
         RwLock<
             HashMap<
-                Commitment<<<I as NodeImplementation>::Block as BlockContents>::Transaction>,
+                Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
                 <I as TypeMap>::Transaction,
             >,
         >,
@@ -220,7 +221,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         election
     ))]
     pub async fn new(
-        genesis: I::Block,
+        genesis: <I::State as StateContents>::Block,
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
@@ -368,7 +369,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
-        transaction: <<I as NodeImplementation>::Block as BlockContents>::Transaction,
+        transaction: <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
@@ -414,7 +415,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
-        genesis: I::Block,
+        genesis: <I::State as StateContents>::Block,
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
@@ -777,7 +778,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
-    async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>) {
+    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>) {
         debug!(?blocks, ?states, "notify");
         self.inner
             .stateful_handler

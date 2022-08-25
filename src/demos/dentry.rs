@@ -417,7 +417,6 @@ where
         + Debug
         + 'static,
 {
-    type Block = DEntryBlock;
     type State = DEntryState;
     type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
