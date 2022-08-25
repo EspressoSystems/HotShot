@@ -33,7 +33,7 @@ use hotshot_types::{
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        storage::Storage,
+        storage::{Storage, StoredView},
         BlockContents, State,
     },
 };
@@ -402,7 +402,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             let storage = self.api.storage();
-            if let Err(e) = storage.append_single_view(leaf.into()).await {
+            // TODO(https://github.com/EspressoSystems/HotShot/issues/411): store the rejected transactions in this view
+            let view_to_insert = StoredView::from(leaf);
+            if let Err(e) = storage.append_single_view(view_to_insert).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
             }
             if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
