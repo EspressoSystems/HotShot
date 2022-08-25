@@ -2,16 +2,11 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::{
-    data::{BlockHash, Leaf, LeafHash},
-    traits::{BlockContents, StateContents},
-    QuorumCertificate,
-};
+use crate::{data::Leaf, traits::StateContents, QuorumCertificate};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use dashmap::DashMap;
-use futures::Future;
 use hotshot_types::{
     data::ViewNumber,
     traits::storage::{

@@ -647,8 +647,8 @@ macro_rules! cross_tests {
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: true, args: $($args:tt)*) => {
         #[cfg(feature = "slow-tests")]
-        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message<$BLOCK, <$BLOCK as hotshot::traits::BlockContents< { hotshot::H_256 } > > ::Transaction, $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub ,{ hotshot::H_256 } >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
-        $STORAGE<$BLOCK, $STATE, { hotshot::H_256 } >,
+        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message< $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
+        $STORAGE< $STATE >,
         $BLOCK,
         $STATE
             >;

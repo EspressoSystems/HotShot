@@ -1,5 +1,4 @@
 use commit::{Commitment, Committable};
-use hotshot::data::StateHash;
 use hotshot_types::{
     data::ViewNumber,
     traits::{

@@ -1,4 +1,3 @@
-use crate::data::StateHash;
 use commit::Commitment;
 use hotshot_types::{
     data::ViewNumber,

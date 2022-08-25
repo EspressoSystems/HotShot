@@ -4,16 +4,11 @@ mod dual_key_value_store;
 mod hash_map_store;
 
 use self::{dual_key_value_store::DualKeyValueStore, hash_map_store::HashMapStore};
-use crate::{
-    data::{BlockHash, Leaf, LeafHash},
-    traits::{BlockContents, StateContents},
-    QuorumCertificate,
-};
+use crate::{data::Leaf, traits::StateContents, QuorumCertificate};
 use async_std::sync::Mutex;
 use async_trait::async_trait;
 use atomic_store::{AtomicStore, AtomicStoreLoader};
 use commit::Commitment;
-use futures::Future;
 use hotshot_types::{
     data::ViewNumber,
     traits::storage::{

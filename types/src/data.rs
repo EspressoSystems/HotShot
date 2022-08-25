@@ -10,6 +10,7 @@ use crate::traits::{
 use blake3::Hasher;
 use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
+use hotshot_utils::hack::nll_todo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -108,12 +109,6 @@ macro_rules! gen_hash_wrapper_type {
     };
 }
 
-gen_hash_wrapper_type!(BlockHash);
-gen_hash_wrapper_type!(LeafHash);
-gen_hash_wrapper_type!(TransactionHash);
-gen_hash_wrapper_type!(VerifyHash);
-gen_hash_wrapper_type!(StateHash);
-
 /// Internal type used for representing hashes
 ///
 /// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that
@@ -200,6 +195,18 @@ mod serde_bytes_array {
     }
 }
 
+impl<STATE: StateContents> Default for QuorumCertificate<STATE> {
+    fn default() -> Self {
+        Self {
+            block_hash: nll_todo(),
+            leaf_hash: nll_todo(),
+            view_number: nll_todo(),
+            signatures: nll_todo(),
+            genesis: nll_todo(),
+        }
+    }
+}
+
 /// The type used for Quorum Certificates
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
@@ -242,66 +249,6 @@ pub struct QuorumCertificate<STATE: StateContents> {
     /// not have a signature. This value is not covered by the signature, and it is invalid for this
     /// to be set outside of bootstrap
     pub genesis: bool,
-}
-
-impl<'a, STATE: StateContents> Default for QuorumCertificate<STATE> {
-    fn default() -> Self {
-        Self {
-            block_hash: todo!(),
-            leaf_hash: todo!(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: false,
-        }
-    }
-}
-
-impl<'a, STATE: StateContents> QuorumCertificate<STATE> {
-    /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
-    /// array.
-    ///
-    /// This is useful for erasing the const-generic length for error types and logging, but is not
-    /// directly consensus relevant.
-    pub fn to_vec_cert(&self) -> VecQuorumCertificate {
-        VecQuorumCertificate {
-            block_hash: self.block_hash.as_ref().to_vec(),
-            view_number: self.view_number,
-            signatures: self.signatures.clone(),
-            genesis: self.genesis,
-        }
-    }
-}
-
-/// [`QuorumCertificate`] variant using a `Vec` rather than a const-generic array
-///
-/// This type mainly exists to work around an issue with
-/// [`snafu`](https://github.com/shepmaster/snafu) when used with const-generics, by erasing the
-/// const-generic length.
-///
-/// This type is not used directly by consensus.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug)]
-pub struct VecQuorumCertificate {
-    /// Block this QC refers to
-    #[debug(with = "fmt_vec")]
-    pub block_hash: Vec<u8>,
-    /// The view we were on when we made this certificate
-    pub view_number: ViewNumber,
-    /// The signature portion of this QC
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-    /// Temporary bypass for boostrapping
-    pub genesis: bool,
-}
-
-impl VecQuorumCertificate {
-    /// Create a dummy [`VecQuorumCertificate`]
-    pub fn dummy<const N: usize>() -> Self {
-        Self {
-            block_hash: BlockHash::<N>::random().to_vec(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: false,
-        }
-    }
 }
 
 /// A node in `HotShot`'s consensus-internal merkle tree.
@@ -383,21 +330,5 @@ fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std:
 /// Format a vec with [`HexFmt`]
 #[allow(clippy::ptr_arg)] // required because `custom_debug` requires an exact type match
 fn fmt_vec(n: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
-}
-
-/// Format a [`BlockHash`] with [`HexFmt`]
-fn fmt_blockhash<const N: usize>(
-    n: &BlockHash<N>,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
-}
-
-/// Format a [`LeafHash`] with [`HexFmt`]
-fn fmt_leaf_hash<const N: usize>(
-    n: &LeafHash<N>,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
     write!(f, "{:12}", HexFmt(n))
 }

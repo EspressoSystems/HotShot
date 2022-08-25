@@ -3,7 +3,7 @@ use commit::Committable;
 use hotshot::demos::dentry::State;
 
 use hotshot::{
-    data::{Leaf, QuorumCertificate, StateHash},
+    data::{Leaf, QuorumCertificate},
     demos::dentry::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, State as DemoState,
     },

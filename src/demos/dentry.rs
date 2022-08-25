@@ -24,7 +24,6 @@ use std::{
 use tracing::{error, warn};
 
 use crate::{
-    data::{BlockHash, LeafHash, StateHash, TransactionHash},
     traits::{
         election::StaticCommittee, implementations::MemoryStorage, BlockContents,
         NetworkingImplementation, NodeImplementation,

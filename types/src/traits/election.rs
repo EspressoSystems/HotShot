@@ -2,10 +2,7 @@
 
 use commit::{Commitment, Committable};
 
-use crate::{
-    data::{StateHash, ViewNumber},
-    traits::signature_key::SignatureKey,
-};
+use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey>: Send + Sync {

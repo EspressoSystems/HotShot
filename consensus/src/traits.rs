@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -152,8 +152,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
         // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let hash: VerifyHash<32> = nll_todo();
-        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_hash.as_ref());
         (self.public_key().to_bytes(), signature)
     }
 
@@ -164,8 +163,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         view_number: ViewNumber,
     ) -> EncodedSignature {
         // let hash = self.create_verify_hash(leaf_hash, view_number);
-        let hash: VerifyHash<32> = nll_todo();
-        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_hash.as_ref());
         signature
     }
 
@@ -183,6 +181,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-        hash: VerifyHash<32>,
+        hash: Commitment<Leaf<I::State>>,
     ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
 }

@@ -6,10 +6,10 @@ use async_std::sync::RwLock;
 use atomic_store::{load_store::BincodeLoadStore, AppendLog, AtomicStoreLoader};
 use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     traits::{
         storage::{AtomicStoreSnafu, InconsistencySnafu, StorageError},
-        BlockContents, StateContents,
+        StateContents,
     },
 };
 use serde::{de::DeserializeOwned, Serialize};

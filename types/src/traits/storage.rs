@@ -1,9 +1,9 @@
 //! Abstraction over on-disk storage of node state
 
 use crate::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{BlockContents, StateContents},
+    traits::StateContents,
 };
 use async_trait::async_trait;
 use commit::{Commitment, Committable};

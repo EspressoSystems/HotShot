@@ -4,14 +4,13 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{BlockHash, Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         BlockContents, StateContents,
     },
 };
-use commit::{Commitment, Committable};
-use hex_fmt::HexFmt;
+use commit::Commitment;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -170,12 +169,4 @@ pub struct Vote<STATE: StateContents> {
     pub leaf_hash: Commitment<Leaf<STATE>>,
     /// The view this vote was cast for
     pub current_view: ViewNumber,
-}
-
-/// Format a [`LeafHash`] with [`HexFmt`]
-fn fmt_leaf_hash<const N: usize>(
-    n: &LeafHash<N>,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
 }

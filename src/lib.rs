@@ -51,7 +51,7 @@ use commit::{Commitment, Committable};
 use flume::Sender;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
-    data::{VerifyHash, ViewNumber},
+    data::ViewNumber,
     error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -862,7 +862,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     fn get_valid_signatures(
         &self,
         signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-        hash: VerifyHash<32>,
+        hash: Commitment<Leaf<I::State>>,
     ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
         let mut valid_signatures = BTreeMap::new();
 

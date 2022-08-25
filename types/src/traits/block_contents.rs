@@ -4,11 +4,9 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
-
-use crate::data::{BlockHash, Leaf, LeafHash, TransactionHash};
 
 /// Abstraction over the contents of a block
 ///
