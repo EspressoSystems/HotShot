@@ -15,6 +15,7 @@ pub use storage::{Storage, StorageResult};
 pub mod implementations {
     pub use super::{
         networking::{
+            centralized_server_network::CentralizedServerNetwork,
             libp2p_network::{Libp2pNetwork, PeerInfoVec},
             memory_network::{DummyReliability, MasterMap, MemoryNetwork},
             w_network::WNetwork,

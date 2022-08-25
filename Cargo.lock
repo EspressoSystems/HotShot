@@ -1564,6 +1564,7 @@ dependencies = [
  "embed-doc-image",
  "flume",
  "futures",
+ "hotshot-centralized-server",
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
@@ -1578,6 +1579,35 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-unwrap",
+]
+
+[[package]]
+name = "hotshot-centralized-server"
+version = "0.1.1"
+dependencies = [
+ "async-std",
+ "bincode",
+ "flume",
+ "futures",
+ "hotshot-types",
+ "hotshot-utils",
+ "serde",
+ "snafu",
+]
+
+[[package]]
+name = "hotshot-centralized-server-bin"
+version = "0.1.1"
+dependencies = [
+ "async-std",
+ "bincode",
+ "clap 3.2.17",
+ "flume",
+ "hotshot",
+ "hotshot-centralized-server",
+ "hotshot-types",
+ "hotshot-utils",
+ "serde",
 ]
 
 [[package]]
