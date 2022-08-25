@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{QuorumCertificate, ViewNumber},
+    data::{QuorumCertificate, TransactionHash, ViewNumber},
     error::HotShotError,
     traits::BlockContents,
 };
@@ -55,7 +55,7 @@ pub enum EventType<B: BlockContents<N>, S: Send + Sync, const N: usize> {
         /// The quorum certificates that accompy this Decide
         qcs: Arc<Vec<QuorumCertificate<N>>>,
         /// The list of transaction sets confirmed rejected with this decision
-        rejects: Arc<Vec<Vec<<B as BlockContents<N>>::Transaction>>>,
+        rejects: Arc<Vec<Vec<TransactionHash<N>>>>,
     },
     /// A new view was started by this node
     NewView {

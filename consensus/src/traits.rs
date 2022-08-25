@@ -2,14 +2,13 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, TransactionHash, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        BlockContents,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
@@ -123,7 +122,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
         qcs: Vec<QuorumCertificate<N>>,
-        rejects: Vec<Vec<<<I as NodeImplementation<N>>::Block as BlockContents<N>>::Transaction>>,
+        rejects: Vec<Vec<TransactionHash<N>>>,
     ) {
         self.send_event(Event {
             view_number,
