@@ -37,13 +37,7 @@ pub enum HotShotError {
         source: crate::traits::network::NetworkError,
     },
     /// Item was not present in storage
-    ItemNotFound {
-        /// Name of the hash type that was not found.
-        /// Can be easily obtained with `std::any::type_name::<T>()`
-        type_name: &'static str,
-        /// Hash of the missing item
-        hash: Vec<u8>,
-    },
+    LeafNotFound {/* TODO we should create a way to to_string */},
     /// Error accesing storage
     StorageError {
         /// Underlying error

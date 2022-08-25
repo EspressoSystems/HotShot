@@ -307,28 +307,9 @@ impl<STATE: StateContents> Leaf<STATE> {
             state,
         }
     }
-
-    /// Hashes the leaf with the hashing algorithm provided by the [`BlockContents`] implementation
-    ///
-    /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
-    /// contained block, and then return the hash of the resulting concatenated byte string.
-    /// NOTE: are we sure this is hashing correctly
-    pub fn hash(&self) -> Commitment<Leaf<STATE>> {
-        todo!()
-        // let mut bytes = Vec::<u8>::new();
-        // bytes.extend_from_slice(self.parent.as_ref());
-        // bytes.extend_from_slice(<BLOCK as Committable>::commit(&self.deltas).as_ref());
-        // <BLOCK as BlockContents>::hash(&bytes)
-    }
 }
 
 /// Format a fixed-size array with [`HexFmt`]
 fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", HexFmt(n))
-}
-
-/// Format a vec with [`HexFmt`]
-#[allow(clippy::ptr_arg)] // required because `custom_debug` requires an exact type match
-fn fmt_vec(n: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
 }

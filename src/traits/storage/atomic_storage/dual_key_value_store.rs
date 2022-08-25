@@ -206,7 +206,7 @@ where
     const KEY_2_NAME: &'static str = "block_hash";
 
     fn key_1(&self) -> Self::Key1 {
-        self.hash()
+        self.commit()
     }
 
     fn key_2(&self) -> Self::Key2 {

@@ -292,7 +292,7 @@ where
 
     #[instrument(name = "MemoryStorage::insert_leaf", skip_all)]
     async fn insert_leaf(&mut self, leaf: Leaf<STATE>) -> StorageResult {
-        let hash = leaf.hash();
+        let hash = leaf.commit();
         trace!(?leaf, ?hash, "Inserting");
         let block_hash = <STATE::Block as Committable>::commit(&leaf.deltas);
         let mut leaves = self.inner.leaves.write().await;

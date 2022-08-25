@@ -271,7 +271,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             background_task_handle: tasks::TaskHandle::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         };
-        let leaf_hash = genesis_leaf.hash();
+        let leaf_hash = genesis_leaf.commit();
         trace!("Genesis leaf hash: {:?}", leaf_hash);
 
         let mut genesis_map = BTreeMap::default();

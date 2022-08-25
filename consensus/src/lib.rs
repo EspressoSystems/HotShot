@@ -203,12 +203,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                 }
                 match msg {
                     ConsensusMessage::Proposal(p) => {
-                        if !view_leader_key.validate(
-                            &p.signature,
-                            // TODO what are we using instead of verify hash?
-                            // &create_verify_hash(&p.leaf.hash(), p.leaf.view_number).to_vec(),
-                            &[nll_todo()],
-                        ) {
+                        if !view_leader_key.validate(&p.signature, p.leaf.commit().as_ref()) {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }
@@ -241,7 +236,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
-                        let leaf_hash = leaf.hash();
+                        let leaf_hash = leaf.commit();
                         let signature = self.api.sign_vote(&leaf_hash, self.cur_view);
 
                         let vote = ConsensusMessage::<I::State>::Vote(Vote {
@@ -383,10 +378,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         consensus.state_map.insert(
             self.cur_view,
             View {
-                view_inner: ViewInner::Leaf { leaf: leaf.hash() },
+                view_inner: ViewInner::Leaf {
+                    leaf: leaf.commit(),
+                },
             },
         );
-        consensus.saved_leaves.insert(leaf.hash(), leaf);
+        consensus.saved_leaves.insert(leaf.commit(), leaf);
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
         }
@@ -471,7 +468,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             return self.high_qc;
         };
 
-        let original_parent_hash = parent_leaf.hash();
+        let original_parent_hash = parent_leaf.commit();
         let starting_state = &parent_leaf.state;
 
         let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
@@ -521,7 +518,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 deltas: block,
                 state: new_state,
             };
-            let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
+            let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
             if self.api.send_broadcast_message(message).await.is_err() {
@@ -602,12 +599,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     if map.len() >= threshold.into() {
                         // NOTE this is slow, shouldn't check all the signatures EVERY time
-                        let result = self.api.get_valid_signatures(
-                            map.clone(),
-                            // TODO
-                            // create_verify_hash(&vote.leaf_hash, self.cur_view),
-                            nll_todo(),
-                        );
+                        let result = self.api.get_valid_signatures(map.clone(), vote.leaf_hash);
                         if let Ok(valid_signatures) = result {
                             // construct QC
                             let qc = QuorumCertificate {
@@ -686,10 +678,7 @@ impl<I: NodeImplementation> Consensus<I> {
                 }
             }
         }
-        Err(HotShotError::ItemNotFound {
-            type_name: "Leaf",
-            hash: nll_todo(), /* next_leaf.to_vec(), */
-        })
+        Err(HotShotError::LeafNotFound {})
     }
 
     /// garbage collects based on state change
