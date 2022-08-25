@@ -1,4 +1,4 @@
-use commit::{Commitment, Committable};
+use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
@@ -6,7 +6,6 @@ use hotshot_types::{
         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
@@ -74,6 +73,7 @@ impl Election<Ed25519Pub> for TestElection {
 
 impl Committable for DummyState {
     fn commit(&self) -> Commitment<Self> {
-        nll_todo()
+        // dummy implementation does nothing
+        RawCommitmentBuilder::new("Dummy Block").u64(0).finalize()
     }
 }

@@ -1685,6 +1685,7 @@ dependencies = [
 name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "async-std",
  "async-trait",
  "async-tungstenite",

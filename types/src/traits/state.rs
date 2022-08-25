@@ -5,7 +5,7 @@
 
 use crate::traits::BlockContents;
 use commit::Committable;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
 /// Abstraction over the state that blocks modify

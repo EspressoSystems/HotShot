@@ -20,7 +20,6 @@
 mod traits;
 
 use commit::{Commitment, Committable};
-use hotshot_utils::hack::nll_todo;
 pub use traits::ConsensusApi;
 
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};

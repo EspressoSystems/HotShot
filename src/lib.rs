@@ -848,8 +848,10 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
         }
+        // TODO before this was lopping on *our* view number.
+        // what if the leaf doesn't have the right view number?
         // let hash = create_verify_hash(&qc.leaf_hash, view_number);
-        let hash = nll_todo();
+        let hash = qc.leaf_hash;
         let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
         match valid_signatures {
             Ok(_) => true,

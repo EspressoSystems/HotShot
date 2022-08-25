@@ -7,6 +7,7 @@ use crate::traits::{
     signature_key::{EncodedPublicKey, EncodedSignature},
     BlockContents, StateContents,
 };
+use arbitrary::Arbitrary;
 use blake3::Hasher;
 use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
@@ -251,6 +252,23 @@ pub struct QuorumCertificate<STATE: StateContents> {
     pub genesis: bool,
 }
 
+impl<STATE: StateContents> Committable for QuorumCertificate<STATE> {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("QC Comm")
+            .constant_str("view_number")
+            .u64(*self.view_number)
+            .field("block commitment", self.block_hash)
+            .field("leaf commitment", self.leaf_hash)
+            .constant_str("signatures")
+            // TODO not sure what to for this
+            // do we need to hash this?. I think other fields should be enough.
+            .var_size_bytes(nll_todo())
+            .constant_str("genesis")
+            .u64(self.genesis as u64)
+            .finalize()
+    }
+}
+
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -258,10 +276,10 @@ pub struct QuorumCertificate<STATE: StateContents> {
 /// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
 pub struct Leaf<STATE: StateContents> {
-    // /// CurView from leader when proposing leaf
+    /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
-    // /// Per spec, justification
+    /// Per spec, justification
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<STATE>,
 
@@ -282,7 +300,14 @@ pub struct Leaf<STATE: StateContents> {
 
 impl<STATE: StateContents> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
-        todo!()
+        commit::RawCommitmentBuilder::new("Leaf Comm")
+            .constant_str("view_number")
+            .u64(*self.view_number)
+            .field("justify_qc", self.justify_qc.commit())
+            .field("parent Leaf commitment", self.parent)
+            .field("deltas commitment", self.deltas.commit())
+            .field("state commitment", self.state.commit())
+            .finalize()
     }
 }
 
