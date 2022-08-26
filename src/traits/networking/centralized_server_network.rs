@@ -20,6 +20,7 @@ use hotshot_centralized_server::{
 use hotshot_types::{
     message::Message,
     traits::{
+        metrics::{Metrics, NoMetrics},
         network::{
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
             NetworkingImplementation, TestableNetworkingImplementation,
@@ -48,8 +49,10 @@ use std::{
 };
 use tracing::error;
 
+use super::NetworkingMetrics;
+
 /// The inner state of the `CentralizedServerNetwork`
-#[derive(Debug)]
+#[derive(custom_debug::Debug)]
 struct Inner<TYPES: NodeTypes> {
     /// Self-identifying public key
     own_key: TYPES::SignatureKey,
@@ -86,6 +89,9 @@ struct Inner<TYPES: NodeTypes> {
     request_client_count_sender: RwLock<Vec<OneShotSender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
     run_ready: AtomicBool,
+    #[debug(skip)]
+    /// The metrics of the network
+    metrics: NetworkingMetrics,
 }
 
 /// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
@@ -136,6 +142,8 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
         ))
         .await
         .expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
+
+        self.metrics.outgoing_message_count.add(1);
     }
     /// Send a direct message to the server.
     async fn direct_message(&self, target: TYPES::SignatureKey, message: Vec<u8>) {
@@ -165,6 +173,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                 .await
                 .expect("Background thread exited");
         }
+        self.metrics.outgoing_message_count.add(1);
     }
 
     /// Request the client count from the server
@@ -217,6 +226,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                         })
                         .collect::<Vec<_>>();
 
+                    self.metrics.incoming_message_count.add(1);
                     return ret;
                 }
             }
@@ -255,6 +265,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                             .collect::<Vec<_>>();
                     }
 
+                    self.metrics.incoming_message_count.add(1);
                     return ret;
                 }
             }
@@ -326,6 +337,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                 })
                 .collect();
         }
+        self.metrics.incoming_message_count.add(result.len());
         result
     }
 
@@ -655,6 +667,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     ///
     /// Will panic if the server has a different signature key (`K`) or election config (`E`)
     pub async fn connect_with_server_config(
+        metrics: Box<dyn Metrics>,
         addr: SocketAddr,
     ) -> (
         NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -710,6 +723,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
         let mut streams = Some(streams);
 
         let result = Self::create(
+            metrics,
             known_nodes,
             move || {
                 let streams = streams.take();
@@ -773,17 +787,19 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     }
     /// Connect to a centralized server
     pub fn connect(
+        metrics: Box<dyn Metrics>,
         known_nodes: Vec<TYPES::SignatureKey>,
         addr: SocketAddr,
         key: TYPES::SignatureKey,
     ) -> Self {
-        Self::create(known_nodes, move || Self::connect_to(addr), key)
+        Self::create(metrics, known_nodes, move || Self::connect_to(addr), key)
     }
 
     /// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
     ///
     /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(
+        metrics: Box<dyn Metrics>,
         known_nodes: Vec<TYPES::SignatureKey>,
         mut create_connection: F,
         key: TYPES::SignatureKey,
@@ -806,6 +822,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
             incoming_queue: RwLock::default(),
             request_client_count_sender: RwLock::default(),
             run_ready: AtomicBool::new(false),
+            metrics: NetworkingMetrics::new(metrics),
         });
         async_spawn({
             let inner = Arc::clone(&inner);
@@ -972,6 +989,7 @@ async fn run_background_recv<TYPES: NodeTypes>(
             FromServer::ClientCount(count) => {
                 let senders =
                     std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                connection.metrics.connected_peers.set(count as _);
                 for sender in senders {
                     sender.send(count);
                 }
@@ -1152,6 +1170,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
+                NoMetrics::new(),
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),

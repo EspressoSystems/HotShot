@@ -105,7 +105,8 @@ async fn main() {
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
 
-    let (config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
+    let (config, run, network) =
+        CentralizedServerNetwork::connect_with_server_config(NoMetrics::new(), addr).await;
 
     error!("Run: {:?}", run);
     error!("Config: {:?}", config);

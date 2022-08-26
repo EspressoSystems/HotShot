@@ -3,7 +3,10 @@
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
+use super::{
+    FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
+    NetworkingMetrics,
+};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
@@ -12,6 +15,7 @@ use futures::StreamExt;
 use hotshot_types::{
     message::Message,
     traits::{
+        metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -100,6 +104,9 @@ struct MemoryNetworkInner<TYPES: NodeTypes> {
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
+
+    /// The networking metrics we're keeping track of
+    metrics: NetworkingMetrics,
 }
 
 /// In memory only network simulator.
@@ -125,9 +132,10 @@ impl<TYPES: NodeTypes> Debug for MemoryNetwork<TYPES> {
 
 impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
-    #[instrument]
+    #[instrument(skip(metrics))]
     pub fn new(
         pub_key: TYPES::SignatureKey,
+        metrics: Box<dyn Metrics>,
         master_map: Arc<MasterMap<TYPES>>,
         reliability_config: Option<Arc<dyn 'static + NetworkReliability>>,
     ) -> MemoryNetwork<TYPES> {
@@ -255,6 +263,7 @@ impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
                 network_changes_input: RwLock::new(Some(network_changes_input)),
                 network_changes_output: Mutex::new(network_changes_output),
                 in_flight_message_count,
+                metrics: NetworkingMetrics::new(metrics),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -270,6 +279,7 @@ impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
             .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.broadcast_input.read().await;
         if let Some(input) = &*input {
+            self.inner.metrics.outgoing_message_count.add(1);
             input.send(message).await
         } else {
             Err(SendError(message))
@@ -283,6 +293,7 @@ impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
             .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.direct_input.read().await;
         if let Some(input) = &*input {
+            self.inner.metrics.outgoing_message_count.add(1);
             input.send(message).await
         } else {
             Err(SendError(message))
@@ -315,7 +326,7 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryNetwork::new(pubkey, master.clone(), None)
+            MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), None)
         })
     }
 
@@ -339,8 +350,12 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
             trace!(?key, "Sending message to node");
             let res = node.broadcast_input(vec.clone()).await;
             match res {
-                Ok(_) => trace!(?key, "Delivered message to remote"),
+                Ok(_) => {
+                    self.inner.metrics.outgoing_message_count.add(1);
+                    trace!(?key, "Delivered message to remote");
+                }
                 Err(e) => {
+                    self.inner.metrics.message_failed_to_send.add(1);
                     error!(?e, ?key, "Error sending broadcast message to node");
                 }
             }
@@ -370,15 +385,18 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
             let res = node.direct_input(vec).await;
             match res {
                 Ok(_) => {
+                    self.inner.metrics.outgoing_message_count.add(1);
                     trace!(?recipient, "Delivered message to remote");
                     Ok(())
                 }
                 Err(e) => {
+                    self.inner.metrics.message_failed_to_send.add(1);
                     error!(?e, ?recipient, "Error delivering direct message");
                     Err(NetworkError::CouldNotDeliver)
                 }
             }
         } else {
+            self.inner.metrics.message_failed_to_send.add(1);
             error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
             Err(NetworkError::NoSuchNode)
         }
@@ -397,6 +415,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         self.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(ret.len());
         Ok(ret)
     }
 
@@ -413,6 +432,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         self.inner
             .in_flight_message_count
             .fetch_sub(1, Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(1);
         Ok(ret)
     }
 
@@ -429,6 +449,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         self.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(ret.len());
         Ok(ret)
     }
 
@@ -445,6 +466,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         self.inner
             .in_flight_message_count
             .fetch_sub(1, Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(1);
         Ok(ret)
     }
 
@@ -559,7 +581,7 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
-        let _network = MemoryNetwork::new(pub_key, group, Option::None);
+        let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
     }
 
     // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -574,9 +596,10 @@ mod tests {
         let group: Arc<MasterMap<Test>> = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let _network_1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+        let _network_1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
     }
 
     // Check to make sure direct queue works
