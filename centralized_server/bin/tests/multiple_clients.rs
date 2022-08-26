@@ -149,7 +149,7 @@ struct TestBlock {}
 
 impl Genesis for TestBlock {
     fn genesis() -> Self {
-        todo!()
+        Self {}
     }
 }
 
@@ -163,7 +163,7 @@ impl Committable for TestBlock {
 
 impl Genesis for TestTransaction {
     fn genesis() -> Self {
-        todo!()
+        TestTransaction {}
     }
 }
 
@@ -206,7 +206,7 @@ impl Committable for TestState {
 
 impl Genesis for TestState {
     fn genesis() -> Self {
-        todo!()
+        TestState {}
     }
 }
 

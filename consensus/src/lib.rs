@@ -209,13 +209,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             continue;
                         }
                         let justify_qc = p.leaf.justify_qc;
-                        let parent =
-                            if let Some(parent) = consensus.saved_leaves.get(&p.leaf.parent) {
-                                parent
-                            } else {
-                                warn!("Proposal's parent missing from storage");
-                                continue;
-                            };
+                        let parent = if let Some(parent) =
+                            consensus.saved_leaves.get(&p.leaf.parent_commitment)
+                        {
+                            parent
+                        } else {
+                            warn!("Proposal's parent missing from storage");
+                            continue;
+                        };
                         if justify_qc.view_number != parent.view_number
                             || !self.api.validate_qc(&justify_qc, parent.view_number)
                         {
@@ -229,7 +230,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             Leaf::new(
                                 state,
                                 p.leaf.deltas,
-                                p.leaf.parent,
+                                p.leaf.parent_commitment,
                                 justify_qc,
                                 self.cur_view,
                             )
@@ -506,7 +507,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 for next_parent_txn in next_parent_txns {
                     previous_used_txns_vec.insert(next_parent_txn);
                 }
-                next_parent_hash = next_parent_leaf.parent;
+                next_parent_hash = next_parent_leaf.parent_commitment;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
         }
@@ -537,7 +538,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let leaf = Leaf {
                 view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
-                parent: original_parent_hash,
+                parent_commitment: original_parent_hash,
                 deltas: block,
                 state: new_state,
             };
@@ -693,7 +694,7 @@ impl<I: NodeImplementation> Consensus<I> {
                     return Ok(());
                 }
             }
-            next_leaf = leaf.parent;
+            next_leaf = leaf.parent_commitment;
             if !f(leaf) {
                 return Ok(());
             }

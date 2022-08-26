@@ -1,16 +1,14 @@
 use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
+    block_contents::Genesis,
     signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
     },
     state::TestableState,
 };
-use hotshot_utils::{
-    hack::nll_todo,
-    test_util::{setup_backtrace, setup_logging},
-};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -369,8 +367,7 @@ async fn get_hotshot(
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
-    // let genesis = DEntryBlock::default();
-    let genesis = nll_todo();
+    let genesis = DEntryBlock::genesis();
     let h = HotShot::init(
         known_nodes.clone(),
         public_key,

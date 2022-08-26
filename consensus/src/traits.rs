@@ -13,7 +13,6 @@ use hotshot_types::{
         StateContents,
     },
 };
-use hotshot_utils::hack::nll_todo;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.

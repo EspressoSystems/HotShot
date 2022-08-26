@@ -55,7 +55,7 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
             leaf_commitment: Leaf {
                 deltas: block.clone(),
                 justify_qc: nll_todo(),
-                parent: nll_todo(),
+                parent_commitment: nll_todo(),
                 state: state.clone(),
                 view_number: ViewNumber::genesis(),
             }
@@ -152,7 +152,6 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use commit::Committable;
     use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
@@ -168,6 +167,7 @@ mod test {
             },
             DummyBlock::random(),
             DummyState::random(),
+            nll_todo(),
         )
     }
 

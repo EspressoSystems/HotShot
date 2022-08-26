@@ -275,7 +275,7 @@ pub struct Leaf<STATE: StateContents> {
     /// So we can ask if it extends
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub parent: Commitment<Leaf<STATE>>,
+    pub parent_commitment: Commitment<Leaf<STATE>>,
 
     /// Block leaf wants to apply
     #[serde(deserialize_with = "STATE::Block::deserialize")]
@@ -292,7 +292,7 @@ impl<STATE: StateContents> Genesis for Leaf<STATE> {
             view_number: GENESIS_VIEW,
             justify_qc: QuorumCertificate::genesis(),
             // parent: Leaf::<STATE>::genesis().commit(),
-            parent: nll_todo(),
+            parent_commitment: nll_todo(),
             deltas: <STATE as StateContents>::Block::genesis(),
             state: STATE::genesis(),
         }
@@ -310,7 +310,7 @@ impl<STATE: StateContents> Committable for Leaf<STATE> {
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")
             .u64(*self.view_number)
-            .field("parent Leaf commitment", self.parent)
+            .field("parent Leaf commitment", self.parent_commitment)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
             .constant_str("justify_qc view number")
@@ -345,7 +345,7 @@ impl<STATE: StateContents> Leaf<STATE> {
         Leaf {
             view_number,
             justify_qc: qc,
-            parent,
+            parent_commitment: parent,
             deltas,
             state,
         }
@@ -368,7 +368,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
     fn from(val: Leaf<STATE>) -> Self {
         StoredView {
             view_number: val.view_number,
-            parent: val.parent,
+            parent: val.parent_commitment,
             justify_qc: val.justify_qc,
             state: val.state,
             append: val.deltas.into(),

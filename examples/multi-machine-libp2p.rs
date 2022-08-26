@@ -11,13 +11,11 @@ use hotshot::{
     HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
+    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
-use hotshot_utils::{
-    hack::nll_todo,
-    test_util::{setup_backtrace, setup_logging},
-};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
@@ -227,8 +225,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    // let genesis = DEntryBlock::default();
-    let genesis = nll_todo();
+    let genesis = DEntryBlock::genesis();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,

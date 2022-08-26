@@ -6,17 +6,14 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
+    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
-use hotshot_utils::{
-    hack::nll_todo,
-    test_util::{setup_backtrace, setup_logging},
-};
-use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -140,8 +137,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    // let genesis = DEntryBlock::default();
-    let genesis = nll_todo();
+    let genesis = DEntryBlock::genesis();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -183,16 +179,11 @@ async fn main() {
     let node_config: Value =
         toml::from_str(&config_str).expect("Error while reading node config file");
 
-    // Get secret key set
-    let seed: u64 = node_config["seed"]
-        .as_integer()
-        .expect("Missing seed value") as u64;
     let nodes = node_config["nodes"]
         .as_table()
         .expect("Missing nodes info")
         .len();
     let threshold = ((nodes * 2) / 3) + 1;
-    let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
 
     // Get networking information
     // TODO: read `PubKey`s from files.

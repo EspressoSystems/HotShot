@@ -139,11 +139,12 @@ where
         qc: QuorumCertificate<STATE>,
         block: <STATE as StateContents>::Block,
         state: STATE,
+        parent_commitment: Commitment<Leaf<STATE>>,
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
             view_number: qc.view_number,
-            parent: nll_todo(),
+            parent: parent_commitment,
             justify_qc: qc,
             state,
         }

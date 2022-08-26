@@ -725,7 +725,7 @@ impl<
                         Err(e) => warn!(?e, "Failed to connect incoming stream, ignoring"),
                     }
                 }
-                todo!()
+                unreachable!()
             };
             let w = self.clone();
             // Create the patrol background task

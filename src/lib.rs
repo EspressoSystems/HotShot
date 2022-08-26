@@ -229,6 +229,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         info!("Creating a new hotshot");
 
         let election = {
+            // TODO what should this be?
             let state = nll_todo();
             // let state =
             //     <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default();
@@ -258,6 +259,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             .await
             .context(StorageSnafu)?;
 
+        // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
             anchored.view_number,
@@ -422,7 +424,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
-        // TODO this is where we should spin up
 
         Ok(handle)
     }
@@ -603,6 +604,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 quorum_certificate: qc,
                 block,
                 state,
+                parent_commitment,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let anchored = match self.inner.storage.get_anchored_view().await {
@@ -614,10 +616,12 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 };
                 // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
                 // we should be getting multiple data messages soon
+                // <https://github.com/EspressoSystems/HotShot/issues/454>
                 let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
                     let view_number = qc.view_number;
-                    let new_view = StoredView::from_qc_block_and_state(qc, block, state);
+                    let new_view =
+                        StoredView::from_qc_block_and_state(qc, block, state, parent_commitment);
 
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
@@ -656,6 +660,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     quorum_certificate: anchor.justify_qc,
                     block: anchor.append.into_deltas(),
                     state: anchor.state,
+                    parent_commitment: anchor.parent,
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
                     error!(

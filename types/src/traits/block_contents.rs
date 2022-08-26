@@ -48,8 +48,7 @@ pub trait BlockContents:
         + Eq
         + Sync
         + Send
-        + Committable
-        + Genesis;
+        + Committable;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -68,6 +67,7 @@ pub trait BlockContents:
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
+    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -116,13 +116,13 @@ pub mod dummy {
 
     impl Genesis for DummyBlock {
         fn genesis() -> Self {
-            todo!()
+            nll_todo()
         }
     }
 
     impl Genesis for DummyTransaction {
         fn genesis() -> Self {
-            todo!()
+            nll_todo()
         }
     }
 

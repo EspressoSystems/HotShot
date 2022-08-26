@@ -6,14 +6,13 @@ use hotshot::{
         implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
     },
     types::{ed25519::Ed25519Priv, Event, EventType, HotShotHandle},
-    HotShot, HotShotConfig, H_256,
+    HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
-use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use std::{
     collections::{BTreeMap, BTreeSet},
     net::{IpAddr, SocketAddr},
@@ -149,7 +148,6 @@ async fn main() {
 
     let nodes: usize = opts.total_nodes;
     let threshold = ((nodes * 2) / 3) + 1;
-    let mut rng = Xoshiro256StarStar::seed_from_u64(opts.seed);
 
     let known_nodes: Vec<Ed25519Pub> = (0..nodes)
         .map(|id| {

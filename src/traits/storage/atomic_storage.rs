@@ -192,18 +192,18 @@ impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
             self.inner.blocks.load_all().await.into_iter().collect();
         // TODO: Ord isn't supported on commitmnets
 
-        // blocks.sort_by_key(|(hash, _)| *hash);
+        blocks.sort_by_key(|(hash, _)| *hash);
         let blocks = blocks.into_iter().map(|(_, block)| block).collect();
 
         let mut leafs: Vec<Leaf<STATE>> = self.inner.leaves.load_all().await;
-        // leafs.sort_by_cached_key(Leaf::hash);
+        leafs.sort_by_cached_key(Leaf::hash);
 
         let mut quorum_certificates = self.inner.qcs.load_all().await;
-        // quorum_certificates.sort_by_key(|qc| qc.view_number);
+        quorum_certificates.sort_by_key(|qc| qc.view_number);
 
         let mut states: Vec<(Commitment<Leaf<STATE>>, STATE)> =
             self.inner.states.load_all().await.into_iter().collect();
-        // states.sort_by_key(|(hash, _)| *hash);
+        states.sort_by_key(|(hash, _)| *hash);
         let states = states.into_iter().map(|(_, state)| state).collect();
 
         StorageState {

@@ -132,16 +132,13 @@ impl Committable for DEntryState {
 
 impl Genesis for DEntryState {
     fn genesis() -> Self {
-        todo!()
+        nll_todo()
     }
 }
 
 impl Default for DEntryBlock {
     fn default() -> Self {
-        Self {
-            previous_state: nll_todo(),
-            transactions: nll_todo(),
-        }
+        Self::genesis()
     }
 }
 
@@ -184,13 +181,7 @@ impl Committable for DEntryTransaction {
 
 impl Genesis for DEntryBlock {
     fn genesis() -> Self {
-        todo!()
-    }
-}
-
-impl Genesis for DEntryTransaction {
-    fn genesis() -> Self {
-        todo!()
+        nll_todo()
     }
 }
 

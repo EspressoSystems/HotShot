@@ -118,6 +118,10 @@ pub enum DataMessage<STATE: StateContents> {
         /// [`State`]: ../traits/state/trait.State.html
         #[serde(deserialize_with = "<STATE as Deserialize>::deserialize")]
         state: STATE,
+
+        /// The parent leaf's commitment
+        #[serde(deserialize_with = "<Commitment<Leaf<STATE>>as Deserialize>::deserialize")]
+        parent_commitment: Commitment<Leaf<STATE>>,
     },
 
     /// Contains a transaction to be submitted
