@@ -1600,9 +1600,11 @@ name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "async-trait",
  "either",
  "futures",
  "hotshot",
+ "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
  "proptest",
