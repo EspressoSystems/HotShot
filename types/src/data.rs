@@ -256,23 +256,6 @@ pub struct QuorumCertificate<STATE: StateContents> {
     pub genesis: bool,
 }
 
-impl<STATE: StateContents> Committable for QuorumCertificate<STATE> {
-    fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("QC Comm")
-            .constant_str("view_number")
-            .u64(*self.view_number)
-            .field("block commitment", self.block_commitment)
-            .field("leaf commitment", self.leaf_commitment)
-            .constant_str("signatures")
-            // TODO not sure what to for this
-            // do we need to hash this?. I think other fields should be enough.
-            .var_size_bytes(nll_todo())
-            .constant_str("genesis")
-            .u64(self.genesis as u64)
-            .finalize()
-    }
-}
-
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -305,24 +288,42 @@ pub struct Leaf<STATE: StateContents> {
 impl<STATE: StateContents> Genesis for Leaf<STATE> {
     fn genesis() -> Self {
         Self {
-            view_number: todo!(),
-            justify_qc: todo!(),
-            parent: todo!(),
-            deltas: todo!(),
-            state: todo!(),
+            view_number: GENESIS_VIEW,
+            justify_qc: QuorumCertificate::genesis(),
+            // parent: Leaf::<STATE>::genesis().commit(),
+            parent: nll_todo(),
+            deltas: <STATE as StateContents>::Block::genesis(),
+            state: STATE::genesis(),
         }
     }
 }
 
 impl<STATE: StateContents> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
+        let mut signatures_bytes = vec![];
+        for (k, v) in &self.justify_qc.signatures {
+            // TODO there is probably a way to avoid cloning.
+            signatures_bytes.append(&mut k.0.clone());
+            signatures_bytes.append(&mut v.0.clone());
+        }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")
             .u64(*self.view_number)
-            .field("justify_qc", self.justify_qc.commit())
             .field("parent Leaf commitment", self.parent)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
+            .constant_str("justify_qc view number")
+            .u64(*self.justify_qc.view_number)
+            .field(
+                "justify_qc block commitment",
+                self.justify_qc.block_commitment,
+            )
+            .field(
+                "justify_qc leaf commitment",
+                self.justify_qc.leaf_commitment,
+            )
+            .constant_str("justify_qc signatures")
+            .var_size_bytes(&signatures_bytes)
             .finalize()
     }
 }

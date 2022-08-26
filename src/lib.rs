@@ -56,6 +56,7 @@ use hotshot_types::{
     error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
+        block_contents::Genesis,
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
@@ -236,13 +237,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     ) -> Result<Self> {
         info!("Creating a new hotshot");
         let genesis_hash = genesis.commit();
-        let genesis_qc = QuorumCertificate {
-            block_commitment: genesis_hash,
-            leaf_commitment: nll_todo(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::new(),
-            genesis: true,
-        };
+        let genesis_qc = <QuorumCertificate<I::State> as Genesis>::genesis();
         let genesis_leaf = Leaf {
             state: starting_state.clone(),
             view_number: ViewNumber::genesis(),
