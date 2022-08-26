@@ -25,6 +25,7 @@ use hotshot::{
 use hotshot_types::{
     traits::{
         election::Election,
+        metrics::NoMetrics,
         network::TestableNetworkingImplementation,
         node_implementation::{NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
@@ -211,6 +212,7 @@ where
             storage,
             I::Election::create_election(known_nodes, election_config),
             initializer,
+            NoMetrics::new(),
         )
         .await
         .expect("Could not init hotshot");

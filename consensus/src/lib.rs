@@ -33,7 +33,10 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate},
     error::HotShotError,
-    traits::{node_implementation::NodeTypes, state::ConsensusTime},
+    traits::{
+        metrics::{Gauge, Histogram, Metrics},
+        node_implementation::NodeTypes,
+    },
 };
 use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
 use std::{
@@ -49,7 +52,7 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
-#[derive(Debug)]
+#[derive(custom_debug::Debug)]
 pub struct Consensus<TYPES: NodeTypes> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
@@ -74,6 +77,61 @@ pub struct Consensus<TYPES: NodeTypes> {
 
     /// the highqc per spec
     pub high_qc: QuorumCertificate<TYPES>,
+
+    /// A reference to the metrics trait
+    #[debug(skip)]
+    pub metrics: Arc<ConsensusMetrics>,
+}
+
+/// The metrics being collected for the consensus algorithm
+pub struct ConsensusMetrics {
+    /// The current view
+    pub current_view: Box<dyn Gauge>,
+    /// The duration of each view, in seconds
+    pub view_duration: Box<dyn Histogram>,
+    // /// Number of views that are in-flight since the last committed view
+    // number_of_views_since_last_commit: Box<dyn Gauge>,
+    // /// Number of accepted transactions
+    // accepted_transactions: Box<dyn Counter>,
+    // /// Number of rejected transactions
+    // rejected_transactions: Box<dyn Counter>,
+    // /// Number of outstanding transactions
+    // outstanding_transactions: Box<dyn Gauge>,
+    // /// History of committed block size, in bytes
+    // committed_block_size: Box<dyn Histogram>,
+    // /// Number of uncommitted views
+    // number_of_uncommitted_views: Box<dyn Gauge>,
+    // /// Number of views that timed out
+    // number_of_timeouts: Box<dyn Counter>,
+}
+
+impl ConsensusMetrics {
+    /// Create a new instance of this [`ConsensusMetrics`] struct, setting all the counters and gauges
+    #[allow(clippy::needless_pass_by_value)] // with the metrics API is it more ergonomic to pass a `Box<dyn Metrics>` around
+    #[must_use]
+    pub fn new(metrics: Box<dyn Metrics>) -> Self {
+        Self {
+            current_view: metrics.create_gauge(String::from("current_view"), None),
+            view_duration: metrics
+                .create_histogram(String::from("view_duration"), Some(String::from("seconds"))),
+            // number_of_views_since_last_commit: metrics
+            //     .create_gauge(String::from("number_of_views_since_last_commit"), None),
+            // accepted_transactions: metrics
+            //     .create_counter(String::from("accepted_transactions"), None),
+            // rejected_transactions: metrics
+            //     .create_counter(String::from("rejected_transactions"), None),
+            // outstanding_transactions: metrics
+            //     .create_gauge(String::from("outstanding_transactions"), None),
+            // committed_block_size: metrics.create_histogram(
+            //     String::from("committed_block_size"),
+            //     Some(String::from("bytes")),
+            // ),
+            // number_of_uncommitted_views: metrics
+            //     .create_gauge(String::from("number_of_uncommitted_branches"), None),
+            // number_of_timeouts: metrics
+            //     .create_counter(String::from("number_of_uncommitted_counter"), None),
+        }
+    }
 }
 
 impl<TYPES: NodeTypes> Consensus<TYPES> {
@@ -184,19 +242,5 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
             .get_leaf_commitment()
             .expect("Decided state not found! Consensus internally inconsistent");
         self.saved_leaves.get(leaf).unwrap().clone()
-    }
-}
-
-impl<TYPES: NodeTypes> Default for Consensus<TYPES> {
-    fn default() -> Self {
-        Self {
-            transactions: Arc::default(),
-            cur_view: TYPES::Time::genesis(),
-            last_decided_view: TYPES::Time::genesis(),
-            state_map: BTreeMap::default(),
-            saved_leaves: HashMap::default(),
-            locked_view: TYPES::Time::genesis(),
-            high_qc: QuorumCertificate::genesis(),
-        }
     }
 }

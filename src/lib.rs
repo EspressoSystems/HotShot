@@ -45,7 +45,9 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
+use hotshot_consensus::{
+    Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
+};
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::fake_commitment,
@@ -56,6 +58,7 @@ use hotshot_types::{
             Checked::{self, Inval, Unchecked, Valid},
             Election, ElectionError,
         },
+        metrics::Metrics,
         network::{NetworkChange, NetworkError},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -120,6 +123,9 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle<TYPES>,
+
+    /// a reference to the metrics that the implementor is using.
+    metrics: Box<dyn Metrics>,
 }
 
 /// Thread safe, shared view of a `HotShot`
@@ -156,7 +162,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, networking, storage, election, initializer))]
+    #[instrument(skip(private_key, networking, storage, election, initializer, metrics))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -166,6 +172,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         storage: I::Storage,
         election: I::Election,
         initializer: HotShotInitializer<TYPES>,
+        metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
         let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
@@ -177,6 +184,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
+            metrics,
         });
 
         let anchored_leaf = initializer.inner;
@@ -214,6 +222,10 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.view_number,
             high_qc: anchored_leaf.justify_qc,
+
+            metrics: Arc::new(ConsensusMetrics::new(
+                inner.metrics.subgroup("consensus".to_string()),
+            )),
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -321,6 +333,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         storage: I::Storage,
         election: I::Election,
         initializer: HotShotInitializer<TYPES>,
+        metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -332,6 +345,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             storage,
             election,
             initializer,
+            metrics,
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;

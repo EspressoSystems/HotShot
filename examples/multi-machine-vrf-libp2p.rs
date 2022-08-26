@@ -20,6 +20,7 @@ use hotshot_centralized_server::{
 use hotshot_types::{
     data::ViewNumber,
     traits::{
+        metrics::NoMetrics,
         network::NetworkingImplementation,
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -483,6 +484,7 @@ impl Config {
             MemoryStorage::new(),
             election,
             initializer,
+            NoMetrics::new(),
         )
         .await
         .expect("Could not init hotshot");
