@@ -51,6 +51,7 @@ use commit::{Commitment, Committable};
 use flume::Sender;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::ViewNumber,
     error::NetworkFaultSnafu,
     message::{ConsensusMessage, DataMessage, Message},
@@ -278,7 +279,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let mut genesis_map = BTreeMap::default();
 
         genesis_map.insert(
-            ViewNumber::new(0),
+            GENESIS_VIEW,
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: leaf_commitment,

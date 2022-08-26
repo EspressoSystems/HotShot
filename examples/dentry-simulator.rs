@@ -43,9 +43,9 @@ struct Opt {
     transactions: usize,
 }
 /// Prebaked list of transactions
-fn prebaked_transactions() -> Vec<Transaction> {
+fn prebaked_transactions() -> Vec<DEntryTransaction> {
     vec![
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: "Ian".to_string(),
                 amount: 100,
@@ -56,7 +56,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
             },
             nonce: 0,
         },
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: "John".to_string(),
                 amount: 25,

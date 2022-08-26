@@ -10,7 +10,10 @@ use blake3::Hasher;
 use commit::{Commitment, Committable};
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState, StateContents},
+    traits::{
+        block_contents::Genesis, signature_key::ed25519::Ed25519Pub, state::TestableState,
+        StateContents,
+    },
 };
 use hotshot_utils::hack::nll_todo;
 use rand::{thread_rng, Rng};
@@ -79,7 +82,7 @@ pub enum DEntryError {
 
 /// The transaction for the dentry demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct Transaction {
+pub struct DEntryTransaction {
     /// An increment to an account balance
     pub add: Addition,
     /// A decrement to an account balance
@@ -88,7 +91,7 @@ pub struct Transaction {
     pub nonce: u64,
 }
 
-impl Transaction {
+impl DEntryTransaction {
     /// Ensures that this transaction is at least consistent with itself
     pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
@@ -109,6 +112,12 @@ pub struct DEntryState {
 impl Committable for DEntryState {
     fn commit(&self) -> Commitment<Self> {
         nll_todo()
+    }
+}
+
+impl Genesis for DEntryState {
+    fn genesis() -> Self {
+        todo!()
     }
 }
 
@@ -152,7 +161,7 @@ impl TestableState for DEntryState {
         let output_account = self.balances.keys().choose(&mut rng).unwrap();
         let amount = rng.gen_range(0..100);
 
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: output_account.to_string(),
                 amount,
@@ -332,7 +341,7 @@ pub struct DEntryBlock {
     /// Block state commitment
     pub previous_state: Commitment<DEntryState>,
     /// Transaction vector
-    pub transactions: Vec<Transaction>,
+    pub transactions: Vec<DEntryTransaction>,
 }
 
 impl Committable for DEntryBlock {
@@ -341,14 +350,26 @@ impl Committable for DEntryBlock {
     }
 }
 
-impl Committable for Transaction {
+impl Committable for DEntryTransaction {
     fn commit(&self) -> Commitment<Self> {
         nll_todo()
     }
 }
 
+impl Genesis for DEntryBlock {
+    fn genesis() -> Self {
+        todo!()
+    }
+}
+
+impl Genesis for DEntryTransaction {
+    fn genesis() -> Self {
+        todo!()
+    }
+}
+
 impl BlockContents for DEntryBlock {
-    type Transaction = Transaction;
+    type Transaction = DEntryTransaction;
 
     type Error = DEntryError;
 
@@ -371,7 +392,7 @@ impl BlockContents for DEntryBlock {
         }
     }
 
-    fn contained_transactions(&self) -> HashSet<Commitment<Transaction>> {
+    fn contained_transactions(&self) -> HashSet<Commitment<DEntryTransaction>> {
         self.transactions
             .clone()
             .into_iter()
@@ -431,7 +452,7 @@ where
 /// Provides a random valid transaction from the current state
 /// # Panics
 /// panics if state has no balances
-pub fn random_transaction<R: rand::Rng>(state: &DEntryState, mut rng: &mut R) -> Transaction {
+pub fn random_transaction<R: rand::Rng>(state: &DEntryState, mut rng: &mut R) -> DEntryTransaction {
     use rand::seq::IteratorRandom;
     let mut attempts = 0;
     #[allow(clippy::panic)]
@@ -452,7 +473,7 @@ pub fn random_transaction<R: rand::Rng>(state: &DEntryState, mut rng: &mut R) ->
             state
         );
     };
-    Transaction {
+    DEntryTransaction {
         add: Addition {
             account: output_account.to_string(),
             amount,

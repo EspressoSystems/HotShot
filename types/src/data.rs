@@ -3,9 +3,13 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
-use crate::traits::{
-    signature_key::{EncodedPublicKey, EncodedSignature},
-    BlockContents, StateContents,
+use crate::{
+    constants::GENESIS_VIEW,
+    traits::{
+        block_contents::Genesis,
+        signature_key::{EncodedPublicKey, EncodedSignature},
+        BlockContents, StateContents,
+    },
 };
 use arbitrary::Arbitrary;
 use blake3::Hasher;
@@ -196,14 +200,14 @@ mod serde_bytes_array {
     }
 }
 
-impl<STATE: StateContents> Default for QuorumCertificate<STATE> {
-    fn default() -> Self {
+impl<STATE: StateContents> Genesis for QuorumCertificate<STATE> {
+    fn genesis() -> Self {
         Self {
-            block_commitment: nll_todo(),
-            leaf_commitment: nll_todo(),
-            view_number: nll_todo(),
-            signatures: nll_todo(),
-            genesis: nll_todo(),
+            block_commitment: <<STATE as StateContents>::Block as Genesis>::genesis().commit(),
+            leaf_commitment: <Leaf<STATE> as Genesis>::genesis().commit(),
+            view_number: GENESIS_VIEW,
+            signatures: BTreeMap::default(),
+            genesis: true,
         }
     }
 }
@@ -296,6 +300,18 @@ pub struct Leaf<STATE: StateContents> {
     /// What the state should be after applying `self.deltas`
     #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
+}
+
+impl<STATE: StateContents> Genesis for Leaf<STATE> {
+    fn genesis() -> Self {
+        Self {
+            view_number: todo!(),
+            justify_qc: todo!(),
+            parent: todo!(),
+            deltas: todo!(),
+            state: todo!(),
+        }
+    }
 }
 
 impl<STATE: StateContents> Committable for Leaf<STATE> {

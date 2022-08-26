@@ -8,6 +8,8 @@ use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
+use super::block_contents::Genesis;
+
 /// Abstraction over the state that blocks modify
 ///
 /// This trait represents the behaviors that the 'global' ledger state must have:
@@ -33,6 +35,7 @@ pub trait StateContents:
     + Sync
     + Unpin
     + Committable
+    + Genesis
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
@@ -67,6 +70,7 @@ pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::traits::block_contents::dummy::{DummyBlock, DummyError};
+    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -91,7 +95,13 @@ pub mod dummy {
         }
     }
 
-    impl<'a> StateContents for DummyState {
+    impl Genesis for DummyState {
+        fn genesis() -> Self {
+            nll_todo()
+        }
+    }
+
+    impl StateContents for DummyState {
         type Error = DummyError;
 
         type Block = DummyBlock;
