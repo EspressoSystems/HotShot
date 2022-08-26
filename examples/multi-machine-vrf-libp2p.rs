@@ -535,6 +535,7 @@ impl Config {
         let bs_len = self.bs.len();
 
         Libp2pNetwork::new(
+            NoMetrics::new(),
             node_config,
             self.pubkey.clone(),
             Arc::new(RwLock::new(
