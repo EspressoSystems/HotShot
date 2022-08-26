@@ -155,7 +155,9 @@ impl Genesis for TestBlock {
 
 impl Committable for TestBlock {
     fn commit(&self) -> Commitment<Self> {
-        todo!()
+        commit::RawCommitmentBuilder::new("Test Block Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
     }
 }
 
@@ -186,7 +188,9 @@ struct TestTransaction {}
 
 impl Committable for TestTransaction {
     fn commit(&self) -> Commitment<Self> {
-        todo!()
+        commit::RawCommitmentBuilder::new("Test Txn Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
     }
 }
 
@@ -194,7 +198,9 @@ impl Committable for TestTransaction {
 struct TestState {}
 impl Committable for TestState {
     fn commit(&self) -> Commitment<Self> {
-        todo!()
+        commit::RawCommitmentBuilder::new("Test Txn Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
     }
 }
 

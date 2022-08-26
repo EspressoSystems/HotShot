@@ -92,6 +92,7 @@ pub mod dummy {
     #[derive(Debug)]
     pub struct DummyError;
 
+    /// dummy transaction. No functionality
     #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
     pub enum DummyTransaction {
         Dummy,
@@ -99,7 +100,9 @@ pub mod dummy {
 
     impl Committable for DummyTransaction {
         fn commit(&self) -> commit::Commitment<Self> {
-            todo!()
+            commit::RawCommitmentBuilder::new("Dummy Block Comm")
+                .u64_field("Dummy Field", 0)
+                .finalize()
         }
     }
 
@@ -142,7 +145,9 @@ pub mod dummy {
 
     impl Committable for DummyBlock {
         fn commit(&self) -> commit::Commitment<Self> {
-            todo!()
+            commit::RawCommitmentBuilder::new("Dummy Block Comm")
+                .u64_field("Nonce", self.nonce)
+                .finalize()
         }
     }
 }

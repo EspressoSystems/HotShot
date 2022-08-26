@@ -44,8 +44,8 @@ pub type Account = String;
 
 /// The account balance type used by the demo
 ///
-/// This is a type alias to [`i64`] for simplicity.
-pub type Balance = i64;
+/// This is a type alias to [`u64`] for simplicity.
+pub type Balance = u64;
 
 /// Records a reduction in an account balance
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -103,6 +103,8 @@ impl DEntryTransaction {
 }
 
 /// The state for the dentry demo
+/// NOTE both fields are btrees because we need
+/// ordered-ing otherwise commitments will not match
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
 pub struct DEntryState {
     /// Key/value store of accounts and balances
@@ -113,7 +115,18 @@ pub struct DEntryState {
 
 impl Committable for DEntryState {
     fn commit(&self) -> Commitment<Self> {
-        nll_todo()
+        let mut builder = commit::RawCommitmentBuilder::new("DEntry State Comm");
+
+        for (k, v) in &self.balances {
+            builder = builder.u64_field(k, *v);
+        }
+        builder = builder.constant_str("nonces");
+
+        for nonce in &self.nonces {
+            builder = builder.u64(*nonce);
+        }
+
+        builder.finalize()
     }
 }
 
@@ -143,13 +156,29 @@ pub struct DEntryBlock {
 
 impl Committable for DEntryBlock {
     fn commit(&self) -> Commitment<Self> {
-        nll_todo()
+        let mut builder = commit::RawCommitmentBuilder::new("DEntry Block Comm")
+            .var_size_field("Previous State", self.previous_state.as_ref());
+
+        for txn in &self.transactions {
+            builder = builder
+                .u64_field(&txn.add.account, txn.add.amount)
+                .u64_field(&txn.sub.account, txn.sub.amount)
+                .constant_str("nonce")
+                .u64_field(&"nonce", txn.nonce);
+        }
+
+        builder.finalize()
     }
 }
 
 impl Committable for DEntryTransaction {
     fn commit(&self) -> Commitment<Self> {
-        nll_todo()
+        commit::RawCommitmentBuilder::new("DEntry Txn Comm")
+            .u64_field(&self.add.account, self.add.amount)
+            .u64_field(&self.sub.account, self.sub.amount)
+            .constant_str("nonce")
+            .u64_field(&"nonce", self.nonce)
+            .finalize()
     }
 }
 

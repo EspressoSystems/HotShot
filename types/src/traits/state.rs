@@ -89,7 +89,9 @@ pub mod dummy {
 
     impl Committable for DummyState {
         fn commit(&self) -> commit::Commitment<Self> {
-            todo!()
+            commit::RawCommitmentBuilder::new("Dummy State Comm")
+                .u64_field("Nonce", self.nonce)
+                .finalize()
         }
     }
 
