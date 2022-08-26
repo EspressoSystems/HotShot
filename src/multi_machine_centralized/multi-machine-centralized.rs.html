@@ -250,8 +250,6 @@
 <span id="244">244</span>
 <span id="245">245</span>
 <span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -360,15 +358,13 @@
     <span class="kw">let</span> <span class="ident">pub_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>);
     <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">DEntryBlock::default</span>();
     <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
-        <span class="ident">genesis</span>,
         <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
         <span class="ident">pub_key</span>,
         <span class="ident">priv_key</span>,
         <span class="ident">node_id</span>,
         <span class="ident">config</span>,
-        <span class="ident">state</span>.<span class="ident">clone</span>(),
         <span class="ident">networking</span>,
-        <span class="ident">MemoryStorage::default</span>(),
+        <span class="ident">MemoryStorage::new</span>(<span class="ident">genesis</span>, <span class="ident">state</span>.<span class="ident">clone</span>()),
         <span class="ident">Stateless::default</span>(),
         <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
     )
