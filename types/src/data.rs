@@ -8,6 +8,7 @@ use crate::{
     traits::{
         block_contents::Genesis,
         signature_key::{EncodedPublicKey, EncodedSignature},
+        storage::StoredView,
         BlockContents, StateContents,
     },
 };
@@ -347,6 +348,30 @@ impl<STATE: StateContents> Leaf<STATE> {
             parent,
             deltas,
             state,
+        }
+    }
+}
+
+impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
+    fn from(append: StoredView<STATE>) -> Self {
+        Leaf::new(
+            append.state,
+            append.append.into_deltas(),
+            append.parent,
+            append.justify_qc,
+            append.view_number,
+        )
+    }
+}
+
+impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
+    fn from(val: Leaf<STATE>) -> Self {
+        StoredView {
+            view_number: val.view_number,
+            parent: val.parent,
+            justify_qc: val.justify_qc,
+            state: val.state,
+            append: val.deltas.into(),
         }
     }
 }

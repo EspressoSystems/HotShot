@@ -409,7 +409,7 @@ impl DHTBehaviour {
             } => {
                 error!("DHT: Bootstrap attempt failed. Retrying shortly.");
                 let BootstrapError::Timeout { num_remaining, .. } = e;
-                if num_remaining == None {
+                if num_remaining.is_none() {
                     error!(
                         "Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT. Readding bootstrap nodes {:?}",
                         self.peer_id, e, self.bootstrap_nodes

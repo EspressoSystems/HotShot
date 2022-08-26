@@ -48,19 +48,19 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
 ///
 /// ```ignore
 /// Message<
-///     I::Block,
-///     <I::Block as BlockContents<N>>::Transaction,
 ///     I::State,
-///     N,
+///     I::SignatureKey
 /// >
 /// ```
 ///
 /// with
 ///
 /// ```ignore
-/// <I as TypeMap<N>>::Message
+/// <I as TypeMap>::Message
 /// ```
 pub trait TypeMap {
+    /// Type alias for the [`Message`] enum.
+    type Message;
     /// Type alias for the [`MessageKind`] enum.
     type MessageKind;
     /// Type alias for the [`ConsensusMessage`] enum.
@@ -72,6 +72,7 @@ pub trait TypeMap {
 }
 
 impl<I: NodeImplementation> TypeMap for I {
+    type Message = Message<I::State, I::SignatureKey>;
     type MessageKind = MessageKind<I::State>;
     type ConsensusMessage = ConsensusMessage<I::State>;
     type DataMessage = DataMessage<I::State>;

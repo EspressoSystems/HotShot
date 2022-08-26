@@ -230,15 +230,13 @@ async fn init_state_and_hotshot(
     // let genesis = DEntryBlock::default();
     let genesis = nll_todo();
     let hotshot = HotShot::init(
-        genesis,
         known_nodes.clone(),
         pub_key,
         priv_key,
         node_id,
         config,
-        state.clone(),
         networking,
-        MemoryStorage::default(),
+        MemoryStorage::new(genesis, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -387,7 +385,7 @@ async fn main() {
             info!("Generating txn for view {}", view);
             let state = hotshot.get_state().await;
 
-            for _ in 0..10 {
+            for _ in 0..args.num_txn_per_round {
                 let txn = <DEntryState as TestableState>::create_random_transaction(&state);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();

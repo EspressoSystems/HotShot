@@ -8,8 +8,9 @@ use hotshot::{
     types::{Event, EventType, HotShotHandle, Message},
     HotShot, HotShotConfig, H_256,
 };
-use hotshot_types::traits::signature_key::{
-    ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey,
+use hotshot_types::traits::{
+    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+    state::TestableState,
 };
 use hotshot_utils::{
     hack::nll_todo,
@@ -142,15 +143,13 @@ async fn init_state_and_hotshot(
     // let genesis = DEntryBlock::default();
     let genesis = nll_todo();
     let hotshot = HotShot::init(
-        genesis,
         known_nodes.clone(),
         pub_key,
         priv_key,
         node_id,
         config,
-        state.clone(),
         networking,
-        MemoryStorage::default(),
+        MemoryStorage::new(genesis, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -254,7 +253,7 @@ async fn main() {
             .expect("HotShot unexpectedly closed");
         while !matches!(event.event, EventType::Decide { .. }) {
             if matches!(event.event, EventType::Leader { .. }) {
-                let tx = random_transaction(&own_state, &mut rng);
+                let tx = own_state.create_random_transaction();
                 println!("  - Proposing: {:?}", tx);
                 debug!("Proposing: {:?}", tx);
                 hotshot

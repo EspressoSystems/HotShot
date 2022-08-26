@@ -1,21 +1,19 @@
 mod common;
 
 use common::*;
-
 use either::Either::Right;
-
 use hotshot::{
     demos::dentry::{DEntryBlock, DEntryState},
-    traits::implementations::{Libp2pNetwork, MemoryStorage},
-    types::Message,
+    traits::implementations::{CentralizedServerNetwork, MemoryStorage},
+    H_256,
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
 
-/// libp2p network test
+/// Centralized server network test
 #[async_std::test]
 #[instrument]
-async fn libp2p_network() {
+async fn centralized_server_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
         num_bootstrap_nodes: 5,
@@ -30,23 +28,17 @@ async fn libp2p_network() {
     };
 
     description
-        .build::<Libp2pNetwork<
-            Message<
-                DEntryState,
-                Ed25519Pub,
-            >,
-            Ed25519Pub,
-        >, MemoryStorage<DEntryState>, DEntryState>()
+        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
         .execute()
         .await
         .unwrap();
 }
 
-// stress test for libp2p
+// stress test for a centralized server
 #[async_std::test]
 #[instrument]
 #[ignore]
-async fn test_stress_libp2p_network() {
+async fn test_stress_centralized_server_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
         num_bootstrap_nodes: 15,
@@ -61,13 +53,7 @@ async fn test_stress_libp2p_network() {
     };
 
     description
-        .build::<Libp2pNetwork<
-            Message<
-                DEntryState,
-                Ed25519Pub,
-            >,
-            Ed25519Pub,
-        >, MemoryStorage<DEntryState>, DEntryState>()
+        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
         .execute()
         .await
         .unwrap();

@@ -1,0 +1,15 @@
+[package]
+name = "hotshot-centralized-server"
+version = "0.1.1"
+edition = "2021"
+
+[dependencies]
+async-std = "1.12.0"
+bincode = "1.3.3"
+hotshot-types = { version = "0.1.0", path = "../types" }
+serde = { version = "1.0.143", features = ["derive"] }
+snafu = "0.7.1"
+flume = "0.10.14"
+futures = "0.3.21"
+hotshot-utils = { path = "../utils" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }

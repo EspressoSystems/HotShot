@@ -32,6 +32,7 @@ use hotshot_types::{
         block_contents::Genesis,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::{Storage, StoredView},
         BlockContents, StateContents,
     },
 };
@@ -386,7 +387,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                 },
             },
         );
-        consensus.saved_leaves.insert(leaf.commit(), leaf);
+        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
         }
@@ -398,6 +399,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                     .collect();
             }
+
             let decide_sent =
                 self.api
                     .send_decide(consensus.last_decided_view, blocks, states, qcs);
@@ -406,6 +408,23 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                 .collect_garbage(old_anchor_view, new_anchor_view)
                 .await;
             consensus.last_decided_view = new_anchor_view;
+
+            // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+            let storage = self.api.storage();
+            // TODO(https://github.com/EspressoSystems/HotShot/issues/411): store the rejected transactions in this view
+            let view_to_insert = StoredView::from(leaf);
+            if let Err(e) = storage.append_single_view(view_to_insert).await {
+                error!("Could not insert new anchor into the storage API: {:?}", e);
+            }
+            if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
+                error!(
+                    "Could not clean up storage to view {:?}: {:?}",
+                    old_anchor_view, e
+                );
+            }
+            if let Err(e) = storage.commit().await {
+                error!("Could not commit storage: {:?}", e);
+            }
             decide_sent.await;
         }
         high_qc

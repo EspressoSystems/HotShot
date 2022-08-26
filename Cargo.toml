@@ -45,6 +45,7 @@ tempfile = "3.3.0"
 embed-doc-image = "0.1.4"
 rand_chacha = "0.3.1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+hotshot-centralized-server = { version = "0.1.1", path = "centralized_server" }
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
@@ -52,7 +53,7 @@ hotshot-utils = { path = "./utils", version = "0.1.0", features = [
         "logging-utils",
 ] }
 rand_xoshiro = "0.6.0"
-clap = { version = "3.2.17", features = [ "derive", "env" ] }
+clap = { version = "3.2.17", features = ["derive", "env"] }
 toml = "0.5.8"
 
 ### Profiles
@@ -82,4 +83,12 @@ incremental = true
 # when implementing traits externally
 [workspace]
 
-members = ["libp2p-networking", "consensus", "testing", "types", "utils"]
+members = [
+        "libp2p-networking",
+        "consensus",
+        "testing",
+        "types",
+        "utils",
+        "centralized_server",
+        "centralized_server/bin",
+]

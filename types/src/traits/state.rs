@@ -57,13 +57,19 @@ pub trait StateContents:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: StateContents {
+pub trait TestableState: StateContents
+where
+    <Self as StateContents>::Block: TestableBlock,
+{
     /// Creates random transaction if possible
     /// otherwise panics
     fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction;
     /// Provides a common starting state
     fn get_starting_state() -> Self;
 }
+
+/// extra functions required on block to be usable by hotshot-testing
+pub trait TestableBlock: BlockContents + Default {}
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {

@@ -1,8 +1,11 @@
 use clap::Parser;
 use futures::future::join_all;
-use hotshot_types::traits::signature_key::{
-    ed25519::{Ed25519Priv, Ed25519Pub},
-    SignatureKey,
+use hotshot_types::traits::{
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
+    },
+    state::TestableState,
 };
 use hotshot_utils::{
     hack::nll_todo,
@@ -201,12 +204,12 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
-        let tx = random_transaction(&state.as_ref().unwrap()[0], &mut rng);
+        let tx = &state.as_ref().unwrap()[0].create_random_transaction();
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
         hotshots[0]
-            .submit_transaction(tx)
+            .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
@@ -369,15 +372,13 @@ async fn get_hotshot(
     // let genesis = DEntryBlock::default();
     let genesis = nll_todo();
     let h = HotShot::init(
-        genesis,
         known_nodes.clone(),
         public_key,
         private_key,
         node_id,
         config,
-        state.clone(),
         networking,
-        MemoryStorage::default(),
+        MemoryStorage::new(genesis, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
