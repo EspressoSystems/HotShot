@@ -90,7 +90,7 @@ struct Inner<TYPES: NodeTypes> {
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
     run_ready: AtomicBool,
     #[debug(skip)]
-    /// The metrics of the network
+    /// The networking metrics we're keeping track of
     metrics: NetworkingMetrics,
 }
 

@@ -2,6 +2,7 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
+use super::NetworkingMetrics;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
@@ -10,6 +11,7 @@ use dashmap::DashSet;
 use hotshot_types::{
     message::Message,
     traits::{
+        metrics::{Metrics, NoMetrics},
         network::{
             FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
             TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
@@ -95,6 +97,8 @@ struct Libp2pNetworkInner<TYPES: NodeTypes> {
     dht_timeout: Duration,
     /// whether or not we've bootstrapped into the DHT yet
     is_bootstrapped: Arc<AtomicBool>,
+    /// The networking metrics we're keeping track of
+    metrics: NetworkingMetrics,
 }
 
 /// Networking implementation that uses libp2p
@@ -177,6 +181,7 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 async_block_on(async move {
                     Libp2pNetwork::new(
+                        NoMetrics::new(),
                         config,
                         pubkey,
                         bootstrap_addrs_ref,
@@ -224,6 +229,7 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
     ///
     /// This will panic if there are less than 5 bootstrap nodes
     pub async fn new(
+        metrics: Box<dyn Metrics>,
         config: NetworkNodeConfig,
         pk: TYPES::SignatureKey,
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
@@ -273,6 +279,7 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
                 recently_updated_peers: DashSet::default(),
                 dht_timeout: Duration::from_secs(30),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
+                metrics: NetworkingMetrics::new(metrics),
             }),
         };
 
@@ -454,12 +461,21 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
             .send(message.clone())
             .await
             .unwrap();
-        self.inner
+        match self
+            .inner
             .handle
             .gossip(QC_TOPIC.to_string(), &message)
             .await
-            .map_err(Into::<NetworkError>::into)?;
-        Ok(())
+        {
+            Ok(()) => {
+                self.inner.metrics.outgoing_message_count.add(1);
+                Ok(())
+            }
+            Err(e) => {
+                self.inner.metrics.message_failed_to_send.add(1);
+                Err(e.into())
+            }
+        }
     }
 
     #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
@@ -497,27 +513,30 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
                 .handle
                 .get_record_timeout(&recipient, self.inner.dht_timeout)
                 .await
-                .map_err(Into::<NetworkError>::into)
             {
                 Ok(r) => r,
                 Err(_e) => {
+                    self.inner.metrics.message_failed_to_send.add(1);
                     error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
                     return Err(NetworkError::DHTError);
                 }
             }
         };
 
-        self.inner
-            .handle
-            .lookup_pid(pid)
-            .await
-            .map_err(Into::<NetworkError>::into)?;
-        self.inner
-            .handle
-            .direct_request(pid, &message)
-            .await
-            .map_err(Into::<NetworkError>::into)?;
-        Ok(())
+        if let Err(e) = self.inner.handle.lookup_pid(pid).await {
+            self.inner.metrics.message_failed_to_send.add(1);
+            return Err(e.into());
+        }
+        match self.inner.handle.direct_request(pid, &message).await {
+            Ok(()) => {
+                self.inner.metrics.outgoing_message_count.add(1);
+                Ok(())
+            }
+            Err(e) => {
+                self.inner.metrics.message_failed_to_send.add(1);
+                Err(e.into())
+            }
+        }
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_queue", skip_all)]
@@ -525,11 +544,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
-            self.inner
+            let result = self
+                .inner
                 .broadcast_recv
                 .drain_at_least_one()
                 .await
-                .context(UnboundedChannelDisconnectedSnafu)
+                .context(UnboundedChannelDisconnectedSnafu)?;
+            self.inner.metrics.incoming_message_count.add(result.len());
+            Ok(result)
         }
     }
 
@@ -538,11 +560,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
-            self.inner
+            let result = self
+                .inner
                 .broadcast_recv
                 .recv()
                 .await
-                .map_err(|_| NetworkError::ShutDown)
+                .map_err(|_| NetworkError::ShutDown)?;
+            self.inner.metrics.incoming_message_count.add(1);
+            Ok(result)
         }
     }
 
@@ -551,11 +576,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
-            self.inner
+            let result = self
+                .inner
                 .direct_recv
                 .drain_at_least_one()
                 .await
-                .context(UnboundedChannelDisconnectedSnafu)
+                .context(UnboundedChannelDisconnectedSnafu)?;
+            self.inner.metrics.incoming_message_count.add(result.len());
+            Ok(result)
         }
     }
 
@@ -564,11 +592,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
-            self.inner
+            let result = self
+                .inner
                 .direct_recv
                 .recv()
                 .await
-                .map_err(|_| NetworkError::ShutDown)
+                .map_err(|_| NetworkError::ShutDown)?;
+            self.inner.metrics.incoming_message_count.add(1);
+            Ok(result)
         }
     }
 
@@ -624,6 +655,10 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         for pid in cur_connected {
             self.inner.recently_updated_peers.insert(pid);
         }
+        self.inner
+            .metrics
+            .gossipsub_mesh_connected
+            .set(self.inner.recently_updated_peers.len());
 
         Ok(result)
     }
