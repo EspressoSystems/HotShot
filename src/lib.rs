@@ -483,18 +483,26 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
     #[instrument(
-        skip(self, _sender),
+        skip(self),
         name = "Handle broadcast consensus message",
         level = "error"
     )]
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap<N>>::ConsensusMessage,
-        _sender: I::SignatureKey,
+        sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_view_number = msg.view_number();
+
+        // Skip messages that are not from the leader
+        let api = HotShotConsensusApi {
+            inner: self.inner.clone(),
+        };
+        if sender != api.get_leader(msg_view_number).await {
+            return;
+        }
 
         match msg {
             // this is ONLY intended for replica
@@ -510,9 +518,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     .await
                     .sender_chan;
 
-                // sends the message if not stale
-                if chan.send_async(msg).await.is_err() {
-                    error!("Failed to replica task!");
+                // sends the message if not stale, and if there isn't already a proposal in there
+                if chan.is_empty() {
+                    if chan.send_async(msg).await.is_err() {
+                        error!("Failed to replica task!");
+                    }
                 }
             }
             ConsensusMessage::NextViewInterrupt(_) => {

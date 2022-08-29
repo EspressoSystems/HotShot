@@ -296,7 +296,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     consensus.high_qc = high_qc;
     c_api.send_view_finished(consensus.cur_view).await;
 
-    error!("Returning from view {:?}!", cur_view);
+    info!("Returning from view {:?}!", cur_view);
     Ok(())
 }
 

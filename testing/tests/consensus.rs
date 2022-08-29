@@ -121,8 +121,6 @@ fn test_vote_queueing_post_safety_check(
         let node_id = 0;
         let mut result = Ok(());
 
-       
-
         let handle = runner.get_handle(node_id).unwrap();
         // let handle = node;
         let cur_view = handle.get_current_view().await;
@@ -150,7 +148,6 @@ fn test_vote_queueing_post_safety_check(
                     _ => {}
                 }
             }
-        
     }
 
         result
@@ -310,7 +307,7 @@ fn test_bad_proposal_post_safety_check(
                                             });
                     }
                     QueuedMessageTense::FutureNonEmpty(len) => {
-                        if !is_upcoming_leader {
+                        if !is_upcoming_leader && ref_view_number != cur_view {
                         result = Err(ConsensusRoundError::SafetyFailed {
                             description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
                     }
@@ -322,10 +319,8 @@ fn test_bad_proposal_post_safety_check(
                 }
                     _ => {}
                 }
-            
         }
     }
-
         result
     }
     .boxed_local()
@@ -397,10 +392,7 @@ fn test_bad_vote_post_safety_check(
                 }
                     _ => {}
                 }
-            
         }
-    
-
         result
     }
     .boxed_local()
@@ -409,7 +401,6 @@ fn test_bad_vote_post_safety_check(
 /// Tests that replicas receive and queue valid Proposal messages properly
 #[async_std::test]
 #[instrument]
-#[ignore]
 async fn test_proposal_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
@@ -441,7 +432,6 @@ async fn test_proposal_queueing() {
 /// Tests that next leaders receive and queue Vote messages properly
 #[async_std::test]
 #[instrument]
-#[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
@@ -473,7 +463,6 @@ async fn test_vote_queueing() {
 /// Tests that replicas handle bad proposals properly
 #[async_std::test]
 #[instrument]
-#[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
@@ -544,7 +533,6 @@ async fn test_equivocation() {
 /// Tests a single node network, which also tests when a node is leader in consecutive views
 #[async_std::test]
 #[instrument]
-#[ignore]
 async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
