@@ -1,5 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
+use commit::Commitment;
+
 use crate::{
     data::{QuorumCertificate, ViewNumber},
     error::HotShotError,
@@ -18,6 +20,10 @@ pub struct Event<S: StateContents + Send + Sync> {
     /// The underlying event
     pub event: EventType<S>,
 }
+
+/// Alias for a state commitment
+pub type TransactionCommitment<STATE> =
+    Commitment<<<STATE as StateContents>::Block as BlockContents>::Transaction>;
 
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///
@@ -54,6 +60,8 @@ pub enum EventType<S: StateContents> {
         state: Arc<Vec<S>>,
         /// The quorum certificates that accompy this Decide
         qcs: Arc<Vec<QuorumCertificate<S>>>,
+        /// The list of transaction sets confirmed rejected with this decision
+        rejects: Arc<Vec<Vec<TransactionCommitment<S>>>>,
     },
     /// A new view was started by this node
     NewView {

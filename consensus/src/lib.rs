@@ -27,6 +27,7 @@ use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
+    event::TransactionCommitment,
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         block_contents::Genesis,
@@ -324,6 +325,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let mut states = Vec::new();
         let mut included_txns = HashSet::new();
         let mut qcs = Vec::new();
+        let mut rejects = Vec::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
@@ -354,6 +356,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         blocks.push(leaf.deltas.clone());
                         states.push(leaf.state.clone());
                         qcs.push(leaf.justify_qc.clone());
+                        rejects.push(Vec::new());
                         let txns = leaf.deltas.contained_transactions();
                         for txn in txns {
                             included_txns.insert(txn);
@@ -396,7 +399,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
             let decide_sent =
                 self.api
-                    .send_decide(consensus.last_decided_view, blocks, states, qcs);
+                    .send_decide(consensus.last_decided_view, blocks, states, qcs, rejects);
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)
@@ -498,10 +501,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
-        let previous_used_txns =
-            previous_used_txns_vec.into_iter().collect::<HashSet<
-                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
-            >>();
+        let previous_used_txns = previous_used_txns_vec
+            .into_iter()
+            .collect::<HashSet<TransactionCommitment<I::State>>>();
 
         let txns = self.transactions.read().await;
 

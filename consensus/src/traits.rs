@@ -5,7 +5,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::HotShotError,
-    event::{Event, EventType},
+    event::{Event, EventType, TransactionCommitment},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
@@ -128,6 +128,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         blocks: Vec<<I::State as StateContents>::Block>,
         states: Vec<I::State>,
         qcs: Vec<QuorumCertificate<I::State>>,
+        rejects: Vec<Vec<TransactionCommitment<I::State>>>,
     ) {
         self.send_event(Event {
             view_number,
@@ -135,6 +136,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
                 block: Arc::new(blocks),
                 state: Arc::new(states),
                 qcs: Arc::new(qcs),
+                rejects: Arc::new(rejects),
             },
         })
         .await;
