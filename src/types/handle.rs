@@ -237,7 +237,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
         self.hotshot.inner.public_key.clone()
     }
 
-    /// Wrapper to get the current view
+    /// Wrapper to get this node's current view
     pub async fn get_current_view(&self) -> ViewNumber {
         self.hotshot.hotstuff.read().await.cur_view
     }

@@ -1,33 +1,25 @@
 mod common;
-
-use async_trait::async_trait;
 use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
 };
-use std::{collections::HashSet, sync::Arc};
 
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestNetwork,
     TestRoundResult, TestTransaction,
 };
-use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{random_leaf, DEntryBlock, State as DemoState},
-    traits::{implementations::MemoryStorage, BlockContents, NodeImplementation, Transaction},
-    types::{HotShotHandle, Vote},
-    HotShot, HotShotInner, H_256,
+    traits::{implementations::MemoryStorage, BlockContents},
+    types::Vote,
+    H_256,
 };
-use hotshot_consensus;
-use hotshot_testing::{
-    network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    ConsensusRoundError, Round, TestNodeImpl,
-};
-use tracing::{error, info, instrument, warn};
+use hotshot_testing::ConsensusRoundError;
+use tracing::{instrument, warn};
 
-const TEST_VIEW_NUMBERS: [u64; 4] = [0, 3, 5, 10];
 const NUM_VIEWS: u64 = 100;
+const DEFAULT_NODE_ID: u64 = 0;
 
 enum QueuedMessageTense {
     PastEmpty,
@@ -36,35 +28,32 @@ enum QueuedMessageTense {
     FutureNonEmpty(usize),
 }
 
-// Passing in `runner` here to avoid long type parameter
+/// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_leader(
     runner: &AppliedTestRunner,
     node_id: u64,
     view_number: ViewNumber,
 ) -> bool {
     let handle = runner.get_handle(node_id).unwrap();
-
-    let upcoming_view = view_number; // TODO delete this line
-
-    let leader = handle.get_leader(upcoming_view).await;
+    let leader = handle.get_leader(view_number).await;
     leader == handle.get_public_key()
 }
 
+/// Builds and submits a random proposal for the specified view number
 async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_number: ViewNumber) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
     let mut leaf = random_leaf(DEntryBlock::default());
     leaf.view_number = view_number;
-
     let signature = handle.sign_proposal(&leaf.hash(), leaf.view_number);
-
     let msg = ConsensusMessage::Proposal(Proposal { leaf, signature });
 
     // Send proposal
     let _results = handle.send_broadcast_consensus_message(msg.clone()).await;
 }
 
+/// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_vote(
     runner: &AppliedTestRunner,
     sender_node_id: u64,
@@ -73,12 +62,10 @@ async fn submit_vote(
 ) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
-    // Build proposal
+    // Build vote
     let mut leaf = random_leaf(DEntryBlock::default());
     leaf.view_number = view_number;
-
     let signature = handle.sign_vote(&leaf.hash(), leaf.view_number);
-
     let msg = ConsensusMessage::Vote(Vote {
         signature,
         block_hash: leaf.deltas.hash(),
@@ -91,12 +78,14 @@ async fn submit_vote(
         .get_handle(recipient_node_id)
         .unwrap()
         .get_public_key();
-    // Send proposal
+
+    // Send vote
     let _results = handle
         .send_direct_consensus_message(msg.clone(), recipient)
         .await;
 }
 
+/// Return an enum representing the state of the message queue
 fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
     let result;
     match is_past {
@@ -112,18 +101,18 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
     result
 }
 
-/// Checks view 0..NUM_VIEWS where node 0 is the leader for Proposal messages
+/// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_vote_queueing_post_safety_check(
     runner: &AppliedTestRunner,
     _results: TestRoundResult,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
-        let node_id = 0;
+        let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
 
         let handle = runner.get_handle(node_id).unwrap();
-        // let handle = node;
         let cur_view = handle.get_current_view().await;
+
 
         for i in 1..NUM_VIEWS {
             if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
@@ -133,40 +122,33 @@ fn test_vote_queueing_post_safety_check(
                     .get_next_leader_receiver_channel_len(ref_view_number)
                     .await;
 
-                let state = get_queue_len(is_past, len);
-                match state {
+                let queue_state = get_queue_len(is_past, len);
+                match queue_state {
                     QueuedMessageTense::PastNonEmpty(len) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            // TODO add node id? 
-                                                description: format!("Past view's next leader receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)
-                                            });
+                                                description: format!("Past view's next leader receiver channel for node {} still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
                     }
                     QueuedMessageTense::FutureEmpty => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next Leader did not properly queue future proposal for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
+                            description: format!("Next Leader did not properly queue future vote for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                     }
                     _ => {}
                 }
             }
     }
-
         result
     }
     .boxed_local()
 }
 
+/// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_vote_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
-        // TODO make node_id random?
+        let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
-            let node_id = 0;
-            let handle = runner.get_handle(j).unwrap();
-
             {
-                // create vote
-                // To avoid overflow
                 for i in 1..NUM_VIEWS {
                     if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
                         submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
@@ -174,92 +156,79 @@ fn test_vote_queueing_round_setup(
                 }
             }
         }
-
         Vec::new()
     }
     .boxed_local()
 }
 
-/// Checks view 0..NUM_VIEWS where node 0 is the leader for Proposal messages
+/// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_proposal_queueing_post_safety_check(
     runner: &AppliedTestRunner,
     _results: TestRoundResult,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
-        let node_id = 0;
+        let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
 
         for node in runner.nodes() {
 
-        // let handle = runner.get_handle(node).unwrap();
-        let handle = node;
-        let cur_view = handle.get_current_view().await;
+            let handle = node;
+            let cur_view = handle.get_current_view().await;
 
-        for i in 0..NUM_VIEWS {
-            if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                let ref_view_number = ViewNumber::new(i);
-                let is_past = ref_view_number < cur_view;
-                let len = handle
-                    .get_replica_receiver_channel_len(ref_view_number)
-                    .await;
+            for i in 0..NUM_VIEWS {
+                if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
+                    let ref_view_number = ViewNumber::new(i);
+                    let is_past = ref_view_number < cur_view;
+                    let len = handle
+                        .get_replica_receiver_channel_len(ref_view_number)
+                        .await;
 
-                let state = get_queue_len(is_past, len);
-                match state {
-                    QueuedMessageTense::PastNonEmpty(len) => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            // TODO add node id? 
-                                                description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)
-                                            });
+                    let queue_state = get_queue_len(is_past, len);
+                    match queue_state {
+                        QueuedMessageTense::PastNonEmpty(len) => {
+                            result = Err(ConsensusRoundError::SafetyFailed {
+                                                    description: format!("Node {}'s past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
+                        }
+                        QueuedMessageTense::FutureEmpty => {
+                            result = Err(ConsensusRoundError::SafetyFailed {
+                                description: format!("Replica did not properly queue future proposal for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                        }
+                        _ => {}
                     }
-                    QueuedMessageTense::FutureEmpty => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Replica did not properly queue future proposal for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
-                    }
-                    _ => {}
                 }
             }
-        }
     }
-
         result
     }
     .boxed_local()
 }
 
+/// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_proposal_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
-        // TODO make node_id random?
-        let node_id = 0;
-        let handle = runner.get_handle(node_id).unwrap();
-
+        let node_id = DEFAULT_NODE_ID;
         {
-            // create_proposal
             for i in 0..NUM_VIEWS {
                 if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
                     submit_proposal(runner, node_id, ViewNumber::new(i)).await;
                 }
             }
         }
-
         Vec::new()
     }
     .boxed_local()
 }
 
+/// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_proposal_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
-        // TODO make node_id random?
-        let node_id = 0;
-        let handle = runner.get_handle(node_id).unwrap();
-
+        let node_id = DEFAULT_NODE_ID;
         {
-            // create_proposal
             for i in 0..NUM_VIEWS {
-                // send proposal where we are not the leader
                 if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
                     submit_proposal(runner, node_id, ViewNumber::new(i)).await;
                 } else {
@@ -269,129 +238,116 @@ fn test_bad_proposal_round_setup(
                 }
             }
         }
-
         Vec::new()
     }
     .boxed_local()
 }
 
+/// Checks nodes do not queue bad proposal messages
 fn test_bad_proposal_post_safety_check(
     runner: &AppliedTestRunner,
     _results: TestRoundResult,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
-        let node_id = 0;
+        let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
 
         for node in runner.nodes() {
 
-        // let handle = runner.get_handle(node).unwrap();
-        let handle = node;
-        let cur_view = handle.get_current_view().await;
+            let handle = node;
+            let cur_view = handle.get_current_view().await;
 
-        for i in 0..NUM_VIEWS {
-            let is_upcoming_leader = is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await;
-
+            for i in 0..NUM_VIEWS {
+                let is_upcoming_leader = is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await;
                 let ref_view_number = ViewNumber::new(i);
                 let is_past = ref_view_number < cur_view;
                 let len = handle
                     .get_replica_receiver_channel_len(ref_view_number)
                     .await;
 
-                let state = get_queue_len(is_past, len);
-                match state {
+                let queue_state = get_queue_len(is_past, len);
+                match queue_state {
                     QueuedMessageTense::PastNonEmpty(len) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            // TODO add node id? 
-                                                description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)
-                                            });
+                            description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
                     }
                     QueuedMessageTense::FutureNonEmpty(len) => {
                         if !is_upcoming_leader && ref_view_number != cur_view {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
+                            description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                     }
                     else if len > 1 {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Replica queued too many Proposal messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
+                            description: format!("Replica queued too many Proposal messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
 
                     }
                 }
                     _ => {}
                 }
-        }
+            }
     }
         result
     }
     .boxed_local()
 }
 
+/// Submits votes to non-leaders and submits too many votes from a singular node
 fn test_bad_vote_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
-        // TODO make node_id random?
-        let node_id = 0;
-
+        let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
-            let handle = runner.get_handle(j).unwrap();
-
             {
-                // create vote
                 for i in 1..NUM_VIEWS {
                     submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
                 }
             }
         }
-
         Vec::new()
     }
     .boxed_local()
 }
 
+/// Checks that non-leaders do not queue votes, and that leaders do not queue more than 1 vote per node
 fn test_bad_vote_post_safety_check(
     runner: &AppliedTestRunner,
     _results: TestRoundResult,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
-        let node_id = 0;
+        let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
-
-
         let handle = runner.get_handle(node_id).unwrap();
-        // let handle = node;
         let cur_view = handle.get_current_view().await;
 
         for i in 1..NUM_VIEWS {
             let is_upcoming_leader = is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await;
+            let ref_view_number = ViewNumber::new(i - 1);
+            let is_past = ref_view_number < cur_view;
+            let len = handle
+                .get_next_leader_receiver_channel_len(ref_view_number)
+                .await;
 
-                let ref_view_number = ViewNumber::new(i - 1);
-                let is_past = ref_view_number < cur_view;
-                let len = handle
-                    .get_next_leader_receiver_channel_len(ref_view_number)
-                    .await;
-
-                let state = get_queue_len(is_past, len);
-                match state {
-                    QueuedMessageTense::PastNonEmpty(len) => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            // TODO add node id? 
-                                                description: format!("Past view's next leader receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)
-                                            });
-                    }
-                    QueuedMessageTense::FutureNonEmpty(len) => {
-                        if !is_upcoming_leader {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
-                    }
-                    else if len > runner.ids().len() {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
-
-                    }
+            let state = get_queue_len(is_past, len);
+            match state {
+                QueuedMessageTense::PastNonEmpty(len) => {
+                    result = Err(ConsensusRoundError::SafetyFailed {
+                        description: format!("Past view's next leader receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
                 }
-                    _ => {}
+                QueuedMessageTense::FutureNonEmpty(len) => {
+                    if !is_upcoming_leader {
+                    result = Err(ConsensusRoundError::SafetyFailed {
+                        description: format!("Non-leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
                 }
+                else if len > runner.ids().len() {
+                    result = Err(ConsensusRoundError::SafetyFailed {
+                        description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
+                    // Assert here to fail the test without failed rounds    
+                    assert!(len <= runner.ids().len());
+                }
+            }
+                _ => {}
+            }
         }
         result
     }
@@ -429,7 +385,7 @@ async fn test_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue Vote messages properly
+/// Tests that next leaders receive and queue valid Vote messages properly
 #[async_std::test]
 #[instrument]
 async fn test_vote_queueing() {
@@ -460,7 +416,7 @@ async fn test_vote_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that replicas handle bad proposals properly
+/// Tests that replicas handle bad Proposal messages properly
 #[async_std::test]
 #[instrument]
 async fn test_bad_proposal() {
@@ -491,7 +447,7 @@ async fn test_bad_proposal() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders handle bad votes properly
+/// Tests that next leaders handle bad Votes properly.  We allow `num_rounds` of failures because replicas will not be able to come to consensus with the bad votes we submit to them
 #[async_std::test]
 #[instrument]
 async fn test_bad_vote() {
@@ -506,7 +462,7 @@ async fn test_bad_vote() {
             total_nodes: 4,
             start_nodes: 4,
             num_succeeds: num_rounds,
-            failure_threshold: 0,
+            failure_threshold: num_rounds,
             ..GeneralTestDescriptionBuilder::default()
         },
         rounds: None,
@@ -551,7 +507,5 @@ async fn test_single_node_network() {
         rounds: None,
         gen_runner: None,
     };
-    let mut test = description.build();
-
-    test.execute().await.unwrap();
+    description.build().execute().await.unwrap();
 }
