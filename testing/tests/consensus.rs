@@ -23,7 +23,7 @@ const DEFAULT_NODE_ID: u64 = 0;
 
 enum QueuedMessageTense {
     Past(Option<usize>),
-    Future(Option<usize>)
+    Future(Option<usize>),
 }
 
 /// Returns true if `node_id` is the leader of `view_number`
