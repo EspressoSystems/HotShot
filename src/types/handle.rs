@@ -293,6 +293,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
 
     /// Get length of the replica's receiver channel
     #[allow(clippy::missing_panics_doc)]
+    #[allow(clippy::question_mark)]
     pub async fn get_replica_receiver_channel_len(&self, view_number: ViewNumber) -> Option<usize> {
         let channel_map = self.hotshot.replica_channel_map.read().await;
 
@@ -307,6 +308,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
 
     /// Get length of the next leaders's receiver channel
     #[allow(clippy::missing_panics_doc)]
+    #[allow(clippy::question_mark)]
     pub async fn get_next_leader_receiver_channel_len(
         &self,
         view_number: ViewNumber,

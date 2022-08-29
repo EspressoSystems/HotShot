@@ -519,10 +519,8 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                     .sender_chan;
 
                 // sends the message if not stale, and if there isn't already a proposal in there
-                if chan.is_empty() {
-                    if chan.send_async(msg).await.is_err() {
-                        error!("Failed to replica task!");
-                    }
+                if chan.is_empty() && chan.send_async(msg).await.is_err() {
+                    error!("Failed to replica task!");
                 }
             }
             ConsensusMessage::NextViewInterrupt(_) => {
