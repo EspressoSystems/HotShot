@@ -560,15 +560,14 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
                 // check if
                 // - is in fact, actually is the next leader
                 // - the message is not stale
-                if !ConsensusApi::is_leader(
+                let is_leader = ConsensusApi::is_leader(
                     &HotShotConsensusApi {
                         inner: self.inner.clone(),
                     },
                     msg_view_number + 1,
                 )
-                .await
-                    || msg_view_number < channel_map.cur_view
-                {
+                .await;
+                if !is_leader || msg_view_number < channel_map.cur_view {
                     return;
                 }
 

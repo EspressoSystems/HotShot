@@ -223,6 +223,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     // Below is for testing only:
+    // #[cfg(feature = "test")]
 
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     pub async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
@@ -292,35 +293,24 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Get length of the replica's receiver channel
-    #[allow(clippy::missing_panics_doc)]
-    #[allow(clippy::question_mark)]
     pub async fn get_replica_receiver_channel_len(&self, view_number: ViewNumber) -> Option<usize> {
         let channel_map = self.hotshot.replica_channel_map.read().await;
-
-        let view_queue = channel_map.channel_map.get(&view_number);
-
-        if view_queue.is_none() {
-            return None;
-        }
-
-        Some(view_queue.unwrap().receiver_chan.len())
+        channel_map
+            .channel_map
+            .get(&view_number)
+            .map(|chan| chan.receiver_chan.len())
     }
 
     /// Get length of the next leaders's receiver channel
-    #[allow(clippy::missing_panics_doc)]
-    #[allow(clippy::question_mark)]
     pub async fn get_next_leader_receiver_channel_len(
         &self,
         view_number: ViewNumber,
     ) -> Option<usize> {
         let channel_map = self.hotshot.next_leader_channel_map.read().await;
 
-        let view_queue = channel_map.channel_map.get(&view_number);
-
-        if view_queue.is_none() {
-            return None;
-        }
-
-        Some(view_queue.unwrap().receiver_chan.len())
+        channel_map
+            .channel_map
+            .get(&view_number)
+            .map(|chan| chan.receiver_chan.len())
     }
 }

@@ -21,7 +21,7 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
-#[allow(clippy::enum-variant-names)]
+#[allow(clippy::enum_variant_names)]
 enum QueuedMessageTense {
     PastEmpty,
     PastNonEmpty(usize),
