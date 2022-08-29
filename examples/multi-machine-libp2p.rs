@@ -20,7 +20,7 @@ use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::HashSet,
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
@@ -185,20 +185,7 @@ async fn init_state_and_hotshot(
     // Create the initial state
     // NOTE: all balances must be positive
     // so we avoid a negative balance
-    let balances: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 5_000_000),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    let state = DEntryState {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+    let state = DEntryState::genesis();
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)

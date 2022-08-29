@@ -1,4 +1,5 @@
-use commit::{Commitment, Committable, RawCommitmentBuilder};
+use commit::Commitment;
+use hotshot::traits::dummy::DummyState;
 use hotshot_types::{
     data::ViewNumber,
     traits::{
@@ -13,10 +14,6 @@ use tracing::{info, instrument};
 pub struct TestElection {
     /// These leaders will be picked. If this list runs out the test will panic.
     pub leaders: Vec<Ed25519Pub>,
-}
-
-pub enum DummyState {
-    Dummy,
 }
 
 impl Election<Ed25519Pub> for TestElection {
@@ -68,12 +65,5 @@ impl Election<Ed25519Pub> for TestElection {
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         unimplemented!()
-    }
-}
-
-impl Committable for DummyState {
-    fn commit(&self) -> Commitment<Self> {
-        // dummy implementation does nothing
-        RawCommitmentBuilder::new("Dummy Block").u64(0).finalize()
     }
 }

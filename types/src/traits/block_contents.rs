@@ -8,8 +8,15 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-pub trait Genesis {
+/// describes a type that may have a genesis (initialization)  value
+pub trait Genesis /* : Committable */ {
+    /// return the genesis value
     fn genesis() -> Self;
+
+    //
+    // fn fake_commitment() -> Commitment<Self> {
+    //
+    // }
 }
 
 /// Abstraction over the contents of a block
@@ -67,7 +74,6 @@ pub trait BlockContents:
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -95,6 +101,7 @@ pub mod dummy {
     /// dummy transaction. No functionality
     #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
     pub enum DummyTransaction {
+        /// the only variant. Dummy.
         Dummy,
     }
 
@@ -116,13 +123,7 @@ pub mod dummy {
 
     impl Genesis for DummyBlock {
         fn genesis() -> Self {
-            nll_todo()
-        }
-    }
-
-    impl Genesis for DummyTransaction {
-        fn genesis() -> Self {
-            nll_todo()
+            DummyBlock { nonce: 0 }
         }
     }
 

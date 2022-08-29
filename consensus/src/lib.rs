@@ -144,14 +144,7 @@ pub struct Consensus<I: NodeImplementation> {
     pub last_decided_view: ViewNumber,
 
     /// A list of undecided transactions
-    pub transactions: Arc<
-        RwLock<
-            HashMap<
-                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
-                <I as TypeMap>::Transaction,
-            >,
-        >,
-    >,
+    pub transactions: TransactionStorage<I>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
@@ -444,14 +437,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Lock over the transactions list
-    pub transactions: Arc<
-        RwLock<
-            HashMap<
-                Commitment<<<I::State as StateContents>::Block as BlockContents>::Transaction>,
-                <I as TypeMap>::Transaction,
-            >,
-        >,
-    >,
+    pub transactions: TransactionStorage<I>,
     /// Limited access to the consensus protocol
     pub api: A,
 }
@@ -585,6 +571,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         let mut qcs = HashSet::<QuorumCertificate<I::State>>::new();
         qcs.insert(self.generic_qc.clone());
 
+        #[allow(clippy::type_complexity)]
         let mut vote_outcomes: HashMap<
             Commitment<Leaf<I::State>>,
             (Commitment<<I::State as StateContents>::Block>, Signatures),
@@ -772,19 +759,20 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     }
 }
 
-impl<I: NodeImplementation> Consensus<I> {
-    /// return a clone of the internal storage of unclaimed transactions
-    #[must_use]
-    pub fn get_transactions(
-        &self,
-    ) -> Arc<
+/// The type of a transaction
+pub type TransactionStorage<I> =
+Arc<
         RwLock<
             HashMap<
                 Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
                 <I as TypeMap>::Transaction,
             >,
-        >,
-    >{
+        >>;
+
+impl<I: NodeImplementation> Consensus<I> {
+    /// return a clone of the internal storage of unclaimed transactions
+    #[must_use]
+    pub fn get_transactions(&self) -> TransactionStorage<I> {
         self.transactions.clone()
     }
 

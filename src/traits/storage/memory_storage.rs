@@ -2,23 +2,20 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::{
-    data::Leaf,
-    traits::{BlockContents, StateContents},
-    QuorumCertificate,
-};
+use crate::{data::Leaf, traits::StateContents, QuorumCertificate};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use commit::{Commitment, Committable};
-use dashmap::DashMap;
+use commit::Committable;
 use hotshot_types::{
     data::ViewNumber,
-    traits::storage::{
-        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
-        ViewEntry,
+    traits::{
+        block_contents::Genesis,
+        storage::{
+            Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
+            ViewEntry,
+        },
     },
 };
-use hotshot_utils::hack::nll_todo;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -49,13 +46,15 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
         };
+        // TODO we should probably be passing the entire leaf in here...
+        // or at least, more information.
         let qc = QuorumCertificate {
             block_commitment: block.commit(),
             genesis: true,
             leaf_commitment: Leaf {
                 deltas: block.clone(),
-                justify_qc: nll_todo(),
-                parent_commitment: nll_todo(),
+                justify_qc: QuorumCertificate::genesis(),
+                parent_commitment: Leaf::genesis().commit(),
                 state: state.clone(),
                 view_number: ViewNumber::genesis(),
             }
@@ -67,7 +66,7 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
             ViewNumber::genesis(),
             StoredView {
                 append: ViewAppend::Block { block },
-                parent: nll_todo(),
+                parent: Leaf::genesis().commit(),
                 justify_qc: qc,
                 state,
                 view_number: ViewNumber::genesis(),
@@ -152,22 +151,23 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
+    use hotshot_types::{data::QuorumCertificate, traits::block_contents::Genesis};
 
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
+        // TODO is it okay to be using genesis here?
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
-                block_commitment: nll_todo(),
+                block_commitment: DummyBlock::genesis().commit(),
                 genesis: number == ViewNumber::genesis(),
-                leaf_commitment: nll_todo(),
+                leaf_commitment: Leaf::genesis().commit(),
                 signatures: BTreeMap::new(),
                 view_number: number,
             },
             DummyBlock::random(),
             DummyState::random(),
-            nll_todo(),
+            Leaf::genesis().commit(),
         )
     }
 

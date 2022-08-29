@@ -242,7 +242,7 @@ pub type GenRunner<NETWORK, STORAGE, STATE> = Option<
 >;
 
 /// type alias for doing setup for a consensus round
-pub type TestSetup<NETWORK, STORAGE, STATE: StateContents> = Vec<
+pub type TestSetup<NETWORK, STORAGE, STATE> = Vec<
     Box<
         dyn FnOnce(
             &mut TestRunner<NETWORK, STORAGE, STATE>,

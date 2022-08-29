@@ -1,8 +1,10 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use commit::{Commitment, Committable};
+use commit::Commitment;
 
 use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+
+use super::StateContents;
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey>: Send + Sync {
@@ -11,7 +13,7 @@ pub trait Election<P: SignatureKey>: Send + Sync {
     /// The threshold for membership selection.
     type SelectionThreshold;
     /// The state type this election implementation is bound to
-    type State: Send + Sync + Committable;
+    type State: StateContents;
     /// A membership proof
     type VoteToken;
     /// A type stated, validated membership proof

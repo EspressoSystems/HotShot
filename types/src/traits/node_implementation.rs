@@ -3,8 +3,6 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
-use commit::{Commitment, Committable};
-
 use crate::{
     message::{ConsensusMessage, DataMessage, Message, MessageKind},
     traits::{
@@ -37,7 +35,7 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
         State = Self::State,
     >;
     /// The election algorithm
-    type Election: Election<Self::SignatureKey>;
+    type Election: Election<Self::SignatureKey, State = Self::State>;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
 }

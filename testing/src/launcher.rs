@@ -62,12 +62,12 @@ impl<
             storage: Box::new(|_| {
                 <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(
                     <STATE::Block as Genesis>::genesis(),
-                    <STATE as TestableState>::get_starting_state(),
+                    <STATE as Genesis>::genesis(),
                 )
                 .unwrap()
             }),
-            block: Box::new(|_| <BLOCK as Default>::default()),
-            state: Box::new(|_| <STATE as TestableState>::get_starting_state()),
+            block: Box::new(|_| <BLOCK as Genesis>::genesis()),
+            state: Box::new(|_| <STATE as Genesis>::genesis()),
             config,
         }
     }

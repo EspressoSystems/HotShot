@@ -40,7 +40,7 @@ pub enum MessageKind<STATE: StateContents> {
     ),
 }
 
-impl<'b, S: StateContents> From<ConsensusMessage<S>> for MessageKind<S> {
+impl<S: StateContents> From<ConsensusMessage<S>> for MessageKind<S> {
     fn from(m: ConsensusMessage<S>) -> Self {
         Self::Consensus(m)
     }

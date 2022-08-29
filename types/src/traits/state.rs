@@ -64,19 +64,16 @@ where
     /// Creates random transaction if possible
     /// otherwise panics
     fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction;
-    /// Provides a common starting state
-    fn get_starting_state() -> Self;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: BlockContents + Default {}
+pub trait TestableBlock: BlockContents {}
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
     use crate::traits::block_contents::dummy::{DummyBlock, DummyError};
-    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -98,14 +95,14 @@ pub mod dummy {
     impl DummyState {
         /// Generate a random `DummyState`
         pub fn random() -> Self {
-            let x = rand::thread_rng().gen();
+            let x = rand::thread_rng().gen_range(1..1_000_000);
             Self { nonce: x }
         }
     }
 
     impl Genesis for DummyState {
         fn genesis() -> Self {
-            nll_todo()
+            Self { nonce: 0 }
         }
     }
 

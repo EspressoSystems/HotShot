@@ -9,15 +9,12 @@ use crate::{
         block_contents::Genesis,
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        BlockContents, StateContents,
+        StateContents,
     },
 };
-use arbitrary::Arbitrary;
-use blake3::Hasher;
 use commit::{Commitment, Committable};
 use hex_fmt::HexFmt;
-use hotshot_utils::hack::nll_todo;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -56,63 +53,6 @@ impl std::ops::Deref for ViewNumber {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-}
-
-/// generates boilerplate code for any wrapper types
-/// around `InternalHash`
-macro_rules! gen_hash_wrapper_type {
-    ($t:ident) => {
-        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, Ord, PartialOrd)]
-        ///  External wrapper type
-        pub struct $t<const N: usize> {
-            inner: InternalHash<N>,
-        }
-
-        impl<const N: usize> $t<N> {
-            /// Converts an array of the correct size directly into an `Self`
-            pub fn from_array(input: [u8; N]) -> Self {
-                $t {
-                    inner: InternalHash::from_array(input),
-                }
-            }
-            /// Clones the contents of this Hash into a `Vec<u8>`
-            pub fn to_vec(self) -> Vec<u8> {
-                self.inner.to_vec()
-            }
-            /// Testing only random generation
-            pub fn random() -> Self {
-                $t {
-                    inner: InternalHash::random(),
-                }
-            }
-        }
-        impl<const N: usize> AsRef<[u8]> for $t<N> {
-            fn as_ref(&self) -> &[u8] {
-                self.inner.as_ref()
-            }
-        }
-
-        impl<const N: usize> From<[u8; N]> for $t<N> {
-            fn from(input: [u8; N]) -> Self {
-                Self::from_array(input)
-            }
-        }
-
-        impl<const N: usize> Default for $t<N> {
-            fn default() -> Self {
-                $t {
-                    inner: InternalHash::default(),
-                }
-            }
-        }
-        impl<const N: usize> Debug for $t<N> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(&format!("{}", std::any::type_name::<$t<N>>()))
-                    .field("inner", &format!("{}", HexFmt(&self.inner)))
-                    .finish()
-            }
-        }
-    };
 }
 
 /// Internal type used for representing hashes
@@ -205,7 +145,7 @@ impl<STATE: StateContents> Genesis for QuorumCertificate<STATE> {
     fn genesis() -> Self {
         Self {
             block_commitment: <<STATE as StateContents>::Block as Genesis>::genesis().commit(),
-            leaf_commitment: <Leaf<STATE> as Genesis>::genesis().commit(),
+            leaf_commitment: fake_commitment(),
             view_number: GENESIS_VIEW,
             signatures: BTreeMap::default(),
             genesis: true,
@@ -286,13 +226,18 @@ pub struct Leaf<STATE: StateContents> {
     pub state: STATE,
 }
 
+/// Kake the thing a genesis block points to. Needed to avoid infinite recursion
+pub fn fake_commitment<S: Committable>() -> Commitment<S> {
+    commit::RawCommitmentBuilder::new("Dummy Genesis for arbitrary type").finalize()
+}
+
 impl<STATE: StateContents> Genesis for Leaf<STATE> {
     fn genesis() -> Self {
         Self {
             view_number: GENESIS_VIEW,
+            // FIXME this is recursive
             justify_qc: QuorumCertificate::genesis(),
-            // parent: Leaf::<STATE>::genesis().commit(),
-            parent_commitment: nll_todo(),
+            parent_commitment: fake_commitment(),
             deltas: <STATE as StateContents>::Block::genesis(),
             state: STATE::genesis(),
         }

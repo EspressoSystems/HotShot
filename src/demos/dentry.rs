@@ -6,18 +6,13 @@
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
-use blake3::Hasher;
 use commit::{Commitment, Committable};
-use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
-    traits::{
-        block_contents::Genesis,
-        signature_key::ed25519::Ed25519Pub,
-        state::{TestableBlock, TestableState},
-        StateContents,
-    },
+use hotshot_types::traits::{
+    block_contents::Genesis,
+    signature_key::ed25519::Ed25519Pub,
+    state::{TestableBlock, TestableState},
+    StateContents,
 };
-use hotshot_utils::hack::nll_todo;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -34,7 +29,6 @@ use crate::{
         NetworkingImplementation, NodeImplementation,
     },
     types::Message,
-    H_256,
 };
 
 /// The account identifier type used by the demo
@@ -132,13 +126,20 @@ impl Committable for DEntryState {
 
 impl Genesis for DEntryState {
     fn genesis() -> Self {
-        nll_todo()
-    }
-}
-
-impl Default for DEntryBlock {
-    fn default() -> Self {
-        Self::genesis()
+        let balances: BTreeMap<Account, Balance> = vec![
+            ("Joe", 1_000_000),
+            ("Nathan M", 500_000),
+            ("John", 400_000),
+            ("Nathan Y", 600_000),
+            ("Ian", 5_000_000),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        Self {
+            balances,
+            nonces: BTreeSet::default(),
+        }
     }
 }
 
@@ -161,7 +162,7 @@ impl Committable for DEntryBlock {
                 .u64_field(&txn.add.account, txn.add.amount)
                 .u64_field(&txn.sub.account, txn.sub.amount)
                 .constant_str("nonce")
-                .u64_field(&"nonce", txn.nonce);
+                .u64_field("nonce", txn.nonce);
         }
 
         builder.finalize()
@@ -174,14 +175,17 @@ impl Committable for DEntryTransaction {
             .u64_field(&self.add.account, self.add.amount)
             .u64_field(&self.sub.account, self.sub.amount)
             .constant_str("nonce")
-            .u64_field(&"nonce", self.nonce)
+            .u64_field("nonce", self.nonce)
             .finalize()
     }
 }
 
 impl Genesis for DEntryBlock {
     fn genesis() -> Self {
-        nll_todo()
+        Self {
+            previous_state: <DEntryState as Genesis>::genesis().commit(),
+            transactions: Vec::default(),
+        }
     }
 }
 
@@ -238,13 +242,6 @@ impl StateContents for DEntryState {
                 return false;
             }
         }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                error!("negative balance");
-                return false;
-            }
-        }
         // This block has now passed all our tests, and thus has not done anything bad, so the block
         // is valid if its previous state hash matches that of the previous state
         let result = block.previous_state == state.commit();
@@ -289,12 +286,6 @@ impl StateContents for DEntryState {
             // Check for nonce reuse
             if state.nonces.contains(&tx.nonce) {
                 return Err(DEntryError::ReusedNonce);
-            }
-        }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                return Err(DEntryError::InsufficentBalance);
             }
         }
         // Make sure our previous state commitment matches the provided state
@@ -349,23 +340,6 @@ impl TestableState for DEntryState {
                 amount,
             },
             nonce: rng.gen(),
-        }
-    }
-    /// Provides a common starting state
-    fn get_starting_state() -> Self {
-        let balances: BTreeMap<Account, Balance> = vec![
-            ("Joe", 1_000_000),
-            ("Nathan M", 500_000_000),
-            ("John", 400_000_000),
-            ("Nathan Y", 600_000_000),
-            ("Ian", 300_000_000),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        Self {
-            balances,
-            nonces: BTreeSet::default(),
         }
     }
 }

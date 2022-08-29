@@ -5,7 +5,7 @@ use common::*;
 use either::Either::Right;
 
 use hotshot::{
-    demos::dentry::{DEntryBlock, DEntryState},
+    demos::dentry::DEntryState,
     traits::implementations::{Libp2pNetwork, MemoryStorage},
     types::Message,
 };

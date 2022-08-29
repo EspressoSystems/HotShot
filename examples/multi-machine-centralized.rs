@@ -9,6 +9,7 @@ use hotshot::{
     HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
+    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
@@ -103,7 +104,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
+    let genesis = DEntryBlock::genesis();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,

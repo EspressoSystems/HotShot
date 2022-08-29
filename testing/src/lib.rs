@@ -64,7 +64,7 @@ pub type RoundPostSafetyCheck<NETWORK, STORAGE, STATE> = Box<
 >;
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<NETWORK, STORAGE, STATE: StateContents> = Box<
+pub type RoundSetup<NETWORK, STORAGE, STATE> = Box<
     dyn FnOnce(
         &mut TestRunner<NETWORK, STORAGE, STATE>,
     ) -> LocalBoxFuture<

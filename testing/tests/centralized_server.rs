@@ -3,9 +3,8 @@ mod common;
 use common::*;
 use either::Either::Right;
 use hotshot::{
-    demos::dentry::{DEntryBlock, DEntryState},
+    demos::dentry::DEntryState,
     traits::implementations::{CentralizedServerNetwork, MemoryStorage},
-    H_256,
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;

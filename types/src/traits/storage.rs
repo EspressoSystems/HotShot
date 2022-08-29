@@ -3,14 +3,10 @@
 
 use crate::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    message::ConsensusMessage,
     traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
-use commit::{Commitment, Committable};
-use futures::Future;
-use hotshot_utils::hack::nll_todo;
-use serde::{Deserialize, Serialize};
+use commit::Commitment;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 

@@ -24,7 +24,6 @@ pub mod implementations {
 }
 
 /// Dummy testing implementations
-#[cfg(test)]
 pub mod dummy {
     pub use hotshot_types::traits::state::dummy::DummyState;
 }

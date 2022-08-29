@@ -49,9 +49,10 @@ use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::Sender;
-use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
+use hotshot_consensus::{
+    Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
+};
 use hotshot_types::{
-    constants::GENESIS_VIEW,
     data::ViewNumber,
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message},
@@ -66,7 +67,7 @@ use hotshot_types::{
         StateContents,
     },
 };
-use hotshot_utils::{broadcast::BroadcastSender, hack::nll_todo};
+use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -188,14 +189,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions: Arc<
-        RwLock<
-            HashMap<
-                Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
-                <I as TypeMap>::Transaction,
-            >,
-        >,
-    >,
+    transactions: TransactionStorage<I>,
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I>>>,
@@ -230,9 +224,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
         let election = {
             // TODO what should this be?
-            let state = nll_todo();
-            // let state =
-            //     <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default();
+            let state =
+                <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::genesis(
+                );
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
                 election,
