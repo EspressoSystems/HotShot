@@ -223,7 +223,6 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     // Below is for testing only:
-    // #[cfg(feature = "test")]
 
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     pub async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
