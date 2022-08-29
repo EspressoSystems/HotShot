@@ -21,12 +21,9 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
-#[allow(clippy::enum_variant_names)]
 enum QueuedMessageTense {
-    PastEmpty,
-    PastNonEmpty(usize),
-    FutureEmpty,
-    FutureNonEmpty(usize),
+    Past(Option<usize>),
+    Future(Option<usize>)
 }
 
 /// Returns true if `node_id` is the leader of `view_number`
@@ -91,12 +88,12 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
     let result;
     match is_past {
         true => match len {
-            None => result = QueuedMessageTense::PastEmpty,
-            Some(len) => result = QueuedMessageTense::PastNonEmpty(len),
+            None => result = QueuedMessageTense::Past(None),
+            Some(len) => result = QueuedMessageTense::Past(Some(len)),
         },
         false => match len {
-            None => result = QueuedMessageTense::FutureEmpty,
-            Some(len) => result = QueuedMessageTense::FutureNonEmpty(len),
+            None => result = QueuedMessageTense::Future(None),
+            Some(len) => result = QueuedMessageTense::Future(Some(len)),
         },
     }
     result
@@ -125,11 +122,11 @@ fn test_vote_queueing_post_safety_check(
 
                 let queue_state = get_queue_len(is_past, len);
                 match queue_state {
-                    QueuedMessageTense::PastNonEmpty(len) => {
+                    QueuedMessageTense::Past(Some(len)) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
                                                 description: format!("Past view's next leader receiver channel for node {} still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
                     }
-                    QueuedMessageTense::FutureEmpty => {
+                    QueuedMessageTense::Future(None) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
                             description: format!("Next Leader did not properly queue future vote for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                     }
@@ -186,11 +183,11 @@ fn test_proposal_queueing_post_safety_check(
 
                     let queue_state = get_queue_len(is_past, len);
                     match queue_state {
-                        QueuedMessageTense::PastNonEmpty(len) => {
+                        QueuedMessageTense::Past(Some(len)) => {
                             result = Err(ConsensusRoundError::SafetyFailed {
                                                     description: format!("Node {}'s past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
                         }
-                        QueuedMessageTense::FutureEmpty => {
+                        QueuedMessageTense::Future(None) => {
                             result = Err(ConsensusRoundError::SafetyFailed {
                                 description: format!("Replica did not properly queue future proposal for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                         }
@@ -268,11 +265,11 @@ fn test_bad_proposal_post_safety_check(
 
                 let queue_state = get_queue_len(is_past, len);
                 match queue_state {
-                    QueuedMessageTense::PastNonEmpty(len) => {
+                    QueuedMessageTense::Past(Some(len)) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
                             description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
                     }
-                    QueuedMessageTense::FutureNonEmpty(len) => {
+                    QueuedMessageTense::Future(Some(len)) => {
                         if !is_upcoming_leader && ref_view_number != cur_view {
                         result = Err(ConsensusRoundError::SafetyFailed {
                             description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
@@ -331,11 +328,11 @@ fn test_bad_vote_post_safety_check(
 
             let state = get_queue_len(is_past, len);
             match state {
-                QueuedMessageTense::PastNonEmpty(len) => {
+                QueuedMessageTense::Past(Some(len)) => {
                     result = Err(ConsensusRoundError::SafetyFailed {
                         description: format!("Past view's next leader receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
                 }
-                QueuedMessageTense::FutureNonEmpty(len) => {
+                QueuedMessageTense::Future(Some(len)) => {
                     if !is_upcoming_leader {
                     result = Err(ConsensusRoundError::SafetyFailed {
                         description: format!("Non-leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
