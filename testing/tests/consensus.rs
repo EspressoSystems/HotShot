@@ -85,18 +85,11 @@ async fn submit_vote(
 
 /// Return an enum representing the state of the message queue
 fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
-    let result;
-    match is_past {
-        true => match len {
-            None => result = QueuedMessageTense::Past(None),
-            Some(len) => result = QueuedMessageTense::Past(Some(len)),
-        },
-        false => match len {
-            None => result = QueuedMessageTense::Future(None),
-            Some(len) => result = QueuedMessageTense::Future(Some(len)),
-        },
+    if is_past {
+        QueuedMessageTense::Past(len)
+    } else {
+        QueuedMessageTense::Future(len)
     }
-    result
 }
 
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
@@ -146,11 +139,9 @@ fn test_vote_queueing_round_setup(
     async move {
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
-            {
-                for i in 1..NUM_VIEWS {
-                    if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                        submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
-                    }
+            for i in 1..NUM_VIEWS {
+                if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
+                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
                 }
             }
         }
@@ -207,13 +198,13 @@ fn test_proposal_queueing_round_setup(
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
         let node_id = DEFAULT_NODE_ID;
-        {
-            for i in 0..NUM_VIEWS {
-                if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                }
+
+        for i in 0..NUM_VIEWS {
+            if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
+                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
             }
         }
+
         Vec::new()
     }
     .boxed_local()
@@ -225,15 +216,13 @@ fn test_bad_proposal_round_setup(
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
         let node_id = DEFAULT_NODE_ID;
-        {
-            for i in 0..NUM_VIEWS {
-                if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                } else {
-                    submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                    submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                    submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                }
+        for i in 0..NUM_VIEWS {
+            if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
+                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+            } else {
+                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
             }
         }
         Vec::new()
@@ -296,10 +285,8 @@ fn test_bad_vote_round_setup(
     async move {
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
-            {
-                for i in 1..NUM_VIEWS {
-                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
-                }
+            for i in 1..NUM_VIEWS {
+                submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
             }
         }
         Vec::new()
@@ -475,14 +462,6 @@ async fn test_bad_vote() {
     }
 
     test.execute().await.unwrap();
-}
-
-/// Tests when a malicious leader sends different proposals to different nodes
-#[async_std::test]
-#[instrument]
-#[ignore = "Not implemented"]
-async fn test_equivocation() {
-    todo!()
 }
 
 /// Tests a single node network, which also tests when a node is leader in consecutive views

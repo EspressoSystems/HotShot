@@ -223,9 +223,9 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     // Below is for testing only:
-    #[cfg(feature = "hotshot-testing")]
 
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
+    #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
@@ -234,16 +234,19 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Wrapper to get this node's public key
+    #[cfg(feature = "hotshot-testing")]
     pub fn get_public_key(&self) -> I::SignatureKey {
         self.hotshot.inner.public_key.clone()
     }
 
     /// Wrapper to get this node's current view
+    #[cfg(feature = "hotshot-testing")]
     pub async fn get_current_view(&self) -> ViewNumber {
         self.hotshot.hotstuff.read().await.cur_view
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `sign_proposal` function
+    #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
         leaf_hash: &LeafHash<N>,
@@ -256,6 +259,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `sign_vote` function
+    #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
         leaf_hash: &LeafHash<N>,
@@ -268,6 +272,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
+    #[cfg(feature = "hotshot-testing")]
     pub async fn send_broadcast_consensus_message(
         &self,
         msg: ConsensusMessage<
@@ -280,6 +285,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_direct_consensus_message` function
+    #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
         msg: ConsensusMessage<
@@ -293,6 +299,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Get length of the replica's receiver channel
+    #[cfg(feature = "hotshot-testing")]
     pub async fn get_replica_receiver_channel_len(&self, view_number: ViewNumber) -> Option<usize> {
         let channel_map = self.hotshot.replica_channel_map.read().await;
         channel_map
@@ -302,6 +309,7 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     }
 
     /// Get length of the next leaders's receiver channel
+    #[cfg(feature = "hotshot-testing")]
     pub async fn get_next_leader_receiver_channel_len(
         &self,
         view_number: ViewNumber,
