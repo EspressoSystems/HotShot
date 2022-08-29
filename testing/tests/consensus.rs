@@ -448,6 +448,7 @@ async fn test_bad_proposal() {
 /// Tests that next leaders handle bad Votes properly.  We allow `num_rounds` of failures because replicas will not be able to come to consensus with the bad votes we submit to them
 #[async_std::test]
 #[instrument]
+#[ignore]
 async fn test_bad_vote() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
