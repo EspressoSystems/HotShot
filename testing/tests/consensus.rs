@@ -21,6 +21,7 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
+#[allow(clippy::enum-variant-names)]
 enum QueuedMessageTense {
     PastEmpty,
     PastNonEmpty(usize),
@@ -50,7 +51,7 @@ async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_n
     let msg = ConsensusMessage::Proposal(Proposal { leaf, signature });
 
     // Send proposal
-    let _results = handle.send_broadcast_consensus_message(msg.clone()).await;
+    handle.send_broadcast_consensus_message(msg.clone()).await;
 }
 
 /// Builds and submits a random vote for the specified view number from the specified node
@@ -80,7 +81,7 @@ async fn submit_vote(
         .get_public_key();
 
     // Send vote
-    let _results = handle
+    handle
         .send_direct_consensus_message(msg.clone(), recipient)
         .await;
 }
