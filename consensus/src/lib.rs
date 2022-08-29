@@ -323,6 +323,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
         let mut states = Vec::new();
         let mut included_txns = HashSet::new();
         let mut qcs = Vec::new();
+        let mut rejects = Vec::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
@@ -353,6 +354,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                         blocks.push(leaf.deltas.clone());
                         states.push(leaf.state.clone());
                         qcs.push(leaf.justify_qc.clone());
+                        rejects.push(Vec::new());
                         let txns = leaf.deltas.contained_transactions();
                         for txn in txns {
                             included_txns.insert(txn);
@@ -393,7 +395,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
             let decide_sent =
                 self.api
-                    .send_decide(consensus.last_decided_view, blocks, states, qcs);
+                    .send_decide(consensus.last_decided_view, blocks, states, qcs, rejects);
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, VerifyHash, ViewNumber},
+    data::{LeafHash, QuorumCertificate, TransactionHash, VerifyHash, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -122,6 +122,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         blocks: Vec<I::Block>,
         states: Vec<I::State>,
         qcs: Vec<QuorumCertificate<N>>,
+        rejects: Vec<Vec<TransactionHash<N>>>,
     ) {
         self.send_event(Event {
             view_number,
@@ -129,6 +130,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
                 block: Arc::new(blocks),
                 state: Arc::new(states),
                 qcs: Arc::new(qcs),
+                rejects: Arc::new(rejects),
             },
         })
         .await;
