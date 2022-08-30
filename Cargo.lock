@@ -1608,6 +1608,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "serde",
+ "toml",
 ]
 
 [[package]]

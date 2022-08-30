@@ -1,8 +1,11 @@
 use clap::Parser;
 use futures::future::join_all;
-use hotshot_types::traits::signature_key::{
-    ed25519::{Ed25519Priv, Ed25519Pub},
-    SignatureKey,
+use hotshot_types::{
+    traits::signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
+    },
+    ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -21,7 +24,7 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, H_256,
 };
 
 type Node =
@@ -348,7 +351,7 @@ async fn get_hotshot(
         })
         .collect();
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

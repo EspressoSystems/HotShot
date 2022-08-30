@@ -11,6 +11,7 @@ use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
+    ExecutionType,
 };
 use hotshot_utils::broadcast::channel;
 use std::{
@@ -134,8 +135,8 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     );
 
     let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
-        crate::ExecutionType::Continuous => (None, None),
-        crate::ExecutionType::Incremental => {
+        ExecutionType::Continuous => (None, None),
+        ExecutionType::Incremental => {
             let (send_consensus_start, recv_consensus_start) = flume::unbounded();
             (Some(send_consensus_start), Some(recv_consensus_start))
         }
@@ -296,7 +297,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     consensus.high_qc = high_qc;
     c_api.send_view_finished(consensus.cur_view).await;
 
-    error!("Returning from view {:?}!", cur_view);
+    info!("Returning from view {:?}!", cur_view);
     Ok(())
 }
 

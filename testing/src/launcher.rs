@@ -1,18 +1,19 @@
-use std::{num::NonZeroUsize, time::Duration};
-
 use super::{Generator, TestRunner, N};
 use hotshot::{
     traits::{State, Storage},
     types::Message,
-    HotShotConfig,
 };
-use hotshot_types::traits::{
-    network::TestableNetworkingImplementation,
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    state::TestableState,
-    storage::TestableStorage,
-    BlockContents,
+use hotshot_types::{
+    traits::{
+        network::TestableNetworkingImplementation,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        state::TestableState,
+        storage::TestableStorage,
+        BlockContents,
+    },
+    ExecutionType, HotShotConfig,
 };
+use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
@@ -46,7 +47,7 @@ impl<
             })
             .collect();
         let config = HotShotConfig {
-            execution_type: hotshot::ExecutionType::Incremental,
+            execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
             threshold: NonZeroUsize::new(threshold).unwrap(),
