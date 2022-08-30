@@ -826,39 +826,33 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         // what if the leaf doesn't have the right view number?
         // let hash = create_verify_hash(&qc.leaf_commitment, view_number);
         let hash = qc.leaf_commitment;
-        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
-        match valid_signatures {
-            Ok(_) => true,
-            Err(_e) => false,
-        }
-    }
+        let mut num_valid = 0;
+        for signature in qc.signatures.clone() {
+            if self.is_valid_signature(&signature.0, &signature.1, hash) {
+                num_valid += 1;
+            }
 
-    // TODO <github.com/EspressoSystems/HotShot/issues/419>
-    // s/get_valid_signatures/get_valid_signature(signature, hash)
-    fn get_valid_signatures(
-        &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-        hash: Commitment<Leaf<I::State>>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
-        let mut valid_signatures = BTreeMap::new();
-
-        for (encoded_key, encoded_signature) in signatures {
-            if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
-                let contains = self.inner.cluster_public_keys.contains(&key);
-                let valid = key.validate(&encoded_signature, hash.as_ref());
-                if contains && valid {
-                    valid_signatures.insert(encoded_key, encoded_signature);
-                } else {
-                    warn!(?contains, ?valid, "Signature failed validity check");
-                }
+            // pre-emptive short circuit, since signature checking is presumably expensive
+            // and a byzantine node might try to include a *lot* of signatures
+            if num_valid >= self.inner.config.threshold.get() {
+                return true;
             }
         }
-        if valid_signatures.len() < self.inner.config.threshold.get() {
-            return Err(HotShotError::InsufficientValidSignatures {
-                num_valid_signatures: valid_signatures.len(),
-                threshold: self.inner.config.threshold.get(),
-            });
+        false
+    }
+
+    fn is_valid_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Leaf<I::State>>,
+    ) -> bool {
+        if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+            let contains = self.inner.cluster_public_keys.contains(&key);
+            let valid = key.validate(encoded_signature, hash.as_ref());
+            valid && contains
+        } else {
+            false
         }
-        Ok(valid_signatures)
     }
 }

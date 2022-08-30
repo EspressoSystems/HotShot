@@ -591,6 +591,17 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     qcs.insert(t.justify_qc);
                 }
                 ConsensusMessage::Vote(vote) => {
+                    // if the signature on the vote is invalid,
+                    // assume it's sent by byzantine node
+                    // and ignore
+                    if !self.api.is_valid_signature(
+                        &vote.signature.0,
+                        &vote.signature.1,
+                        vote.leaf_commitment,
+                    ) {
+                        continue;
+                    }
+
                     qcs.insert(vote.justify_qc);
 
                     match vote_outcomes.entry(vote.leaf_commitment) {
@@ -608,24 +619,21 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         }
                     }
 
-                    let (block_commitment, map) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
+                    // unwraps here are fine since we *just* inserted the key
+                    let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
 
-                    if map.len() >= threshold.into() {
-                        // NOTE this is slow, shouldn't check all the signatures EVERY time
-                        let result = self
-                            .api
-                            .get_valid_signatures(map.clone(), vote.leaf_commitment);
-                        if let Ok(valid_signatures) = result {
-                            // construct QC
-                            let qc = QuorumCertificate {
-                                block_commitment: *block_commitment,
-                                leaf_commitment: vote.leaf_commitment,
-                                view_number: self.cur_view,
-                                signatures: valid_signatures,
-                                genesis: false,
-                            };
-                            return qc;
-                        }
+                    if valid_signatures.len() >= threshold.into() {
+                        let (block_commitment, valid_signatures) =
+                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+                        // construct QC
+                        let qc = QuorumCertificate {
+                            block_commitment,
+                            leaf_commitment: vote.leaf_commitment,
+                            view_number: self.cur_view,
+                            signatures: valid_signatures,
+                            genesis: false,
+                        };
+                        return qc;
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
