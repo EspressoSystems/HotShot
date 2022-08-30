@@ -743,7 +743,7 @@
     <span class="ident">consensus</span>.<span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">high_qc</span>;
     <span class="ident">c_api</span>.<span class="ident">send_view_finished</span>(<span class="ident">consensus</span>.<span class="ident">cur_view</span>).<span class="kw">await</span>;
 
-    <span class="macro">error!</span>(<span class="string">&quot;Returning from view {:?}!&quot;</span>, <span class="ident">cur_view</span>);
+    <span class="macro">info!</span>(<span class="string">&quot;Returning from view {:?}!&quot;</span>, <span class="ident">cur_view</span>);
     <span class="prelude-val">Ok</span>(())
 }
 

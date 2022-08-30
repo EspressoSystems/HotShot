@@ -221,6 +221,113 @@
 <span id="215">215</span>
 <span id="216">216</span>
 <span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -229,16 +336,23 @@
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data::Leaf</span>,
+    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">LeafHash</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
     <span class="ident">event::EventType</span>,
-    <span class="ident">traits::network::NetworkingImplementation</span>,
+    <span class="ident">message::ConsensusMessage</span>,
+    <span class="ident">traits</span>::{
+        <span class="ident">network::NetworkingImplementation</span>,
+        <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>},
+    },
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{
     <span class="ident">atomic</span>::{<span class="ident">AtomicBool</span>, <span class="ident">Ordering</span>},
     <span class="ident">Arc</span>,
 };
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::HotShotConsensusApi</span>;
+<span class="kw">use</span> <span class="ident">hotshot_consensus::ConsensusApi</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>};
 
 <span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background</span>
@@ -436,6 +550,106 @@
     <span class="doccomment">/// return the timeout for a view of the underlying `HotShot`</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_next_view_timeout</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_next_view_timeout</span>()
+    }
+
+    <span class="comment">// Below is for testing only:</span>
+
+    <span class="doccomment">/// Wrapper for `HotShotConsensusApi`&#39;s `get_leader` function</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">I::SignatureKey</span> {
+        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        };
+        <span class="ident">api</span>.<span class="ident">get_leader</span>(<span class="ident">view_number</span>).<span class="kw">await</span>
+    }
+
+    <span class="doccomment">/// Wrapper to get this node&#39;s public key</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::SignatureKey</span> {
+        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>()
+    }
+
+    <span class="doccomment">/// Wrapper to get this node&#39;s current view</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_current_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ViewNumber</span> {
+        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">hotstuff</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">cur_view</span>
+    }
+
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_proposal` function</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_proposal</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">leaf_hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
+    ) -&gt; <span class="ident">EncodedSignature</span> {
+        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        };
+        <span class="ident">api</span>.<span class="ident">sign_proposal</span>(<span class="ident">leaf_hash</span>, <span class="ident">view_number</span>)
+    }
+
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_vote` function</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_vote</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">leaf_hash</span>: <span class="kw-2">&amp;</span><span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
+    ) -&gt; (<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>) {
+        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        };
+        <span class="ident">api</span>.<span class="ident">sign_vote</span>(<span class="ident">leaf_hash</span>, <span class="ident">view_number</span>)
+    }
+
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_consensus_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span>
+            <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Block</span>,
+            <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::State</span>,
+            <span class="ident">N</span>,
+        <span class="op">&gt;</span>,
+    ) {
+        <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
+    }
+
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_direct_consensus_message` function</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_consensus_message</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span>
+            <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Block</span>,
+            <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::State</span>,
+            <span class="ident">N</span>,
+        <span class="op">&gt;</span>,
+        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
+    ) {
+        <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_direct_message</span>(<span class="ident">msg</span>, <span class="ident">recipient</span>).<span class="kw">await</span>;
+    }
+
+    <span class="doccomment">/// Get length of the replica&#39;s receiver channel</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_replica_receiver_channel_len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">replica_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="ident">channel_map</span>
+            .<span class="ident">channel_map</span>
+            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">chan</span><span class="op">|</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">len</span>())
+    }
+
+    <span class="doccomment">/// Get length of the next leaders&#39;s receiver channel</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_next_leader_receiver_channel_len</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">next_leader_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+
+        <span class="ident">channel_map</span>
+            .<span class="ident">channel_map</span>
+            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">chan</span><span class="op">|</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">len</span>())
     }
 }
 </code></pre></div>

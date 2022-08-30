@@ -864,6 +864,13 @@
 <span id="858">858</span>
 <span id="859">859</span>
 <span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -1327,18 +1334,26 @@
 
     <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.</span>
     <span class="attribute">#[<span class="ident">instrument</span>(
-        <span class="ident">skip</span>(<span class="self">self</span>, <span class="ident">_sender</span>),
+        <span class="ident">skip</span>(<span class="self">self</span>),
         <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Handle broadcast consensus message&quot;</span>,
         <span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;error&quot;</span>
     )]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
+        <span class="ident">sender</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key</span>
         <span class="comment">// &lt;github.com/ExpressoSystems/HotShot/issues/418&gt;</span>
         <span class="kw">let</span> <span class="ident">msg_view_number</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">view_number</span>();
+
+        <span class="comment">// Skip messages that are not from the leader</span>
+        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
+            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        };
+        <span class="kw">if</span> <span class="ident">sender</span> <span class="op">!</span><span class="op">=</span> <span class="ident">api</span>.<span class="ident">get_leader</span>(<span class="ident">msg_view_number</span>).<span class="kw">await</span> {
+            <span class="kw">return</span>;
+        }
 
         <span class="kw">match</span> <span class="ident">msg</span> {
             <span class="comment">// this is ONLY intended for replica</span>
@@ -1354,8 +1369,8 @@
                     .<span class="kw">await</span>
                     .<span class="ident">sender_chan</span>;
 
-                <span class="comment">// sends the message if not stale</span>
-                <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send_async</span>(<span class="ident">msg</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                <span class="comment">// sends the message if not stale, and if there isn&#39;t already a proposal in there</span>
+                <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">chan</span>.<span class="ident">send_async</span>(<span class="ident">msg</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
                     <span class="macro">error!</span>(<span class="string">&quot;Failed to replica task!&quot;</span>);
                 }
             }
@@ -1396,15 +1411,14 @@
                 <span class="comment">// check if</span>
                 <span class="comment">// - is in fact, actually is the next leader</span>
                 <span class="comment">// - the message is not stale</span>
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">ConsensusApi::is_leader</span>(
+                <span class="kw">let</span> <span class="ident">is_leader</span> <span class="op">=</span> <span class="ident">ConsensusApi::is_leader</span>(
                     <span class="kw-2">&amp;</span><span class="ident">HotShotConsensusApi</span> {
                         <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
                     },
                     <span class="ident">msg_view_number</span> <span class="op">+</span> <span class="number">1</span>,
                 )
-                .<span class="kw">await</span>
-                    <span class="op">&amp;&amp;</span> <span class="ident">msg_view_number</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">cur_view</span>
-                {
+                .<span class="kw">await</span>;
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">is_leader</span> <span class="op">|</span><span class="op">|</span> <span class="ident">msg_view_number</span> <span class="op">&lt;</span> <span class="ident">channel_map</span>.<span class="ident">cur_view</span> {
                     <span class="kw">return</span>;
                 }
 
