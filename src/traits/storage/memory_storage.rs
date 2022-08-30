@@ -57,6 +57,7 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
                 parent_commitment: Leaf::genesis().commit(),
                 state: state.clone(),
                 view_number: ViewNumber::genesis(),
+                rejected: Vec::new(),
             }
             .commit(),
             view_number: ViewNumber::genesis(),
@@ -70,6 +71,7 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
                 justify_qc: qc,
                 state,
                 view_number: ViewNumber::genesis(),
+                rejected: Vec::new(),
             },
         );
         Self {
@@ -168,6 +170,7 @@ mod test {
             DummyBlock::random(),
             DummyState::random(),
             Leaf::genesis().commit(),
+            Vec::new(),
         )
     }
 

@@ -151,8 +151,8 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryState> = hotshot
@@ -172,7 +172,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -217,8 +222,8 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryState> = hotshot
@@ -238,7 +243,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {

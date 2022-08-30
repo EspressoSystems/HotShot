@@ -25,9 +25,8 @@ pub use traits::ConsensusApi;
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
-    event::TransactionCommitment,
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         block_contents::Genesis,
@@ -227,6 +226,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 p.leaf.parent_commitment,
                                 justify_qc,
                                 self.cur_view,
+                                Vec::new(),
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -321,11 +321,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
-        let mut qcs = Vec::new();
-        let mut rejects = Vec::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
@@ -352,11 +349,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                     // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     if new_decide_reached {
-                        // collecting chain elements for the decide
-                        blocks.push(leaf.deltas.clone());
-                        states.push(leaf.state.clone());
-                        qcs.push(leaf.justify_qc.clone());
-                        rejects.push(Vec::new());
+                        leaf_views.push(leaf.clone());
                         let txns = leaf.deltas.contained_transactions();
                         for txn in txns {
                             included_txns.insert(txn);
@@ -397,9 +390,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     .collect();
             }
 
-            let decide_sent =
-                self.api
-                    .send_decide(consensus.last_decided_view, blocks, states, qcs, rejects);
+            let decide_sent = self
+                .api
+                .send_decide(consensus.last_decided_view, leaf_views);
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)
@@ -503,7 +496,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         let previous_used_txns = previous_used_txns_vec
             .into_iter()
-            .collect::<HashSet<TransactionCommitment<I::State>>>();
+            .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let txns = self.transactions.read().await;
 
@@ -529,6 +522,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 parent_commitment: original_parent_hash,
                 deltas: block,
                 state: new_state,
+                rejected: Vec::new(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });

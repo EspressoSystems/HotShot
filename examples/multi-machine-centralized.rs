@@ -228,12 +228,12 @@ async fn main() {
         }
         println!("Node {} reached decision", own_id);
         debug!(?own_id, "Decision emitted");
-        if let EventType::Decide { state, .. } = event.event {
+        if let EventType::Decide { leaf_chain, .. } = event.event {
             println!("  - Balances:");
-            for (account, balance) in &state[0].balances {
+            for (account, balance) in &leaf_chain[0].state.balances {
                 println!("    - {}: {}", account, balance);
             }
-            own_state = state.as_ref()[0].clone();
+            own_state = leaf_chain[0].state.clone();
         } else {
             unreachable!()
         }
