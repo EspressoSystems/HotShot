@@ -105,7 +105,7 @@ async fn multiple_clients() {
     // Check that 1 received this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     match msg {
-        FromServer::Broadcast { message } => assert_eq!(message, vec![50, 40, 30, 20, 1]),
+        FromServer::Broadcast { message } => assert_eq!(message, vec![50, 40, 30, 20, 10]),
         x => panic!("Expected Broadcast, got {:?}", x),
     }
 
