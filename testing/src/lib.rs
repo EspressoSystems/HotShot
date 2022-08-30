@@ -186,7 +186,7 @@ impl<
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
         let mut results = vec![];
-        for _ in 0..count {
+        for _i in 0..count {
             let node_id = self.next_node_id;
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);

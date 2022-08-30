@@ -6,16 +6,23 @@ use crate::{
     HotShot, Result,
 };
 use hotshot_types::{
-    data::Leaf,
+    data::{Leaf, LeafHash, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    traits::network::NetworkingImplementation,
+    message::ConsensusMessage,
+    traits::{
+        network::NetworkingImplementation,
+        signature_key::{EncodedPublicKey, EncodedSignature},
+    },
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+
+use crate::HotShotConsensusApi;
+use hotshot_consensus::ConsensusApi;
 use tracing::{debug, error};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
@@ -213,5 +220,105 @@ impl<I: NodeImplementation<N> + 'static, const N: usize> HotShotHandle<I, N> {
     /// return the timeout for a view of the underlying `HotShot`
     pub fn get_next_view_timeout(&self) -> u64 {
         self.hotshot.get_next_view_timeout()
+    }
+
+    // Below is for testing only:
+
+    /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.get_leader(view_number).await
+    }
+
+    /// Wrapper to get this node's public key
+    #[cfg(feature = "hotshot-testing")]
+    pub fn get_public_key(&self) -> I::SignatureKey {
+        self.hotshot.inner.public_key.clone()
+    }
+
+    /// Wrapper to get this node's current view
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn get_current_view(&self) -> ViewNumber {
+        self.hotshot.hotstuff.read().await.cur_view
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_proposal` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_proposal(
+        &self,
+        leaf_hash: &LeafHash<N>,
+        view_number: ViewNumber,
+    ) -> EncodedSignature {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_proposal(leaf_hash, view_number)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_vote` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_vote(
+        &self,
+        leaf_hash: &LeafHash<N>,
+        view_number: ViewNumber,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_vote(leaf_hash, view_number)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn send_broadcast_consensus_message(
+        &self,
+        msg: ConsensusMessage<
+            <I as NodeImplementation<N>>::Block,
+            <I as NodeImplementation<N>>::State,
+            N,
+        >,
+    ) {
+        let _result = self.hotshot.send_broadcast_message(msg).await;
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `send_direct_consensus_message` function
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn send_direct_consensus_message(
+        &self,
+        msg: ConsensusMessage<
+            <I as NodeImplementation<N>>::Block,
+            <I as NodeImplementation<N>>::State,
+            N,
+        >,
+        recipient: I::SignatureKey,
+    ) {
+        let _result = self.hotshot.send_direct_message(msg, recipient).await;
+    }
+
+    /// Get length of the replica's receiver channel
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn get_replica_receiver_channel_len(&self, view_number: ViewNumber) -> Option<usize> {
+        let channel_map = self.hotshot.replica_channel_map.read().await;
+        channel_map
+            .channel_map
+            .get(&view_number)
+            .map(|chan| chan.receiver_chan.len())
+    }
+
+    /// Get length of the next leaders's receiver channel
+    #[cfg(feature = "hotshot-testing")]
+    pub async fn get_next_leader_receiver_channel_len(
+        &self,
+        view_number: ViewNumber,
+    ) -> Option<usize> {
+        let channel_map = self.hotshot.next_leader_channel_map.read().await;
+
+        channel_map
+            .channel_map
+            .get(&view_number)
+            .map(|chan| chan.receiver_chan.len())
     }
 }
