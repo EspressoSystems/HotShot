@@ -223,27 +223,28 @@ impl CentralizedServerNetwork<Ed25519Pub> {
     ///
     /// The config is returned along with the running `CentralizedServerNetwork`
     pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<Ed25519Pub>, Self) {
-        let mut stream = loop {
-            match TcpStream::connect(addr).await {
-                Ok(stream) => break TcpStreamUtil::new(stream),
+        let (stream, config) = loop {
+            let mut stream = match TcpStream::connect(addr).await {
+                Ok(stream) => TcpStreamUtil::new(stream),
                 Err(e) => {
                     eprintln!("Could not connect to server: {:?}", e);
                     eprintln!("Trying again in 5 seconds");
                     async_std::task::sleep(Duration::from_secs(5)).await;
                     continue;
                 }
+            };
+            if let Err(e) = stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
+                eprintln!("Could not request config from server: {e:?}");
+                eprintln!("Trying again in 5 seconds");
+                async_std::task::sleep(Duration::from_secs(5)).await;
+                continue;
             }
-        };
-
-        let config = loop {
-            stream
-                .send(ToServer::<Ed25519Pub>::GetConfig)
-                .await
-                .unwrap();
-            match stream.recv().await.unwrap() {
-                FromServer::Config { config } => break config,
+            match stream.recv().await {
+                Ok(FromServer::Config { config }) => break (stream, config),
                 x => {
                     eprintln!("Expected config from server, got {:?}", x);
+                    eprintln!("Trying again in 5 seconds");
+                    async_std::task::sleep(Duration::from_secs(5)).await;
                 }
             }
         };
@@ -274,6 +275,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
 }
 
 impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
+    /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     fn connect_to(addr: SocketAddr) -> BoxFuture<'static, TcpStreamUtil> {
         async move {
             loop {
@@ -295,6 +297,9 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
         Self::create(known_nodes, move || Self::connect_to(addr), key)
     }
 
+    /// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
+    ///
+    /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(known_nodes: Vec<K>, mut create_connection: F, key: K) -> Self
     where
         F: FnMut() -> BoxFuture<'static, TcpStreamUtil> + Send + 'static,

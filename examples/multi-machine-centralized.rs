@@ -123,7 +123,7 @@ async fn main() {
     let mut rng = Xoshiro256StarStar::from_seed(seed);
     // Initialize the state and hotshot
     let (mut own_state, mut hotshot) =
-        init_state_and_hotshot(network, config, seed.clone(), node_index).await;
+        init_state_and_hotshot(network, config, seed, node_index).await;
     hotshot.start().await;
 
     // Run random transactions
