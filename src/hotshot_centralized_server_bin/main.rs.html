@@ -71,6 +71,7 @@
 <span id="65">65</span>
 <span id="66">66</span>
 <span id="67">67</span>
+<span id="68">68</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot::types</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
@@ -80,6 +81,7 @@
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util::setup_logging</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">net::IpAddr</span>, <span class="ident">num::NonZeroUsize</span>, <span class="ident">time::Duration</span>};
+<span class="kw">use</span> <span class="ident">tracing::error</span>;
 
 <span class="attribute">#[<span class="ident">async_std::main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
@@ -129,7 +131,7 @@
     })
     .<span class="ident">expect</span>(<span class="string">&quot;Could not serialize to TOML&quot;</span>);
     <span class="ident">std::fs::write</span>(<span class="string">&quot;config.toml&quot;</span>, <span class="ident">toml</span>).<span class="ident">expect</span>(<span class="string">&quot;Could not write config.toml&quot;</span>);
-    <span class="macro">println!</span>(<span class="string">&quot;config.toml created, please edit this and restart&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;config.toml created, please edit this and restart&quot;</span>);
     <span class="ident">std::process::exit</span>(<span class="number">0</span>);
 }
 

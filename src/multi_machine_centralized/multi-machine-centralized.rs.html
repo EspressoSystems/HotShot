@@ -202,10 +202,6 @@
 <span id="196">196</span>
 <span id="197">197</span>
 <span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -231,7 +227,7 @@
     <span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">SocketAddr</span>},
     <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
-<span class="kw">use</span> <span class="ident">tracing::debug</span>;
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>};
 
 <span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 
@@ -302,7 +298,7 @@
 
     <span class="kw">let</span> <span class="ident">opts</span>: <span class="ident">NodeOpt</span> <span class="op">=</span> <span class="ident">NodeOpt::from_args</span>();
     <span class="kw">let</span> <span class="ident">addr</span>: <span class="ident">SocketAddr</span> <span class="op">=</span> (<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>).<span class="ident">into</span>();
-    <span class="macro">println!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 
     <span class="kw">let</span> (<span class="ident">config</span>, <span class="ident">network</span>) <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect_with_server_config</span>(<span class="ident">addr</span>).<span class="kw">await</span>;
 
@@ -310,13 +306,13 @@
 
     <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>;
 
-    <span class="macro">println!</span>(<span class="string">&quot;Waiting on connections...&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;Waiting on connections...&quot;</span>);
     <span class="kw">loop</span> {
         <span class="kw">let</span> <span class="ident">connected_clients</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">get_connected_client_count</span>().<span class="kw">await</span>;
         <span class="kw">if</span> <span class="ident">connected_clients</span> <span class="op">==</span> <span class="ident">node_count</span>.<span class="ident">get</span>() {
             <span class="kw">break</span>;
         }
-        <span class="macro">println!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
         <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
@@ -335,17 +331,16 @@
     <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
 
     <span class="comment">// Run random transactions</span>
-    <span class="macro">println!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
 
     <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span>();
     <span class="kw">let</span> <span class="ident">adjusted_padding</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">padding</span> <span class="op">&lt;</span> <span class="ident">size</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="ident">padding</span> <span class="op">-</span> <span class="ident">size</span> };
-    <span class="macro">println!</span>(<span class="string">&quot;Adjusted padding size is = {:?}&quot;</span>, <span class="ident">adjusted_padding</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Adjusted padding size is = {:?}&quot;</span>, <span class="ident">adjusted_padding</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timed_out_views</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">round</span> <span class="op">=</span> <span class="number">1</span>;
     <span class="kw">while</span> <span class="ident">round</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">rounds</span> {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">round</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
 
         <span class="kw">let</span> <span class="ident">num_submitted</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">node_index</span> <span class="op">==</span> ((<span class="ident">round</span> <span class="op">%</span> <span class="ident">node_count</span>) <span class="kw">as</span> <span class="ident">u64</span>) {
             <span class="macro">tracing::info!</span>(<span class="string">&quot;Generating txn for round {}&quot;</span>, <span class="ident">round</span>);
@@ -361,10 +356,10 @@
         } <span class="kw">else</span> {
             <span class="number">0</span>
         };
-        <span class="macro">println!</span>(<span class="string">&quot;Submitting {} transactions&quot;</span>, <span class="ident">num_submitted</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;Submitting {} transactions&quot;</span>, <span class="ident">num_submitted</span>);
 
         <span class="comment">// Start consensus</span>
-        <span class="macro">println!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
             .<span class="ident">next_event</span>()
@@ -379,12 +374,11 @@
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
         }
-        <span class="macro">println!</span>(<span class="string">&quot;Node {} reached decision&quot;</span>, <span class="ident">node_index</span>);
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_index</span>, <span class="string">&quot;Decision emitted&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;Node {} reached decision&quot;</span>, <span class="ident">node_index</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="ident">EventType::Decide</span> { <span class="ident">state</span>, .. } <span class="op">=</span> <span class="ident">event</span>.<span class="ident">event</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;  - Balances:&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;  - Balances:&quot;</span>);
             <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">state</span>[<span class="number">0</span>].<span class="ident">balances</span> {
-                <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
             }
         } <span class="kw">else</span> {
             <span class="macro">unreachable!</span>()
@@ -396,15 +390,13 @@
     <span class="comment">// Print metrics</span>
     <span class="kw">let</span> <span class="ident">total_time_elapsed</span> <span class="op">=</span> <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>;
     <span class="kw">let</span> <span class="ident">total_transactions</span> <span class="op">=</span> <span class="ident">transactions_per_round</span> <span class="op">*</span> <span class="ident">rounds</span>;
-    <span class="kw">let</span> <span class="ident">bytes_per_second</span> <span class="op">=</span> <span class="ident">total_time_elapsed</span>
-        .<span class="ident">div_f32</span>(<span class="number">1_f32</span> <span class="op">/</span> (<span class="ident">total_transactions</span> <span class="op">*</span> <span class="ident">padding</span>) <span class="kw">as</span> <span class="ident">f32</span>)
-        .<span class="ident">as_secs</span>();
-    <span class="macro">println!</span>(<span class="string">&quot;All {} rounds completed in {:?}&quot;</span>, <span class="ident">rounds</span>, <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>);
-    <span class="macro">println!</span>(<span class="string">&quot;{} rounds timed out&quot;</span>, <span class="ident">timed_out_views</span>);
+    <span class="kw">let</span> <span class="ident">total_size</span> <span class="op">=</span> <span class="ident">total_transactions</span> <span class="op">*</span> <span class="ident">padding</span>;
+    <span class="macro">error!</span>(<span class="string">&quot;All {} rounds completed in {:?}&quot;</span>, <span class="ident">rounds</span>, <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;{} rounds timed out&quot;</span>, <span class="ident">timed_out_views</span>);
     <span class="comment">// This assumes all submitted transactions make it through consensus:</span>
-    <span class="macro">println!</span>(
-        <span class="string">&quot;{} transactions submitted times {} bytes per transactions is {} bytes per second&quot;</span>,
-        <span class="ident">total_transactions</span>, <span class="ident">padding</span>, <span class="ident">bytes_per_second</span>
+    <span class="macro">error!</span>(
+        <span class="string">&quot;{} total bytes submitted in {:?}&quot;</span>,
+        <span class="ident">total_size</span>, <span class="ident">total_time_elapsed</span>
     );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
 }

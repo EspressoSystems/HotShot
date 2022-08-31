@@ -831,23 +831,23 @@
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">TcpStream::connect</span>(<span class="ident">addr</span>).<span class="kw">await</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">stream</span>) =&gt; <span class="ident">TcpStreamUtil::new</span>(<span class="ident">stream</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Could not connect to server: {:?}&quot;</span>, <span class="ident">e</span>);
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Could not connect to server: {:?}&quot;</span>, <span class="ident">e</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
                     <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
                 }
             };
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">send</span>(<span class="ident">ToServer</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="ident">::GetConfig</span>).<span class="kw">await</span> {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Could not request config from server: {e:?}&quot;</span>);
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">&quot;Could not request config from server: {e:?}&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
                 <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="kw">await</span>;
                 <span class="kw">continue</span>;
             }
             <span class="kw">match</span> <span class="ident">stream</span>.<span class="ident">recv</span>().<span class="kw">await</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">FromServer::Config</span> { <span class="ident">config</span> }) =&gt; <span class="kw">break</span> (<span class="ident">stream</span>, <span class="ident">config</span>),
                 <span class="ident">x</span> =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Expected config from server, got {:?}&quot;</span>, <span class="ident">x</span>);
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Expected config from server, got {:?}&quot;</span>, <span class="ident">x</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
                     <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="kw">await</span>;
                 }
             }
@@ -886,8 +886,8 @@
                 <span class="kw">match</span> <span class="ident">TcpStream::connect</span>(<span class="ident">addr</span>).<span class="kw">await</span> {
                     <span class="prelude-val">Ok</span>(<span class="ident">stream</span>) =&gt; <span class="kw">break</span> <span class="ident">TcpStreamUtil::new</span>(<span class="ident">stream</span>),
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="macro">eprintln!</span>(<span class="string">&quot;Could not connect to server: {:?}&quot;</span>, <span class="ident">e</span>);
-                        <span class="macro">eprintln!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
+                        <span class="macro">error!</span>(<span class="string">&quot;Could not connect to server: {:?}&quot;</span>, <span class="ident">e</span>);
+                        <span class="macro">error!</span>(<span class="string">&quot;Trying again in 5 seconds&quot;</span>);
                         <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">5</span>)).<span class="kw">await</span>;
                         <span class="kw">continue</span>;
                     }
