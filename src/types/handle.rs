@@ -209,7 +209,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         self.hotshot
             .inner
             .background_task_handle
-            .wait_shutdown()
+            .wait_shutdown(self.hotshot.send_network_lookup)
             .await;
     }
 

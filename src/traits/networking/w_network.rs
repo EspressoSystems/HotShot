@@ -1001,7 +1001,7 @@ impl<
         unimplemented!()
     }
 
-    async fn notify_of_subsequent_leader(&self, _pk: P) {
+    async fn notify_of_subsequent_leader(&self, _pk: P, _is_cancelled: Arc<AtomicBool>) {
         // do nothing
     }
 }

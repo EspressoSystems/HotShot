@@ -48,7 +48,7 @@ use crate::{
 use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use flume::Sender;
+use flume::{Receiver, Sender};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
 };
@@ -201,6 +201,12 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     /// for sending/recv-ing things with the next leader task
     next_leader_channel_map: Arc<RwLock<SendToTasks<I>>>,
 
+    /// for sending messages to network lookup task
+    send_network_lookup: Sender<Option<ViewNumber>>,
+
+    /// for receiving messages in the network lookup task
+    recv_network_lookup: Receiver<Option<ViewNumber>>,
+
     /// uid for instrumentation
     id: u64,
 }
@@ -208,7 +214,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
 impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
-    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, cluster_public_keys, networking, storage, election))]
     pub async fn new(
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
@@ -286,6 +292,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
 
+        let (send_network_lookup, recv_network_lookup) = flume::unbounded();
+
         Ok(Self {
             id: nonce,
             inner,
@@ -293,6 +301,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             hotstuff,
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            send_network_lookup,
+            recv_network_lookup,
         })
     }
 
@@ -853,15 +863,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             valid && contains
         } else {
             false
-        }
-    }
-
-    async fn prepare_networking(&self, view_number: ViewNumber) {
-        if !self.is_leader(view_number).await {
-            self.inner
-                .networking
-                .notify_of_subsequent_leader(self.get_leader(view_number).await)
-                .await;
         }
     }
 }

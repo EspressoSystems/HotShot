@@ -5,7 +5,7 @@
 use async_std::{
     prelude::FutureExt,
     sync::RwLock,
-    task::{block_on, sleep, spawn, spawn_local},
+    task::{block_on, sleep, spawn},
 };
 use async_trait::async_trait;
 use bimap::BiHashMap;
@@ -32,7 +32,10 @@ use std::{
     collections::HashSet,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
@@ -670,24 +673,29 @@ impl<
             .map_err(Into::<NetworkError>::into)
     }
 
-    async fn notify_of_subsequent_leader(&self, pk: P) {
-        let network = self.clone();
-        // TODO may be way too much overhead...
-        // may want to rethink where this spawn goes
-        // this is fire and forget
-        spawn_local(async move {
-            network.wait_for_ready().await;
-            let maybe_pid = network.get_record::<PeerId>(pk.clone()).await;
+    async fn notify_of_subsequent_leader(&self, pk: P, is_cancelled: Arc<AtomicBool>) {
+        self.wait_for_ready().await;
 
-            if let Ok(pid) = maybe_pid {
-                if network.inner.handle.lookup_pid(pid).await.is_err() {
-                    error!("Failed to look up pid");
-                };
+        if is_cancelled.load(Ordering::Relaxed) {
+            return;
+        }
 
-                // TODO in the future we will probably want to connect too
-            } else {
-                error!("Unable to look up pubkey {:?} ahead of time!", pk);
+        let maybe_pid = self.get_record::<PeerId>(pk.clone()).await;
+        if is_cancelled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        if let Ok(pid) = maybe_pid {
+            if self.inner.handle.lookup_pid(pid).await.is_err() {
+                error!("Failed to look up pid");
+            };
+            if is_cancelled.load(Ordering::Relaxed) {
+                return;
             }
-        });
+
+            // TODO in the future we will probably want to connect too
+        } else {
+            error!("Unable to look up pubkey {:?} ahead of time!", pk);
+        }
     }
 }

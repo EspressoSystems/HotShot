@@ -171,7 +171,4 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::State>>,
     ) -> bool;
-
-    /// tell the networking layer to start thinking about view `view_number`
-    async fn prepare_networking(&self, view_number: ViewNumber);
 }
