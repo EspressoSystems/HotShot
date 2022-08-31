@@ -521,6 +521,8 @@ pub struct NetworkConfig<K> {
     pub node_index: u64,
     #[serde(default)]
     pub seed: [u8; 32],
+    #[serde(default = "default_padding")]
+    pub padding: usize,
     #[serde(default = "default_config")]
     pub config: HotShotConfig<K>,
 }
@@ -532,6 +534,9 @@ fn default_rounds() -> usize {
 }
 fn default_transactions_per_round() -> usize {
     10
+}
+fn default_padding() -> usize {
+    100
 }
 fn default_config<K>() -> HotShotConfig<K> {
     HotShotConfig {

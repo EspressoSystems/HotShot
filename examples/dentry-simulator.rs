@@ -56,6 +56,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
                 amount: 100,
             },
             nonce: 0,
+            padding: vec![0; 0],
         },
         Transaction {
             add: Addition {
@@ -67,6 +68,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
                 amount: 25,
             },
             nonce: 1,
+            padding: vec![0; 0],
         },
     ]
 }
