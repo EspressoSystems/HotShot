@@ -23,7 +23,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
 };
-use tracing::debug;
+use tracing::{debug, error};
 
 type Node = DEntryNode<CentralizedServerNetwork<Ed25519Pub>>;
 
@@ -94,7 +94,7 @@ async fn main() {
 
     let opts: NodeOpt = NodeOpt::from_args();
     let addr: SocketAddr = (opts.host, opts.port).into();
-    println!("Connecting to {addr:?} to retrieve the server config");
+    debug!("Connecting to {addr:?} to retrieve the server config");
 
     let (config, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
 
@@ -102,13 +102,13 @@ async fn main() {
 
     let node_count = config.config.total_nodes;
 
-    println!("Waiting on connections...");
+    debug!("Waiting on connections...");
     loop {
         let connected_clients = network.get_connected_client_count().await;
         if connected_clients == node_count.get() {
             break;
         }
-        println!("{} / {}", connected_clients, node_count);
+        debug!("{} / {}", connected_clients, node_count);
         async_std::task::sleep(Duration::from_secs(1)).await;
     }
 
@@ -127,17 +127,17 @@ async fn main() {
     hotshot.start().await;
 
     // Run random transactions
-    println!("Running random transactions");
+    debug!("Running random transactions");
     debug!("Running random transactions");
 
     let size = mem::size_of::<Transaction>();
     let adjusted_padding = if padding < size { 0 } else { padding - size };
-    println!("Adjusted padding size is = {:?}", adjusted_padding);
+    error!("Adjusted padding size is = {:?}", adjusted_padding);
     let mut timed_out_views: u64 = 0;
     let mut round = 1;
     while round <= rounds {
         debug!(?round);
-        println!("Round {}:", round);
+        debug!("Round {}:", round);
 
         let num_submitted = if node_index == ((round % node_count) as u64) {
             tracing::info!("Generating txn for round {}", round);
@@ -153,10 +153,10 @@ async fn main() {
         } else {
             0
         };
-        println!("Submitting {} transactions", num_submitted);
+        error!("Submitting {} transactions", num_submitted);
 
         // Start consensus
-        println!("  - Waiting for consensus to occur");
+        error!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
         let mut event: Event<DEntryBlock, State, H_256> = hotshot
             .next_event()
@@ -171,12 +171,11 @@ async fn main() {
                 .await
                 .expect("HotShot unexpectedly closed");
         }
-        println!("Node {} reached decision", node_index);
-        debug!(?node_index, "Decision emitted");
+        debug!("Node {} reached decision", node_index);
         if let EventType::Decide { state, .. } = event.event {
-            println!("  - Balances:");
+            debug!("  - Balances:");
             for (account, balance) in &state[0].balances {
-                println!("    - {}: {}", account, balance);
+                debug!("    - {}: {}", account, balance);
             }
         } else {
             unreachable!()
@@ -191,10 +190,10 @@ async fn main() {
     let bytes_per_second = total_time_elapsed
         .div_f32(1_f32 / (total_transactions * padding) as f32)
         .as_secs();
-    println!("All {} rounds completed in {:?}", rounds, end - start);
-    println!("{} rounds timed out", timed_out_views);
+    error!("All {} rounds completed in {:?}", rounds, end - start);
+    error!("{} rounds timed out", timed_out_views);
     // This assumes all submitted transactions make it through consensus:
-    println!(
+    error!(
         "{} transactions submitted times {} bytes per transactions is {} bytes per second",
         total_transactions, padding, bytes_per_second
     );
