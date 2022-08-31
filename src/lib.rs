@@ -235,7 +235,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 stake_table,
             }
         };
-        let inner: HotShotInner<I> = HotShotInner {
+        let inner: Arc<HotShotInner<I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -246,7 +246,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
-        };
+        });
 
         let anchored = inner
             .storage
@@ -280,8 +280,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             last_decided_view: anchored.view_number,
             transactions: Arc::default(),
             saved_leaves,
-            // TODO unclear if this is correct
-            // maybe we need 3 views?
             locked_view: GENESIS_VIEW,
             high_qc: anchored.justify_qc,
         };
@@ -290,9 +288,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
         Ok(Self {
             id: nonce,
-            inner: Arc::new(inner),
+            inner,
             transactions: txns,
-            // TODO check this is what we want.
             hotstuff,
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
@@ -856,6 +853,15 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             valid && contains
         } else {
             false
+        }
+    }
+
+    async fn prepare_networking(&self, view_number: ViewNumber) {
+        if !self.is_leader(view_number).await {
+            self.inner
+                .networking
+                .notify_of_subsequent_leader(self.get_leader(view_number).await)
+                .await;
         }
     }
 }

@@ -5,7 +5,7 @@
 use async_std::{
     prelude::FutureExt,
     sync::RwLock,
-    task::{block_on, sleep, spawn},
+    task::{block_on, sleep, spawn, spawn_local},
 };
 use async_trait::async_trait;
 use bimap::BiHashMap;
@@ -668,5 +668,26 @@ impl<
             .get_record_timeout(&key, self.inner.dht_timeout)
             .await
             .map_err(Into::<NetworkError>::into)
+    }
+
+    async fn notify_of_subsequent_leader(&self, pk: P) {
+        let network = self.clone();
+        // TODO may be way too much overhead...
+        // may want to rethink where this spawn goes
+        // this is fire and forget
+        spawn_local(async move {
+            network.wait_for_ready().await;
+            let maybe_pid = network.get_record::<PeerId>(pk.clone()).await;
+
+            if let Ok(pid) = maybe_pid {
+                if network.inner.handle.lookup_pid(pid).await.is_err() {
+                    error!("Failed to look up pid");
+                };
+
+                // TODO in the future we will probably want to connect too
+            } else {
+                error!("Unable to look up pubkey {:?} ahead of time!", pk);
+            }
+        });
     }
 }

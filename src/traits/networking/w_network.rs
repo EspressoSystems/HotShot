@@ -1000,6 +1000,10 @@ impl<
     ) -> Result<V, NetworkError> {
         unimplemented!()
     }
+
+    async fn notify_of_subsequent_leader(&self, _pk: P) {
+        // do nothing
+    }
 }
 
 /// Tries to get a networking implementation with the given id

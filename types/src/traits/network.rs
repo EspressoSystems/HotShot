@@ -144,6 +144,10 @@ where
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError>;
+
+    /// notifies the network of the next leader
+    /// so it can prepare. Does not block
+    async fn notify_of_subsequent_leader(&self, pk: P);
 }
 
 /// Describes additional functionality needed by the test network implementation

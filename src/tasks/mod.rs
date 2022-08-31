@@ -9,6 +9,7 @@ use async_std::{
 use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
+    constants::LOOK_AHEAD,
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
 };
@@ -226,6 +227,9 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
         drop(consensus);
         (cur_view, high_qc, txns)
     };
+
+    // notify networking to start worrying about the Nth node in the future
+    c_api.prepare_networking(cur_view + LOOK_AHEAD).await;
 
     info!("Starting tasks for View {:?}!", cur_view);
 
