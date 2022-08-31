@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         BlockContents, StateContents,
@@ -122,6 +122,10 @@ pub enum DataMessage<STATE: StateContents> {
         /// The parent leaf's commitment
         #[serde(deserialize_with = "<Commitment<Leaf<STATE>>as Deserialize>::deserialize")]
         parent_commitment: Commitment<Leaf<STATE>>,
+
+        /// Transactions rejected in this view
+        #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>>as Deserialize>::deserialize")]
+        rejected: Vec<TxnCommitment<STATE>>,
     },
 
     /// Contains a transaction to be submitted

@@ -599,6 +599,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 block,
                 state,
                 parent_commitment,
+                rejected,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let anchored = match self.inner.storage.get_anchored_view().await {
@@ -614,8 +615,13 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
                     let view_number = qc.view_number;
-                    let new_view =
-                        StoredView::from_qc_block_and_state(qc, block, state, parent_commitment);
+                    let new_view = StoredView::from_qc_block_and_state(
+                        qc,
+                        block,
+                        state,
+                        parent_commitment,
+                        rejected,
+                    );
 
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
@@ -655,6 +661,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     block: anchor.append.into_deltas(),
                     state: anchor.state,
                     parent_commitment: anchor.parent,
+                    rejected: anchor.rejected,
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
                     error!(

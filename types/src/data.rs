@@ -9,7 +9,7 @@ use crate::{
         block_contents::Genesis,
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        StateContents,
+        BlockContents, StateContents,
     },
 };
 use commit::{Commitment, Committable};
@@ -197,6 +197,11 @@ pub struct QuorumCertificate<STATE: StateContents> {
     pub genesis: bool,
 }
 
+/// The `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
+
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -224,6 +229,10 @@ pub struct Leaf<STATE: StateContents> {
     /// What the state should be after applying `self.deltas`
     #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
+
+    /// Transactions that were marked for rejection while collecting deltas
+    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
+    pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -240,6 +249,7 @@ impl<STATE: StateContents> Genesis for Leaf<STATE> {
             parent_commitment: fake_commitment(),
             deltas: <STATE as StateContents>::Block::genesis(),
             state: STATE::genesis(),
+            rejected: Vec::new(),
         }
     }
 }
@@ -286,6 +296,7 @@ impl<STATE: StateContents> Leaf<STATE> {
         parent: Commitment<Leaf<STATE>>,
         qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
+        rejected: Vec<TxnCommitment<STATE>>,
     ) -> Self {
         Leaf {
             view_number,
@@ -293,6 +304,7 @@ impl<STATE: StateContents> Leaf<STATE> {
             parent_commitment: parent,
             deltas,
             state,
+            rejected,
         }
     }
 }
@@ -305,6 +317,7 @@ impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
             append.parent,
             append.justify_qc,
             append.view_number,
+            Vec::new(),
         )
     }
 }
@@ -317,6 +330,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             justify_qc: val.justify_qc,
             state: val.state,
             append: val.deltas.into(),
+            rejected: val.rejected,
         }
     }
 }
