@@ -7,7 +7,7 @@ Use the following steps to run this playbook:
 
 2. Update variables at the top of `centralized-server.yaml` under the `vars` section.  In particular, be sure to update your user that will ssh into the host.
 
-3. If necessary, update `./inventories/centralized-servermyaml` to point to the correct host for the server.
+3. If necessary, update `./inventories/centralized-server.yaml` to point to the correct host for the server.
 
 4. From this directory, run `ansible-playbook -i inventories/centralized-server.yaml centralized-server.yaml`.
 
