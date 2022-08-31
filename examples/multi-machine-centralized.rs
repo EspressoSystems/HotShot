@@ -187,8 +187,8 @@ async fn main() {
     // Print metrics
     let total_time_elapsed = end - start;
     let total_transactions = transactions_per_round * rounds;
-    let bytes_per_second = total_time_elapsed
-        .div_f32(1_f32 / (total_transactions * padding) as f32)
+    let bytes_per_second = 1_f32 / (total_time_elapsed
+        .div_f32((total_transactions * padding) as f32))
         .as_secs();
     error!("All {} rounds completed in {:?}", rounds, end - start);
     error!("{} rounds timed out", timed_out_views);
