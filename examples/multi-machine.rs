@@ -6,10 +6,11 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, H_256,
 };
-use hotshot_types::traits::signature_key::{
-    ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey,
+use hotshot_types::{
+    traits::signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+    ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
@@ -120,7 +121,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

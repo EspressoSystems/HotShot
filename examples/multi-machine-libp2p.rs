@@ -8,11 +8,14 @@ use hotshot::{
         NetworkError,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotConfig, H_256,
+    HotShot, H_256,
 };
-use hotshot_types::traits::{
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    state::TestableState,
+use hotshot_types::{
+    traits::{
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        state::TestableState,
+    },
+    ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
@@ -213,7 +216,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

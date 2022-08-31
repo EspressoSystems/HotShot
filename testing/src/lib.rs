@@ -23,15 +23,18 @@ use hotshot::{
         NetworkingImplementation, NodeImplementation, State, Storage,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotConfig, HotShotError, H_256,
+    HotShot, HotShotError, H_256,
 };
-use hotshot_types::traits::{
-    network::TestableNetworkingImplementation,
-    signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        SignatureKey,
+use hotshot_types::{
+    traits::{
+        network::TestableNetworkingImplementation,
+        signature_key::{
+            ed25519::{Ed25519Priv, Ed25519Pub},
+            SignatureKey,
+        },
+        state::TestableState,
     },
-    state::TestableState,
+    HotShotConfig,
 };
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, marker::PhantomData};

@@ -85,6 +85,8 @@ pub struct Transaction {
     pub sub: Subtraction,
     /// The nonce for a transaction, no two transactions can have the same nonce
     pub nonce: u64,
+    /// Number of bytes to pad to each transaction
+    pub padding: Vec<u8>,
 }
 
 impl crate::traits::Transaction<H_256> for Transaction {}
@@ -157,6 +159,7 @@ impl TestableState<H_256> for State {
                 amount,
             },
             nonce: rng.gen(),
+            padding: vec![0; 0],
         }
     }
     /// Provides a common starting state
@@ -465,6 +468,7 @@ pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Trans
             amount,
         },
         nonce: rng.gen(),
+        padding: vec![0; 0],
     }
 }
 
