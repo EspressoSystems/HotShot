@@ -1,0 +1,25 @@
+---
+- name: Deploy and run centralized server
+  hosts: all
+  vars:
+    user: <USER>
+    centralized_server_binary_path: "<PATH>/hotshot-centralized-server-bin"
+    config_toml_path: "<PATH>/config.toml"
+    host: "0.0.0.0"
+    port: "2345"
+  remote_user: "{{user}}"
+
+  tasks:
+  - name: Copy binary onto each host
+    copy:
+      src: "{{centralized_server_binary_path}}"
+      dest: "~/"
+      mode: '0755'
+
+  - name: Copy config.toml onto each host
+    copy:
+      src: "{{config_toml_path}}"
+      dest: "~/"
+
+  - name: Run server
+    command: './hotshot-centralized-server-bin {{host}} {{port}}'
