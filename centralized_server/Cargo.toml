@@ -12,3 +12,5 @@ snafu = "0.7.1"
 flume = "0.10.14"
 futures = "0.3.24"
 hotshot-utils = { path = "../utils" }
+tracing = "0.1.36"
+

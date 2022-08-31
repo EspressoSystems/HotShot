@@ -1593,6 +1593,7 @@ dependencies = [
  "hotshot-utils",
  "serde",
  "snafu",
+ "tracing",
 ]
 
 [[package]]
@@ -1609,6 +1610,7 @@ dependencies = [
  "hotshot-utils",
  "serde",
  "toml",
+ "tracing",
 ]
 
 [[package]]
