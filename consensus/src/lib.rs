@@ -286,6 +286,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             };
                         }
 
+                        // go no further if the parent view number does not
+                        // match the justify_qc. We can't accept this
+                        if parent.view_number != justify_qc.view_number {
+                            return (consensus, Err(()));
+                        }
+
                         // even if we fail to vote
 
                         break leaf;
