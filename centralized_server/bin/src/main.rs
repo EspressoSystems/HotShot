@@ -7,7 +7,7 @@ use hotshot_centralized_server::{NetworkConfig, Server};
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::setup_logging;
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
-use tracing::{error};
+use tracing::error;
 
 #[async_std::main]
 async fn main() {
