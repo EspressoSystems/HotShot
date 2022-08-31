@@ -1,4 +1,4 @@
-use clap::{Parser};
+use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -19,8 +19,9 @@ use hotshot_types::{
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    mem,
     net::{IpAddr, SocketAddr},
-    time::{Duration, Instant}, mem,
+    time::{Duration, Instant},
 };
 use tracing::debug;
 
@@ -117,29 +118,22 @@ async fn main() {
         config,
         node_index,
         seed,
-        padding
+        padding,
     } = config;
 
     // Initialize the state and hotshot
-    let (_own_state, mut hotshot) =
-        init_state_and_hotshot(network, config, seed, node_index).await;
-    let start = Instant::now(); 
+    let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
+    let start = Instant::now();
     hotshot.start().await;
-
 
     // Run random transactions
     println!("Running random transactions");
     debug!("Running random transactions");
 
     let size = mem::size_of::<Transaction>();
-    let adjusted_padding = if padding < size {
-        0
-    }
-    else {
-        padding - size
-    };
+    let adjusted_padding = if padding < size { 0 } else { padding - size };
     println!("Adjusted padding size is = {:?}", adjusted_padding);
-    let mut timed_out_views:u64 = 0; 
+    let mut timed_out_views: u64 = 0;
     let mut round = 1;
     while round <= rounds {
         debug!(?round);
@@ -155,7 +149,7 @@ async fn main() {
                 tracing::info!("Submitting txn on round {}", round);
                 hotshot.submit_transaction(txn).await.unwrap();
             }
-            transactions_per_round 
+            transactions_per_round
         } else {
             0
         };
@@ -170,7 +164,7 @@ async fn main() {
             .expect("HotShot unexpectedly closed");
         while !matches!(event.event, EventType::Decide { .. }) {
             if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
-                timed_out_views +=1; 
+                timed_out_views += 1;
             }
             event = hotshot
                 .next_event()
@@ -189,15 +183,20 @@ async fn main() {
         }
         round += 1;
     }
-    let end = Instant::now(); 
+    let end = Instant::now();
 
     // Print metrics
-    let total_time_elapsed = end - start; 
+    let total_time_elapsed = end - start;
     let total_transactions = transactions_per_round * rounds;
-    let bytes_per_second = total_time_elapsed.div_f32(1_f32 / (total_transactions * padding) as f32).as_secs();
+    let bytes_per_second = total_time_elapsed
+        .div_f32(1_f32 / (total_transactions * padding) as f32)
+        .as_secs();
     println!("All {} rounds completed in {:?}", rounds, end - start);
     println!("{} rounds timed out", timed_out_views);
     // This assumes all submitted transactions make it through consensus:
-    println!("{} transactions submitted times {} bytes per transactions is {} bytes per second", total_transactions, padding, bytes_per_second);
+    println!(
+        "{} transactions submitted times {} bytes per transactions is {} bytes per second",
+        total_transactions, padding, bytes_per_second
+    );
     debug!("All rounds completed");
 }
