@@ -133,7 +133,7 @@ async fn init_state_and_hotshot(
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
         // FIXME should this be 5?
-        num_bootstrap: 5,
+        num_bootstrap: 7,
     };
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);

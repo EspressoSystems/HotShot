@@ -17,7 +17,7 @@ use snafu::{ensure, Snafu};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     fmt::Debug,
-    marker::PhantomData,
+    marker::PhantomData, mem,
 };
 use tracing::{error, warn};
 
@@ -187,127 +187,131 @@ impl crate::traits::State<H_256> for State {
     type Block = DEntryBlock;
 
     fn next_block(&self) -> Self::Block {
+        let mut rng = thread_rng();
+        let size = mem::size_of::<DEntryBlock>();
+        error!("Size of block is {} bytes", size);
         DEntryBlock {
-            previous_block: self.hash_state(),
-            transactions: Vec::new(),
+            nonce: rng.gen(),
         }
     }
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
     fn validate_block(&self, block: &Self::Block) -> bool {
-        let state = self;
-        // A valid block is one in which every transaction is internally consistent, and results in
-        // nobody having a negative balance
-        //
-        // We will check this, in this case, by making a trial copy of our balances map, making
-        // trial modifications to it, and then asserting that no balances are negative
-        let mut trial_balances = state.balances.clone();
-        for tx in &block.transactions {
-            // This is a macro from SNAFU that returns an Err if the condition is not satisfied
-            //
-            // We first check that the transaction is internally consistent, then apply the change
-            // to our trial map
-            if !tx.validate_independence() {
-                error!("validate_independence failed");
-                return false;
-            }
+        true
+        // let state = self;
+        // // A valid block is one in which every transaction is internally consistent, and results in
+        // // nobody having a negative balance
+        // //
+        // // We will check this, in this case, by making a trial copy of our balances map, making
+        // // trial modifications to it, and then asserting that no balances are negative
+        // let mut trial_balances = state.balances.clone();
+        // for tx in &block.transactions {
+        //     // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+        //     //
+        //     // We first check that the transaction is internally consistent, then apply the change
+        //     // to our trial map
+        //     if !tx.validate_independence() {
+        //         error!("validate_independence failed");
+        //         return false;
+        //     }
             // Find the input account, and subtract the transfer balance from it, failing if it
-            // doesn't exist
-            if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account -= tx.sub.amount;
-            } else {
-                error!("no such input account");
-                return false;
-            }
-            // Find the output account, and add the transfer balance to it, failing if it doesn't
-            // exist
-            if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account += tx.add.amount;
-            } else {
-                error!("no such output account");
-                return false;
-            }
+            // // doesn't exist
+            // if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
+            //     *input_account -= tx.sub.amount;
+            // } else {
+            //     error!("no such input account");
+            //     return false;
+            // }
+            // // Find the output account, and add the transfer balance to it, failing if it doesn't
+            // // exist
+            // if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
+            //     *output_account += tx.add.amount;
+            // } else {
+            //     error!("no such output account");
+            //     return false;
+            // }
             // Check to make sure the nonce isn't used
-            if state.nonces.contains(&tx.nonce) {
-                warn!(?state, ?tx, "State nonce is used for transaction");
-                return false;
-            }
-        }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                error!("negative balance");
-                return false;
-            }
-        }
-        // This block has now passed all our tests, and thus has not done anything bad, so the block
-        // is valid if its previous state hash matches that of the previous state
-        let result = block.previous_block == state.hash_state();
-        if !result {
-            error!(
-                "hash failure. previous_block: {:?} hash_state: {:?}",
-                block.previous_block,
-                state.hash_state()
-            );
-        }
-        result
+        //     if state.nonces.contains(&tx.nonce) {
+        //         warn!(?state, ?tx, "State nonce is used for transaction");
+        //         return false;
+        //     }
+        // }
+        // // Loop through our account map and make sure nobody is negative
+        // for balance in trial_balances.values() {
+        //     if *balance < 0 {
+        //         error!("negative balance");
+        //         return false;
+        //     }
+        // }
+        // // This block has now passed all our tests, and thus has not done anything bad, so the block
+        // // is valid if its previous state hash matches that of the previous state
+        // let result = block.previous_block == state.hash_state();
+        // if !result {
+        //     error!(
+        //         "hash failure. previous_block: {:?} hash_state: {:?}",
+        //         block.previous_block,
+        //         state.hash_state()
+        //     );
+        // }
+        // result
     }
 
     fn append(&self, block: &Self::Block) -> std::result::Result<Self, Self::Error> {
         let state = self;
+        Ok(state.clone())
         // A valid block is one in which every transaction is internally consistent, and results in
         // nobody having a negative balance
         //
         // We will check this, in this case, by making a trial copy of our balances map, making
         // trial modifications to it, and then asserting that no balances are negative
-        let mut trial_balances = state.balances.clone();
-        for tx in &block.transactions {
-            // This is a macro from SNAFU that returns an Err if the condition is not satisfied
-            //
-            // We first check that the transaction is internally consistent, then apply the change
-            // to our trial map
-            ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
-            // Find the input account, and subtract the transfer balance from it, failing if it
-            // doesn't exist
-            if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account -= tx.sub.amount;
-            } else {
-                return Err(DEntryError::NoSuchInputAccount);
-            }
-            // Find the output account, and add the transfer balance to it, failing if it doesn't
-            // exist
-            if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account += tx.add.amount;
-            } else {
-                return Err(DEntryError::NoSuchOutputAccount);
-            }
-            // Check for nonce reuse
-            if state.nonces.contains(&tx.nonce) {
-                return Err(DEntryError::ReusedNonce);
-            }
-        }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                return Err(DEntryError::InsufficentBalance);
-            }
-        }
-        // Make sure our previous state commitment matches the provided state
-        if block.previous_block == state.hash_state() {
-            // This block has now passed all our tests, and thus has not done anything bad
-            // Add the nonces from this block
-            let mut nonces = state.nonces.clone();
-            for tx in &block.transactions {
-                nonces.insert(tx.nonce);
-            }
-            Ok(State {
-                balances: trial_balances,
-                nonces,
-            })
-        } else {
-            Err(DEntryError::PreviousStateMismatch)
-        }
+        // let mut trial_balances = state.balances.clone();
+        // for tx in &block.transactions {
+        //     // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+        //     //
+        //     // We first check that the transaction is internally consistent, then apply the change
+        //     // to our trial map
+        //     ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
+        //     // Find the input account, and subtract the transfer balance from it, failing if it
+        //     // doesn't exist
+        //     if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
+        //         *input_account -= tx.sub.amount;
+        //     } else {
+        //         return Err(DEntryError::NoSuchInputAccount);
+        //     }
+        //     // Find the output account, and add the transfer balance to it, failing if it doesn't
+        //     // exist
+        //     if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
+        //         *output_account += tx.add.amount;
+        //     } else {
+        //         return Err(DEntryError::NoSuchOutputAccount);
+        //     }
+        //     // Check for nonce reuse
+        //     if state.nonces.contains(&tx.nonce) {
+        //         return Err(DEntryError::ReusedNonce);
+        //     }
+        // }
+        // // Loop through our account map and make sure nobody is negative
+        // for balance in trial_balances.values() {
+        //     if *balance < 0 {
+        //         return Err(DEntryError::InsufficentBalance);
+        //     }
+        // }
+        // // Make sure our previous state commitment matches the provided state
+        // if block.previous_block == state.hash_state() {
+        //     // This block has now passed all our tests, and thus has not done anything bad
+        //     // Add the nonces from this block
+        //     let mut nonces = state.nonces.clone();
+        //     for tx in &block.transactions {
+        //         nonces.insert(tx.nonce);
+        //     }
+        //     Ok(State {
+        //         balances: trial_balances,
+        //         nonces,
+        //     })
+        // } else {
+        //     Err(DEntryError::PreviousStateMismatch)
+        // }
     }
 
     fn on_commit(&self) {
@@ -317,11 +321,16 @@ impl crate::traits::State<H_256> for State {
 
 /// The block for the dentry demo
 #[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
+// pub struct DEntryBlock {
+//     /// Block state commitment
+//     pub previous_block: StateHash<H_256>,
+//     /// Transaction vector
+//     pub transactions: Vec<Transaction>,
+// }
+
 pub struct DEntryBlock {
     /// Block state commitment
-    pub previous_block: StateHash<H_256>,
-    /// Transaction vector
-    pub transactions: Vec<Transaction>,
+    nonce: u8
 }
 
 impl BlockContents<H_256> for DEntryBlock {
@@ -334,27 +343,29 @@ impl BlockContents<H_256> for DEntryBlock {
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
         // first, make sure that the transaction is internally valid
-        if tx.validate_independence() {
+        // if tx.validate_independence() {
             // Then check the previous transactions in the block
-            if self.transactions.iter().any(|x| x.nonce == tx.nonce) {
-                return Err(DEntryError::ReusedNonce);
-            }
+            // if self.transactions.iter().any(|x| x.nonce == tx.nonce) {
+            //     return Err(DEntryError::ReusedNonce);
+            // }
             let mut new_block = self.clone();
             // Insert our transaction and return
-            new_block.transactions.push(tx.clone());
+            // Comment out tx for now TODO fix later
+            // new_block.transactions.push(tx.clone());
             Ok(new_block)
-        } else {
-            Err(DEntryError::InconsistentTransaction)
-        }
+            
     }
 
     // Note: this is really used for indexing the block in storage
     fn hash(&self) -> BlockHash<H_256> {
         let mut hasher = Hasher::new();
-        hasher.update(self.previous_block.as_ref());
-        self.transactions.iter().for_each(|tx| {
-            hasher.update(Self::hash_transaction(tx).as_ref());
-        });
+        // hasher.update(self.previous_block.as_ref());
+        // self.transactions.iter().for_each(|tx| {
+        //     hasher.update(Self::hash_transaction(tx).as_ref());
+        // });
+        // let mut rng = thread_rng();
+        // TODO this might run into collisions
+        hasher.update(&[self.nonce]);
         let x = *hasher.finalize().as_bytes();
         x.into()
     }
@@ -378,11 +389,7 @@ impl BlockContents<H_256> for DEntryBlock {
     }
 
     fn contained_transactions(&self) -> HashSet<TransactionHash<H_256>> {
-        self.transactions
-            .clone()
-            .into_iter()
-            .map(|tx| Self::hash_transaction(&tx))
-            .collect()
+        HashSet::new()
     }
 }
 

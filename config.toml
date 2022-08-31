@@ -1,0 +1,61 @@
+rounds = 100
+transactions_per_round = 10
+node_index = 0
+seed = [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+]
+padding = 10
+
+[config]
+execution_type = 'Continuous'
+total_nodes = 10
+threshold = 7
+max_transactions = 100
+known_nodes = []
+next_view_timeout = 10000
+timeout_ratio = [
+    11,
+    10,
+]
+round_start_delay = 1
+start_delay = 1
+num_bootstrap = 0
+
+[config.propose_min_round_time]
+secs = 0
+nanos = 0
+
+[config.propose_max_round_time]
+secs = 1
+nanos = 0
