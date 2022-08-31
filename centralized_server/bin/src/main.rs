@@ -7,6 +7,7 @@ use hotshot_centralized_server::{NetworkConfig, Server};
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::setup_logging;
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
+use tracing::{debug, error};
 
 #[async_std::main]
 async fn main() {
@@ -56,7 +57,7 @@ fn load_config() -> NetworkConfig<Ed25519Pub> {
     })
     .expect("Could not serialize to TOML");
     std::fs::write("config.toml", toml).expect("Could not write config.toml");
-    println!("config.toml created, please edit this and restart");
+    error!("config.toml created, please edit this and restart");
     std::process::exit(0);
 }
 

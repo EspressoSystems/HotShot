@@ -17,6 +17,7 @@ use std::{
     num::NonZeroUsize,
     time::Duration,
 };
+use tracing::{debug, error};
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(bound(deserialize = ""))]
@@ -92,9 +93,9 @@ impl<K: SignatureKey + 'static> Server<K> {
         let background_task_handle = async_std::task::spawn({
             async move {
                 if let Err(e) = background_task(receiver, self.config).await {
-                    eprintln!("Background processing thread encountered an error: {:?}", e);
+                    error!("Background processing thread encountered an error: {:?}", e);
                 }
-                eprintln!("Background thread ended");
+                debug!("Background thread ended");
             }
         });
         let shutdown_future;
@@ -117,9 +118,9 @@ impl<K: SignatureKey + 'static> Server<K> {
                                     if let Err(e) =
                                         spawn_client(addr, stream, &mut key, sender.clone()).await
                                     {
-                                        println!("Client from {:?} encountered an error: {:?}", addr, e);
+                                        debug!("Client from {:?} encountered an error: {:?}", addr, e);
                                     } else {
-                                        println!("Client from {:?} shut down", addr);
+                                        debug!("Client from {:?} shut down", addr);
                                     }
                                     if let Some(key) = key {
                                         let _ = sender
@@ -130,18 +131,18 @@ impl<K: SignatureKey + 'static> Server<K> {
                             });
                         },
                         Err(e) => {
-                            eprintln!("Could not accept new client: {:?}", e);
+                            error!("Could not accept new client: {:?}", e);
                             break;
                         }
                     }
                 }
                 _ = shutdown => {
-                    eprintln!("Received shutdown signal");
+                    debug!("Received shutdown signal");
                     break;
                 }
             }
         }
-        eprintln!("Server shutting down");
+        debug!("Server shutting down");
         sender
             .send_async(ToBackground::Shutdown)
             .await
@@ -191,7 +192,7 @@ async fn background_task<K: SignatureKey>(
         let client_count = clients.len();
         match msg {
             ToBackground::Shutdown => {
-                eprintln!("Background thread shutting down");
+                debug!("Background thread shutting down");
                 break Ok(());
             }
             ToBackground::NewClient { key, sender } => {
@@ -236,14 +237,14 @@ async fn background_task<K: SignatureKey>(
                         let _ = sender.send_async(clone).await;
                     }
                     None => {
-                        eprintln!("Client requested a network config but none was configured");
+                        debug!("Client requested a network config but none was configured");
                     }
                 }
             }
         }
 
         if client_count != clients.len() {
-            println!("Clients connected: {}", clients.len());
+            error!("Clients connected: {}", clients.len());
         }
     }
 }
@@ -306,7 +307,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         while !clients_with_error.is_empty() {
             let clients_to_remove = std::mem::take(&mut clients_with_error);
             for client in &clients_to_remove {
-                eprintln!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
+                debug!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
                 self.0.remove(client);
             }
             let mut futures = Vec::with_capacity(self.0.len() * clients_to_remove.len());
@@ -351,7 +352,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
         async move {
             while let Ok(msg) = receiver.recv_async().await {
                 if let Err(e) = stream.send(msg).await {
-                    eprintln!("Lost connection to {:?}: {:?}", address, e);
+                    debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
                 }
             }
@@ -371,7 +372,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
             (ToServer::Identify { .. }, true) => {
-                eprintln!("{:?} tried to identify twice", address);
+                debug!("{:?} tried to identify twice", address);
             }
             (ToServer::GetConfig, _) => {
                 let config = {
@@ -391,7 +392,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
             (_, false) => {
-                eprintln!("{:?} received message but is not identified yet", address);
+                debug!("{:?} received message but is not identified yet", address);
             }
             (ToServer::Broadcast { message }, true) => {
                 let sender = parent_key.clone().unwrap();

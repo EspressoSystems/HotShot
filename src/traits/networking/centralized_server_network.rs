@@ -227,23 +227,23 @@ impl CentralizedServerNetwork<Ed25519Pub> {
             let mut stream = match TcpStream::connect(addr).await {
                 Ok(stream) => TcpStreamUtil::new(stream),
                 Err(e) => {
-                    eprintln!("Could not connect to server: {:?}", e);
-                    eprintln!("Trying again in 5 seconds");
+                    error!("Could not connect to server: {:?}", e);
+                    error!("Trying again in 5 seconds");
                     async_std::task::sleep(Duration::from_secs(5)).await;
                     continue;
                 }
             };
             if let Err(e) = stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
-                eprintln!("Could not request config from server: {e:?}");
-                eprintln!("Trying again in 5 seconds");
+                error!("Could not request config from server: {e:?}");
+                error!("Trying again in 5 seconds");
                 async_std::task::sleep(Duration::from_secs(5)).await;
                 continue;
             }
             match stream.recv().await {
                 Ok(FromServer::Config { config }) => break (stream, config),
                 x => {
-                    eprintln!("Expected config from server, got {:?}", x);
-                    eprintln!("Trying again in 5 seconds");
+                    error!("Expected config from server, got {:?}", x);
+                    error!("Trying again in 5 seconds");
                     async_std::task::sleep(Duration::from_secs(5)).await;
                 }
             }
@@ -282,8 +282,8 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
                 match TcpStream::connect(addr).await {
                     Ok(stream) => break TcpStreamUtil::new(stream),
                     Err(e) => {
-                        eprintln!("Could not connect to server: {:?}", e);
-                        eprintln!("Trying again in 5 seconds");
+                        error!("Could not connect to server: {:?}", e);
+                        error!("Trying again in 5 seconds");
                         async_std::task::sleep(Duration::from_secs(5)).await;
                         continue;
                     }

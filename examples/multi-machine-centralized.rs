@@ -94,7 +94,7 @@ async fn main() {
 
     let opts: NodeOpt = NodeOpt::from_args();
     let addr: SocketAddr = (opts.host, opts.port).into();
-    debug!("Connecting to {addr:?} to retrieve the server config");
+    error!("Connecting to {addr:?} to retrieve the server config");
 
     let (config, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
 
@@ -128,7 +128,6 @@ async fn main() {
 
     // Run random transactions
     debug!("Running random transactions");
-    debug!("Running random transactions");
 
     let size = mem::size_of::<Transaction>();
     let adjusted_padding = if padding < size { 0 } else { padding - size };
@@ -137,7 +136,7 @@ async fn main() {
     let mut round = 1;
     while round <= rounds {
         debug!(?round);
-        debug!("Round {}:", round);
+        error!("Round {}:", round);
 
         let num_submitted = if node_index == ((round % node_count) as u64) {
             tracing::info!("Generating txn for round {}", round);
@@ -187,15 +186,13 @@ async fn main() {
     // Print metrics
     let total_time_elapsed = end - start;
     let total_transactions = transactions_per_round * rounds;
-    let bytes_per_second = 1_f32 / (total_time_elapsed
-        .div_f32((total_transactions * padding) as f32))
-        .as_secs();
+    let total_size = total_transactions * padding;
     error!("All {} rounds completed in {:?}", rounds, end - start);
     error!("{} rounds timed out", timed_out_views);
     // This assumes all submitted transactions make it through consensus:
     error!(
-        "{} transactions submitted times {} bytes per transactions is {} bytes per second",
-        total_transactions, padding, bytes_per_second
+        "{} total bytes submitted in {:?}",
+        total_size, total_time_elapsed
     );
     debug!("All rounds completed");
 }
