@@ -53,6 +53,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::ViewNumber,
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message},
@@ -253,21 +254,23 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             .await
             .context(StorageSnafu)?;
 
+        let anchored_leaf: Leaf<_> = anchored.clone().into();
+
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
             anchored.view_number,
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: anchored.justify_qc.leaf_commitment,
+                    leaf: anchored_leaf.commit(),
                 },
             },
         );
 
         let mut saved_leaves = HashMap::new();
-        saved_leaves.insert(anchored.justify_qc.leaf_commitment, anchored.clone().into());
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf);
 
-        let start_view = anchored.view_number + 1;
+        let start_view = anchored.view_number;
 
         // TODO jr add constructor and private the consensus fields
         // and also ViewNumber's contained number
@@ -279,7 +282,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             saved_leaves,
             // TODO unclear if this is correct
             // maybe we need 3 views?
-            locked_view: ViewNumber::new(0),
+            locked_view: GENESIS_VIEW,
             high_qc: anchored.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
