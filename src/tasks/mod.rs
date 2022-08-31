@@ -221,7 +221,6 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
         assert_eq!(cur_view, next_leader_cur_view);
         assert_eq!(cur_view, replica_cur_view);
         let high_qc = consensus.high_qc.clone();
-        let locked_qc_commitment = consensus.state_map.get(&consensus.locked_view).unwrap();
         let txns = consensus.transactions.clone();
         // DROP write lock on consensus
         drop(consensus);
