@@ -52,6 +52,7 @@ fn load_config() -> NetworkConfig<Ed25519Pub> {
         rounds: 100,
         seed: [0u8; 32],
         transactions_per_round: 10,
+        padding: 10,
     })
     .expect("Could not serialize to TOML");
     std::fs::write("config.toml", toml).expect("Could not write config.toml");
