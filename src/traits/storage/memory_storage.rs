@@ -7,6 +7,7 @@ use async_std::sync::RwLock;
 use async_trait::async_trait;
 use commit::Committable;
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::ViewNumber,
     traits::{
         block_contents::Genesis,
@@ -56,20 +57,20 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
                 justify_qc: QuorumCertificate::genesis(),
                 parent_commitment: Leaf::genesis().commit(),
                 state: state.clone(),
-                view_number: ViewNumber::genesis(),
+                view_number: GENESIS_VIEW,
             }
             .commit(),
-            view_number: ViewNumber::genesis(),
+            view_number: GENESIS_VIEW,
             signatures: BTreeMap::new(),
         };
         inner.stored.insert(
-            ViewNumber::genesis(),
+            GENESIS_VIEW,
             StoredView {
                 append: ViewAppend::Block { block },
                 parent: Leaf::genesis().commit(),
                 justify_qc: qc,
                 state,
-                view_number: ViewNumber::genesis(),
+                view_number: GENESIS_VIEW,
             },
         );
         Self {
@@ -160,7 +161,7 @@ mod test {
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 block_commitment: DummyBlock::genesis().commit(),
-                genesis: number == ViewNumber::genesis(),
+                genesis: number == GENESIS_VIEW,
                 leaf_commitment: Leaf::genesis().commit(),
                 signatures: BTreeMap::new(),
                 view_number: number,
@@ -176,7 +177,7 @@ mod test {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
                 .unwrap();
-        let genesis = random_stored_view(ViewNumber::genesis());
+        let genesis = random_stored_view(GENESIS_VIEW);
         storage
             .append_single_view(genesis.clone())
             .await

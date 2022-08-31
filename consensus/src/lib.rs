@@ -25,6 +25,7 @@ pub use traits::ConsensusApi;
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     event::TransactionCommitment,
@@ -211,55 +212,81 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("Proposal's parent missing from storage");
                             continue;
                         };
-                        if justify_qc.view_number != parent.view_number
-                            || !self.api.validate_qc(&justify_qc, parent.view_number)
-                        {
+
+                        // validate the QC's signatures
+                        if !self.api.validate_qc(&justify_qc) {
                             warn!(
                                 "Proposal failure at qc verification {:?} vs {:?}",
                                 justify_qc.view_number, parent.view_number
                             );
                             continue;
                         }
+
+                        // check that we can indeed create the state
                         let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
                             Leaf::new(
                                 state,
                                 p.leaf.deltas,
                                 p.leaf.parent_commitment,
-                                justify_qc,
+                                justify_qc.clone(),
                                 self.cur_view,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
-                        let leaf_commitment = leaf.commit();
-                        let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
-                        let vote = ConsensusMessage::<I::State>::Vote(Vote {
-                            block_commitment:
-                                <<I::State as StateContents>::Block as Committable>::commit(
-                                    &leaf.deltas,
-                                ),
-                            justify_qc: leaf.justify_qc.clone(),
-                            signature,
-                            leaf_commitment,
-                            current_view: self.cur_view,
-                        });
+                        // TODO change to locked_view + 2 after VRF integration
+                        let liveness_check = justify_qc.view_number > consensus.locked_view;
 
-                        // send out vote
+                        // check if proposal extends from the locked leaf
+                        let safety_check = consensus
+                            .visit_leaf_ancestors(
+                                parent.view_number,
+                                Terminator::Inclusive(consensus.locked_view),
+                                false,
+                                |leaf| {
+                                    // if leaf view no == locked view no then we're done, report success by
+                                    // returning true
+                                    leaf.view_number != consensus.locked_view
+                                },
+                            )
+                            .is_ok();
 
-                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                        // NOTE safenode check is here
+                        // if we pass the safenode check, vote
+                        if safety_check || liveness_check {
+                            let leaf_commitment = leaf.commit();
+                            let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
-                        info!("Sending vote to next leader {:?}", vote);
+                            let vote = ConsensusMessage::<I::State>::Vote(Vote {
+                                block_commitment:
+                                    <<I::State as StateContents>::Block as Committable>::commit(
+                                        &leaf.deltas,
+                                    ),
+                                justify_qc: leaf.justify_qc.clone(),
+                                signature,
+                                leaf_commitment,
+                                current_view: self.cur_view,
+                            });
 
-                        if self
-                            .api
-                            .send_direct_message(next_leader, vote)
-                            .await
-                            .is_err()
-                        {
-                            warn!("Failed to send vote to next leader");
-                        };
+                            // send out vote
+
+                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                            info!("Sending vote to next leader {:?}", vote);
+
+                            if self
+                                .api
+                                .send_direct_message(next_leader, vote)
+                                .await
+                                .is_err()
+                            {
+                                warn!("Failed to send vote to next leader");
+                            };
+                        }
+
+                        // even if we fail to vote
 
                         break leaf;
                     }
@@ -333,6 +360,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
             let _outcome = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
+                true,
                 |leaf| {
                     if !new_decide_reached {
                         if last_view_number_visited == leaf.view_number + 1 {
@@ -665,6 +693,7 @@ impl<I: NodeImplementation> Consensus<I> {
         &self,
         start_from: ViewNumber,
         terminator: Terminator,
+        ok_when_finished: bool,
         mut f: F,
     ) -> Result<()>
     where
@@ -688,7 +717,10 @@ impl<I: NodeImplementation> Consensus<I> {
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
             if let Terminator::Exclusive(stop_before) = terminator {
                 if stop_before == leaf.view_number {
-                    return Ok(());
+                    if ok_when_finished {
+                        return Ok(());
+                    }
+                    break;
                 }
             }
             next_leaf = leaf.parent_commitment;
@@ -697,7 +729,10 @@ impl<I: NodeImplementation> Consensus<I> {
             }
             if let Terminator::Inclusive(stop_after) = terminator {
                 if stop_after == leaf.view_number {
-                    return Ok(());
+                    if ok_when_finished {
+                        return Ok(());
+                    }
+                    break;
                 }
             }
         }
@@ -759,11 +794,11 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: ViewNumber::genesis(),
-            last_decided_view: ViewNumber::genesis(),
+            cur_view: GENESIS_VIEW,
+            last_decided_view: GENESIS_VIEW,
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
-            locked_view: ViewNumber::genesis(),
+            locked_view: GENESIS_VIEW,
             high_qc: <QuorumCertificate<I::State> as Genesis>::genesis(),
         }
     }

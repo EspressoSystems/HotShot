@@ -170,12 +170,9 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
-    /// Validate a quorum certificate
-    fn validate_qc(
-        &self,
-        quorum_certificate: &QuorumCertificate<I::State>,
-        view_number: ViewNumber,
-    ) -> bool;
+    /// Validate a quorum certificate by checking
+    /// signatures
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::State>) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(

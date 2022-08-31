@@ -817,17 +817,10 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<I::State>, view_number: ViewNumber) -> bool {
-        if qc.view_number != view_number {
-            warn!(?qc, ?view_number, "Failing on view_number equality check");
-            return false;
-        }
-        if qc.genesis && qc.view_number == ViewNumber::genesis() {
+    fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
+        if qc.genesis && qc.view_number == GENESIS_VIEW {
             return true;
         }
-        // TODO before this was lopping on *our* view number.
-        // what if the leaf doesn't have the right view number?
-        // let hash = create_verify_hash(&qc.leaf_commitment, view_number);
         let hash = qc.leaf_commitment;
         let mut num_valid = 0;
         for signature in qc.signatures.clone() {
