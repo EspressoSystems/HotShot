@@ -387,11 +387,19 @@
 <span id="381">381</span>
 <span id="382">382</span>
 <span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{
-    <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
-    <span class="ident">SignatureKey</span>,
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">traits::signature_key</span>::{
+        <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
+        <span class="ident">SignatureKey</span>,
+    },
+    <span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
@@ -410,7 +418,7 @@
         <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>, <span class="ident">WNetwork</span>},
     },
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
-    <span class="ident">HotShot</span>, <span class="ident">HotShotConfig</span>, <span class="ident">H_256</span>,
+    <span class="ident">HotShot</span>, <span class="ident">H_256</span>,
 };
 
 <span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span>
@@ -442,6 +450,7 @@
                 <span class="ident">amount</span>: <span class="number">100</span>,
             },
             <span class="ident">nonce</span>: <span class="number">0</span>,
+            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         },
         <span class="ident">Transaction</span> {
             <span class="ident">add</span>: <span class="ident">Addition</span> {
@@ -453,6 +462,7 @@
                 <span class="ident">amount</span>: <span class="number">25</span>,
             },
             <span class="ident">nonce</span>: <span class="number">1</span>,
+            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         },
     ]
 }
@@ -737,7 +747,7 @@
         })
         .<span class="ident">collect</span>();
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-        <span class="ident">execution_type</span>: <span class="ident">hotshot::ExecutionType::Continuous</span>,
+        <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
         <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
         <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
         <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),

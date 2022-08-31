@@ -206,50 +206,6 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -258,19 +214,22 @@
         <span class="ident">implementations</span>::{<span class="ident">CentralizedServerNetwork</span>, <span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>},
     },
     <span class="ident">types</span>::{<span class="ident">ed25519::Ed25519Priv</span>, <span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>},
-    <span class="ident">HotShot</span>, <span class="ident">HotShotConfig</span>, <span class="ident">H_256</span>,
+    <span class="ident">HotShot</span>, <span class="ident">H_256</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
-    <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
-    <span class="ident">state::TestableState</span>,
+<span class="kw">use</span> <span class="ident">hotshot_centralized_server::NetworkConfig</span>;
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">traits</span>::{
+        <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>},
+        <span class="ident">state::TestableState</span>,
+    },
+    <span class="ident">HotShotConfig</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
-<span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">BTreeSet</span>},
+    <span class="ident">mem</span>,
     <span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">SocketAddr</span>},
-    <span class="ident">num::NonZeroUsize</span>,
-    <span class="ident">time::Duration</span>,
+    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
 <span class="kw">use</span> <span class="ident">tracing::debug</span>;
 
@@ -282,38 +241,20 @@
     <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among multiple machines&quot;</span>
 )]</span>
 <span class="kw">struct</span> <span class="ident">NodeOpt</span> {
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;server&quot;</span>)]</span>
     <span class="doccomment">/// The address to connect to</span>
     <span class="ident">host</span>: <span class="ident">IpAddr</span>,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;port&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;p&#39;</span>)]</span>
     <span class="doccomment">/// The port to connect to</span>
     <span class="ident">port</span>: <span class="ident">u16</span>,
-
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;seed&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;s&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;0&quot;</span>)]</span>
-    <span class="doccomment">/// The common of the nodes</span>
-    <span class="ident">seed</span>: <span class="ident">u64</span>,
-
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;total&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;t&#39;</span>)]</span>
-    <span class="doccomment">/// The total amount of nodes that will be connecting</span>
-    <span class="ident">total_nodes</span>: <span class="ident">usize</span>,
-
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;id&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;i&#39;</span>)]</span>
-    <span class="doccomment">/// Id of the current node</span>
-    <span class="ident">id</span>: <span class="ident">u64</span>,
-
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;rounds&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;r&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;10&quot;</span>)]</span>
-    <span class="doccomment">/// Total amount of rounds to run</span>
-    <span class="ident">rounds</span>: <span class="ident">u64</span>,
 }
 
 <span class="doccomment">/// Creates the initial state and hotshot for simulation.</span>
 <span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init_state_and_hotshot</span>(
-    <span class="ident">nodes</span>: <span class="ident">usize</span>,
-    <span class="ident">threshold</span>: <span class="ident">usize</span>,
-    <span class="ident">node_id</span>: <span class="ident">u64</span>,
     <span class="ident">networking</span>: <span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
+    <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
+    <span class="ident">seed</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
+    <span class="ident">node_id</span>: <span class="ident">u64</span>,
 ) -&gt; (<span class="ident">State</span>, <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">Node</span>, <span class="ident">H_256</span><span class="op">&gt;</span>) {
     <span class="comment">// Create the initial state</span>
     <span class="kw">let</span> <span class="ident">balances</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
@@ -331,32 +272,10 @@
         <span class="ident">nonces</span>: <span class="ident">BTreeSet::default</span>(),
     };
 
-    <span class="comment">// Create the initial hotshot</span>
-    <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u64</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">x</span>);
-            <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>)
-        })
-        .<span class="ident">collect</span>();
-
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-        <span class="ident">execution_type</span>: <span class="ident">hotshot::ExecutionType::Continuous</span>,
-        <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
-        <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
-        <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
-        <span class="ident">known_nodes</span>: <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
-        <span class="ident">next_view_timeout</span>: <span class="number">10000</span>,
-        <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
-        <span class="ident">round_start_delay</span>: <span class="number">1</span>,
-        <span class="ident">start_delay</span>: <span class="number">1</span>,
-        <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
-        <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
-        <span class="ident">num_bootstrap</span>: <span class="number">0</span>,
-    };
-    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
-    <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">node_id</span>);
+    <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">seed</span>, <span class="ident">node_id</span>);
     <span class="kw">let</span> <span class="ident">pub_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>);
     <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">DEntryBlock::default</span>();
+    <span class="kw">let</span> <span class="ident">known_nodes</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">known_nodes</span>.<span class="ident">clone</span>();
     <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
         <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
         <span class="ident">pub_key</span>,
@@ -382,76 +301,63 @@
     <span class="ident">setup_backtrace</span>();
 
     <span class="kw">let</span> <span class="ident">opts</span>: <span class="ident">NodeOpt</span> <span class="op">=</span> <span class="ident">NodeOpt::from_args</span>();
-    <span class="kw">let</span> <span class="ident">own_id</span> <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">id</span>;
-    <span class="macro">println!</span>(<span class="string">&quot;  - Spawning network for node {}&quot;</span>, <span class="ident">own_id</span>);
+    <span class="kw">let</span> <span class="ident">addr</span>: <span class="ident">SocketAddr</span> <span class="op">=</span> (<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>).<span class="ident">into</span>();
+    <span class="macro">println!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 
-    <span class="comment">// Read node info from node configuration file</span>
-    <span class="comment">// let node_config: Value =</span>
-    <span class="comment">//     toml::from_str(&amp;config_str).expect(&quot;Error while reading node config file&quot;);</span>
-
-    <span class="comment">// Get secret key set</span>
-    <span class="kw">let</span> <span class="ident">seed</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">32</span>];
-        <span class="ident">bytes</span>[<span class="number">0</span>..<span class="number">8</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">seed</span>.<span class="ident">to_le_bytes</span>());
-        <span class="ident">bytes</span>[<span class="number">8</span>..<span class="number">16</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">seed</span>.<span class="ident">to_le_bytes</span>());
-        <span class="ident">bytes</span>[<span class="number">16</span>..<span class="number">24</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">seed</span>.<span class="ident">to_le_bytes</span>());
-        <span class="ident">bytes</span>[<span class="number">24</span>..<span class="number">32</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">opts</span>.<span class="ident">seed</span>.<span class="ident">to_le_bytes</span>());
-        <span class="ident">bytes</span>
-    };
-
-    <span class="kw">let</span> <span class="ident">nodes</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">total_nodes</span>;
-    <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span> ((<span class="ident">nodes</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">Xoshiro256StarStar::seed_from_u64</span>(<span class="ident">opts</span>.<span class="ident">seed</span>);
-
-    <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">id</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">seed</span>, <span class="ident">id</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>)
-        })
-        .<span class="ident">collect</span>();
+    <span class="kw">let</span> (<span class="ident">config</span>, <span class="ident">network</span>) <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect_with_server_config</span>(<span class="ident">addr</span>).<span class="kw">await</span>;
 
     <span class="comment">// Get networking information</span>
-    <span class="kw">let</span> <span class="ident">own_pub</span> <span class="op">=</span> <span class="ident">known_nodes</span>[<span class="ident">own_id</span> <span class="kw">as</span> <span class="ident">usize</span>];
-    <span class="macro">println!</span>(<span class="string">&quot;Own ID: {:?}&quot;</span>, <span class="ident">own_pub</span>);
-    <span class="kw">let</span> <span class="ident">network</span> <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect</span>(
-        <span class="ident">known_nodes</span>,
-        <span class="ident">SocketAddr::from</span>((<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>)),
-        <span class="ident">own_pub</span>,
-    );
+
+    <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>;
 
     <span class="macro">println!</span>(<span class="string">&quot;Waiting on connections...&quot;</span>);
     <span class="kw">loop</span> {
         <span class="kw">let</span> <span class="ident">connected_clients</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">get_connected_client_count</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="ident">connected_clients</span> <span class="op">==</span> <span class="ident">nodes</span> {
+        <span class="kw">if</span> <span class="ident">connected_clients</span> <span class="op">==</span> <span class="ident">node_count</span>.<span class="ident">get</span>() {
             <span class="kw">break</span>;
         }
-        <span class="macro">println!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">nodes</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
         <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
+    <span class="kw">let</span> <span class="ident">NetworkConfig</span> {
+        <span class="ident">rounds</span>,
+        <span class="ident">transactions_per_round</span>,
+        <span class="ident">config</span>,
+        <span class="ident">node_index</span>,
+        <span class="ident">seed</span>,
+        <span class="ident">padding</span>,
+    } <span class="op">=</span> <span class="ident">config</span>;
+
     <span class="comment">// Initialize the state and hotshot</span>
-    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">own_state</span>, <span class="kw-2">mut</span> <span class="ident">hotshot</span>) <span class="op">=</span>
-        <span class="ident">init_state_and_hotshot</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">own_id</span>, <span class="ident">network</span>).<span class="kw">await</span>;
+    <span class="kw">let</span> (<span class="ident">_own_state</span>, <span class="kw-2">mut</span> <span class="ident">hotshot</span>) <span class="op">=</span> <span class="ident">init_state_and_hotshot</span>(<span class="ident">network</span>, <span class="ident">config</span>, <span class="ident">seed</span>, <span class="ident">node_index</span>).<span class="kw">await</span>;
+    <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
     <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
 
     <span class="comment">// Run random transactions</span>
     <span class="macro">println!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
+
+    <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">adjusted_padding</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">padding</span> <span class="op">&lt;</span> <span class="ident">size</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="ident">padding</span> <span class="op">-</span> <span class="ident">size</span> };
+    <span class="macro">println!</span>(<span class="string">&quot;Adjusted padding size is = {:?}&quot;</span>, <span class="ident">adjusted_padding</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timed_out_views</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">round</span> <span class="op">=</span> <span class="number">1</span>;
-    <span class="kw">while</span> <span class="ident">round</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">opts</span>.<span class="ident">rounds</span> {
+    <span class="kw">while</span> <span class="ident">round</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">rounds</span> {
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">round</span>);
         <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
 
-        <span class="kw">let</span> <span class="ident">num_submitted</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">own_id</span> <span class="op">==</span> (<span class="ident">round</span> <span class="op">%</span> <span class="ident">opts</span>.<span class="ident">total_nodes</span> <span class="kw">as</span> <span class="ident">u64</span>) {
+        <span class="kw">let</span> <span class="ident">num_submitted</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">node_index</span> <span class="op">==</span> ((<span class="ident">round</span> <span class="op">%</span> <span class="ident">node_count</span>) <span class="kw">as</span> <span class="ident">u64</span>) {
             <span class="macro">tracing::info!</span>(<span class="string">&quot;Generating txn for round {}&quot;</span>, <span class="ident">round</span>);
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>;
 
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
-                <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">State</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
+            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">transactions_per_round</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">State</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
+                <span class="ident">txn</span>.<span class="ident">padding</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">adjusted_padding</span>];
                 <span class="macro">tracing::info!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, <span class="ident">round</span>);
                 <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
             }
-            <span class="number">10</span>
+            <span class="ident">transactions_per_round</span>
         } <span class="kw">else</span> {
             <span class="number">0</span>
         };
@@ -465,35 +371,41 @@
             .<span class="kw">await</span>
             .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
         <span class="kw">while</span> <span class="op">!</span><span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Decide</span> { .. }) {
-            <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Leader</span> { .. }) {
-                <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">own_state</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>);
-                <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-                <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-                <span class="ident">hotshot</span>
-                    .<span class="ident">submit_transaction</span>(<span class="ident">tx</span>)
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;Failed to submit transaction&quot;</span>);
+            <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::ReplicaViewTimeout</span> { .. }) {
+                <span class="ident">timed_out_views</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
             }
             <span class="ident">event</span> <span class="op">=</span> <span class="ident">hotshot</span>
                 .<span class="ident">next_event</span>()
                 .<span class="kw">await</span>
                 .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
         }
-        <span class="macro">println!</span>(<span class="string">&quot;Node {} reached decision&quot;</span>, <span class="ident">own_id</span>);
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">own_id</span>, <span class="string">&quot;Decision emitted&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Node {} reached decision&quot;</span>, <span class="ident">node_index</span>);
+        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_index</span>, <span class="string">&quot;Decision emitted&quot;</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="ident">EventType::Decide</span> { <span class="ident">state</span>, .. } <span class="op">=</span> <span class="ident">event</span>.<span class="ident">event</span> {
             <span class="macro">println!</span>(<span class="string">&quot;  - Balances:&quot;</span>);
             <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">state</span>[<span class="number">0</span>].<span class="ident">balances</span> {
                 <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
             }
-            <span class="ident">own_state</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">as_ref</span>()[<span class="number">0</span>].<span class="ident">clone</span>();
         } <span class="kw">else</span> {
             <span class="macro">unreachable!</span>()
         }
         <span class="ident">round</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
+    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
 
-    <span class="macro">println!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
+    <span class="comment">// Print metrics</span>
+    <span class="kw">let</span> <span class="ident">total_time_elapsed</span> <span class="op">=</span> <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>;
+    <span class="kw">let</span> <span class="ident">total_transactions</span> <span class="op">=</span> <span class="ident">transactions_per_round</span> <span class="op">*</span> <span class="ident">rounds</span>;
+    <span class="kw">let</span> <span class="ident">bytes_per_second</span> <span class="op">=</span> <span class="ident">total_time_elapsed</span>
+        .<span class="ident">div_f32</span>(<span class="number">1_f32</span> <span class="op">/</span> (<span class="ident">total_transactions</span> <span class="op">*</span> <span class="ident">padding</span>) <span class="kw">as</span> <span class="ident">f32</span>)
+        .<span class="ident">as_secs</span>();
+    <span class="macro">println!</span>(<span class="string">&quot;All {} rounds completed in {:?}&quot;</span>, <span class="ident">rounds</span>, <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>);
+    <span class="macro">println!</span>(<span class="string">&quot;{} rounds timed out&quot;</span>, <span class="ident">timed_out_views</span>);
+    <span class="comment">// This assumes all submitted transactions make it through consensus:</span>
+    <span class="macro">println!</span>(
+        <span class="string">&quot;{} transactions submitted times {} bytes per transactions is {} bytes per second&quot;</span>,
+        <span class="ident">total_transactions</span>, <span class="ident">padding</span>, <span class="ident">bytes_per_second</span>
+    );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
 }
 </code></pre></div>

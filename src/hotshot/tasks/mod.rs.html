@@ -445,6 +445,7 @@
 <span id="439">439</span>
 <span id="440">440</span>
 <span id="441">441</span>
+<span id="442">442</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">create_or_obtain_chan_from_write</span>, <span class="ident">types::HotShotHandle</span>, <span class="ident">HotShot</span>, <span class="ident">HotShotConsensusApi</span>};
@@ -458,6 +459,7 @@
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">message::MessageKind</span>,
     <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">node_implementation::NodeImplementation</span>},
+    <span class="ident">ExecutionType</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast::channel</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -581,8 +583,8 @@
     );
 
     <span class="kw">let</span> (<span class="ident">handle_channels</span>, <span class="ident">task_channels</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">execution_type</span> {
-        <span class="ident"><span class="kw">crate</span>::ExecutionType::Continuous</span> =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
-        <span class="ident"><span class="kw">crate</span>::ExecutionType::Incremental</span> =&gt; {
+        <span class="ident">ExecutionType::Continuous</span> =&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
+        <span class="ident">ExecutionType::Incremental</span> =&gt; {
             <span class="kw">let</span> (<span class="ident">send_consensus_start</span>, <span class="ident">recv_consensus_start</span>) <span class="op">=</span> <span class="ident">flume::unbounded</span>();
             (<span class="prelude-val">Some</span>(<span class="ident">send_consensus_start</span>), <span class="prelude-val">Some</span>(<span class="ident">recv_consensus_start</span>))
         }

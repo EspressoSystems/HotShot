@@ -501,6 +501,10 @@
 <span id="495">495</span>
 <span id="496">496</span>
 <span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the `HotShot` suite of traits that implements a</span>
@@ -588,6 +592,8 @@
     <span class="kw">pub</span> <span class="ident">sub</span>: <span class="ident">Subtraction</span>,
     <span class="doccomment">/// The nonce for a transaction, no two transactions can have the same nonce</span>
     <span class="kw">pub</span> <span class="ident">nonce</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// Number of bytes to pad to each transaction</span>
+    <span class="kw">pub</span> <span class="ident">padding</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::traits::Transaction</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Transaction</span> {}
@@ -660,6 +666,7 @@
                 <span class="ident">amount</span>,
             },
             <span class="ident">nonce</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
+            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         }
     }
     <span class="doccomment">/// Provides a common starting state</span>
@@ -968,6 +975,7 @@
             <span class="ident">amount</span>,
         },
         <span class="ident">nonce</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
+        <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
     }
 }
 

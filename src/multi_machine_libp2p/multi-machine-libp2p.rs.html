@@ -436,6 +436,9 @@
 <span id="430">430</span>
 <span id="431">431</span>
 <span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
@@ -446,11 +449,14 @@
         <span class="ident">NetworkError</span>,
     },
     <span class="ident">types</span>::{<span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
-    <span class="ident">HotShot</span>, <span class="ident">HotShotConfig</span>, <span class="ident">H_256</span>,
+    <span class="ident">HotShot</span>, <span class="ident">H_256</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
-    <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
-    <span class="ident">state::TestableState</span>,
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">traits</span>::{
+        <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
+        <span class="ident">state::TestableState</span>,
+    },
+    <span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">identity::Keypair</span>, <span class="ident">multiaddr</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
@@ -651,7 +657,7 @@
         .<span class="ident">collect</span>();
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-        <span class="ident">execution_type</span>: <span class="ident">hotshot::ExecutionType::Continuous</span>,
+        <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
         <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
         <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
         <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),

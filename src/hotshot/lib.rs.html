@@ -828,49 +828,6 @@
 <span id="822">822</span>
 <span id="823">823</span>
 <span id="824">824</span>
-<span id="825">825</span>
-<span id="826">826</span>
-<span id="827">827</span>
-<span id="828">828</span>
-<span id="829">829</span>
-<span id="830">830</span>
-<span id="831">831</span>
-<span id="832">832</span>
-<span id="833">833</span>
-<span id="834">834</span>
-<span id="835">835</span>
-<span id="836">836</span>
-<span id="837">837</span>
-<span id="838">838</span>
-<span id="839">839</span>
-<span id="840">840</span>
-<span id="841">841</span>
-<span id="842">842</span>
-<span id="843">843</span>
-<span id="844">844</span>
-<span id="845">845</span>
-<span id="846">846</span>
-<span id="847">847</span>
-<span id="848">848</span>
-<span id="849">849</span>
-<span id="850">850</span>
-<span id="851">851</span>
-<span id="852">852</span>
-<span id="853">853</span>
-<span id="854">854</span>
-<span id="855">855</span>
-<span id="856">856</span>
-<span id="857">857</span>
-<span id="858">858</span>
-<span id="859">859</span>
-<span id="860">860</span>
-<span id="861">861</span>
-<span id="862">862</span>
-<span id="863">863</span>
-<span id="864">864</span>
-<span id="865">865</span>
-<span id="866">866</span>
-<span id="867">867</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -934,12 +891,12 @@
         <span class="ident">stateful_handler::StatefulHandler</span>,
         <span class="ident">storage::StoredView</span>,
     },
+    <span class="ident">HotShotConfig</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast::BroadcastSender</span>;
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
-    <span class="ident">fmt::Debug</span>,
     <span class="ident">num::NonZeroUsize</span>,
     <span class="ident">sync::Arc</span>,
     <span class="ident">time::Duration</span>,
@@ -961,49 +918,6 @@
 
 <span class="doccomment">/// Convenience type alias</span>
 <span class="kw">type</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">HotShotError</span><span class="op">&gt;</span>;
-
-<span class="doccomment">/// the type of consensus to run. Either:</span>
-<span class="doccomment">/// wait for a signal to start a view,</span>
-<span class="doccomment">/// or constantly run</span>
-<span class="doccomment">/// you almost always want continuous</span>
-<span class="doccomment">/// incremental is just for testing</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExecutionType</span> {
-    <span class="doccomment">/// constantly increment view as soon as view finishes</span>
-    <span class="ident">Continuous</span>,
-    <span class="doccomment">/// wait for a signal</span>
-    <span class="ident">Incremental</span>,
-}
-
-<span class="doccomment">/// Holds configuration for a `HotShot`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">SignatureKey</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Whether to run one view or continuous views</span>
-    <span class="kw">pub</span> <span class="ident">execution_type</span>: <span class="ident">ExecutionType</span>,
-    <span class="doccomment">/// Total number of nodes in the network</span>
-    <span class="kw">pub</span> <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize</span>,
-    <span class="doccomment">/// Nodes required to reach a decision</span>
-    <span class="kw">pub</span> <span class="ident">threshold</span>: <span class="ident">NonZeroUsize</span>,
-    <span class="doccomment">/// Maximum transactions per block</span>
-    <span class="kw">pub</span> <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize</span>,
-    <span class="doccomment">/// List of known node&#39;s public keys, including own, sorted by nonce ()</span>
-    <span class="kw">pub</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Base duration for next-view timeout, in milliseconds</span>
-    <span class="kw">pub</span> <span class="ident">next_view_timeout</span>: <span class="ident">u64</span>,
-    <span class="doccomment">/// The exponential backoff ration for the next-view timeout</span>
-    <span class="kw">pub</span> <span class="ident">timeout_ratio</span>: (<span class="ident">u64</span>, <span class="ident">u64</span>),
-    <span class="doccomment">/// The delay a leader inserts before starting pre-commit, in milliseconds</span>
-    <span class="kw">pub</span> <span class="ident">round_start_delay</span>: <span class="ident">u64</span>,
-    <span class="doccomment">/// Delay after init before starting consensus, in milliseconds</span>
-    <span class="kw">pub</span> <span class="ident">start_delay</span>: <span class="ident">u64</span>,
-    <span class="doccomment">/// Number of network bootstrap nodes</span>
-    <span class="kw">pub</span> <span class="ident">num_bootstrap</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// The minimum amount of time a leader has to wait to start a round</span>
-    <span class="kw">pub</span> <span class="ident">propose_min_round_time</span>: <span class="ident">Duration</span>,
-    <span class="doccomment">/// The maximum amount of time a leader can wait to start a round</span>
-    <span class="kw">pub</span> <span class="ident">propose_max_round_time</span>: <span class="ident">Duration</span>,
-}
-
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotInner</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span>, <span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The public key of this node</span>

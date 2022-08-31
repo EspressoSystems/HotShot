@@ -289,6 +289,7 @@
 <span id="283">283</span>
 <span id="284">284</span>
 <span id="285">285</span>
+<span id="286">286</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -297,10 +298,11 @@
         <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>, <span class="ident">WNetwork</span>},
     },
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
-    <span class="ident">HotShot</span>, <span class="ident">HotShotConfig</span>, <span class="ident">H_256</span>,
+    <span class="ident">HotShot</span>, <span class="ident">H_256</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{
-    <span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>,
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">traits::signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
+    <span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
@@ -411,7 +413,7 @@
         .<span class="ident">collect</span>();
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-        <span class="ident">execution_type</span>: <span class="ident">hotshot::ExecutionType::Continuous</span>,
+        <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
         <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
         <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">threshold</span>).<span class="ident">unwrap</span>(),
         <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
