@@ -170,11 +170,12 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
-                EventType::Decide { block, state, .. } => {
-                    results = Ok((
-                        state.iter().cloned().collect(),
-                        block.iter().cloned().collect(),
-                    ));
+                EventType::Decide { leaf_chain, .. } => {
+                    results = Ok(leaf_chain
+                        .iter()
+                        .cloned()
+                        .map(|leaf| (leaf.state, leaf.deltas))
+                        .unzip());
                 }
                 EventType::ViewFinished { view_number: _ } => return results,
                 event => {

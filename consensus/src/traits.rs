@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    event::{Event, EventType, TransactionCommitment},
+    event::{Event, EventType},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
@@ -121,21 +121,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(
-        &self,
-        view_number: ViewNumber,
-        blocks: Vec<<I::State as StateContents>::Block>,
-        states: Vec<I::State>,
-        qcs: Vec<QuorumCertificate<I::State>>,
-        rejects: Vec<Vec<TransactionCommitment<I::State>>>,
-    ) {
+    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::State>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
-                block: Arc::new(blocks),
-                state: Arc::new(states),
-                qcs: Arc::new(qcs),
-                rejects: Arc::new(rejects),
+                leaf_chain: Arc::new(leaf_views),
             },
         })
         .await;

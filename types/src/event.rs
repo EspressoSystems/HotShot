@@ -1,11 +1,9 @@
 //! Events that a `HotShot` instance can emit
 
-use commit::Commitment;
-
 use crate::{
-    data::{QuorumCertificate, ViewNumber},
+    data::{Leaf, ViewNumber},
     error::HotShotError,
-    traits::{state, BlockContents, StateContents},
+    traits::StateContents,
 };
 use std::sync::Arc;
 
@@ -20,10 +18,6 @@ pub struct Event<S: StateContents + Send + Sync> {
     /// The underlying event
     pub event: EventType<S>,
 }
-
-/// Alias for a state commitment
-pub type TransactionCommitment<STATE> =
-    Commitment<<<STATE as StateContents>::Block as BlockContents>::Transaction>;
 
 /// The type and contents of a status event emitted by a `HotShot` instance
 ///
@@ -44,24 +38,13 @@ pub enum EventType<S: StateContents> {
     },
     /// A new decision event was issued
     Decide {
-        /// The list of blocks that were committed by this decision
+        /// The chain of Leafs that were committed by this decision
         ///
         /// This list is sorted in reverse view number order, with the newest (highest view number)
         /// block first in the list.
         ///
         /// This list may be incomplete if the node is currently performing catchup.
-        block: Arc<Vec<S::Block>>,
-        /// The list of states that were committed by this decision
-        ///
-        /// This list is sorted in reverse view number order, with the newest (highest view number)
-        /// state first in the list.
-        ///
-        /// This list may be incomplete if the node is currently performing catchup.
-        state: Arc<Vec<S>>,
-        /// The quorum certificates that accompy this Decide
-        qcs: Arc<Vec<QuorumCertificate<S>>>,
-        /// The list of transaction sets confirmed rejected with this decision
-        rejects: Arc<Vec<Vec<TransactionCommitment<S>>>>,
+        leaf_chain: Arc<Vec<Leaf<S>>>,
     },
     /// A new view was started by this node
     NewView {
@@ -83,25 +66,11 @@ pub enum EventType<S: StateContents> {
         /// The current view number
         view_number: ViewNumber,
     },
-    /// This node is a follower for this view
-    Follower {
-        /// The current view number
-        view_number: ViewNumber,
-    },
-
     /// The node has been synced with the network
     Synced {
         /// The current view number
         view_number: ViewNumber,
     },
-
-    /// The transaction has been rejected.
-    /// Currently HotShot does not know if a transaction is rejected because it is a duplicate, or because the transaction is invalid.
-    TransactionRejected {
-        /// The transaction that has been rejected.
-        transaction: <<S as state::StateContents>::Block as BlockContents>::Transaction,
-    },
-
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     ViewFinished {
         /// The view number that has just finished
