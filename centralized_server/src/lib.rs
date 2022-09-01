@@ -1,17 +1,22 @@
+mod client;
+mod clients;
+
 use async_std::{
+    fs,
     io::{ReadExt, WriteExt},
     net::{TcpListener, TcpStream},
+    path::Path,
     prelude::FutureExt,
 };
 use bincode::Options;
+use clients::Clients;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
+use hotshot_types::HotShotConfig;
 use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
 use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, BTreeSet},
     marker::PhantomData,
     net::{IpAddr, Shutdown, SocketAddr},
     num::NonZeroUsize,
@@ -27,11 +32,29 @@ pub enum ToServer<K: SignatureKey> {
     Broadcast { message: Vec<u8> },
     Direct { target: K, message: Vec<u8> },
     RequestClientCount,
+    Results(RunResults),
 }
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
+pub struct RunResults {
+    pub run: Run,
+    pub node_index: u64,
+
+    pub transactions_submitted: usize,
+    pub transactions_rejected: usize,
+    pub transaction_size_bytes: usize,
+
+    pub rounds_succeeded: u64,
+    pub rounds_timed_out: u64,
+    pub total_time_in_seconds: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
+pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum FromServer<K> {
-    Config { config: NetworkConfig<K> },
+    Config { config: NetworkConfig<K>, run: Run },
     NodeConnected { key: K },
     NodeDisconnected { key: K },
     Broadcast { message: Vec<u8> },
@@ -42,7 +65,7 @@ pub enum FromServer<K> {
 pub struct Server<K: SignatureKey + 'static> {
     listener: TcpListener,
     shutdown: Option<Receiver<()>>,
-    config: Option<NetworkConfig<K>>,
+    config: Option<RoundConfig<K>>,
     _k: PhantomData<&'static K>,
 }
 
@@ -79,7 +102,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 
     /// Set the network config. Setting this will allow clients to request this config when they connect to the server.
-    pub fn with_network_config(mut self, config: NetworkConfig<K>) -> Self {
+    pub fn with_network_config(mut self, config: RoundConfig<K>) -> Self {
         self.config = Some(config);
         self
     }
@@ -111,24 +134,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                 result = self.listener.accept().fuse() => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_std::task::spawn({
-                                let sender = sender.clone();
-                                async move {
-                                    let mut key = None;
-                                    if let Err(e) =
-                                        spawn_client(addr, stream, &mut key, sender.clone()).await
-                                    {
-                                        debug!("Client from {:?} encountered an error: {:?}", addr, e);
-                                    } else {
-                                        debug!("Client from {:?} shut down", addr);
-                                    }
-                                    if let Some(key) = key {
-                                        let _ = sender
-                                            .send_async(ToBackground::ClientDisconnected { key })
-                                            .await;
-                                    }
-                                }
-                            });
+                            async_std::task::spawn(client::spawn(addr, stream, sender.clone()));
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);
@@ -154,33 +160,9 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
-struct OrdKey<K: SignatureKey> {
-    pub key: K,
-    pubkey: EncodedPublicKey,
-}
-
-impl<K: SignatureKey> From<K> for OrdKey<K> {
-    fn from(key: K) -> Self {
-        let pubkey = key.to_bytes();
-        Self { key, pubkey }
-    }
-}
-
-impl<K: SignatureKey> PartialOrd for OrdKey<K> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.pubkey.partial_cmp(&other.pubkey)
-    }
-}
-impl<K: SignatureKey> Ord for OrdKey<K> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.pubkey.cmp(&other.pubkey)
-    }
-}
-
 async fn background_task<K: SignatureKey>(
     receiver: Receiver<ToBackground<K>>,
-    mut config: Option<NetworkConfig<K>>,
+    mut config: Option<RoundConfig<K>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
     loop {
@@ -201,11 +183,11 @@ async fn background_task<K: SignatureKey>(
                     .broadcast(FromServer::NodeConnected { key: key.clone() })
                     .await;
                 // add the client
-                clients.insert(key.into(), sender);
+                clients.insert(key, sender);
             }
             ToBackground::ClientDisconnected { key } => {
                 // remove the client
-                clients.remove(key.clone().into());
+                clients.remove(key.clone());
                 // notify everyone of the client disconnecting
                 clients
                     .broadcast(FromServer::NodeDisconnected { key })
@@ -228,16 +210,21 @@ async fn background_task<K: SignatureKey>(
                     .await;
             }
             ToBackground::RequestConfig { sender } => {
-                match config.as_mut() {
-                    Some(config) => {
-                        let clone = config.clone();
-                        config.node_index += 1;
+                match config.as_mut().and_then(|c| c.get_next_config()) {
+                    Some((config, run)) => {
                         // the client may or may not be identified.
                         // if it is, the next message will also fail, so we won't clean it up here
-                        let _ = sender.send_async(clone).await;
+                        let _ = sender.send_async((config, run)).await;
                     }
                     None => {
                         debug!("Client requested a network config but none was configured");
+                    }
+                }
+            }
+            ToBackground::Results { results } => {
+                if let Some(config) = &mut config {
+                    if let Err(e) = config.add_result(results).await {
+                        error!("Could not export node's config: {e:?}");
                     }
                 }
             }
@@ -249,176 +236,74 @@ async fn background_task<K: SignatureKey>(
     }
 }
 
-struct Clients<K: SignatureKey>(BTreeMap<OrdKey<K>, Sender<FromServer<K>>>);
-
-impl<K: SignatureKey + PartialEq> Clients<K> {
-    fn new() -> Self {
-        Self(BTreeMap::new())
-    }
-
-    pub async fn broadcast(&mut self, msg: FromServer<K>) {
-        let futures = futures::future::join_all(self.0.iter().map(|(id, sender)| {
-            sender
-                .send_async(msg.clone())
-                .map(move |res| (id, res.is_ok()))
-        }))
-        .await;
-        let keys_to_remove = futures
-            .into_iter()
-            .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
-            .collect();
-        self.prune_nodes(keys_to_remove).await;
-    }
-
-    async fn broadcast_except_self(&mut self, sender_key: K, message: FromServer<K>) {
-        let futures = futures::future::join_all(self.0.iter().filter_map(|(id, sender)| {
-            if id.key != sender_key {
-                Some(
-                    sender
-                        .send_async(message.clone())
-                        .map(move |res| (id, res.is_ok())),
-                )
-            } else {
-                None
-            }
-        }))
-        .await;
-        let keys_to_remove = futures
-            .into_iter()
-            .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
-            .collect();
-        self.prune_nodes(keys_to_remove).await;
-    }
-
-    async fn direct_message(&mut self, receiver: K, msg: FromServer<K>) {
-        let receiver = OrdKey::from(receiver);
-        if let Some(sender) = self.0.get_mut(&receiver) {
-            if sender.send_async(msg).await.is_err() {
-                let mut tree = BTreeSet::new();
-                tree.insert(receiver);
-                self.prune_nodes(tree).await;
-            }
-        }
-    }
-
-    async fn prune_nodes(&mut self, mut clients_with_error: BTreeSet<OrdKey<K>>) {
-        // While notifying the clients of other clients disconnecting, those clients can be disconnected too
-        // we solve this by looping over this until we've removed all failing nodes and have successfully notified everyone else.
-        while !clients_with_error.is_empty() {
-            let clients_to_remove = std::mem::take(&mut clients_with_error);
-            for client in &clients_to_remove {
-                debug!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
-                self.0.remove(client);
-            }
-            let mut futures = Vec::with_capacity(self.0.len() * clients_to_remove.len());
-            for client in clients_to_remove {
-                let message = FromServer::NodeDisconnected { key: client.key };
-                futures.extend(self.0.iter().map(|(id, sender)| {
-                    sender
-                        .send_async(message.clone())
-                        .map(move |result| (id, result.is_ok()))
-                }));
-            }
-            let results = futures::future::join_all(futures).await;
-            clients_with_error = results
-                .into_iter()
-                .filter_map(|(id, is_ok)| if !is_ok { Some(id.clone()) } else { None })
-                .collect();
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    fn insert(&mut self, key: OrdKey<K>, sender: Sender<FromServer<K>>) {
-        self.0.insert(key, sender);
-    }
-
-    fn remove(&mut self, key: OrdKey<K>) {
-        self.0.remove(&key);
-    }
+/// Contains information about the current round
+pub struct RoundConfig<K> {
+    configs: Vec<NetworkConfig<K>>,
+    current_run: usize,
+    next_node_index: usize,
 }
 
-async fn spawn_client<K: SignatureKey + 'static>(
-    address: SocketAddr,
-    stream: TcpStream,
-    parent_key: &mut Option<K>,
-    to_background: Sender<ToBackground<K>>,
-) -> Result<(), Error> {
-    let (sender, receiver) = flume::unbounded();
-    async_std::task::spawn({
-        let mut stream = TcpStreamUtil::new(stream.clone());
-        async move {
-            while let Ok(msg) = receiver.recv_async().await {
-                if let Err(e) = stream.send(msg).await {
-                    debug!("Lost connection to {:?}: {:?}", address, e);
-                    break;
-                }
-            }
+impl<K> RoundConfig<K> {
+    pub fn new(configs: Vec<NetworkConfig<K>>) -> Self {
+        Self {
+            configs,
+            current_run: 0,
+            next_node_index: 0,
         }
-    });
-    let mut stream = TcpStreamUtil::new(stream);
-    loop {
-        let msg = stream.recv::<ToServer<K>>().await?;
-        let parent_key_is_some = parent_key.is_some();
-        match (msg, parent_key_is_some) {
-            (ToServer::Identify { key }, false) => {
-                *parent_key = Some(key.clone());
-                let sender = sender.clone();
-                to_background
-                    .send_async(ToBackground::NewClient { key, sender })
-                    .await
-                    .map_err(|_| Error::BackgroundShutdown)?;
-            }
-            (ToServer::Identify { .. }, true) => {
-                debug!("{:?} tried to identify twice", address);
-            }
-            (ToServer::GetConfig, _) => {
-                let config = {
-                    let (sender, receiver) = flume::bounded(1);
-                    to_background
-                        .send_async(ToBackground::RequestConfig { sender })
-                        .await
-                        .map_err(|_| Error::BackgroundShutdown)?;
-                    receiver
-                        .recv_async()
-                        .await
-                        .expect("Failed to retrieve config from background")
-                };
-                sender
-                    .send_async(FromServer::Config { config })
-                    .await
-                    .map_err(|_| Error::BackgroundShutdown)?;
-            }
-            (_, false) => {
-                debug!("{:?} received message but is not identified yet", address);
-            }
-            (ToServer::Broadcast { message }, true) => {
-                let sender = parent_key.clone().unwrap();
-                to_background
-                    .send_async(ToBackground::IncomingBroadcast { sender, message })
-                    .await
-                    .map_err(|_| Error::BackgroundShutdown)?;
-            }
-            (ToServer::Direct { message, target }, true) => {
-                to_background
-                    .send_async(ToBackground::IncomingDirectMessage {
-                        receiver: target,
-                        message,
-                    })
-                    .await
-                    .map_err(|_| Error::BackgroundShutdown)?;
-            }
-            (ToServer::RequestClientCount, true) => {
-                to_background
-                    .send_async(ToBackground::RequestClientCount {
-                        sender: parent_key.clone().unwrap(),
-                    })
-                    .await
-                    .map_err(|_| Error::BackgroundShutdown)?;
-            }
+    }
+
+    /// Will write the results for this node to `<run>/<node_index>.toml`.
+    ///
+    /// If the folder `<run>/` does not exist, it will be created and the config for that run will be stored in `<run>/config.toml`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if serialization to TOML fails
+    pub async fn add_result(&mut self, result: RunResults) -> std::io::Result<()>
+    where
+        K: serde::Serialize,
+    {
+        let run = result.run.0;
+        let folder = run.to_string();
+        let folder = Path::new(&folder);
+        if !folder.exists().await {
+            // folder does not exist, create it and copy over the network config to `config.toml`
+            let config = &self.configs[run];
+            fs::create_dir_all(folder).await?;
+            fs::write(
+                format!("{}/config.toml", run),
+                toml::to_string_pretty(config).expect("Could not serialize"),
+            )
+            .await?;
         }
+        fs::write(
+            format!("{}/{}.toml", run, result.node_index),
+            toml::to_string_pretty(&result).expect("Could not serialize"),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub fn get_next_config(&mut self) -> Option<(NetworkConfig<K>, Run)>
+    where
+        K: Clone,
+    {
+        let mut config: NetworkConfig<K> = self.configs.get(self.current_run)?.clone();
+        let index = self.next_node_index;
+        self.next_node_index += 1;
+
+        if self.next_node_index >= config.config.total_nodes.get() {
+            self.next_node_index = 0;
+            self.current_run += 1;
+
+            error!("Starting run {}", self.current_run + 1);
+
+            config = self.configs.get(self.current_run)?.clone();
+        }
+
+        config.node_index = index as u64;
+        Some((config, Run(self.current_run)))
     }
 }
 
@@ -443,7 +328,10 @@ enum ToBackground<K: SignatureKey> {
         sender: K,
     },
     RequestConfig {
-        sender: Sender<NetworkConfig<K>>,
+        sender: Sender<(NetworkConfig<K>, Run)>,
+    },
+    Results {
+        results: RunResults,
     },
 }
 

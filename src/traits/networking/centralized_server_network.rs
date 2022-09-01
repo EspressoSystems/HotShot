@@ -7,7 +7,9 @@ use async_trait::async_trait;
 use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::{future::BoxFuture, FutureExt};
-use hotshot_centralized_server::{FromServer, NetworkConfig, TcpStreamUtil, ToServer};
+use hotshot_centralized_server::{
+    FromServer, NetworkConfig, Run, RunResults, TcpStreamUtil, ToServer,
+};
 use hotshot_types::traits::{
     network::{
         FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
@@ -40,8 +42,8 @@ struct Inner<K: SignatureKey> {
     connected: AtomicBool,
     /// `true` if the client is still running.
     running: AtomicBool,
-    /// A queue of messages to be send to the server. This is emptied by `run_background`.
-    sending: Sender<ToServer<K>>,
+    /// A queue of messages to be send to the server. This is emptied by `run_background`. Each message can optionally have a callback sender that will be invoked when the message is send.
+    sending: Sender<(ToServer<K>, Option<Sender<()>>)>,
     /// A loopback sender that will send to `receiving`, for broadcasting to self.
     receiving_loopback: Sender<FromServer<K>>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
@@ -56,9 +58,12 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
-            .send_async(ToServer::Broadcast {
-                message: message.clone(),
-            })
+            .send_async((
+                ToServer::Broadcast {
+                    message: message.clone(),
+                },
+                None,
+            ))
             .await
             .expect("Background thread exited");
         self.receiving_loopback.send_async(FromServer::Broadcast { message }).await.expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
@@ -66,7 +71,7 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a direct message to the server.
     async fn direct_message(&self, target: K, message: Vec<u8>) {
         self.sending
-            .send_async(ToServer::Direct { target, message })
+            .send_async((ToServer::Direct { target, message }, None))
             .await
             .expect("Background thread exited");
     }
@@ -75,7 +80,7 @@ impl<K: SignatureKey> Inner<K> {
     async fn request_client_count(&self, sender: Sender<usize>) {
         self.request_client_count_sender.write().await.push(sender);
         self.sending
-            .send_async(ToServer::RequestClientCount)
+            .send_async((ToServer::RequestClientCount, None))
             .await
             .expect("Background thread exited");
     }
@@ -221,9 +226,11 @@ pub struct CentralizedServerNetwork<K: SignatureKey> {
 impl CentralizedServerNetwork<Ed25519Pub> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
-    /// The config is returned along with the running `CentralizedServerNetwork`
-    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<Ed25519Pub>, Self) {
-        let (stream, config) = loop {
+    /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
+    pub async fn connect_with_server_config(
+        addr: SocketAddr,
+    ) -> (NetworkConfig<Ed25519Pub>, Run, Self) {
+        let (stream, run, config) = loop {
             let mut stream = match TcpStream::connect(addr).await {
                 Ok(stream) => TcpStreamUtil::new(stream),
                 Err(e) => {
@@ -240,7 +247,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                 continue;
             }
             match stream.recv().await {
-                Ok(FromServer::Config { config }) => break (stream, config),
+                Ok(FromServer::Config { config, run }) => break (stream, run, config),
                 x => {
                     error!("Expected config from server, got {:?}", x);
                     error!("Trying again in 5 seconds");
@@ -270,7 +277,19 @@ impl CentralizedServerNetwork<Ed25519Pub> {
             },
             key,
         );
-        (config, result)
+        (config, run, result)
+    }
+
+    /// Send the results for this run to the server
+    pub async fn send_results(&self, results: RunResults) {
+        let (sender, receiver) = flume::bounded(1);
+        let _ = self
+            .inner
+            .sending
+            .send_async((ToServer::Results(results), Some(sender)))
+            .await;
+        // Wait until it's successfully send before shutting down
+        let _ = receiver.recv_async().await;
     }
 }
 
@@ -363,7 +382,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
 async fn run_background<K: SignatureKey>(
     mut stream: TcpStreamUtil,
     key: K,
-    to_background: Receiver<ToServer<K>>,
+    to_background: Receiver<(ToServer<K>, Option<Sender<()>>)>,
     from_background_sender: Sender<FromServer<K>>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
@@ -404,9 +423,12 @@ async fn run_background<K: SignatureKey>(
                     }
                 }
             },
-            msg = to_background.recv_async().fuse() => {
-                let msg: ToServer<K> = msg.map_err(|_| Error::FailedToSend)?;
+            result = to_background.recv_async().fuse() => {
+                let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
                 stream.send(msg).await?;
+                if let Some(confirm) = confirm {
+                    let _ = confirm.send_async(()).await;
+                }
             }
         }
     }
