@@ -6,7 +6,6 @@
 use crate::{
     constants::GENESIS_VIEW,
     traits::{
-        block_contents::Genesis,
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
         StateContents,
@@ -141,11 +140,12 @@ mod serde_bytes_array {
     }
 }
 
-impl<STATE: StateContents> Genesis for QuorumCertificate<STATE> {
-    fn genesis() -> Self {
+impl<STATE: StateContents> QuorumCertificate<STATE> {
+    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
+    pub fn genesis() -> Self {
         Self {
-            block_commitment: <<STATE as StateContents>::Block as Genesis>::genesis().commit(),
-            leaf_commitment: fake_commitment(),
+            block_commitment: fake_commitment(),
+            leaf_commitment: fake_commitment::<Leaf<STATE>>(),
             view_number: GENESIS_VIEW,
             signatures: BTreeMap::default(),
             genesis: true,
@@ -228,21 +228,10 @@ pub struct Leaf<STATE: StateContents> {
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
 pub fn fake_commitment<S: Committable>() -> Commitment<S> {
-    commit::RawCommitmentBuilder::new("Dummy Genesis for arbitrary type").finalize()
+    commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
 }
 
-impl<STATE: StateContents> Genesis for Leaf<STATE> {
-    fn genesis() -> Self {
-        Self {
-            view_number: GENESIS_VIEW,
-            // FIXME this is recursive
-            justify_qc: QuorumCertificate::genesis(),
-            parent_commitment: fake_commitment(),
-            deltas: <STATE as StateContents>::Block::genesis(),
-            state: STATE::genesis(),
-        }
-    }
-}
+impl<STATE: StateContents> Leaf<STATE> {}
 
 impl<STATE: StateContents> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
@@ -291,6 +280,24 @@ impl<STATE: StateContents> Leaf<STATE> {
             view_number,
             justify_qc: qc,
             parent_commitment: parent,
+            deltas,
+            state,
+        }
+    }
+
+    /// Creates the genesis Leaf for the genesis View (special case),
+    /// from the genesis block (deltas, application supplied)
+    /// and genesis state (result of deltas applied to the default state)
+    /// justified by the genesis qc (special case)
+    ///
+    pub fn genesis(deltas: STATE::Block) -> Self {
+        // if this fails, we're not able to initialize consensus.
+        let state = STATE::default().append(&deltas).unwrap();
+        Self {
+            view_number: GENESIS_VIEW,
+            // FIXME this is recursive
+            justify_qc: QuorumCertificate::genesis(),
+            parent_commitment: fake_commitment(),
             deltas,
             state,
         }

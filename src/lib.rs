@@ -57,7 +57,6 @@ use hotshot_types::{
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        block_contents::Genesis,
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
@@ -225,8 +224,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let election = {
             // TODO what should this be?
             let state =
-                <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::genesis(
+                <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default(
                 );
+
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
                 election,

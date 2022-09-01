@@ -8,8 +8,6 @@ use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
-use super::block_contents::Genesis;
-
 /// Abstraction over the state that blocks modify
 ///
 /// This trait represents the behaviors that the 'global' ledger state must have:
@@ -28,6 +26,7 @@ pub trait StateContents:
     + DeserializeOwned
     + Clone
     + Debug
+    + Default
     + Hash
     + PartialEq
     + Eq
@@ -35,7 +34,6 @@ pub trait StateContents:
     + Sync
     + Unpin
     + Committable
-    + Genesis
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
@@ -67,7 +65,10 @@ where
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: BlockContents {}
+pub trait TestableBlock: BlockContents {
+    /// generate a genesis block
+    fn genesis() -> Self;
+}
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
@@ -78,7 +79,7 @@ pub mod dummy {
     use serde::Deserialize;
 
     /// The dummy state
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyState {
         /// Some dummy data
         nonce: u64,
@@ -97,12 +98,6 @@ pub mod dummy {
         pub fn random() -> Self {
             let x = rand::thread_rng().gen_range(1..1_000_000);
             Self { nonce: x }
-        }
-    }
-
-    impl Genesis for DummyState {
-        fn genesis() -> Self {
-            Self { nonce: 0 }
         }
     }
 

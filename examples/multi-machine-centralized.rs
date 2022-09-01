@@ -4,18 +4,18 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
+        StateContents,
     },
     types::{ed25519::Ed25519Priv, Event, EventType, HotShotHandle},
     HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
-    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     time::Duration,
@@ -63,8 +63,8 @@ async fn init_state_and_hotshot(
     node_id: u64,
     networking: CentralizedServerNetwork<Ed25519Pub>,
 ) -> (DEntryState, HotShotHandle<Node>) {
-    // Create the initial state
-    let balances: BTreeMap<Account, Balance> = vec![
+    // Create the initial block
+    let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
         ("John", 400_000_000),
@@ -74,10 +74,7 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = DEntryState {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+    let block = DEntryBlock::genesis_from(accounts);
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
@@ -104,7 +101,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::genesis();
+    let state = DEntryState::default().append(&block).unwrap();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -112,7 +109,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block.clone(), state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )

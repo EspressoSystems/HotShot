@@ -8,17 +8,6 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-/// describes a type that may have a genesis (initialization)  value
-pub trait Genesis /* : Committable */ {
-    /// return the genesis value
-    fn genesis() -> Self;
-
-    //
-    // fn fake_commitment() -> Commitment<Self> {
-    //
-    // }
-}
-
 /// Abstraction over the contents of a block
 ///
 /// This trait encapsulates the behaviors that a block must have in order to be used by consensus:
@@ -41,7 +30,6 @@ pub trait BlockContents:
     + Unpin
     + Committable
     + DeserializeOwned
-    + Genesis
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
@@ -118,12 +106,6 @@ pub mod dummy {
     impl std::fmt::Display for DummyError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str("A bad thing happened")
-        }
-    }
-
-    impl Genesis for DummyBlock {
-        fn genesis() -> Self {
-            DummyBlock { nonce: 0 }
         }
     }
 

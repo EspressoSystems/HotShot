@@ -9,7 +9,6 @@ use hotshot::{
     HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
-    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };

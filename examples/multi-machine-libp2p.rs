@@ -5,13 +5,12 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{Libp2pNetwork, MemoryStorage, Stateless},
-        NetworkError,
+        NetworkError, StateContents,
     },
     types::{HotShotHandle, Message},
     HotShot, HotShotConfig,
 };
 use hotshot_types::traits::{
-    block_contents::Genesis,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::TestableState,
 };
@@ -185,7 +184,7 @@ async fn init_state_and_hotshot(
     // Create the initial state
     // NOTE: all balances must be positive
     // so we avoid a negative balance
-    let state = DEntryState::genesis();
+    let block = DEntryBlock::genesis();
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
@@ -212,7 +211,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::genesis();
+    let state = DEntryState::default().append(&block).unwrap();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -220,7 +219,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block.clone(), state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -383,7 +382,7 @@ async fn main() {
             Ok((state, blocks)) => {
                 let mut num_tnxs = 0;
                 for block in blocks {
-                    num_tnxs += block.transactions.len();
+                    num_tnxs += block.txn_count();
                 }
                 total_txns += num_tnxs;
                 error!(

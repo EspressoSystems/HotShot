@@ -7,7 +7,6 @@ use hotshot::{
     HotShotConfig,
 };
 use hotshot_types::traits::{
-    block_contents::Genesis,
     network::TestableNetworkingImplementation,
     signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     state::{TestableBlock, TestableState},
@@ -60,14 +59,15 @@ impl<
         Self {
             network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(
-                    <STATE::Block as Genesis>::genesis(),
-                    <STATE as Genesis>::genesis(),
-                )
-                .unwrap()
+                let block = BLOCK::genesis();
+                let state = STATE::default().append(&block).unwrap();
+                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(block, state).unwrap()
             }),
-            block: Box::new(|_| <BLOCK as Genesis>::genesis()),
-            state: Box::new(|_| <STATE as Genesis>::genesis()),
+            block: Box::new(|_| BLOCK::genesis()),
+            state: Box::new(|_| {
+                let block = BLOCK::genesis();
+                STATE::default().append(&block).unwrap()
+            }),
             config,
         }
     }

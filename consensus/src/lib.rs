@@ -30,7 +30,6 @@ use hotshot_types::{
     event::TransactionCommitment,
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
-        block_contents::Genesis,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{Storage, StoredView},
@@ -756,7 +755,7 @@ impl<I: NodeImplementation> Default for Consensus<I> {
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),
-            high_qc: <QuorumCertificate<I::State> as Genesis>::genesis(),
+            high_qc: QuorumCertificate::genesis(),
         }
     }
 }
