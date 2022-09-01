@@ -212,13 +212,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             continue;
                         };
 
-                        // validate the QC's signatures
-                        if !self.api.validate_qc(&justify_qc) {
+                        // go no further if the parent view number does not
+                        // match the justify_qc. We can't accept this
+                        if parent.view_number != justify_qc.view_number {
                             warn!(
-                                "Proposal failure at qc verification {:?} vs {:?}",
-                                justify_qc.view_number, parent.view_number
+                                "Inconsistency in recv-ed proposal. The parent's view number, {:?} did not match the justify_qc view number, {:?}",
+                                parent.view_number, justify_qc.view_number
                             );
-                            continue;
+                            return (consensus, Err(()));
                         }
 
                         // check that we can indeed create the state
@@ -254,46 +255,41 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             .is_ok();
 
                         // NOTE safenode check is here
-                        // if we pass the safenode check, vote
-                        if safety_check || liveness_check {
-                            let leaf_commitment = leaf.commit();
-                            let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
-
-                            let vote = ConsensusMessage::<I::State>::Vote(Vote {
-                                block_commitment:
-                                    <<I::State as StateContents>::Block as Committable>::commit(
-                                        &leaf.deltas,
-                                    ),
-                                justify_qc: leaf.justify_qc.clone(),
-                                signature,
-                                leaf_commitment,
-                                current_view: self.cur_view,
-                            });
-
-                            // send out vote
-
-                            let next_leader = self.api.get_leader(self.cur_view + 1).await;
-
-                            info!("Sending vote to next leader {:?}", vote);
-
-                            if self
-                                .api
-                                .send_direct_message(next_leader, vote)
-                                .await
-                                .is_err()
-                            {
-                                warn!("Failed to send vote to next leader");
-                            };
+                        // if !safenode, continue
+                        // if !(safety_check || liveness_check)
+                        // if !safety_check && !liveness_check
+                        if !safety_check && !liveness_check {
+                            continue;
                         }
 
-                        // go no further if the parent view number does not
-                        // match the justify_qc. We can't accept this
-                        if parent.view_number != justify_qc.view_number {
-                            return (consensus, Err(()));
-                        }
+                        let leaf_commitment = leaf.commit();
+                        let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
-                        // even if we fail to vote
+                        let vote = ConsensusMessage::<I::State>::Vote(Vote {
+                            block_commitment:
+                                <<I::State as StateContents>::Block as Committable>::commit(
+                                    &leaf.deltas,
+                                ),
+                            justify_qc: leaf.justify_qc.clone(),
+                            signature,
+                            leaf_commitment,
+                            current_view: self.cur_view,
+                        });
 
+                        // send out vote
+
+                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                        info!("Sending vote to next leader {:?}", vote);
+
+                        if self
+                            .api
+                            .send_direct_message(next_leader, vote)
+                            .await
+                            .is_err()
+                        {
+                            warn!("Failed to send vote to next leader");
+                        };
                         break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
@@ -345,6 +341,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 
         if maybe_leaf.is_err() {
+            // we either timed out or for some reason
+            // could not accept a proposal
             return self.high_qc;
         }
 
