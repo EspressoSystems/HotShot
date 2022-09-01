@@ -134,7 +134,7 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use commit::Committable;
+    use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
@@ -142,10 +142,8 @@ mod test {
 
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
         // TODO is it okay to be using genesis here?
-        let dummy_block = DummyBlock::random();
-        let dummy_block_commit = dummy_block.commit();
-        let dummy_leaf = Leaf::genesis(dummy_block);
-        let dummy_leaf_commit = dummy_leaf.commit();
+        let dummy_block_commit = fake_commitment::<DummyBlock>();
+        let dummy_leaf_commit = fake_commitment::<Leaf<DummyState>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 block_commitment: dummy_block_commit,
