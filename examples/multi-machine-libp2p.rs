@@ -406,7 +406,7 @@ async fn main() {
             Ok((state, blocks)) => {
                 let mut num_tnxs = 0;
                 for block in blocks {
-                    num_tnxs += block.transactions.len();
+                    // num_tnxs += block.transactions.len();
                 }
                 total_txns += num_tnxs;
                 error!(
