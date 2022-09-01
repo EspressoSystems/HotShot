@@ -67,12 +67,12 @@ use hotshot_types::{
         storage::StoredView,
         StateContents,
     },
+    HotShotConfig,
 };
 use hotshot_utils::broadcast::BroadcastSender;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    fmt::Debug,
     num::NonZeroUsize,
     sync::Arc,
     time::Duration,
@@ -94,49 +94,6 @@ pub const H_256: usize = 32;
 
 /// Convenience type alias
 type Result<T> = std::result::Result<T, HotShotError>;
-
-/// the type of consensus to run. Either:
-/// wait for a signal to start a view,
-/// or constantly run
-/// you almost always want continuous
-/// incremental is just for testing
-#[derive(Debug, Clone, Copy)]
-pub enum ExecutionType {
-    /// constantly increment view as soon as view finishes
-    Continuous,
-    /// wait for a signal
-    Incremental,
-}
-
-/// Holds configuration for a `HotShot`
-#[derive(Debug, Clone)]
-pub struct HotShotConfig<P: SignatureKey> {
-    /// Whether to run one view or continuous views
-    pub execution_type: ExecutionType,
-    /// Total number of nodes in the network
-    pub total_nodes: NonZeroUsize,
-    /// Nodes required to reach a decision
-    pub threshold: NonZeroUsize,
-    /// Maximum transactions per block
-    pub max_transactions: NonZeroUsize,
-    /// List of known node's public keys, including own, sorted by nonce ()
-    pub known_nodes: Vec<P>,
-    /// Base duration for next-view timeout, in milliseconds
-    pub next_view_timeout: u64,
-    /// The exponential backoff ration for the next-view timeout
-    pub timeout_ratio: (u64, u64),
-    /// The delay a leader inserts before starting pre-commit, in milliseconds
-    pub round_start_delay: u64,
-    /// Delay after init before starting consensus, in milliseconds
-    pub start_delay: u64,
-    /// Number of network bootstrap nodes
-    pub num_bootstrap: usize,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
-}
-
 /// Holds the state needed to participate in `HotShot` consensus
 pub struct HotShotInner<I: NodeImplementation> {
     /// The public key of this node
@@ -477,18 +434,26 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
     #[instrument(
-        skip(self, _sender),
+        skip(self),
         name = "Handle broadcast consensus message",
         level = "error"
     )]
     async fn handle_broadcast_consensus_message(
         &self,
         msg: <I as TypeMap>::ConsensusMessage,
-        _sender: I::SignatureKey,
+        sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_view_number = msg.view_number();
+
+        // Skip messages that are not from the leader
+        let api = HotShotConsensusApi {
+            inner: self.inner.clone(),
+        };
+        if sender != api.get_leader(msg_view_number).await {
+            return;
+        }
 
         match msg {
             // this is ONLY intended for replica
@@ -504,8 +469,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     .await
                     .sender_chan;
 
-                // sends the message if not stale
-                if chan.send_async(msg).await.is_err() {
+                // sends the message if not stale, and if there isn't already a proposal in there
+                if chan.is_empty() && chan.send_async(msg).await.is_err() {
                     error!("Failed to replica task!");
                 }
             }
@@ -546,15 +511,14 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // check if
                 // - is in fact, actually is the next leader
                 // - the message is not stale
-                if !ConsensusApi::is_leader(
+                let is_leader = ConsensusApi::is_leader(
                     &HotShotConsensusApi {
                         inner: self.inner.clone(),
                     },
                     msg_view_number + 1,
                 )
-                .await
-                    && msg_view_number >= channel_map.cur_view
-                {
+                .await;
+                if !is_leader || msg_view_number < channel_map.cur_view {
                     return;
                 }
 

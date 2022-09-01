@@ -8,6 +8,7 @@ use hotshot_types::traits::{
     },
     state::TestableState,
 };
+use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
@@ -25,7 +26,7 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig,
+    HotShot,
 };
 
 type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
@@ -56,6 +57,7 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 100,
             },
             nonce: 0,
+            padding: vec![0; 0],
         },
         DEntryTransaction {
             add: Addition {
@@ -67,6 +69,7 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 25,
             },
             nonce: 1,
+            padding: vec![0; 0],
         },
     ]
 }
@@ -361,7 +364,7 @@ async fn get_hotshot(
         })
         .collect();
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

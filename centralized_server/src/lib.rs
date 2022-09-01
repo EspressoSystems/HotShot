@@ -6,29 +6,32 @@ use async_std::{
 use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use hotshot_types::traits::signature_key::EncodedPublicKey;
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
+use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
 use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
     marker::PhantomData,
     net::{IpAddr, Shutdown, SocketAddr},
+    num::NonZeroUsize,
     time::Duration,
 };
+use tracing::{debug, error};
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(bound(deserialize = ""))]
 pub enum ToServer<K: SignatureKey> {
+    GetConfig,
     Identify { key: K },
     Broadcast { message: Vec<u8> },
     Direct { target: K, message: Vec<u8> },
     RequestClientCount,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
-#[serde(bound(deserialize = ""))]
-pub enum FromServer<K: SignatureKey> {
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub enum FromServer<K> {
+    Config { config: NetworkConfig<K> },
     NodeConnected { key: K },
     NodeDisconnected { key: K },
     Broadcast { message: Vec<u8> },
@@ -39,6 +42,7 @@ pub enum FromServer<K: SignatureKey> {
 pub struct Server<K: SignatureKey + 'static> {
     listener: TcpListener,
     shutdown: Option<Receiver<()>>,
+    config: Option<NetworkConfig<K>>,
     _k: PhantomData<&'static K>,
 }
 
@@ -51,6 +55,7 @@ impl<K: SignatureKey + 'static> Server<K> {
         Self {
             listener,
             shutdown: None,
+            config: None,
             _k: PhantomData,
         }
     }
@@ -73,6 +78,12 @@ impl<K: SignatureKey + 'static> Server<K> {
         self.listener.local_addr().unwrap()
     }
 
+    /// Set the network config. Setting this will allow clients to request this config when they connect to the server.
+    pub fn with_network_config(mut self, config: NetworkConfig<K>) -> Self {
+        self.config = Some(config);
+        self
+    }
+
     /// Run the server.
     ///
     /// If `with_shutdown_signal` is called before, this server will stop when that signal is called. Otherwise this server will run forever.
@@ -81,10 +92,10 @@ impl<K: SignatureKey + 'static> Server<K> {
 
         let background_task_handle = async_std::task::spawn({
             async move {
-                if let Err(e) = background_task(receiver).await {
-                    eprintln!("Background processing thread encountered an error: {:?}", e);
+                if let Err(e) = background_task(receiver, self.config).await {
+                    error!("Background processing thread encountered an error: {:?}", e);
                 }
-                eprintln!("Background thread ended");
+                debug!("Background thread ended");
             }
         });
         let shutdown_future;
@@ -105,11 +116,11 @@ impl<K: SignatureKey + 'static> Server<K> {
                                 async move {
                                     let mut key = None;
                                     if let Err(e) =
-                                        spawn_client::<K>(addr, stream, &mut key, sender.clone()).await
+                                        spawn_client(addr, stream, &mut key, sender.clone()).await
                                     {
-                                        println!("Client from {:?} encountered an error: {:?}", addr, e);
+                                        debug!("Client from {:?} encountered an error: {:?}", addr, e);
                                     } else {
-                                        println!("Client from {:?} shut down", addr);
+                                        debug!("Client from {:?} shut down", addr);
                                     }
                                     if let Some(key) = key {
                                         let _ = sender
@@ -120,18 +131,18 @@ impl<K: SignatureKey + 'static> Server<K> {
                             });
                         },
                         Err(e) => {
-                            eprintln!("Could not accept new client: {:?}", e);
+                            error!("Could not accept new client: {:?}", e);
                             break;
                         }
                     }
                 }
                 _ = shutdown => {
-                    eprintln!("Received shutdown signal");
+                    debug!("Received shutdown signal");
                     break;
                 }
             }
         }
-        eprintln!("Server shutting down");
+        debug!("Server shutting down");
         sender
             .send_async(ToBackground::Shutdown)
             .await
@@ -169,6 +180,7 @@ impl<K: SignatureKey> Ord for OrdKey<K> {
 
 async fn background_task<K: SignatureKey>(
     receiver: Receiver<ToBackground<K>>,
+    mut config: Option<NetworkConfig<K>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
     loop {
@@ -180,7 +192,7 @@ async fn background_task<K: SignatureKey>(
         let client_count = clients.len();
         match msg {
             ToBackground::Shutdown => {
-                eprintln!("Background thread shutting down");
+                debug!("Background thread shutting down");
                 break Ok(());
             }
             ToBackground::NewClient { key, sender } => {
@@ -215,10 +227,24 @@ async fn background_task<K: SignatureKey>(
                     .direct_message(sender, FromServer::ClientCount(client_count))
                     .await;
             }
+            ToBackground::RequestConfig { sender } => {
+                match config.as_mut() {
+                    Some(config) => {
+                        let clone = config.clone();
+                        config.node_index += 1;
+                        // the client may or may not be identified.
+                        // if it is, the next message will also fail, so we won't clean it up here
+                        let _ = sender.send_async(clone).await;
+                    }
+                    None => {
+                        debug!("Client requested a network config but none was configured");
+                    }
+                }
+            }
         }
 
         if client_count != clients.len() {
-            println!("Clients connected: {}", clients.len());
+            error!("Clients connected: {}", clients.len());
         }
     }
 }
@@ -281,7 +307,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         while !clients_with_error.is_empty() {
             let clients_to_remove = std::mem::take(&mut clients_with_error);
             for client in &clients_to_remove {
-                eprintln!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
+                debug!("Background task could not deliver message to client thread {:?}, removing them", client.pubkey);
                 self.0.remove(client);
             }
             let mut futures = Vec::with_capacity(self.0.len() * clients_to_remove.len());
@@ -321,13 +347,12 @@ async fn spawn_client<K: SignatureKey + 'static>(
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (sender, receiver) = flume::unbounded();
-    let mut sender = Some(sender);
     async_std::task::spawn({
         let mut stream = TcpStreamUtil::new(stream.clone());
         async move {
             while let Ok(msg) = receiver.recv_async().await {
                 if let Err(e) = stream.send(msg).await {
-                    eprintln!("Lost connection to {:?}: {:?}", address, e);
+                    debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
                 }
             }
@@ -338,19 +363,36 @@ async fn spawn_client<K: SignatureKey + 'static>(
         let msg = stream.recv::<ToServer<K>>().await?;
         let parent_key_is_some = parent_key.is_some();
         match (msg, parent_key_is_some) {
-            (ToServer::Identify { key }, false) if sender.is_some() => {
+            (ToServer::Identify { key }, false) => {
                 *parent_key = Some(key.clone());
-                let sender = sender.take().unwrap();
+                let sender = sender.clone();
                 to_background
                     .send_async(ToBackground::NewClient { key, sender })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
             (ToServer::Identify { .. }, true) => {
-                eprintln!("{:?} tried to identify twice", address);
+                debug!("{:?} tried to identify twice", address);
+            }
+            (ToServer::GetConfig, _) => {
+                let config = {
+                    let (sender, receiver) = flume::bounded(1);
+                    to_background
+                        .send_async(ToBackground::RequestConfig { sender })
+                        .await
+                        .map_err(|_| Error::BackgroundShutdown)?;
+                    receiver
+                        .recv_async()
+                        .await
+                        .expect("Failed to retrieve config from background")
+                };
+                sender
+                    .send_async(FromServer::Config { config })
+                    .await
+                    .map_err(|_| Error::BackgroundShutdown)?;
             }
             (_, false) => {
-                eprintln!("{:?} received message but is not identified yet", address);
+                debug!("{:?} received message but is not identified yet", address);
             }
             (ToServer::Broadcast { message }, true) => {
                 let sender = parent_key.clone().unwrap();
@@ -399,6 +441,9 @@ enum ToBackground<K: SignatureKey> {
     },
     RequestClientCount {
         sender: K,
+    },
+    RequestConfig {
+        sender: Sender<NetworkConfig<K>>,
     },
 }
 
@@ -464,5 +509,49 @@ impl Drop for TcpStreamUtil {
         if !std::thread::panicking() {
             let _ = self.stream.shutdown(Shutdown::Both);
         }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct NetworkConfig<K> {
+    #[serde(default = "default_rounds")]
+    pub rounds: usize,
+    #[serde(default = "default_transactions_per_round")]
+    pub transactions_per_round: usize,
+    #[serde(default)]
+    pub node_index: u64,
+    #[serde(default)]
+    pub seed: [u8; 32],
+    #[serde(default = "default_padding")]
+    pub padding: usize,
+    #[serde(default = "default_config")]
+    pub config: HotShotConfig<K>,
+}
+
+// This is hacky, blame serde for not having something like `default_value = "10"`
+
+fn default_rounds() -> usize {
+    10
+}
+fn default_transactions_per_round() -> usize {
+    10
+}
+fn default_padding() -> usize {
+    100
+}
+fn default_config<K>() -> HotShotConfig<K> {
+    HotShotConfig {
+        execution_type: ExecutionType::Continuous,
+        total_nodes: NonZeroUsize::new(10).unwrap(),
+        threshold: NonZeroUsize::new(7).unwrap(),
+        max_transactions: NonZeroUsize::new(100).unwrap(),
+        known_nodes: vec![],
+        next_view_timeout: 10000,
+        timeout_ratio: (11, 10),
+        round_start_delay: 1,
+        start_delay: 1,
+        propose_min_round_time: Duration::from_secs(0),
+        propose_max_round_time: Duration::from_secs(10),
+        num_bootstrap: 7,
     }
 }

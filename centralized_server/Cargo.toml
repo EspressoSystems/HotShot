@@ -10,6 +10,7 @@ hotshot-types = { version = "0.1.0", path = "../types" }
 serde = { version = "1.0.143", features = ["derive"] }
 snafu = "0.7.1"
 flume = "0.10.14"
-futures = "0.3.21"
+futures = "0.3.24"
 hotshot-utils = { path = "../utils" }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+tracing = "0.1.36"

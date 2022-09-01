@@ -5,13 +5,12 @@ use hotshot::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
     },
-    types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig,
+    types::{ed25519::Ed25519Pub, Event, EventType, HotShotHandle, Message, SignatureKey},
+    HotShot,
 };
-use hotshot_types::traits::{
-    block_contents::Genesis,
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    state::TestableState,
+use hotshot_types::{
+    traits::{block_contents::Genesis, signature_key::TestableSignatureKey, state::TestableState},
+    ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
@@ -120,7 +119,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

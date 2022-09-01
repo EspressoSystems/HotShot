@@ -3,7 +3,4 @@
 /out*.txt
 .idea
 /*.pdf
-/nix_rustc_target
-/nix_rust_analyzer_target
-/rustc_target
-/rust_analzyer_target
+/target_dirs

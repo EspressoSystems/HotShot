@@ -6,14 +6,17 @@ use async_std::{net::TcpStream, sync::RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use flume::{Receiver, Sender};
-use futures::FutureExt;
-use hotshot_centralized_server::{FromServer, TcpStreamUtil, ToServer};
+use futures::{future::BoxFuture, FutureExt};
+use hotshot_centralized_server::{FromServer, NetworkConfig, TcpStreamUtil, ToServer};
 use hotshot_types::traits::{
     network::{
         FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
         NetworkingImplementation, TestableNetworkingImplementation,
     },
-    signature_key::{SignatureKey, TestableSignatureKey},
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey, TestableSignatureKey,
+    },
 };
 use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Serialize};
@@ -215,9 +218,92 @@ pub struct CentralizedServerNetwork<K: SignatureKey> {
     server_shutdown_signal: Option<Arc<Sender<()>>>,
 }
 
+impl CentralizedServerNetwork<Ed25519Pub> {
+    /// Connect with the server running at `addr` and retrieve the config from the server.
+    ///
+    /// The config is returned along with the running `CentralizedServerNetwork`
+    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<Ed25519Pub>, Self) {
+        let (stream, config) = loop {
+            let mut stream = match TcpStream::connect(addr).await {
+                Ok(stream) => TcpStreamUtil::new(stream),
+                Err(e) => {
+                    error!("Could not connect to server: {:?}", e);
+                    error!("Trying again in 5 seconds");
+                    async_std::task::sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+            if let Err(e) = stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
+                error!("Could not request config from server: {e:?}");
+                error!("Trying again in 5 seconds");
+                async_std::task::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+            match stream.recv().await {
+                Ok(FromServer::Config { config }) => break (stream, config),
+                x => {
+                    error!("Expected config from server, got {:?}", x);
+                    error!("Trying again in 5 seconds");
+                    async_std::task::sleep(Duration::from_secs(5)).await;
+                }
+            }
+        };
+
+        let key = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
+        let key = Ed25519Pub::from_private(&key);
+        let known_nodes = config.config.known_nodes.clone();
+
+        let mut stream = Some(stream);
+
+        let result = Self::create(
+            known_nodes,
+            move || {
+                let stream = stream.take();
+                async move {
+                    if let Some(stream) = stream {
+                        stream
+                    } else {
+                        Self::connect_to(addr).await
+                    }
+                }
+                .boxed()
+            },
+            key,
+        );
+        (config, result)
+    }
+}
+
 impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
+    /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
+    fn connect_to(addr: SocketAddr) -> BoxFuture<'static, TcpStreamUtil> {
+        async move {
+            loop {
+                match TcpStream::connect(addr).await {
+                    Ok(stream) => break TcpStreamUtil::new(stream),
+                    Err(e) => {
+                        error!("Could not connect to server: {:?}", e);
+                        error!("Trying again in 5 seconds");
+                        async_std::task::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                }
+            }
+        }
+        .boxed()
+    }
     /// Connect to a centralized server
     pub fn connect(known_nodes: Vec<K>, addr: SocketAddr, key: K) -> Self {
+        Self::create(known_nodes, move || Self::connect_to(addr), key)
+    }
+
+    /// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
+    ///
+    /// This will auto-reconnect when the network loses connection to the server.
+    fn create<F>(known_nodes: Vec<K>, mut create_connection: F, key: K) -> Self
+    where
+        F: FnMut() -> BoxFuture<'static, TcpStreamUtil> + Send + 'static,
+    {
         let (to_background_sender, to_background) = flume::unbounded();
         let (from_background_sender, from_background) = flume::unbounded();
         let receiving_loopback = from_background_sender.clone();
@@ -236,8 +322,10 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
+                    let stream = create_connection().await;
+
                     if let Err(e) = run_background(
-                        addr,
+                        stream,
                         key.clone(),
                         to_background.clone(),
                         from_background_sender.clone(),
@@ -273,13 +361,13 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
 /// - All messages send to the sender of `to_background` will be send to the server.
 /// - All messages received from the TCP stream, will be send to `from_background_sender`.
 async fn run_background<K: SignatureKey>(
-    addr: SocketAddr,
+    mut stream: TcpStreamUtil,
     key: K,
     to_background: Receiver<ToServer<K>>,
     from_background_sender: Sender<FromServer<K>>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
-    let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
+    // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
     // send identify
     stream.send(ToServer::Identify { key: key.clone() }).await?;
@@ -303,11 +391,16 @@ async fn run_background<K: SignatureKey>(
                     x @ (FromServer:: NodeConnected { .. } | FromServer:: NodeDisconnected { .. } | FromServer:: Broadcast { .. } | FromServer:: Direct { .. }) => {
                         from_background_sender.send_async(x).await.map_err(|_| Error::FailedToReceive)?;
                     },
+
                     FromServer::ClientCount(count) => {
                         let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
                         for sender in senders {
                             let _ = sender.try_send(count);
                         }
+                    },
+
+                    FromServer::Config { .. } => {
+                        tracing::warn!("Received config from server but we're already running");
                     }
                 }
             },

@@ -39,7 +39,10 @@ async fn multiple_clients() {
         .await
         .unwrap();
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(msg, FromServer::ClientCount(1));
+    match msg {
+        FromServer::ClientCount(1) => {}
+        x => panic!("Expected ClientCount(1), got {x:?}"),
+    }
 
     // Connect second client
     let mut second_client = TcpStreamUtil::connect(server_addr).await.unwrap();
@@ -52,25 +55,31 @@ async fn multiple_clients() {
 
     // Assert that the first client gets a notification of this
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(
-        msg,
+    match msg {
         FromServer::NodeConnected {
-            key: TestSignatureKey { idx: 2 }
-        }
-    );
+            key: TestSignatureKey { idx: 2 },
+        } => {}
+        x => panic!("Expected NodeConnected, got {x:?}"),
+    }
     // Assert that there are 2 clients connected
     first_client
         .send(ToServer::RequestClientCount)
         .await
         .unwrap();
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(msg, FromServer::ClientCount(2));
+    match msg {
+        FromServer::ClientCount(2) => {}
+        x => panic!("Expected ClientCount(2), got {x:?}"),
+    }
     second_client
         .send(ToServer::RequestClientCount)
         .await
         .unwrap();
     let msg = second_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(msg, FromServer::ClientCount(2));
+    match msg {
+        FromServer::ClientCount(2) => {}
+        x => panic!("Expected ClientCount(2), got {x:?}"),
+    }
 
     // Send a direct message from 1 -> 2
     first_client
@@ -83,12 +92,10 @@ async fn multiple_clients() {
 
     // Check that 2 received this
     let msg = second_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(
-        msg,
-        FromServer::Direct {
-            message: vec![1, 2, 3, 4]
-        }
-    );
+    match msg {
+        FromServer::Direct { message } => assert_eq!(message, vec![1, 2, 3, 4]),
+        x => panic!("Expected Direct, got {:?}", x),
+    }
 
     // Send a broadcast from 2
     second_client
@@ -100,31 +107,32 @@ async fn multiple_clients() {
 
     // Check that 1 received this
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(
-        msg,
-        FromServer::Broadcast {
-            message: vec![50, 40, 30, 20, 10],
-        }
-    );
+    match msg {
+        FromServer::Broadcast { message } => assert_eq!(message, vec![50, 40, 30, 20, 10]),
+        x => panic!("Expected Broadcast, got {:?}", x),
+    }
 
     // Disconnect the second client
     drop(second_client);
 
     // Assert that the first client received a notification of the second client disconnecting
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(
-        msg,
+    match msg {
         FromServer::NodeDisconnected {
-            key: TestSignatureKey { idx: 2 }
-        }
-    );
+            key: TestSignatureKey { idx: 2 },
+        } => {}
+        x => panic!("Expected NodeDisconnected, got {x:?}"),
+    }
     // Assert that the server reports 1 client being connected
     first_client
         .send(ToServer::RequestClientCount)
         .await
         .unwrap();
     let msg = first_client.recv::<FromServer>().await.unwrap();
-    assert_eq!(msg, FromServer::ClientCount(1));
+    match msg {
+        FromServer::ClientCount(1) => {}
+        x => panic!("Expected ClientCount(1), got {x:?}"),
+    }
 
     // Shut down the server
     shutdown.send(()).unwrap();
