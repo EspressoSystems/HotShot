@@ -290,6 +290,10 @@ impl<STATE: StateContents> Leaf<STATE> {
     /// and genesis state (result of deltas applied to the default state)
     /// justified by the genesis qc (special case)
     ///
+    /// # Panics
+    ///
+    /// Panics if deltas is not a valid genesis block,
+    /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
         let state = STATE::default().append(&deltas).unwrap();

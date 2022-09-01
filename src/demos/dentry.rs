@@ -127,26 +127,6 @@ impl Committable for DEntryState {
     }
 }
 
-// impl DEntryState {
-//     ///
-//     pub fn genesis() -> Self {
-//         let balances: BTreeMap<Account, Balance> = vec![
-//             ("Joe", 1_000_000),
-//             ("Nathan M", 500_000),
-//             ("John", 400_000),
-//             ("Nathan Y", 600_000),
-//             ("Ian", 5_000_000),
-//         ]
-//         .into_iter()
-//         .map(|(x, y)| (x.to_string(), y))
-//         .collect();
-//         Self {
-//             balances,
-//             nonces: BTreeSet::default(),
-//         }
-//     }
-// }
-
 /// initializes the first state on genesis
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct DEntryGenesisBlock {
