@@ -479,7 +479,7 @@ pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
     // TODO: Generate a tc::Signature
     QuorumCertificate {
         block_hash: BlockHash::random(),
-        genesis: rng.gen(),
+        genesis: false,
         leaf_hash: LeafHash::random(),
         signatures: BTreeMap::new(),
         view_number: ViewNumber::new(rng.gen()),

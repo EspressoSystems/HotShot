@@ -21,7 +21,10 @@ mod traits;
 
 pub use traits::ConsensusApi;
 
-use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
+use async_std::{
+    sync::{Arc, RwLock, RwLockUpgradableReadGuard},
+    task,
+};
 use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{
@@ -175,7 +178,9 @@ pub struct Replica<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usi
     pub api: A,
 }
 
-impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A, I, N> {
+impl<A: ConsensusApi<I, N> + Clone + 'static, I: NodeImplementation<N>, const N: usize>
+    Replica<A, I, N>
+{
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
@@ -195,6 +200,7 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                 if msg.view_number() != self.cur_view {
                     continue;
                 }
+                let api = self.api.clone();
                 match msg {
                     ConsensusMessage::Proposal(p) => {
                         if !view_leader_key.validate(
@@ -250,14 +256,9 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
 
                         info!("Sending vote to next leader {:?}", vote);
 
-                        if self
-                            .api
-                            .send_direct_message(next_leader, vote)
-                            .await
-                            .is_err()
-                        {
-                            warn!("Failed to send vote to next leader");
-                        };
+                        let _future = task::spawn(async move {
+                            let _result = api.send_direct_message(next_leader, vote).await.is_err();
+                        });
 
                         break leaf;
                     }
@@ -274,10 +275,12 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Replica<A,
                         );
 
                         // send timedout message to the next leader
-                        let _result = self
-                            .api
-                            .send_direct_message(next_leader, timed_out_msg)
-                            .await;
+                        let _result = task::spawn(async move {
+                            let _result = api
+                                .send_direct_message(next_leader, timed_out_msg)
+                                .await
+                                .is_err();
+                        });
 
                         // exits from entire function
                         self.api.send_replica_timeout(self.cur_view).await;
@@ -441,7 +444,9 @@ pub struct Leader<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usiz
     pub api: A,
 }
 
-impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, I, N> {
+impl<A: ConsensusApi<I, N> + Clone + 'static, I: NodeImplementation<N>, const N: usize>
+    Leader<A, I, N>
+{
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<N> {
@@ -529,9 +534,11 @@ impl<A: ConsensusApi<I, N>, I: NodeImplementation<N>, const N: usize> Leader<A, 
             let signature = self.api.sign_proposal(&leaf.hash(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
-            if self.api.send_broadcast_message(message).await.is_err() {
-                warn!("Failed to broadcast to network");
-            };
+
+            let api = self.api.clone();
+            task::spawn(async move {
+                let _result = api.send_broadcast_message(message).await.is_err();
+            });
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
         }

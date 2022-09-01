@@ -18,7 +18,7 @@ use hotshot_types::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -123,14 +123,23 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
-    let start = Instant::now();
-    hotshot.start().await;
 
-    // Run random transactions
-    debug!("Running random transactions");
+    hotshot.start().await;
 
     let size = mem::size_of::<Transaction>();
     let adjusted_padding = if padding < size { 0 } else { padding - size };
+    let mut txs: VecDeque<Transaction> = VecDeque::new();
+    let state = hotshot.get_state().await;
+    for _ in 0..((transactions_per_round * rounds) / node_count) + 1 {
+        let mut txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+        txn.padding = vec![0; adjusted_padding];
+        txs.push_back(txn);
+    }
+
+    let start = Instant::now();
+
+    // Run random transactions
+    debug!("Running random transactions");
     error!("Adjusted padding size is = {:?}", adjusted_padding);
     let mut timed_out_views: u64 = 0;
     let mut round = 1;
@@ -140,11 +149,9 @@ async fn main() {
 
         let num_submitted = if node_index == ((round % node_count) as u64) {
             tracing::info!("Generating txn for round {}", round);
-            let state = hotshot.get_state().await;
 
             for _ in 0..transactions_per_round {
-                let mut txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                txn.padding = vec![0; adjusted_padding];
+                let txn = txs.pop_front().unwrap();
                 tracing::info!("Submitting txn on round {}", round);
                 hotshot.submit_transaction(txn).await.unwrap();
             }
@@ -187,7 +194,7 @@ async fn main() {
     let total_time_elapsed = end - start;
     let total_transactions = transactions_per_round * rounds;
     let total_size = total_transactions * padding;
-    error!("All {} rounds completed in {:?}", rounds, end - start);
+    println!("All {} rounds completed in {:?}", rounds, end - start);
     error!("{} rounds timed out", timed_out_views);
     // This assumes all submitted transactions make it through consensus:
     error!(
