@@ -46,7 +46,7 @@ pub const N: usize = H_256;
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
-pub struct RoundResult<STATE: StateContents + 'static> {
+pub struct RoundResult<STATE: StateContents> {
     /// Transactions that were submitted
     pub txns: Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
     /// Nodes that committed this round

@@ -190,7 +190,6 @@ impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
     async fn get_internal_state(&self) -> StorageState<STATE> {
         let mut blocks: Vec<(Commitment<STATE::Block>, STATE::Block)> =
             self.inner.blocks.load_all().await.into_iter().collect();
-        // TODO: Ord isn't supported on commitmnets
 
         blocks.sort_by_key(|(hash, _)| *hash);
         let blocks = blocks.into_iter().map(|(_, block)| block).collect();

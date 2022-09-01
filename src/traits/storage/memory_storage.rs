@@ -47,8 +47,6 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
         };
-        // TODO we should probably be passing the entire leaf in here...
-        // or at least, more information.
         let qc = QuorumCertificate {
             block_commitment: block.commit(),
             genesis: true,

@@ -230,7 +230,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         info!("Creating a new hotshot");
 
         let election = {
-            // TODO what should this be?
             let state =
                 <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::genesis(
                 );
