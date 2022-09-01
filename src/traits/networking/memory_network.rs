@@ -21,7 +21,7 @@ use snafu::ResultExt;
 use std::{
     fmt::Debug,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
 };
@@ -475,6 +475,10 @@ impl<
         _key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
         unimplemented!()
+    }
+
+    async fn notify_of_subsequent_leader(&self, _pk: P, _is_cancelled: Arc<AtomicBool>) {
+        // do nothing
     }
 }
 

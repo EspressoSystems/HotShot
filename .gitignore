@@ -3,4 +3,4 @@
 /out*.txt
 .idea
 /*.pdf
-
+/target_dirs

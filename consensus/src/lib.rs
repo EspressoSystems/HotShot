@@ -25,9 +25,9 @@ pub use traits::ConsensusApi;
 use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    constants::GENESIS_VIEW,
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
-    event::TransactionCommitment,
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
@@ -210,27 +210,57 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("Proposal's parent missing from storage");
                             continue;
                         };
-                        if justify_qc.view_number != parent.view_number
-                            || !self.api.validate_qc(&justify_qc, parent.view_number)
-                        {
+
+                        // go no further if the parent view number does not
+                        // match the justify_qc. We can't accept this
+                        if parent.view_number != justify_qc.view_number {
                             warn!(
-                                "Proposal failure at qc verification {:?} vs {:?}",
-                                justify_qc.view_number, parent.view_number
+                                "Inconsistency in recv-ed proposal. The parent's view number, {:?} did not match the justify_qc view number, {:?}",
+                                parent.view_number, justify_qc.view_number
                             );
-                            continue;
+                            return (consensus, Err(()));
                         }
+
+                        // check that we can indeed create the state
                         let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
                             Leaf::new(
                                 state,
                                 p.leaf.deltas,
                                 p.leaf.parent_commitment,
-                                justify_qc,
+                                justify_qc.clone(),
                                 self.cur_view,
+                                Vec::new(),
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
+
+                        // TODO change to locked_view + 2 after VRF integration
+                        let liveness_check = justify_qc.view_number > consensus.locked_view;
+
+                        // check if proposal extends from the locked leaf
+                        let safety_check = consensus
+                            .visit_leaf_ancestors(
+                                parent.view_number,
+                                Terminator::Inclusive(consensus.locked_view),
+                                false,
+                                |leaf| {
+                                    // if leaf view no == locked view no then we're done, report success by
+                                    // returning true
+                                    leaf.view_number != consensus.locked_view
+                                },
+                            )
+                            .is_ok();
+
+                        // NOTE safenode check is here
+                        // if !safenode, continue
+                        // if !(safety_check || liveness_check)
+                        // if !safety_check && !liveness_check
+                        if !safety_check && !liveness_check {
+                            continue;
+                        }
+
                         let leaf_commitment = leaf.commit();
                         let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
@@ -258,7 +288,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             .is_err()
                         {
                             warn!("Failed to send vote to next leader");
-                        };
+                        }
 
                         break leaf;
                     }
@@ -278,7 +308,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let _result = self
                             .api
                             .send_direct_message(next_leader, timed_out_msg)
-                            .await;
+                            .await
+                            .is_err();
 
                         // exits from entire function
                         self.api.send_replica_timeout(self.cur_view).await;
@@ -311,6 +342,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 
         if maybe_leaf.is_err() {
+            // we either timed out or for some reason
+            // could not accept a proposal
             return self.high_qc;
         }
 
@@ -320,11 +353,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
-        let mut qcs = Vec::new();
-        let mut rejects = Vec::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
@@ -332,6 +362,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
             let _outcome = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
+                true,
                 |leaf| {
                     if !new_decide_reached {
                         if last_view_number_visited == leaf.view_number + 1 {
@@ -351,11 +382,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                     // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     if new_decide_reached {
-                        // collecting chain elements for the decide
-                        blocks.push(leaf.deltas.clone());
-                        states.push(leaf.state.clone());
-                        qcs.push(leaf.justify_qc.clone());
-                        rejects.push(Vec::new());
+                        leaf_views.push(leaf.clone());
                         let txns = leaf.deltas.contained_transactions();
                         for txn in txns {
                             included_txns.insert(txn);
@@ -396,9 +423,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     .collect();
             }
 
-            let decide_sent =
-                self.api
-                    .send_decide(consensus.last_decided_view, blocks, states, qcs, rejects);
+            let decide_sent = self
+                .api
+                .send_decide(consensus.last_decided_view, leaf_views);
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)
@@ -502,7 +529,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         let previous_used_txns = previous_used_txns_vec
             .into_iter()
-            .collect::<HashSet<TransactionCommitment<I::State>>>();
+            .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let txns = self.transactions.read().await;
 
@@ -528,13 +555,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 parent_commitment: original_parent_hash,
                 deltas: block,
                 state: new_state,
+                rejected: Vec::new(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
-            if self.api.send_broadcast_message(message).await.is_err() {
-                warn!("Failed to broadcast to network");
-            };
+
+            let _ = self.api.send_broadcast_message(message).await.is_err();
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
         }
@@ -590,6 +617,17 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     qcs.insert(t.justify_qc);
                 }
                 ConsensusMessage::Vote(vote) => {
+                    // if the signature on the vote is invalid,
+                    // assume it's sent by byzantine node
+                    // and ignore
+                    if !self.api.is_valid_signature(
+                        &vote.signature.0,
+                        &vote.signature.1,
+                        vote.leaf_commitment,
+                    ) {
+                        continue;
+                    }
+
                     qcs.insert(vote.justify_qc);
 
                     match vote_outcomes.entry(vote.leaf_commitment) {
@@ -607,24 +645,21 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         }
                     }
 
-                    let (block_commitment, map) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
+                    // unwraps here are fine since we *just* inserted the key
+                    let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
 
-                    if map.len() >= threshold.into() {
-                        // NOTE this is slow, shouldn't check all the signatures EVERY time
-                        let result = self
-                            .api
-                            .get_valid_signatures(map.clone(), vote.leaf_commitment);
-                        if let Ok(valid_signatures) = result {
-                            // construct QC
-                            let qc = QuorumCertificate {
-                                block_commitment: *block_commitment,
-                                leaf_commitment: vote.leaf_commitment,
-                                view_number: self.cur_view,
-                                signatures: valid_signatures,
-                                genesis: false,
-                            };
-                            return qc;
-                        }
+                    if valid_signatures.len() >= threshold.into() {
+                        let (block_commitment, valid_signatures) =
+                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+                        // construct QC
+                        let qc = QuorumCertificate {
+                            block_commitment,
+                            leaf_commitment: vote.leaf_commitment,
+                            view_number: self.cur_view,
+                            signatures: valid_signatures,
+                            genesis: false,
+                        };
+                        return qc;
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
@@ -656,6 +691,7 @@ impl<I: NodeImplementation> Consensus<I> {
         &self,
         start_from: ViewNumber,
         terminator: Terminator,
+        ok_when_finished: bool,
         mut f: F,
     ) -> Result<()>
     where
@@ -679,7 +715,10 @@ impl<I: NodeImplementation> Consensus<I> {
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
             if let Terminator::Exclusive(stop_before) = terminator {
                 if stop_before == leaf.view_number {
-                    return Ok(());
+                    if ok_when_finished {
+                        return Ok(());
+                    }
+                    break;
                 }
             }
             next_leaf = leaf.parent_commitment;
@@ -688,7 +727,10 @@ impl<I: NodeImplementation> Consensus<I> {
             }
             if let Terminator::Inclusive(stop_after) = terminator {
                 if stop_after == leaf.view_number {
-                    return Ok(());
+                    if ok_when_finished {
+                        return Ok(());
+                    }
+                    break;
                 }
             }
         }
@@ -750,8 +792,8 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: ViewNumber::genesis(),
-            last_decided_view: ViewNumber::genesis(),
+            cur_view: GENESIS_VIEW,
+            last_decided_view: GENESIS_VIEW,
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),

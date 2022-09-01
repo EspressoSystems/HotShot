@@ -6,12 +6,12 @@ use hotshot::{
         implementations::{MemoryStorage, Stateless, WNetwork},
         StateContents,
     },
-    types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig,
+    types::{ed25519::Ed25519Pub, Event, EventType, HotShotHandle, Message, SignatureKey},
+    HotShot,
 };
-use hotshot_types::traits::{
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    state::TestableState,
+use hotshot_types::{
+    traits::{signature_key::TestableSignatureKey, state::TestableState},
+    ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
@@ -114,7 +114,7 @@ async fn init_state_and_hotshot(
         .collect();
 
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
@@ -252,12 +252,12 @@ async fn main() {
         }
         println!("Node {} reached decision", own_id);
         debug!(?own_id, "Decision emitted");
-        if let EventType::Decide { state, .. } = event.event {
+        if let EventType::Decide { leaf_chain, .. } = event.event {
             println!("  - Balances:");
-            for (account, balance) in &state[0].balances {
+            for (account, balance) in &leaf_chain[0].state.balances {
                 println!("    - {}: {}", account, balance);
             }
-            own_state = state.as_ref()[0].clone();
+            own_state = leaf_chain[0].state.clone();
         } else {
             unreachable!()
         }

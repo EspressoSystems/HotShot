@@ -9,17 +9,20 @@ use hotshot::{
         BlockContents, NetworkReliability, NetworkingImplementation, StateContents, Storage,
     },
     types::Message,
-    HotShotConfig, HotShotError,
+    HotShotError,
 };
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
     TestRunner,
 };
-use hotshot_types::traits::{
-    network::TestableNetworkingImplementation,
-    signature_key::ed25519::Ed25519Pub,
-    state::{TestableBlock, TestableState},
-    storage::TestableStorage,
+use hotshot_types::{
+    traits::{
+        network::TestableNetworkingImplementation,
+        signature_key::ed25519::Ed25519Pub,
+        state::{TestableBlock, TestableState},
+        storage::TestableStorage,
+    },
+    HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::Snafu;

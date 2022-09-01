@@ -7,6 +7,7 @@ use hotshot_types::traits::{
     },
     state::TestableState,
 };
+use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
@@ -25,7 +26,7 @@ use hotshot::{
         StateContents,
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, HotShotConfig,
+    HotShot,
 };
 
 type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
@@ -56,6 +57,7 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 100,
             },
             nonce: 0,
+            padding: vec![0; 0],
         },
         DEntryTransaction {
             add: Addition {
@@ -67,6 +69,7 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
                 amount: 25,
             },
             nonce: 1,
+            padding: vec![0; 0],
         },
     ]
 }
@@ -149,8 +152,8 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryState> = hotshot
@@ -170,7 +173,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -215,8 +223,8 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
             let mut event: Event<DEntryState> = hotshot
@@ -236,7 +244,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -346,7 +359,7 @@ async fn get_hotshot(
         })
         .collect();
     let config = HotShotConfig {
-        execution_type: hotshot::ExecutionType::Continuous,
+        execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),

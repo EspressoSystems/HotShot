@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - '*/*'
+      - 'benchmarking'
       - 'main'
   pull_request:
   schedule:
@@ -68,7 +69,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate docker metadata
+      - name: Generate docker metadata (libp2p)
         uses: docker/metadata-action@v4
         id: multi-machine-libp2p
         with:
@@ -83,3 +84,19 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.multi-machine-libp2p.outputs.tags }}
           labels: ${{ steps.multi-machine-libp2p.outputs.labels }}
+
+      - name: Generate docker metadata (centralized)
+        uses: docker/metadata-action@v4
+        id: multi-machine-centralized
+        with:
+          images: ghcr.io/espressosystems/hotshot/multi-machine-centralized
+
+      - name: Build and push multi-machine-centralized docker
+        uses: docker/build-push-action@v3
+        with:
+          context: ./
+          file: ./deploy/multi-machine-centralized.Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.multi-machine-centralized.outputs.tags }}
+          labels: ${{ steps.multi-machine-centralized.outputs.labels }}

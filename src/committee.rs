@@ -316,7 +316,6 @@ mod tests {
     #[test]
     #[allow(clippy::shadow_unrelated)]
     fn test_vrf_verification() {
-        // TODO fix
         with_seed(|seed| {
             // Generate keys
             let secret_key_honest = Ed25519Priv::generated_from_seed_indexed(seed, HONEST_NODE_ID);

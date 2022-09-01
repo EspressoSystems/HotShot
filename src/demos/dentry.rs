@@ -7,10 +7,13 @@
 //! production use.
 
 use commit::{Commitment, Committable};
-use hotshot_types::traits::{
-    signature_key::ed25519::Ed25519Pub,
-    state::{TestableBlock, TestableState},
-    StateContents,
+use hotshot_types::{
+    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
+    traits::{
+        signature_key::ed25519::Ed25519Pub,
+        state::{TestableBlock, TestableState},
+        StateContents,
+    },
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -88,6 +91,8 @@ pub struct DEntryTransaction {
     pub sub: Subtraction,
     /// The nonce for a transaction, no two transactions can have the same nonce
     pub nonce: u64,
+    /// Number of bytes to pad to each transaction
+    pub padding: Vec<u8>,
 }
 
 impl DEntryTransaction {
@@ -397,6 +402,7 @@ impl TestableState for DEntryState {
                 amount,
             },
             nonce: rng.gen(),
+            padding: vec![0; 0],
         }
     }
 }
@@ -494,4 +500,30 @@ where
     >;
     type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
+}
+
+/// Provides a random [`QuorumCertificate`]
+pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<STATE> {
+    let mut rng = thread_rng();
+    QuorumCertificate {
+        block_commitment: random_commitment(),
+        leaf_commitment: random_commitment(),
+        view_number: ViewNumber::new(rng.gen()),
+        signatures: BTreeMap::default(),
+        genesis: rng.gen(),
+    }
+}
+
+/// Provides a random [`Leaf`]
+pub fn random_leaf<STATE: StateContents>(deltas: STATE::Block) -> Leaf<STATE> {
+    let justify_qc = random_quorum_certificate();
+    let state = STATE::default().append(&deltas).unwrap_or_default();
+    Leaf {
+        view_number: justify_qc.view_number,
+        justify_qc,
+        parent_commitment: random_commitment(),
+        deltas,
+        state,
+        rejected: Vec::new(),
+    }
 }

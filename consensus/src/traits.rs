@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    error::HotShotError,
-    event::{Event, EventType, TransactionCommitment},
+    event::{Event, EventType},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
@@ -13,7 +12,7 @@ use hotshot_types::{
         StateContents,
     },
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -122,21 +121,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(
-        &self,
-        view_number: ViewNumber,
-        blocks: Vec<<I::State as StateContents>::Block>,
-        states: Vec<I::State>,
-        qcs: Vec<QuorumCertificate<I::State>>,
-        rejects: Vec<Vec<TransactionCommitment<I::State>>>,
-    ) {
+    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::State>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
-                block: Arc::new(blocks),
-                state: Arc::new(states),
-                qcs: Arc::new(qcs),
-                rejects: Arc::new(rejects),
+                leaf_chain: Arc::new(leaf_views),
             },
         })
         .await;
@@ -171,20 +160,15 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
-    /// Validate a quorum certificate
-    fn validate_qc(
-        &self,
-        quorum_certificate: &QuorumCertificate<I::State>,
-        view_number: ViewNumber,
-    ) -> bool;
+    /// Validate a quorum certificate by checking
+    /// signatures
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::State>) -> bool;
 
-    /// Validate the signatures of a QC
-    ///
-    /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
-    /// TODO this should really take in a reference to the map. No need to clone it on every check.
-    fn get_valid_signatures(
+    /// Check if a signature is valid
+    fn is_valid_signature(
         &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::State>>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
+    ) -> bool;
 }

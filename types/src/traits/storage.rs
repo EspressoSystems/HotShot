@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 
 use crate::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
@@ -119,6 +119,8 @@ pub struct StoredView<STATE: StateContents> {
     pub state: STATE,
     /// The history of how this view came to be
     pub append: ViewAppend<<STATE as StateContents>::Block>,
+    /// transactions rejected in this view
+    pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
 impl<STATE> StoredView<STATE>
@@ -133,6 +135,7 @@ where
         block: <STATE as StateContents>::Block,
         state: STATE,
         parent_commitment: Commitment<Leaf<STATE>>,
+        rejected: Vec<TxnCommitment<STATE>>,
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
@@ -140,6 +143,7 @@ where
             parent: parent_commitment,
             justify_qc: qc,
             state,
+            rejected,
         }
     }
 }

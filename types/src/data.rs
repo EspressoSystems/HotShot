@@ -8,11 +8,11 @@ use crate::{
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        StateContents,
+        BlockContents, StateContents,
     },
 };
 use commit::{Commitment, Committable};
-use hex_fmt::HexFmt;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -51,92 +51,6 @@ impl std::ops::Deref for ViewNumber {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-/// Internal type used for representing hashes
-///
-/// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that
-/// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
-/// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
-/// have for the general case.
-#[derive(
-    PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, custom_debug::Debug, PartialOrd, Ord,
-)]
-pub struct InternalHash<const N: usize> {
-    /// The underlying array
-    /// No support for const generics
-    #[serde(with = "serde_bytes_array")]
-    #[debug(with = "fmt_arr")]
-    inner: [u8; N],
-}
-
-impl<const N: usize> InternalHash<N> {
-    /// Converts an array of the correct size directly into an `InternalHash`
-    pub const fn from_array(input: [u8; N]) -> Self {
-        Self { inner: input }
-    }
-
-    /// Clones the contents of this `InternalHash` into a `Vec<u8>`
-    pub fn to_vec(self) -> Vec<u8> {
-        self.inner.to_vec()
-    }
-
-    /// Testing only random generation of a `InternalHash`
-    pub fn random() -> Self {
-        use rand::Rng;
-        let mut array = [0_u8; N];
-        let mut rng = rand::thread_rng();
-        rng.fill(&mut array[..]);
-        Self { inner: array }
-    }
-}
-
-impl<const N: usize> AsRef<[u8]> for InternalHash<N> {
-    fn as_ref(&self) -> &[u8] {
-        &self.inner
-    }
-}
-
-impl<const N: usize> From<[u8; N]> for InternalHash<N> {
-    fn from(input: [u8; N]) -> Self {
-        Self::from_array(input)
-    }
-}
-
-impl<const N: usize> Default for InternalHash<N> {
-    fn default() -> Self {
-        InternalHash {
-            inner: [0_u8; { N }],
-        }
-    }
-}
-
-/// [Needed](https://github.com/serde-rs/bytes/issues/26#issuecomment-902550669) to (de)serialize const generic arrays
-mod serde_bytes_array {
-    use core::convert::TryInto;
-
-    use serde::{de::Error, Deserializer, Serializer};
-
-    /// This just specializes [`serde_bytes::serialize`] to `<T = [u8]>`.
-    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::serialize(bytes, serializer)
-    }
-
-    /// This takes the result of [`serde_bytes::deserialize`] from `[u8]` to `[u8; N]`.
-    pub fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let slice: &[u8] = serde_bytes::deserialize(deserializer)?;
-        let array: [u8; N] = slice.try_into().map_err(|_| {
-            let expected = format!("[u8; {}]", N);
-            D::Error::invalid_length(slice.len(), &expected.as_str())
-        })?;
-        Ok(array)
     }
 }
 
@@ -197,6 +111,11 @@ pub struct QuorumCertificate<STATE: StateContents> {
     pub genesis: bool,
 }
 
+/// The `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
+
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -224,6 +143,10 @@ pub struct Leaf<STATE: StateContents> {
     /// What the state should be after applying `self.deltas`
     #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
+
+    /// Transactions that were marked for rejection while collecting deltas
+    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
+    pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -231,7 +154,15 @@ pub fn fake_commitment<S: Committable>() -> Commitment<S> {
     commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
 }
 
-impl<STATE: StateContents> Leaf<STATE> {}
+/// create a random commitment
+pub fn random_commitment<S: Committable>() -> Commitment<S> {
+    let mut rng = rand::thread_rng();
+    let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
+    commit::RawCommitmentBuilder::new("Random Commitment")
+        .constant_str("Random Field")
+        .var_size_bytes(&random_array)
+        .finalize()
+}
 
 impl<STATE: StateContents> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
@@ -275,6 +206,7 @@ impl<STATE: StateContents> Leaf<STATE> {
         parent: Commitment<Leaf<STATE>>,
         qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
+        rejected: Vec<TxnCommitment<STATE>>,
     ) -> Self {
         Leaf {
             view_number,
@@ -282,6 +214,7 @@ impl<STATE: StateContents> Leaf<STATE> {
             parent_commitment: parent,
             deltas,
             state,
+            rejected,
         }
     }
 
@@ -304,6 +237,7 @@ impl<STATE: StateContents> Leaf<STATE> {
             parent_commitment: fake_commitment(),
             deltas,
             state,
+            rejected: Vec::new(),
         }
     }
 }
@@ -316,6 +250,7 @@ impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
             append.parent,
             append.justify_qc,
             append.view_number,
+            Vec::new(),
         )
     }
 }
@@ -328,11 +263,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             justify_qc: val.justify_qc,
             state: val.state,
             append: val.deltas.into(),
+            rejected: val.rejected,
         }
     }
-}
-
-/// Format a fixed-size array with [`HexFmt`]
-fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", HexFmt(n))
 }

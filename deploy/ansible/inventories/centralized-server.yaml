@@ -1,0 +1,3 @@
+all:
+  hosts:
+    "7.us-east-2.cluster.aws.espresso.network": # Centralized server

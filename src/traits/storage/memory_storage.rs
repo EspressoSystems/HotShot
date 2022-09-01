@@ -6,6 +6,7 @@ use crate::{traits::StateContents, QuorumCertificate};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::{fake_commitment, ViewNumber},
     traits::storage::{
         Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
@@ -46,13 +47,14 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
         // or at least, more information.
         let qc = QuorumCertificate::genesis();
         inner.stored.insert(
-            ViewNumber::genesis(),
+            GENESIS_VIEW,
             StoredView {
                 append: ViewAppend::Block { block },
                 parent: fake_commitment(),
                 justify_qc: qc,
                 state,
-                view_number: ViewNumber::genesis(),
+                view_number: GENESIS_VIEW,
+                rejected: Vec::new(),
             },
         );
         Self {
@@ -155,6 +157,7 @@ mod test {
             DummyBlock::random(),
             DummyState::random(),
             dummy_leaf_commit,
+            Vec::new(),
         )
     }
 
@@ -163,7 +166,7 @@ mod test {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
                 .unwrap();
-        let genesis = random_stored_view(ViewNumber::genesis());
+        let genesis = random_stored_view(GENESIS_VIEW);
         storage
             .append_single_view(genesis.clone())
             .await
