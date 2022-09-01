@@ -15,11 +15,10 @@ use hotshot_types::traits::{
 };
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
+pub struct TestLauncher<NETWORK, STORAGE, BLOCK> {
     pub(super) network: Generator<NETWORK>,
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
-    pub(super) state: Generator<STATE>,
     pub(super) config: HotShotConfig<Ed25519Pub>,
 }
 
@@ -28,7 +27,7 @@ impl<
         STORAGE: TestableStorage<STATE> + 'static,
         BLOCK: BlockContents + TestableBlock + 'static,
         STATE: TestableState<Block = BLOCK> + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+    > TestLauncher<NETWORK, STORAGE, BLOCK>
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -64,21 +63,17 @@ impl<
                 <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(block, state).unwrap()
             }),
             block: Box::new(|_| BLOCK::genesis()),
-            state: Box::new(|_| {
-                let block = BLOCK::genesis();
-                STATE::default().append(&block).unwrap()
-            }),
             config,
         }
     }
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
+impl<NETWORK, STORAGE, BLOCK> TestLauncher<NETWORK, STORAGE, BLOCK> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
         network: impl Fn(u64, Ed25519Pub) -> NewNetwork + 'static,
-    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
+    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK> {
         TestLauncher {
             network: Box::new({
                 move |node_id| {
@@ -92,7 +87,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             }),
             storage: self.storage,
             block: self.block,
-            state: self.state,
             config: self.config,
         }
     }
@@ -101,12 +95,11 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_storage<NewStorage>(
         self,
         storage: impl Fn(u64) -> NewStorage + 'static,
-    ) -> TestLauncher<NETWORK, NewStorage, BLOCK, STATE> {
+    ) -> TestLauncher<NETWORK, NewStorage, BLOCK> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
             block: self.block,
-            state: self.state,
             config: self.config,
         }
     }
@@ -115,26 +108,11 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_block<NewBlock>(
         self,
         block: impl Fn(u64) -> NewBlock + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, NewBlock, STATE> {
+    ) -> TestLauncher<NETWORK, STORAGE, NewBlock> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
             block: Box::new(block),
-            state: self.state,
-            config: self.config,
-        }
-    }
-
-    /// Set a custom state generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_state<NewState>(
-        self,
-        state: impl Fn(u64) -> NewState + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, BLOCK, NewState> {
-        TestLauncher {
-            network: self.network,
-            storage: self.storage,
-            block: self.block,
-            state: Box::new(state),
             config: self.config,
         }
     }
@@ -160,15 +138,14 @@ impl<
         STORAGE: Storage<STATE>,
         BLOCK: TestableBlock,
         STATE: StateContents<Block = BLOCK> + TestableState + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+    > TestLauncher<NETWORK, STORAGE, BLOCK>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
-    /// - `BLOCK` implements [`BlockContents`]
-    /// - `STATE` implements [`State`] and [`TestableState`]
-    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, STATE> {
+    /// - `BLOCK` implements [`BlockContents`] and [`TestableBlock`]
+    pub fn launch(self) -> TestRunner<NETWORK, STORAGE> {
         TestRunner::new(self)
     }
 }

@@ -154,7 +154,7 @@ where
     <STATE as StateContents>::Block: TestableBlock,
 {
     pub(self) fn new(
-        launcher: TestLauncher<NETWORK, STORAGE, <STATE as StateContents>::Block, STATE>,
+        launcher: TestLauncher<NETWORK, STORAGE, <STATE as StateContents>::Block>,
     ) -> Self {
         Self {
             network_generator: launcher.network,
