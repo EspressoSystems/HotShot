@@ -381,14 +381,14 @@ pub async fn network_lookup_task<I: NodeImplementation>(
                 let c_api = c_api.clone();
                 let networking = networking.clone();
                 spawn_local(async move {
-                    error!("starting lookup for {:?}", view_to_lookup);
+                    info!("starting lookup for {:?}", view_to_lookup);
                     networking
                         .notify_of_subsequent_leader(
                             c_api.get_leader(view_to_lookup).await,
                             is_done,
                         )
                         .await;
-                    error!("finished lookup for {:?}", view_to_lookup);
+                    info!("finished lookup for {:?}", view_to_lookup);
                 });
             }
         }

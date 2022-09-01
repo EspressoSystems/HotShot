@@ -289,7 +289,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             .is_err()
                         {
                             warn!("Failed to send vote to next leader");
-                        };
+                        }
+
                         break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
@@ -308,7 +309,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let _result = self
                             .api
                             .send_direct_message(next_leader, timed_out_msg)
-                            .await;
+                            .await
+                            .is_err();
 
                         // exits from entire function
                         self.api.send_replica_timeout(self.cur_view).await;
@@ -559,9 +561,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
-            if self.api.send_broadcast_message(message).await.is_err() {
-                warn!("Failed to broadcast to network");
-            };
+
+            let _ = self.api.send_broadcast_message(message).await.is_err();
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
         }

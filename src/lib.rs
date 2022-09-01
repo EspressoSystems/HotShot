@@ -45,7 +45,10 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
-use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_std::{
+    sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard},
+    task::{self, spawn_local},
+};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
@@ -55,7 +58,7 @@ use hotshot_consensus::{
 use hotshot_types::{
     constants::GENESIS_VIEW,
     data::ViewNumber,
-    error::{NetworkFaultSnafu, StorageSnafu},
+    error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         block_contents::Genesis,
@@ -319,14 +322,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         trace!("Adding transaction to our own queue");
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction);
-        let network_result = self
-            .send_broadcast_message(message.clone())
-            .await
-            .context(NetworkFaultSnafu);
-        if let Err(e) = network_result {
-            warn!(?e, ?message, "Failed to publish a transaction");
-        };
-        debug!(?message, "Message broadcasted");
+
+        let api = self.clone();
+        task::spawn(async move {
+            let _result = api.send_broadcast_message(message).await.is_err();
+        });
         Ok(())
     }
 
@@ -399,13 +399,20 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         &self,
         kind: impl Into<<I as TypeMap>::MessageKind>,
     ) -> std::result::Result<(), NetworkError> {
-        self.inner
-            .networking
-            .broadcast_message(Message {
-                sender: self.inner.public_key.clone(),
-                kind: kind.into(),
-            })
-            .await
+        let inner = self.inner.clone();
+        let pk = self.inner.public_key.clone();
+        let kind = kind.into();
+        spawn_local(async move {
+            if inner
+                .networking
+                .broadcast_message(Message { sender: pk, kind })
+                .await
+                .is_err()
+            {
+                warn!("Failed to broadcast message");
+            };
+        });
+        Ok(())
     }
 
     /// Send a direct message to a given recipient.
@@ -738,17 +745,21 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         recipient: I::SignatureKey,
         message: <I as TypeMap>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError> {
+        let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
-        self.inner
-            .networking
-            .message_node(
-                Message {
-                    sender: self.inner.public_key.clone(),
-                    kind: message.into(),
-                },
-                recipient,
-            )
-            .await
+        spawn_local(async move {
+            inner
+                .networking
+                .message_node(
+                    Message {
+                        sender: inner.public_key.clone(),
+                        kind: message.into(),
+                    },
+                    recipient,
+                )
+                .await
+        });
+        Ok(())
     }
 
     async fn send_broadcast_message(
