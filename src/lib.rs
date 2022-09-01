@@ -48,11 +48,12 @@ use crate::{
 use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use flume::Sender;
+use flume::{Receiver, Sender};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::ViewNumber,
     error::{NetworkFaultSnafu, StorageSnafu},
     message::{ConsensusMessage, DataMessage, Message},
@@ -200,6 +201,12 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     /// for sending/recv-ing things with the next leader task
     next_leader_channel_map: Arc<RwLock<SendToTasks<I>>>,
 
+    /// for sending messages to network lookup task
+    send_network_lookup: Sender<Option<ViewNumber>>,
+
+    /// for receiving messages in the network lookup task
+    recv_network_lookup: Receiver<Option<ViewNumber>>,
+
     /// uid for instrumentation
     id: u64,
 }
@@ -207,7 +214,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
 impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
-    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, cluster_public_keys, networking, storage, election))]
     pub async fn new(
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
@@ -223,7 +230,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         info!("Creating a new hotshot");
 
         let election = {
-            // TODO what should this be?
             let state =
                 <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::genesis(
                 );
@@ -234,7 +240,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 stake_table,
             }
         };
-        let inner: HotShotInner<I> = HotShotInner {
+        let inner: Arc<HotShotInner<I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -245,7 +251,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
-        };
+        });
 
         let anchored = inner
             .storage
@@ -253,21 +259,23 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             .await
             .context(StorageSnafu)?;
 
+        let anchored_leaf: Leaf<_> = anchored.clone().into();
+
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
             anchored.view_number,
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: anchored.justify_qc.leaf_commitment,
+                    leaf: anchored_leaf.commit(),
                 },
             },
         );
 
         let mut saved_leaves = HashMap::new();
-        saved_leaves.insert(anchored.justify_qc.leaf_commitment, anchored.clone().into());
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf);
 
-        let start_view = anchored.view_number + 1;
+        let start_view = anchored.view_number;
 
         // TODO jr add constructor and private the consensus fields
         // and also ViewNumber's contained number
@@ -277,22 +285,23 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             last_decided_view: anchored.view_number,
             transactions: Arc::default(),
             saved_leaves,
-            // TODO unclear if this is correct
-            // maybe we need 3 views?
-            locked_view: ViewNumber::new(0),
+            locked_view: GENESIS_VIEW,
             high_qc: anchored.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
 
+        let (send_network_lookup, recv_network_lookup) = flume::unbounded();
+
         Ok(Self {
             id: nonce,
-            inner: Arc::new(inner),
+            inner,
             transactions: txns,
-            // TODO check this is what we want.
             hotstuff,
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            send_network_lookup,
+            recv_network_lookup,
         })
     }
 
@@ -821,51 +830,38 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<I::State>, view_number: ViewNumber) -> bool {
-        if qc.view_number != view_number {
-            warn!(?qc, ?view_number, "Failing on view_number equality check");
-            return false;
-        }
-        if qc.genesis && qc.view_number == ViewNumber::genesis() {
+    fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
+        if qc.genesis && qc.view_number == GENESIS_VIEW {
             return true;
         }
-        // TODO before this was lopping on *our* view number.
-        // what if the leaf doesn't have the right view number?
-        // let hash = create_verify_hash(&qc.leaf_commitment, view_number);
         let hash = qc.leaf_commitment;
-        let valid_signatures = self.get_valid_signatures(qc.signatures.clone(), hash);
-        match valid_signatures {
-            Ok(_) => true,
-            Err(_e) => false,
-        }
-    }
+        let mut num_valid = 0;
+        for signature in qc.signatures.clone() {
+            if self.is_valid_signature(&signature.0, &signature.1, hash) {
+                num_valid += 1;
+            }
 
-    // TODO <github.com/EspressoSystems/HotShot/issues/419>
-    // s/get_valid_signatures/get_valid_signature(signature, hash)
-    fn get_valid_signatures(
-        &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-        hash: Commitment<Leaf<I::State>>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>> {
-        let mut valid_signatures = BTreeMap::new();
-
-        for (encoded_key, encoded_signature) in signatures {
-            if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(&encoded_key) {
-                let contains = self.inner.cluster_public_keys.contains(&key);
-                let valid = key.validate(&encoded_signature, hash.as_ref());
-                if contains && valid {
-                    valid_signatures.insert(encoded_key, encoded_signature);
-                } else {
-                    warn!(?contains, ?valid, "Signature failed validity check");
-                }
+            // pre-emptive short circuit, since signature checking is presumably expensive
+            // and a byzantine node might try to include a *lot* of signatures
+            if num_valid >= self.inner.config.threshold.get() {
+                return true;
             }
         }
-        if valid_signatures.len() < self.inner.config.threshold.get() {
-            return Err(HotShotError::InsufficientValidSignatures {
-                num_valid_signatures: valid_signatures.len(),
-                threshold: self.inner.config.threshold.get(),
-            });
+        false
+    }
+
+    fn is_valid_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Leaf<I::State>>,
+    ) -> bool {
+        if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+            let contains = self.inner.cluster_public_keys.contains(&key);
+            let valid = key.validate(encoded_signature, hash.as_ref());
+            valid && contains
+        } else {
+            false
         }
-        Ok(valid_signatures)
     }
 }

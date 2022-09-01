@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
-    error::HotShotError,
     event::{Event, EventType},
     traits::{
         network::NetworkError,
@@ -13,7 +12,7 @@ use hotshot_types::{
         StateContents,
     },
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -161,20 +160,15 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
-    /// Validate a quorum certificate
-    fn validate_qc(
-        &self,
-        quorum_certificate: &QuorumCertificate<I::State>,
-        view_number: ViewNumber,
-    ) -> bool;
+    /// Validate a quorum certificate by checking
+    /// signatures
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::State>) -> bool;
 
-    /// Validate the signatures of a QC
-    ///
-    /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
-    /// TODO this should really take in a reference to the map. No need to clone it on every check.
-    fn get_valid_signatures(
+    /// Check if a signature is valid
+    fn is_valid_signature(
         &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::State>>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
+    ) -> bool;
 }
