@@ -45,13 +45,13 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
-use async_std::sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_std::{sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard}, task};
 use async_trait::async_trait;
 use flume::Sender;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     data::{create_verify_hash, TransactionHash, VerifyHash, ViewNumber},
-    error::{NetworkFaultSnafu, StorageSnafu},
+    error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -302,14 +302,11 @@ impl<I: NodeImplementation<N> + Sync + Send + 'static, const N: usize> HotShot<I
         trace!("Adding transaction to our own queue");
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction);
-        let network_result = self
-            .send_broadcast_message(message.clone())
-            .await
-            .context(NetworkFaultSnafu);
-        if let Err(e) = network_result {
-            warn!(?e, ?message, "Failed to publish a transaction");
-        };
-        debug!(?message, "Message broadcasted");
+        
+        let api = self.clone();
+        task::spawn(async move {
+            let _result= api.send_broadcast_message(message).await.is_err();}
+        );
         Ok(())
     }
 
