@@ -123,12 +123,12 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
-    
+
     hotshot.start().await;
 
     let size = mem::size_of::<Transaction>();
     let adjusted_padding = if padding < size { 0 } else { padding - size };
-    let mut txs: VecDeque<Transaction> = VecDeque::new(); 
+    let mut txs: VecDeque<Transaction> = VecDeque::new();
     let state = hotshot.get_state().await;
     for _ in 0..((transactions_per_round * rounds) / node_count) + 1 {
         let mut txn = <State as TestableState<H_256>>::create_random_transaction(&state);
