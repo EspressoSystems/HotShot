@@ -24,7 +24,7 @@ use std::{
 };
 use tracing::{debug, error};
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(bound(deserialize = ""))]
 pub enum ToServer<K: SignatureKey> {
     GetConfig,
@@ -35,7 +35,7 @@ pub enum ToServer<K: SignatureKey> {
     Results(RunResults),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct RunResults {
     pub run: Run,
     pub node_index: u64,
@@ -46,7 +46,7 @@ pub struct RunResults {
 
     pub rounds_succeeded: u64,
     pub rounds_timed_out: u64,
-    pub total_time_in_seconds: u64,
+    pub total_time_in_seconds: f64,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
@@ -102,7 +102,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 
     /// Set the network config. Setting this will allow clients to request this config when they connect to the server.
-    pub fn with_network_config(mut self, config: RoundConfig<K>) -> Self {
+    pub fn with_round_config(mut self, config: RoundConfig<K>) -> Self {
         self.config = Some(config);
         self
     }
@@ -231,7 +231,15 @@ async fn background_task<K: SignatureKey>(
         }
 
         if client_count != clients.len() {
-            error!("Clients connected: {}", clients.len());
+            if let Some(config) = &config {
+                error!(
+                    "Clients connected: {} / {}",
+                    clients.len(),
+                    config.current_round_client_count()
+                );
+            } else {
+                error!("Clients connected: {}", clients.len());
+            }
         }
     }
 }
@@ -250,6 +258,13 @@ impl<K> RoundConfig<K> {
             current_run: 0,
             next_node_index: 0,
         }
+    }
+
+    pub fn current_round_client_count(&self) -> usize {
+        self.configs
+            .get(self.current_run)
+            .map(|config| config.config.total_nodes.get())
+            .unwrap_or(0)
     }
 
     /// Will write the results for this node to `<run>/<node_index>.toml`.
@@ -290,17 +305,24 @@ impl<K> RoundConfig<K> {
         K: Clone,
     {
         let mut config: NetworkConfig<K> = self.configs.get(self.current_run)?.clone();
-        let index = self.next_node_index;
-        self.next_node_index += 1;
 
-        if self.next_node_index >= config.config.total_nodes.get() {
+        if self.next_node_index > config.config.total_nodes.get() {
             self.next_node_index = 0;
             self.current_run += 1;
 
-            error!("Starting run {}", self.current_run + 1);
+            println!(
+                "Starting run {} / {}",
+                self.current_run + 1,
+                self.configs.len()
+            );
 
             config = self.configs.get(self.current_run)?.clone();
+        } else if self.next_node_index == 0 && self.current_run == 0 {
+            println!("Starting run 1 / {}", self.configs.len());
         }
+        let index = self.next_node_index;
+
+        self.next_node_index += 1;
 
         config.node_index = index as u64;
         Some((config, Run(self.current_run)))

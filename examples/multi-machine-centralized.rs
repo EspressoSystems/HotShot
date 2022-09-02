@@ -211,7 +211,7 @@ async fn main() {
 
             rounds_succeeded: rounds as u64 - timed_out_views,
             rounds_timed_out: timed_out_views,
-            total_time_in_seconds: total_time_elapsed.as_secs(),
+            total_time_in_seconds: total_time_elapsed.as_secs_f64(),
         })
         .await;
 }
