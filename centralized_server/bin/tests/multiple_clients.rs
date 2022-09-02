@@ -1,7 +1,7 @@
 use async_std::prelude::FutureExt;
+use commit::{Commitment, Committable};
 use hotshot::{
-    data::{BlockHash, TransactionHash},
-    traits::{BlockContents, State, Transaction},
+    traits::{BlockContents, StateContents},
     types::SignatureKey,
 };
 use hotshot_centralized_server::TcpStreamUtil;
@@ -152,7 +152,15 @@ impl std::error::Error for TestError {}
 #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
 struct TestBlock {}
 
-impl<const N: usize> BlockContents<N> for TestBlock {
+impl Committable for TestBlock {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("Test Block Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
+    }
+}
+
+impl BlockContents for TestBlock {
     type Error = TestError;
     type Transaction = TestTransaction;
 
@@ -163,33 +171,33 @@ impl<const N: usize> BlockContents<N> for TestBlock {
         Ok(Self {})
     }
 
-    fn hash(&self) -> BlockHash<N> {
-        BlockHash::default()
-    }
-
-    fn hash_transaction(_tx: &Self::Transaction) -> TransactionHash<N> {
-        TransactionHash::default()
-    }
-
-    fn hash_leaf(bytes: &[u8]) -> hotshot::data::LeafHash<N> {
-        assert_eq!(bytes.len(), N);
-        let mut arr = [0u8; N];
-        arr.copy_from_slice(bytes);
-        arr.into()
-    }
-
-    fn contained_transactions(&self) -> HashSet<TransactionHash<N>> {
+    fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
         HashSet::default()
     }
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
 struct TestTransaction {}
-impl<const N: usize> Transaction<N> for TestTransaction {}
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
+impl Committable for TestTransaction {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("Test Txn Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
+    }
+}
+
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
 struct TestState {}
-impl<const N: usize> State<N> for TestState {
+impl Committable for TestState {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("Test Txn Comm")
+            .u64_field("Nothing", 0)
+            .finalize()
+    }
+}
+
+impl StateContents for TestState {
     type Error = TestError;
     type Block = TestBlock;
 

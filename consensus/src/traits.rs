@@ -1,23 +1,24 @@
 //! Contains the [`ConsensusApi`] trait.
 
 use async_trait::async_trait;
+use commit::Commitment;
 use hotshot_types::{
-    data::{LeafHash, QuorumCertificate, TransactionHash, VerifyHash, ViewNumber},
-    error::HotShotError,
+    data::{Leaf, QuorumCertificate, ViewNumber},
     event::{Event, EventType},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        StateContents,
     },
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
-pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
+pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -27,7 +28,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     /// The minimum amount of time a leader has to wait before sending a propose
     fn propose_min_round_time(&self) -> Duration;
 
-    /// The maximum amount of time a leader can wait before sending a propose.
+    /// The maximum amount of time a leader can wait before sending a propose.ConsensusApi
     /// If this time is reached, the leader has to send a propose without transactions.
     fn propose_max_round_time(&self) -> Duration;
 
@@ -49,17 +50,17 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     async fn send_direct_message(
         &self,
         recipient: I::SignatureKey,
-        message: <I as TypeMap<N>>::ConsensusMessage,
+        message: <I as TypeMap>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: <I as TypeMap<N>>::ConsensusMessage,
+        message: <I as TypeMap>::ConsensusMessage,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<I::Block, I::State, N>);
+    async fn send_event(&self, event: Event<I::State>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
@@ -72,7 +73,7 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     ///
     /// The provided states and blocks are guaranteed to be in ascending order of age (newest to
     /// oldest).
-    async fn notify(&self, blocks: Vec<I::Block>, states: Vec<I::State>);
+    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>);
 
     // Utility functions
 
@@ -87,7 +88,11 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     }
 
     /// sends a proposal event down the channel
-    async fn send_propose(&self, view_number: ViewNumber, block: I::Block) {
+    async fn send_propose(
+        &self,
+        view_number: ViewNumber,
+        block: <I::State as StateContents>::Block,
+    ) {
         self.send_event(Event {
             view_number,
             event: EventType::Propose {
@@ -116,21 +121,11 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(
-        &self,
-        view_number: ViewNumber,
-        blocks: Vec<I::Block>,
-        states: Vec<I::State>,
-        qcs: Vec<QuorumCertificate<N>>,
-        rejects: Vec<Vec<TransactionHash<N>>>,
-    ) {
+    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::State>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
-                block: Arc::new(blocks),
-                state: Arc::new(states),
-                qcs: Arc::new(qcs),
-                rejects: Arc::new(rejects),
+                leaf_chain: Arc::new(leaf_views),
             },
         })
         .await;
@@ -145,45 +140,35 @@ pub trait ConsensusApi<I: NodeImplementation<N>, const N: usize>: Send + Sync {
         .await;
     }
 
-    /// Create a [`VerifyHash`] for a given [`LeafHash`], and [`ViewNumber`]
-    fn create_verify_hash(
-        &self,
-        leaf_hash: &LeafHash<N>,
-        view_number: ViewNumber,
-    ) -> VerifyHash<32>;
-
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_hash: &LeafHash<N>,
-        view_number: ViewNumber,
+        leaf_commitment: &Commitment<Leaf<I::State>>,
+        _view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let hash = self.create_verify_hash(leaf_hash, view_number);
-        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         (self.public_key().to_bytes(), signature)
     }
 
     /// Signs a proposal
-    fn sign_proposal(&self, leaf_hash: &LeafHash<N>, view_number: ViewNumber) -> EncodedSignature {
-        let hash = self.create_verify_hash(leaf_hash, view_number);
-        let signature = I::SignatureKey::sign(self.private_key(), hash.as_ref());
+    fn sign_proposal(
+        &self,
+        leaf_commitment: &Commitment<Leaf<I::State>>,
+        _view_number: ViewNumber,
+    ) -> EncodedSignature {
+        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
-    /// Validate a quorum certificate
-    fn validate_qc(
-        &self,
-        quorum_certificate: &QuorumCertificate<N>,
-        view_number: ViewNumber,
-    ) -> bool;
+    /// Validate a quorum certificate by checking
+    /// signatures
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::State>) -> bool;
 
-    /// Validate the signatures of a QC
-    ///
-    /// Returns a BTreeMap of valid signatures for the QC or an error if there are not enough valid signatures
-    /// TODO this should really take in a reference to the map. No need to clone it on every check.
-    fn get_valid_signatures(
+    /// Check if a signature is valid
+    fn is_valid_signature(
         &self,
-        signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-        hash: VerifyHash<32>,
-    ) -> Result<BTreeMap<EncodedPublicKey, EncodedSignature>, HotShotError>;
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Leaf<I::State>>,
+    ) -> bool;
 }

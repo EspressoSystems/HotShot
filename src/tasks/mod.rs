@@ -4,17 +4,20 @@ use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, Hot
 use async_std::{
     prelude::FutureExt,
     sync::RwLock,
-    task::{sleep, spawn, yield_now, JoinHandle},
+    task::{sleep, spawn, spawn_local, yield_now, JoinHandle},
 };
 use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
+    constants::LOOK_AHEAD,
+    data::ViewNumber,
     message::MessageKind,
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
     ExecutionType,
 };
 use hotshot_utils::broadcast::channel;
 use std::{
+    collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -55,8 +58,13 @@ impl TaskHandle {
     }
 
     /// Wait until all underlying handles are shut down
-    pub async fn wait_shutdown(&self) {
+    pub async fn wait_shutdown(&self, send_network_lookup: Sender<Option<ViewNumber>>) {
         let inner = self.inner.write().await.take().unwrap();
+
+        // this shuts down the networking task
+        if send_network_lookup.send_async(None).await.is_err() {
+            error!("network lookup task already shut down!");
+        }
 
         // shutdown_timeout == the hotshot's view timeout
         // in case the round_runner task is running for `view_timeout`
@@ -115,9 +123,7 @@ struct TaskHandleInner {
 /// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
-    hotshot: &HotShot<I, N>,
-) -> HotShotHandle<I, N> {
+pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHandle<I> {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
@@ -132,6 +138,11 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
     let network_change_task_handle = spawn(
         network_change_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot network change listener task",)),
+    );
+
+    spawn(
+        network_lookup_task(hotshot.clone(), shut_down.clone())
+            .instrument(info_span!("HotShot network lookup task",)),
     );
 
     let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
@@ -180,9 +191,7 @@ pub async fn spawn_all<I: NodeImplementation<N>, const N: usize>(
 
 /// Executes one view of consensus
 #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
-pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
-) -> Result<(), ()> {
+pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), ()> {
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
@@ -232,6 +241,16 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
         (cur_view, high_qc, txns)
     };
 
+    // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
+    if hotshot
+        .send_network_lookup
+        .send_async(Some(cur_view))
+        .await
+        .is_err()
+    {
+        error!("Failed to initiate network lookup");
+    };
+
     info!("Starting tasks for View {:?}!", cur_view);
 
     let mut task_handles = Vec::new();
@@ -279,7 +298,7 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
     spawn({
         let next_view_timeout = hotshot.inner.config.next_view_timeout;
         let next_view_timeout = next_view_timeout;
-        let hotshot: HotShot<I, N> = hotshot.clone();
+        let hotshot: HotShot<I> = hotshot.clone();
         async move {
             sleep(Duration::from_millis(next_view_timeout)).await;
             hotshot
@@ -302,8 +321,8 @@ pub async fn run_view<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// main thread driving consensus
-pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn view_runner<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<Receiver<()>>,
@@ -320,14 +339,76 @@ pub async fn view_runner<I: NodeImplementation<N>, const N: usize>(
     }
 }
 
+/// Task to look up a node in the future as needed
+pub async fn network_lookup_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
+    shut_down: Arc<AtomicBool>,
+) {
+    info!("Launching network lookup task");
+    let networking = &hotshot.inner.networking;
+    let c_api = HotShotConsensusApi {
+        inner: hotshot.inner.clone(),
+    };
+
+    let mut completion_map: HashMap<ViewNumber, Arc<AtomicBool>> = HashMap::default();
+
+    while !shut_down.load(Ordering::Relaxed) {
+        if let Ok(Some(cur_view)) = hotshot.recv_network_lookup.recv_async().await {
+            let view_to_lookup = cur_view + LOOK_AHEAD;
+
+            // perform pruning
+            // TODO in the future btreemap would be better
+            completion_map = completion_map
+                .drain()
+                .filter(|(view, is_done)| {
+                    if !is_done.load(Ordering::Relaxed) {
+                        // we are past the view where this is useful
+                        if cur_view >= *view {
+                            is_done.store(true, Ordering::Relaxed);
+                            return true;
+                        }
+                        // we aren't done
+                        return false;
+                    }
+                    true
+                })
+                .collect();
+
+            // logic to look ahead
+            if !c_api.is_leader(view_to_lookup).await {
+                let is_done = Arc::new(AtomicBool::new(false));
+                completion_map.insert(view_to_lookup, is_done.clone());
+                let c_api = c_api.clone();
+                let networking = networking.clone();
+                spawn_local(async move {
+                    info!("starting lookup for {:?}", view_to_lookup);
+                    networking
+                        .notify_of_subsequent_leader(
+                            c_api.get_leader(view_to_lookup).await,
+                            is_done,
+                        )
+                        .await;
+                    info!("finished lookup for {:?}", view_to_lookup);
+                });
+            }
+        }
+    }
+
+    // shut down all child tasks
+    for (_, is_done) in completion_map {
+        is_done.store(true, Ordering::Relaxed);
+    }
+}
+
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
-pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_broadcast_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching broadcast processing task");
     let networking = &hotshot.inner.networking;
     let mut incremental_backoff_ms = 10;
+
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.broadcast_queue().await {
             Ok(queue) => queue,
@@ -366,8 +447,8 @@ pub async fn network_broadcast_task<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
-pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_direct_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching direct processing task");
@@ -409,8 +490,8 @@ pub async fn network_direct_task<I: NodeImplementation<N>, const N: usize>(
 }
 
 /// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
-pub async fn network_change_task<I: NodeImplementation<N>, const N: usize>(
-    hotshot: HotShot<I, N>,
+pub async fn network_change_task<I: NodeImplementation>(
+    hotshot: HotShot<I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network change handler task");

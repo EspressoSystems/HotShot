@@ -3,13 +3,16 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
-use crate::traits::{
-    signature_key::{EncodedPublicKey, EncodedSignature},
-    storage::StoredView,
-    BlockContents, State,
+use crate::{
+    constants::GENESIS_VIEW,
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature},
+        storage::StoredView,
+        BlockContents, StateContents,
+    },
 };
-use blake3::Hasher;
-use hex_fmt::HexFmt;
+use commit::{Commitment, Committable};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -51,152 +54,16 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
-/// generates boilerplate code for any wrapper types
-/// around `InternalHash`
-macro_rules! gen_hash_wrapper_type {
-    ($t:ident) => {
-        #[derive(PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, Ord, PartialOrd)]
-        ///  External wrapper type
-        pub struct $t<const N: usize> {
-            inner: InternalHash<N>,
+impl<STATE: StateContents> QuorumCertificate<STATE> {
+    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
+    pub fn genesis() -> Self {
+        Self {
+            block_commitment: fake_commitment(),
+            leaf_commitment: fake_commitment::<Leaf<STATE>>(),
+            view_number: GENESIS_VIEW,
+            signatures: BTreeMap::default(),
+            genesis: true,
         }
-
-        impl<const N: usize> $t<N> {
-            /// Converts an array of the correct size directly into an `Self`
-            pub fn from_array(input: [u8; N]) -> Self {
-                $t {
-                    inner: InternalHash::from_array(input),
-                }
-            }
-            /// Clones the contents of this Hash into a `Vec<u8>`
-            pub fn to_vec(self) -> Vec<u8> {
-                self.inner.to_vec()
-            }
-            /// Testing only random generation
-            pub fn random() -> Self {
-                $t {
-                    inner: InternalHash::random(),
-                }
-            }
-        }
-        impl<const N: usize> AsRef<[u8]> for $t<N> {
-            fn as_ref(&self) -> &[u8] {
-                self.inner.as_ref()
-            }
-        }
-
-        impl<const N: usize> From<[u8; N]> for $t<N> {
-            fn from(input: [u8; N]) -> Self {
-                Self::from_array(input)
-            }
-        }
-
-        impl<const N: usize> Default for $t<N> {
-            fn default() -> Self {
-                $t {
-                    inner: InternalHash::default(),
-                }
-            }
-        }
-        impl<const N: usize> Debug for $t<N> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(&format!("{}", std::any::type_name::<$t<N>>()))
-                    .field("inner", &format!("{}", HexFmt(&self.inner)))
-                    .finish()
-            }
-        }
-    };
-}
-
-gen_hash_wrapper_type!(BlockHash);
-gen_hash_wrapper_type!(LeafHash);
-gen_hash_wrapper_type!(TransactionHash);
-gen_hash_wrapper_type!(VerifyHash);
-gen_hash_wrapper_type!(StateHash);
-
-/// Internal type used for representing hashes
-///
-/// This is a thin wrapper around a `[u8; N]` used to work around various issues with libraries that
-/// have not updated to be const-generic aware. In particular, this provides a `serde` [`Serialize`]
-/// and [`Deserialize`] implementation over the const-generic array, which `serde` normally does not
-/// have for the general case.
-#[derive(
-    PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize, custom_debug::Debug, PartialOrd, Ord,
-)]
-pub struct InternalHash<const N: usize> {
-    /// The underlying array
-    /// No support for const generics
-    #[serde(with = "serde_bytes_array")]
-    #[debug(with = "fmt_arr")]
-    inner: [u8; N],
-}
-
-impl<const N: usize> InternalHash<N> {
-    /// Converts an array of the correct size directly into an `InternalHash`
-    pub const fn from_array(input: [u8; N]) -> Self {
-        Self { inner: input }
-    }
-
-    /// Clones the contents of this `InternalHash` into a `Vec<u8>`
-    pub fn to_vec(self) -> Vec<u8> {
-        self.inner.to_vec()
-    }
-
-    /// Testing only random generation of a `InternalHash`
-    pub fn random() -> Self {
-        use rand::Rng;
-        let mut array = [0_u8; N];
-        let mut rng = rand::thread_rng();
-        rng.fill(&mut array[..]);
-        Self { inner: array }
-    }
-}
-
-impl<const N: usize> AsRef<[u8]> for InternalHash<N> {
-    fn as_ref(&self) -> &[u8] {
-        &self.inner
-    }
-}
-
-impl<const N: usize> From<[u8; N]> for InternalHash<N> {
-    fn from(input: [u8; N]) -> Self {
-        Self::from_array(input)
-    }
-}
-
-impl<const N: usize> Default for InternalHash<N> {
-    fn default() -> Self {
-        InternalHash {
-            inner: [0_u8; { N }],
-        }
-    }
-}
-
-/// [Needed](https://github.com/serde-rs/bytes/issues/26#issuecomment-902550669) to (de)serialize const generic arrays
-mod serde_bytes_array {
-    use core::convert::TryInto;
-
-    use serde::{de::Error, Deserializer, Serializer};
-
-    /// This just specializes [`serde_bytes::serialize`] to `<T = [u8]>`.
-    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::serialize(bytes, serializer)
-    }
-
-    /// This takes the result of [`serde_bytes::deserialize`] from `[u8]` to `[u8; N]`.
-    pub fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let slice: &[u8] = serde_bytes::deserialize(deserializer)?;
-        let array: [u8; N] = slice.try_into().map_err(|_| {
-            let expected = format!("[u8; {}]", N);
-            D::Error::invalid_length(slice.len(), &expected.as_str())
-        })?;
-        Ok(array)
     }
 }
 
@@ -205,20 +72,22 @@ mod serde_bytes_array {
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
-pub struct QuorumCertificate<const N: usize> {
+pub struct QuorumCertificate<STATE: StateContents> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
-    #[debug(with = "fmt_blockhash")]
-    pub block_hash: BlockHash<N>,
+    #[debug(skip)]
+    #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
+    pub block_commitment: Commitment<STATE::Block>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
-    pub leaf_hash: LeafHash<N>,
+    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
+    pub leaf_commitment: Commitment<Leaf<STATE>>,
 
     /// The view number this quorum certificate was generated during
     ///
@@ -242,78 +111,10 @@ pub struct QuorumCertificate<const N: usize> {
     pub genesis: bool,
 }
 
-impl<const N: usize> Default for QuorumCertificate<N> {
-    fn default() -> Self {
-        Self {
-            block_hash: BlockHash::<N>::default(),
-            leaf_hash: LeafHash::<N>::default(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: false,
-        }
-    }
-}
-
-impl<const N: usize> QuorumCertificate<N> {
-    /// Converts this Quorum Certificate to a version using a `Vec` rather than a const-generic
-    /// array.
-    ///
-    /// This is useful for erasing the const-generic length for error types and logging, but is not
-    /// directly consensus relevant.
-    pub fn to_vec_cert(&self) -> VecQuorumCertificate {
-        VecQuorumCertificate {
-            block_hash: self.block_hash.as_ref().to_vec(),
-            view_number: self.view_number,
-            signatures: self.signatures.clone(),
-            genesis: self.genesis,
-        }
-    }
-}
-
-/// [`QuorumCertificate`] variant using a `Vec` rather than a const-generic array
-///
-/// This type mainly exists to work around an issue with
-/// [`snafu`](https://github.com/shepmaster/snafu) when used with const-generics, by erasing the
-/// const-generic length.
-///
-/// This type is not used directly by consensus.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug)]
-pub struct VecQuorumCertificate {
-    /// Block this QC refers to
-    #[debug(with = "fmt_vec")]
-    pub block_hash: Vec<u8>,
-    /// The view we were on when we made this certificate
-    pub view_number: ViewNumber,
-    /// The signature portion of this QC
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
-    /// Temporary bypass for boostrapping
-    pub genesis: bool,
-}
-
-impl VecQuorumCertificate {
-    /// Create a dummy [`VecQuorumCertificate`]
-    pub fn dummy<const N: usize>() -> Self {
-        Self {
-            block_hash: BlockHash::<N>::random().to_vec(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: false,
-        }
-    }
-}
-
-/// This concatenates the encoding of `leaf_hash`, `view`, and `stage`, in
-/// that order, and hashes the result.
-pub fn create_verify_hash<const N: usize>(
-    leaf_hash: &LeafHash<N>,
-    view: ViewNumber,
-) -> VerifyHash<32> {
-    let mut hasher = Hasher::new();
-    hasher.update(leaf_hash.as_ref());
-    hasher.update(&view.to_be_bytes());
-    let hash = hasher.finalize();
-    VerifyHash::from_array(*hash.as_bytes())
-}
+/// The `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// A node in `HotShot`'s consensus-internal merkle tree.
 ///
@@ -321,26 +122,79 @@ pub fn create_verify_hash<const N: usize>(
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
-pub struct Leaf<BLOCK, STATE, const N: usize> {
+pub struct Leaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<N>,
+    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
+    pub justify_qc: QuorumCertificate<STATE>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(with = "fmt_leaf_hash")]
-    pub parent: LeafHash<N>,
+    #[debug(skip)]
+    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
+    pub parent_commitment: Commitment<Leaf<STATE>>,
 
     /// Block leaf wants to apply
-    pub deltas: BLOCK,
+    #[serde(deserialize_with = "STATE::Block::deserialize")]
+    pub deltas: STATE::Block,
 
     /// What the state should be after applying `self.deltas`
+    #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
+
+    /// Transactions that were marked for rejection while collecting deltas
+    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
+    pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
-impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE, N> {
+/// Kake the thing a genesis block points to. Needed to avoid infinite recursion
+pub fn fake_commitment<S: Committable>() -> Commitment<S> {
+    commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
+}
+
+/// create a random commitment
+pub fn random_commitment<S: Committable>() -> Commitment<S> {
+    let mut rng = rand::thread_rng();
+    let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
+    commit::RawCommitmentBuilder::new("Random Commitment")
+        .constant_str("Random Field")
+        .var_size_bytes(&random_array)
+        .finalize()
+}
+
+impl<STATE: StateContents> Committable for Leaf<STATE> {
+    fn commit(&self) -> commit::Commitment<Self> {
+        let mut signatures_bytes = vec![];
+        for (k, v) in &self.justify_qc.signatures {
+            // TODO there is probably a way to avoid cloning.
+            signatures_bytes.append(&mut k.0.clone());
+            signatures_bytes.append(&mut v.0.clone());
+        }
+        commit::RawCommitmentBuilder::new("Leaf Comm")
+            .constant_str("view_number")
+            .u64(*self.view_number)
+            .field("parent Leaf commitment", self.parent_commitment)
+            .field("deltas commitment", self.deltas.commit())
+            .field("state commitment", self.state.commit())
+            .constant_str("justify_qc view number")
+            .u64(*self.justify_qc.view_number)
+            .field(
+                "justify_qc block commitment",
+                self.justify_qc.block_commitment,
+            )
+            .field(
+                "justify_qc leaf commitment",
+                self.justify_qc.leaf_commitment,
+            )
+            .constant_str("justify_qc signatures")
+            .var_size_bytes(&signatures_bytes)
+            .finalize()
+    }
+}
+
+impl<STATE: StateContents> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -348,88 +202,68 @@ impl<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> Leaf<BLOCK, STATE
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
     pub fn new(
         state: STATE,
-        deltas: BLOCK,
-        parent: LeafHash<N>,
-        qc: QuorumCertificate<N>,
+        deltas: STATE::Block,
+        parent: Commitment<Leaf<STATE>>,
+        qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
+        rejected: Vec<TxnCommitment<STATE>>,
     ) -> Self {
         Leaf {
             view_number,
             justify_qc: qc,
-            parent,
+            parent_commitment: parent,
             deltas,
             state,
+            rejected,
         }
     }
 
-    /// Hashes the leaf with the hashing algorithm provided by the [`BlockContents`] implementation
+    /// Creates the genesis Leaf for the genesis View (special case),
+    /// from the genesis block (deltas, application supplied)
+    /// and genesis state (result of deltas applied to the default state)
+    /// justified by the genesis qc (special case)
     ///
-    /// This will concatenate the `parent` hash with the [`BlockContents`] provided hash of the
-    /// contained block, and then return the hash of the resulting concatenated byte string.
-    /// NOTE: are we sure this is hashing correctly
-    pub fn hash(&self) -> LeafHash<N> {
-        let mut bytes = Vec::<u8>::new();
-        bytes.extend_from_slice(self.parent.as_ref());
-        bytes.extend_from_slice(<BLOCK as BlockContents<N>>::hash(&self.deltas).as_ref());
-        <BLOCK as BlockContents<N>>::hash_leaf(&bytes)
+    /// # Panics
+    ///
+    /// Panics if deltas is not a valid genesis block,
+    /// or if state cannot extend deltas from default()
+    pub fn genesis(deltas: STATE::Block) -> Self {
+        // if this fails, we're not able to initialize consensus.
+        let state = STATE::default().append(&deltas).unwrap();
+        Self {
+            view_number: GENESIS_VIEW,
+            // FIXME this is recursive
+            justify_qc: QuorumCertificate::genesis(),
+            parent_commitment: fake_commitment(),
+            deltas,
+            state,
+            rejected: Vec::new(),
+        }
     }
 }
 
-impl<BLOCK, STATE, const N: usize> From<StoredView<BLOCK, STATE, N>> for Leaf<BLOCK, STATE, N>
-where
-    STATE: State<N>,
-    BLOCK: BlockContents<N>,
-{
-    fn from(append: StoredView<BLOCK, STATE, N>) -> Self {
+impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
+    fn from(append: StoredView<STATE>) -> Self {
         Leaf::new(
             append.state,
             append.append.into_deltas(),
             append.parent,
             append.justify_qc,
             append.view_number,
+            Vec::new(),
         )
     }
 }
 
-impl<BLOCK, STATE, const N: usize> From<Leaf<BLOCK, STATE, N>> for StoredView<BLOCK, STATE, N>
-where
-    STATE: State<N>,
-    BLOCK: BlockContents<N>,
-{
-    fn from(val: Leaf<BLOCK, STATE, N>) -> Self {
+impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
+    fn from(val: Leaf<STATE>) -> Self {
         StoredView {
             view_number: val.view_number,
-            parent: val.parent,
+            parent: val.parent_commitment,
             justify_qc: val.justify_qc,
             state: val.state,
             append: val.deltas.into(),
+            rejected: val.rejected,
         }
     }
-}
-
-/// Format a fixed-size array with [`HexFmt`]
-fn fmt_arr<const N: usize>(n: &[u8; N], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", HexFmt(n))
-}
-
-/// Format a vec with [`HexFmt`]
-#[allow(clippy::ptr_arg)] // required because `custom_debug` requires an exact type match
-fn fmt_vec(n: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
-}
-
-/// Format a [`BlockHash`] with [`HexFmt`]
-fn fmt_blockhash<const N: usize>(
-    n: &BlockHash<N>,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
-}
-
-/// Format a [`LeafHash`] with [`HexFmt`]
-fn fmt_leaf_hash<const N: usize>(
-    n: &LeafHash<N>,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    write!(f, "{:12}", HexFmt(n))
 }

@@ -725,7 +725,7 @@ impl<
                         Err(e) => warn!(?e, "Failed to connect incoming stream, ignoring"),
                     }
                 }
-                todo!()
+                unreachable!()
             };
             let w = self.clone();
             // Create the patrol background task
@@ -999,6 +999,10 @@ impl<
         _key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
         unimplemented!()
+    }
+
+    async fn notify_of_subsequent_leader(&self, _pk: P, _is_cancelled: Arc<AtomicBool>) {
+        // do nothing
     }
 }
 

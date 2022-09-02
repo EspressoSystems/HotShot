@@ -4,9 +4,10 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
+        StateContents,
     },
-    types::{ed25519::Ed25519Priv, Event, EventType, HotShotHandle},
-    HotShot, H_256,
+    types::{ed25519::Ed25519Priv, HotShotHandle},
+    HotShot,
 };
 use hotshot_centralized_server::NetworkConfig;
 use hotshot_types::{
@@ -18,7 +19,7 @@ use hotshot_types::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -47,9 +48,9 @@ async fn init_state_and_hotshot(
     config: HotShotConfig<Ed25519Pub>,
     seed: [u8; 32],
     node_id: u64,
-) -> (State, HotShotHandle<Node, H_256>) {
-    // Create the initial state
-    let balances: BTreeMap<Account, Balance> = vec![
+) -> (DEntryState, HotShotHandle<Node>) {
+    // Create the initial block
+    let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
         ("John", 400_000_000),
@@ -59,14 +60,11 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = State {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+    let block = DEntryBlock::genesis_from(accounts);
 
     let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
+    let state = DEntryState::default().append(&block).unwrap();
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
         known_nodes.clone(),
@@ -75,7 +73,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block.clone(), state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -123,28 +121,37 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
-    let start = Instant::now();
+
     hotshot.start().await;
+
+    let size = mem::size_of::<DEntryTransaction>();
+    let adjusted_padding = if padding < size { 0 } else { padding - size };
+    let mut txs: VecDeque<DEntryTransaction> = VecDeque::new();
+    let state = hotshot.get_state().await;
+    for _ in 0..((transactions_per_round * rounds) / node_count) + 1 {
+        let mut txn = <DEntryState as TestableState>::create_random_transaction(&state);
+        txn.padding = vec![0; adjusted_padding];
+        txs.push_back(txn);
+    }
+
+    let start = Instant::now();
 
     // Run random transactions
     debug!("Running random transactions");
-
-    let size = mem::size_of::<Transaction>();
-    let adjusted_padding = if padding < size { 0 } else { padding - size };
     error!("Adjusted padding size is = {:?}", adjusted_padding);
     let mut timed_out_views: u64 = 0;
     let mut round = 1;
+    let mut total_transactions = 0;
+
     while round <= rounds {
         debug!(?round);
         error!("Round {}:", round);
 
         let num_submitted = if node_index == ((round % node_count) as u64) {
             tracing::info!("Generating txn for round {}", round);
-            let state = hotshot.get_state().await;
 
             for _ in 0..transactions_per_round {
-                let mut txn = <State as TestableState<H_256>>::create_random_transaction(&state);
-                txn.padding = vec![0; adjusted_padding];
+                let txn = txs.pop_front().unwrap();
                 tracing::info!("Submitting txn on round {}", round);
                 hotshot.submit_transaction(txn).await.unwrap();
             }
@@ -157,37 +164,32 @@ async fn main() {
         // Start consensus
         error!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<DEntryBlock, State, H_256> = hotshot
-            .next_event()
-            .await
-            .expect("HotShot unexpectedly closed");
-        while !matches!(event.event, EventType::Decide { .. }) {
-            if matches!(event.event, EventType::ReplicaViewTimeout { .. }) {
+
+        let view_results = hotshot.collect_round_events().await;
+
+        match view_results {
+            Ok((state, blocks)) => {
+                for (account, balance) in &state[0].balances {
+                    debug!("    - {}: {}", account, balance);
+                }
+                for block in blocks {
+                    total_transactions += block.txn_count();
+                }
+            }
+            Err(e) => {
                 timed_out_views += 1;
+                error!("View: {:?}, failed with : {:?}", round, e);
             }
-            event = hotshot
-                .next_event()
-                .await
-                .expect("HotShot unexpectedly closed");
         }
-        debug!("Node {} reached decision", node_index);
-        if let EventType::Decide { state, .. } = event.event {
-            debug!("  - Balances:");
-            for (account, balance) in &state[0].balances {
-                debug!("    - {}: {}", account, balance);
-            }
-        } else {
-            unreachable!()
-        }
+
         round += 1;
     }
     let end = Instant::now();
 
     // Print metrics
     let total_time_elapsed = end - start;
-    let total_transactions = transactions_per_round * rounds;
     let total_size = total_transactions * padding;
-    error!("All {} rounds completed in {:?}", rounds, end - start);
+    println!("All {} rounds completed in {:?}", rounds, end - start);
     error!("{} rounds timed out", timed_out_views);
     // This assumes all submitted transactions make it through consensus:
     error!(

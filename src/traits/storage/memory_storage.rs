@@ -2,11 +2,12 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::traits::{BlockContents, State};
+use crate::{traits::StateContents, QuorumCertificate};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{Leaf, LeafHash, QuorumCertificate, ViewNumber},
+    constants::GENESIS_VIEW,
+    data::{fake_commitment, ViewNumber},
     traits::storage::{
         Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
         ViewEntry,
@@ -18,61 +19,42 @@ use std::{
 };
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<BLOCK, STATE, const N: usize>
-where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
-{
+struct MemoryStorageInternal<STATE: StateContents> {
     /// The views that have been stored
-    stored: BTreeMap<ViewNumber, StoredView<BLOCK, STATE, N>>,
+    stored: BTreeMap<ViewNumber, StoredView<STATE>>,
     /// The views that have failed
     failed: BTreeSet<ViewNumber>,
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 #[derive(Clone)]
-pub struct MemoryStorage<BLOCK, STATE, const N: usize>
+pub struct MemoryStorage<STATE>
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents + 'static,
 {
     /// The inner state of this [`MemoryStorage`]
-    inner: Arc<RwLock<MemoryStorageInternal<BLOCK, STATE, N>>>,
+    inner: Arc<RwLock<MemoryStorageInternal<STATE>>>,
 }
 
-impl<BLOCK, STATE, const N: usize> MemoryStorage<BLOCK, STATE, N>
-where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
-{
+impl<STATE: StateContents> MemoryStorage<STATE> {
     /// Create a new instance of the memory storage with the given block and state
-    pub fn new(block: BLOCK, state: STATE) -> Self {
+    pub fn new(block: <STATE as StateContents>::Block, state: STATE) -> Self {
         let mut inner = MemoryStorageInternal {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
         };
-        let qc = QuorumCertificate {
-            block_hash: BlockContents::hash(&block),
-            genesis: true,
-            leaf_hash: Leaf {
-                deltas: block.clone(),
-                justify_qc: QuorumCertificate::default(),
-                parent: LeafHash::default(),
-                state: state.clone(),
-                view_number: ViewNumber::genesis(),
-            }
-            .hash(),
-            view_number: ViewNumber::genesis(),
-            signatures: BTreeMap::new(),
-        };
+        // TODO we should probably be passing the entire leaf in here...
+        // or at least, more information.
+        let qc = QuorumCertificate::genesis();
         inner.stored.insert(
-            ViewNumber::genesis(),
+            GENESIS_VIEW,
             StoredView {
                 append: ViewAppend::Block { block },
-                parent: LeafHash::default(),
+                parent: fake_commitment(),
                 justify_qc: qc,
                 state,
-                view_number: ViewNumber::genesis(),
+                view_number: GENESIS_VIEW,
+                rejected: Vec::new(),
             },
         );
         Self {
@@ -82,17 +64,15 @@ where
 }
 
 #[async_trait]
-impl<BLOCK, STATE, const N: usize> TestableStorage<BLOCK, STATE, N>
-    for MemoryStorage<BLOCK, STATE, N>
+impl<STATE> TestableStorage<STATE> for MemoryStorage<STATE>
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents + 'static,
 {
-    fn construct_tmp_storage(block: BLOCK, state: STATE) -> Result<Self> {
+    fn construct_tmp_storage(block: <STATE as StateContents>::Block, state: STATE) -> Result<Self> {
         Ok(Self::new(block, state))
     }
 
-    async fn get_full_state(&self) -> StorageState<BLOCK, STATE, N> {
+    async fn get_full_state(&self) -> StorageState<STATE> {
         let inner = self.inner.read().await;
         StorageState {
             stored: inner.stored.clone(),
@@ -102,12 +82,11 @@ where
 }
 
 #[async_trait]
-impl<BLOCK, STATE, const N: usize> Storage<BLOCK, STATE, N> for MemoryStorage<BLOCK, STATE, N>
+impl<STATE> Storage<STATE> for MemoryStorage<STATE>
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents + 'static,
 {
-    async fn append(&self, views: Vec<ViewEntry<BLOCK, STATE, N>>) -> Result {
+    async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result {
         let mut inner = self.inner.write().await;
         for view in views {
             match view {
@@ -137,7 +116,7 @@ where
         Ok(old_stored.len() + old_failed.len())
     }
 
-    async fn get_anchored_view(&self) -> Result<StoredView<BLOCK, STATE, N>> {
+    async fn get_anchored_view(&self) -> Result<StoredView<STATE>> {
         let inner = self.inner.read().await;
         let last = inner
             .stored
@@ -157,21 +136,28 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
-    use hotshot_types::data::{BlockHash, LeafHash, QuorumCertificate};
+    use hotshot_types::data::fake_commitment;
+    use hotshot_types::data::Leaf;
+    use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
 
-    fn random_stored_view(number: ViewNumber) -> StoredView<DummyBlock, DummyState, 32> {
+    fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
+        // TODO is it okay to be using genesis here?
+        let dummy_block_commit = fake_commitment::<DummyBlock>();
+        let dummy_leaf_commit = fake_commitment::<Leaf<DummyState>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
-                block_hash: BlockHash::random(),
+                block_commitment: dummy_block_commit,
                 genesis: number == ViewNumber::genesis(),
-                leaf_hash: LeafHash::random(),
+                leaf_commitment: dummy_leaf_commit,
                 signatures: BTreeMap::new(),
                 view_number: number,
             },
             DummyBlock::random(),
             DummyState::random(),
+            dummy_leaf_commit,
+            Vec::new(),
         )
     }
 
@@ -180,7 +166,7 @@ mod test {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
                 .unwrap();
-        let genesis = random_stored_view(ViewNumber::genesis());
+        let genesis = random_stored_view(GENESIS_VIEW);
         storage
             .append_single_view(genesis.clone())
             .await

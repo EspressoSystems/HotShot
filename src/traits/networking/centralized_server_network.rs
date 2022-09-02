@@ -540,6 +540,10 @@ where
     ) -> Result<V, NetworkError> {
         Err(NetworkError::DHTError)
     }
+
+    async fn notify_of_subsequent_leader(&self, _pk: P, _cancelled: Arc<AtomicBool>) {
+        // do nothing. We're centralized
+    }
 }
 
 impl<M, P> TestableNetworkingImplementation<M, P> for CentralizedServerNetwork<P>

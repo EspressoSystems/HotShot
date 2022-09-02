@@ -6,10 +6,14 @@
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
-use blake3::Hasher;
+use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
-    traits::{signature_key::ed25519::Ed25519Pub, state::TestableState},
+    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
+    traits::{
+        signature_key::ed25519::Ed25519Pub,
+        state::{TestableBlock, TestableState},
+        StateContents,
+    },
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -22,13 +26,11 @@ use std::{
 use tracing::{error, warn};
 
 use crate::{
-    data::{BlockHash, LeafHash, StateHash, TransactionHash},
     traits::{
         election::StaticCommittee, implementations::MemoryStorage, BlockContents,
         NetworkingImplementation, NodeImplementation,
     },
     types::Message,
-    H_256,
 };
 
 /// The account identifier type used by the demo
@@ -38,8 +40,8 @@ pub type Account = String;
 
 /// The account balance type used by the demo
 ///
-/// This is a type alias to [`i64`] for simplicity.
-pub type Balance = i64;
+/// This is a type alias to [`u64`] for simplicity.
+pub type Balance = u64;
 
 /// Records a reduction in an account balance
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -74,11 +76,15 @@ pub enum DEntryError {
     PreviousStateMismatch,
     /// Nonce was reused
     ReusedNonce,
+    /// Genesis failure
+    GenesisFailed,
+    /// Genesis reencountered after initialization
+    GenesisAfterStart,
 }
 
 /// The transaction for the dentry demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct Transaction {
+pub struct DEntryTransaction {
     /// An increment to an account balance
     pub add: Addition,
     /// A decrement to an account balance
@@ -89,9 +95,7 @@ pub struct Transaction {
     pub padding: Vec<u8>,
 }
 
-impl crate::traits::Transaction<H_256> for Transaction {}
-
-impl Transaction {
+impl DEntryTransaction {
     /// Ensures that this transaction is at least consistent with itself
     pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
@@ -101,36 +105,279 @@ impl Transaction {
 }
 
 /// The state for the dentry demo
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
-pub struct State {
+/// NOTE both fields are btrees because we need
+/// ordered-ing otherwise commitments will not match
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct DEntryState {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
     /// Set of previously seen nonces
     pub nonces: BTreeSet<u64>,
 }
 
-impl State {
-    /// Produces a hash of the current state
-    fn hash_state(&self) -> StateHash<H_256> {
-        // BTreeMap sorts so this will be in a consistent order
-        let mut hasher = Hasher::new();
-        for (account, balance) in &self.balances {
-            // account first
-            hasher.update(account.as_bytes());
-            // then balance
-            hasher.update(&balance.to_be_bytes());
+impl Committable for DEntryState {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("DEntry State Comm");
+
+        for (k, v) in &self.balances {
+            builder = builder.u64_field(k, *v);
         }
-        // Add nonces to hash
+        builder = builder.constant_str("nonces");
+
         for nonce in &self.nonces {
-            hasher.update(&nonce.to_be_bytes());
+            builder = builder.u64(*nonce);
         }
-        let x = *hasher.finalize().as_bytes();
-        x.into()
+
+        builder.finalize()
     }
 }
 
-impl TestableState<H_256> for State {
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents<H_256>>::Transaction {
+/// initializes the first state on genesis
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+pub struct DEntryGenesisBlock {
+    /// initializes the first state
+    pub accounts: BTreeMap<Account, Balance>,
+}
+
+/// Any block after genesis
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+pub struct DEntryNormalBlock {
+    /// Block state commitment
+    pub previous_state: Commitment<DEntryState>,
+    /// Transaction vector
+    pub transactions: Vec<DEntryTransaction>,
+}
+
+/// The block for the dentry demo
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
+pub enum DEntryBlock {
+    /// genesis block
+    Genesis(DEntryGenesisBlock),
+    /// normal block
+    Normal(DEntryNormalBlock),
+}
+
+impl Committable for DEntryBlock {
+    fn commit(&self) -> Commitment<Self> {
+        match &self {
+            DEntryBlock::Genesis(block) => {
+                let mut builder = commit::RawCommitmentBuilder::new("DEntry Genesis Comm")
+                    .u64_field("account_count", block.accounts.len() as u64);
+                for account in &block.accounts {
+                    builder = builder.u64_field(account.0, *account.1);
+                }
+                builder.finalize()
+            }
+            DEntryBlock::Normal(block) => {
+                let mut builder = commit::RawCommitmentBuilder::new("DEntry Block Comm")
+                    .var_size_field("Previous State", block.previous_state.as_ref());
+
+                for txn in &block.transactions {
+                    builder = builder
+                        .u64_field(&txn.add.account, txn.add.amount)
+                        .u64_field(&txn.sub.account, txn.sub.amount)
+                        .constant_str("nonce")
+                        .u64_field("nonce", txn.nonce);
+                }
+
+                builder.finalize()
+            }
+        }
+    }
+}
+
+impl Committable for DEntryTransaction {
+    fn commit(&self) -> Commitment<Self> {
+        commit::RawCommitmentBuilder::new("DEntry Txn Comm")
+            .u64_field(&self.add.account, self.add.amount)
+            .u64_field(&self.sub.account, self.sub.amount)
+            .constant_str("nonce")
+            .u64_field("nonce", self.nonce)
+            .finalize()
+    }
+}
+
+impl DEntryBlock {
+    /// generate a default genesis block
+    pub fn genesis() -> Self {
+        let accounts: BTreeMap<Account, Balance> = vec![
+            ("Joe", 1_000_000),
+            ("Nathan M", 500_000),
+            ("John", 400_000),
+            ("Nathan Y", 600_000),
+            ("Ian", 5_000_000),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        Self::Genesis(DEntryGenesisBlock { accounts })
+    }
+
+    /// generate a genesis block with the provided initial accounts and balances
+    pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
+        Self::Genesis(DEntryGenesisBlock { accounts })
+    }
+
+    /// total transactions in this block
+    pub fn txn_count(&self) -> usize {
+        if let DEntryBlock::Normal(block) = self {
+            block.transactions.len()
+        } else {
+            0
+        }
+    }
+}
+
+impl StateContents for DEntryState {
+    type Error = DEntryError;
+
+    type Block = DEntryBlock;
+
+    fn next_block(&self) -> Self::Block {
+        DEntryBlock::Normal(DEntryNormalBlock {
+            previous_state: self.commit(),
+            transactions: Vec::new(),
+        })
+    }
+
+    // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
+    // for clarity, the logic is duplicated with append_to
+    fn validate_block(&self, block: &Self::Block) -> bool {
+        match block {
+            DEntryBlock::Genesis(_) => self.balances.is_empty() && self.nonces.is_empty(),
+            DEntryBlock::Normal(block) => {
+                let state = self;
+                // A valid block is one in which every transaction is internally consistent, and results in
+                // nobody having a negative balance
+                //
+                // We will check this, in this case, by making a trial copy of our balances map, making
+                // trial modifications to it, and then asserting that no balances are negative
+                let mut trial_balances = state.balances.clone();
+                for tx in &block.transactions {
+                    // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+                    //
+                    // We first check that the transaction is internally consistent, then apply the change
+                    // to our trial map
+                    if !tx.validate_independence() {
+                        error!("validate_independence failed");
+                        return false;
+                    }
+                    // Find the input account, and subtract the transfer balance from it, failing if it
+                    // doesn't exist
+                    if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
+                        *input_account -= tx.sub.amount;
+                    } else {
+                        error!("no such input account");
+                        return false;
+                    }
+                    // Find the output account, and add the transfer balance to it, failing if it doesn't
+                    // exist
+                    if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
+                        *output_account += tx.add.amount;
+                    } else {
+                        error!("no such output account");
+                        return false;
+                    }
+                    // Check to make sure the nonce isn't used
+                    if state.nonces.contains(&tx.nonce) {
+                        warn!(?state, ?tx, "State nonce is used for transaction");
+                        return false;
+                    }
+                }
+                // This block has now passed all our tests, and thus has not done anything bad, so the block
+                // is valid if its previous state hash matches that of the previous state
+                let result = block.previous_state == state.commit();
+                if !result {
+                    error!(
+                        "hash failure. previous_block: {:?} hash_state: {:?}",
+                        block.previous_state,
+                        state.commit()
+                    );
+                }
+                result
+            }
+        }
+    }
+
+    fn append(&self, block: &Self::Block) -> std::result::Result<Self, Self::Error> {
+        match block {
+            DEntryBlock::Genesis(block) => {
+                if self.balances.is_empty() && self.nonces.is_empty() {
+                    let mut new_state = Self::default();
+                    for account in &block.accounts {
+                        if new_state
+                            .balances
+                            .insert(account.0.clone(), *account.1)
+                            .is_some()
+                        {
+                            error!("Adding the same account twice during application of genesis block!");
+                            return Err(DEntryError::GenesisFailed);
+                        }
+                    }
+                    Ok(new_state)
+                } else {
+                    Err(DEntryError::GenesisAfterStart)
+                }
+            }
+            DEntryBlock::Normal(block) => {
+                let state = self;
+                // A valid block is one in which every transaction is internally consistent, and results in
+                // nobody having a negative balance
+                //
+                // We will check this, in this case, by making a trial copy of our balances map, making
+                // trial modifications to it, and then asserting that no balances are negative
+                let mut trial_balances = state.balances.clone();
+                for tx in &block.transactions {
+                    // This is a macro from SNAFU that returns an Err if the condition is not satisfied
+                    //
+                    // We first check that the transaction is internally consistent, then apply the change
+                    // to our trial map
+                    ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
+                    // Find the input account, and subtract the transfer balance from it, failing if it
+                    // doesn't exist
+                    if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
+                        *input_account -= tx.sub.amount;
+                    } else {
+                        return Err(DEntryError::NoSuchInputAccount);
+                    }
+                    // Find the output account, and add the transfer balance to it, failing if it doesn't
+                    // exist
+                    if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
+                        *output_account += tx.add.amount;
+                    } else {
+                        return Err(DEntryError::NoSuchOutputAccount);
+                    }
+                    // Check for nonce reuse
+                    if state.nonces.contains(&tx.nonce) {
+                        return Err(DEntryError::ReusedNonce);
+                    }
+                }
+                // Make sure our previous state commitment matches the provided state
+                if block.previous_state == state.commit() {
+                    // This block has now passed all our tests, and thus has not done anything bad
+                    // Add the nonces from this block
+                    let mut nonces = state.nonces.clone();
+                    for tx in &block.transactions {
+                        nonces.insert(tx.nonce);
+                    }
+                    Ok(DEntryState {
+                        balances: trial_balances,
+                        nonces,
+                    })
+                } else {
+                    Err(DEntryError::PreviousStateMismatch)
+                }
+            }
+        }
+    }
+
+    fn on_commit(&self) {
+        // Does nothing in this implementation
+    }
+}
+
+impl TestableState for DEntryState {
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction {
         use rand::seq::IteratorRandom;
         let mut rng = thread_rng();
 
@@ -149,7 +396,7 @@ impl TestableState<H_256> for State {
         let output_account = self.balances.keys().choose(&mut rng).unwrap();
         let amount = rng.gen_range(0..100);
 
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: output_account.to_string(),
                 amount,
@@ -162,170 +409,16 @@ impl TestableState<H_256> for State {
             padding: vec![0; 0],
         }
     }
-    /// Provides a common starting state
-    fn get_starting_state() -> Self {
-        let balances: BTreeMap<Account, Balance> = vec![
-            ("Joe", 1_000_000),
-            ("Nathan M", 500_000_000),
-            ("John", 400_000_000),
-            ("Nathan Y", 600_000_000),
-            ("Ian", 300_000_000),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        Self {
-            balances,
-            nonces: BTreeSet::default(),
-        }
+}
+
+impl TestableBlock for DEntryBlock {
+    fn genesis() -> Self {
+        Self::genesis()
     }
 }
 
-impl crate::traits::State<H_256> for State {
-    type Error = DEntryError;
-
-    type Block = DEntryBlock;
-
-    fn next_block(&self) -> Self::Block {
-        DEntryBlock {
-            previous_block: self.hash_state(),
-            transactions: Vec::new(),
-        }
-    }
-
-    // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
-    // for clarity, the logic is duplicated with append_to
-    fn validate_block(&self, block: &Self::Block) -> bool {
-        let state = self;
-        // A valid block is one in which every transaction is internally consistent, and results in
-        // nobody having a negative balance
-        //
-        // We will check this, in this case, by making a trial copy of our balances map, making
-        // trial modifications to it, and then asserting that no balances are negative
-        let mut trial_balances = state.balances.clone();
-        for tx in &block.transactions {
-            // This is a macro from SNAFU that returns an Err if the condition is not satisfied
-            //
-            // We first check that the transaction is internally consistent, then apply the change
-            // to our trial map
-            if !tx.validate_independence() {
-                error!("validate_independence failed");
-                return false;
-            }
-            // Find the input account, and subtract the transfer balance from it, failing if it
-            // doesn't exist
-            if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account -= tx.sub.amount;
-            } else {
-                error!("no such input account");
-                return false;
-            }
-            // Find the output account, and add the transfer balance to it, failing if it doesn't
-            // exist
-            if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account += tx.add.amount;
-            } else {
-                error!("no such output account");
-                return false;
-            }
-            // Check to make sure the nonce isn't used
-            if state.nonces.contains(&tx.nonce) {
-                warn!(?state, ?tx, "State nonce is used for transaction");
-                return false;
-            }
-        }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                error!("negative balance");
-                return false;
-            }
-        }
-        // This block has now passed all our tests, and thus has not done anything bad, so the block
-        // is valid if its previous state hash matches that of the previous state
-        let result = block.previous_block == state.hash_state();
-        if !result {
-            error!(
-                "hash failure. previous_block: {:?} hash_state: {:?}",
-                block.previous_block,
-                state.hash_state()
-            );
-        }
-        result
-    }
-
-    fn append(&self, block: &Self::Block) -> std::result::Result<Self, Self::Error> {
-        let state = self;
-        // A valid block is one in which every transaction is internally consistent, and results in
-        // nobody having a negative balance
-        //
-        // We will check this, in this case, by making a trial copy of our balances map, making
-        // trial modifications to it, and then asserting that no balances are negative
-        let mut trial_balances = state.balances.clone();
-        for tx in &block.transactions {
-            // This is a macro from SNAFU that returns an Err if the condition is not satisfied
-            //
-            // We first check that the transaction is internally consistent, then apply the change
-            // to our trial map
-            ensure!(tx.validate_independence(), InconsistentTransactionSnafu);
-            // Find the input account, and subtract the transfer balance from it, failing if it
-            // doesn't exist
-            if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
-                *input_account -= tx.sub.amount;
-            } else {
-                return Err(DEntryError::NoSuchInputAccount);
-            }
-            // Find the output account, and add the transfer balance to it, failing if it doesn't
-            // exist
-            if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
-                *output_account += tx.add.amount;
-            } else {
-                return Err(DEntryError::NoSuchOutputAccount);
-            }
-            // Check for nonce reuse
-            if state.nonces.contains(&tx.nonce) {
-                return Err(DEntryError::ReusedNonce);
-            }
-        }
-        // Loop through our account map and make sure nobody is negative
-        for balance in trial_balances.values() {
-            if *balance < 0 {
-                return Err(DEntryError::InsufficentBalance);
-            }
-        }
-        // Make sure our previous state commitment matches the provided state
-        if block.previous_block == state.hash_state() {
-            // This block has now passed all our tests, and thus has not done anything bad
-            // Add the nonces from this block
-            let mut nonces = state.nonces.clone();
-            for tx in &block.transactions {
-                nonces.insert(tx.nonce);
-            }
-            Ok(State {
-                balances: trial_balances,
-                nonces,
-            })
-        } else {
-            Err(DEntryError::PreviousStateMismatch)
-        }
-    }
-
-    fn on_commit(&self) {
-        // Does nothing in this implementation
-    }
-}
-
-/// The block for the dentry demo
-#[derive(PartialEq, Eq, Default, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct DEntryBlock {
-    /// Block state commitment
-    pub previous_block: StateHash<H_256>,
-    /// Transaction vector
-    pub transactions: Vec<Transaction>,
-}
-
-impl BlockContents<H_256> for DEntryBlock {
-    type Transaction = Transaction;
+impl BlockContents for DEntryBlock {
+    type Transaction = DEntryTransaction;
 
     type Error = DEntryError;
 
@@ -333,56 +426,35 @@ impl BlockContents<H_256> for DEntryBlock {
         &self,
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
-        // first, make sure that the transaction is internally valid
-        if tx.validate_independence() {
-            // Then check the previous transactions in the block
-            if self.transactions.iter().any(|x| x.nonce == tx.nonce) {
-                return Err(DEntryError::ReusedNonce);
+        match self {
+            DEntryBlock::Genesis(_) => Err(DEntryError::GenesisAfterStart),
+            DEntryBlock::Normal(block) => {
+                // first, make sure that the transaction is internally valid
+                if tx.validate_independence() {
+                    // Then check the previous transactions in the block
+                    if block.transactions.iter().any(|x| x.nonce == tx.nonce) {
+                        return Err(DEntryError::ReusedNonce);
+                    }
+                    let mut new_block = block.clone();
+                    // Insert our transaction and return
+                    new_block.transactions.push(tx.clone());
+                    Ok(DEntryBlock::Normal(new_block))
+                } else {
+                    Err(DEntryError::InconsistentTransaction)
+                }
             }
-            let mut new_block = self.clone();
-            // Insert our transaction and return
-            new_block.transactions.push(tx.clone());
-            Ok(new_block)
-        } else {
-            Err(DEntryError::InconsistentTransaction)
         }
     }
-
-    // Note: this is really used for indexing the block in storage
-    fn hash(&self) -> BlockHash<H_256> {
-        let mut hasher = Hasher::new();
-        hasher.update(self.previous_block.as_ref());
-        self.transactions.iter().for_each(|tx| {
-            hasher.update(Self::hash_transaction(tx).as_ref());
-        });
-        let x = *hasher.finalize().as_bytes();
-        x.into()
-    }
-
-    // Note: This is used for indexing the transaction in storage
-    fn hash_transaction(tx: &Self::Transaction) -> TransactionHash<H_256> {
-        assert!(tx.validate_independence());
-        let mut hasher = Hasher::new();
-        hasher.update(tx.add.account.as_bytes());
-        hasher.update(&tx.add.amount.to_be_bytes());
-        hasher.update(tx.sub.account.as_bytes());
-        hasher.update(&tx.sub.amount.to_be_bytes());
-        hasher.update(&tx.nonce.to_be_bytes());
-        let x = *hasher.finalize().as_bytes();
-        x.into()
-    }
-
-    fn hash_leaf(bytes: &[u8]) -> LeafHash<H_256> {
-        let x = *blake3::hash(bytes).as_bytes();
-        x.into()
-    }
-
-    fn contained_transactions(&self) -> HashSet<TransactionHash<H_256>> {
-        self.transactions
-            .clone()
-            .into_iter()
-            .map(|tx| Self::hash_transaction(&tx))
-            .collect()
+    fn contained_transactions(&self) -> HashSet<Commitment<DEntryTransaction>> {
+        match self {
+            DEntryBlock::Genesis(_) => HashSet::new(),
+            DEntryBlock::Normal(block) => block
+                .transactions
+                .clone()
+                .into_iter()
+                .map(|tx| tx.commit())
+                .collect(),
+        }
     }
 }
 
@@ -416,86 +488,46 @@ impl<NET> Default for DEntryNode<NET> {
     }
 }
 
-impl<NET> NodeImplementation<H_256> for DEntryNode<NET>
+impl<NET> NodeImplementation for DEntryNode<NET>
 where
-    NET: NetworkingImplementation<
-            Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
-            Ed25519Pub,
-        > + Clone
+    NET: NetworkingImplementation<Message<DEntryState, Ed25519Pub>, Ed25519Pub>
+        + Clone
         + Debug
         + 'static,
 {
-    type Block = DEntryBlock;
-    type State = State;
-    type Storage = MemoryStorage<DEntryBlock, State, H_256>;
+    type State = DEntryState;
+    type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
-    type StatefulHandler = crate::traits::implementations::Stateless<DEntryBlock, State, H_256>;
-    type Election = StaticCommittee<Self::State, H_256>;
+    type StatefulHandler = crate::traits::implementations::Stateless<
+        <Self::State as StateContents>::Block,
+        DEntryState,
+    >;
+    type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
 }
 
-/// Provides a random valid transaction from the current state
-/// # Panics
-/// panics if state has no balances
-pub fn random_transaction<R: rand::Rng>(state: &State, mut rng: &mut R) -> Transaction {
-    use rand::seq::IteratorRandom;
-    let mut attempts = 0;
-    #[allow(clippy::panic)]
-    let (input_account, output_account, amount) = loop {
-        let input_account = state.balances.keys().choose(&mut rng).unwrap();
-        let output_account = state.balances.keys().choose(&mut rng).unwrap();
-        let balance = state.balances[input_account];
-        if balance != 0 {
-            // SMALL transaction amount to prevent accidentally
-            // creating a negative balance
-            let amount = rng.gen_range(0..100);
-            break (input_account, output_account, amount);
-        }
-        attempts += 1;
-        assert!(
-            attempts <= 10,
-            "Could not create a transaction. {:?}",
-            state
-        );
-    };
-    Transaction {
-        add: Addition {
-            account: output_account.to_string(),
-            amount,
-        },
-        sub: Subtraction {
-            account: input_account.to_string(),
-            amount,
-        },
-        nonce: rng.gen(),
-        padding: vec![0; 0],
-    }
-}
-
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorom_certificate<const N: usize>() -> QuorumCertificate<N> {
+pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<STATE> {
     let mut rng = thread_rng();
-
-    // TODO: Generate a tc::Signature
     QuorumCertificate {
-        block_hash: BlockHash::random(),
-        genesis: rng.gen(),
-        leaf_hash: LeafHash::random(),
-        signatures: BTreeMap::new(),
+        block_commitment: random_commitment(),
+        leaf_commitment: random_commitment(),
         view_number: ViewNumber::new(rng.gen()),
+        signatures: BTreeMap::default(),
+        genesis: rng.gen(),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<const N: usize>(deltas: DEntryBlock) -> Leaf<DEntryBlock, State, N> {
-    let parent = LeafHash::random();
-    let justify_qc = random_quorom_certificate();
+pub fn random_leaf<STATE: StateContents>(deltas: STATE::Block) -> Leaf<STATE> {
+    let justify_qc = random_quorum_certificate();
+    let state = STATE::default().append(&deltas).unwrap_or_default();
     Leaf {
-        parent,
-        deltas,
         view_number: justify_qc.view_number,
         justify_qc,
-        // TODO we should add in a random
-        state: State::default(),
+        parent_commitment: random_commitment(),
+        deltas,
+        state,
+        rejected: Vec::new(),
     }
 }

@@ -1,17 +1,18 @@
 use clap::Parser;
 use futures::future::join_all;
-use hotshot_types::{
-    traits::signature_key::{
+use hotshot_types::traits::{
+    signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
     },
-    ExecutionType, HotShotConfig,
+    state::TestableState,
 };
+use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
@@ -22,13 +23,13 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
+        StateContents,
     },
     types::{Event, EventType, HotShotHandle, Message},
-    HotShot, H_256,
+    HotShot,
 };
 
-type Node =
-    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -44,9 +45,9 @@ struct Opt {
     transactions: usize,
 }
 /// Prebaked list of transactions
-fn prebaked_transactions() -> Vec<Transaction> {
+fn prebaked_transactions() -> Vec<DEntryTransaction> {
     vec![
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: "Ian".to_string(),
                 amount: 100,
@@ -58,7 +59,7 @@ fn prebaked_transactions() -> Vec<Transaction> {
             nonce: 0,
             padding: vec![0; 0],
         },
-        Transaction {
+        DEntryTransaction {
             add: Addition {
                 account: "John".to_string(),
                 amount: 25,
@@ -83,9 +84,7 @@ async fn main() {
     // Get options
     let opt = Opt::from_args();
     debug!(?opt);
-    // Setup the inital state
-    let inital_state = inital_state();
-    debug!(?inital_state);
+
     // Calculate our threshold
     let nodes = opt.nodes;
     let threshold = ((nodes * 2) / 3) + 1;
@@ -96,7 +95,7 @@ async fn main() {
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
     let mut networkings: Vec<(
-        WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
+        WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
         u16,
         Ed25519Pub,
         u64,
@@ -124,9 +123,9 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_, H_256>> =
+    let mut hotshots: Vec<HotShotHandle<_>> =
         join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_hotshot(nodes, threshold, node_id, network, &inital_state)
+            get_hotshot(nodes, threshold, node_id, network, initial_block())
         }))
         .await;
 
@@ -153,11 +152,11 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State, H_256> = hotshot
+            let mut event: Event<DEntryState> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -174,7 +173,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -204,12 +208,12 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
-        let tx = random_transaction(&state.as_ref().unwrap()[0], &mut rng);
+        let tx = &state.as_ref().unwrap()[0].create_random_transaction();
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
         hotshots[0]
-            .submit_transaction(tx)
+            .submit_transaction(tx.clone())
             .await
             .expect("Failed to submit transaction");
         println!("  - Unlocking round");
@@ -219,11 +223,11 @@ async fn main() {
         }
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut blocks = Vec::new();
-        let mut states = Vec::new();
+        let mut blocks: Vec<Vec<DEntryBlock>> = Vec::new();
+        let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryBlock, State, H_256> = hotshot
+            let mut event: Event<DEntryState> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -240,7 +244,12 @@ async fn main() {
             }
             println!("    - Node {} reached decision", node_id);
             debug!(?node_id, "Decision emitted");
-            if let EventType::Decide { block, state, .. } = event.event {
+            if let EventType::Decide { leaf_chain, .. } = event.event {
+                let (block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
                 blocks.push(block);
                 states.push(state);
             } else {
@@ -278,8 +287,8 @@ async fn main() {
 }
 
 /// Provides the initial state for the simulation
-fn inital_state() -> State {
-    let balances: BTreeMap<Account, Balance> = vec![
+fn initial_block() -> DEntryBlock {
+    let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
         ("John", 400_000_000),
@@ -289,10 +298,7 @@ fn inital_state() -> State {
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    State {
-        balances,
-        nonces: BTreeSet::default(),
-    }
+    DEntryBlock::genesis_from(accounts)
 }
 
 /// Trys to get a networking implementation with the given id
@@ -337,14 +343,14 @@ async fn get_networking<
 }
 
 /// Creates a hotshot
-#[instrument(skip(networking, state))]
+#[instrument(skip(networking, block))]
 async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-    state: &State,
-) -> HotShotHandle<Node, H_256> {
+    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    block: DEntryBlock,
+) -> HotShotHandle<Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
             Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
@@ -369,7 +375,7 @@ async fn get_hotshot(
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
-    let genesis = DEntryBlock::default();
+    let state = DEntryState::default().append(&block).unwrap();
     let h = HotShot::init(
         known_nodes.clone(),
         public_key,
@@ -377,7 +383,7 @@ async fn get_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block, state),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )

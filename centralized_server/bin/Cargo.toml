@@ -10,6 +10,7 @@ hotshot-types = { path = "../../types" }
 hotshot = { path = "../../" }
 hotshot-centralized-server = { path = "../" }
 hotshot-utils = { path = "../../utils" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 toml = "0.5.9"
 tracing = "0.1.36"
 

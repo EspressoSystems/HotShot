@@ -1,39 +1,36 @@
-use super::{Generator, TestRunner, N};
+use std::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+
+use super::{Generator, TestRunner};
 use hotshot::{
-    traits::{State, Storage},
-    types::Message,
+    traits::Storage,
+    types::{ed25519::Ed25519Pub, Message, SignatureKey},
 };
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-        state::TestableState,
+        signature_key::TestableSignatureKey,
+        state::{TestableBlock, TestableState},
         storage::TestableStorage,
-        BlockContents,
     },
     ExecutionType, HotShotConfig,
 };
-use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
     pub(super) network: Generator<NETWORK>,
     pub(super) storage: Generator<STORAGE>,
     pub(super) block: Generator<BLOCK>,
-    pub(super) state: Generator<STATE>,
     pub(super) config: HotShotConfig<Ed25519Pub>,
+    state: PhantomData<STATE>,
 }
 
-impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: TestableStorage<BLOCK, STATE, N> + 'static,
-        BLOCK: BlockContents<N> + Default + 'static,
-        STATE: TestableState<N, Block = BLOCK> + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+where
+    NETWORK:
+        TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: TestableStorage<STATE> + 'static,
+    BLOCK: TestableBlock + 'static,
+    STATE: TestableState<Block = BLOCK> + 'static,
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -64,15 +61,13 @@ impl<
         Self {
             network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                <STORAGE as TestableStorage<BLOCK, STATE, N>>::construct_tmp_storage(
-                    <BLOCK as Default>::default(),
-                    <STATE as TestableState<N>>::get_starting_state(),
-                )
-                .unwrap()
+                let block = BLOCK::genesis();
+                let state = STATE::default().append(&block).unwrap();
+                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(block, state).unwrap()
             }),
-            block: Box::new(|_| <BLOCK as Default>::default()),
-            state: Box::new(|_| <STATE as TestableState<N>>::get_starting_state()),
+            block: Box::new(|_| BLOCK::genesis()),
             config,
+            state: PhantomData::default(),
         }
     }
 }
@@ -96,8 +91,8 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             }),
             storage: self.storage,
             block: self.block,
-            state: self.state,
             config: self.config,
+            state: PhantomData::default(),
         }
     }
 
@@ -110,8 +105,8 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             network: self.network,
             storage: Box::new(storage),
             block: self.block,
-            state: self.state,
             config: self.config,
+            state: PhantomData::default(),
         }
     }
 
@@ -124,22 +119,8 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             network: self.network,
             storage: self.storage,
             block: Box::new(block),
-            state: self.state,
             config: self.config,
-        }
-    }
-
-    /// Set a custom state generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_state<NewState>(
-        self,
-        state: impl Fn(u64) -> NewState + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, BLOCK, NewState> {
-        TestLauncher {
-            network: self.network,
-            storage: self.storage,
-            block: self.block,
-            state: Box::new(state),
-            config: self.config,
+            state: PhantomData::default(),
         }
     }
 
@@ -159,24 +140,20 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     }
 }
 
-impl<
-        NETWORK: TestableNetworkingImplementation<
-                Message<BLOCK, BLOCK::Transaction, STATE, Ed25519Pub, N>,
-                Ed25519Pub,
-            > + Clone
-            + 'static,
-        STORAGE: Storage<BLOCK, STATE, N>,
-        BLOCK: BlockContents<N> + 'static,
-        STATE: State<N, Block = BLOCK> + TestableState<N> + 'static,
-    > TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
+where
+    NETWORK:
+        TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+    STORAGE: Storage<STATE>,
+    BLOCK: TestableBlock,
+    STATE: TestableState<Block = BLOCK> + 'static,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
-    /// - `BLOCK` implements [`BlockContents`]
-    /// - `STATE` implements [`State`] and [`TestableState`]
-    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, BLOCK, STATE> {
+    /// - `BLOCK` implements [`BlockContents`] and [`TestableBlock`]
+    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, STATE> {
         TestRunner::new(self)
     }
 }
