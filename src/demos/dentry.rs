@@ -305,10 +305,14 @@ impl StateContents for DEntryState {
                 if self.balances.is_empty() && self.nonces.is_empty() {
                     let mut new_state = Self::default();
                     for account in &block.accounts {
-                        new_state
+                        if new_state
                             .balances
                             .insert(account.0.clone(), *account.1)
-                            .ok_or(DEntryError::GenesisFailed)?;
+                            .is_some()
+                        {
+                            error!("Adding the same account twice during application of genesis block!");
+                            return Err(DEntryError::GenesisFailed);
+                        }
                     }
                     Ok(new_state)
                 } else {
