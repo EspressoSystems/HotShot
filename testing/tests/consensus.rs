@@ -8,7 +8,6 @@ use hotshot::{
 use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
-    traits::block_contents::Genesis,
 };
 
 use common::{

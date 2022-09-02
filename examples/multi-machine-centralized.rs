@@ -4,12 +4,12 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
+        StateContents,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
 use hotshot_centralized_server::NetworkConfig;
-use hotshot_types::traits::block_contents::Genesis;
 use hotshot_types::{
     traits::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey},
@@ -19,7 +19,7 @@ use hotshot_types::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -49,8 +49,8 @@ async fn init_state_and_hotshot(
     seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
-    // Create the initial state
-    let balances: BTreeMap<Account, Balance> = vec![
+    // Create the initial block
+    let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
         ("John", 400_000_000),
@@ -60,14 +60,11 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = DEntryState {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+    let block = DEntryBlock::genesis_from(accounts);
 
     let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::genesis();
+    let state = DEntryState::default().append(&block).unwrap();
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
         known_nodes.clone(),
@@ -76,7 +73,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block.clone(), state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -176,7 +173,7 @@ async fn main() {
                     debug!("    - {}: {}", account, balance);
                 }
                 for block in blocks {
-                    total_transactions += block.transactions.len();
+                    total_transactions += block.txn_count();
                 }
             }
             Err(e) => {

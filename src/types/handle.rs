@@ -5,13 +5,10 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, ViewNumber},
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::ConsensusMessage,
-    traits::signature_key::{EncodedPublicKey, EncodedSignature},
     traits::{network::NetworkingImplementation, StateContents},
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
@@ -19,10 +16,21 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
-use crate::HotShotConsensusApi;
-use hotshot_consensus::ConsensusApi;
 use tracing::{debug, error};
+
+#[cfg(feature = "hotshot-testing")]
+use commit::Commitment;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{
+    data::ViewNumber,
+    message::ConsensusMessage,
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
+};
+
+#[cfg(feature = "hotshot-testing")]
+use crate::HotShotConsensusApi;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_consensus::ConsensusApi;
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///

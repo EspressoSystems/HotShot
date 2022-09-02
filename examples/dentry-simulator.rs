@@ -1,7 +1,6 @@
 use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
-    block_contents::Genesis,
     signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
@@ -13,7 +12,7 @@ use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
@@ -24,6 +23,7 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
+        StateContents,
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
@@ -84,9 +84,7 @@ async fn main() {
     // Get options
     let opt = Opt::from_args();
     debug!(?opt);
-    // Setup the inital state
-    let inital_state = inital_state();
-    debug!(?inital_state);
+
     // Calculate our threshold
     let nodes = opt.nodes;
     let threshold = ((nodes * 2) / 3) + 1;
@@ -127,7 +125,7 @@ async fn main() {
     // Create the hotshots
     let mut hotshots: Vec<HotShotHandle<_>> =
         join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_hotshot(nodes, threshold, node_id, network, &inital_state)
+            get_hotshot(nodes, threshold, node_id, network, initial_block())
         }))
         .await;
 
@@ -289,8 +287,8 @@ async fn main() {
 }
 
 /// Provides the initial state for the simulation
-fn inital_state() -> DEntryState {
-    let balances: BTreeMap<Account, Balance> = vec![
+fn initial_block() -> DEntryBlock {
+    let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
         ("Nathan M", 500_000_000),
         ("John", 400_000_000),
@@ -300,10 +298,7 @@ fn inital_state() -> DEntryState {
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    DEntryState {
-        balances,
-        nonces: BTreeSet::default(),
-    }
+    DEntryBlock::genesis_from(accounts)
 }
 
 /// Trys to get a networking implementation with the given id
@@ -348,13 +343,13 @@ async fn get_networking<
 }
 
 /// Creates a hotshot
-#[instrument(skip(networking, state))]
+#[instrument(skip(networking, block))]
 async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    state: &DEntryState,
+    block: DEntryBlock,
 ) -> HotShotHandle<Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
@@ -380,7 +375,7 @@ async fn get_hotshot(
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
-    let genesis = DEntryBlock::genesis();
+    let state = DEntryState::default().append(&block).unwrap();
     let h = HotShot::init(
         known_nodes.clone(),
         public_key,
@@ -388,7 +383,7 @@ async fn get_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block, state),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )

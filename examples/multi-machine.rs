@@ -4,23 +4,19 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
+        StateContents,
     },
     types::{ed25519::Ed25519Pub, Event, EventType, HotShotHandle, Message, SignatureKey},
     HotShot,
 };
 use hotshot_types::{
-    traits::{block_contents::Genesis, signature_key::TestableSignatureKey, state::TestableState},
+    traits::{signature_key::TestableSignatureKey, state::TestableState},
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs::File,
-    io::Read,
-    num::NonZeroUsize,
-    path::Path,
-    time::Duration,
+    collections::BTreeMap, fs::File, io::Read, num::NonZeroUsize, path::Path, time::Duration,
 };
 use toml::Value;
 use tracing::debug;
@@ -105,10 +101,9 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = DEntryState {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+
+    let block = DEntryBlock::genesis_from(balances);
+    let state = DEntryState::default().append(&block).unwrap();
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
@@ -136,7 +131,6 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::genesis();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -144,7 +138,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )

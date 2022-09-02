@@ -5,10 +5,7 @@ use hotshot::{
     types::SignatureKey,
 };
 use hotshot_centralized_server::TcpStreamUtil;
-use hotshot_types::traits::{
-    block_contents::Genesis,
-    signature_key::{EncodedPublicKey, EncodedSignature},
-};
+use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
 use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
 
 type Server = hotshot_centralized_server::Server<TestSignatureKey>;
@@ -155,23 +152,11 @@ impl std::error::Error for TestError {}
 #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
 struct TestBlock {}
 
-impl Genesis for TestBlock {
-    fn genesis() -> Self {
-        Self {}
-    }
-}
-
 impl Committable for TestBlock {
     fn commit(&self) -> Commitment<Self> {
         commit::RawCommitmentBuilder::new("Test Block Comm")
             .u64_field("Nothing", 0)
             .finalize()
-    }
-}
-
-impl Genesis for TestTransaction {
-    fn genesis() -> Self {
-        TestTransaction {}
     }
 }
 
@@ -202,19 +187,13 @@ impl Committable for TestTransaction {
     }
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
 struct TestState {}
 impl Committable for TestState {
     fn commit(&self) -> Commitment<Self> {
         commit::RawCommitmentBuilder::new("Test Txn Comm")
             .u64_field("Nothing", 0)
             .finalize()
-    }
-}
-
-impl Genesis for TestState {
-    fn genesis() -> Self {
-        TestState {}
     }
 }
 
