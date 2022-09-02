@@ -1,4 +1,4 @@
-use crate::data::StateHash;
+use commit::Commitment;
 use hotshot_types::{
     data::ViewNumber,
     traits::{
@@ -7,19 +7,20 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
+        StateContents,
     },
 };
 use std::marker::PhantomData;
 
 /// Dummy implementation of [`Election`]
-pub struct StaticCommittee<S, const N: usize> {
+pub struct StaticCommittee<S> {
     /// The nodes participating
     nodes: Vec<Ed25519Pub>,
     /// State phantom
     _state_phantom: PhantomData<S>,
 }
 
-impl<S, const N: usize> StaticCommittee<S, N> {
+impl<S> StaticCommittee<S> {
     /// Creates a new dummy elector
     pub fn new(nodes: Vec<Ed25519Pub>) -> Self {
         Self {
@@ -29,14 +30,14 @@ impl<S, const N: usize> StaticCommittee<S, N> {
     }
 }
 
-impl<S, const N: usize> Election<Ed25519Pub, N> for StaticCommittee<S, N>
+impl<S> Election<Ed25519Pub> for StaticCommittee<S>
 where
-    S: Send + Sync,
+    S: Send + Sync + StateContents,
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
     /// Arbitrary state type, we don't use it
-    type State = ();
+    type State = S;
     /// Arbitrary state type, we don't use it
     type SelectionThreshold = ();
     /// The vote token is just a signature
@@ -60,7 +61,7 @@ where
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -78,7 +79,7 @@ where
         _selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: StateHash<N>,
+        next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());

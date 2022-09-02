@@ -4,32 +4,26 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
+        StateContents,
     },
-    types::{Event, EventType, HotShotHandle, Message},
-    HotShot, H_256,
+    types::{ed25519::Ed25519Pub, Event, EventType, HotShotHandle, Message, SignatureKey},
+    HotShot,
 };
 use hotshot_types::{
-    traits::signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+    traits::{signature_key::TestableSignatureKey, state::TestableState},
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
-use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs::File,
-    io::Read,
-    num::NonZeroUsize,
-    path::Path,
-    time::Duration,
+    collections::BTreeMap, fs::File, io::Read, num::NonZeroUsize, path::Path, time::Duration,
 };
 use toml::Value;
 use tracing::debug;
 
 const TRANSACTION_COUNT: u64 = 10;
 
-type Node =
-    DEntryNode<WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>>;
+type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -94,8 +88,8 @@ async fn init_state_and_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-) -> (State, HotShotHandle<Node, H_256>) {
+    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial state
     let balances: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -107,10 +101,9 @@ async fn init_state_and_hotshot(
     .into_iter()
     .map(|(x, y)| (x.to_string(), y))
     .collect();
-    let state = State {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+
+    let block = DEntryBlock::genesis_from(balances);
+    let state = DEntryState::default().append(&block).unwrap();
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
@@ -138,7 +131,6 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -146,7 +138,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block, state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -180,16 +172,11 @@ async fn main() {
     let node_config: Value =
         toml::from_str(&config_str).expect("Error while reading node config file");
 
-    // Get secret key set
-    let seed: u64 = node_config["seed"]
-        .as_integer()
-        .expect("Missing seed value") as u64;
     let nodes = node_config["nodes"]
         .as_table()
         .expect("Missing nodes info")
         .len();
     let threshold = ((nodes * 2) / 3) + 1;
-    let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
 
     // Get networking information
     // TODO: read `PubKey`s from files.
@@ -244,13 +231,13 @@ async fn main() {
         // Start consensus
         println!("  - Waiting for consensus to occur");
         debug!("Waiting for consensus to occur");
-        let mut event: Event<DEntryBlock, State, H_256> = hotshot
+        let mut event: Event<DEntryState> = hotshot
             .next_event()
             .await
             .expect("HotShot unexpectedly closed");
         while !matches!(event.event, EventType::Decide { .. }) {
             if matches!(event.event, EventType::Leader { .. }) {
-                let tx = random_transaction(&own_state, &mut rng);
+                let tx = own_state.create_random_transaction();
                 println!("  - Proposing: {:?}", tx);
                 debug!("Proposing: {:?}", tx);
                 hotshot
@@ -265,12 +252,12 @@ async fn main() {
         }
         println!("Node {} reached decision", own_id);
         debug!(?own_id, "Decision emitted");
-        if let EventType::Decide { state, .. } = event.event {
+        if let EventType::Decide { leaf_chain, .. } = event.event {
             println!("  - Balances:");
-            for (account, balance) in &state[0].balances {
+            for (account, balance) in &leaf_chain[0].state.balances {
                 println!("    - {}: {}", account, balance);
             }
-            own_state = state.as_ref()[0].clone();
+            own_state = leaf_chain[0].state.clone();
         } else {
             unreachable!()
         }

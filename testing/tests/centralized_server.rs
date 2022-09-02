@@ -3,9 +3,8 @@ mod common;
 use common::*;
 use either::Either::Right;
 use hotshot::{
-    demos::dentry::{DEntryBlock, State as DemoState},
+    demos::dentry::DEntryState,
     traits::implementations::{CentralizedServerNetwork, MemoryStorage},
-    H_256,
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
@@ -28,12 +27,7 @@ async fn centralized_server_network() {
     };
 
     description
-        .build::<
-            CentralizedServerNetwork<Ed25519Pub>,
-            MemoryStorage<DEntryBlock, DemoState, H_256>,
-            DEntryBlock,
-            DemoState
-        >()
+        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
         .execute()
         .await
         .unwrap();
@@ -58,12 +52,7 @@ async fn test_stress_centralized_server_network() {
     };
 
     description
-        .build::<
-            CentralizedServerNetwork<Ed25519Pub>,
-            MemoryStorage<DEntryBlock, DemoState, H_256>,
-            DEntryBlock,
-            DemoState
-        >()
+        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
         .execute()
         .await
         .unwrap();

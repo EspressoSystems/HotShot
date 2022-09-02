@@ -9,5 +9,5 @@ pub mod state;
 pub mod stateful_handler;
 pub mod storage;
 
-pub use block_contents::{BlockContents, Transaction};
-pub use state::State;
+pub use block_contents::BlockContents;
+pub use state::StateContents;

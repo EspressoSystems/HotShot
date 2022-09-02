@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::traits::{BlockContents, State};
+use crate::traits::{BlockContents, StateContents};
 
 /// Trait for a stateful event handler
 ///
@@ -11,11 +11,11 @@ use crate::traits::{BlockContents, State};
 ///
 /// A do-nothing implementation ([`Stateless`]) is provided, as a convince for implementations that
 /// do not need this functionality.
-pub trait StatefulHandler<const N: usize>: Send + Sync + Debug + 'static {
+pub trait StatefulHandler: Send + Sync + Debug + 'static {
     /// Block type for this consensus implementation
-    type Block: BlockContents<N> + 'static;
+    type Block: BlockContents + 'static;
     /// State type for this consensus implementation
-    type State: State<N, Block = Self::Block>;
+    type State: StateContents<Block = Self::Block>;
 
     /// The `HotShot` implementation will call this method, with the series of blocks and states
     /// that are being committed, whenever a commit action takes place.
@@ -29,20 +29,20 @@ pub trait StatefulHandler<const N: usize>: Send + Sync + Debug + 'static {
 }
 
 /// Dummy, do nothing implementation of [`StatefulHandler`]
-pub struct Stateless<B, S, const N: usize> {
+pub struct Stateless<B, S> {
     /// Phantom for the block type
     _block: PhantomData<B>,
     /// Phantom for the state type
     _state: PhantomData<S>,
 }
 
-impl<B, S, const N: usize> Debug for Stateless<B, S, N> {
+impl<B, S> Debug for Stateless<B, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Stateless").finish()
     }
 }
 
-impl<B, S, const N: usize> Default for Stateless<B, S, N> {
+impl<B, S> Default for Stateless<B, S> {
     fn default() -> Self {
         Self {
             _block: PhantomData,
@@ -51,10 +51,10 @@ impl<B, S, const N: usize> Default for Stateless<B, S, N> {
     }
 }
 
-impl<B, S, const N: usize> StatefulHandler<N> for Stateless<B, S, N>
+impl<B, S> StatefulHandler for Stateless<B, S>
 where
-    B: BlockContents<N> + 'static,
-    S: State<N, Block = B> + 'static,
+    B: BlockContents + 'static,
+    S: StateContents<Block = B> + 'static,
 {
     type Block = B;
 
