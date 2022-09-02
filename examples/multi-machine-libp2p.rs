@@ -22,11 +22,11 @@ use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, mem,
 };
 
 use tracing::{debug, error, info};
@@ -172,6 +172,10 @@ pub struct CliOpt {
     /// next view timeout
     #[clap(long = "next_view_timeout", env)]
     pub next_view_timeout: u64,
+
+    /// bytes to pad transactions to 
+    #[clap(long = "padding", env)]
+    pub padding: usize
 }
 
 type Node = DEntryNode<
@@ -386,6 +390,9 @@ async fn main() {
 
     let mut total_txns = 0;
 
+    let size = mem::size_of::<Transaction>();
+    let adjusted_padding = if args.padding < size { 0 } else { args.padding - size };
+
     while start_time + online_time > Instant::now() {
         info!("Beginning view {}", view);
         if own_id == (view % num_nodes) {
@@ -393,7 +400,8 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..args.num_txn_per_round {
-                let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                let mut txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                txn.padding = vec![0; adjusted_padding];
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }
