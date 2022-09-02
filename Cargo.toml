@@ -53,7 +53,7 @@ hotshot-utils = { path = "./utils", version = "0.1.0", features = [
         "logging-utils",
 ] }
 rand_xoshiro = "0.6.0"
-clap = { version = "3.2.19", features = ["derive", "env"] }
+clap = { version = "3.2.20", features = ["derive", "env"] }
 toml = "0.5.8"
 
 ### Profiles
