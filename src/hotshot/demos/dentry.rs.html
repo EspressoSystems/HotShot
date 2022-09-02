@@ -505,6 +505,38 @@
 <span id="499">499</span>
 <span id="500">500</span>
 <span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an implementation of the `HotShot` suite of traits that implements a</span>
@@ -513,10 +545,14 @@
 <span class="doccomment">//! These implementations are useful in examples and integration testing, but are not suitable for</span>
 <span class="doccomment">//! production use.</span>
 
-<span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
+<span class="kw">use</span> <span class="ident">commit</span>::{<span class="ident">Commitment</span>, <span class="ident">Committable</span>};
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">ViewNumber</span>},
-    <span class="ident">traits</span>::{<span class="ident">signature_key::ed25519::Ed25519Pub</span>, <span class="ident">state::TestableState</span>},
+    <span class="ident">data</span>::{<span class="ident">random_commitment</span>, <span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>, <span class="ident">ViewNumber</span>},
+    <span class="ident">traits</span>::{
+        <span class="ident">signature_key::ed25519::Ed25519Pub</span>,
+        <span class="ident">state</span>::{<span class="ident">TestableBlock</span>, <span class="ident">TestableState</span>},
+        <span class="ident">StateContents</span>,
+    },
 };
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">thread_rng</span>, <span class="ident">Rng</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -529,13 +565,11 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">warn</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">data</span>::{<span class="ident">BlockHash</span>, <span class="ident">LeafHash</span>, <span class="ident">StateHash</span>, <span class="ident">TransactionHash</span>},
     <span class="ident">traits</span>::{
         <span class="ident">election::StaticCommittee</span>, <span class="ident">implementations::MemoryStorage</span>, <span class="ident">BlockContents</span>,
         <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>,
     },
     <span class="ident">types::Message</span>,
-    <span class="ident">H_256</span>,
 };
 
 <span class="doccomment">/// The account identifier type used by the demo</span>
@@ -545,8 +579,8 @@
 
 <span class="doccomment">/// The account balance type used by the demo</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This is a type alias to [`i64`] for simplicity.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Balance</span> <span class="op">=</span> <span class="ident">i64</span>;
+<span class="doccomment">/// This is a type alias to [`u64`] for simplicity.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Balance</span> <span class="op">=</span> <span class="ident">u64</span>;
 
 <span class="doccomment">/// Records a reduction in an account balance</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
@@ -581,11 +615,15 @@
     <span class="ident">PreviousStateMismatch</span>,
     <span class="doccomment">/// Nonce was reused</span>
     <span class="ident">ReusedNonce</span>,
+    <span class="doccomment">/// Genesis failure</span>
+    <span class="ident">GenesisFailed</span>,
+    <span class="doccomment">/// Genesis reencountered after initialization</span>
+    <span class="ident">GenesisAfterStart</span>,
 }
 
 <span class="doccomment">/// The transaction for the dentry demo</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Transaction</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryTransaction</span> {
     <span class="doccomment">/// An increment to an account balance</span>
     <span class="kw">pub</span> <span class="ident">add</span>: <span class="ident">Addition</span>,
     <span class="doccomment">/// A decrement to an account balance</span>
@@ -596,9 +634,7 @@
     <span class="kw">pub</span> <span class="ident">padding</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::traits::Transaction</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Transaction</span> {}
-
-<span class="kw">impl</span> <span class="ident">Transaction</span> {
+<span class="kw">impl</span> <span class="ident">DEntryTransaction</span> {
     <span class="doccomment">/// Ensures that this transaction is at least consistent with itself</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_independence</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="comment">// Ensure that we are adding to one account exactly as much as we are subtracting from</span>
@@ -608,36 +644,279 @@
 }
 
 <span class="doccomment">/// The state for the dentry demo</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Hash</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">State</span> {
+<span class="doccomment">/// NOTE both fields are btrees because we need</span>
+<span class="doccomment">/// ordered-ing otherwise commitments will not match</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Hash</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryState</span> {
     <span class="doccomment">/// Key/value store of accounts and balances</span>
     <span class="kw">pub</span> <span class="ident">balances</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Set of previously seen nonces</span>
     <span class="kw">pub</span> <span class="ident">nonces</span>: <span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">State</span> {
-    <span class="doccomment">/// Produces a hash of the current state</span>
-    <span class="kw">fn</span> <span class="ident">hash_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
-        <span class="comment">// BTreeMap sorts so this will be in a consistent order</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
-        <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">balances</span> {
-            <span class="comment">// account first</span>
-            <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">account</span>.<span class="ident">as_bytes</span>());
-            <span class="comment">// then balance</span>
-            <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">balance</span>.<span class="ident">to_be_bytes</span>());
+<span class="kw">impl</span> <span class="ident">Committable</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
+    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Commitment</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">commit::RawCommitmentBuilder::new</span>(<span class="string">&quot;DEntry State Comm&quot;</span>);
+
+        <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">balances</span> {
+            <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">u64_field</span>(<span class="ident">k</span>, <span class="kw-2">*</span><span class="ident">v</span>);
         }
-        <span class="comment">// Add nonces to hash</span>
+        <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">constant_str</span>(<span class="string">&quot;nonces&quot;</span>);
+
         <span class="kw">for</span> <span class="ident">nonce</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">nonces</span> {
-            <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">nonce</span>.<span class="ident">to_be_bytes</span>());
+            <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">u64</span>(<span class="kw-2">*</span><span class="ident">nonce</span>);
         }
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">hasher</span>.<span class="ident">finalize</span>().<span class="ident">as_bytes</span>();
-        <span class="ident">x</span>.<span class="ident">into</span>()
+
+        <span class="ident">builder</span>.<span class="ident">finalize</span>()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TestableState</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">State</span> {
-    <span class="kw">fn</span> <span class="ident">create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::Transaction</span> {
+<span class="doccomment">/// initializes the first state on genesis</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryGenesisBlock</span> {
+    <span class="doccomment">/// initializes the first state</span>
+    <span class="kw">pub</span> <span class="ident">accounts</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// Any block after genesis</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryNormalBlock</span> {
+    <span class="doccomment">/// Block state commitment</span>
+    <span class="kw">pub</span> <span class="ident">previous_state</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Transaction vector</span>
+    <span class="kw">pub</span> <span class="ident">transactions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryTransaction</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// The block for the dentry demo</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DEntryBlock</span> {
+    <span class="doccomment">/// genesis block</span>
+    <span class="ident">Genesis</span>(<span class="ident">DEntryGenesisBlock</span>),
+    <span class="doccomment">/// normal block</span>
+    <span class="ident">Normal</span>(<span class="ident">DEntryNormalBlock</span>),
+}
+
+<span class="kw">impl</span> <span class="ident">Committable</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
+    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Commitment</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
+            <span class="ident">DEntryBlock::Genesis</span>(<span class="ident">block</span>) =&gt; {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">commit::RawCommitmentBuilder::new</span>(<span class="string">&quot;DEntry Genesis Comm&quot;</span>)
+                    .<span class="ident">u64_field</span>(<span class="string">&quot;account_count&quot;</span>, <span class="ident">block</span>.<span class="ident">accounts</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>);
+                <span class="kw">for</span> <span class="ident">account</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">accounts</span> {
+                    <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">u64_field</span>(<span class="ident">account</span>.<span class="number">0</span>, <span class="kw-2">*</span><span class="ident">account</span>.<span class="number">1</span>);
+                }
+                <span class="ident">builder</span>.<span class="ident">finalize</span>()
+            }
+            <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">commit::RawCommitmentBuilder::new</span>(<span class="string">&quot;DEntry Block Comm&quot;</span>)
+                    .<span class="ident">var_size_field</span>(<span class="string">&quot;Previous State&quot;</span>, <span class="ident">block</span>.<span class="ident">previous_state</span>.<span class="ident">as_ref</span>());
+
+                <span class="kw">for</span> <span class="ident">txn</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
+                    <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
+                        .<span class="ident">u64_field</span>(<span class="kw-2">&amp;</span><span class="ident">txn</span>.<span class="ident">add</span>.<span class="ident">account</span>, <span class="ident">txn</span>.<span class="ident">add</span>.<span class="ident">amount</span>)
+                        .<span class="ident">u64_field</span>(<span class="kw-2">&amp;</span><span class="ident">txn</span>.<span class="ident">sub</span>.<span class="ident">account</span>, <span class="ident">txn</span>.<span class="ident">sub</span>.<span class="ident">amount</span>)
+                        .<span class="ident">constant_str</span>(<span class="string">&quot;nonce&quot;</span>)
+                        .<span class="ident">u64_field</span>(<span class="string">&quot;nonce&quot;</span>, <span class="ident">txn</span>.<span class="ident">nonce</span>);
+                }
+
+                <span class="ident">builder</span>.<span class="ident">finalize</span>()
+            }
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Committable</span> <span class="kw">for</span> <span class="ident">DEntryTransaction</span> {
+    <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Commitment</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">commit::RawCommitmentBuilder::new</span>(<span class="string">&quot;DEntry Txn Comm&quot;</span>)
+            .<span class="ident">u64_field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">add</span>.<span class="ident">account</span>, <span class="self">self</span>.<span class="ident">add</span>.<span class="ident">amount</span>)
+            .<span class="ident">u64_field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">sub</span>.<span class="ident">account</span>, <span class="self">self</span>.<span class="ident">sub</span>.<span class="ident">amount</span>)
+            .<span class="ident">constant_str</span>(<span class="string">&quot;nonce&quot;</span>)
+            .<span class="ident">u64_field</span>(<span class="string">&quot;nonce&quot;</span>, <span class="self">self</span>.<span class="ident">nonce</span>)
+            .<span class="ident">finalize</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">DEntryBlock</span> {
+    <span class="doccomment">/// generate a default genesis block</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">genesis</span>() -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">accounts</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
+            (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
+            (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000</span>),
+            (<span class="string">&quot;John&quot;</span>, <span class="number">400_000</span>),
+            (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000</span>),
+            (<span class="string">&quot;Ian&quot;</span>, <span class="number">5_000_000</span>),
+        ]
+        .<span class="ident">into_iter</span>()
+        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
+        .<span class="ident">collect</span>();
+        <span class="ident"><span class="self">Self</span>::Genesis</span>(<span class="ident">DEntryGenesisBlock</span> { <span class="ident">accounts</span> })
+    }
+
+    <span class="doccomment">/// generate a genesis block with the provided initial accounts and balances</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">genesis_from</span>(<span class="ident">accounts</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::Genesis</span>(<span class="ident">DEntryGenesisBlock</span> { <span class="ident">accounts</span> })
+    }
+
+    <span class="doccomment">/// total transactions in this block</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">txn_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) <span class="op">=</span> <span class="self">self</span> {
+            <span class="ident">block</span>.<span class="ident">transactions</span>.<span class="ident">len</span>()
+        } <span class="kw">else</span> {
+            <span class="number">0</span>
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">StateContents</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
+    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">DEntryError</span>;
+
+    <span class="kw">type</span> <span class="ident">Block</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
+
+    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Block</span> {
+        <span class="ident">DEntryBlock::Normal</span>(<span class="ident">DEntryNormalBlock</span> {
+            <span class="ident">previous_state</span>: <span class="self">self</span>.<span class="ident">commit</span>(),
+            <span class="ident">transactions</span>: <span class="ident">Vec::new</span>(),
+        })
+    }
+
+    <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check</span>
+    <span class="comment">// for clarity, the logic is duplicated with append_to</span>
+    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">match</span> <span class="ident">block</span> {
+            <span class="ident">DEntryBlock::Genesis</span>(<span class="kw">_</span>) =&gt; <span class="self">self</span>.<span class="ident">balances</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">nonces</span>.<span class="ident">is_empty</span>(),
+            <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
+                <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
+                <span class="comment">// nobody having a negative balance</span>
+                <span class="comment">//</span>
+                <span class="comment">// We will check this, in this case, by making a trial copy of our balances map, making</span>
+                <span class="comment">// trial modifications to it, and then asserting that no balances are negative</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trial_balances</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">clone</span>();
+                <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
+                    <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied</span>
+                    <span class="comment">//</span>
+                    <span class="comment">// We first check that the transaction is internally consistent, then apply the change</span>
+                    <span class="comment">// to our trial map</span>
+                    <span class="kw">if</span> <span class="op">!</span><span class="ident">tx</span>.<span class="ident">validate_independence</span>() {
+                        <span class="macro">error!</span>(<span class="string">&quot;validate_independence failed&quot;</span>);
+                        <span class="kw">return</span> <span class="bool-val">false</span>;
+                    }
+                    <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it</span>
+                    <span class="comment">// doesn&#39;t exist</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>) {
+                        <span class="kw-2">*</span><span class="ident">input_account</span> <span class="op">-</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">amount</span>;
+                    } <span class="kw">else</span> {
+                        <span class="macro">error!</span>(<span class="string">&quot;no such input account&quot;</span>);
+                        <span class="kw">return</span> <span class="bool-val">false</span>;
+                    }
+                    <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t</span>
+                    <span class="comment">// exist</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">output_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>) {
+                        <span class="kw-2">*</span><span class="ident">output_account</span> <span class="op">+</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">amount</span>;
+                    } <span class="kw">else</span> {
+                        <span class="macro">error!</span>(<span class="string">&quot;no such output account&quot;</span>);
+                        <span class="kw">return</span> <span class="bool-val">false</span>;
+                    }
+                    <span class="comment">// Check to make sure the nonce isn&#39;t used</span>
+                    <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">nonce</span>) {
+                        <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">state</span>, <span class="question-mark">?</span><span class="ident">tx</span>, <span class="string">&quot;State nonce is used for transaction&quot;</span>);
+                        <span class="kw">return</span> <span class="bool-val">false</span>;
+                    }
+                }
+                <span class="comment">// This block has now passed all our tests, and thus has not done anything bad, so the block</span>
+                <span class="comment">// is valid if its previous state hash matches that of the previous state</span>
+                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">previous_state</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">commit</span>();
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">result</span> {
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;hash failure. previous_block: {:?} hash_state: {:?}&quot;</span>,
+                        <span class="ident">block</span>.<span class="ident">previous_state</span>,
+                        <span class="ident">state</span>.<span class="ident">commit</span>()
+                    );
+                }
+                <span class="ident">result</span>
+            }
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="ident">block</span> {
+            <span class="ident">DEntryBlock::Genesis</span>(<span class="ident">block</span>) =&gt; {
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">balances</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">nonces</span>.<span class="ident">is_empty</span>() {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_state</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::default</span>();
+                    <span class="kw">for</span> <span class="ident">account</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">accounts</span> {
+                        <span class="kw">if</span> <span class="ident">new_state</span>
+                            .<span class="ident">balances</span>
+                            .<span class="ident">insert</span>(<span class="ident">account</span>.<span class="number">0</span>.<span class="ident">clone</span>(), <span class="kw-2">*</span><span class="ident">account</span>.<span class="number">1</span>)
+                            .<span class="ident">is_some</span>()
+                        {
+                            <span class="macro">error!</span>(<span class="string">&quot;Adding the same account twice during application of genesis block!&quot;</span>);
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::GenesisFailed</span>);
+                        }
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="ident">new_state</span>)
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">Err</span>(<span class="ident">DEntryError::GenesisAfterStart</span>)
+                }
+            }
+            <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
+                <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
+                <span class="comment">// nobody having a negative balance</span>
+                <span class="comment">//</span>
+                <span class="comment">// We will check this, in this case, by making a trial copy of our balances map, making</span>
+                <span class="comment">// trial modifications to it, and then asserting that no balances are negative</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trial_balances</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">clone</span>();
+                <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
+                    <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied</span>
+                    <span class="comment">//</span>
+                    <span class="comment">// We first check that the transaction is internally consistent, then apply the change</span>
+                    <span class="comment">// to our trial map</span>
+                    <span class="macro">ensure!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>(), <span class="ident">InconsistentTransactionSnafu</span>);
+                    <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it</span>
+                    <span class="comment">// doesn&#39;t exist</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>) {
+                        <span class="kw-2">*</span><span class="ident">input_account</span> <span class="op">-</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">amount</span>;
+                    } <span class="kw">else</span> {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::NoSuchInputAccount</span>);
+                    }
+                    <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t</span>
+                    <span class="comment">// exist</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">output_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>) {
+                        <span class="kw-2">*</span><span class="ident">output_account</span> <span class="op">+</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">amount</span>;
+                    } <span class="kw">else</span> {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::NoSuchOutputAccount</span>);
+                    }
+                    <span class="comment">// Check for nonce reuse</span>
+                    <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">nonce</span>) {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::ReusedNonce</span>);
+                    }
+                }
+                <span class="comment">// Make sure our previous state commitment matches the provided state</span>
+                <span class="kw">if</span> <span class="ident">block</span>.<span class="ident">previous_state</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">commit</span>() {
+                    <span class="comment">// This block has now passed all our tests, and thus has not done anything bad</span>
+                    <span class="comment">// Add the nonces from this block</span>
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">nonces</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">clone</span>();
+                    <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
+                        <span class="ident">nonces</span>.<span class="ident">insert</span>(<span class="ident">tx</span>.<span class="ident">nonce</span>);
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="ident">DEntryState</span> {
+                        <span class="ident">balances</span>: <span class="ident">trial_balances</span>,
+                        <span class="ident">nonces</span>,
+                    })
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">Err</span>(<span class="ident">DEntryError::PreviousStateMismatch</span>)
+                }
+            }
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">on_commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="comment">// Does nothing in this implementation</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">TestableState</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
+    <span class="kw">fn</span> <span class="ident">create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&gt;</span><span class="ident">::Transaction</span> {
         <span class="kw">use</span> <span class="ident">rand::seq::IteratorRandom</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
 
@@ -656,7 +935,7 @@
         <span class="kw">let</span> <span class="ident">output_account</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">amount</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">0</span>..<span class="number">100</span>);
 
-        <span class="ident">Transaction</span> {
+        <span class="ident">DEntryTransaction</span> {
             <span class="ident">add</span>: <span class="ident">Addition</span> {
                 <span class="ident">account</span>: <span class="ident">output_account</span>.<span class="ident">to_string</span>(),
                 <span class="ident">amount</span>,
@@ -669,170 +948,16 @@
             <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         }
     }
-    <span class="doccomment">/// Provides a common starting state</span>
-    <span class="kw">fn</span> <span class="ident">get_starting_state</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">balances</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
-            (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
-            (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000_000</span>),
-            (<span class="string">&quot;John&quot;</span>, <span class="number">400_000_000</span>),
-            (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000_000</span>),
-            (<span class="string">&quot;Ian&quot;</span>, <span class="number">300_000_000</span>),
-        ]
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
-        .<span class="ident">collect</span>();
-        <span class="self">Self</span> {
-            <span class="ident">balances</span>,
-            <span class="ident">nonces</span>: <span class="ident">BTreeSet::default</span>(),
-        }
+}
+
+<span class="kw">impl</span> <span class="ident">TestableBlock</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
+    <span class="kw">fn</span> <span class="ident">genesis</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::genesis</span>()
     }
 }
 
-<span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::traits::State</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">State</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">DEntryError</span>;
-
-    <span class="kw">type</span> <span class="ident">Block</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
-
-    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Block</span> {
-        <span class="ident">DEntryBlock</span> {
-            <span class="ident">previous_block</span>: <span class="self">self</span>.<span class="ident">hash_state</span>(),
-            <span class="ident">transactions</span>: <span class="ident">Vec::new</span>(),
-        }
-    }
-
-    <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check</span>
-    <span class="comment">// for clarity, the logic is duplicated with append_to</span>
-    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
-        <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
-        <span class="comment">// nobody having a negative balance</span>
-        <span class="comment">//</span>
-        <span class="comment">// We will check this, in this case, by making a trial copy of our balances map, making</span>
-        <span class="comment">// trial modifications to it, and then asserting that no balances are negative</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trial_balances</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">clone</span>();
-        <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
-            <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied</span>
-            <span class="comment">//</span>
-            <span class="comment">// We first check that the transaction is internally consistent, then apply the change</span>
-            <span class="comment">// to our trial map</span>
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">tx</span>.<span class="ident">validate_independence</span>() {
-                <span class="macro">error!</span>(<span class="string">&quot;validate_independence failed&quot;</span>);
-                <span class="kw">return</span> <span class="bool-val">false</span>;
-            }
-            <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it</span>
-            <span class="comment">// doesn&#39;t exist</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>) {
-                <span class="kw-2">*</span><span class="ident">input_account</span> <span class="op">-</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">amount</span>;
-            } <span class="kw">else</span> {
-                <span class="macro">error!</span>(<span class="string">&quot;no such input account&quot;</span>);
-                <span class="kw">return</span> <span class="bool-val">false</span>;
-            }
-            <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t</span>
-            <span class="comment">// exist</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">output_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>) {
-                <span class="kw-2">*</span><span class="ident">output_account</span> <span class="op">+</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">amount</span>;
-            } <span class="kw">else</span> {
-                <span class="macro">error!</span>(<span class="string">&quot;no such output account&quot;</span>);
-                <span class="kw">return</span> <span class="bool-val">false</span>;
-            }
-            <span class="comment">// Check to make sure the nonce isn&#39;t used</span>
-            <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">nonce</span>) {
-                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">state</span>, <span class="question-mark">?</span><span class="ident">tx</span>, <span class="string">&quot;State nonce is used for transaction&quot;</span>);
-                <span class="kw">return</span> <span class="bool-val">false</span>;
-            }
-        }
-        <span class="comment">// Loop through our account map and make sure nobody is negative</span>
-        <span class="kw">for</span> <span class="ident">balance</span> <span class="kw">in</span> <span class="ident">trial_balances</span>.<span class="ident">values</span>() {
-            <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">balance</span> <span class="op">&lt;</span> <span class="number">0</span> {
-                <span class="macro">error!</span>(<span class="string">&quot;negative balance&quot;</span>);
-                <span class="kw">return</span> <span class="bool-val">false</span>;
-            }
-        }
-        <span class="comment">// This block has now passed all our tests, and thus has not done anything bad, so the block</span>
-        <span class="comment">// is valid if its previous state hash matches that of the previous state</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">hash_state</span>();
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">result</span> {
-            <span class="macro">error!</span>(
-                <span class="string">&quot;hash failure. previous_block: {:?} hash_state: {:?}&quot;</span>,
-                <span class="ident">block</span>.<span class="ident">previous_block</span>,
-                <span class="ident">state</span>.<span class="ident">hash_state</span>()
-            );
-        }
-        <span class="ident">result</span>
-    }
-
-    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>;
-        <span class="comment">// A valid block is one in which every transaction is internally consistent, and results in</span>
-        <span class="comment">// nobody having a negative balance</span>
-        <span class="comment">//</span>
-        <span class="comment">// We will check this, in this case, by making a trial copy of our balances map, making</span>
-        <span class="comment">// trial modifications to it, and then asserting that no balances are negative</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trial_balances</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">clone</span>();
-        <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
-            <span class="comment">// This is a macro from SNAFU that returns an Err if the condition is not satisfied</span>
-            <span class="comment">//</span>
-            <span class="comment">// We first check that the transaction is internally consistent, then apply the change</span>
-            <span class="comment">// to our trial map</span>
-            <span class="macro">ensure!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>(), <span class="ident">InconsistentTransactionSnafu</span>);
-            <span class="comment">// Find the input account, and subtract the transfer balance from it, failing if it</span>
-            <span class="comment">// doesn&#39;t exist</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>) {
-                <span class="kw-2">*</span><span class="ident">input_account</span> <span class="op">-</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">amount</span>;
-            } <span class="kw">else</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::NoSuchInputAccount</span>);
-            }
-            <span class="comment">// Find the output account, and add the transfer balance to it, failing if it doesn&#39;t</span>
-            <span class="comment">// exist</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">output_account</span>) <span class="op">=</span> <span class="ident">trial_balances</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>) {
-                <span class="kw-2">*</span><span class="ident">output_account</span> <span class="op">+</span><span class="op">=</span> <span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">amount</span>;
-            } <span class="kw">else</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::NoSuchOutputAccount</span>);
-            }
-            <span class="comment">// Check for nonce reuse</span>
-            <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">nonce</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::ReusedNonce</span>);
-            }
-        }
-        <span class="comment">// Loop through our account map and make sure nobody is negative</span>
-        <span class="kw">for</span> <span class="ident">balance</span> <span class="kw">in</span> <span class="ident">trial_balances</span>.<span class="ident">values</span>() {
-            <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">balance</span> <span class="op">&lt;</span> <span class="number">0</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::InsufficentBalance</span>);
-            }
-        }
-        <span class="comment">// Make sure our previous state commitment matches the provided state</span>
-        <span class="kw">if</span> <span class="ident">block</span>.<span class="ident">previous_block</span> <span class="op">==</span> <span class="ident">state</span>.<span class="ident">hash_state</span>() {
-            <span class="comment">// This block has now passed all our tests, and thus has not done anything bad</span>
-            <span class="comment">// Add the nonces from this block</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">nonces</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">nonces</span>.<span class="ident">clone</span>();
-            <span class="kw">for</span> <span class="ident">tx</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">block</span>.<span class="ident">transactions</span> {
-                <span class="ident">nonces</span>.<span class="ident">insert</span>(<span class="ident">tx</span>.<span class="ident">nonce</span>);
-            }
-            <span class="prelude-val">Ok</span>(<span class="ident">State</span> {
-                <span class="ident">balances</span>: <span class="ident">trial_balances</span>,
-                <span class="ident">nonces</span>,
-            })
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">DEntryError::PreviousStateMismatch</span>)
-        }
-    }
-
-    <span class="kw">fn</span> <span class="ident">on_commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Does nothing in this implementation</span>
-    }
-}
-
-<span class="doccomment">/// The block for the dentry demo</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DEntryBlock</span> {
-    <span class="doccomment">/// Block state commitment</span>
-    <span class="kw">pub</span> <span class="ident">previous_block</span>: <span class="ident">StateHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Transaction vector</span>
-    <span class="kw">pub</span> <span class="ident">transactions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">BlockContents</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
-    <span class="kw">type</span> <span class="ident">Transaction</span> <span class="op">=</span> <span class="ident">Transaction</span>;
+<span class="kw">impl</span> <span class="ident">BlockContents</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
+    <span class="kw">type</span> <span class="ident">Transaction</span> <span class="op">=</span> <span class="ident">DEntryTransaction</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">DEntryError</span>;
 
@@ -840,56 +965,35 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="comment">// first, make sure that the transaction is internally valid</span>
-        <span class="kw">if</span> <span class="ident">tx</span>.<span class="ident">validate_independence</span>() {
-            <span class="comment">// Then check the previous transactions in the block</span>
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">nonce</span> <span class="op">==</span> <span class="ident">tx</span>.<span class="ident">nonce</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::ReusedNonce</span>);
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">DEntryBlock::Genesis</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">DEntryError::GenesisAfterStart</span>),
+            <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; {
+                <span class="comment">// first, make sure that the transaction is internally valid</span>
+                <span class="kw">if</span> <span class="ident">tx</span>.<span class="ident">validate_independence</span>() {
+                    <span class="comment">// Then check the previous transactions in the block</span>
+                    <span class="kw">if</span> <span class="ident">block</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">nonce</span> <span class="op">==</span> <span class="ident">tx</span>.<span class="ident">nonce</span>) {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DEntryError::ReusedNonce</span>);
+                    }
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_block</span> <span class="op">=</span> <span class="ident">block</span>.<span class="ident">clone</span>();
+                    <span class="comment">// Insert our transaction and return</span>
+                    <span class="ident">new_block</span>.<span class="ident">transactions</span>.<span class="ident">push</span>(<span class="ident">tx</span>.<span class="ident">clone</span>());
+                    <span class="prelude-val">Ok</span>(<span class="ident">DEntryBlock::Normal</span>(<span class="ident">new_block</span>))
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">Err</span>(<span class="ident">DEntryError::InconsistentTransaction</span>)
+                }
             }
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_block</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-            <span class="comment">// Insert our transaction and return</span>
-            <span class="ident">new_block</span>.<span class="ident">transactions</span>.<span class="ident">push</span>(<span class="ident">tx</span>.<span class="ident">clone</span>());
-            <span class="prelude-val">Ok</span>(<span class="ident">new_block</span>)
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">DEntryError::InconsistentTransaction</span>)
         }
     }
-
-    <span class="comment">// Note: this is really used for indexing the block in storage</span>
-    <span class="kw">fn</span> <span class="ident">hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">BlockHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="self">self</span>.<span class="ident">previous_block</span>.<span class="ident">as_ref</span>());
-        <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">iter</span>().<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">tx</span><span class="op">|</span> {
-            <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident"><span class="self">Self</span>::hash_transaction</span>(<span class="ident">tx</span>).<span class="ident">as_ref</span>());
-        });
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">hasher</span>.<span class="ident">finalize</span>().<span class="ident">as_bytes</span>();
-        <span class="ident">x</span>.<span class="ident">into</span>()
-    }
-
-    <span class="comment">// Note: This is used for indexing the transaction in storage</span>
-    <span class="kw">fn</span> <span class="ident">hash_transaction</span>(<span class="ident">tx</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Transaction</span>) -&gt; <span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
-        <span class="macro">assert!</span>(<span class="ident">tx</span>.<span class="ident">validate_independence</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Hasher::new</span>();
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">add</span>.<span class="ident">amount</span>.<span class="ident">to_be_bytes</span>());
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">account</span>.<span class="ident">as_bytes</span>());
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">sub</span>.<span class="ident">amount</span>.<span class="ident">to_be_bytes</span>());
-        <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>.<span class="ident">nonce</span>.<span class="ident">to_be_bytes</span>());
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">hasher</span>.<span class="ident">finalize</span>().<span class="ident">as_bytes</span>();
-        <span class="ident">x</span>.<span class="ident">into</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">hash_leaf</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">LeafHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">blake3::hash</span>(<span class="ident">bytes</span>).<span class="ident">as_bytes</span>();
-        <span class="ident">x</span>.<span class="ident">into</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">contained_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">TransactionHash</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">transactions</span>
-            .<span class="ident">clone</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">tx</span><span class="op">|</span> <span class="ident"><span class="self">Self</span>::hash_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">tx</span>))
-            .<span class="ident">collect</span>()
+    <span class="kw">fn</span> <span class="ident">contained_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">DEntryTransaction</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">DEntryBlock::Genesis</span>(<span class="kw">_</span>) =&gt; <span class="ident">HashSet::new</span>(),
+            <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; <span class="ident">block</span>
+                .<span class="ident">transactions</span>
+                .<span class="ident">clone</span>()
+                .<span class="ident">into_iter</span>()
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">tx</span><span class="op">|</span> <span class="ident">tx</span>.<span class="ident">commit</span>())
+                .<span class="ident">collect</span>(),
+        }
     }
 }
 
@@ -923,87 +1027,47 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> <span class="ident">NodeImplementation</span><span class="op">&lt;</span><span class="ident">H_256</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span> <span class="ident">NodeImplementation</span> <span class="kw">for</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">NET</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">NET</span>: <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span>
-            <span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">Transaction</span>, <span class="ident">State</span>, <span class="ident">Ed25519Pub</span>, <span class="ident">H_256</span><span class="op">&gt;</span>,
-            <span class="ident">Ed25519Pub</span>,
-        <span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span>
+    <span class="ident">NET</span>: <span class="ident">NetworkingImplementation</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>
+        <span class="op">+</span> <span class="ident">Clone</span>
         <span class="op">+</span> <span class="ident">Debug</span>
         <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">type</span> <span class="ident">Block</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
-    <span class="kw">type</span> <span class="ident">State</span> <span class="op">=</span> <span class="ident">State</span>;
-    <span class="kw">type</span> <span class="ident">Storage</span> <span class="op">=</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">State</span> <span class="op">=</span> <span class="ident">DEntryState</span>;
+    <span class="kw">type</span> <span class="ident">Storage</span> <span class="op">=</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>;
     <span class="kw">type</span> <span class="ident">Networking</span> <span class="op">=</span> <span class="ident">NET</span>;
-    <span class="kw">type</span> <span class="ident">StatefulHandler</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::traits::implementations::Stateless</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">H_256</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">Election</span> <span class="op">=</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::State</span>, <span class="ident">H_256</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">StatefulHandler</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::traits::implementations::Stateless</span><span class="op">&lt;</span>
+        <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::State</span> <span class="kw">as</span> <span class="ident">StateContents</span><span class="op">&gt;</span><span class="ident">::Block</span>,
+        <span class="ident">DEntryState</span>,
+    <span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Election</span> <span class="op">=</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::State</span><span class="op">&gt;</span>;
     <span class="kw">type</span> <span class="ident">SignatureKey</span> <span class="op">=</span> <span class="ident">Ed25519Pub</span>;
 }
 
-<span class="doccomment">/// Provides a random valid transaction from the current state</span>
-<span class="doccomment">/// # Panics</span>
-<span class="doccomment">/// panics if state has no balances</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_transaction</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">rand::Rng</span><span class="op">&gt;</span>(<span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="ident">State</span>, <span class="kw-2">mut</span> <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>) -&gt; <span class="ident">Transaction</span> {
-    <span class="kw">use</span> <span class="ident">rand::seq::IteratorRandom</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">attempts</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::panic</span>)]</span>
-    <span class="kw">let</span> (<span class="ident">input_account</span>, <span class="ident">output_account</span>, <span class="ident">amount</span>) <span class="op">=</span> <span class="kw">loop</span> {
-        <span class="kw">let</span> <span class="ident">input_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">output_account</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>.<span class="ident">keys</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">balance</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">balances</span>[<span class="ident">input_account</span>];
-        <span class="kw">if</span> <span class="ident">balance</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="comment">// SMALL transaction amount to prevent accidentally</span>
-            <span class="comment">// creating a negative balance</span>
-            <span class="kw">let</span> <span class="ident">amount</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">0</span>..<span class="number">100</span>);
-            <span class="kw">break</span> (<span class="ident">input_account</span>, <span class="ident">output_account</span>, <span class="ident">amount</span>);
-        }
-        <span class="ident">attempts</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-        <span class="macro">assert!</span>(
-            <span class="ident">attempts</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">10</span>,
-            <span class="string">&quot;Could not create a transaction. {:?}&quot;</span>,
-            <span class="ident">state</span>
-        );
-    };
-    <span class="ident">Transaction</span> {
-        <span class="ident">add</span>: <span class="ident">Addition</span> {
-            <span class="ident">account</span>: <span class="ident">output_account</span>.<span class="ident">to_string</span>(),
-            <span class="ident">amount</span>,
-        },
-        <span class="ident">sub</span>: <span class="ident">Subtraction</span> {
-            <span class="ident">account</span>: <span class="ident">input_account</span>.<span class="ident">to_string</span>(),
-            <span class="ident">amount</span>,
-        },
-        <span class="ident">nonce</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
-        <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
-    }
-}
-
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_quorom_certificate</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>() -&gt; <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">N</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_quorum_certificate</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span>() -&gt; <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
-
-    <span class="comment">// TODO: Generate a tc::Signature</span>
     <span class="ident">QuorumCertificate</span> {
-        <span class="ident">block_hash</span>: <span class="ident">BlockHash::random</span>(),
-        <span class="ident">genesis</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
-        <span class="ident">leaf_hash</span>: <span class="ident">LeafHash::random</span>(),
-        <span class="ident">signatures</span>: <span class="ident">BTreeMap::new</span>(),
+        <span class="ident">block_commitment</span>: <span class="ident">random_commitment</span>(),
+        <span class="ident">leaf_commitment</span>: <span class="ident">random_commitment</span>(),
         <span class="ident">view_number</span>: <span class="ident">ViewNumber::new</span>(<span class="ident">rng</span>.<span class="ident">gen</span>()),
+        <span class="ident">signatures</span>: <span class="ident">BTreeMap::default</span>(),
+        <span class="ident">genesis</span>: <span class="ident">rng</span>.<span class="ident">gen</span>(),
     }
 }
 
 <span class="doccomment">/// Provides a random [`Leaf`]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_leaf</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span>(<span class="ident">deltas</span>: <span class="ident">DEntryBlock</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span>, <span class="ident">State</span>, <span class="ident">N</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">parent</span> <span class="op">=</span> <span class="ident">LeafHash::random</span>();
-    <span class="kw">let</span> <span class="ident">justify_qc</span> <span class="op">=</span> <span class="ident">random_quorom_certificate</span>();
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_leaf</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span>(<span class="ident">deltas</span>: <span class="ident">STATE::Block</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">justify_qc</span> <span class="op">=</span> <span class="ident">random_quorum_certificate</span>();
+    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">STATE::default</span>().<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">deltas</span>).<span class="ident">unwrap_or_default</span>();
     <span class="ident">Leaf</span> {
-        <span class="ident">parent</span>,
-        <span class="ident">deltas</span>,
         <span class="ident">view_number</span>: <span class="ident">justify_qc</span>.<span class="ident">view_number</span>,
         <span class="ident">justify_qc</span>,
-        <span class="comment">// TODO we should add in a random</span>
-        <span class="ident">state</span>: <span class="ident">State::default</span>(),
+        <span class="ident">parent_commitment</span>: <span class="ident">random_commitment</span>(),
+        <span class="ident">deltas</span>,
+        <span class="ident">state</span>,
+        <span class="ident">rejected</span>: <span class="ident">Vec::new</span>(),
     }
 }
 </code></pre></div>

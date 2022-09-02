@@ -602,6 +602,10 @@
 <span id="596">596</span>
 <span id="597">597</span>
 <span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! To run the server, see the `./centralized_server/` folder in this repo.</span>
@@ -1143,6 +1147,10 @@
         <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">serde::Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">NetworkError::DHTError</span>)
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">notify_of_subsequent_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_pk</span>: <span class="ident">P</span>, <span class="ident">_cancelled</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicBool</span><span class="op">&gt;</span>) {
+        <span class="comment">// do nothing. We&#39;re centralized</span>
     }
 }
 

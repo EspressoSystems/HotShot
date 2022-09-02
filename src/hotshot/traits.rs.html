@@ -33,18 +33,13 @@
 <span id="27">27</span>
 <span id="28">28</span>
 <span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
 </pre><pre class="rust"><code><span class="doccomment">/// Sortition trait</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">election</span>;
 <span class="kw">mod</span> <span class="ident">networking</span>;
 <span class="kw">mod</span> <span class="ident">node_implementation</span>;
 <span class="kw">mod</span> <span class="ident">storage</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
-    <span class="ident">stateful_handler::StatefulHandler</span>, <span class="ident">BlockContents</span>, <span class="ident">State</span>, <span class="ident">Transaction</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{<span class="ident">stateful_handler::StatefulHandler</span>, <span class="ident">BlockContents</span>, <span class="ident">StateContents</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">networking</span>::{<span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">node_implementation::NodeImplementation</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">storage</span>::{<span class="prelude-ty">Result</span> <span class="kw">as</span> <span class="ident">StorageResult</span>, <span class="ident">Storage</span>};
@@ -64,7 +59,6 @@
 }
 
 <span class="doccomment">/// Dummy testing implementations</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">dummy</span> {
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::traits::state::dummy::DummyState</span>;
 }

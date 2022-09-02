@@ -1346,6 +1346,10 @@
 <span id="1340">1340</span>
 <span id="1341">1341</span>
 <span id="1342">1342</span>
+<span id="1343">1343</span>
+<span id="1344">1344</span>
+<span id="1345">1345</span>
+<span id="1346">1346</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Websockets based prototyping networking implementation</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a websockets based networking implementation, where each node in the</span>
@@ -2073,7 +2077,7 @@
                         <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Failed to connect incoming stream, ignoring&quot;</span>),
                     }
                 }
-                <span class="macro">todo!</span>()
+                <span class="macro">unreachable!</span>()
             };
             <span class="kw">let</span> <span class="ident">w</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
             <span class="comment">// Create the patrol background task</span>
@@ -2347,6 +2351,10 @@
         <span class="ident">_key</span>: <span class="kw">impl</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="macro">unimplemented!</span>()
+    }
+
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">notify_of_subsequent_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_pk</span>: <span class="ident">P</span>, <span class="ident">_is_cancelled</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicBool</span><span class="op">&gt;</span>) {
+        <span class="comment">// do nothing</span>
     }
 }
 
