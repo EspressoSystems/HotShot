@@ -146,6 +146,10 @@ pub mod test_util {
                         .init();
                 },
             };
+
+            std::panic::set_hook(Box::new(|info| {
+                tracing::error!(?info, "Thread panicked!");
+            }));
         });
     }
 }
