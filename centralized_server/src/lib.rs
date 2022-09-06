@@ -162,6 +162,12 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 }
 
+/// The "background" task. This is a central task that will wait for messages send by clients. See `src/client.rs` for the client part.
+///
+/// This task's purpose is to:
+/// - React to incoming messages,
+/// - Keep track of the clients connected,
+/// - Send direct/broadcast messages to clients
 async fn background_task<K: SignatureKey + 'static>(
     self_sender: Sender<ToBackground<K>>,
     receiver: Receiver<ToBackground<K>>,
@@ -227,11 +233,14 @@ async fn background_task<K: SignatureKey + 'static>(
                 }
             }
             ToBackground::ClientConnected(sender) => {
+                // This will assign the client a `NetworkConfig` and a `Run`.
+                // if we have no `config`, or we're out of runs, the client will be assigned a default config and `Run(0)`
                 if let Some(round_config) = &mut config {
                     let (config, run) = round_config.get_next_config().unwrap_or_default();
                     let _ = sender.send_async(ClientConfig { config, run }).await;
+
                     if round_config.current_run_full() {
-                        // Start a new round in 5 seconds
+                        // We have enough nodes to start this run, start it in 5 seconds
                         // This will allow the new client time to register itself with the server, and set up stuff
                         error!("Run {} is full, starting round in 5 seconds", run.0 + 1);
                         async_std::task::spawn({
