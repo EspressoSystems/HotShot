@@ -204,6 +204,23 @@
 <span id="198">198</span>
 <span id="199">199</span>
 <span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -215,7 +232,7 @@
     <span class="ident">types</span>::{<span class="ident">ed25519::Ed25519Priv</span>, <span class="ident">HotShotHandle</span>},
     <span class="ident">HotShot</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_centralized_server::NetworkConfig</span>;
+<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{<span class="ident">NetworkConfig</span>, <span class="ident">RunResults</span>};
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">traits</span>::{
         <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>},
@@ -300,19 +317,19 @@
     <span class="kw">let</span> <span class="ident">addr</span>: <span class="ident">SocketAddr</span> <span class="op">=</span> (<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>).<span class="ident">into</span>();
     <span class="macro">error!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 
-    <span class="kw">let</span> (<span class="ident">config</span>, <span class="ident">network</span>) <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect_with_server_config</span>(<span class="ident">addr</span>).<span class="kw">await</span>;
+    <span class="kw">let</span> (<span class="ident">config</span>, <span class="ident">run</span>, <span class="ident">network</span>) <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect_with_server_config</span>(<span class="ident">addr</span>).<span class="kw">await</span>;
+
+    <span class="macro">error!</span>(<span class="string">&quot;Run: {:?}&quot;</span>, <span class="ident">run</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Config: {:?}&quot;</span>, <span class="ident">config</span>);
 
     <span class="comment">// Get networking information</span>
 
     <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>;
 
     <span class="macro">debug!</span>(<span class="string">&quot;Waiting on connections...&quot;</span>);
-    <span class="kw">loop</span> {
+    <span class="kw">while</span> <span class="op">!</span><span class="ident">network</span>.<span class="ident">run_ready</span>() {
         <span class="kw">let</span> <span class="ident">connected_clients</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">get_connected_client_count</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="ident">connected_clients</span> <span class="op">==</span> <span class="ident">node_count</span>.<span class="ident">get</span>() {
-            <span class="kw">break</span>;
-        }
-        <span class="macro">debug!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
         <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
@@ -390,19 +407,36 @@
 
         <span class="ident">round</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
-    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
 
     <span class="comment">// Print metrics</span>
-    <span class="kw">let</span> <span class="ident">total_time_elapsed</span> <span class="op">=</span> <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>;
+    <span class="kw">let</span> <span class="ident">total_time_elapsed</span> <span class="op">=</span> <span class="ident">start</span>.<span class="ident">elapsed</span>();
+    <span class="kw">let</span> <span class="ident">expected_transactions</span> <span class="op">=</span> <span class="ident">transactions_per_round</span> <span class="op">*</span> <span class="ident">rounds</span>;
     <span class="kw">let</span> <span class="ident">total_size</span> <span class="op">=</span> <span class="ident">total_transactions</span> <span class="op">*</span> <span class="ident">padding</span>;
-    <span class="macro">println!</span>(<span class="string">&quot;All {} rounds completed in {:?}&quot;</span>, <span class="ident">rounds</span>, <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;{} rounds timed out&quot;</span>, <span class="ident">timed_out_views</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;All {rounds} rounds completed in {total_time_elapsed:?}&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;{timed_out_views} rounds timed out&quot;</span>);
+
     <span class="comment">// This assumes all submitted transactions make it through consensus:</span>
     <span class="macro">error!</span>(
         <span class="string">&quot;{} total bytes submitted in {:?}&quot;</span>,
         <span class="ident">total_size</span>, <span class="ident">total_time_elapsed</span>
     );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
+
+    <span class="kw">let</span> <span class="ident">networking</span>: <span class="kw-2">&amp;</span><span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">networking</span>();
+    <span class="ident">networking</span>
+        .<span class="ident">send_results</span>(<span class="ident">RunResults</span> {
+            <span class="ident">run</span>,
+            <span class="ident">node_index</span>,
+
+            <span class="ident">transactions_submitted</span>: <span class="ident">total_transactions</span>,
+            <span class="ident">transactions_rejected</span>: <span class="ident">expected_transactions</span> <span class="op">-</span> <span class="ident">total_transactions</span>,
+            <span class="ident">transaction_size_bytes</span>: <span class="ident">total_size</span>,
+
+            <span class="ident">rounds_succeeded</span>: <span class="ident">rounds</span> <span class="kw">as</span> <span class="ident">u64</span> <span class="op">-</span> <span class="ident">timed_out_views</span>,
+            <span class="ident">rounds_timed_out</span>: <span class="ident">timed_out_views</span>,
+            <span class="ident">total_time_in_seconds</span>: <span class="ident">total_time_elapsed</span>.<span class="ident">as_secs_f64</span>(),
+        })
+        .<span class="kw">await</span>;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="multi_machine_centralized" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>

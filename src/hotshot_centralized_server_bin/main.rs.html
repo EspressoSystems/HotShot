@@ -72,67 +72,107 @@
 <span id="66">66</span>
 <span id="67">67</span>
 <span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot::types</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
     <span class="ident">SignatureKey</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{<span class="ident">NetworkConfig</span>, <span class="ident">Server</span>};
+<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{<span class="ident">NetworkConfig</span>, <span class="ident">RoundConfig</span>, <span class="ident">Server</span>};
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util::setup_logging</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">net::IpAddr</span>, <span class="ident">num::NonZeroUsize</span>, <span class="ident">time::Duration</span>};
-<span class="kw">use</span> <span class="ident">tracing::error</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs</span>, <span class="ident">net::IpAddr</span>, <span class="ident">num::NonZeroUsize</span>, <span class="ident">time::Duration</span>};
 
 <span class="attribute">#[<span class="ident">async_std::main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="ident">setup_logging</span>();
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">load_config</span>();
+    <span class="kw">let</span> <span class="ident">configs</span> <span class="op">=</span> <span class="ident">load_configs</span>().<span class="ident">expect</span>(<span class="string">&quot;Could not load configs&quot;</span>);
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">Args::parse</span>();
     <span class="ident">Server</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">args</span>.<span class="ident">host</span>, <span class="ident">args</span>.<span class="ident">port</span>)
         .<span class="kw">await</span>
-        .<span class="ident">with_network_config</span>(<span class="ident">config</span>)
+        .<span class="ident">with_round_config</span>(<span class="ident">RoundConfig::new</span>(<span class="ident">configs</span>))
         .<span class="ident">run</span>()
         .<span class="kw">await</span>;
 }
 
-<span class="kw">fn</span> <span class="ident">load_config</span>() -&gt; <span class="ident">NetworkConfig</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">str</span>) <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="string">&quot;config.toml&quot;</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">decoded</span>) <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">NetworkConfig</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>) {
-            <span class="ident">decoded</span>.<span class="ident">config</span>.<span class="ident">known_nodes</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">decoded</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>.<span class="ident">get</span>())
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">node_id</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span>
-                        <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">decoded</span>.<span class="ident">seed</span>, <span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                    <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>)
-                })
-                .<span class="ident">collect</span>();
-            <span class="kw">return</span> <span class="ident">decoded</span>;
+<span class="kw">fn</span> <span class="ident">load_configs</span>() -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NetworkConfig</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">for</span> <span class="ident">file</span> <span class="kw">in</span> <span class="ident">fs::read_dir</span>(<span class="string">&quot;.&quot;</span>)<span class="question-mark">?</span> {
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">file</span><span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">file</span>.<span class="ident">path</span>().<span class="ident">extension</span>() {
+            <span class="kw">if</span> <span class="ident">name</span> <span class="op">==</span> <span class="string">&quot;toml&quot;</span> <span class="op">&amp;&amp;</span> <span class="ident">file</span>.<span class="ident">path</span>().<span class="ident">file_name</span>().<span class="ident">unwrap</span>() <span class="op">!</span><span class="op">=</span> <span class="string">&quot;Cargo.toml&quot;</span> {
+                <span class="macro">println!</span>(
+                    <span class="string">&quot;Loading {:?} (run {})&quot;</span>,
+                    <span class="ident">file</span>.<span class="ident">path</span>().<span class="ident">as_os_str</span>(),
+                    <span class="ident">result</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="number">1</span>
+                );
+                <span class="kw">let</span> <span class="ident">str</span> <span class="op">=</span> <span class="ident">fs::read_to_string</span>(<span class="ident">file</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">run</span> <span class="op">=</span>
+                    <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">NetworkConfig</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>).<span class="ident">expect</span>(<span class="string">&quot;Invalid TOML&quot;</span>);
+
+                <span class="ident">run</span>.<span class="ident">config</span>.<span class="ident">known_nodes</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">run</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>.<span class="ident">get</span>())
+                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">node_id</span><span class="op">|</span> {
+                        <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span>
+                            <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">run</span>.<span class="ident">seed</span>, <span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">u64</span>);
+                        <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>)
+                    })
+                    .<span class="ident">collect</span>();
+
+                <span class="ident">result</span>.<span class="ident">push</span>(<span class="ident">run</span>);
+            }
         }
     }
-    <span class="kw">let</span> <span class="ident">toml</span> <span class="op">=</span> <span class="ident">toml::to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">NetworkConfig</span> {
-        <span class="ident">config</span>: <span class="ident">HotShotConfig</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> {
-            <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
-            <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">10</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">7</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">known_nodes</span>: <span class="macro">vec!</span>[],
-            <span class="ident">next_view_timeout</span>: <span class="number">10000</span>,
-            <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
-            <span class="ident">round_start_delay</span>: <span class="number">1</span>,
-            <span class="ident">start_delay</span>: <span class="number">1</span>,
-            <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="number">0</span>),
-            <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="number">1</span>),
-            <span class="ident">num_bootstrap</span>: <span class="number">0</span>,
-        },
-        <span class="ident">node_index</span>: <span class="number">0</span>,
-        <span class="ident">rounds</span>: <span class="number">100</span>,
-        <span class="ident">seed</span>: [<span class="number">0u8</span>; <span class="number">32</span>],
-        <span class="ident">transactions_per_round</span>: <span class="number">10</span>,
-        <span class="ident">padding</span>: <span class="number">10</span>,
-    })
-    .<span class="ident">expect</span>(<span class="string">&quot;Could not serialize to TOML&quot;</span>);
-    <span class="ident">std::fs::write</span>(<span class="string">&quot;config.toml&quot;</span>, <span class="ident">toml</span>).<span class="ident">expect</span>(<span class="string">&quot;Could not write config.toml&quot;</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;config.toml created, please edit this and restart&quot;</span>);
-    <span class="ident">std::process::exit</span>(<span class="number">0</span>);
+
+    <span class="kw">if</span> <span class="ident">result</span>.<span class="ident">is_empty</span>() {
+        <span class="kw">let</span> <span class="ident">toml</span> <span class="op">=</span> <span class="ident">toml::to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">NetworkConfig</span> {
+            <span class="ident">config</span>: <span class="ident">HotShotConfig</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> {
+                <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
+                <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">10</span>).<span class="ident">unwrap</span>(),
+                <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">7</span>).<span class="ident">unwrap</span>(),
+                <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
+                <span class="ident">known_nodes</span>: <span class="macro">vec!</span>[],
+                <span class="ident">next_view_timeout</span>: <span class="number">10000</span>,
+                <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
+                <span class="ident">round_start_delay</span>: <span class="number">1</span>,
+                <span class="ident">start_delay</span>: <span class="number">1</span>,
+                <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="number">0</span>),
+                <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="number">1</span>),
+                <span class="ident">num_bootstrap</span>: <span class="number">0</span>,
+            },
+            <span class="ident">node_index</span>: <span class="number">0</span>,
+            <span class="ident">rounds</span>: <span class="number">100</span>,
+            <span class="ident">seed</span>: [<span class="number">0u8</span>; <span class="number">32</span>],
+            <span class="ident">transactions_per_round</span>: <span class="number">10</span>,
+            <span class="ident">padding</span>: <span class="number">10</span>,
+        })
+        .<span class="ident">expect</span>(<span class="string">&quot;Could not serialize to TOML&quot;</span>);
+        <span class="ident">std::fs::write</span>(<span class="string">&quot;config.toml&quot;</span>, <span class="ident">toml</span>).<span class="ident">expect</span>(<span class="string">&quot;Could not write config.toml&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Written data to config.toml&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Please edit parameters in this file and re-run the server&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;For multiple runs, please make multiple *.toml files in this folder with valid configs&quot;</span>);
+        <span class="ident">std::process::exit</span>(<span class="number">0</span>);
+    }
+
+    <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>)]</span>
