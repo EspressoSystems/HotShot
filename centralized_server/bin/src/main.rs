@@ -1,4 +1,3 @@
-use async_std::{fs, prelude::StreamExt};
 use clap::Parser;
 use hotshot::types::{
     ed25519::{Ed25519Priv, Ed25519Pub},
@@ -7,14 +6,12 @@ use hotshot::types::{
 use hotshot_centralized_server::{NetworkConfig, RoundConfig, Server};
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::setup_logging;
-use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
-
-// TODO(vko): server should send a start command, instead of the clients querying for # of connected nodes
+use std::{fs, net::IpAddr, num::NonZeroUsize, time::Duration};
 
 #[async_std::main]
 async fn main() {
     setup_logging();
-    let configs = load_configs().await.expect("Could not load configs");
+    let configs = load_configs().expect("Could not load configs");
     let args = Args::parse();
     Server::<Ed25519Pub>::new(args.host, args.port)
         .await
@@ -23,10 +20,10 @@ async fn main() {
         .await;
 }
 
-async fn load_configs() -> std::io::Result<Vec<NetworkConfig<Ed25519Pub>>> {
+fn load_configs() -> std::io::Result<Vec<NetworkConfig<Ed25519Pub>>> {
     let mut result = Vec::new();
-    let mut files = fs::read_dir(".").await?;
-    while let Some(Ok(file)) = files.next().await {
+    for file in fs::read_dir(".")? {
+        let file = file?;
         if let Some(name) = file.path().extension() {
             if name == "toml" && file.path().file_name().unwrap() != "Cargo.toml" {
                 println!(
@@ -34,7 +31,7 @@ async fn load_configs() -> std::io::Result<Vec<NetworkConfig<Ed25519Pub>>> {
                     file.path().as_os_str(),
                     result.len() + 1
                 );
-                let str = fs::read_to_string(file.path()).await?;
+                let str = fs::read_to_string(file.path())?;
                 let mut run =
                     toml::from_str::<NetworkConfig<Ed25519Pub>>(&str).expect("Invalid TOML");
 

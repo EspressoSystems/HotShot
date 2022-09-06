@@ -5,7 +5,6 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
-use commit::Commitment;
 use hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
@@ -21,6 +20,8 @@ use tracing::{debug, error};
 
 #[cfg(feature = "hotshot-testing")]
 use crate::HotShotConsensusApi;
+#[cfg(feature = "hotshot-testing")]
+use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_consensus::ConsensusApi;
 #[cfg(feature = "hotshot-testing")]
