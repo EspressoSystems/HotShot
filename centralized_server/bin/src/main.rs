@@ -9,6 +9,8 @@ use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::test_util::setup_logging;
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
 
+// TODO(vko): server should send a start command, instead of the clients querying for # of connected nodes
+
 #[async_std::main]
 async fn main() {
     setup_logging();

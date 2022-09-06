@@ -52,6 +52,8 @@ struct Inner<K: SignatureKey> {
     incoming_queue: RwLock<Vec<FromServer<K>>>,
     /// a sender used to immediately broadcast the amount of clients connected
     request_client_count_sender: RwLock<Vec<Sender<usize>>>,
+    /// `true` if the server indicated that the run is ready to start, otherwise `false`
+    run_ready: AtomicBool,
 }
 
 impl<K: SignatureKey> Inner<K> {
@@ -291,6 +293,11 @@ impl CentralizedServerNetwork<Ed25519Pub> {
         // Wait until it's successfully send before shutting down
         let _ = receiver.recv_async().await;
     }
+
+    /// Returns `true` if the server indicated that the current run was ready to start
+    pub fn run_ready(&self) -> bool {
+        self.inner.run_ready.load(Ordering::Relaxed)
+    }
 }
 
 impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
@@ -336,6 +343,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             receiving: from_background,
             incoming_queue: RwLock::default(),
             request_client_count_sender: RwLock::default(),
+            run_ready: AtomicBool::new(false),
         });
         async_std::task::spawn({
             let inner = Arc::clone(&inner);
@@ -420,6 +428,10 @@ async fn run_background<K: SignatureKey>(
 
                     FromServer::Config { .. } => {
                         tracing::warn!("Received config from server but we're already running");
+                    }
+
+                    FromServer::Start => {
+                        connection.run_ready.store(true, Ordering::Relaxed);
                     }
                 }
             },

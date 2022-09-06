@@ -1,4 +1,4 @@
-use crate::{Error, FromServer, TcpStreamUtil, ToBackground, ToServer};
+use crate::{ClientConfig, Error, FromServer, Run, TcpStreamUtil, ToBackground, ToServer};
 use async_std::net::TcpStream;
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -11,22 +11,24 @@ pub(crate) async fn spawn<K: SignatureKey + 'static>(
     sender: Sender<ToBackground<K>>,
 ) {
     let mut key = None;
-    if let Err(e) = run(addr, stream, &mut key, sender.clone()).await {
+    let mut run = None;
+    if let Err(e) = run_client(addr, stream, &mut key, &mut run, sender.clone()).await {
         debug!("Client from {:?} encountered an error: {:?}", addr, e);
     } else {
         debug!("Client from {:?} shut down", addr);
     }
-    if let Some(key) = key {
+    if let (Some(key), Some(run)) = (key, run) {
         let _ = sender
-            .send_async(ToBackground::ClientDisconnected { key })
+            .send_async(ToBackground::ClientDisconnected { run, key })
             .await;
     }
 }
 
-async fn run<K: SignatureKey + 'static>(
+async fn run_client<K: SignatureKey + 'static>(
     address: SocketAddr,
     stream: TcpStream,
     parent_key: &mut Option<K>,
+    parent_run: &mut Option<Run>,
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (sender, receiver) = flume::unbounded();
@@ -41,6 +43,17 @@ async fn run<K: SignatureKey + 'static>(
             }
         }
     });
+    let ClientConfig { run, config } = {
+        let (sender, receiver) = flume::bounded(1);
+        let _ = to_background
+            .send_async(ToBackground::ClientConnected(sender))
+            .await;
+        receiver
+            .recv_async()
+            .await
+            .expect("Could not get client info from background")
+    };
+    *parent_run = Some(run);
     let mut stream = TcpStreamUtil::new(stream);
     loop {
         let msg = stream.recv::<ToServer<K>>().await?;
@@ -50,7 +63,7 @@ async fn run<K: SignatureKey + 'static>(
                 *parent_key = Some(key.clone());
                 let sender = sender.clone();
                 to_background
-                    .send_async(ToBackground::NewClient { key, sender })
+                    .send_async(ToBackground::NewClient { run, key, sender })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -58,19 +71,11 @@ async fn run<K: SignatureKey + 'static>(
                 debug!("{:?} tried to identify twice", address);
             }
             (ToServer::GetConfig, _) => {
-                let (config, run) = {
-                    let (sender, receiver) = flume::bounded(1);
-                    to_background
-                        .send_async(ToBackground::RequestConfig { sender })
-                        .await
-                        .map_err(|_| Error::BackgroundShutdown)?;
-                    receiver
-                        .recv_async()
-                        .await
-                        .expect("Failed to retrieve config from background")
-                };
                 sender
-                    .send_async(FromServer::Config { config, run })
+                    .send_async(FromServer::Config {
+                        config: config.clone(),
+                        run,
+                    })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -80,13 +85,18 @@ async fn run<K: SignatureKey + 'static>(
             (ToServer::Broadcast { message }, true) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
-                    .send_async(ToBackground::IncomingBroadcast { sender, message })
+                    .send_async(ToBackground::IncomingBroadcast {
+                        run,
+                        sender,
+                        message,
+                    })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
             (ToServer::Direct { message, target }, true) => {
                 to_background
                     .send_async(ToBackground::IncomingDirectMessage {
+                        run,
                         receiver: target,
                         message,
                     })
@@ -96,6 +106,7 @@ async fn run<K: SignatureKey + 'static>(
             (ToServer::RequestClientCount, true) => {
                 to_background
                     .send_async(ToBackground::RequestClientCount {
+                        run,
                         sender: parent_key.clone().unwrap(),
                     })
                     .await

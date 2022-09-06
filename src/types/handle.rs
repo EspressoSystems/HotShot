@@ -6,24 +6,28 @@ use crate::{
     HotShot, Result,
 };
 use hotshot_types::{
-    data::{Leaf, LeafHash, ViewNumber},
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::ConsensusMessage,
-    traits::{
-        network::NetworkingImplementation,
-        signature_key::{EncodedPublicKey, EncodedSignature},
-    },
+    traits::network::NetworkingImplementation,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
-use crate::HotShotConsensusApi;
-use hotshot_consensus::ConsensusApi;
 use tracing::{debug, error};
+
+#[cfg(feature = "hotshot-testing")]
+use crate::HotShotConsensusApi;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_consensus::ConsensusApi;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{
+    data::{LeafHash, ViewNumber},
+    message::ConsensusMessage,
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
+};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///

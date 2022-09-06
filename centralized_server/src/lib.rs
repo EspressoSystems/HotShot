@@ -49,7 +49,7 @@ pub struct RunResults {
     pub total_time_in_seconds: f64,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -60,6 +60,7 @@ pub enum FromServer<K> {
     Broadcast { message: Vec<u8> },
     Direct { message: Vec<u8> },
     ClientCount(usize),
+    Start,
 }
 
 pub struct Server<K: SignatureKey + 'static> {
@@ -114,8 +115,9 @@ impl<K: SignatureKey + 'static> Server<K> {
         let (sender, receiver) = flume::unbounded();
 
         let background_task_handle = async_std::task::spawn({
+            let sender = sender.clone();
             async move {
-                if let Err(e) = background_task(receiver, self.config).await {
+                if let Err(e) = background_task(sender, receiver, self.config).await {
                     error!("Background processing thread encountered an error: {:?}", e);
                 }
                 debug!("Background thread ended");
@@ -160,7 +162,8 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 }
 
-async fn background_task<K: SignatureKey>(
+async fn background_task<K: SignatureKey + 'static>(
+    self_sender: Sender<ToBackground<K>>,
     receiver: Receiver<ToBackground<K>>,
     mut config: Option<RoundConfig<K>>,
 ) -> Result<(), Error> {
@@ -171,55 +174,50 @@ async fn background_task<K: SignatureKey>(
             .await
             .map_err(|_| Error::BackgroundShutdown)?;
 
-        let client_count = clients.len();
         match msg {
             ToBackground::Shutdown => {
                 debug!("Background thread shutting down");
                 break Ok(());
             }
-            ToBackground::NewClient { key, sender } => {
+            ToBackground::NewClient { run, key, sender } => {
                 // notify everyone else of the new client
                 clients
-                    .broadcast(FromServer::NodeConnected { key: key.clone() })
+                    .broadcast(run, FromServer::NodeConnected { key: key.clone() })
                     .await;
                 // add the client
-                clients.insert(key, sender);
+                clients.insert(run, key, sender);
             }
-            ToBackground::ClientDisconnected { key } => {
+            ToBackground::ClientDisconnected { run, key } => {
                 // remove the client
-                clients.remove(key.clone());
+                clients.remove(run, key.clone());
                 // notify everyone of the client disconnecting
                 clients
-                    .broadcast(FromServer::NodeDisconnected { key })
+                    .broadcast(run, FromServer::NodeDisconnected { key })
                     .await;
             }
-            ToBackground::IncomingBroadcast { message, sender } => {
+            ToBackground::IncomingBroadcast {
+                run,
+                message,
+                sender,
+            } => {
                 clients
-                    .broadcast_except_self(sender, FromServer::Broadcast { message })
+                    .broadcast_except_self(run, sender, FromServer::Broadcast { message })
                     .await;
             }
-            ToBackground::IncomingDirectMessage { receiver, message } => {
+            ToBackground::IncomingDirectMessage {
+                run,
+                receiver,
+                message,
+            } => {
                 clients
-                    .direct_message(receiver, FromServer::Direct { message })
+                    .direct_message(run, receiver, FromServer::Direct { message })
                     .await;
             }
-            ToBackground::RequestClientCount { sender } => {
-                let client_count = clients.len();
+            ToBackground::RequestClientCount { run, sender } => {
+                let client_count = clients.len(run);
                 clients
-                    .direct_message(sender, FromServer::ClientCount(client_count))
+                    .direct_message(run, sender, FromServer::ClientCount(client_count))
                     .await;
-            }
-            ToBackground::RequestConfig { sender } => {
-                match config.as_mut().and_then(|c| c.get_next_config()) {
-                    Some((config, run)) => {
-                        // the client may or may not be identified.
-                        // if it is, the next message will also fail, so we won't clean it up here
-                        let _ = sender.send_async((config, run)).await;
-                    }
-                    None => {
-                        debug!("Client requested a network config but none was configured");
-                    }
-                }
             }
             ToBackground::Results { results } => {
                 if let Some(config) = &mut config {
@@ -228,17 +226,33 @@ async fn background_task<K: SignatureKey>(
                     }
                 }
             }
-        }
-
-        if client_count != clients.len() {
-            if let Some(config) = &config {
-                error!(
-                    "Clients connected: {} / {}",
-                    clients.len(),
-                    config.current_round_client_count()
-                );
-            } else {
-                error!("Clients connected: {}", clients.len());
+            ToBackground::ClientConnected(sender) => {
+                if let Some(round_config) = &mut config {
+                    let (config, run) = round_config.get_next_config().unwrap_or_default();
+                    let _ = sender.send_async(ClientConfig { config, run }).await;
+                    if round_config.current_run_full() {
+                        // Start a new round in 5 seconds
+                        // This will allow the new client time to register itself with the server, and set up stuff
+                        error!("Run {} is full, starting round in 5 seconds", run.0 + 1);
+                        async_std::task::spawn({
+                            let sender = self_sender.clone();
+                            async move {
+                                async_std::task::sleep(Duration::from_secs(5)).await;
+                                let _ = sender.send_async(ToBackground::StartRun(run)).await;
+                            }
+                        });
+                    }
+                } else {
+                    let _ = sender
+                        .send_async(ClientConfig {
+                            config: NetworkConfig::default(),
+                            run: Run(0),
+                        })
+                        .await;
+                }
+            }
+            ToBackground::StartRun(run) => {
+                clients.broadcast(run, FromServer::Start).await;
             }
         }
     }
@@ -306,7 +320,7 @@ impl<K> RoundConfig<K> {
     {
         let mut config: NetworkConfig<K> = self.configs.get(self.current_run)?.clone();
 
-        if self.next_node_index > config.config.total_nodes.get() {
+        if self.next_node_index >= config.config.total_nodes.get() {
             self.next_node_index = 0;
             self.current_run += 1;
 
@@ -327,34 +341,56 @@ impl<K> RoundConfig<K> {
         config.node_index = index as u64;
         Some((config, Run(self.current_run)))
     }
+
+    fn current_run_full(&self) -> bool {
+        if let Some(config) = self.configs.get(self.current_run) {
+            println!(
+                "  clients connected: {} / {}",
+                self.next_node_index,
+                config.config.total_nodes.get()
+            );
+            self.next_node_index == config.config.total_nodes.get()
+        } else {
+            false
+        }
+    }
 }
 
 enum ToBackground<K: SignatureKey> {
     Shutdown,
+    StartRun(Run),
     NewClient {
+        run: Run,
         key: K,
         sender: Sender<FromServer<K>>,
     },
     ClientDisconnected {
+        run: Run,
         key: K,
     },
     IncomingBroadcast {
+        run: Run,
         sender: K,
         message: Vec<u8>,
     },
     IncomingDirectMessage {
+        run: Run,
         receiver: K,
         message: Vec<u8>,
     },
     RequestClientCount {
+        run: Run,
         sender: K,
-    },
-    RequestConfig {
-        sender: Sender<(NetworkConfig<K>, Run)>,
     },
     Results {
         results: RunResults,
     },
+    ClientConnected(Sender<ClientConfig<K>>),
+}
+
+struct ClientConfig<K> {
+    pub run: Run,
+    pub config: NetworkConfig<K>,
 }
 
 #[derive(snafu::Snafu, Debug)]
@@ -436,6 +472,19 @@ pub struct NetworkConfig<K> {
     pub padding: usize,
     #[serde(default = "default_config")]
     pub config: HotShotConfig<K>,
+}
+
+impl<K> Default for NetworkConfig<K> {
+    fn default() -> Self {
+        Self {
+            rounds: default_rounds(),
+            transactions_per_round: default_transactions_per_round(),
+            node_index: 0,
+            seed: [0u8; 32],
+            padding: default_padding(),
+            config: default_config(),
+        }
+    }
 }
 
 // This is hacky, blame serde for not having something like `default_value = "10"`

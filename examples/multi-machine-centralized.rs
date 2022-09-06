@@ -98,17 +98,17 @@ async fn main() {
 
     let (config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
 
+    error!("Run: {:?}", run);
+    error!("Config: {:?}", config);
+
     // Get networking information
 
     let node_count = config.config.total_nodes;
 
     debug!("Waiting on connections...");
-    loop {
+    while !network.run_ready() {
         let connected_clients = network.get_connected_client_count().await;
-        if connected_clients == node_count.get() {
-            break;
-        }
-        debug!("{} / {}", connected_clients, node_count);
+        error!("{} / {}", connected_clients, node_count);
         async_std::task::sleep(Duration::from_secs(1)).await;
     }
 
