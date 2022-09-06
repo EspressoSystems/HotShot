@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - '*/*'
+      - 'benchmarking'
       - 'main'
   pull_request:
   schedule:

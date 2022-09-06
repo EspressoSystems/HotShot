@@ -1,10 +1,14 @@
-use crate::{data::StateHash, H_256};
+use crate::H_256;
 use blake3::Hasher;
+use commit::{Commitment, RawCommitmentBuilder};
 use hotshot_types::{
     data::ViewNumber,
-    traits::signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        EncodedSignature, SignatureKey,
+    traits::{
+        signature_key::{
+            ed25519::{Ed25519Priv, Ed25519Pub},
+            EncodedSignature, SignatureKey,
+        },
+        StateContents,
     },
 };
 use rand::Rng;
@@ -107,7 +111,7 @@ impl<S, const N: usize> Default for DynamicCommittee<S, N> {
     }
 }
 
-impl<S, const N: usize> DynamicCommittee<S, N> {
+impl<S: StateContents, const N: usize> DynamicCommittee<S, N> {
     /// Creates a new dynamic committee.
     pub fn new() -> Self {
         Self {
@@ -117,12 +121,12 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 
     /// Hashes the view number and the next hash as the committee seed for vote token generation
     /// and verification.
-    fn hash_commitee_seed(view_number: ViewNumber, next_state: StateHash<N>) -> [u8; H_256] {
-        let mut hasher = Hasher::new();
-        hasher.update("Vote token".as_bytes());
-        hasher.update(&view_number.to_be_bytes());
-        hasher.update(next_state.as_ref());
-        *hasher.finalize().as_bytes()
+    fn hash_commitee_seed(view_number: ViewNumber, next_state: Commitment<S>) -> [u8; H_256] {
+        RawCommitmentBuilder::<S>::new("")
+            .u64(*view_number)
+            .var_size_bytes(next_state.as_ref())
+            .finalize()
+            .into()
     }
 
     /// Determines the number of votes a public key has.
@@ -210,7 +214,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: VoteToken,
-        next_state: StateHash<N>,
+        next_state: Commitment<S>,
     ) -> Option<ValidatedVoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         if !<Self as Vrf<Hasher>>::verify(token.clone(), pub_key, hash) {
@@ -240,7 +244,7 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
         selection_threshold: SelectionThreshold,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: StateHash<N>,
+        next_state: Commitment<S>,
     ) -> Option<VoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         let token = <Self as Vrf<Hasher>>::prove(private_key, &hash);
@@ -263,10 +267,12 @@ impl<S, const N: usize> DynamicCommittee<S, N> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use commit::RawCommitmentBuilder;
+    use hotshot_types::traits::state::dummy::DummyState;
     use rand::RngCore;
     use std::collections::BTreeMap;
 
-    type S = ();
+    type S = DummyState;
     const N: usize = H_256;
     const VIEW_NUMBER: ViewNumber = ViewNumber::new(10);
     const INCORRECT_VIEW_NUMBER: ViewNumber = ViewNumber::new(11);
@@ -319,7 +325,9 @@ mod tests {
 
             // VRF verification should pass with the correct secret key share, total stake, committee
             // seed, and selection threshold
-            let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
+            let next_state = RawCommitmentBuilder::new("")
+                .fixed_size_bytes(&NEXT_STATE)
+                .finalize();
             let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
             let proof = DynamicCommittee::<S, N>::prove(&secret_key_honest, &input);
             let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, input);
@@ -339,7 +347,9 @@ mod tests {
             assert!(!valid);
 
             // VRF verification should fail if the next state used for proof generation is incorrect
-            let incorrect_next_state = StateHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+            let incorrect_next_state = RawCommitmentBuilder::new("")
+                .fixed_size_bytes(&INCORRECT_NEXT_STATE)
+                .finalize();
             let incorrect_input =
                 DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, incorrect_next_state);
             let valid = DynamicCommittee::<S, N>::verify(proof, public_key_honest, incorrect_input);
@@ -394,7 +404,9 @@ mod tests {
             let pub_keys = vec![pub_key];
 
             // Get the VRF proof
-            let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
+            let next_state = RawCommitmentBuilder::new("")
+                .fixed_size_bytes(&NEXT_STATE)
+                .finalize();
             let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
             let proof = DynamicCommittee::<S, N>::prove(&secret_key_share, &input);
 
@@ -458,7 +470,9 @@ mod tests {
             stake_table.insert(pub_key_stakeless, 0);
 
             // Vote token should be null if the public key is not selected as a member.
-            let next_state = StateHash::<H_256>::from_array(NEXT_STATE);
+            let next_state = RawCommitmentBuilder::new("")
+                .fixed_size_bytes(&NEXT_STATE)
+                .finalize();
             let vote_token = DynamicCommittee::<S, N>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
@@ -529,7 +543,9 @@ mod tests {
             assert!(votes.is_none());
 
             // No vote should be granted if the next state used for token generation is incorrect
-            let incorrect_next_state = StateHash::<H_256>::from_array(INCORRECT_NEXT_STATE);
+            let incorrect_next_state = RawCommitmentBuilder::new("")
+                .fixed_size_bytes(&INCORRECT_NEXT_STATE)
+                .finalize();
             let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,

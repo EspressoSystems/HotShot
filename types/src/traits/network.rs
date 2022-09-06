@@ -7,7 +7,10 @@ use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
-use std::time::Duration;
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use crate::traits::signature_key::SignatureKey;
 
@@ -84,7 +87,7 @@ pub enum NetworkError {
 #[async_trait]
 pub trait NetworkingImplementation<M, P>: Send + Sync
 where
-    M: Serialize + DeserializeOwned + Send + Clone + 'static,
+    M: Serialize + DeserializeOwned + Send + Clone,
     P: SignatureKey + 'static,
 {
     /// Returns true when node is successfully initialized
@@ -144,6 +147,10 @@ where
         &self,
         key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError>;
+
+    /// notifies the network of the next leader
+    /// so it can prepare. Does not block
+    async fn notify_of_subsequent_leader(&self, pk: P, cancelled: Arc<AtomicBool>);
 }
 
 /// Describes additional functionality needed by the test network implementation

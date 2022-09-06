@@ -2,7 +2,7 @@
 mod common;
 use common::*;
 use hotshot::{
-    demos::dentry::{DEntryBlock, State},
+    demos::dentry::DEntryState,
     traits::implementations::{MemoryNetwork, MemoryStorage},
 };
 

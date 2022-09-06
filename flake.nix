@@ -30,6 +30,8 @@
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
 
+        CARGO_TARGET_DIR = "target_dirs/nix_rustc";
+
         rustOverlay = final: prev:
           {
             rustc = fenixStable;
@@ -120,36 +122,29 @@
       in
       {
         devShell = pkgs.mkShell {
+          inherit CARGO_TARGET_DIR;
           buildInputs =
-            with pkgs; [ fenixStable ] ++ buildDeps;
+            [ fenixStable ] ++ buildDeps;
         };
 
 
         devShells = {
 
-          # usage: build documentation
-          docsShell = pkgs.mkShell {
-            buildInputs = [
-              pkgs.glibcLocales
-              pkgs.pandoc
-              pkgs.fontconfig
-              pkgs.haskellPackages.pandoc-crossref
-            ];
-          };
-
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
             shellHook = ''
               ulimit -n 1024
               export RUSTFLAGS='-C target-feature=+crt-static'
               export CARGO_BUILD_TARGET='x86_64-unknown-linux-musl'
             '';
             buildInputs =
-              with pkgs; [ fenixMusl ] ++ buildDeps;
+              [ fenixMusl ] ++ buildDeps;
           };
 
           # usage: link with mold
           moldShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
             LD_LIBRARY_PATH="${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
@@ -159,12 +154,14 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-             buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
+            inherit CARGO_TARGET_DIR;
+            buildInputs = with pkgs; [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ] ++ buildDeps ++ lib.optionals stdenv.isLinux [ heapstack_pkgs.heaptrack pkgs.valgrind ];
           };
 
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
             buildInputs =
               with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };

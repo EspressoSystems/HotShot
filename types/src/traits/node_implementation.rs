@@ -12,6 +12,8 @@ use crate::{
 };
 use std::fmt::Debug;
 
+use super::StateContents;
+
 /// Node implementation aggregate trait
 ///
 /// This trait exists to collect multiple behavior implementations into one type, to allow
@@ -19,28 +21,21 @@ use std::fmt::Debug;
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
-pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'static {
-    /// Block type for this consensus implementation
-    type Block: BlockContents<N> + 'static;
+pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// State type for this consensus implementation
-    type State: crate::traits::State<N, Block = Self::Block>;
+    type State: StateContents;
     /// Storage type for this consensus implementation
-    type Storage: Storage<Self::Block, Self::State, N> + Clone;
+    type Storage: Storage<Self::State> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<
-            Message<
-                Self::Block,
-                <Self::Block as BlockContents<N>>::Transaction,
-                Self::State,
-                Self::SignatureKey,
-                N,
-            >,
-            Self::SignatureKey,
-        > + Clone;
+    type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
+        + Clone;
     /// Stateful call back handler for this consensus implementation
-    type StatefulHandler: StatefulHandler<N, Block = Self::Block, State = Self::State>;
+    type StatefulHandler: StatefulHandler<
+        Block = <Self::State as StateContents>::Block,
+        State = Self::State,
+    >;
     /// The election algorithm
-    type Election: Election<Self::SignatureKey, N>;
+    type Election: Election<Self::SignatureKey, State = Self::State>;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
 }
@@ -51,19 +46,17 @@ pub trait NodeImplementation<const N: usize>: Send + Sync + Debug + Clone + 'sta
 ///
 /// ```ignore
 /// Message<
-///     I::Block,
-///     <I::Block as BlockContents<N>>::Transaction,
 ///     I::State,
-///     N,
+///     I::SignatureKey
 /// >
 /// ```
 ///
 /// with
 ///
 /// ```ignore
-/// <I as TypeMap<N>>::Message
+/// <I as TypeMap>::Message
 /// ```
-pub trait TypeMap<const N: usize> {
+pub trait TypeMap {
     /// Type alias for the [`Message`] enum.
     type Message;
     /// Type alias for the [`MessageKind`] enum.
@@ -76,13 +69,10 @@ pub trait TypeMap<const N: usize> {
     type Transaction;
 }
 
-impl<I, const N: usize> TypeMap<N> for I
-where
-    I: NodeImplementation<N>,
-{
-    type Message = Message<I::Block, <I as TypeMap<N>>::Transaction, I::State, I::SignatureKey, N>;
-    type MessageKind = MessageKind<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
-    type ConsensusMessage = ConsensusMessage<I::Block, I::State, N>;
-    type DataMessage = DataMessage<I::Block, <I as TypeMap<N>>::Transaction, I::State, N>;
-    type Transaction = <I::Block as BlockContents<N>>::Transaction;
+impl<I: NodeImplementation> TypeMap for I {
+    type Message = Message<I::State, I::SignatureKey>;
+    type MessageKind = MessageKind<I::State>;
+    type ConsensusMessage = ConsensusMessage<I::State>;
+    type DataMessage = DataMessage<I::State>;
+    type Transaction = <<I::State as StateContents>::Block as BlockContents>::Transaction;
 }

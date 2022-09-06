@@ -4,6 +4,7 @@
 //! network state, which is modified by the transactions contained within blocks.
 
 use crate::traits::BlockContents;
+use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
 
@@ -20,13 +21,24 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     ([`append`](State::append))
 ///     TODO add hash function to trait
 ///     NOTE (see hash)
-pub trait State<const N: usize>:
-    Serialize + DeserializeOwned + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Unpin
+pub trait StateContents:
+    Serialize
+    + DeserializeOwned
+    + Clone
+    + Debug
+    + Default
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + Unpin
+    + Committable
 {
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
-    type Block: BlockContents<N>;
+    type Block: BlockContents;
 
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::Block;
@@ -43,12 +55,19 @@ pub trait State<const N: usize>:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState<const N: usize>: State<N> {
+pub trait TestableState: StateContents
+where
+    <Self as StateContents>::Block: TestableBlock,
+{
     /// Creates random transaction if possible
     /// otherwise panics
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents<N>>::Transaction;
-    /// Provides a common starting state
-    fn get_starting_state() -> Self;
+    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction;
+}
+
+/// extra functions required on block to be usable by hotshot-testing
+pub trait TestableBlock: BlockContents {
+    /// generate a genesis block
+    fn genesis() -> Self;
 }
 
 /// Dummy implementation of `State` for unit tests
@@ -60,21 +79,29 @@ pub mod dummy {
     use serde::Deserialize;
 
     /// The dummy state
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyState {
         /// Some dummy data
         nonce: u64,
     }
 
+    impl Committable for DummyState {
+        fn commit(&self) -> commit::Commitment<Self> {
+            commit::RawCommitmentBuilder::new("Dummy State Comm")
+                .u64_field("Nonce", self.nonce)
+                .finalize()
+        }
+    }
+
     impl DummyState {
         /// Generate a random `DummyState`
         pub fn random() -> Self {
-            let x = rand::thread_rng().gen();
+            let x = rand::thread_rng().gen_range(1..1_000_000);
             Self { nonce: x }
         }
     }
 
-    impl State<32> for DummyState {
+    impl StateContents for DummyState {
         type Error = DummyError;
 
         type Block = DummyBlock;

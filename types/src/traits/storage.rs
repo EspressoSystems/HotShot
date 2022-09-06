@@ -2,10 +2,11 @@
 #![allow(missing_docs)]
 
 use crate::{
-    data::{LeafHash, QuorumCertificate, ViewNumber},
-    traits::{BlockContents, State},
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
+use commit::Commitment;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,17 +28,16 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<BLOCK, STATE, const N: usize>: Clone + Send + Sync
+pub trait Storage<STATE>: Clone + Send + Sync
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents + 'static,
 {
     /// Append the list of views to this storage
-    async fn append(&self, views: Vec<ViewEntry<BLOCK, STATE, N>>) -> Result;
+    async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
     async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize>;
     /// Get the latest anchored view
-    async fn get_anchored_view(&self) -> Result<StoredView<BLOCK, STATE, N>>;
+    async fn get_anchored_view(&self) -> Result<StoredView<STATE>>;
     /// Commit this storage.
     async fn commit(&self) -> Result;
 
@@ -45,7 +45,7 @@ where
     /// ```rust,ignore
     /// storage.append(vec![ViewEntry::Success(view)]).await
     /// ```
-    async fn append_single_view(&self, view: StoredView<BLOCK, STATE, N>) -> Result {
+    async fn append_single_view(&self, view: StoredView<STATE>) -> Result {
         self.append(vec![ViewEntry::Success(view)]).await
     }
     // future improvement:
@@ -58,106 +58,107 @@ where
 
 /// Extra requirements on Storage implementations required for testing
 #[async_trait]
-pub trait TestableStorage<BLOCK, STATE, const N: usize>:
-    Clone + Send + Sync + Storage<BLOCK, STATE, N>
+pub trait TestableStorage<STATE>: Clone + Send + Sync + Storage<STATE>
 where
-    BLOCK: BlockContents<N> + 'static,
-    STATE: State<N, Block = BLOCK> + 'static,
+    STATE: StateContents + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
     /// # Errors
     /// Errors if it is not possible to construct temporary storage.
-    fn construct_tmp_storage(block: BLOCK, storage: STATE) -> Result<Self>;
+    fn construct_tmp_storage(block: <STATE as StateContents>::Block, state: STATE) -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(&self) -> StorageState<BLOCK, STATE, N>;
+    async fn get_full_state(&self) -> StorageState<STATE>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq, Eq)]
-pub struct StorageState<BLOCK: BlockContents<N>, STATE: State<N>, const N: usize> {
+pub struct StorageState<STATE: StateContents> {
     /// The views that have been successful
-    pub stored: BTreeMap<ViewNumber, StoredView<BLOCK, STATE, N>>,
+    pub stored: BTreeMap<ViewNumber, StoredView<STATE>>,
     /// The views that have failed
     pub failed: BTreeSet<ViewNumber>,
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
 #[derive(Debug, PartialEq, Eq)]
-pub enum ViewEntry<BLOCK, STATE, const N: usize>
+pub enum ViewEntry<STATE>
 where
-    BLOCK: BlockContents<N>,
-    STATE: State<N>,
+    STATE: StateContents,
 {
     /// A succeeded view
-    Success(StoredView<BLOCK, STATE, N>),
+    Success(StoredView<STATE>),
     /// A failed view
     Failed(ViewNumber),
     // future improvement:
     // InProgress(InProgressView),
 }
 
-impl<BLOCK, STATE, const N: usize> From<StoredView<BLOCK, STATE, N>> for ViewEntry<BLOCK, STATE, N>
+impl<STATE> From<StoredView<STATE>> for ViewEntry<STATE>
 where
-    BLOCK: BlockContents<N>,
-    STATE: State<N>,
+    STATE: StateContents,
 {
-    fn from(view: StoredView<BLOCK, STATE, N>) -> Self {
+    fn from(view: StoredView<STATE>) -> Self {
         Self::Success(view)
     }
 }
 
 /// A view stored in the [`Storage`]
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct StoredView<B: BlockContents<N>, S: State<N>, const N: usize> {
+pub struct StoredView<STATE: StateContents> {
     /// The view number of this view
     pub view_number: ViewNumber,
     /// The parent of this view
-    pub parent: LeafHash<N>,
+    pub parent: Commitment<Leaf<STATE>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
-    pub justify_qc: QuorumCertificate<N>,
+    pub justify_qc: QuorumCertificate<STATE>,
     /// The state of this view
-    pub state: S,
+    pub state: STATE,
     /// The history of how this view came to be
-    pub append: ViewAppend<B, N>,
+    pub append: ViewAppend<<STATE as StateContents>::Block>,
+    /// transactions rejected in this view
+    pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
-impl<BLOCK, STATE, const N: usize> StoredView<BLOCK, STATE, N>
+impl<STATE> StoredView<STATE>
 where
-    BLOCK: BlockContents<N>,
-    STATE: State<N>,
+    STATE: StateContents,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
-    pub fn from_qc_block_and_state(qc: QuorumCertificate<N>, block: BLOCK, state: STATE) -> Self {
+    pub fn from_qc_block_and_state(
+        qc: QuorumCertificate<STATE>,
+        block: <STATE as StateContents>::Block,
+        state: STATE,
+        parent_commitment: Commitment<Leaf<STATE>>,
+        rejected: Vec<TxnCommitment<STATE>>,
+    ) -> Self {
         Self {
             append: ViewAppend::Block { block },
             view_number: qc.view_number,
-            parent: LeafHash::default(),
+            parent: parent_commitment,
             justify_qc: qc,
             state,
+            rejected,
         }
     }
 }
 
 /// Indicates how a view came to be
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum ViewAppend<B: BlockContents<N>, const N: usize> {
+pub enum ViewAppend<BLOCK: BlockContents> {
     /// The view was created by appending a block to the previous view
     Block {
         /// The block that was appended
-        block: B,
+        block: BLOCK,
     },
 }
 
-impl<B, const N: usize> ViewAppend<B, N>
-where
-    B: BlockContents<N>,
-{
+impl<B: BlockContents> ViewAppend<B> {
     /// Get the block deltas from this append
     pub fn into_deltas(self) -> B {
         match self {
@@ -166,10 +167,7 @@ where
     }
 }
 
-impl<B, const N: usize> From<B> for ViewAppend<B, N>
-where
-    B: BlockContents<N>,
-{
+impl<B: BlockContents> From<B> for ViewAppend<B> {
     fn from(block: B) -> Self {
         Self::Block { block }
     }

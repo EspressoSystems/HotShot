@@ -5,10 +5,10 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{Libp2pNetwork, MemoryStorage, Stateless},
-        NetworkError,
+        NetworkError, StateContents,
     },
     types::{HotShotHandle, Message},
-    HotShot, H_256,
+    HotShot,
 };
 use hotshot_types::{
     traits::{
@@ -22,7 +22,7 @@ use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::HashSet,
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
@@ -174,9 +174,7 @@ pub struct CliOpt {
     pub next_view_timeout: u64,
 }
 
-type Node = DEntryNode<
-    Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
->;
+type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 /// Creates the initial state and hotshot for simulation.
 async fn init_state_and_hotshot(
@@ -184,28 +182,12 @@ async fn init_state_and_hotshot(
     threshold: usize,
     node_id: u64,
     config: &CliOpt,
-    networking: Libp2pNetwork<
-        Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>,
-        Ed25519Pub,
-    >,
-) -> (State, HotShotHandle<Node, H_256>) {
+    networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial state
     // NOTE: all balances must be positive
     // so we avoid a negative balance
-    let balances: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000),
-        ("John", 400_000),
-        ("Nathan Y", 600_000),
-        ("Ian", 5_000_000),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    let state = State {
-        balances,
-        nonces: BTreeSet::default(),
-    };
+    let block = DEntryBlock::genesis();
 
     // Create the initial hotshot
     let known_nodes: Vec<_> = (0..nodes as u64)
@@ -232,7 +214,7 @@ async fn init_state_and_hotshot(
     debug!(?config);
     let priv_key = Ed25519Pub::generate_test_key(node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let genesis = DEntryBlock::default();
+    let state = DEntryState::default().append(&block).unwrap();
     let hotshot = HotShot::init(
         known_nodes.clone(),
         pub_key,
@@ -240,7 +222,7 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(genesis, state.clone()),
+        MemoryStorage::new(block.clone(), state.clone()),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
     )
@@ -259,10 +241,7 @@ pub async fn new_libp2p_network(
     bound_addr: Multiaddr,
     identity: Option<Keypair>,
     opts: &CliOpt,
-) -> Result<
-    Libp2pNetwork<Message<DEntryBlock, Transaction, State, Ed25519Pub, H_256>, Ed25519Pub>,
-    NetworkError,
-> {
+) -> Result<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>, NetworkError> {
     assert!(node_id < opts.num_nodes);
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
@@ -393,7 +372,7 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..args.num_txn_per_round {
-                let txn = <State as TestableState<H_256>>::create_random_transaction(&state);
+                let txn = <DEntryState as TestableState>::create_random_transaction(&state);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }
@@ -406,7 +385,7 @@ async fn main() {
             Ok((state, blocks)) => {
                 let mut num_tnxs = 0;
                 for block in blocks {
-                    num_tnxs += block.transactions.len();
+                    num_tnxs += block.txn_count();
                 }
                 total_txns += num_tnxs;
                 error!(

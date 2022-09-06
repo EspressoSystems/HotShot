@@ -285,7 +285,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
     /// Send the results for this run to the server
     pub async fn send_results(&self, results: RunResults) {
         let (sender, receiver) = flume::bounded(1);
-        let _ = self
+        let _result = self
             .inner
             .sending
             .send_async((ToServer::Results(results), Some(sender)))
@@ -573,6 +573,10 @@ where
         _key: impl serde::Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
         Err(NetworkError::DHTError)
+    }
+
+    async fn notify_of_subsequent_leader(&self, _pk: P, _cancelled: Arc<AtomicBool>) {
+        // do nothing. We're centralized
     }
 }
 

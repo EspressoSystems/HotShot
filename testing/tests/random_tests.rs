@@ -8,7 +8,7 @@ use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
 use either::Either::{Left, Right};
 #[cfg(feature = "slow-tests")]
 use hotshot::{
-    demos::dentry::{DEntryBlock, State},
+    demos::dentry::DEntryState,
     traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage}, // AtomicStorage,
 };
 #[cfg(feature = "slow-tests")]

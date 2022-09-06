@@ -1,4 +1,10 @@
 mod common;
+use commit::Committable;
+use hotshot::{
+    demos::dentry::{random_leaf, DEntryBlock, DEntryState},
+    traits::implementations::MemoryStorage,
+    types::Vote,
+};
 use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
@@ -9,12 +15,6 @@ use common::{
     TestRoundResult, TestTransaction,
 };
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::{
-    demos::dentry::{random_leaf, DEntryBlock, State as DemoState},
-    traits::{implementations::MemoryStorage, BlockContents},
-    types::Vote,
-    H_256,
-};
 use hotshot_testing::ConsensusRoundError;
 use tracing::{instrument, warn};
 
@@ -42,9 +42,9 @@ async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_n
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(DEntryBlock::default());
+    let mut leaf = random_leaf(DEntryBlock::genesis());
     leaf.view_number = view_number;
-    let signature = handle.sign_proposal(&leaf.hash(), leaf.view_number);
+    let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal { leaf, signature });
 
     // Send proposal
@@ -61,15 +61,15 @@ async fn submit_vote(
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(DEntryBlock::default());
+    let mut leaf = random_leaf(DEntryBlock::genesis());
     leaf.view_number = view_number;
-    let signature = handle.sign_vote(&leaf.hash(), leaf.view_number);
+    let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
         signature,
-        block_hash: leaf.deltas.hash(),
         justify_qc: leaf.clone().justify_qc,
-        leaf_hash: leaf.hash(),
         current_view: leaf.view_number,
+        block_commitment: leaf.deltas.commit(),
+        leaf_commitment: leaf.commit(),
     });
 
     let recipient = runner
@@ -327,7 +327,7 @@ fn test_bad_vote_post_safety_check(
                 else if len > runner.ids().len() {
                     result = Err(ConsensusRoundError::SafetyFailed {
                         description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
-                    // Assert here to fail the test without failed rounds    
+                    // Assert here to fail the test without failed rounds
                     assert!(len <= runner.ids().len());
                 }
             }
@@ -346,9 +346,8 @@ async fn test_proposal_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
-        MemoryStorage<DEntryBlock, DemoState, H_256>,
-        DEntryBlock,
-        DemoState,
+        MemoryStorage<DEntryState>,
+        DEntryState,
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -377,9 +376,8 @@ async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
-        MemoryStorage<DEntryBlock, DemoState, H_256>,
-        DEntryBlock,
-        DemoState,
+        MemoryStorage<DEntryState>,
+        DEntryState,
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -408,9 +406,8 @@ async fn test_bad_proposal() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
-        MemoryStorage<DEntryBlock, DemoState, H_256>,
-        DEntryBlock,
-        DemoState,
+        MemoryStorage<DEntryState>,
+        DEntryState,
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -440,9 +437,8 @@ async fn test_bad_vote() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
-        MemoryStorage<DEntryBlock, DemoState, H_256>,
-        DEntryBlock,
-        DemoState,
+        MemoryStorage<DEntryState>,
+        DEntryState,
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -471,9 +467,8 @@ async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
-        MemoryStorage<DEntryBlock, DemoState, H_256>,
-        DEntryBlock,
-        DemoState,
+        MemoryStorage<DEntryState>,
+        DEntryState,
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 1,

@@ -32,7 +32,10 @@ use std::{
     collections::HashSet,
     num::NonZeroUsize,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
@@ -668,5 +671,31 @@ impl<
             .get_record_timeout(&key, self.inner.dht_timeout)
             .await
             .map_err(Into::<NetworkError>::into)
+    }
+
+    async fn notify_of_subsequent_leader(&self, pk: P, is_cancelled: Arc<AtomicBool>) {
+        self.wait_for_ready().await;
+
+        if is_cancelled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let maybe_pid = self.get_record::<PeerId>(pk.clone()).await;
+        if is_cancelled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        if let Ok(pid) = maybe_pid {
+            if self.inner.handle.lookup_pid(pid).await.is_err() {
+                error!("Failed to look up pid");
+            };
+            if is_cancelled.load(Ordering::Relaxed) {
+                return;
+            }
+
+            // TODO in the future we will probably want to connect too
+        } else {
+            error!("Unable to look up pubkey {:?} ahead of time!", pk);
+        }
     }
 }

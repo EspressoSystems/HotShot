@@ -4,7 +4,4 @@
 //! [`HotShot`](crate::HotShot)'s version of a block, and the [`QuorumCertificate`],
 //! representing the threshold signatures fundamental to consensus.
 
-pub use hotshot_types::data::{
-    create_verify_hash, BlockHash, Leaf, LeafHash, QuorumCertificate, StateHash, TransactionHash,
-    VecQuorumCertificate, VerifyHash,
-};
+pub use hotshot_types::data::{Leaf, QuorumCertificate};
