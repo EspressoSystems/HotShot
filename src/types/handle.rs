@@ -19,18 +19,17 @@ use std::sync::{
 use tracing::{debug, error};
 
 #[cfg(feature = "hotshot-testing")]
+use crate::HotShotConsensusApi;
+#[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
+#[cfg(feature = "hotshot-testing")]
+use hotshot_consensus::ConsensusApi;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
     data::ViewNumber,
     message::ConsensusMessage,
     traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
-
-#[cfg(feature = "hotshot-testing")]
-use crate::HotShotConsensusApi;
-#[cfg(feature = "hotshot-testing")]
-use hotshot_consensus::ConsensusApi;
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///

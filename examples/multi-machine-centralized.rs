@@ -9,7 +9,7 @@ use hotshot::{
     types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
-use hotshot_centralized_server::NetworkConfig;
+use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
     traits::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey},
@@ -94,19 +94,19 @@ async fn main() {
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
 
-    let (config, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
+    let (config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
+
+    error!("Run: {:?}", run);
+    error!("Config: {:?}", config);
 
     // Get networking information
 
     let node_count = config.config.total_nodes;
 
     debug!("Waiting on connections...");
-    loop {
+    while !network.run_ready() {
         let connected_clients = network.get_connected_client_count().await;
-        if connected_clients == node_count.get() {
-            break;
-        }
-        debug!("{} / {}", connected_clients, node_count);
+        error!("{} / {}", connected_clients, node_count);
         async_std::task::sleep(Duration::from_secs(1)).await;
     }
 
@@ -184,17 +184,34 @@ async fn main() {
 
         round += 1;
     }
-    let end = Instant::now();
 
     // Print metrics
-    let total_time_elapsed = end - start;
+    let total_time_elapsed = start.elapsed();
+    let expected_transactions = transactions_per_round * rounds;
     let total_size = total_transactions * padding;
-    println!("All {} rounds completed in {:?}", rounds, end - start);
-    error!("{} rounds timed out", timed_out_views);
+    error!("All {rounds} rounds completed in {total_time_elapsed:?}");
+    error!("{timed_out_views} rounds timed out");
+
     // This assumes all submitted transactions make it through consensus:
     error!(
         "{} total bytes submitted in {:?}",
         total_size, total_time_elapsed
     );
     debug!("All rounds completed");
+
+    let networking: &CentralizedServerNetwork<Ed25519Pub> = hotshot.networking();
+    networking
+        .send_results(RunResults {
+            run,
+            node_index,
+
+            transactions_submitted: total_transactions,
+            transactions_rejected: expected_transactions - total_transactions,
+            transaction_size_bytes: total_size,
+
+            rounds_succeeded: rounds as u64 - timed_out_views,
+            rounds_timed_out: timed_out_views,
+            total_time_in_seconds: total_time_elapsed.as_secs_f64(),
+        })
+        .await;
 }

@@ -1661,6 +1661,7 @@ dependencies = [
  "hotshot-utils",
  "serde",
  "snafu",
+ "toml",
  "tracing",
 ]
 
