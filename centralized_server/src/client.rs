@@ -94,6 +94,10 @@ async fn run_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
+            // The client requested the libp2p config
+            (ToServer::GetLibp2pConfig, _) => {
+                todo!()
+            }
             // This will make sure that the cases below do not get called when we are not identified yet
             (_, false) => {
                 debug!("{:?} received message but is not identified yet", address);

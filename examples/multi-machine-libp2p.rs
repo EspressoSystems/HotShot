@@ -1,4 +1,4 @@
-use async_std::sync::RwLock;
+use async_std::{net::TcpStream, sync::RwLock};
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
@@ -10,6 +10,7 @@ use hotshot::{
     types::{ed25519::Ed25519Priv, HotShotHandle, Message},
     HotShot,
 };
+use hotshot_centralized_server::{Run, RunResults, TcpStreamUtil};
 use hotshot_types::{
     traits::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -18,7 +19,11 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
-use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
+use libp2p::{
+    identity::Keypair,
+    multiaddr::{self, Protocol},
+    Multiaddr, PeerId,
+};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use std::{
     collections::HashSet,
@@ -28,6 +33,9 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info};
+
+type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
+type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -186,8 +194,78 @@ enum CliOpt {
 }
 
 impl CliOrchestrated {
-    async fn init(&self) -> Result<Config, NetworkError> {
-        todo!()
+    async fn init(&self, server_conn: &mut Option<TcpStreamUtil>) -> Result<Config, NetworkError> {
+        let stream = TcpStream::connect(&self.addr)
+            .await
+            .expect("Could not reach server");
+        let mut stream = TcpStreamUtil::new(stream);
+        stream.send(ToServer::GetLibp2pConfig).await.unwrap();
+        error!("Waiting for server config...");
+        let config = match stream.recv().await.expect("Could not get Libp2pConfig") {
+            FromServer::Libp2pConfig(config) => config,
+            x => panic!("Expected Libp2pConfig, got {x:?}"),
+        };
+        let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
+        let pubkey = Ed25519Pub::from_private(&privkey);
+
+        let bs = config
+            .bootstrap_nodes
+            .iter()
+            .map(|(addr, pair)| {
+                let kp = Keypair::rsa_from_pkcs8(&mut pair.clone()).unwrap();
+                let peer_id = PeerId::from_public_key(&kp.public());
+                let mut multiaddr = Multiaddr::from(addr.ip());
+                multiaddr.push(Protocol::Tcp(addr.port()));
+                (peer_id, multiaddr)
+            })
+            .collect();
+
+        let (node_type, identity) = if (config.node_index as usize) < config.bootstrap_nodes.len() {
+            (
+                NetworkNodeType::Bootstrap,
+                Some(
+                    Keypair::rsa_from_pkcs8(
+                        &mut config.bootstrap_nodes[config.node_index as usize].1.clone(),
+                    )
+                    .unwrap(),
+                ),
+            )
+        } else {
+            (NetworkNodeType::Regular, None)
+        };
+
+        *server_conn = Some(stream);
+
+        Ok(Config {
+            run: config.run,
+            privkey,
+            pubkey,
+            bs,
+            node_id: config.node_index,
+            node_type,
+            identity,
+            bound_addr: {
+                let mut addr = Multiaddr::empty();
+                addr.push(config.public_ip.into());
+                addr.push(Protocol::Tcp(config.port));
+                addr
+            },
+            num_nodes: config.num_nodes,
+            bootstrap_mesh_n_high: config.bootstrap_mesh_n_high,
+            bootstrap_mesh_n_low: config.bootstrap_mesh_n_low,
+            bootstrap_mesh_outbound_min: config.bootstrap_mesh_outbound_min,
+            bootstrap_mesh_n: config.bootstrap_mesh_n,
+            mesh_n_high: config.mesh_n_high,
+            mesh_n_low: config.mesh_n_low,
+            mesh_outbound_min: config.mesh_outbound_min,
+            mesh_n: config.mesh_n,
+            threshold: config.threshold,
+            next_view_timeout: config.next_view_timeout,
+            propose_min_round_time: config.propose_min_round_time,
+            propose_max_round_time: config.propose_max_round_time,
+            online_time: config.online_time,
+            num_txn_per_round: config.num_txn_per_round,
+        })
     }
 }
 impl CliStandalone {
@@ -211,7 +289,7 @@ impl CliStandalone {
         let to_connect_addrs: Vec<_> = bootstrap_priv
             .clone()
             .into_iter()
-            .map(|(kp, ma)| (Some(PeerId::from_public_key(&kp.public())), ma))
+            .map(|(kp, ma)| (PeerId::from_public_key(&kp.public()), ma))
             .collect();
         let (node_type, own_identity) = if self.node_idx < self.num_bootstrap {
             (
@@ -223,6 +301,7 @@ impl CliStandalone {
         };
 
         Config {
+            run: Run(0),
             privkey,
             pubkey,
             bs: to_connect_addrs,
@@ -251,9 +330,10 @@ impl CliStandalone {
 
 type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 struct Config {
+    run: Run,
     privkey: Ed25519Priv,
     pubkey: Ed25519Pub,
-    bs: Vec<(Option<PeerId>, Multiaddr)>,
+    bs: Vec<(PeerId, Multiaddr)>,
     node_id: u64,
     node_type: NetworkNodeType,
     bound_addr: Multiaddr,
@@ -370,7 +450,12 @@ impl Config {
         Libp2pNetwork::new(
             node_config,
             self.pubkey,
-            Arc::new(RwLock::new(self.bs.clone())),
+            Arc::new(RwLock::new(
+                self.bs
+                    .iter()
+                    .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
+                    .collect(),
+            )),
             bs_len,
             self.node_id as usize,
         )
@@ -384,9 +469,13 @@ async fn main() {
     setup_backtrace();
 
     let args = CliOpt::from_args();
+    let mut server_conn = None;
     let config = match args {
         CliOpt::Standalone(args) => args.init(),
-        CliOpt::Orchestrated(args) => args.init().await.expect("Could not create Config"),
+        CliOpt::Orchestrated(args) => args
+            .init(&mut server_conn)
+            .await
+            .expect("Could not create Config"),
     };
     let own_id = config.node_id;
     let num_nodes = config.num_nodes;
@@ -411,6 +500,7 @@ async fn main() {
 
     // Run random transactions until failure
     let mut num_failed_views = 0;
+    let mut num_succeeded_views = 0;
 
     let online_time = Duration::from_secs(60 * config.online_time);
 
@@ -439,6 +529,7 @@ async fn main() {
                     num_tnxs += block.txn_count();
                 }
                 total_txns += num_tnxs;
+                num_succeeded_views += 1;
                 error!(
                     "View {:?}: successful with {:?}, and total successful txns {:?}",
                     view, state, total_txns
@@ -462,4 +553,20 @@ async fn main() {
         start_time,
         Instant::now()
     );
+
+    if let Some(mut server) = server_conn {
+        server
+            .send(ToServer::Results(RunResults {
+                node_index: own_id,
+                rounds_succeeded: num_succeeded_views,
+                rounds_timed_out: num_failed_views,
+                run: config.run,
+                total_time_in_seconds: online_time.as_secs_f64(),
+                transaction_size_bytes: 0,
+                transactions_rejected: 0,
+                transactions_submitted: total_txns,
+            }))
+            .await
+            .expect("Could not report results to the server");
+    }
 }

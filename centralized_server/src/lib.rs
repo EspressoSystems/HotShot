@@ -25,8 +25,8 @@ use std::{
 use tracing::{debug, error};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(bound(deserialize = ""))]
-pub enum ToServer<K: SignatureKey> {
+pub enum ToServer<K> {
+    GetLibp2pConfig,
     GetConfig,
     Identify { key: K },
     Broadcast { message: Vec<u8> },
@@ -52,9 +52,10 @@ pub struct RunResults {
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Run(pub usize);
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum FromServer<K> {
     Config { config: NetworkConfig<K>, run: Run },
+    Libp2pConfig(Libp2pConfig<K>),
     NodeConnected { key: K },
     NodeDisconnected { key: K },
     Broadcast { message: Vec<u8> },
@@ -465,6 +466,33 @@ impl Drop for TcpStreamUtil {
             let _ = self.stream.shutdown(Shutdown::Both);
         }
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Libp2pConfig<K> {
+    pub run: Run,
+    pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
+    pub public_ip: IpAddr,
+    pub port: u16,
+    pub seed: [u8; 32],
+    pub node_index: u64,
+    #[serde(default = "default_config")]
+    pub config: HotShotConfig<K>,
+    pub num_nodes: u64,
+    pub bootstrap_mesh_n_high: usize,
+    pub bootstrap_mesh_n_low: usize,
+    pub bootstrap_mesh_outbound_min: usize,
+    pub bootstrap_mesh_n: usize,
+    pub mesh_n_high: usize,
+    pub mesh_n_low: usize,
+    pub mesh_outbound_min: usize,
+    pub mesh_n: usize,
+    pub threshold: u64,
+    pub next_view_timeout: u64,
+    pub propose_min_round_time: u64,
+    pub propose_max_round_time: u64,
+    pub online_time: u64,
+    pub num_txn_per_round: u64,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
