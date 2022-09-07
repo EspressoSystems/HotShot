@@ -1,4 +1,4 @@
-use async_std::sync::RwLock;
+use async_std::{sync::RwLock, task::sleep};
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
@@ -20,6 +20,7 @@ use hotshot_types::{
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use time::{format_description::{self}, OffsetDateTime, error::Parse};
 
 use std::{
     collections::HashSet,
@@ -172,6 +173,19 @@ pub struct CliOpt {
     /// next view timeout
     #[clap(long = "next_view_timeout", env)]
     pub next_view_timeout: u64,
+
+    #[clap(long = "start_timestamp", parse(try_from_str = parse_date), env)]
+    pub start_timestamp: time::OffsetDateTime,
+}
+
+pub fn parse_date(s: &str) -> Result<OffsetDateTime, Parse> {
+    // this shouldn't ever error
+    let format = format_description::parse(
+    "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour \
+         sign:mandatory]:[offset_minute]:[offset_second]",
+    ).unwrap();
+
+    OffsetDateTime::parse(s, &format)
 }
 
 type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
@@ -347,7 +361,19 @@ async fn main() {
     let (_own_state, mut hotshot) =
         init_state_and_hotshot(num_nodes, threshold, own_id as u64, &args, own_network).await;
 
-    error!("Finished init, starting hotshot!");
+
+    error!("Finished init");
+    let now = OffsetDateTime::now_utc();
+
+    let remaining_time = args.start_timestamp - now;
+    if remaining_time.is_positive() {
+        let sleep_time = remaining_time.unsigned_abs();
+        error!("Sleeping for {:?}", sleep_time);
+        sleep(sleep_time).await;
+    }
+
+    error!("Starting hotshot");
+
     hotshot.start().await;
 
     error!("waiting for connections to hotshot!");
