@@ -7,7 +7,7 @@ use hotshot::{
         implementations::{Libp2pNetwork, MemoryStorage, Stateless},
         NetworkError, StateContents,
     },
-    types::{HotShotHandle, Message},
+    types::{ed25519::Ed25519Priv, HotShotHandle, Message},
     HotShot,
 };
 use hotshot_types::{
@@ -20,7 +20,6 @@ use hotshot_types::{
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
@@ -28,7 +27,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-
 use tracing::{debug, error, info};
 
 /// convert node string into multi addr
@@ -94,197 +92,290 @@ pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     ),
 ];
 
+#[derive(clap::Args, Debug)]
+struct CliOrchestrated {
+    /// The orchestrator host to connect to
+    #[clap(env)]
+    addr: String,
+}
+
+#[derive(clap::Args, Debug)]
+struct CliStandalone {
+    /// num nodes
+    #[clap(long = "num_nodes", env)]
+    num_nodes: u64,
+
+    /// num bootstrap
+    #[clap(long = "num_bootstrap", env)]
+    num_bootstrap: u64,
+
+    /// num transactions to be submitted per round
+    #[clap(long = "num_txn_per_round", env)]
+    num_txn_per_round: u64,
+
+    /// Id of the current node
+    #[clap(long = "node_idx", env)]
+    node_idx: u64,
+
+    /// how long to run for
+    #[clap(long = "online_time", default_value = "60", env)]
+    online_time: u64,
+
+    /// address to bind to
+    #[clap(long = "bound_addr", env)]
+    #[clap(parse(try_from_str = parse_ip))]
+    bound_addr: Multiaddr,
+
+    /// seed used to generate ids
+    #[clap(long = "seed", env)]
+    seed: u64,
+
+    /// bootstrap node mesh high
+    #[clap(long = "bootstrap_mesh_n_high", env)]
+    bootstrap_mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[clap(long = "bootstrap_mesh_n_low", env)]
+    bootstrap_mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[clap(long = "bootstrap_mesh_outbound_min", env)]
+    bootstrap_mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[clap(long = "bootstrap_mesh_n", env)]
+    bootstrap_mesh_n: usize,
+
+    /// bootstrap node mesh high
+    #[clap(long = "mesh_n_high", env)]
+    mesh_n_high: usize,
+
+    /// bootstrap node mesh low
+    #[clap(long = "mesh_n_low", env)]
+    mesh_n_low: usize,
+
+    /// bootstrap node outbound min
+    #[clap(long = "mesh_outbound_min", env)]
+    mesh_outbound_min: usize,
+
+    /// bootstrap node mesh n
+    #[clap(long = "mesh_n", env)]
+    mesh_n: usize,
+
+    /// max round time
+    #[clap(long = "propose_max_round_time", env)]
+    propose_max_round_time: u64,
+
+    /// min round time
+    #[clap(long = "propose_min_round_time", env)]
+    propose_min_round_time: u64,
+
+    /// next view timeout
+    #[clap(long = "next_view_timeout", env)]
+    next_view_timeout: u64,
+}
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
-pub struct CliOpt {
-    /// num nodes
-    #[clap(long = "num_nodes", env)]
-    pub num_nodes: usize,
+enum CliOpt {
+    Orchestrated(CliOrchestrated),
+    Standalone(CliStandalone),
+}
 
-    /// num bootstrap
-    #[clap(long = "num_bootstrap", env)]
-    pub num_bootstrap: usize,
+impl CliOrchestrated {
+    async fn init(&self) -> Result<Config, NetworkError> {
+        todo!()
+    }
+}
+impl CliStandalone {
+    fn init(&self) -> Config {
+        let mut seed = [0u8; 32];
+        seed[0..16].copy_from_slice(&self.seed.to_le_bytes());
+        let privkey = Ed25519Priv::generated_from_seed_indexed(seed, self.node_idx);
+        let pubkey = Ed25519Pub::from_private(&privkey);
 
-    /// num transactions to be submitted per round
-    #[clap(long = "num_txn_per_round", env)]
-    pub num_txn_per_round: usize,
+        let bootstrap_priv: Vec<_> = BOOTSTRAPS
+            .iter()
+            .map(|(key_bytes, addr_str)| {
+                let mut key_bytes = <&[u8]>::clone(key_bytes).to_vec();
+                let key = Keypair::rsa_from_pkcs8(&mut key_bytes).unwrap();
+                let multiaddr = parse_dns(addr_str).unwrap();
+                (key, multiaddr)
+            })
+            .take(self.num_bootstrap as usize)
+            .collect();
 
-    /// Id of the current node
-    #[clap(long = "node_idx", env)]
-    pub node_idx: usize,
+        let to_connect_addrs: Vec<_> = bootstrap_priv
+            .clone()
+            .into_iter()
+            .map(|(kp, ma)| (Some(PeerId::from_public_key(&kp.public())), ma))
+            .collect();
+        let (node_type, own_identity) = if self.node_idx < self.num_bootstrap {
+            (
+                NetworkNodeType::Bootstrap,
+                Some(bootstrap_priv[self.node_idx as usize].0.clone()),
+            )
+        } else {
+            (NetworkNodeType::Regular, None)
+        };
 
-    /// how long to run for
-    #[clap(long = "online_time", default_value = "60", env)]
-    pub online_time: u64,
-
-    /// address to bind to
-    #[clap(long = "bound_addr", env)]
-    #[clap(parse(try_from_str = parse_ip))]
-    pub bound_addr: Multiaddr,
-
-    /// seed used to generate ids
-    #[clap(long = "seed", env)]
-    pub seed: u64,
-
-    /// bootstrap node mesh high
-    #[clap(long = "bootstrap_mesh_n_high", env)]
-    pub bootstrap_mesh_n_high: usize,
-
-    /// bootstrap node mesh low
-    #[clap(long = "bootstrap_mesh_n_low", env)]
-    pub bootstrap_mesh_n_low: usize,
-
-    /// bootstrap node outbound min
-    #[clap(long = "bootstrap_mesh_outbound_min", env)]
-    pub bootstrap_mesh_outbound_min: usize,
-
-    /// bootstrap node mesh n
-    #[clap(long = "bootstrap_mesh_n", env)]
-    pub bootstrap_mesh_n: usize,
-
-    /// bootstrap node mesh high
-    #[clap(long = "mesh_n_high", env)]
-    pub mesh_n_high: usize,
-
-    /// bootstrap node mesh low
-    #[clap(long = "mesh_n_low", env)]
-    pub mesh_n_low: usize,
-
-    /// bootstrap node outbound min
-    #[clap(long = "mesh_outbound_min", env)]
-    pub mesh_outbound_min: usize,
-
-    /// bootstrap node mesh n
-    #[clap(long = "mesh_n", env)]
-    pub mesh_n: usize,
-
-    /// max round time
-    #[clap(long = "propose_max_round_time", env)]
-    pub propose_max_round_time: u64,
-
-    /// min round time
-    #[clap(long = "propose_min_round_time", env)]
-    pub propose_min_round_time: u64,
-
-    /// next view timeout
-    #[clap(long = "next_view_timeout", env)]
-    pub next_view_timeout: u64,
+        Config {
+            privkey,
+            pubkey,
+            bs: to_connect_addrs,
+            node_id: self.node_idx,
+            node_type,
+            bound_addr: self.bound_addr.clone(),
+            identity: own_identity,
+            num_nodes: self.num_nodes,
+            bootstrap_mesh_n_high: self.bootstrap_mesh_n_high,
+            bootstrap_mesh_n_low: self.bootstrap_mesh_n_low,
+            bootstrap_mesh_outbound_min: self.bootstrap_mesh_outbound_min,
+            bootstrap_mesh_n: self.bootstrap_mesh_n,
+            mesh_n_high: self.mesh_n_high,
+            mesh_n_low: self.mesh_n_low,
+            mesh_outbound_min: self.mesh_outbound_min,
+            mesh_n: self.mesh_n,
+            threshold: ((self.num_nodes * 2) / 3) + 1,
+            next_view_timeout: self.next_view_timeout,
+            propose_min_round_time: self.propose_min_round_time,
+            propose_max_round_time: self.propose_max_round_time,
+            online_time: self.online_time,
+            num_txn_per_round: self.num_txn_per_round,
+        }
+    }
 }
 
 type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
-
-/// Creates the initial state and hotshot for simulation.
-async fn init_state_and_hotshot(
-    nodes: usize,
-    threshold: usize,
-    node_id: u64,
-    config: &CliOpt,
-    networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-) -> (DEntryState, HotShotHandle<Node>) {
-    // Create the initial state
-    // NOTE: all balances must be positive
-    // so we avoid a negative balance
-    let block = DEntryBlock::genesis();
-
-    // Create the initial hotshot
-    let known_nodes: Vec<_> = (0..nodes as u64)
-        .map(|x| {
-            let priv_key = Ed25519Pub::generate_test_key(x);
-            Ed25519Pub::from_private(&priv_key)
-        })
-        .collect();
-
-    let config = HotShotConfig {
-        execution_type: ExecutionType::Continuous,
-        total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        threshold: NonZeroUsize::new(threshold).unwrap(),
-        max_transactions: NonZeroUsize::new(100).unwrap(),
-        known_nodes: known_nodes.clone(),
-        next_view_timeout: config.next_view_timeout * 1000,
-        timeout_ratio: (11, 10),
-        round_start_delay: 1,
-        start_delay: 1,
-        propose_min_round_time: Duration::from_secs(config.propose_min_round_time),
-        propose_max_round_time: Duration::from_secs(config.propose_max_round_time),
-        num_bootstrap: 7,
-    };
-    debug!(?config);
-    let priv_key = Ed25519Pub::generate_test_key(node_id);
-    let pub_key = Ed25519Pub::from_private(&priv_key);
-    let state = DEntryState::default().append(&block).unwrap();
-    let hotshot = HotShot::init(
-        known_nodes.clone(),
-        pub_key,
-        priv_key,
-        node_id,
-        config,
-        networking,
-        MemoryStorage::new(block.clone(), state.clone()),
-        Stateless::default(),
-        StaticCommittee::new(known_nodes),
-    )
-    .await
-    .expect("Could not init hotshot");
-    debug!("hotshot launched");
-
-    (state, hotshot)
-}
-
-pub async fn new_libp2p_network(
+struct Config {
+    privkey: Ed25519Priv,
     pubkey: Ed25519Pub,
     bs: Vec<(Option<PeerId>, Multiaddr)>,
-    node_id: usize,
+    node_id: u64,
     node_type: NetworkNodeType,
     bound_addr: Multiaddr,
     identity: Option<Keypair>,
-    opts: &CliOpt,
-) -> Result<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>, NetworkError> {
-    assert!(node_id < opts.num_nodes);
-    let mut config_builder = NetworkNodeConfigBuilder::default();
-    // NOTE we may need to change this as we scale
-    config_builder.replication_factor(NonZeroUsize::new(opts.num_nodes - 2).unwrap());
-    config_builder.to_connect_addrs(HashSet::new());
-    config_builder.node_type(node_type);
-    config_builder.bound_addr(Some(bound_addr));
+    num_nodes: u64,
+    bootstrap_mesh_n_high: usize,
+    bootstrap_mesh_n_low: usize,
+    bootstrap_mesh_outbound_min: usize,
+    bootstrap_mesh_n: usize,
+    mesh_n_high: usize,
+    mesh_n_low: usize,
+    mesh_outbound_min: usize,
+    mesh_n: usize,
+    threshold: u64,
+    next_view_timeout: u64,
+    propose_min_round_time: u64,
+    propose_max_round_time: u64,
+    online_time: u64,
+    num_txn_per_round: u64,
+}
 
-    if let Some(identity) = identity {
-        config_builder.identity(identity);
+impl Config {
+    /// Creates the initial state and hotshot for simulation.
+    async fn init_state_and_hotshot(
+        &self,
+
+        networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    ) -> (DEntryState, HotShotHandle<Node>) {
+        // Create the initial state
+        // NOTE: all balances must be positive
+        // so we avoid a negative balance
+        let block = DEntryBlock::genesis();
+
+        // Create the initial hotshot
+        let known_nodes: Vec<_> = (0..self.num_nodes as u64)
+            .map(|x| {
+                let priv_key = Ed25519Pub::generate_test_key(x);
+                Ed25519Pub::from_private(&priv_key)
+            })
+            .collect();
+
+        let config = HotShotConfig {
+            execution_type: ExecutionType::Continuous,
+            total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
+            threshold: NonZeroUsize::new(self.threshold as usize).unwrap(),
+            max_transactions: NonZeroUsize::new(100).unwrap(),
+            known_nodes: known_nodes.clone(),
+            next_view_timeout: self.next_view_timeout * 1000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            propose_min_round_time: Duration::from_secs(self.propose_min_round_time),
+            propose_max_round_time: Duration::from_secs(self.propose_max_round_time),
+            num_bootstrap: 7,
+        };
+        debug!(?config);
+        let state = DEntryState::default().append(&block).unwrap();
+        let hotshot = HotShot::init(
+            known_nodes.clone(),
+            self.pubkey,
+            self.privkey.clone(),
+            self.node_id as u64,
+            config,
+            networking,
+            MemoryStorage::new(block.clone(), state.clone()),
+            Stateless::default(),
+            StaticCommittee::new(known_nodes),
+        )
+        .await
+        .expect("Could not init hotshot");
+        debug!("hotshot launched");
+
+        (state, hotshot)
     }
 
-    let mesh_params =
+    async fn new_libp2p_network(
+        &self,
+    ) -> Result<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>, NetworkError> {
+        assert!(self.node_id < self.num_nodes);
+        let mut config_builder = NetworkNodeConfigBuilder::default();
+        // NOTE we may need to change this as we scale
+        config_builder.replication_factor(NonZeroUsize::new(self.num_nodes as usize - 2).unwrap());
+        config_builder.to_connect_addrs(HashSet::new());
+        config_builder.node_type(self.node_type);
+        config_builder.bound_addr(Some(self.bound_addr.clone()));
+
+        if let Some(identity) = self.identity.clone() {
+            config_builder.identity(identity);
+        }
+
+        let mesh_params =
         // NOTE I'm arbitrarily choosing these.
-        match node_type {
+        match self.node_type {
             NetworkNodeType::Bootstrap => MeshParams {
-                mesh_n_high: opts.bootstrap_mesh_n_high,
-                mesh_n_low: opts.bootstrap_mesh_n_low,
-                mesh_outbound_min: opts.bootstrap_mesh_outbound_min,
-                mesh_n: opts.bootstrap_mesh_n,
+                mesh_n_high: self.bootstrap_mesh_n_high,
+                mesh_n_low: self.bootstrap_mesh_n_low,
+                mesh_outbound_min: self.bootstrap_mesh_outbound_min,
+                mesh_n: self.bootstrap_mesh_n,
             },
             NetworkNodeType::Regular => MeshParams {
-                mesh_n_high: opts.mesh_n_high,
-                mesh_n_low: opts.mesh_n_low,
-                mesh_outbound_min: opts.mesh_outbound_min,
-                mesh_n: opts.mesh_n,
+                mesh_n_high: self.mesh_n_high,
+                mesh_n_low: self.mesh_n_low,
+                mesh_outbound_min: self.mesh_outbound_min,
+                mesh_n: self.mesh_n,
             },
             NetworkNodeType::Conductor => unreachable!(),
         };
 
-    config_builder.mesh_params(Some(mesh_params));
+        config_builder.mesh_params(Some(mesh_params));
 
-    let config = config_builder.build().unwrap();
-    let bs_len = bs.len();
+        let node_config = config_builder.build().unwrap();
+        let bs_len = self.bs.len();
 
-    Libp2pNetwork::new(
-        config,
-        pubkey,
-        Arc::new(RwLock::new(bs)),
-        bs_len,
-        node_id as usize,
-    )
-    .await
+        Libp2pNetwork::new(
+            node_config,
+            self.pubkey,
+            Arc::new(RwLock::new(self.bs.clone())),
+            bs_len,
+            self.node_id as usize,
+        )
+        .await
+    }
 }
 
 #[async_std::main]
@@ -293,59 +384,19 @@ async fn main() {
     setup_backtrace();
 
     let args = CliOpt::from_args();
-
-    let bootstrap_priv: Vec<_> = BOOTSTRAPS
-        .iter()
-        .map(|(key_bytes, addr_str)| {
-            let mut key_bytes = <&[u8]>::clone(key_bytes).to_vec();
-            let key = Keypair::rsa_from_pkcs8(&mut key_bytes).unwrap();
-            let multiaddr = parse_dns(addr_str).unwrap();
-            (key, multiaddr)
-        })
-        .take(args.num_bootstrap)
-        .collect();
-
-    let to_connect_addrs: Vec<_> = bootstrap_priv
-        .clone()
-        .into_iter()
-        .map(|(kp, ma)| (Some(PeerId::from_public_key(&kp.public())), ma))
-        .collect();
-
-    let own_id = args.node_idx;
-    let num_nodes = args.num_nodes;
-    let bound_addr = args.bound_addr.clone();
-    let (node_type, own_identity) = if own_id < args.num_bootstrap {
-        (
-            NetworkNodeType::Bootstrap,
-            Some(bootstrap_priv[own_id].0.clone()),
-        )
-    } else {
-        (NetworkNodeType::Regular, None)
+    let config = match args {
+        CliOpt::Standalone(args) => args.init(),
+        CliOpt::Orchestrated(args) => args.init().await.expect("Could not create Config"),
     };
-
-    let threshold = ((num_nodes * 2) / 3) + 1;
-
-    let own_priv_key = Ed25519Pub::generate_test_key(own_id as u64);
-    let own_pub_key = Ed25519Pub::from_private(&own_priv_key);
-
+    let own_id = config.node_id;
+    let num_nodes = config.num_nodes;
     error!("Done with keygen");
-    let own_network = new_libp2p_network(
-        own_pub_key,
-        to_connect_addrs,
-        own_id as usize,
-        node_type,
-        bound_addr,
-        own_identity,
-        &args,
-    )
-    .await
-    .unwrap();
+    let own_network = config.new_libp2p_network().await.unwrap();
 
     error!("Done with network creation");
 
     // Initialize the state and hotshot
-    let (_own_state, mut hotshot) =
-        init_state_and_hotshot(num_nodes, threshold, own_id as u64, &args, own_network).await;
+    let (_own_state, mut hotshot) = config.init_state_and_hotshot(own_network).await;
 
     error!("Finished init, starting hotshot!");
     hotshot.start().await;
@@ -361,7 +412,7 @@ async fn main() {
     // Run random transactions until failure
     let mut num_failed_views = 0;
 
-    let online_time = Duration::from_secs(60 * args.online_time);
+    let online_time = Duration::from_secs(60 * config.online_time);
 
     let mut total_txns = 0;
 
@@ -371,7 +422,7 @@ async fn main() {
             info!("Generating txn for view {}", view);
             let state = hotshot.get_state().await;
 
-            for _ in 0..args.num_txn_per_round {
+            for _ in 0..config.num_txn_per_round {
                 let txn = <DEntryState as TestableState>::create_random_transaction(&state);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
