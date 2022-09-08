@@ -54,49 +54,13 @@ pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
 
 // FIXME make these actual ips/ports
 /// bootstrap hardcoded metadata
-pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
-    (
-        include_bytes!("../deploy/keys/private_1.pk8"),
-        // "127.0.0.1:9100",
-        // "18.216.113.34:9000",
-        "0.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_2.pk8"),
-        // "127.0.0.1:9101",
-        // "18.117.245.103:9000",
-        "1.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_3.pk8"),
-        // "127.0.0.1:9102",
-        // "13.58.161.60:9000",
-        "2.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_4.pk8"),
-        // "127.0.0.1:9103",
-        // "3.111.188.178:9000",
-        "3.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_5.pk8"),
-        // "127.0.0.1:9104",
-        // "52.66.253.105:9000",
-        "4.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_6.pk8"),
-        // "127.0.0.1:9105",
-        // "34.219.31.18:9000",
-        "5.us-east-2.cluster.aws.espresso.network:9000",
-    ),
-    (
-        include_bytes!("../deploy/keys/private_7.pk8"),
-        // "127.0.0.1:9106",
-        // "54.184.243.4:9000",
-        "6.us-east-2.cluster.aws.espresso.network:9000",
-    ),
+pub const BOOTSTRAP_KEYS: &[&[u8]] = &[
+    include_bytes!("../deploy/keys/private_1.pk8"),
+    include_bytes!("../deploy/keys/private_2.pk8"),
+    include_bytes!("../deploy/keys/private_3.pk8"),
+    include_bytes!("../deploy/keys/private_4.pk8"),
+    include_bytes!("../deploy/keys/private_6.pk8"),
+    include_bytes!("../deploy/keys/private_7.pk8"),
 ];
 
 #[derive(Parser, Debug)]
@@ -105,13 +69,13 @@ pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
     about = "Simulates consensus among multiple machines"
 )]
 pub struct CliOpt {
+    /// bootstrap addresses
+    #[clap(require_delimiter = true, long = "bootstrap_addrs", parse(try_from_str = parse_dns), env)]
+    pub bootstrap_addrs: Vec<Multiaddr>,
+
     /// num nodes
     #[clap(long = "num_nodes", env)]
     pub num_nodes: usize,
-
-    /// num bootstrap
-    #[clap(long = "num_bootstrap", env)]
-    pub num_bootstrap: usize,
 
     /// num transactions to be submitted per round
     #[clap(long = "num_txn_per_round", env)]
@@ -313,16 +277,17 @@ async fn main() {
 
     let args = CliOpt::from_args();
 
-    let bootstrap_priv: Vec<_> = BOOTSTRAPS
-        .iter()
-        .map(|(key_bytes, addr_str)| {
+    let bootstraps = args.bootstrap_addrs.clone().into_iter().zip(BOOTSTRAP_KEYS);
+
+    let bootstrap_priv: Vec<_> = bootstraps
+        .map(|(addr, key_bytes)| {
             let mut key_bytes = <&[u8]>::clone(key_bytes).to_vec();
             let key = Keypair::rsa_from_pkcs8(&mut key_bytes).unwrap();
-            let multiaddr = parse_dns(addr_str).unwrap();
-            (key, multiaddr)
+            (key, addr)
         })
-        .take(args.num_bootstrap)
         .collect();
+
+    let num_bootstrap = bootstrap_priv.len();
 
     let to_connect_addrs: Vec<_> = bootstrap_priv
         .clone()
@@ -333,7 +298,7 @@ async fn main() {
     let own_id = args.node_idx;
     let num_nodes = args.num_nodes;
     let bound_addr = args.bound_addr.clone();
-    let (node_type, own_identity) = if own_id < args.num_bootstrap {
+    let (node_type, own_identity) = if own_id < num_bootstrap {
         (
             NetworkNodeType::Bootstrap,
             Some(bootstrap_priv[own_id].0.clone()),
