@@ -253,7 +253,6 @@ impl NetworkNode {
                 ),
                 identify,
                 DMBehaviour::new(request_response),
-                HashSet::default(),
             );
             let executor = Box::new(|fut| {
                 async_std::task::spawn(fut);

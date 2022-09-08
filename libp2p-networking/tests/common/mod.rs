@@ -117,8 +117,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .identity(identity)
             .replication_factor(replication_factor)
             .node_type(NetworkNodeType::Bootstrap)
-            .bound_addr(Some(addr))
-            .to_connect_addrs(HashSet::new());
+            .to_connect_addrs(HashSet::default())
+            .bound_addr(Some(addr));
         let node = Arc::new(
             NetworkNodeHandle::new(
                 config

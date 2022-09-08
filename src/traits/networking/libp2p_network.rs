@@ -159,9 +159,9 @@ impl<
                             mesh_n: (expected_node_count / 2 + 3),
                         }))
                         .replication_factor(replication_factor)
-                        .to_connect_addrs(HashSet::default())
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
+                        .to_connect_addrs(HashSet::default())
                         .build()
                         .unwrap()
                 } else {
@@ -176,9 +176,9 @@ impl<
                             mesh_n: 8,
                         }))
                         .replication_factor(replication_factor)
-                        .to_connect_addrs(HashSet::default())
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
+                        .to_connect_addrs(HashSet::default())
                         .build()
                         .unwrap()
                 };

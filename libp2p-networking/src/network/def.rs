@@ -5,7 +5,7 @@ use libp2p::{
     request_response::ResponseChannel,
     Multiaddr, NetworkBehaviour, PeerId,
 };
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 use tracing::debug;
 
 use super::{
@@ -48,12 +48,6 @@ pub struct NetworkDef {
     /// purpose: directly messaging peer
     #[debug(skip)]
     pub request_response: DMBehaviour,
-
-    /// Addresses to connect to at init
-    /// DEPRECATED to be removed
-    /// <https://github.com/EspressoSystems/hotshot/issues/289>
-    #[behaviour(ignore)]
-    pub to_connect_addrs: HashSet<Multiaddr>,
 }
 
 impl NetworkDef {
@@ -63,14 +57,12 @@ impl NetworkDef {
         dht: DHTBehaviour,
         identify: Identify,
         request_response: DMBehaviour,
-        to_connect_addrs: HashSet<Multiaddr>,
     ) -> NetworkDef {
         Self {
             gossipsub,
             dht,
             identify,
             request_response,
-            to_connect_addrs,
         }
     }
 }
