@@ -6,11 +6,11 @@ edition = "2021"
 [dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "3.2.20", features = ["derive", "env"] }
-hotshot-types = { path = "../../types" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 hotshot = { path = "../../" }
 hotshot-centralized-server = { path = "../" }
+hotshot-types = { path = "../../types" }
 hotshot-utils = { path = "../../utils" }
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 toml = "0.5.9"
 tracing = "0.1.36"
 

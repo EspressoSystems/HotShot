@@ -6,11 +6,11 @@ edition = "2021"
 [dependencies]
 async-std = "1.12.0"
 bincode = "1.3.3"
-hotshot-types = { version = "0.1.0", path = "../types" }
-serde = { version = "1.0.143", features = ["derive"] }
-snafu = "0.7.1"
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 flume = "0.10.14"
 futures = "0.3.24"
+hotshot-types = { version = "0.1.0", path = "../types" }
 hotshot-utils = { path = "../utils" }
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+serde = { version = "1.0.143", features = ["derive"] }
+snafu = "0.7.1"
 tracing = "0.1.36"
