@@ -20,7 +20,11 @@ use hotshot_types::{
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use time::{format_description::{self}, OffsetDateTime, error::Parse};
+use time::{
+    error::Parse,
+    format_description::{self},
+    OffsetDateTime,
+};
 
 use std::{
     collections::HashSet,
@@ -55,43 +59,43 @@ pub const BOOTSTRAPS: &[(&[u8], &str)] = &[
         include_bytes!("../deploy/keys/private_1.pk8"),
         // "127.0.0.1:9100",
         // "18.216.113.34:9000",
-        "0.ap-south-1.cluster.aws.espresso.network:9000",
+        "0.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_2.pk8"),
         // "127.0.0.1:9101",
         // "18.117.245.103:9000",
-        "1.ap-south-1.cluster.aws.espresso.network:9000",
+        "1.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_3.pk8"),
         // "127.0.0.1:9102",
         // "13.58.161.60:9000",
-        "0.us-east-2.cluster.aws.espresso.network:9000",
+        "2.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_4.pk8"),
         // "127.0.0.1:9103",
         // "3.111.188.178:9000",
-        "1.us-east-2.cluster.aws.espresso.network:9000",
+        "3.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_5.pk8"),
         // "127.0.0.1:9104",
         // "52.66.253.105:9000",
-        "2.us-east-2.cluster.aws.espresso.network:9000",
+        "4.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_6.pk8"),
         // "127.0.0.1:9105",
         // "34.219.31.18:9000",
-        "0.us-west-2.cluster.aws.espresso.network:9000",
+        "5.us-east-2.cluster.aws.espresso.network",
     ),
     (
         include_bytes!("../deploy/keys/private_7.pk8"),
         // "127.0.0.1:9106",
         // "54.184.243.4:9000",
-        "1.us-west-2.cluster.aws.espresso.network:9000",
+        "6.us-east-2.cluster.aws.espresso.network",
     ),
 ];
 
@@ -181,9 +185,10 @@ pub struct CliOpt {
 pub fn parse_date(s: &str) -> Result<OffsetDateTime, Parse> {
     // this shouldn't ever error
     let format = format_description::parse(
-    "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour \
+        "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour \
          sign:mandatory]:[offset_minute]:[offset_second]",
-    ).unwrap();
+    )
+    .unwrap();
 
     OffsetDateTime::parse(s, &format)
 }
@@ -360,7 +365,6 @@ async fn main() {
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) =
         init_state_and_hotshot(num_nodes, threshold, own_id as u64, &args, own_network).await;
-
 
     error!("Finished init");
     let now = OffsetDateTime::now_utc();
