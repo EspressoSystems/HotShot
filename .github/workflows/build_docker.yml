@@ -3,7 +3,6 @@ name: Build with docker Workflow
 on:
   push:
     branches:
-      - 'timehack'
       - '*/*'
       - 'main'
   pull_request:
