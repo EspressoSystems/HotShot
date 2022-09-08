@@ -246,9 +246,9 @@ pub async fn new_libp2p_network(
     let mut config_builder = NetworkNodeConfigBuilder::default();
     // NOTE we may need to change this as we scale
     config_builder.replication_factor(NonZeroUsize::new(opts.num_nodes - 2).unwrap());
-    config_builder.to_connect_addrs(HashSet::new());
     config_builder.node_type(node_type);
     config_builder.bound_addr(Some(bound_addr));
+    config_builder.to_connect_addrs(HashSet::new());
 
     if let Some(identity) = identity {
         config_builder.identity(identity);
