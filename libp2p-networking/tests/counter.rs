@@ -1,21 +1,23 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::{
-    prelude::StreamExt,
-    sync::RwLock,
-    task::{sleep, spawn},
-};
+use async_lock::RwLock;
+#[cfg(feature = "async-std-executor")]
+use async_std::prelude::StreamExt;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
-
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    async_std_or_tokio::{async_sleep, async_spawn, async_test},
+    bincode::bincode_opts,
+};
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
+#[cfg(feature = "tokio-executor")]
+use tokio_stream::StreamExt;
 use tracing::{error, info, instrument, warn};
 
 pub type CounterState = u32;
@@ -376,7 +378,7 @@ async fn run_request_response_increment_all(
     for _ in 0..futs.len() {
         let fut = futs.pop().unwrap();
         let results = results.clone();
-        spawn(async move {
+        async_spawn(async move {
             let res = fut.await;
             results.write().await.push(res);
         });
@@ -387,7 +389,7 @@ async fn run_request_response_increment_all(
             break;
         }
         info!("NUMBER OF RESULTS for increment all is: {}", l);
-        sleep(Duration::from_secs(1)).await;
+        async_sleep(Duration::from_secs(1)).await;
     }
 
     if results.read().await.iter().any(|x| x.is_err()) {
@@ -401,7 +403,7 @@ async fn run_request_response_increment_all(
 }
 
 /// simple case of direct message
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_request_response_one_round() {
     test_bed(
@@ -415,7 +417,7 @@ async fn test_coverage_request_response_one_round() {
 }
 
 /// stress test of direct messsage
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_request_response_many_rounds() {
     test_bed(
@@ -429,7 +431,7 @@ async fn test_coverage_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_intersperse_many_rounds() {
     test_bed(
@@ -443,7 +445,7 @@ async fn test_coverage_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_gossip_many_rounds() {
     test_bed(
@@ -457,7 +459,7 @@ async fn test_coverage_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_gossip_one_round() {
     test_bed(
@@ -471,7 +473,7 @@ async fn test_coverage_gossip_one_round() {
 }
 
 /// simple case of direct message
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_one_round() {
@@ -486,7 +488,7 @@ async fn test_stress_request_response_one_round() {
 }
 
 /// stress test of direct messsage
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_many_rounds() {
@@ -501,7 +503,7 @@ async fn test_stress_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_intersperse_many_rounds() {
@@ -516,7 +518,7 @@ async fn test_stress_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_many_rounds() {
@@ -531,7 +533,7 @@ async fn test_stress_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_one_round() {
@@ -546,7 +548,7 @@ async fn test_stress_gossip_one_round() {
 }
 
 /// simple case of one dht publish event
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_one_round() {
@@ -561,7 +563,7 @@ async fn test_stress_dht_one_round() {
 }
 
 /// many dht publishing events
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_many_rounds() {
@@ -576,7 +578,7 @@ async fn test_stress_dht_many_rounds() {
 }
 
 /// simple case of one dht publish event
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_dht_one_round() {
     test_bed(
@@ -590,7 +592,7 @@ async fn test_coverage_dht_one_round() {
 }
 
 /// many dht publishing events
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_coverage_dht_many_rounds() {
     test_bed(

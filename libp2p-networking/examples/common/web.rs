@@ -46,7 +46,7 @@ where
             Ok(())
         },
     ));
-    async_std::task::spawn(async move {
+    async_spawn(async move {
         info!(?addr, "Web UI listening on");
         if let Err(e) = tide.listen(addr).await {
             error!(?e, "Web UI crashed, this is a bug");

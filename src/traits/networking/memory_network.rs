@@ -5,7 +5,7 @@
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
 use crate::utils::ReceiverExt;
-use async_std::{sync::RwLock, task::spawn};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
@@ -14,7 +14,10 @@ use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    async_std_or_tokio::{async_block_on, async_sleep, async_spawn},
+    bincode::bincode_opts,
+};
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -137,7 +140,7 @@ where
         let in_flight_message_count = AtomicUsize::new(0);
         trace!("Channels open, spawning background task");
 
-        spawn(
+        async_spawn(
             async move {
                 debug!("Starting background task");
                 // direct input is right stream
@@ -159,11 +162,11 @@ where
                                 Ok(x) => {
                                     let dts = direct_task_send.clone();
                                     if let Some(r) = reliability_config.clone() {
-                                        spawn(async move {
+                                        async_spawn(async move {
                                             if r.sample_keep() {
                                                 let delay = r.sample_delay();
                                                 if delay > std::time::Duration::ZERO {
-                                                    async_std::task::sleep(delay).await;
+                                                    async_sleep(delay).await;
                                                 }
                                                 let res = dts.send_async(x).await;
                                                 if res.is_ok() {
@@ -197,11 +200,11 @@ where
                                 Ok(x) => {
                                     let bts = broadcast_task_send.clone();
                                     if let Some(r) = reliability_config.clone() {
-                                        spawn(async move {
+                                        async_spawn(async move {
                                             if r.sample_keep() {
                                                 let delay = r.sample_delay();
                                                 if delay > std::time::Duration::ZERO {
-                                                    async_std::task::sleep(delay).await;
+                                                    async_sleep(delay).await;
                                                 }
                                                 let res = bts.send_async(x).await;
                                                 if res.is_ok() {
@@ -233,7 +236,7 @@ where
         );
         trace!("Notifying other networks of the new connected peer");
         for other in master_map.map.iter() {
-            async_std::task::block_on(
+            async_block_on(
                 other
                     .value()
                     .network_changes_input(NetworkChange::NodeConnected(pub_key.clone())),
@@ -486,6 +489,7 @@ impl<
 mod tests {
     use super::*;
     use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
+    use hotshot_utils::async_std_or_tokio::async_test;
     use hotshot_utils::test_util::setup_logging;
     use serde::Deserialize;
 
@@ -524,7 +528,7 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_std::test]
+    #[async_test]
     #[instrument]
     async fn direct_queue() {
         setup_logging();
@@ -580,7 +584,7 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_std::test]
+    #[async_test]
     #[instrument]
     async fn broadcast_queue() {
         setup_logging();
@@ -635,7 +639,7 @@ mod tests {
         assert_eq!(output, messages);
     }
 
-    #[async_std::test]
+    #[async_test]
     async fn test_in_flight_message_count() {
         setup_logging();
         // Create some dummy messages

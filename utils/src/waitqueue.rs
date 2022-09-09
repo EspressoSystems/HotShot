@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use async_std::sync::{Condvar, Mutex};
+use async_lock::{Mutex};
 use tracing::{instrument, trace};
 
 /// Allows the consumer to wait until the queue is full enough before dumping it

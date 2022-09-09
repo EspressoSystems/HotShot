@@ -21,10 +21,12 @@ use self::{
     },
     node::network_node_handle_error::TimeoutSnafu,
 };
-use async_std::{prelude::FutureExt as _, task::spawn};
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    async_std_or_tokio::{async_spawn, async_timeout},
+    bincode::bincode_opts,
+};
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
@@ -244,7 +246,7 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
 {
     let recv_kill = handle.recv_kill();
     let recv_event = handle.recv_network();
-    spawn(
+    async_spawn(
         async move {
             loop {
                 select!(
@@ -275,10 +277,12 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle.add_known_peers(known_nodes).await?;
-    NetworkNodeHandle::wait_to_connect(handle.clone(), 4, handle.recv_network(), idx)
-        .timeout(timeout_len)
-        .await
-        .context(TimeoutSnafu)??;
+    async_timeout(
+        timeout_len,
+        NetworkNodeHandle::wait_to_connect(handle.clone(), 4, handle.recv_network(), idx),
+    )
+    .await
+    .context(TimeoutSnafu)??;
     handle.subscribe("global".to_string()).await?;
 
     Ok(())

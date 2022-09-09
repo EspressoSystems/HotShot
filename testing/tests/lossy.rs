@@ -13,6 +13,7 @@ use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError,
 };
+use hotshot_utils::async_std_or_tokio::async_test;
 use tracing::{error, instrument, warn};
 
 /// checks safety requirement; relatively lax
@@ -49,7 +50,7 @@ pub fn check_safety(
 }
 
 // tests base level of working synchronous network
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_no_loss_network() {
     let description = DetailedTestDescriptionBuilder {
@@ -68,7 +69,7 @@ async fn test_no_loss_network() {
 }
 
 // // tests network with forced packet delay
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn test_synchronous_network() {
     let description = DetailedTestDescriptionBuilder {
@@ -89,7 +90,7 @@ async fn test_synchronous_network() {
 }
 
 // tests network with small packet delay and dropped packets
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
@@ -113,7 +114,7 @@ async fn test_asynchronous_network() {
 }
 
 /// tests network with asynchronous patch that eventually becomes synchronous
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_partially_synchronous_network() {

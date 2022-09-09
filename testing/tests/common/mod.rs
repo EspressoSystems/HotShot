@@ -475,7 +475,7 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        async_std::task::block_on(async move {
+        hotshot_utils::async_std_or_tokio::async_block_on(async move {
             hotshot_utils::test_util::setup_logging();
             let description: $crate::GeneralTestDescriptionBuilder = $e;
             let built: $TEST_TYPE = description.build();

@@ -2,11 +2,7 @@
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
-use async_std::{
-    prelude::FutureExt,
-    sync::RwLock,
-    task::{block_on, sleep, spawn},
-};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
@@ -19,12 +15,17 @@ use hotshot_types::traits::{
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use hotshot_utils::bincode::bincode_opts;
-use libp2p::{Multiaddr, PeerId};
-use libp2p_networking::network::{
-    MeshParams,
-    NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-    NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+use hotshot_utils::{
+    async_std_or_tokio::{async_block_on, async_sleep, async_spawn, async_timeout},
+    bincode::bincode_opts,
+};
+use libp2p_networking::{
+    network::{
+        MeshParams,
+        NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+    },
+    reexport::{Multiaddr, PeerId},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
@@ -183,7 +184,7 @@ impl<
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
-                block_on(async move {
+                async_block_on(async move {
                     Libp2pNetwork::new(
                         config,
                         pubkey,
@@ -218,7 +219,7 @@ impl<
             {
                 break;
             }
-            sleep(Duration::from_secs(1)).await;
+            async_sleep(Duration::from_secs(1)).await;
         }
         info!("LIBP2P: IS READY GOT TRIGGERED!!");
     }
@@ -298,7 +299,7 @@ impl<
         let handle = self.inner.handle.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         let node_type = self.inner.handle.config().node_type;
-        spawn({
+        async_spawn({
             let is_ready = self.inner.is_ready.clone();
             async move {
                 let bs_addrs = loop {
@@ -321,20 +322,22 @@ impl<
                 let timeout_duration = Duration::from_secs(600);
                 // perform connection
                 error!("WAITING TO CONNECT ON NODE {:?}", id);
-                NetworkNodeHandle::wait_to_connect(
-                    handle.clone(),
-                    // this is a safe lower bet on the number of nodes in the network.
-                    4,
-                    handle.recv_network(),
-                    id,
+                async_timeout(
+                    timeout_duration,
+                    NetworkNodeHandle::wait_to_connect(
+                        handle.clone(),
+                        // this is a safe lower bet on the number of nodes in the network.
+                        4,
+                        handle.recv_network(),
+                        id,
+                    ),
                 )
-                .timeout(timeout_duration)
                 .await
                 .unwrap()
                 .unwrap();
 
                 while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
-                    sleep(Duration::from_secs(1)).await;
+                    async_sleep(Duration::from_secs(1)).await;
                 }
 
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
@@ -348,7 +351,7 @@ impl<
                 // we want our records published before
                 // we begin participating in consensus
                 while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
-                    sleep(Duration::from_secs(1)).await;
+                    async_sleep(Duration::from_secs(1)).await;
                 }
 
                 error!(
@@ -358,7 +361,7 @@ impl<
                 );
 
                 while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
-                    sleep(Duration::from_secs(1)).await;
+                    async_sleep(Duration::from_secs(1)).await;
                 }
 
                 error!(
@@ -391,7 +394,7 @@ impl<
     fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
-        spawn(async move {
+        async_spawn(async move {
             let nw_recv = handle.inner.handle.recv_network();
             while let Ok(msg) = nw_recv.recv_async().await {
                 match msg {

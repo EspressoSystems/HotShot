@@ -1,14 +1,17 @@
+#[cfg(feature = "async-std-executor")]
 use async_std::{
     io::{ReadExt, WriteExt},
     net::{TcpListener, TcpStream},
-    prelude::FutureExt,
 };
 use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
 use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    async_std_or_tokio::{async_spawn, async_timeout},
+    bincode::bincode_opts,
+};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -16,6 +19,11 @@ use std::{
     net::{IpAddr, Shutdown, SocketAddr},
     num::NonZeroUsize,
     time::Duration,
+};
+#[cfg(feature = "tokio-executor")]
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
 };
 use tracing::{debug, error};
 
@@ -90,7 +98,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     pub async fn run(self) {
         let (sender, receiver) = flume::unbounded();
 
-        let background_task_handle = async_std::task::spawn({
+        let background_task_handle = async_spawn({
             async move {
                 if let Err(e) = background_task(receiver, self.config).await {
                     error!("Background processing thread encountered an error: {:?}", e);
@@ -111,7 +119,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                 result = self.listener.accept().fuse() => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_std::task::spawn({
+                            async_spawn({
                                 let sender = sender.clone();
                                 async move {
                                     let mut key = None;
@@ -147,8 +155,7 @@ impl<K: SignatureKey + 'static> Server<K> {
             .send_async(ToBackground::Shutdown)
             .await
             .expect("Could not notify background thread that we're shutting down");
-        background_task_handle
-            .timeout(Duration::from_secs(5))
+        async_timeout(Duration::from_secs(5), background_task_handle)
             .await
             .expect("Could not join on the background thread");
     }
@@ -347,7 +354,7 @@ async fn spawn_client<K: SignatureKey + 'static>(
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (sender, receiver) = flume::unbounded();
-    async_std::task::spawn({
+    async_spawn({
         let mut stream = TcpStreamUtil::new(stream.clone());
         async move {
             while let Ok(msg) = receiver.recv_async().await {

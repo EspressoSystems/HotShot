@@ -2,6 +2,7 @@
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
+#[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
@@ -11,6 +12,8 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
+#[cfg(feature = "tokio-executor")]
+use tokio::time::error::Elapsed as TimeoutError;
 
 use crate::traits::signature_key::SignatureKey;
 
@@ -46,7 +49,7 @@ pub enum NetworkError {
     /// Error orginiating from within the executor
     ExecutorError {
         /// Originating async_std error
-        source: async_std::io::Error,
+        source: std::io::Error,
     },
     /// Failed to decode a socket specification
     SocketDecodeError {

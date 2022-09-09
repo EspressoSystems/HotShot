@@ -1,11 +1,10 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
-use async_std::{
-    prelude::FutureExt,
-    sync::RwLock,
-    task::{sleep, spawn, spawn_local, yield_now, JoinHandle},
-};
+use async_lock::RwLock;
+
+#[cfg(feature = "async-std-executor")]
+use async_std::task::{spawn_local, yield_now, JoinHandle};
 use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
@@ -15,7 +14,10 @@ use hotshot_types::{
     traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
     ExecutionType,
 };
-use hotshot_utils::broadcast::channel;
+use hotshot_utils::{
+    async_std_or_tokio::{async_sleep, async_spawn, async_timeout},
+    broadcast::channel,
+};
 use std::{
     collections::HashMap,
     sync::{
@@ -24,6 +26,8 @@ use std::{
     },
     time::Duration,
 };
+#[cfg(feature = "tokio-executor")]
+use tokio::task::{spawn_local, yield_now, JoinHandle};
 use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
@@ -87,7 +91,7 @@ impl TaskHandle {
             (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
-                handle.timeout(long_timeout).await.is_ok(),
+                async_timeout(long_timeout, handle).await.is_ok(),
                 "{} did not shut down within a second",
                 name
             );
@@ -127,20 +131,20 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
-    let network_broadcast_task_handle = spawn(
+    let network_broadcast_task_handle = async_spawn(
         network_broadcast_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot Broadcast Task",)),
     );
-    let network_direct_task_handle = spawn(
+    let network_direct_task_handle = async_spawn(
         network_direct_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot Direct Task",)),
     );
-    let network_change_task_handle = spawn(
+    let network_change_task_handle = async_spawn(
         network_change_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot network change listener task",)),
     );
 
-    spawn(
+    async_spawn(
         network_lookup_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot network lookup task",)),
     );
@@ -153,7 +157,7 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
         }
     };
 
-    let consensus_task_handle = spawn(
+    let consensus_task_handle = async_spawn(
         view_runner(
             hotshot.clone(),
             started.clone(),
@@ -264,7 +268,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
         high_qc: high_qc.clone(),
         api: c_api.clone(),
     };
-    let replica_handle = spawn(async move { replica.run_view().await });
+    let replica_handle = async_spawn(async move { replica.run_view().await });
     task_handles.push(replica_handle);
 
     if c_api.is_leader(cur_view).await {
@@ -276,7 +280,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
             transactions: txns,
             api: c_api.clone(),
         };
-        let leader_handle = spawn(async move { leader.run_view().await });
+        let leader_handle = async_spawn(async move { leader.run_view().await });
         task_handles.push(leader_handle);
     }
 
@@ -289,18 +293,18 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
             cur_view,
             api: c_api.clone(),
         };
-        let next_leader_handle = spawn(async move { next_leader.run_view().await });
+        let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
         task_handles.push(next_leader_handle);
     }
 
     let children_finished = futures::future::join_all(task_handles);
 
-    spawn({
+    async_spawn({
         let next_view_timeout = hotshot.inner.config.next_view_timeout;
         let next_view_timeout = next_view_timeout;
         let hotshot: HotShot<I> = hotshot.clone();
         async move {
-            sleep(Duration::from_millis(next_view_timeout)).await;
+            async_sleep(Duration::from_millis(next_view_timeout)).await;
             hotshot
                 .timeout_view(cur_view, send_replica, send_next_leader)
                 .await;
@@ -421,7 +425,7 @@ pub async fn network_broadcast_task<I: NodeImplementation>(
         };
         if queue.is_empty() {
             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
         }
@@ -466,7 +470,7 @@ pub async fn network_direct_task<I: NodeImplementation>(
         };
         if queue.is_empty() {
             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
         }
@@ -509,7 +513,7 @@ pub async fn network_change_task<I: NodeImplementation>(
         };
         if queue.is_empty() {
             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_std::task::sleep(Duration::from_millis(incremental_backoff_ms)).await;
+            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
         }

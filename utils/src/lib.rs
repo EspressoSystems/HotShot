@@ -35,6 +35,83 @@ pub mod hack {
     }
 }
 
+#[cfg(feature = "tokio-executor")]
+/// async executor symmetric wrappers, `tokio` edition
+pub mod async_std_or_tokio {
+    pub use tokio::{
+        main as async_main,
+        task::spawn as async_spawn,
+        test as async_test,
+        time::{sleep as async_sleep, timeout as async_timeout},
+    };
+    /// executor stream abstractions
+    pub mod stream {
+        /// executor strean timeout abstractions
+        pub mod to {
+            pub use tokio_stream::Timeout;
+        }
+    }
+    /// executor future abstractions
+    pub mod future {
+        /// executor future timeout abstractions
+        pub mod to {
+            pub use tokio::time::error::Elapsed as TimeoutError;
+            pub use tokio::time::Timeout;
+            /// Result from await of timeout on future
+            pub type Result<T> = std::result::Result<T, tokio::time::error::Elapsed>;
+        }
+    }
+
+    use tokio::runtime::Handle;
+    /// Provides block_on with `tokio` that matches `async_std::task::block_on`
+    pub fn async_block_on<F, T>(future: F) -> T
+    where
+        F: std::future::Future<Output = T>,
+    {
+        Handle::current().block_on(future)
+    }
+}
+#[cfg(feature = "async-std-executor")]
+/// async executor symmetric wrappers, `async-std` edition
+pub mod async_std_or_tokio {
+    use std::future::Future;
+    use std::time::Duration;
+
+    use async_std::prelude::FutureExt;
+    pub use async_std::{
+        main as async_main,
+        task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn},
+        test as async_test,
+    };
+    /// executor stream abstractions
+    pub mod stream {
+        /// executor strean timeout abstractions
+        pub mod to {
+            pub use async_std::stream::Timeout;
+        }
+    }
+    /// executor future abstractions
+    pub mod future {
+        /// executor future timeout abstractions
+        pub mod to {
+            pub use async_std::future::TimeoutError;
+            /// Result from await of timeout on future
+            pub type Result<T> = std::result::Result<T, async_std::future::TimeoutError>;
+        }
+    }
+
+    /// Provides timeout with `async_std` that matches `tokio::time::timeout`
+    pub fn async_timeout<T>(
+        duration: Duration,
+        future: T,
+    ) -> impl Future<Output = Result<T::Output, async_std::future::TimeoutError>>
+    where
+        T: Future,
+    {
+        future.timeout(duration)
+    }
+}
+
 /// Provides utility functions used for testing
 #[cfg(feature = "logging-utils")]
 pub mod test_util {

@@ -13,7 +13,7 @@ use rand::thread_rng;
 
 type AtomicStorage = hotshot::traits::implementations::AtomicStorage<DEntryState>;
 
-#[async_std::test]
+#[async_test]
 async fn test_happy_path_blocks() {
     // This folder will be destroyed when the last handle to it closes
     let file = tempfile::tempdir().expect("Could not create temp dir");
@@ -79,7 +79,7 @@ async fn test_happy_path_blocks() {
     }
 }
 
-#[async_std::test]
+#[async_test]
 async fn test_happy_path_qcs() {
     // This folder will be destroyed when the last handle to it closes
     let file = tempfile::tempdir().expect("Could not create temp dir");
@@ -144,7 +144,7 @@ async fn test_happy_path_qcs() {
     }
 }
 
-#[async_std::test]
+#[async_test]
 async fn test_happy_path_leaves() {
     // This folder will be destroyed when the last handle to it closes
     let file = tempfile::tempdir().expect("Could not create temp dir");

@@ -4,8 +4,11 @@
 //! occur while interacting with this crate.
 
 use crate::{data::ViewNumber, traits::storage::StorageError};
+#[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
 use snafu::Snafu;
+#[cfg(feature = "tokio-executor")]
+use tokio::time::error::Elapsed as TimeoutError;
 
 /// Error type for `HotShot`
 #[derive(Debug, Snafu)]

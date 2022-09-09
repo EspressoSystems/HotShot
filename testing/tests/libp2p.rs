@@ -10,10 +10,11 @@ use hotshot::{
     types::Message,
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+use hotshot_utils::async_std_or_tokio::async_test;
 use tracing::instrument;
 
 /// libp2p network test
-#[async_std::test]
+#[async_test]
 #[instrument]
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
@@ -43,7 +44,7 @@ async fn libp2p_network() {
 }
 
 // stress test for libp2p
-#[async_std::test]
+#[async_test]
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {

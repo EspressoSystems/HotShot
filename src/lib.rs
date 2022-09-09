@@ -45,10 +45,9 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
-use async_std::{
-    sync::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard},
-    task::{self, spawn_local},
-};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+#[cfg(feature = "async-std-executor")]
+use async_std::task::spawn_local;
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
@@ -71,7 +70,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::broadcast::BroadcastSender;
+use hotshot_utils::{async_std_or_tokio::async_spawn, broadcast::BroadcastSender};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -79,6 +78,8 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+#[cfg(feature = "tokio-executor")]
+use tokio::task::spawn_local;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
@@ -324,7 +325,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let message = DataMessage::SubmitTransaction(transaction);
 
         let api = self.clone();
-        task::spawn(async move {
+        async_spawn(async move {
             let _result = api.send_broadcast_message(message).await.is_err();
         });
         Ok(())

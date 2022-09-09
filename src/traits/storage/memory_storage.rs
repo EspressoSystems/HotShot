@@ -141,6 +141,7 @@ mod test {
     use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
+    use hotshot_utils::async_std_or_tokio::async_test;
 
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
         // TODO is it okay to be using genesis here?
@@ -161,7 +162,7 @@ mod test {
         )
     }
 
-    #[async_std::test]
+    #[async_test]
     async fn memory_storage() {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())

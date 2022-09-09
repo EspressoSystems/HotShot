@@ -1,10 +1,12 @@
-use async_std::{
-    prelude::StreamExt,
-    sync::{Mutex, MutexGuard},
-};
+use crate::async_std_or_tokio::{async_timeout, future::to, stream};
+use async_lock::{Mutex, MutexGuard};
+#[cfg(feature = "async-std-executor")]
+use async_std::prelude::StreamExt;
 use flume::{unbounded, Receiver, Sender};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
+#[cfg(feature = "tokio-executor")]
+use tokio_stream::StreamExt;
 use tracing::warn;
 
 /// A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:
@@ -167,7 +169,7 @@ impl<T> SubscribableMutex<T> {
         &'a self,
         timeout: Duration,
         f: F,
-    ) -> async_std::stream::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
+    ) -> stream::to::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
     where
         F: FnMut(&T) -> bool + 'a,
     {
@@ -181,16 +183,11 @@ impl<T> SubscribableMutex<T> {
     /// # Errors
     ///
     /// Returns an error when this function timed out.
-    pub async fn wait_timeout_until<F>(
-        &self,
-        timeout: Duration,
-        f: F,
-    ) -> Result<(), async_std::future::TimeoutError>
+    pub async fn wait_timeout_until<F>(&self, timeout: Duration, f: F) -> to::Result<()>
     where
         F: FnMut(&T) -> bool,
     {
-        use async_std::prelude::FutureExt;
-        self.wait_until(f).timeout(timeout).await
+        async_timeout(timeout, self.wait_until(f)).await
     }
 }
 
@@ -246,17 +243,18 @@ impl<T: fmt::Debug> fmt::Debug for SubscribableMutex<T> {
 #[cfg(test)]
 mod tests {
     use super::SubscribableMutex;
+    use crate::async_std_or_tokio::{async_sleep, async_spawn, async_test, async_timeout};
     use std::{sync::Arc, time::Duration};
 
-    #[async_std::test]
+    #[async_test]
     async fn test_wait_timeout_until() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
             // inner loop finishes in 1.1s
             let mutex = Arc::clone(&mutex);
-            async_std::task::spawn(async move {
+            async_spawn(async move {
                 for i in 0..=10 {
-                    async_std::task::sleep(Duration::from_millis(100)).await;
+                    async_sleep(Duration::from_millis(100)).await;
                     mutex.set(i).await;
                 }
             });
@@ -269,15 +267,15 @@ mod tests {
         assert_eq!(mutex.copied().await, 10);
     }
 
-    #[async_std::test]
+    #[async_test]
     async fn test_wait_timeout_until_fail() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
             let mutex = Arc::clone(&mutex);
-            async_std::task::spawn(async move {
+            async_spawn(async move {
                 // Never gets to 10
                 for i in 0..10 {
-                    async_std::task::sleep(Duration::from_millis(100)).await;
+                    async_sleep(Duration::from_millis(100)).await;
                     mutex.set(i).await;
                 }
             });
@@ -289,7 +287,7 @@ mod tests {
         assert_eq!(mutex.copied().await, 9);
     }
 
-    #[async_std::test]
+    #[async_test]
     async fn test_compare_and_set() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;
@@ -307,7 +305,7 @@ mod tests {
         assert!(subscriber.try_recv().is_err());
     }
 
-    #[async_std::test]
+    #[async_test]
     async fn test_subscriber() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;
@@ -322,7 +320,7 @@ mod tests {
         // async message
         mutex.set(20).await;
         assert_eq!(
-            async_std::future::timeout(Duration::from_millis(10), subscriber.recv_async()).await,
+            async_timeout(Duration::from_millis(10), subscriber.recv_async()).await,
             Ok(Ok(()))
         );
 

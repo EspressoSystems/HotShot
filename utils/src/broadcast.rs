@@ -1,5 +1,6 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
-use async_std::{sync::RwLock, task::block_on};
+use crate::async_std_or_tokio::async_block_on;
+use async_lock::RwLock;
 use flume::{Receiver, Sender};
 
 pub use flume::{RecvError, SendError};
@@ -61,7 +62,7 @@ where
     /// Will return `Err` if one of the downstream receivers was disconnected without being properly
     /// dropped.
     pub fn send(&self, item: T) -> Result<(), SendError<T>> {
-        let map = async_std::task::block_on(self.inner.outputs.read());
+        let map = async_block_on(self.inner.outputs.read());
         for sender in map.values() {
             sender.send(item.clone())?;
         }
@@ -83,7 +84,7 @@ where
 
     /// Synchronously creates a new handle
     pub fn handle_sync(&self) -> BroadcastReceiver<T> {
-        block_on(self.handle_async())
+        async_block_on(self.handle_async())
     }
 }
 
@@ -133,7 +134,7 @@ where
 impl<T> Drop for BroadcastReceiver<T> {
     /// Remove self from sender's map
     fn drop(&mut self) {
-        let mut map = block_on(self.handle.inner.outputs.write());
+        let mut map = async_block_on(self.handle.inner.outputs.write());
         map.remove(&self.id);
     }
 }
@@ -143,7 +144,7 @@ where
     T: Clone,
 {
     fn clone(&self) -> Self {
-        block_on(self.clone_async())
+        async_block_on(self.clone_async())
     }
 }
 
