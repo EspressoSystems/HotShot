@@ -224,8 +224,8 @@ impl CliOrchestrated {
             (
                 NetworkNodeType::Bootstrap,
                 Some(
-                    Keypair::rsa_from_pkcs8(
-                        &mut config.bootstrap_nodes[config.node_index as usize].1.clone(),
+                    Keypair::from_protobuf_encoding(
+                        &config.bootstrap_nodes[config.node_index as usize].1,
                     )
                     .unwrap(),
                 ),
