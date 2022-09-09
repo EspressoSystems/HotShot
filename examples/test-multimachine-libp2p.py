@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Final
 from subprocess import run, Popen
 from os import environ
+# from time import sleep
 
 class NodeType(Enum):
     CONDUCTOR = "Conductor"
@@ -19,17 +20,23 @@ def gen_invocation(
         seed: int
     ) -> tuple[list[str], str]:
     out_file_name : Final[str] = f'out_{node_type}_{bound_addr[-4:]}';
+    # disable start date. Will probably start on time locally
+    START_DATE: Final[str] = "2022-09-08 17:35:00 -04:00:00";
+
+    to_connect_addrs_str : str = f'{to_connect_addrs[0]}';
+    for addr in to_connect_addrs[1:]:
+        to_connect_addrs_str = f'{addr},{to_connect_addrs_str}'
     fmt_cmd = [
-        f'cargo run --example=multi-machine-libp2p --release -- ' \
+        f'cargo  run  --example=multi-machine-libp2p  --release  -- ' \
         f' --num_nodes={num_nodes} ' \
-        f' --num_bootstrap={len(to_connect_addrs)} '\
-        f' --num_txn_per_round=10 '\
+        f' --bootstrap_addrs={to_connect_addrs_str} '\
         f' --seed={seed} '\
         f' --node_idx={node_id} '\
-        f' --online_time=3 '\
+        f' --online_time=8 '\
         f' --bound_addr={bound_addr} '\
         f' --bootstrap_mesh_n_high=50 '\
         f' --bootstrap_mesh_n_low=10 '\
+        f' --num_txn_per_round=200 '\
         f' --bootstrap_mesh_outbound_min=5 '\
         f' --bootstrap_mesh_n=15 '\
         f' --mesh_n_high=15 '\
@@ -38,7 +45,8 @@ def gen_invocation(
         f' --mesh_n=12 '\
         f' --next_view_timeout=5 '\
         f' --propose_min_round_time=1 '\
-        f' --propose_max_round_time=3 '
+        f' --propose_max_round_time=3 '\
+        f' --start_timestamp={START_DATE}'
     ];
     return (fmt_cmd, out_file_name)
 
@@ -49,7 +57,7 @@ if __name__ == "__main__":
 
     # params
     START_PORT : Final[int] = 9100;
-    NUM_REGULAR_NODES : Final[int] = 13;
+    NUM_REGULAR_NODES : Final[int] = 20;
     NUM_BOOTSTRAP : Final[int] = 7;
     TOTAL_NUM_NODES: Final[int] = NUM_BOOTSTRAP + NUM_REGULAR_NODES;
     SEED: Final[int] = 1234;
@@ -95,16 +103,20 @@ if __name__ == "__main__":
 
     print("spinning up bootstrap")
     for (node_cmd, file_name) in bootstrap_cmds:
-        print("running bootstrap", file_name)
+        # print("running bootstrap", file_name)
         file = open(file_name, 'w')
-        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
+
+        Popen(node_cmd[0].split("  "), start_new_session=True, stdout=file, stderr=file, env=env);
+
+    # sleep(5);
 
 
-    print("spinning up regulars")
+    # print("spinning up regulars")
     for (node_cmd, file_name) in regular_cmds:
         file = open(file_name, 'w')
-        Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
+        # split on double spaces b/c of spaces in arguments. Yes that is janky
+        print(node_cmd[0].split("  "))
+        Popen(node_cmd[0].split("  "), start_new_session=True, stdout=file, stderr=file, env=env);
 
-    # sleep(TIME_TO_SPIN_UP_REGULAR);
 
 

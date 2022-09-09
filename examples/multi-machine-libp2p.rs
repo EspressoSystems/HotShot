@@ -59,6 +59,7 @@ pub const BOOTSTRAP_KEYS: &[&[u8]] = &[
     include_bytes!("../deploy/keys/private_2.pk8"),
     include_bytes!("../deploy/keys/private_3.pk8"),
     include_bytes!("../deploy/keys/private_4.pk8"),
+    include_bytes!("../deploy/keys/private_5.pk8"),
     include_bytes!("../deploy/keys/private_6.pk8"),
     include_bytes!("../deploy/keys/private_7.pk8"),
 ];
@@ -277,7 +278,12 @@ async fn main() {
 
     let args = CliOpt::from_args();
 
-    let bootstraps = args.bootstrap_addrs.clone().into_iter().zip(BOOTSTRAP_KEYS);
+    let bootstraps = args
+        .bootstrap_addrs
+        .clone()
+        .into_iter()
+        .rev()
+        .zip(BOOTSTRAP_KEYS);
 
     let bootstrap_priv: Vec<_> = bootstraps
         .map(|(addr, key_bytes)| {
