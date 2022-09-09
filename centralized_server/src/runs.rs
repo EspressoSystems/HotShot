@@ -52,7 +52,7 @@ impl<K> RoundConfig<K> {
             fs::create_dir_all(folder).await?;
             fs::write(
                 format!("{}/config.toml", run),
-                toml::to_string_pretty(&*config).expect("Could not serialize"),
+                toml::to_string_pretty(config).expect("Could not serialize"),
             )
             .await?;
         }

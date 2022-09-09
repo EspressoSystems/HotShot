@@ -109,24 +109,24 @@ pub struct NetworkConfigFile {
     pub config: HotShotConfigFile,
 }
 
-impl<K> Into<NetworkConfig<K>> for NetworkConfigFile {
-    fn into(self) -> NetworkConfig<K> {
+impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
+    fn from(val: NetworkConfigFile) -> Self {
         NetworkConfig {
-            rounds: self.rounds,
-            transactions_per_round: self.transactions_per_round,
+            rounds: val.rounds,
+            transactions_per_round: val.transactions_per_round,
             node_index: 0,
-            seed: self.seed,
-            padding: self.padding,
-            libp2p_config: if let Some(libp2p_config) = self.libp2p_config {
+            seed: val.seed,
+            padding: val.padding,
+            libp2p_config: if let Some(libp2p_config) = val.libp2p_config {
                 Some(Libp2pConfig {
                     run: Run(0),
                     bootstrap_nodes: Vec::new(),
                     public_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
                     port: 0,
                     node_index: 0,
-                    seed: self.seed,
+                    seed: val.seed,
                     config: default_config().into(),
-                    num_nodes: self.config.total_nodes.get() as _,
+                    num_nodes: val.config.total_nodes.get() as _,
                     bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
                     bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
                     bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
@@ -145,7 +145,7 @@ impl<K> Into<NetworkConfig<K>> for NetworkConfigFile {
             } else {
                 None
             },
-            config: self.config.into(),
+            config: val.config.into(),
         }
     }
 }
@@ -175,21 +175,21 @@ pub struct HotShotConfigFile {
     pub propose_max_round_time: Duration,
 }
 
-impl<K> Into<HotShotConfig<K>> for HotShotConfigFile {
-    fn into(self) -> HotShotConfig<K> {
+impl<K> From<HotShotConfigFile> for HotShotConfig<K> {
+    fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
-            total_nodes: self.total_nodes,
-            threshold: self.threshold,
-            max_transactions: self.max_transactions,
+            total_nodes: val.total_nodes,
+            threshold: val.threshold,
+            max_transactions: val.max_transactions,
             known_nodes: Vec::new(),
-            next_view_timeout: self.next_view_timeout,
-            timeout_ratio: self.timeout_ratio,
-            round_start_delay: self.round_start_delay,
-            start_delay: self.start_delay,
-            num_bootstrap: self.num_bootstrap,
-            propose_min_round_time: self.propose_min_round_time,
-            propose_max_round_time: self.propose_max_round_time,
+            next_view_timeout: val.next_view_timeout,
+            timeout_ratio: val.timeout_ratio,
+            round_start_delay: val.round_start_delay,
+            start_delay: val.start_delay,
+            num_bootstrap: val.num_bootstrap,
+            propose_min_round_time: val.propose_min_round_time,
+            propose_max_round_time: val.propose_max_round_time,
         }
     }
 }
