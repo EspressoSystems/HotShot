@@ -8,9 +8,9 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["demo", "async-std-executor"]
-async-std-executor = ["dep:async-std"]
-tokio-executor = ["dep:tokio"]
+default = ["demo", "tokio-executor"]
+async-std-executor = ["dep:async-std", "async-tungstenite/async-std-runtime", ]
+tokio-executor = ["dep:tokio", "async-tungstenite/tokio-runtime", ]
 demo = ["ed25519-compact"]
 
 [dependencies]

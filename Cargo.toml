@@ -8,7 +8,7 @@ version = "0.1.1"
 rust-version = "1.63.0"
 
 [features]
-default = ["async-std-executor", "demo", "docs", "doc-images"]
+default = ["tokio-executor", "demo", "docs", "doc-images"]
 # Enable demo/testing logic
 demo = ["blake3", "hotshot-types/demo"]
 # Build the extended documentation

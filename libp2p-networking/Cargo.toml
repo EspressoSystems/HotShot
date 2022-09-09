@@ -8,7 +8,7 @@ authors = ["Nathan McCarty <nathan.mccarty@translucence.net>", "Victor Koenders 
 
 
 [features]
-default = ["async-std-executor"]
+default = ["tokio-executor"]
 webui = ["tide"]
 # this only has effect on linux
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]

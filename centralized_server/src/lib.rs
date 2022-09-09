@@ -13,17 +13,19 @@ use hotshot_utils::{
     bincode::bincode_opts,
 };
 use snafu::ResultExt;
+#[cfg(feature = "async-std-executor")]
+use std::net::Shutdown;
 use std::{
     collections::{BTreeMap, BTreeSet},
     marker::PhantomData,
-    net::{IpAddr, Shutdown, SocketAddr},
+    net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     time::Duration,
 };
 #[cfg(feature = "tokio-executor")]
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
+    net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
 };
 use tracing::{debug, error};
 
@@ -157,6 +159,7 @@ impl<K: SignatureKey + 'static> Server<K> {
             .expect("Could not notify background thread that we're shutting down");
         async_timeout(Duration::from_secs(5), background_task_handle)
             .await
+            .expect("background task timed_out")
             .expect("Could not join on the background thread");
     }
 }
@@ -347,27 +350,39 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
     }
 }
 
+#[cfg(feature = "async-std-executor")]
+fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
+    (stream.clone(), stream)
+}
+
+#[cfg(feature = "tokio-executor")]
+fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
+    stream.into_split()
+}
+
 async fn spawn_client<K: SignatureKey + 'static>(
     address: SocketAddr,
     stream: TcpStream,
     parent_key: &mut Option<K>,
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
+    let (read_stream, write_stream) = split_stream(stream);
+
     let (sender, receiver) = flume::unbounded();
     async_spawn({
-        let mut stream = TcpStreamUtil::new(stream.clone());
+        let mut send_stream = TcpStreamSendUtil::new(write_stream);
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                if let Err(e) = stream.send(msg).await {
+                if let Err(e) = send_stream.send(msg).await {
                     debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
                 }
             }
         }
     });
-    let mut stream = TcpStreamUtil::new(stream);
+    let mut recv_stream = TcpStreamRecvUtil::new(read_stream);
     loop {
-        let msg = stream.recv::<ToServer<K>>().await?;
+        let msg = recv_stream.recv::<ToServer<K>>().await?;
         let parent_key_is_some = parent_key.is_some();
         match (msg, parent_key_is_some) {
             (ToServer::Identify { key }, false) => {
@@ -463,9 +478,104 @@ pub enum Error {
 }
 
 /// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
+pub struct TcpStreamSendUtil {
+    #[cfg(feature = "async-std-executor")]
+    stream: TcpStream,
+    #[cfg(feature = "tokio-executor")]
+    stream: OwnedWriteHalf,
+}
+
+/// Utility struct that wraps a `TcpStream` and expects a length before each messages
+pub struct TcpStreamRecvUtil {
+    #[cfg(feature = "async-std-executor")]
+    stream: TcpStream,
+    #[cfg(feature = "tokio-executor")]
+    stream: OwnedReadHalf,
+    buffer: Vec<u8>,
+}
+
+/// Utility struct that wraps a `TcpStream` and handles length prefixes bidirectionally
 pub struct TcpStreamUtil {
     stream: TcpStream,
     buffer: Vec<u8>,
+}
+
+impl TcpStreamSendUtil {
+    #[cfg(feature = "async-std-executor")]
+    pub fn new(stream: TcpStream) -> Self {
+        Self { stream }
+    }
+    #[cfg(feature = "tokio-executor")]
+    pub fn new(stream: OwnedWriteHalf) -> Self {
+        Self { stream }
+    }
+
+    pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
+        let bytes = bincode_opts()
+            .serialize(&m)
+            .expect("Could not serialize message");
+        let len_bytes = (bytes.len() as u32).to_le_bytes();
+        self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
+        self.stream.write_all(&bytes).await.context(IoSnafu)?;
+        Ok(())
+    }
+}
+
+impl Drop for TcpStreamSendUtil {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            #[cfg(feature = "async-std-executor")]
+            let _ = self.stream.shutdown(Shutdown::Write);
+            #[cfg(feature = "tokio-executor")]
+            let _ = self.stream.shutdown();
+        }
+    }
+}
+
+impl TcpStreamRecvUtil {
+    #[cfg(feature = "async-std-executor")]
+    pub fn new(stream: TcpStream) -> Self {
+        Self {
+            stream,
+            buffer: Vec::new(),
+        }
+    }
+    #[cfg(feature = "tokio-executor")]
+    pub fn new(stream: OwnedReadHalf) -> Self {
+        Self {
+            stream,
+            buffer: Vec::new(),
+        }
+    }
+
+    pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
+        loop {
+            if self.buffer.len() > 4 {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&self.buffer[..4]);
+                let len = u32::from_le_bytes(bytes) as usize;
+                if self.buffer.len() >= 4 + len {
+                    let bytes: Vec<u8> = self.buffer.drain(..len + 4).skip(4).collect();
+                    return bincode_opts().deserialize::<M>(&bytes).context(DecodeSnafu);
+                }
+            }
+            let mut buffer = [0u8; 1024];
+            let n = self.stream.read(&mut buffer).await.context(IoSnafu)?;
+            if n == 0 {
+                return Err(Error::Disconnected);
+            }
+            self.buffer.extend(&buffer[..n]);
+        }
+    }
+}
+
+impl Drop for TcpStreamRecvUtil {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            #[cfg(feature = "async-std-executor")]
+            let _ = self.stream.shutdown(Shutdown::Read);
+        }
+    }
 }
 
 impl TcpStreamUtil {
@@ -514,7 +624,10 @@ impl TcpStreamUtil {
 impl Drop for TcpStreamUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
+            #[cfg(feature = "async-std-executor")]
             let _ = self.stream.shutdown(Shutdown::Both);
+            #[cfg(feature = "tokio-executor")]
+            let _ = self.stream.shutdown();
         }
     }
 }

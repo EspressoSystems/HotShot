@@ -314,7 +314,14 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     let results = children_finished.await;
 
     // unwrap is fine since results must have >= 1 item(s)
+    #[cfg(feature = "async-std-executor")]
     let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+    #[cfg(feature = "tokio-executor")]
+    let high_qc = results
+        .into_iter()
+        .filter_map(|qc| qc.ok())
+        .max_by_key(|qc| qc.view_number)
+        .unwrap();
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;

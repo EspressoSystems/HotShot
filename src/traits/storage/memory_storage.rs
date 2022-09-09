@@ -3,7 +3,7 @@
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
 use crate::{traits::StateContents, QuorumCertificate};
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     constants::GENESIS_VIEW,

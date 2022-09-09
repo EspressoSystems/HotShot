@@ -4,7 +4,7 @@ version = "0.1.1"
 edition = "2021"
 
 [features]
-default = ["async-std-executor"]
+default = ["tokio-executor"]
 async-std-executor = ["dep:async-std", "hotshot-centralized-server/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot-centralized-server/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
 

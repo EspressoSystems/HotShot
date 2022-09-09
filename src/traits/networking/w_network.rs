@@ -40,7 +40,9 @@ use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 #[cfg(feature = "tokio-executor")]
-use tokio::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+use std::net::SocketAddr;
+#[cfg(feature = "tokio-executor")]
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
 
@@ -367,7 +369,10 @@ impl<
         };
         async_spawn(async move {
             trace!("Entering setup");
+            #[cfg(feature="async-std-executor")]
             let (mut ws_sink, ws_stream) = stream.split();
+            #[cfg(feature="tokio-executor")]
+            let (mut ws_sink, ws_stream) = stream.into_split();
             let ws_stream = ws_stream.map(|x| match x {
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),

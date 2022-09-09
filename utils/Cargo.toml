@@ -7,7 +7,7 @@ readme = "../README.md"
 version = "0.1.0"
 
 [features]
-default = ["async-std-executor"]
+default = ["tokio-executor"]
 async-std-executor = ["dep:async-std"]
 tokio-executor = ["dep:tokio", "dep:tokio-stream"]
 # needed for logging feature
