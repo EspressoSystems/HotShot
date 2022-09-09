@@ -23,15 +23,12 @@ impl<K> Default for ClientConfig<K> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Libp2pConfig<K> {
+pub struct Libp2pConfig {
     pub run: Run,
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
     pub public_ip: IpAddr,
     pub port: u16,
     pub node_index: u64,
-    pub seed: [u8; 32],
-    pub config: HotShotConfig<K>,
-    pub num_nodes: u64,
     pub bootstrap_mesh_n_high: usize,
     pub bootstrap_mesh_n_low: usize,
     pub bootstrap_mesh_outbound_min: usize,
@@ -40,7 +37,6 @@ pub struct Libp2pConfig<K> {
     pub mesh_n_low: usize,
     pub mesh_outbound_min: usize,
     pub mesh_n: usize,
-    pub threshold: u64,
     pub next_view_timeout: u64,
     pub propose_min_round_time: u64,
     pub propose_max_round_time: u64,
@@ -58,12 +54,12 @@ pub struct Libp2pConfigFile {
     pub mesh_n_low: usize,
     pub mesh_outbound_min: usize,
     pub mesh_n: usize,
-    pub threshold: u64,
     pub next_view_timeout: u64,
     pub propose_min_round_time: u64,
     pub propose_max_round_time: u64,
     pub online_time: u64,
     pub num_txn_per_round: u64,
+    pub port: u16,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -73,7 +69,7 @@ pub struct NetworkConfig<K> {
     pub node_index: u64,
     pub seed: [u8; 32],
     pub padding: usize,
-    pub libp2p_config: Option<Libp2pConfig<K>>,
+    pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<K>,
 }
 
@@ -124,9 +120,6 @@ impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
                     public_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
                     port: 0,
                     node_index: 0,
-                    seed: val.seed,
-                    config: default_config().into(),
-                    num_nodes: val.config.total_nodes.get() as _,
                     bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
                     bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
                     bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
@@ -135,7 +128,6 @@ impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
                     mesh_n_low: libp2p_config.mesh_n_low,
                     mesh_outbound_min: libp2p_config.mesh_outbound_min,
                     mesh_n: libp2p_config.mesh_n,
-                    threshold: libp2p_config.threshold,
                     next_view_timeout: libp2p_config.next_view_timeout,
                     propose_min_round_time: libp2p_config.propose_min_round_time,
                     propose_max_round_time: libp2p_config.propose_max_round_time,

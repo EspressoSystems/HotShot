@@ -13,7 +13,7 @@ use async_std::{
 };
 use bincode::Options;
 use clients::Clients;
-use config::{ClientConfig, Libp2pConfig};
+use config::ClientConfig;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -29,7 +29,6 @@ use tracing::{debug, error};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum ToServer<K> {
-    GetLibp2pConfig,
     GetConfig,
     Identify { key: K },
     Broadcast { message: Vec<u8> },
@@ -58,7 +57,6 @@ pub struct Run(pub usize);
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum FromServer<K> {
     Config { config: NetworkConfig<K>, run: Run },
-    Libp2pConfig(Libp2pConfig<K>),
     NodeConnected { key: K },
     NodeDisconnected { key: K },
     Broadcast { message: Vec<u8> },

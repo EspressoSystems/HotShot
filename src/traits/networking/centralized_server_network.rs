@@ -430,10 +430,6 @@ async fn run_background<K: SignatureKey>(
                         tracing::warn!("Received config from server but we're already running");
                     }
 
-                    FromServer::Libp2pConfig { .. } => {
-                        tracing::error!("Received libp2p config, the server is misconfigured");
-                    }
-
                     FromServer::Start => {
                         connection.run_ready.store(true, Ordering::Relaxed);
                     }

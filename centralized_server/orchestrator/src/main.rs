@@ -74,7 +74,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 start_delay: 1,
                 propose_min_round_time: Duration::from_secs(0),
                 propose_max_round_time: Duration::from_secs(1),
-                num_bootstrap: 0,
+                num_bootstrap: 4,
             },
             node_index: 0,
             rounds: 100,
@@ -82,20 +82,20 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
             transactions_per_round: 10,
             libp2p_config: if is_libp2p {
                 Some(Libp2pConfigFile {
-                    bootstrap_mesh_n_high: 10,
-                    bootstrap_mesh_n_low: 2,
-                    bootstrap_mesh_outbound_min: 4,
+                    bootstrap_mesh_n_high: 4,
+                    bootstrap_mesh_n_low: 4,
+                    bootstrap_mesh_outbound_min: 2,
                     bootstrap_mesh_n: 4,
-                    mesh_n_high: 10,
-                    mesh_n_low: 2,
-                    mesh_outbound_min: 4,
+                    mesh_n_high: 4,
+                    mesh_n_low: 4,
+                    mesh_outbound_min: 2,
                     mesh_n: 4,
-                    threshold: 7,
                     next_view_timeout: 10,
                     propose_min_round_time: 0,
                     propose_max_round_time: 10,
                     online_time: 10,
                     num_txn_per_round: 10,
+                    port: 2346,
                 })
             } else {
                 None

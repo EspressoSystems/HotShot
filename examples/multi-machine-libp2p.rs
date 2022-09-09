@@ -199,20 +199,24 @@ impl CliOrchestrated {
             .await
             .expect("Could not reach server");
         let mut stream = TcpStreamUtil::new(stream);
-        stream.send(ToServer::GetLibp2pConfig).await.unwrap();
+        stream.send(ToServer::GetConfig).await.unwrap();
         error!("Waiting for server config...");
-        let config = match stream.recv().await.expect("Could not get Libp2pConfig") {
-            FromServer::Libp2pConfig(config) => config,
+        let (mut config, run) = match stream.recv().await.expect("Could not get Libp2pConfig") {
+            FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
         let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
         let pubkey = Ed25519Pub::from_private(&privkey);
 
-        let bs = config
+        let libp2p_config = config
+            .libp2p_config
+            .take()
+            .expect("Server is not configured as a libp2p server");
+        let bs = libp2p_config
             .bootstrap_nodes
             .iter()
             .map(|(addr, pair)| {
-                let kp = Keypair::rsa_from_pkcs8(&mut pair.clone()).unwrap();
+                let kp = Keypair::from_protobuf_encoding(pair).unwrap();
                 let peer_id = PeerId::from_public_key(&kp.public());
                 let mut multiaddr = Multiaddr::from(addr.ip());
                 multiaddr.push(Protocol::Tcp(addr.port()));
@@ -220,24 +224,25 @@ impl CliOrchestrated {
             })
             .collect();
 
-        let (node_type, identity) = if (config.node_index as usize) < config.bootstrap_nodes.len() {
-            (
-                NetworkNodeType::Bootstrap,
-                Some(
-                    Keypair::from_protobuf_encoding(
-                        &config.bootstrap_nodes[config.node_index as usize].1,
-                    )
-                    .unwrap(),
-                ),
-            )
-        } else {
-            (NetworkNodeType::Regular, None)
-        };
+        let (node_type, identity) =
+            if (config.node_index as usize) < libp2p_config.bootstrap_nodes.len() {
+                (
+                    NetworkNodeType::Bootstrap,
+                    Some(
+                        Keypair::from_protobuf_encoding(
+                            &libp2p_config.bootstrap_nodes[config.node_index as usize].1,
+                        )
+                        .unwrap(),
+                    ),
+                )
+            } else {
+                (NetworkNodeType::Regular, None)
+            };
 
         *server_conn = Some(stream);
 
         Ok(Config {
-            run: config.run,
+            run,
             privkey,
             pubkey,
             bs,
@@ -246,25 +251,25 @@ impl CliOrchestrated {
             identity,
             bound_addr: {
                 let mut addr = Multiaddr::empty();
-                addr.push(config.public_ip.into());
-                addr.push(Protocol::Tcp(config.port));
+                addr.push(libp2p_config.public_ip.into());
+                addr.push(Protocol::Tcp(libp2p_config.port));
                 addr
             },
-            num_nodes: config.num_nodes,
-            bootstrap_mesh_n_high: config.bootstrap_mesh_n_high,
-            bootstrap_mesh_n_low: config.bootstrap_mesh_n_low,
-            bootstrap_mesh_outbound_min: config.bootstrap_mesh_outbound_min,
-            bootstrap_mesh_n: config.bootstrap_mesh_n,
-            mesh_n_high: config.mesh_n_high,
-            mesh_n_low: config.mesh_n_low,
-            mesh_outbound_min: config.mesh_outbound_min,
-            mesh_n: config.mesh_n,
-            threshold: config.threshold,
-            next_view_timeout: config.next_view_timeout,
-            propose_min_round_time: config.propose_min_round_time,
-            propose_max_round_time: config.propose_max_round_time,
-            online_time: config.online_time,
-            num_txn_per_round: config.num_txn_per_round,
+            num_nodes: config.config.total_nodes.get() as _,
+            bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
+            bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
+            bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
+            bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
+            mesh_n_high: libp2p_config.mesh_n_high,
+            mesh_n_low: libp2p_config.mesh_n_low,
+            mesh_outbound_min: libp2p_config.mesh_outbound_min,
+            mesh_n: libp2p_config.mesh_n,
+            threshold: config.config.threshold.get() as _,
+            next_view_timeout: libp2p_config.next_view_timeout,
+            propose_min_round_time: libp2p_config.propose_min_round_time,
+            propose_max_round_time: libp2p_config.propose_max_round_time,
+            online_time: libp2p_config.online_time,
+            num_txn_per_round: libp2p_config.num_txn_per_round,
         })
     }
 }

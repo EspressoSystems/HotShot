@@ -1,11 +1,7 @@
+use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
 use async_std::{fs, path::Path};
 use flume::Sender;
-use std::{
-    net::{IpAddr, SocketAddr},
-    time::Duration,
-};
-
-use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
+use std::{net::SocketAddr, time::Duration};
 
 /// Contains information about the current round
 pub struct RoundConfig<K> {
@@ -102,7 +98,7 @@ impl<K> RoundConfig<K> {
                 }
                 for (idx, (addr, sender)) in self.libp2p_config_sender.drain(..).enumerate() {
                     let config =
-                        set_config(config.clone(), addr.ip(), Run(self.current_run), idx as u64);
+                        set_config(config.clone(), addr, Run(self.current_run), idx as u64);
 
                     let _ = sender.send(ClientConfig {
                         run: Run(self.current_run),
@@ -136,7 +132,7 @@ impl<K> RoundConfig<K> {
         let total_nodes = config.config.total_nodes;
         let config = set_config(
             config.clone(),
-            addr.ip(),
+            addr,
             Run(self.current_run),
             self.next_node_index as u64,
         );
@@ -177,7 +173,7 @@ impl<K> RoundConfig<K> {
 
 fn set_config<K>(
     mut config: NetworkConfig<K>,
-    public_ip: IpAddr,
+    addr: SocketAddr,
     run: Run,
     node_index: u64,
 ) -> NetworkConfig<K>
@@ -187,9 +183,8 @@ where
     config.node_index = node_index;
     if let Some(libp2p) = &mut config.libp2p_config {
         libp2p.run = run;
-        libp2p.public_ip = public_ip;
+        libp2p.public_ip = addr.ip();
         libp2p.node_index = node_index;
-        libp2p.config = config.config.clone();
     }
     config
 }
