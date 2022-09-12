@@ -26,7 +26,7 @@ use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
 use flume::{Receiver, Sender};
 use hotshot_types::{
     constants::GENESIS_VIEW,
-    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
     traits::{
@@ -197,11 +197,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                 }
                 match msg {
                     ConsensusMessage::Proposal(p) => {
-                        if !view_leader_key.validate(&p.signature, p.leaf.commit().as_ref()) {
-                            warn!(?p.signature, "Could not verify proposal.");
-                            continue;
-                        }
-                        let justify_qc = p.leaf.justify_qc;
                         let parent = if let Some(parent) =
                             consensus.saved_leaves.get(&p.leaf.parent_commitment)
                         {
@@ -210,6 +205,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("Proposal's parent missing from storage");
                             continue;
                         };
+
+                        let justify_qc = p.leaf.justify_qc;
 
                         // go no further if the parent view number does not
                         // match the justify_qc. We can't accept this
@@ -223,6 +220,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
                         // check that we can indeed create the state
                         let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                            // check the commitment
+                            if state.commit() != p.leaf.state_commitment {
+                                continue;
+                            }
                             Leaf::new(
                                 state,
                                 p.leaf.deltas,
@@ -235,6 +236,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!("State of proposal didn't match parent + deltas");
                             continue;
                         };
+
+                        if !view_leader_key.validate(&p.signature, leaf.commit().as_ref()) {
+                            warn!(?p.signature, "Could not verify proposal.");
+                            continue;
+                        }
 
                         // TODO change to locked_view + 2 after VRF integration
                         let liveness_check = justify_qc.view_number > consensus.locked_view;
@@ -558,6 +564,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 rejected: Vec::new(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
+            let leaf: ProposalLeaf<I::State> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
 
