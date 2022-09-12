@@ -278,12 +278,7 @@ async fn main() {
 
     let args = CliOpt::from_args();
 
-    let bootstraps = args
-        .bootstrap_addrs
-        .clone()
-        .into_iter()
-        .rev()
-        .zip(BOOTSTRAP_KEYS);
+    let bootstraps = args.bootstrap_addrs.clone().into_iter().zip(BOOTSTRAP_KEYS);
 
     let bootstrap_priv: Vec<_> = bootstraps
         .map(|(addr, key_bytes)| {
@@ -292,6 +287,8 @@ async fn main() {
             (key, addr)
         })
         .collect();
+
+    error!("BOOTSTRAP NODES AND THEIR KEYS: {:?}", bootstrap_priv);
 
     let num_bootstrap = bootstrap_priv.len();
 

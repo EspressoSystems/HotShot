@@ -14,7 +14,6 @@ class NodeType(Enum):
 def gen_invocation(
         node_type: NodeType,
         num_nodes: int,
-        to_connect_addrs: list[str],
         bound_addr: str,
         node_id: int,
         seed: int
@@ -23,13 +22,9 @@ def gen_invocation(
     # disable start date. Will probably start on time locally
     START_DATE: Final[str] = "2022-09-08 17:35:00 -04:00:00";
 
-    to_connect_addrs_str : str = f'{to_connect_addrs[0]}';
-    for addr in to_connect_addrs[1:]:
-        to_connect_addrs_str = f'{addr},{to_connect_addrs_str}'
     fmt_cmd = [
         f'cargo  run  --example=multi-machine-libp2p  --release  -- ' \
         f' --num_nodes={num_nodes} ' \
-        f' --bootstrap_addrs={to_connect_addrs_str} '\
         f' --seed={seed} '\
         f' --node_idx={node_id} '\
         f' --online_time=8 '\
@@ -57,12 +52,18 @@ if __name__ == "__main__":
 
     # params
     START_PORT : Final[int] = 9100;
-    NUM_REGULAR_NODES : Final[int] = 20;
+    NUM_REGULAR_NODES : Final[int] = 13;
     NUM_BOOTSTRAP : Final[int] = 7;
     TOTAL_NUM_NODES: Final[int] = NUM_BOOTSTRAP + NUM_REGULAR_NODES;
     SEED: Final[int] = 1234;
 
     bootstrap_addrs : Final[list[str]] = list(map(lambda x: f'127.0.0.1:{x + START_PORT}', range(0, NUM_BOOTSTRAP)));
+
+    bootstrap_addrs_str : str = f'{bootstrap_addrs[0]}';
+    for addr in bootstrap_addrs[1:]:
+        bootstrap_addrs_str = f'{addr},{bootstrap_addrs_str}'
+
+
     normal_nodes_addrs : Final[list[str]] = list(map(lambda x: f'127.0.0.1:{x + START_PORT + NUM_BOOTSTRAP}', range(0, NUM_REGULAR_NODES)));
 
     regular_cmds : list[tuple[list[str], str]] = [];
@@ -75,7 +76,6 @@ if __name__ == "__main__":
         bootstrap_cmd = gen_invocation(
             node_type=NodeType.BOOTSTRAP,
             num_nodes=TOTAL_NUM_NODES,
-            to_connect_addrs=bootstrap_addrs,
             bound_addr=bootstrap_addr,
             seed=SEED,
             node_id=i
@@ -86,20 +86,20 @@ if __name__ == "__main__":
         regular_cmd = gen_invocation(
             node_type=NodeType.REGULAR,
             num_nodes=TOTAL_NUM_NODES,
-            to_connect_addrs=bootstrap_addrs,
             bound_addr=normal_nodes_addrs[j],
             node_id=j + NUM_BOOTSTRAP,
             seed=SEED
         );
         regular_cmds.append(regular_cmd);
 
-    print(bootstrap_cmds)
-    print(regular_cmds)
+    print(bootstrap_cmds);
+    print(regular_cmds);
 
     # configurable in case we want the bootstrap to initialize first
     env = environ.copy();
-    env["RUST_BACKTRACE"] = "full"
-    env["RUST_LOG"] = "warn,error"
+    env["RUST_BACKTRACE"] = "full";
+    env["RUST_LOG"] = "warn,error";
+    env["BOOTSTRAP_ADDRS"] = bootstrap_addrs_str;
 
     print("spinning up bootstrap")
     for (node_cmd, file_name) in bootstrap_cmds:
