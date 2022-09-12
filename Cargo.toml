@@ -23,6 +23,7 @@ demo = ["blake3", "hotshot-types/demo"]
 docs = []
 doc-images = []
 full-ci = ["async-std-executor", "demo", "docs", "doc-images", "hotshot-testing"]
+tokio-ci = ["tokio-executor", "demo", "docs", "doc-images", "hotshot-testing"]
 hotshot-testing = []
 tokio-executor = [
         "dep:tokio",

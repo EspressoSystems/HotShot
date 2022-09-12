@@ -37,4 +37,6 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --features=full-ci --bins --tests --examples -- -D warnings
+        run: |
+             cargo clippy --workspace --all-targets --features=full-ci --bins --tests --examples -- -D warnings
+             cargo clippy --workspace --all-targets --features=tokio-ci --bins --tests --examples -- -D warnings
