@@ -239,13 +239,14 @@ async fn background_task<K: SignatureKey + 'static>(
                 // if we have no `config`, or we're out of runs, the client will be assigned a default config and `Run(0)`
                 if let Some(round_config) = &mut config {
                     round_config
-                        .get_next_config(addr, sender, self_sender.clone())
+                        .get_next_config(addr.ip(), sender, self_sender.clone())
                         .await;
                 } else {
                     let _ = sender.send_async(ClientConfig::default()).await;
                 }
             }
             ToBackground::StartRun(run) => {
+                error!("Starting run {run:?} ({} nodes)", clients.len(run));
                 clients.broadcast(run, FromServer::Start).await;
             }
         }

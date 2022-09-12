@@ -238,6 +238,7 @@ impl<
         bootstrap_addrs_len: usize,
         id: usize,
     ) -> Result<Libp2pNetwork<M, P>, NetworkError> {
+        assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
             NetworkNodeHandle::<()>::new(config, id)
                 .await

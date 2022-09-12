@@ -13,6 +13,7 @@ use hotshot::{
 use hotshot_centralized_server::{Run, RunResults, TcpStreamUtil};
 use hotshot_types::{
     traits::{
+        network::NetworkingImplementation,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
@@ -205,8 +206,14 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
+        error!("Received server config: {config:?}");
         let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
         let pubkey = Ed25519Pub::from_private(&privkey);
+
+        stream
+            .send(ToServer::Identify { key: pubkey })
+            .await
+            .expect("Could not identify with server");
 
         let libp2p_config = config
             .libp2p_config
@@ -249,12 +256,18 @@ impl CliOrchestrated {
             node_id: config.node_index,
             node_type,
             identity,
-            bound_addr: {
-                let mut addr = Multiaddr::empty();
-                addr.push(libp2p_config.public_ip.into());
-                addr.push(Protocol::Tcp(libp2p_config.port));
-                addr
-            },
+            bound_addr: format!(
+                "/{}/{}/tcp/{}",
+                if libp2p_config.public_ip.is_ipv4() {
+                    "ip4"
+                } else {
+                    "ip6"
+                },
+                libp2p_config.public_ip,
+                libp2p_config.base_port + config.node_index as u16
+            )
+            .parse()
+            .unwrap(),
             num_nodes: config.config.total_nodes.get() as _,
             bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
             bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
@@ -423,6 +436,7 @@ impl Config {
         config_builder.replication_factor(NonZeroUsize::new(self.num_nodes as usize - 2).unwrap());
         config_builder.to_connect_addrs(HashSet::new());
         config_builder.node_type(self.node_type);
+        error!("Binding to {:?}", self.bound_addr);
         config_builder.bound_addr(Some(self.bound_addr.clone()));
 
         if let Some(identity) = self.identity.clone() {
@@ -492,12 +506,29 @@ async fn main() {
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = config.init_state_and_hotshot(own_network).await;
 
+    error!("waiting for connections to hotshot!");
+    hotshot.networking().ready().await;
+
+    if let Some(server) = &mut server_conn {
+        error!("Waiting for server to start us up");
+        loop {
+            match server
+                .recv::<FromServer>()
+                .await
+                .expect("Lost connection to server")
+            {
+                FromServer::Start => {
+                    error!("Starting!");
+                    break;
+                }
+                x => error!("Unexpected server message: {x:?}"),
+            }
+        }
+    } else {
+        error!("We are ready!");
+    }
     error!("Finished init, starting hotshot!");
     hotshot.start().await;
-
-    error!("waiting for connections to hotshot!");
-    hotshot.is_ready().await;
-    error!("We are ready!");
 
     let start_time = Instant::now();
 
@@ -512,7 +543,7 @@ async fn main() {
     let mut total_txns = 0;
 
     while start_time + online_time > Instant::now() {
-        info!("Beginning view {}", view);
+        error!("Beginning view {}", view);
         if own_id == (view % num_nodes) {
             info!("Generating txn for view {}", view);
             let state = hotshot.get_state().await;
@@ -528,7 +559,7 @@ async fn main() {
         info!("Collection for view {}", view);
         let result = hotshot.collect_round_events().await;
         match result {
-            Ok((state, blocks)) => {
+            Ok((_state, blocks)) => {
                 let mut num_tnxs = 0;
                 for block in blocks {
                     num_tnxs += block.txn_count();
@@ -536,8 +567,8 @@ async fn main() {
                 total_txns += num_tnxs;
                 num_succeeded_views += 1;
                 error!(
-                    "View {:?}: successful with {:?}, and total successful txns {:?}",
-                    view, state, total_txns
+                    "View {:?}: successful with total successful txns {:?}",
+                    view, total_txns
                 );
             }
             Err(e) => {

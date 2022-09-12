@@ -27,7 +27,7 @@ pub struct Libp2pConfig {
     pub run: Run,
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
     pub public_ip: IpAddr,
-    pub port: u16,
+    pub base_port: u16,
     pub node_index: u64,
     pub bootstrap_mesh_n_high: usize,
     pub bootstrap_mesh_n_low: usize,
@@ -59,7 +59,7 @@ pub struct Libp2pConfigFile {
     pub propose_max_round_time: u64,
     pub online_time: u64,
     pub num_txn_per_round: u64,
-    pub port: u16,
+    pub base_port: u16,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -117,8 +117,8 @@ impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
                 Some(Libp2pConfig {
                     run: Run(0),
                     bootstrap_nodes: Vec::new(),
-                    public_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
-                    port: 0,
+                    public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    base_port: libp2p_config.base_port,
                     node_index: 0,
                     bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
                     bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,

@@ -1,12 +1,17 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
 use async_std::{fs, path::Path};
 use flume::Sender;
-use std::{net::SocketAddr, time::Duration};
+use libp2p_core::PeerId;
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
+use tracing::error;
 
 /// Contains information about the current round
 pub struct RoundConfig<K> {
     configs: Vec<NetworkConfig<K>>,
-    libp2p_config_sender: Vec<(SocketAddr, Sender<ClientConfig<K>>)>,
+    libp2p_config_sender: Vec<(IpAddr, Sender<ClientConfig<K>>)>,
     current_run: usize,
     next_node_index: usize,
 }
@@ -63,7 +68,7 @@ impl<K> RoundConfig<K> {
 
     pub async fn get_next_config(
         &mut self,
-        addr: SocketAddr,
+        addr: IpAddr,
         sender: Sender<ClientConfig<K>>,
         start_round_sender: Sender<ToBackground<K>>,
     ) where
@@ -80,31 +85,43 @@ impl<K> RoundConfig<K> {
 
         if let Some(libp2p_config) = &mut config.libp2p_config {
             // we are a libp2p orchestrator
-            if self.next_node_index <= config.config.num_bootstrap {
-                // but we do not have enough bootstrap nodes yet.
-                // we'll queue this `addr` and `sender` in `self.libp2p_config_sender` and we'll send this information once we have enough clients
+            // check to see if we're a bootstrap node
+            if self.next_node_index + 1 <= config.config.num_bootstrap {
+                // we're a bootstrap node, add our address and sender to the libp2p_config_sender queue
                 self.next_node_index += 1;
                 self.libp2p_config_sender.push((addr, sender));
-                return;
-            } else if !self.libp2p_config_sender.is_empty() {
-                // we have enough bootstrap nodes
-                // fill the bootstrap nodes list in `libp2p_config`, then send this to the other nodes
-                libp2p_config.bootstrap_nodes = Vec::new();
-                for (addr, _sender) in &self.libp2p_config_sender {
-                    let pair = libp2p_core::identity::Keypair::generate_ed25519();
-                    libp2p_config
-                        .bootstrap_nodes
-                        .push((*addr, pair.to_protobuf_encoding().unwrap()));
-                }
-                for (idx, (addr, sender)) in self.libp2p_config_sender.drain(..).enumerate() {
-                    let config =
-                        set_config(config.clone(), addr, Run(self.current_run), idx as u64);
+                error!(
+                    "Bootstrap nodes {}/{}",
+                    self.next_node_index, config.config.num_bootstrap
+                );
+                if self.next_node_index == config.config.num_bootstrap {
+                    // we have enough bootstrap nodes
+                    // fill the bootstrap nodes list in `libp2p_config`, then send this to the other nodes
+                    libp2p_config.bootstrap_nodes = Vec::new();
+                    for (idx, (addr, _sender)) in self.libp2p_config_sender.iter().enumerate() {
+                        let pair = libp2p_core::identity::Keypair::generate_ed25519();
+                        let port = libp2p_config.base_port + idx as u16;
+                        let peer_id = PeerId::from_public_key(&pair.public());
+                        error!(" - {peer_id} at {addr}:{port}");
+                        libp2p_config.bootstrap_nodes.push((
+                            SocketAddr::new(*addr, port),
+                            pair.to_protobuf_encoding().unwrap(),
+                        ));
+                    }
+                    for (idx, (addr, sender)) in self.libp2p_config_sender.iter().enumerate() {
+                        let config =
+                            set_config(config.clone(), *addr, Run(self.current_run), idx as u64);
 
-                    let _ = sender.send(ClientConfig {
-                        run: Run(self.current_run),
-                        config,
-                    });
+                        let _ = sender.send(ClientConfig {
+                            run: Run(self.current_run),
+                            config,
+                        });
+                    }
                 }
+                // if we're a bootstrap node, we'll never have to do the run-rollover-logic below.
+                // instead we're using the `libp2p_config_sender` queue.
+                // so early return here
+                return;
             }
         }
 
@@ -148,11 +165,12 @@ impl<K> RoundConfig<K> {
         if self.next_node_index == total_nodes.get() {
             let run = Run(self.current_run);
             async_std::task::spawn(async move {
-                tracing::error!("Reached enough nodes, starting in 5 seconds");
-                async_std::task::sleep(Duration::from_secs(5)).await;
-                let _ = start_round_sender
+                tracing::error!("Reached enough nodes, starting in 60 seconds");
+                async_std::task::sleep(Duration::from_secs(60)).await;
+                start_round_sender
                     .send_async(ToBackground::StartRun(run))
-                    .await;
+                    .await
+                    .expect("Could not start round");
             });
         }
     }
@@ -173,7 +191,7 @@ impl<K> RoundConfig<K> {
 
 fn set_config<K>(
     mut config: NetworkConfig<K>,
-    addr: SocketAddr,
+    public_ip: IpAddr,
     run: Run,
     node_index: u64,
 ) -> NetworkConfig<K>
@@ -183,8 +201,8 @@ where
     config.node_index = node_index;
     if let Some(libp2p) = &mut config.libp2p_config {
         libp2p.run = run;
-        libp2p.public_ip = addr.ip();
         libp2p.node_index = node_index;
+        libp2p.public_ip = public_ip;
     }
     config
 }

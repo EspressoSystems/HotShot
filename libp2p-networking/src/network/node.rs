@@ -363,7 +363,7 @@ impl NetworkNode {
                         }
                     }
                     DirectRequest(pid, msg) => {
-                        error!("pid {:?} adding direct request", self.peer_id);
+                        info!("pid {:?} adding direct request", self.peer_id);
                         behaviour.add_direct_request(pid, msg);
                     }
                     DirectResponse(chan, msg) => {

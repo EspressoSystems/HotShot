@@ -95,7 +95,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                     propose_max_round_time: 10,
                     online_time: 10,
                     num_txn_per_round: 10,
-                    port: 2346,
+                    base_port: 2346,
                 })
             } else {
                 None
