@@ -11,10 +11,10 @@ use tracing::instrument;
 
 /// Centralized server network test
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network() {
     let description = GeneralTestDescriptionBuilder {
@@ -39,10 +39,10 @@ async fn centralized_server_network() {
 
 // stress test for a centralized server
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_centralized_server_network() {

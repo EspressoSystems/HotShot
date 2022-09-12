@@ -252,10 +252,10 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_wait_timeout_until() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
@@ -277,10 +277,10 @@ mod tests {
     }
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_wait_timeout_until_fail() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
@@ -301,10 +301,10 @@ mod tests {
     }
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_compare_and_set() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;
@@ -323,10 +323,10 @@ mod tests {
     }
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_subscriber() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;

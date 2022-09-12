@@ -12,10 +12,10 @@ type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
 type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
 
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn multiple_clients() {
     use hotshot_utils::async_std_or_tokio::{async_spawn, async_timeout};
     let (shutdown, shutdown_receiver) = flume::bounded(1);

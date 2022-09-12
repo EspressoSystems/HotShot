@@ -163,10 +163,10 @@ mod test {
     }
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn memory_storage() {
         let storage =

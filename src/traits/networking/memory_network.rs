@@ -505,10 +505,10 @@ mod tests {
 
     // Spawning a single MemoryNetwork should produce no errors
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn spawn_single() {
         setup_logging();
@@ -520,10 +520,10 @@ mod tests {
 
     // Spawning a two MemoryNetworks and connecting them should produce no errors
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn spawn_double() {
         setup_logging();
@@ -537,10 +537,10 @@ mod tests {
 
     // Check to make sure direct queue works
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn direct_queue() {
         setup_logging();
@@ -597,10 +597,10 @@ mod tests {
 
     // Check to make sure direct queue works
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn broadcast_queue() {
         setup_logging();
@@ -656,10 +656,10 @@ mod tests {
     }
 
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn test_in_flight_message_count() {
         setup_logging();

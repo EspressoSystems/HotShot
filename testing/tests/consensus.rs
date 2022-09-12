@@ -340,10 +340,10 @@ fn test_bad_vote_post_safety_check(
 
 /// Tests that replicas receive and queue valid Proposal messages properly
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_proposal_queueing() {
     let num_rounds = 10;
@@ -374,10 +374,10 @@ async fn test_proposal_queueing() {
 
 /// Tests that next leaders receive and queue valid Vote messages properly
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_vote_queueing() {
     let num_rounds = 10;
@@ -408,10 +408,10 @@ async fn test_vote_queueing() {
 
 /// Tests that replicas handle bad Proposal messages properly
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_bad_proposal() {
     let num_rounds = 10;
@@ -442,10 +442,10 @@ async fn test_bad_proposal() {
 
 /// Tests that next leaders handle bad Votes properly.  We allow `num_rounds` of failures because replicas will not be able to come to consensus with the bad votes we submit to them
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_bad_vote() {
@@ -477,10 +477,10 @@ async fn test_bad_vote() {
 
 /// Tests a single node network, which also tests when a node is leader in consecutive views
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;

@@ -1111,10 +1111,10 @@ mod tests {
 
     // Generating the tasks should once and only once
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn task_only_once() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1128,10 +1128,10 @@ mod tests {
 
     // Spawning a single WNetwork and starting the task should produce no errors
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn spawn_single() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1147,10 +1147,10 @@ mod tests {
 
     // Spawning two WNetworks and connecting them should produce no errors
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn spawn_double() {
         setup_logging();
         // Spawn first wnetwork
@@ -1183,10 +1183,10 @@ mod tests {
 
     // Check to make sure direct queue works
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn direct_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1262,10 +1262,10 @@ mod tests {
 
     // Check to make sure broadcast queue works
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn broadcast_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1341,10 +1341,10 @@ mod tests {
 
     // Check to make sure the patrol task doesn't crash anything
     #[cfg_attr(
-        feature = "tokio",
+        feature = "tokio-executor",
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
-    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn patrol_task() {
         setup_logging();
         // Spawn two w_networks with a timeout of 25ms

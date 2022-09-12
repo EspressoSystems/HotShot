@@ -14,10 +14,10 @@ use tracing::instrument;
 
 /// libp2p network test
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
@@ -48,10 +48,10 @@ async fn libp2p_network() {
 
 // stress test for libp2p
 #[cfg_attr(
-    feature = "tokio",
+    feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
-#[cfg_attr(feature = "async-std", async_std::test)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {
