@@ -489,7 +489,6 @@ impl<
 mod tests {
     use super::*;
     use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use hotshot_utils::async_std_or_tokio::async_test;
     use hotshot_utils::test_util::setup_logging;
     use serde::Deserialize;
 
@@ -498,15 +497,20 @@ mod tests {
         message: u64,
     }
 
+    #[instrument]
     fn get_pubkey() -> Ed25519Pub {
         let priv_key = Ed25519Priv::generate();
         Ed25519Pub::from_private(&priv_key)
     }
 
     // Spawning a single MemoryNetwork should produce no errors
-    #[test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     #[instrument]
-    fn spawn_single() {
+    async fn spawn_single() {
         setup_logging();
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
@@ -515,9 +519,13 @@ mod tests {
     }
 
     // Spawning a two MemoryNetworks and connecting them should produce no errors
-    #[test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     #[instrument]
-    fn spawn_double() {
+    async fn spawn_double() {
         setup_logging();
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
         trace!(?group);
@@ -528,7 +536,11 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     #[instrument]
     async fn direct_queue() {
         setup_logging();
@@ -584,7 +596,11 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     #[instrument]
     async fn broadcast_queue() {
         setup_logging();
@@ -639,7 +655,12 @@ mod tests {
         assert_eq!(output, messages);
     }
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[instrument]
     async fn test_in_flight_message_count() {
         setup_logging();
         // Create some dummy messages

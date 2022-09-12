@@ -1,8 +1,13 @@
 use super::ExecutionEnvironment;
-#[cfg(feature = "async-std-executor")]
-use async_std::process::Command;
-#[cfg(feature = "tokio-executor")]
-use tokio::process::Command;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::process::Command;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::process::Command;
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use futures::TryStreamExt;
 use netlink_packet_route::DecodeError;
 use nix::{

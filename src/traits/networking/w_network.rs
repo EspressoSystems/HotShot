@@ -15,9 +15,17 @@ use crate::{
     },
     utils::ReceiverExt,
 };
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+    } else if #[cfg(feature = "tokio-executor")] {
+        use std::net::SocketAddr;
+        use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use async_lock::{Mutex, RwLock};
-#[cfg(feature = "async-std-executor")]
-use async_std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
 use async_trait::async_trait;
 use async_tungstenite::{
     accept_async, client_async,
@@ -39,10 +47,6 @@ use hotshot_utils::{
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
-#[cfg(feature = "tokio-executor")]
-use std::net::SocketAddr;
-#[cfg(feature = "tokio-executor")]
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
 
@@ -1058,10 +1062,7 @@ async fn get_networking<
 mod tests {
     use super::*;
     use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use hotshot_utils::{
-        async_std_or_tokio::{async_sleep, async_test},
-        test_util::setup_logging,
-    };
+    use hotshot_utils::{async_std_or_tokio::async_sleep, test_util::setup_logging};
     use rand::Rng;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1109,7 +1110,11 @@ mod tests {
     }
 
     // Generating the tasks should once and only once
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn task_only_once() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1122,7 +1127,11 @@ mod tests {
     }
 
     // Spawning a single WNetwork and starting the task should produce no errors
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn spawn_single() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1137,7 +1146,11 @@ mod tests {
     }
 
     // Spawning two WNetworks and connecting them should produce no errors
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn spawn_double() {
         setup_logging();
         // Spawn first wnetwork
@@ -1169,7 +1182,11 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn direct_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1244,7 +1261,11 @@ mod tests {
     }
 
     // Check to make sure broadcast queue works
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn broadcast_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1319,7 +1340,11 @@ mod tests {
     }
 
     // Check to make sure the patrol task doesn't crash anything
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn patrol_task() {
         setup_logging();
         // Spawn two w_networks with a timeout of 25ms

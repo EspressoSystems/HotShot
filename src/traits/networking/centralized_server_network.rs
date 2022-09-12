@@ -1,10 +1,17 @@
 //! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
-
+//!
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::TcpStream;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::net::TcpStream;
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use async_lock::RwLock;
-#[cfg(feature = "async-std-executor")]
-use async_std::net::TcpStream;
 use async_trait::async_trait;
 use bincode::Options;
 use flume::{Receiver, Sender};
@@ -34,8 +41,6 @@ use std::{
     },
     time::Duration,
 };
-#[cfg(feature = "tokio-executor")]
-use tokio::net::TcpStream;
 use tracing::error;
 
 /// The inner state of the `CentralizedServerNetwork`

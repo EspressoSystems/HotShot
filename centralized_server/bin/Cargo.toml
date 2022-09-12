@@ -4,19 +4,20 @@ version = "0.1.1"
 edition = "2021"
 
 [features]
-default = ["tokio-executor"]
-async-std-executor = ["dep:async-std", "hotshot-centralized-server/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
-tokio-executor = ["dep:tokio", "hotshot-centralized-server/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+default = ["async-std-executor"]
+async-std-executor = ["dep:async-std", "hotshot/async-std-executor", "hotshot-centralized-server/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
+tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-centralized-server/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
 
 [dependencies]
 async-std = { version = "1.12.0", optional = true }
+cfg-if = "1"
 clap = { version = "3.2.20", features = ["derive", "env"] }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 hotshot = { path = "../../" }
 hotshot-centralized-server = { path = "../" }
 hotshot-types = { path = "../../types" }
 hotshot-utils = { path = "../../utils" }
-tokio = { version = "1", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 toml = "0.5.9"
 tracing = "0.1.36"
 

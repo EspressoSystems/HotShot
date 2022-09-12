@@ -1,10 +1,16 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::task::{spawn_local, yield_now, JoinHandle};
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::task::{spawn_local, yield_now, JoinHandle};
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use async_lock::RwLock;
-
-#[cfg(feature = "async-std-executor")]
-use async_std::task::{spawn_local, yield_now, JoinHandle};
 use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
@@ -26,8 +32,6 @@ use std::{
     },
     time::Duration,
 };
-#[cfg(feature = "tokio-executor")]
-use tokio::task::{spawn_local, yield_now, JoinHandle};
 use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
@@ -314,14 +318,19 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     let results = children_finished.await;
 
     // unwrap is fine since results must have >= 1 item(s)
-    #[cfg(feature = "async-std-executor")]
-    let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
-    #[cfg(feature = "tokio-executor")]
-    let high_qc = results
-        .into_iter()
-        .filter_map(|qc| qc.ok())
-        .max_by_key(|qc| qc.view_number)
-        .unwrap();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+        } else if #[cfg(feature = "tokio-executor")] {
+            let high_qc = results
+                .into_iter()
+                .filter_map(std::result::Result::ok)
+                .max_by_key(|qc| qc.view_number)
+                .unwrap();
+        } else {
+            std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        }
+    }
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;

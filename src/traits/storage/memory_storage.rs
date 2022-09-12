@@ -133,16 +133,16 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
-
     use super::*;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
-    use hotshot_utils::async_std_or_tokio::async_test;
+    use std::collections::BTreeMap;
+    use tracing::instrument;
 
+    #[instrument]
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
@@ -162,7 +162,12 @@ mod test {
         )
     }
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
+    #[instrument]
     async fn memory_storage() {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())

@@ -4,8 +4,16 @@ pub mod web;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub mod lossy_network;
 
-#[cfg(feature = "async-std-executor")]
-use async_std::prelude::StreamExt;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::prelude::StreamExt;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio_stream::StreamExt;
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
+
 use clap::Parser;
 use hotshot_utils::async_std_or_tokio::{async_sleep, async_spawn};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
@@ -27,8 +35,6 @@ use std::{
     sync::Arc,
     time::{Duration, SystemTime},
 };
-#[cfg(feature = "tokio-executor")]
-use tokio_stream::StreamExt;
 use tracing::{error, info, instrument, warn};
 
 #[cfg(feature = "webui")]

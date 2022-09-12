@@ -1,12 +1,17 @@
 use crate::async_std_or_tokio::{async_timeout, future::to, stream};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::prelude::StreamExt;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio_stream::StreamExt;
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use async_lock::{Mutex, MutexGuard};
-#[cfg(feature = "async-std-executor")]
-use async_std::prelude::StreamExt;
 use flume::{unbounded, Receiver, Sender};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
-#[cfg(feature = "tokio-executor")]
-use tokio_stream::StreamExt;
 use tracing::warn;
 
 /// A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:
@@ -243,10 +248,14 @@ impl<T: fmt::Debug> fmt::Debug for SubscribableMutex<T> {
 #[cfg(test)]
 mod tests {
     use super::SubscribableMutex;
-    use crate::async_std_or_tokio::{async_sleep, async_spawn, async_test, async_timeout};
+    use crate::async_std_or_tokio::{async_sleep, async_spawn, async_timeout};
     use std::{sync::Arc, time::Duration};
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn test_wait_timeout_until() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
@@ -267,7 +276,11 @@ mod tests {
         assert_eq!(mutex.copied().await, 10);
     }
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn test_wait_timeout_until_fail() {
         let mutex: Arc<SubscribableMutex<usize>> = Arc::default();
         {
@@ -287,7 +300,11 @@ mod tests {
         assert_eq!(mutex.copied().await, 9);
     }
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn test_compare_and_set() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;
@@ -305,7 +322,11 @@ mod tests {
         assert!(subscriber.try_recv().is_err());
     }
 
-    #[async_test]
+    #[cfg_attr(
+        feature = "tokio",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std", async_std::test)]
     async fn test_subscriber() {
         let mutex = SubscribableMutex::new(5usize);
         let subscriber = mutex.subscribe().await;

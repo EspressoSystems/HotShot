@@ -45,9 +45,16 @@ use crate::{
     types::{Event, EventType, HotShotHandle},
 };
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::task::spawn_local;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::task::spawn_local;
+    } else {
+        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+    }
+}
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
-#[cfg(feature = "async-std-executor")]
-use async_std::task::spawn_local;
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
@@ -78,8 +85,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-#[cfg(feature = "tokio-executor")]
-use tokio::task::spawn_local;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
