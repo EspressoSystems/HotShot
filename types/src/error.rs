@@ -10,7 +10,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use tokio::time::error::Elapsed as TimeoutError;
     } else {
-        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
 use snafu::Snafu;

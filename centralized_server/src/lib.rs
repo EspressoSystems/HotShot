@@ -11,7 +11,7 @@ cfg_if::cfg_if! {
             net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
         };
     } else {
-        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
 use bincode::Options;
@@ -171,7 +171,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                     .expect("background task timed_out")
                     .expect("Could not join on the background thread");
             } else {
-                std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+                std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
             }
         }
     }
@@ -373,7 +373,7 @@ cfg_if::cfg_if! {
             stream.into_split()
         }
     } else {
-        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
 
@@ -502,7 +502,7 @@ cfg_if::cfg_if! {
         use OwnedWriteHalf as WriteTcpStream;
         use OwnedReadHalf as ReadTcpStream;
     } else {
-        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
 
@@ -548,7 +548,7 @@ impl Drop for TcpStreamSendUtil {
                 } else if #[cfg(feature = "tokio-executor")] {
                     let _ = self.stream.shutdown();
                 } else {
-                    std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
                 }
             }
         }
@@ -648,7 +648,7 @@ impl Drop for TcpStreamUtil {
                 } else if #[cfg(feature = "tokio-executor")] {
                     let _ = self.stream.shutdown();
                 } else {
-                    std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
                 }
             }
         }

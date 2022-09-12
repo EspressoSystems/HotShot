@@ -7,7 +7,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use tokio::task::{spawn_local, yield_now, JoinHandle};
     } else {
-        std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
 use async_lock::RwLock;
@@ -328,7 +328,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
                 .max_by_key(|qc| qc.view_number)
                 .unwrap();
         } else {
-            std::compile_error!("Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate.")
+            std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
         }
     }
 
