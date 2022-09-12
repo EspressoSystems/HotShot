@@ -46,8 +46,8 @@ jobs:
 
       - name: Build Docs
         run: |
-          cargo doc --no-deps --workspace --release --document-private-items --bins --examples --all-features
-          cargo test --doc --workspace --all-features
+          cargo doc --no-deps --workspace --release --document-private-items --bins --examples --features="full-ci"
+          cargo test --doc --workspace --features="full-ci"
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}

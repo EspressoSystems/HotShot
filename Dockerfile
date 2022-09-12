@@ -6,5 +6,5 @@ RUN cargo audit || true
 RUN cargo clippy -- -D warnings
 RUN cargo fmt -- --check
 RUN cargo build --release
-RUN cargo test --release --all-features
+RUN cargo test --release --features="full-ci"
 

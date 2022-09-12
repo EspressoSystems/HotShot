@@ -8,13 +8,6 @@ version = "0.1.1"
 rust-version = "1.63.0"
 
 [features]
-default = ["async-std-executor", "demo", "docs", "doc-images"]
-# Enable demo/testing logic
-demo = ["blake3", "hotshot-types/demo"]
-# Build the extended documentation
-docs = []
-doc-images = []
-hotshot-testing = []
 async-std-executor = [
         "dep:async-std",
         "async-tungstenite/async-std-runtime",
@@ -23,6 +16,14 @@ async-std-executor = [
         "hotshot-types/async-std-executor",
         "hotshot-utils/async-std-executor",
         "libp2p-networking/async-std-executor"]
+default = ["async-std-executor", "demo", "docs", "doc-images"]
+# Enable demo/testing logic
+demo = ["blake3", "hotshot-types/demo"]
+# Build the extended documentation
+docs = []
+doc-images = []
+full-ci = ["async-std-executor", "demo", "docs", "doc-images", "hotshot-testing"]
+hotshot-testing = []
 tokio-executor = [
         "dep:tokio",
         "async-tungstenite/tokio-runtime",
