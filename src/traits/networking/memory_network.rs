@@ -509,6 +509,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
     async fn spawn_single() {
         setup_logging();
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
@@ -523,6 +524,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
     async fn spawn_double() {
         setup_logging();
         let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
