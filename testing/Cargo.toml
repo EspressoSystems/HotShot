@@ -22,9 +22,9 @@ commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 either = { version = "1.8.0" }
 futures = "0.3.24"
 hotshot = { path = "../", features = ["hotshot-testing"] }
-hotshot-consensus = { path = "../consensus" }
-hotshot-types = { path = "../types" }
-hotshot-utils = { path = "../utils", features = ["logging-utils"] }
+hotshot-consensus = { path = "../consensus", default-features = false }
+hotshot-types = { path = "../types", default-features = false }
+hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
 rand = "0.8.5"
 snafu = { version = "0.7.0", features = ["backtraces"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }

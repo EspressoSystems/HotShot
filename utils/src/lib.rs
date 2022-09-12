@@ -36,12 +36,13 @@ pub mod hack {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
+    if #[cfg(all(feature = "async-std-executor", feature = "tokio-executor"))] {
+        std::compile_error!{"Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate."};
+    } else if #[cfg(feature = "async-std-executor")] {
         /// async executor symmetric wrappers, `async-std` edition
         pub mod async_std_or_tokio {
             use std::future::Future;
             use std::time::Duration;
-
             use async_std::prelude::FutureExt;
             pub use async_std::{
                 main as async_main,

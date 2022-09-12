@@ -30,7 +30,7 @@ ed25519-compact = { version = "1.0.11", optional = true }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.2.0" }
 futures = "0.3.24"
 hex_fmt = "0.3.0"
-hotshot-utils = { path = "../utils", features = ["logging-utils"] }
+hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
 rand = "0.8.5"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_bytes = "0.11.7"

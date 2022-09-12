@@ -17,8 +17,8 @@ cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 flume = "0.10.14"
 futures = "0.3.24"
-hotshot-types = { version = "0.1.0", path = "../types" }
-hotshot-utils = { path = "../utils" }
+hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
+hotshot-utils = { path = "../utils", default-features = false }
 serde = { version = "1.0.143", features = ["derive"] }
 snafu = "0.7.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
