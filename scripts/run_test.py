@@ -28,7 +28,7 @@ env["RUST_LOG_FMT"] = "compact"
 env["RUST_LOG"] = "debug"
 env["RUST_BACKTRACE"] = "1"
 result = subprocess.run(
-    "cargo test --features="full-ci" --release -- " + test + " --test-threads=1 --nocapture",
+    "cargo test --features=full-ci --release -- " + test + " --test-threads=1 --nocapture",
     shell=True,
     executable='bash',
     stdout=subprocess.PIPE,
