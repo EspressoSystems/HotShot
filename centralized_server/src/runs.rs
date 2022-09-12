@@ -86,7 +86,7 @@ impl<K> RoundConfig<K> {
         if let Some(libp2p_config) = &mut config.libp2p_config {
             // we are a libp2p orchestrator
             // check to see if we're a bootstrap node
-            if self.next_node_index + 1 <= config.config.num_bootstrap {
+            if self.next_node_index < config.config.num_bootstrap {
                 // we're a bootstrap node, add our address and sender to the libp2p_config_sender queue
                 self.next_node_index += 1;
                 self.libp2p_config_sender.push((addr, sender));

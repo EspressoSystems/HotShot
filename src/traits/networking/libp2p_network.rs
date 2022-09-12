@@ -231,6 +231,10 @@ impl<
     /// # Errors
     /// Returns error in the event that the underlying libp2p network
     /// is unable to create a network.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if there are less than 5 bootstrap nodes
     pub async fn new(
         config: NetworkNodeConfig,
         pk: P,
