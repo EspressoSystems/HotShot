@@ -79,7 +79,10 @@ hotshot-utils = { path = "./utils", version = "0.1.0", features = [
 ] }
 rand_xoshiro = "0.6.0"
 toml = "0.5.8"
-### Profiles###### Note: these only apply to example executables or tests built from within this crate. They have
+
+### Profiles
+###
+### Note: these only apply to example executables or tests built from within this crate. They have
 ### no effect on crates that depend on this crate.
 
 ## Apply some optimizations to test dependencies in debug/test builds
@@ -100,6 +103,7 @@ lto = "thin"
 incremental = true
 
 ### Workspace
+
 # The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
 # when implementing traits externally
 [workspace]
