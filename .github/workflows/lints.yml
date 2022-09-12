@@ -39,4 +39,4 @@ jobs:
       - name: Clippy
         run: |
              cargo clippy --workspace --all-targets --features=full-ci --bins --tests --examples -- -D warnings
-             cargo clippy --workspace --all-targets --features=tokio-ci --bins --tests --examples -- -D warnings
+             cargo clippy --workspace --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings
