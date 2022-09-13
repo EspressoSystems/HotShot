@@ -50,4 +50,4 @@ webui = ["tide"]
 lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
 
 [dev-dependencies]
-clap = { version = "3.2.20", features = [ "derive", "env" ] }
+clap = { version = "3.2.21", features = [ "derive", "env" ] }
