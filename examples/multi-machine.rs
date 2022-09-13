@@ -13,7 +13,10 @@ use hotshot_types::{
     traits::{signature_key::TestableSignatureKey, state::TestableState},
     ExecutionType, HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    art::{async_main, async_sleep, async_spawn},
+    test_util::{setup_backtrace, setup_logging},
+};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     collections::BTreeMap, fs::File, io::Read, num::NonZeroUsize, path::Path, time::Duration,
@@ -69,7 +72,7 @@ async fn get_networking<
         match n.generate_task(c) {
             Some(task) => {
                 task.into_iter().for_each(|n| {
-                    async_std::task::spawn(n);
+                    async_spawn(n);
                 });
                 sync.await.expect("sync.await failed");
             }
@@ -149,7 +152,7 @@ async fn init_state_and_hotshot(
     (state, hotshot)
 }
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     // Setup tracing listener
     setup_logging();
@@ -202,7 +205,7 @@ async fn main() {
         while own_network.connect_to(key, &socket).await.is_err() {
             println!("  - Retrying");
             debug!("Retrying");
-            async_std::task::sleep(std::time::Duration::from_millis(10_000)).await;
+            async_sleep(std::time::Duration::from_millis(10_000)).await;
         }
         println!("  - Connected to node {}", id);
         debug!("Connected to node {}", id);
@@ -210,7 +213,7 @@ async fn main() {
 
     // Wait for the networking implementations to connect
     while own_network.connection_table_size().await < nodes - 1 {
-        async_std::task::sleep(std::time::Duration::from_millis(10)).await;
+        async_sleep(std::time::Duration::from_millis(10)).await;
     }
     println!("All nodes connected to network");
     debug!("All nodes connected to network");

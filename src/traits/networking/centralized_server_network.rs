@@ -1,8 +1,17 @@
 //! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
-
-use async_std::{net::TcpStream, sync::RwLock};
+//!
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::TcpStream;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::net::TcpStream;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
+use async_lock::RwLock;
 use async_trait::async_trait;
 use bincode::Options;
 use flume::{Receiver, Sender};
@@ -18,7 +27,10 @@ use hotshot_types::traits::{
         SignatureKey, TestableSignatureKey,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    art::{async_block_on, async_sleep, async_spawn},
+    bincode::bincode_opts,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
@@ -229,14 +241,14 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                 Err(e) => {
                     error!("Could not connect to server: {:?}", e);
                     error!("Trying again in 5 seconds");
-                    async_std::task::sleep(Duration::from_secs(5)).await;
+                    async_sleep(Duration::from_secs(5)).await;
                     continue;
                 }
             };
             if let Err(e) = stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
                 error!("Could not request config from server: {e:?}");
                 error!("Trying again in 5 seconds");
-                async_std::task::sleep(Duration::from_secs(5)).await;
+                async_sleep(Duration::from_secs(5)).await;
                 continue;
             }
             match stream.recv().await {
@@ -244,7 +256,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                 x => {
                     error!("Expected config from server, got {:?}", x);
                     error!("Trying again in 5 seconds");
-                    async_std::task::sleep(Duration::from_secs(5)).await;
+                    async_sleep(Duration::from_secs(5)).await;
                 }
             }
         };
@@ -284,7 +296,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
                     Err(e) => {
                         error!("Could not connect to server: {:?}", e);
                         error!("Trying again in 5 seconds");
-                        async_std::task::sleep(Duration::from_secs(5)).await;
+                        async_sleep(Duration::from_secs(5)).await;
                         continue;
                     }
                 }
@@ -318,7 +330,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             incoming_queue: RwLock::default(),
             request_client_count_sender: RwLock::default(),
         });
-        async_std::task::spawn({
+        async_spawn({
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
@@ -454,7 +466,7 @@ where
 {
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
-            async_std::task::sleep(Duration::from_secs(1)).await;
+            async_sleep(Duration::from_secs(1)).await;
         }
         true
     }
@@ -558,13 +570,13 @@ where
         let (server_shutdown_sender, server_shutdown) = flume::bounded(1);
         let sender = Arc::new(server_shutdown_sender);
 
-        let server = async_std::task::block_on(hotshot_centralized_server::Server::<P>::new(
+        let server = async_block_on(hotshot_centralized_server::Server::<P>::new(
             Ipv4Addr::LOCALHOST.into(),
             0,
         ))
         .with_shutdown_signal(server_shutdown);
         let addr = server.addr();
-        async_std::task::spawn(server.run());
+        async_spawn(server.run());
 
         let known_nodes = (0..expected_node_count as u64)
             .map(|id| P::from_private(&P::generate_test_key(id)))

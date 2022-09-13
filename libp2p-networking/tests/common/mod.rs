@@ -1,6 +1,6 @@
-use async_std::{prelude::FutureExt, task::sleep};
 use flume::RecvError;
 use futures::{future::join_all, Future};
+use hotshot_utils::art::{async_sleep, async_timeout};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{
@@ -133,10 +133,10 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         let addr = node.listen_addr();
         error!("listen addr for {} is {:?}", i, addr);
         bootstrap_addrs.push((node.peer_id(), addr));
-        connecting_futs.push(
-            NetworkNodeHandle::wait_to_connect(node.clone(), 4, node.recv_network(), i)
-                .timeout(timeout_len),
-        );
+        connecting_futs.push(async_timeout(
+            timeout_len,
+            NetworkNodeHandle::wait_to_connect(node.clone(), 4, node.recv_network(), i),
+        ));
         handles.push(node);
     }
 
@@ -160,16 +160,16 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
                 .await
                 .context(HandleSnafu)?,
         );
-        connecting_futs.push(
+        connecting_futs.push(async_timeout(
+            timeout_len,
             NetworkNodeHandle::wait_to_connect(
                 node.clone(),
                 // connected to 4 nodes to be "ready"
                 4,
                 node.recv_network(),
                 num_bootstrap + j,
-            )
-            .timeout(timeout_len),
-        );
+            ),
+        ));
 
         handles.push(node);
     }
@@ -215,7 +215,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .context(HandleSnafu)?;
     }
 
-    sleep(Duration::from_secs(5)).await;
+    async_sleep(Duration::from_secs(5)).await;
 
     Ok(handles)
 }

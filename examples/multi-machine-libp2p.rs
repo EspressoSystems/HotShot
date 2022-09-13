@@ -1,4 +1,4 @@
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
@@ -17,7 +17,10 @@ use hotshot_types::{
     },
     ExecutionType, HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    art::async_main,
+    test_util::{setup_backtrace, setup_logging},
+};
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
@@ -292,7 +295,7 @@ pub async fn new_libp2p_network(
     .await
 }
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     setup_logging();
     setup_backtrace();

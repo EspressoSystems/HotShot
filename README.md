@@ -49,7 +49,7 @@ scoop install protobuf cmake
 Once dependencies have been installed, to build everything:
 
 ```
-cargo build --examples  --bins --tests --all-features --all-targets --release --workspace
+cargo build --examples  --bins --tests --features=full-ci --all-targets --release --workspace
 ```
 
 
@@ -62,7 +62,7 @@ HotShot supports static linking for its examples:
 # Nix-shell is optional but recommended
 nix develop .#staticShell
 
-cargo build --examples --all-features --all-targets --release --workspace
+cargo build --examples --features=full-ci --all-targets --release --workspace
 ```
 
 # Testing
@@ -70,7 +70,7 @@ cargo build --examples --all-features --all-targets --release --workspace
 To test:
 
 ```
-RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace -- --nocapture --test-threads=1
+RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace -- --nocapture --test-threads=1
 ```
 
 - `RUST_LOG=$ERROR_LOG_LEVEL`: The basic levels of logging include `warn`, `error`, `info`.
@@ -80,7 +80,7 @@ RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose
 
 To stress test, run the ignored tests prefixed with `test_stress`:
 ```
-RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace test_stress -- --nocapture --test-threads=1 --ignored
+RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace test_stress -- --nocapture --test-threads=1 --ignored
 ```
 
 ## Testing on CI
@@ -88,7 +88,7 @@ RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose
 To test as if running on CI, one must limit the number of cores and ram to match github runners (2 core, 7 gig ram). To limit the ram, spin up a virtual machine or container with 7 gigs ram. To limit the core count when running tests:
 
 ```
-ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace -- --nocapture --test-threads=1
+ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace -- --nocapture --test-threads=1
 ```
 # Documentation
 
@@ -111,7 +111,7 @@ nix develop .#perfShell
 
 # show the executable we need run
 # and build all test executables (required for subsequent steps)
-cargo test --verbose --release --lib --bins --tests --benches --all-features --workspace -- --test-threads=1
+cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace -- --test-threads=1
 # the output cargo test contains the tests path:
 #       Running `/home/jrestivo/work/crosscross/target/release/deps/counter-880b1ff53ee21dea test_stress --test-threads=1 --ignored`
 #       running 7 tests
@@ -125,7 +125,7 @@ heaptrack $(fd -I "counter*" -t x | rg release) --ignored -- test_stress_dht_man
 # NOTE: must be run as root on macos
 flamegraph --palette=mem $(fd -I "counter*" -t x | rg release) --ignored -- test_stress_dht_one_round
 # code coveragte statistics
-cargo-llvm-cov llvm-cov --test=test_stress_dht_many_round --workspace --all-targets --all-features --release --html --output-path lcov.html
+cargo-llvm-cov llvm-cov --test=test_stress_dht_many_round --workspace --all-targets --features=full-ci --release --html --output-path lcov.html
 ```
 
 This will output:

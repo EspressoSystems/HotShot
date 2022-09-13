@@ -15,12 +15,17 @@ use crate::{
     },
     utils::ReceiverExt,
 };
-use async_std::{
-    net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
-    prelude::FutureExt,
-    sync::{Mutex, RwLock},
-    task::{block_on, sleep, spawn},
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+    } else if #[cfg(feature = "tokio-executor")] {
+        use std::net::SocketAddr;
+        use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
+use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use async_tungstenite::{
     accept_async, client_async,
@@ -35,7 +40,10 @@ use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
+    bincode::bincode_opts,
+};
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
@@ -218,7 +226,7 @@ impl<
             let priv_key = P::generate_test_key(node_id);
             let pub_key = P::from_private(&priv_key);
             let (network, port, _) = {
-                block_on(async move {
+                async_block_on(async move {
                     get_networking::<T, P, ThreadRng>(pub_key, "0.0.0.0", node_id, &mut rng).await
                 })
             };
@@ -227,7 +235,7 @@ impl<
 
             map.insert(node_id, port);
 
-            spawn({
+            async_spawn({
                 let n = network.clone();
                 let map = map.clone();
                 async move {
@@ -240,7 +248,7 @@ impl<
                                 break port_a;
                             }
                             // periodically check if we have enough information to connect
-                            sleep(Duration::from_millis(2)).await;
+                            async_sleep(Duration::from_millis(2)).await;
                         };
                         let addr = format!("localhost:{}", port);
                         n.connect_to(key2, &addr)
@@ -363,9 +371,12 @@ impl<
         } else {
             None
         };
-        spawn(async move {
+        async_spawn(async move {
             trace!("Entering setup");
+            #[cfg(feature="async-std-executor")]
             let (mut ws_sink, ws_stream) = stream.split();
+            #[cfg(feature="tokio-executor")]
+            let (mut ws_sink, ws_stream) = stream.into_split();
             let ws_stream = ws_stream.map(|x| match x {
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),
@@ -741,7 +752,7 @@ impl<
                     // We don't bother checking if we have slept the correct amount of time, since
                     // it doesn't really matter in this case. Patrolling for stale nodes _too_
                     // frequently won't really hurt.
-                    sleep(sleep_dur).await;
+                    async_sleep(sleep_dur).await;
                     debug!("Patrol task woken up");
                     // Get a copy of all the handles
                     let handles: Vec<_> = w
@@ -766,7 +777,7 @@ impl<
                             if duration >= sleep_dur {
                                 debug!(?handle.remote_socket, ?duration, "Remote has gone stale, pinging");
                                 let w = w.clone();
-                                spawn(async move {
+                                async_spawn(async move {
                                     w.ping_remote(pub_key, handle).await;
                                 });
                             } else {
@@ -813,7 +824,7 @@ impl<
         if res.is_ok() {
             debug!("Ping sent to remote");
             let duration = self.inner.keep_alive_duration;
-            if let Ok(Ok(_)) = recv.timeout(duration).await {
+            if let Ok(Ok(_)) = async_timeout(duration, recv).await {
                 debug!("Received ping from remote");
             } else {
                 error!("Remote did not respond in time! Removing from node map");
@@ -845,7 +856,7 @@ impl<
     #[instrument(name = "WNetwork::ready")]
     async fn ready(&self) -> bool {
         while !self.inner.is_ready.load(Ordering::Relaxed) {
-            sleep(Duration::from_millis(1)).await;
+            async_sleep(Duration::from_millis(1)).await;
         }
         true
     }
@@ -1032,7 +1043,7 @@ async fn get_networking<
             match x.generate_task(c) {
                 Some(task) => {
                     for task in task {
-                        async_std::task::spawn(task);
+                        async_spawn(task);
                     }
                     sync.await.expect("sync.await failed");
                 }
@@ -1051,7 +1062,7 @@ async fn get_networking<
 mod tests {
     use super::*;
     use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use hotshot_utils::test_util::setup_logging;
+    use hotshot_utils::{art::async_sleep, test_util::setup_logging};
     use rand::Rng;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1099,7 +1110,11 @@ mod tests {
     }
 
     // Generating the tasks should once and only once
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn task_only_once() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1112,7 +1127,11 @@ mod tests {
     }
 
     // Spawning a single WNetwork and starting the task should produce no errors
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn spawn_single() {
         setup_logging();
         let (_key, network, _port) = get_wnetwork().await;
@@ -1121,13 +1140,17 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
     }
 
     // Spawning two WNetworks and connecting them should produce no errors
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn spawn_double() {
         setup_logging();
         // Spawn first wnetwork
@@ -1137,7 +1160,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Spawn second wnetwork
@@ -1147,7 +1170,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Connect 1 to 2
@@ -1159,7 +1182,11 @@ mod tests {
     }
 
     // Check to make sure direct queue works
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn direct_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1172,7 +1199,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Spawn second wnetwork
@@ -1182,7 +1209,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Connect 1 to 2
@@ -1234,7 +1261,11 @@ mod tests {
     }
 
     // Check to make sure broadcast queue works
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn broadcast_queue() {
         setup_logging();
         // Create some dummy messages
@@ -1247,7 +1278,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Spawn second wnetwork
@@ -1257,7 +1288,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Connect 1 to 2
@@ -1309,7 +1340,11 @@ mod tests {
     }
 
     // Check to make sure the patrol task doesn't crash anything
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn patrol_task() {
         setup_logging();
         // Spawn two w_networks with a timeout of 25ms
@@ -1320,7 +1355,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Spawn second wnetwork
@@ -1330,7 +1365,7 @@ mod tests {
             .generate_task(sync)
             .expect("Failed to generate task");
         for x in x {
-            spawn(x);
+            async_spawn(x);
         }
         r.await.unwrap();
         // Connect 1 to 2
@@ -1341,6 +1376,6 @@ mod tests {
             .expect("Failed to connect nodes");
         // Wait 100ms to make sure that nothing crashes
         // Currently, the log output needs to be inspected to make sure that nothing bad happened
-        sleep(Duration::from_millis(100)).await;
+        async_sleep(Duration::from_millis(100)).await;
     }
 }

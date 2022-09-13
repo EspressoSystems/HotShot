@@ -43,4 +43,4 @@ jobs:
 
       # sanity check that repository builds with docker
       - name: Build
-        run: cargo build --all-targets --release --workspace --all-features
+        run: cargo build --all-targets --release --workspace --features=full-ci

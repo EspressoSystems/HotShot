@@ -5,11 +5,11 @@ use hotshot::types::{
 };
 use hotshot_centralized_server::{NetworkConfig, Server};
 use hotshot_types::{ExecutionType, HotShotConfig};
-use hotshot_utils::test_util::setup_logging;
+use hotshot_utils::{art::async_main, test_util::setup_logging};
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
 use tracing::error;
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     setup_logging();
     let config = load_config();

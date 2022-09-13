@@ -49,7 +49,11 @@ pub fn check_safety(
 }
 
 // tests base level of working synchronous network
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_no_loss_network() {
     let description = DetailedTestDescriptionBuilder {
@@ -68,7 +72,11 @@ async fn test_no_loss_network() {
 }
 
 // // tests network with forced packet delay
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_synchronous_network() {
     let description = DetailedTestDescriptionBuilder {
@@ -89,7 +97,11 @@ async fn test_synchronous_network() {
 }
 
 // tests network with small packet delay and dropped packets
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
@@ -113,7 +125,11 @@ async fn test_asynchronous_network() {
 }
 
 /// tests network with asynchronous patch that eventually becomes synchronous
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_partially_synchronous_network() {

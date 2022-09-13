@@ -18,11 +18,10 @@
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod traits;
-
-use commit::{Commitment, Committable};
 pub use traits::ConsensusApi;
 
-use async_std::sync::{Arc, RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
 use hotshot_types::{
     constants::GENESIS_VIEW,
@@ -36,6 +35,7 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
+use std::sync::Arc;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,

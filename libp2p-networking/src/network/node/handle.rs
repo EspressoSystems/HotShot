@@ -3,17 +3,16 @@ use crate::network::{
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
 };
-use async_std::{
-    future::TimeoutError,
-    prelude::FutureExt,
-    sync::{Condvar, Mutex},
-    task::sleep,
-};
+use async_lock::Mutex;
 use bincode::Options;
 use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
-use hotshot_utils::{bincode::bincode_opts, subscribable_mutex::SubscribableMutex};
+use hotshot_utils::{
+    art::{async_sleep, async_timeout, future::to, stream},
+    bincode::bincode_opts,
+    subscribable_mutex::SubscribableMutex,
+};
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -27,8 +26,6 @@ use tracing::{error, info, instrument};
 pub struct NetworkNodeHandle<S> {
     /// network configuration
     network_config: NetworkNodeConfig,
-    /// notifies that a state change has occurred
-    state_changed: Condvar,
     /// the state of the replica
     state: Arc<SubscribableMutex<S>>,
     /// send an action to the networkbehaviour
@@ -76,7 +73,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
 
         Ok(NetworkNodeHandle {
             network_config: config,
-            state_changed: Condvar::new(),
             state: std::sync::Arc::default(),
             send_network: send_chan,
             recv_network: recv_chan,
@@ -137,7 +133,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         node.begin_bootstrap().await?;
         let mut connected_ok = false;
         while !connected_ok {
-            sleep(Duration::from_secs(1)).await;
+            async_sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
             error!(
                 "WAITING TO CONNECT, connected to {:?} peers ON NODE {:?}",
@@ -247,7 +243,7 @@ impl<S> NetworkNodeHandle<S> {
         key: &impl Serialize,
         timeout: Duration,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = self.get_record(key).timeout(timeout).await;
+        let result = async_timeout(timeout, self.get_record(key)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -266,7 +262,7 @@ impl<S> NetworkNodeHandle<S> {
         value: &impl Serialize,
         timeout: Duration,
     ) -> Result<(), NetworkNodeHandleError> {
-        let result = self.put_record(key, value).timeout(timeout).await;
+        let result = async_timeout(timeout, self.put_record(key, value)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -490,11 +486,6 @@ impl<S> NetworkNodeHandle<S> {
         self.state.modify(cb).await;
     }
 
-    /// Get a reference to the internal Condvar. This will be triggered whenever a different task calls `modify_state`
-    pub fn state_changed(&self) -> &Condvar {
-        &self.state_changed
-    }
-
     /// Returns `true` if the network state is killed
     pub async fn is_killed(&self) -> bool {
         *self.killed.lock().await
@@ -530,7 +521,7 @@ impl<S> NetworkNodeHandle<S> {
         &'a self,
         timeout: Duration,
         f: F,
-    ) -> async_std::stream::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
+    ) -> stream::to::Timeout<FuturesOrdered<impl Future<Output = ()> + 'a>>
     where
         F: FnMut(&S) -> bool + 'a,
     {
@@ -595,7 +586,7 @@ pub enum NetworkNodeHandleError {
     /// Error waiting for connections
     TimeoutError {
         /// source of error
-        source: TimeoutError,
+        source: to::TimeoutError,
     },
     /// Error in the kademlia DHT
     DHTError {

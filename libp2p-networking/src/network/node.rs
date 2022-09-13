@@ -23,9 +23,9 @@ use super::{
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
 };
-use async_std::task::spawn;
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, StreamExt};
+use hotshot_utils::art::async_spawn;
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -253,10 +253,9 @@ impl NetworkNode {
                 ),
                 identify,
                 DMBehaviour::new(request_response),
-                HashSet::default(),
             );
             let executor = Box::new(|fut| {
-                async_std::task::spawn(fut);
+                async_spawn(fut);
             });
 
             SwarmBuilder::new(transport, network, peer_id)
@@ -554,7 +553,7 @@ impl NetworkNode {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
 
-        spawn(
+        async_spawn(
             async move {
                 loop {
                     select! {

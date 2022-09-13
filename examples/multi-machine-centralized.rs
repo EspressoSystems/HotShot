@@ -17,7 +17,10 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    art::{async_main, async_sleep},
+    test_util::{setup_backtrace, setup_logging},
+};
 use std::{
     collections::{BTreeMap, VecDeque},
     mem,
@@ -84,7 +87,7 @@ async fn init_state_and_hotshot(
     (state, hotshot)
 }
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     // Setup tracing listener
     setup_logging();
@@ -107,7 +110,7 @@ async fn main() {
             break;
         }
         debug!("{} / {}", connected_clients, node_count);
-        async_std::task::sleep(Duration::from_secs(1)).await;
+        async_sleep(Duration::from_secs(1)).await;
     }
 
     let NetworkConfig {
