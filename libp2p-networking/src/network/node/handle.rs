@@ -9,7 +9,7 @@ use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
 use hotshot_utils::{
-    async_std_or_tokio::{async_sleep, async_timeout, future::to, stream},
+    art::{async_sleep, async_timeout, future::to, stream},
     bincode::bincode_opts,
     subscribable_mutex::SubscribableMutex,
 };

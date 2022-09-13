@@ -25,7 +25,7 @@ use super::{
 };
 use flume::{unbounded, Receiver, Sender};
 use futures::{select, StreamExt};
-use hotshot_utils::async_std_or_tokio::async_spawn;
+use hotshot_utils::art::async_spawn;
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{

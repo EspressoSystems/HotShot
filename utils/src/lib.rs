@@ -39,8 +39,8 @@ cfg_if::cfg_if! {
     if #[cfg(all(feature = "async-std-executor", feature = "tokio-executor"))] {
         std::compile_error!{"Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate."};
     } else if #[cfg(feature = "async-std-executor")] {
-        /// async executor symmetric wrappers, `async-std` edition
-        pub mod async_std_or_tokio {
+        /// async runtime/executor symmetric wrappers, `async-std` edition
+        pub mod art {
             use std::future::Future;
             use std::time::Duration;
             use async_std::prelude::FutureExt;
@@ -78,8 +78,8 @@ cfg_if::cfg_if! {
             }
         }
     } else if #[cfg(feature = "tokio-executor")] {
-        /// async executor symmetric wrappers, `tokio` edition
-        pub mod async_std_or_tokio {
+        /// async runtime/executor symmetric wrappers, `tokio` edition
+        pub mod art {
             pub use tokio::{
                 main as async_main,
                 task::spawn as async_spawn,

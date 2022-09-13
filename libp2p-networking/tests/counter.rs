@@ -14,7 +14,7 @@ use async_lock::RwLock;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use hotshot_utils::{
-    async_std_or_tokio::{async_sleep, async_spawn},
+    art::{async_sleep, async_spawn},
     bincode::bincode_opts,
 };
 use libp2p_networking::network::{

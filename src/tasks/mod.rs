@@ -21,7 +21,7 @@ use hotshot_types::{
     ExecutionType,
 };
 use hotshot_utils::{
-    async_std_or_tokio::{async_sleep, async_spawn, async_timeout},
+    art::{async_sleep, async_spawn, async_timeout},
     broadcast::channel,
 };
 use std::{

@@ -18,7 +18,7 @@ use hotshot_types::{
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::{
-    async_std_or_tokio::async_main,
+    art::async_main,
     test_util::{setup_backtrace, setup_logging},
 };
 use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};

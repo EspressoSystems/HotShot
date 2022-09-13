@@ -9,7 +9,7 @@ cfg_if::cfg_if! {
     }
 }
 use futures::TryStreamExt;
-use hotshot_utils::async_std_or_tokio::async_spawn;
+use hotshot_utils::art::async_spawn;
 use netlink_packet_route::DecodeError;
 use nix::{
     errno::Errno,

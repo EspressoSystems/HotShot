@@ -1,5 +1,5 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
-use crate::async_std_or_tokio::async_block_on;
+use crate::art::async_block_on;
 use async_lock::RwLock;
 use flume::{Receiver, Sender};
 

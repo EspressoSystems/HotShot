@@ -18,7 +18,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_utils::{
-    async_std_or_tokio::{async_main, async_sleep},
+    art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
 use std::{

@@ -15,7 +15,7 @@ use hotshot_types::traits::{
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
-    async_std_or_tokio::{async_block_on, async_sleep, async_spawn},
+    art::{async_block_on, async_sleep, async_spawn},
     bincode::bincode_opts,
 };
 use rand::Rng;

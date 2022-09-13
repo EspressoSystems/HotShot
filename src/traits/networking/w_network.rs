@@ -41,7 +41,7 @@ use hotshot_types::traits::{
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
-    async_std_or_tokio::{async_block_on, async_sleep, async_spawn, async_timeout},
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
     bincode::bincode_opts,
 };
 use rand::prelude::ThreadRng;
@@ -1062,7 +1062,7 @@ async fn get_networking<
 mod tests {
     use super::*;
     use hotshot_types::traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub};
-    use hotshot_utils::{async_std_or_tokio::async_sleep, test_util::setup_logging};
+    use hotshot_utils::{art::async_sleep, test_util::setup_logging};
     use rand::Rng;
 
     #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]

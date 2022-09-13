@@ -9,7 +9,7 @@ use hotshot_types::traits::{
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::{
-    async_std_or_tokio::{async_main, async_sleep, async_spawn},
+    art::{async_main, async_sleep, async_spawn},
     test_util::{setup_backtrace, setup_logging},
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};

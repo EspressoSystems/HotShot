@@ -24,7 +24,7 @@ use self::{
 use bincode::Options;
 use futures::{channel::oneshot::Sender, select, Future, FutureExt};
 use hotshot_utils::{
-    async_std_or_tokio::{async_spawn, async_timeout},
+    art::{async_spawn, async_timeout},
     bincode::bincode_opts,
 };
 use libp2p::{

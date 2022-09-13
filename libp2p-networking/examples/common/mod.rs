@@ -15,7 +15,7 @@ cfg_if::cfg_if! {
 }
 
 use clap::Parser;
-use hotshot_utils::async_std_or_tokio::{async_sleep, async_spawn};
+use hotshot_utils::art::{async_sleep, async_spawn};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{

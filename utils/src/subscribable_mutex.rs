@@ -1,4 +1,4 @@
-use crate::async_std_or_tokio::{async_timeout, future::to, stream};
+use crate::art::{async_timeout, future::to, stream};
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
         use async_std::prelude::StreamExt;
@@ -248,7 +248,7 @@ impl<T: fmt::Debug> fmt::Debug for SubscribableMutex<T> {
 #[cfg(test)]
 mod tests {
     use super::SubscribableMutex;
-    use crate::async_std_or_tokio::{async_sleep, async_spawn, async_timeout};
+    use crate::art::{async_sleep, async_spawn, async_timeout};
     use std::{sync::Arc, time::Duration};
 
     #[cfg_attr(

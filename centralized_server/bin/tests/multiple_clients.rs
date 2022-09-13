@@ -17,7 +17,7 @@ type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn multiple_clients() {
-    use hotshot_utils::async_std_or_tokio::{async_spawn, async_timeout};
+    use hotshot_utils::art::{async_spawn, async_timeout};
     let (shutdown, shutdown_receiver) = flume::bounded(1);
     let server = Server::new(Ipv4Addr::LOCALHOST.into(), 0)
         .await

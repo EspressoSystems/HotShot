@@ -77,7 +77,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{async_std_or_tokio::async_spawn, broadcast::BroadcastSender};
+use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},

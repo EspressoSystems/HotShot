@@ -16,7 +16,7 @@ use hotshot_types::traits::{
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
-    async_std_or_tokio::{async_block_on, async_sleep, async_spawn, async_timeout},
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
     bincode::bincode_opts,
 };
 use libp2p_networking::{

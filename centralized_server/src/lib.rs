@@ -20,7 +20,7 @@ use futures::FutureExt as _;
 use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
 use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
 use hotshot_utils::{
-    async_std_or_tokio::{async_spawn, async_timeout},
+    art::{async_spawn, async_timeout},
     bincode::bincode_opts,
 };
 use snafu::ResultExt;

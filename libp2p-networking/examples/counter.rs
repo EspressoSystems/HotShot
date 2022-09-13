@@ -8,7 +8,7 @@ use common::{
     ExecutionEnvironment,
 };
 use common::{start_main, CliOpt};
-use hotshot_utils::async_std_or_tokio::async_main;
+use hotshot_utils::art::async_main;
 use tracing::instrument;
 
 #[async_main]
