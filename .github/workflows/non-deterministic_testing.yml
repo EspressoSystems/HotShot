@@ -32,7 +32,7 @@ jobs:
           sharedKey: HotShot163
 
       - name: Test
-        run: cargo test --release --lib --bins -p hotshot-testing --test random_tests --no-fail-fast -- --ignored
+        run: cargo test --release --lib --features=async-std-executor,demo --bins -p hotshot-testing --test random_tests --no-fail-fast -- --ignored
         timeout-minutes: 120
         env:
           RUST_BACKTRACE: 1

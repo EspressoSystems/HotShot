@@ -7,7 +7,7 @@ $PSDefaultParameterValues['*:ErrorAction']='Stop'
 !(cargo fmt --all) -and
 !(cargo clippy --workspace --all-targets --features=full-ci -- -D warnings) -and
 !(cargo audit --deny warnings) -and
-!(cargo check) -and
+!(cargo check --features=async-std-executor) -and
 !(cargo build --workspace --all-targets --features=full-ci --release) -and
 !(cargo test --release --lib --bins --tests --benches --features=full-ci --workspace --no-fail-fast -- --test-threads=1) -and
 !(cargo test --release --workspace --features=full-ci --no-fail-fast -- test_stress --test-threads=1 --ignored)
