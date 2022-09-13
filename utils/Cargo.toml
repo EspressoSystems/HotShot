@@ -7,7 +7,7 @@ readme = "../README.md"
 version = "0.1.0"
 
 [features]
-default = ["async-std-executor"]
+default = []
 full-ci = ["async-std-executor", "logging-utils"]
 tokio-ci = ["tokio-executor", "logging-utils"]
 async-std-executor = ["dep:async-std"]

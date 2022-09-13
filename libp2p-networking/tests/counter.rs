@@ -134,9 +134,19 @@ async fn run_request_response_increment<'a>(
         let new_state = requestee_handle.state().await;
 
         // set up state change listener
-        let mut stream = requester_handle
-            .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "async-std-executor")] {
+                let mut stream = requester_handle
+                    .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
+            } else if #[cfg(feature = "tokio-executor")] {
+                let mut stream = Box::pin(
+                    requester_handle.state_wait_timeout_until_with_trigger(
+                        timeout,
+                        move |state| *state == new_state
+                    )
+                );
+            }
+        }
         let requestee_pid = requestee_handle.peer_id();
 
         stream.next().await.unwrap().unwrap();
@@ -173,7 +183,16 @@ async fn run_gossip_round(
     let msg_handle = get_random_handle(handles);
     msg_handle.modify_state(|s| *s = new_state).await;
 
-    let mut futs = Vec::new();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            let mut futs = Vec::new();
+        } else if #[cfg(feature = "tokio-executor")] {
+            let mut futs = Box::pin(
+                Vec::new()
+            );
+        }
+    }
+
     let len = handles.len();
     for handle in handles {
         // already modified, so skip msg_handle
@@ -185,7 +204,15 @@ async fn run_gossip_round(
         }
     }
 
-    let mut merged_streams = futures::stream::select_all(futs);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            let mut merged_streams = futures::stream::select_all(futs);
+        } else if #[cfg(feature = "tokio-executor")] {
+            let mut merged_streams = Box::pin(
+                futures::stream::select_all(futs)
+            );
+        }
+    }
 
     // make sure all are ready/listening
     for i in 0..len - 1 {

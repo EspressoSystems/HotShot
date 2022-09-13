@@ -8,7 +8,7 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["demo", "async-std-executor"]
+default = ["demo"]
 full-ci = ["demo", "async-std-executor"]
 tokio-ci = ["demo", "tokio-executor"]
 async-std-executor = ["dep:async-std", "async-tungstenite/async-std-runtime", "hotshot-utils/async-std-executor"]

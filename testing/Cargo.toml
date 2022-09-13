@@ -7,7 +7,7 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["async-std-executor"]
+default = []
 full-ci = ["async-std-executor", "slow-tests"]
 tokio-ci = ["tokio-executor", "slow-tests"]
 slow-tests = []

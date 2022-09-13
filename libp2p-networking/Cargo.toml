@@ -8,7 +8,7 @@ authors = ["Nathan McCarty <nathan.mccarty@translucence.net>", "Victor Koenders 
 
 
 [features]
-default = ["async-std-executor"]
+default = []
 full-ci = ["async-std-executor", "lossy_network", "webui"]
 tokio-ci = ["tokio-executor", "lossy_network", "webui"]
 webui = ["tide"]

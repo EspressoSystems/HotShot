@@ -5,7 +5,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["async-std-executor"]
+default = []
 full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
 async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
