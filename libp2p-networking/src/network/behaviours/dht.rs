@@ -349,7 +349,7 @@ impl DHTBehaviour {
                 stats,
             } => match r {
                 Ok(GetClosestPeersOk { key, peers }) => {
-                    if peers.len() > 0 {
+                    if !peers.is_empty() {
                         if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                             if chan.send(()).is_err() {
                                 warn!("DHT: finished query but client no longer interested");
