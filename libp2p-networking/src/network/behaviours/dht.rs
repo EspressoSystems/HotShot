@@ -349,18 +349,21 @@ impl DHTBehaviour {
                 stats,
             } => match r {
                 Ok(GetClosestPeersOk { key, peers }) => {
-                    if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
-                        if chan.send(()).is_err() {
-                            warn!("DHT: finished query but client no longer interested");
-                        };
-                    } else {
-                        self.random_walk.state = State::NotStarted;
-                        self.random_walk.backoff.start_next(true);
+                    if peers.len() > 0 {
+                        if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
+                            if chan.send(()).is_err() {
+                                warn!("DHT: finished query but client no longer interested");
+                            };
+                        } else {
+                            self.random_walk.state = State::NotStarted;
+                            self.random_walk.backoff.start_next(true);
+                        }
+                        info!(
+                            "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
+                            self.peer_id, key, peers
+                            );
+
                     }
-                    info!(
-                        "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
-                        self.peer_id, key, peers
-                    );
                 }
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {

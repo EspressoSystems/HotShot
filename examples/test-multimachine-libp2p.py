@@ -2,7 +2,7 @@
 
 from enum import Enum
 from typing import Final
-from subprocess import run, Popen
+from subprocess import run, Popen, DEVNULL
 from os import environ
 
 class NodeType(Enum):
@@ -20,8 +20,9 @@ def gen_invocation(
     ) -> tuple[list[str], str]:
     out_file_name : Final[str] = f'out_{node_type}_{bound_addr[-4:]}';
     fmt_cmd = [
-        f'cargo run --features=async-std-executor --example=multi-machine-libp2p --release -- ' \
+        f'cargo run --features=tokio-executor,demo --example=multi-machine-libp2p --release -- ' \
         f' --num_nodes={num_nodes} ' \
+        f' --padding={10} '\
         f' --num_bootstrap={len(to_connect_addrs)} '\
         f' --num_txn_per_round=10 '\
         f' --seed={seed} '\
@@ -92,6 +93,8 @@ if __name__ == "__main__":
     env = environ.copy();
     env["RUST_BACKTRACE"] = "full"
     env["RUST_LOG"] = "warn,error"
+    env["TOKIO_CONSOLE_ENABLED"] = "false";
+    env["RUSTFLAGS"] = "--cfg tokio_unstable"
 
     print("spinning up bootstrap")
     for (node_cmd, file_name) in bootstrap_cmds:
@@ -101,9 +104,18 @@ if __name__ == "__main__":
 
 
     print("spinning up regulars")
-    for (node_cmd, file_name) in regular_cmds:
+    for (node_cmd, file_name) in regular_cmds[1:]:
         file = open(file_name, 'w')
         Popen(node_cmd[0].split(), start_new_session=True, stdout=file, stderr=file, env=env);
+
+    (node_cmd, file_name) = regular_cmds[0];
+
+    env2 = env.copy();
+    env2["TOKIO_CONSOLE_ENABLED"] = "true";
+    env2["RUSTFLAGS"] = "--cfg tokio_unstable"
+    env2["RUST_LOG"] = "tokio=trace,runtime=trace";
+    Popen(node_cmd[0].split(), start_new_session=True, env=env2, stdout=DEVNULL, stderr=DEVNULL);
+
 
     # sleep(TIME_TO_SPIN_UP_REGULAR);
 
