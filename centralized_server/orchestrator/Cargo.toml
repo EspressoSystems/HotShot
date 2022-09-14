@@ -1,5 +1,5 @@
 [package]
-name = "hotshot-centralized-server-bin"
+name = "hotshot-orchestrator"
 version = "0.1.1"
 edition = "2021"
 

@@ -91,5 +91,5 @@ members = [
         "types",
         "utils",
         "centralized_server",
-        "centralized_server/bin",
+        "centralized_server/orchestrator",
 ]

@@ -140,11 +140,10 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             sleep(Duration::from_secs(1)).await;
             let num_connected = node.num_connected().await.unwrap();
             error!(
-                "WAITING TO CONNECT, connected to {:?} peers ON NODE {:?}",
-                num_connected, node_idx
+                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
+                num_connected, num_peers, node_idx
             );
-            error!("connected to {:?}", node.connected_pids().await);
-            connected_ok = num_connected > num_peers;
+            connected_ok = num_connected >= num_peers;
         }
         Ok(())
     }

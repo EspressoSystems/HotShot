@@ -1,4 +1,4 @@
-use crate::{ClientConfig, Error, FromServer, Run, TcpStreamUtil, ToBackground, ToServer};
+use crate::{config::ClientConfig, Error, FromServer, Run, TcpStreamUtil, ToBackground, ToServer};
 use async_std::net::TcpStream;
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -53,7 +53,10 @@ async fn run_client<K: SignatureKey + 'static>(
     let ClientConfig { run, config } = {
         let (sender, receiver) = flume::bounded(1);
         let _ = to_background
-            .send_async(ToBackground::ClientConnected(sender))
+            .send_async(ToBackground::ClientConnected {
+                addr: address,
+                sender,
+            })
             .await;
         receiver
             .recv_async()

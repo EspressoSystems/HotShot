@@ -1659,26 +1659,9 @@ dependencies = [
  "futures",
  "hotshot-types",
  "hotshot-utils",
+ "libp2p-core",
  "serde",
  "snafu",
- "toml",
- "tracing",
-]
-
-[[package]]
-name = "hotshot-centralized-server-bin"
-version = "0.1.1"
-dependencies = [
- "async-std",
- "bincode",
- "clap 3.2.21",
- "commit",
- "flume",
- "hotshot",
- "hotshot-centralized-server",
- "hotshot-types",
- "hotshot-utils",
- "serde",
  "toml",
  "tracing",
 ]
@@ -1696,6 +1679,24 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-orchestrator"
+version = "0.1.1"
+dependencies = [
+ "async-std",
+ "bincode",
+ "clap 3.2.21",
+ "commit",
+ "flume",
+ "hotshot",
+ "hotshot-centralized-server",
+ "hotshot-types",
+ "hotshot-utils",
+ "serde",
+ "toml",
  "tracing",
 ]
 

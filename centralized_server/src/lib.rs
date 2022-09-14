@@ -1,32 +1,34 @@
+pub mod config;
+
 mod client;
 mod clients;
+mod runs;
+
+pub use config::NetworkConfig;
 
 use async_std::{
-    fs,
     io::{ReadExt, WriteExt},
     net::{TcpListener, TcpStream},
-    path::Path,
     prelude::FutureExt,
 };
 use bincode::Options;
 use clients::Clients;
+use config::ClientConfig;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use hotshot_types::HotShotConfig;
-use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
+use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::bincode::bincode_opts;
+use runs::RoundConfig;
 use snafu::ResultExt;
 use std::{
     marker::PhantomData,
     net::{IpAddr, Shutdown, SocketAddr},
-    num::NonZeroUsize,
     time::Duration,
 };
 use tracing::{debug, error};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(bound(deserialize = ""))]
-pub enum ToServer<K: SignatureKey> {
+pub enum ToServer<K> {
     GetConfig,
     Identify { key: K },
     Broadcast { message: Vec<u8> },
@@ -52,7 +54,7 @@ pub struct RunResults {
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Run(pub usize);
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum FromServer<K> {
     Config { config: NetworkConfig<K>, run: Run },
     NodeConnected { key: K },
@@ -232,140 +234,26 @@ async fn background_task<K: SignatureKey + 'static>(
                     }
                 }
             }
-            ToBackground::ClientConnected(sender) => {
+            ToBackground::ClientConnected { addr, sender } => {
                 // This will assign the client a `NetworkConfig` and a `Run`.
                 // if we have no `config`, or we're out of runs, the client will be assigned a default config and `Run(0)`
                 if let Some(round_config) = &mut config {
-                    let (config, run) = round_config.get_next_config().unwrap_or_default();
-                    let _ = sender.send_async(ClientConfig { config, run }).await;
-
-                    if round_config.current_run_full() {
-                        // We have enough nodes to start this run, start it in 5 seconds
-                        // This will allow the new client time to register itself with the server, and set up stuff
-                        error!("Run {} is full, starting round in 5 seconds", run.0 + 1);
-                        async_std::task::spawn({
-                            let sender = self_sender.clone();
-                            async move {
-                                async_std::task::sleep(Duration::from_secs(5)).await;
-                                let _ = sender.send_async(ToBackground::StartRun(run)).await;
-                            }
-                        });
-                    }
-                } else {
-                    let _ = sender
-                        .send_async(ClientConfig {
-                            config: NetworkConfig::default(),
-                            run: Run(0),
-                        })
+                    round_config
+                        .get_next_config(addr.ip(), sender, self_sender.clone())
                         .await;
+                } else {
+                    let _ = sender.send_async(ClientConfig::default()).await;
                 }
             }
             ToBackground::StartRun(run) => {
+                error!("Starting run {run:?} ({} nodes)", clients.len(run));
                 clients.broadcast(run, FromServer::Start).await;
             }
         }
     }
 }
 
-/// Contains information about the current round
-pub struct RoundConfig<K> {
-    configs: Vec<NetworkConfig<K>>,
-    current_run: usize,
-    next_node_index: usize,
-}
-
-impl<K> RoundConfig<K> {
-    pub fn new(configs: Vec<NetworkConfig<K>>) -> Self {
-        Self {
-            configs,
-            current_run: 0,
-            next_node_index: 0,
-        }
-    }
-
-    pub fn current_round_client_count(&self) -> usize {
-        self.configs
-            .get(self.current_run)
-            .map(|config| config.config.total_nodes.get())
-            .unwrap_or(0)
-    }
-
-    /// Will write the results for this node to `<run>/<node_index>.toml`.
-    ///
-    /// If the folder `<run>/` does not exist, it will be created and the config for that run will be stored in `<run>/config.toml`
-    ///
-    /// # Panics
-    ///
-    /// Will panic if serialization to TOML fails
-    pub async fn add_result(&mut self, result: RunResults) -> std::io::Result<()>
-    where
-        K: serde::Serialize,
-    {
-        let run = result.run.0;
-        let folder = run.to_string();
-        let folder = Path::new(&folder);
-        if !folder.exists().await {
-            // folder does not exist, create it and copy over the network config to `config.toml`
-            let config = &self.configs[run];
-            fs::create_dir_all(folder).await?;
-            fs::write(
-                format!("{}/config.toml", run),
-                toml::to_string_pretty(config).expect("Could not serialize"),
-            )
-            .await?;
-        }
-        fs::write(
-            format!("{}/{}.toml", run, result.node_index),
-            toml::to_string_pretty(&result).expect("Could not serialize"),
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    pub fn get_next_config(&mut self) -> Option<(NetworkConfig<K>, Run)>
-    where
-        K: Clone,
-    {
-        let mut config: NetworkConfig<K> = self.configs.get(self.current_run)?.clone();
-
-        if self.next_node_index >= config.config.total_nodes.get() {
-            self.next_node_index = 0;
-            self.current_run += 1;
-
-            println!(
-                "Starting run {} / {}",
-                self.current_run + 1,
-                self.configs.len()
-            );
-
-            config = self.configs.get(self.current_run)?.clone();
-        } else if self.next_node_index == 0 && self.current_run == 0 {
-            println!("Starting run 1 / {}", self.configs.len());
-        }
-        let index = self.next_node_index;
-
-        self.next_node_index += 1;
-
-        config.node_index = index as u64;
-        Some((config, Run(self.current_run)))
-    }
-
-    fn current_run_full(&self) -> bool {
-        if let Some(config) = self.configs.get(self.current_run) {
-            println!(
-                "  clients connected: {} / {}",
-                self.next_node_index,
-                config.config.total_nodes.get()
-            );
-            self.next_node_index == config.config.total_nodes.get()
-        } else {
-            false
-        }
-    }
-}
-
-enum ToBackground<K: SignatureKey> {
+pub enum ToBackground<K> {
     Shutdown,
     StartRun(Run),
     NewClient {
@@ -394,12 +282,10 @@ enum ToBackground<K: SignatureKey> {
     Results {
         results: RunResults,
     },
-    ClientConnected(Sender<ClientConfig<K>>),
-}
-
-struct ClientConfig<K> {
-    pub run: Run,
-    pub config: NetworkConfig<K>,
+    ClientConnected {
+        addr: SocketAddr,
+        sender: Sender<ClientConfig<K>>,
+    },
 }
 
 #[derive(snafu::Snafu, Debug)]
@@ -464,62 +350,5 @@ impl Drop for TcpStreamUtil {
         if !std::thread::panicking() {
             let _ = self.stream.shutdown(Shutdown::Both);
         }
-    }
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct NetworkConfig<K> {
-    #[serde(default = "default_rounds")]
-    pub rounds: usize,
-    #[serde(default = "default_transactions_per_round")]
-    pub transactions_per_round: usize,
-    #[serde(default)]
-    pub node_index: u64,
-    #[serde(default)]
-    pub seed: [u8; 32],
-    #[serde(default = "default_padding")]
-    pub padding: usize,
-    #[serde(default = "default_config")]
-    pub config: HotShotConfig<K>,
-}
-
-impl<K> Default for NetworkConfig<K> {
-    fn default() -> Self {
-        Self {
-            rounds: default_rounds(),
-            transactions_per_round: default_transactions_per_round(),
-            node_index: 0,
-            seed: [0u8; 32],
-            padding: default_padding(),
-            config: default_config(),
-        }
-    }
-}
-
-// This is hacky, blame serde for not having something like `default_value = "10"`
-
-fn default_rounds() -> usize {
-    10
-}
-fn default_transactions_per_round() -> usize {
-    10
-}
-fn default_padding() -> usize {
-    100
-}
-fn default_config<K>() -> HotShotConfig<K> {
-    HotShotConfig {
-        execution_type: ExecutionType::Continuous,
-        total_nodes: NonZeroUsize::new(10).unwrap(),
-        threshold: NonZeroUsize::new(7).unwrap(),
-        max_transactions: NonZeroUsize::new(100).unwrap(),
-        known_nodes: vec![],
-        next_view_timeout: 10000,
-        timeout_ratio: (11, 10),
-        round_start_delay: 1,
-        start_delay: 1,
-        propose_min_round_time: Duration::from_secs(0),
-        propose_max_round_time: Duration::from_secs(10),
-        num_bootstrap: 7,
     }
 }
