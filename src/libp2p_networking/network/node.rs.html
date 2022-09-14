@@ -953,7 +953,7 @@
                         }
                     }
                     <span class="ident">DirectRequest</span>(<span class="ident">pid</span>, <span class="ident">msg</span>) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
+                        <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
                         <span class="ident">behaviour</span>.<span class="ident">add_direct_request</span>(<span class="ident">pid</span>, <span class="ident">msg</span>);
                     }
                     <span class="ident">DirectResponse</span>(<span class="ident">chan</span>, <span class="ident">msg</span>) =&gt; {

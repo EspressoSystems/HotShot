@@ -321,11 +321,6 @@
 <span id="315">315</span>
 <span id="316">316</span>
 <span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -536,11 +531,6 @@
     <span class="doccomment">/// networking stats.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">networking</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::Networking</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">networking</span>
-    }
-
-    <span class="doccomment">/// Blocks until network is ready to be used (e.g. connected to other nodes)</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">is_ready</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">networking</span>.<span class="ident">ready</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.</span>

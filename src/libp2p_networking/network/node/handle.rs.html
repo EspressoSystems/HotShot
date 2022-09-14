@@ -620,7 +620,6 @@
 <span id="614">614</span>
 <span id="615">615</span>
 <span id="616">616</span>
-<span id="617">617</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -763,11 +762,10 @@
             <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
             <span class="kw">let</span> <span class="ident">num_connected</span> <span class="op">=</span> <span class="ident">node</span>.<span class="ident">num_connected</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
             <span class="macro">error!</span>(
-                <span class="string">&quot;WAITING TO CONNECT, connected to {:?} peers ON NODE {:?}&quot;</span>,
-                <span class="ident">num_connected</span>, <span class="ident">node_idx</span>
+                <span class="string">&quot;WAITING TO CONNECT, connected to {} / {} peers ON NODE {}&quot;</span>,
+                <span class="ident">num_connected</span>, <span class="ident">num_peers</span>, <span class="ident">node_idx</span>
             );
-            <span class="macro">error!</span>(<span class="string">&quot;connected to {:?}&quot;</span>, <span class="ident">node</span>.<span class="ident">connected_pids</span>().<span class="kw">await</span>);
-            <span class="ident">connected_ok</span> <span class="op">=</span> <span class="ident">num_connected</span> <span class="op">&gt;</span> <span class="ident">num_peers</span>;
+            <span class="ident">connected_ok</span> <span class="op">=</span> <span class="ident">num_connected</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">num_peers</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }

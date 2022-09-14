@@ -705,6 +705,11 @@
 <span id="699">699</span>
 <span id="700">700</span>
 <span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation</span>
 <span class="doccomment">//! This module provides a libp2p based networking implementation where each node in the</span>
 <span class="doccomment">//! network forms a tcp or udp connection to a subset of other nodes in the network</span>
@@ -938,6 +943,10 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">/// Returns error in the event that the underlying libp2p network</span>
     <span class="doccomment">/// is unable to create a network.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This will panic if there are less than 5 bootstrap nodes</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">config</span>: <span class="ident">NetworkNodeConfig</span>,
         <span class="ident">pk</span>: <span class="ident">P</span>,
@@ -945,6 +954,7 @@
         <span class="ident">bootstrap_addrs_len</span>: <span class="ident">usize</span>,
         <span class="ident">id</span>: <span class="ident">usize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">M</span>, <span class="ident">P</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
+        <span class="macro">assert!</span>(<span class="ident">bootstrap_addrs_len</span> <span class="op">&gt;</span> <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
         <span class="kw">let</span> <span class="ident">network_handle</span> <span class="op">=</span> <span class="ident">Arc::new</span>(
             <span class="ident">NetworkNodeHandle</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">config</span>, <span class="ident">id</span>)
                 .<span class="kw">await</span>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":[["load_configs",""],["main",""]],"struct":[["Args",""]]};
