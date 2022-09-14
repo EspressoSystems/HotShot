@@ -700,9 +700,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.20"
+version = "3.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b71c3ce99b7611011217b366d923f1d0a7e07a92bb2dbf1e84508c673ca3bd"
+checksum = "1ed5341b2301a26ab80be5cbdced622e80ed808483c52e45e3310a877d3b37d7"
 dependencies = [
  "atty",
  "bitflags",
@@ -1176,9 +1176,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519-compact"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24e1f30f0312ac83726c1197abeacd91c9557f8a623e904a009ae6bc529ae8d8"
+checksum = "c25036262e9b9c81fe4c6decb438f753f66a8f06aac5dbe9eb2b28355c85c3f5"
 dependencies = [
  "getrandom 0.2.7",
 ]
@@ -1624,7 +1624,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "clap 3.2.20",
+ "clap 3.2.21",
  "commit",
  "custom_debug",
  "dashmap",
@@ -1688,7 +1688,7 @@ version = "0.1.1"
 dependencies = [
  "async-std",
  "bincode",
- "clap 3.2.20",
+ "clap 3.2.21",
  "commit",
  "flume",
  "hotshot",
@@ -2242,7 +2242,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 3.2.20",
+ "clap 3.2.21",
  "color-eyre",
  "custom_debug",
  "derive_builder",
