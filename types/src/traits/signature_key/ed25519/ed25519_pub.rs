@@ -1,5 +1,5 @@
 use super::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
-use ed25519_compact::{Noise, PublicKey, Signature};
+use ed25519_compact::{PublicKey, Signature};
 use espresso_systems_common::hotshot::tag::PEER_ID;
 use serde::{de::Error, Deserialize, Serialize};
 use std::{cmp::Ordering, fmt, str::FromStr};
@@ -74,10 +74,7 @@ impl SignatureKey for Ed25519Pub {
     }
 
     fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> EncodedSignature {
-        // Generate some noise first
-        let noise = Noise::generate();
-        // Perform the signature
-        let signature = private_key.priv_key.sign(data, Some(noise));
+        let signature = private_key.priv_key.sign(data, None);
         // Convert the signature to bytes and return
         EncodedSignature(signature.to_vec())
     }
