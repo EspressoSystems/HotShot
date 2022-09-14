@@ -8,7 +8,10 @@ use hotshot_types::traits::{
     state::TestableState,
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
+use hotshot_utils::{
+    art::{async_main, async_sleep, async_spawn},
+    test_util::{setup_backtrace, setup_logging},
+};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -74,7 +77,7 @@ fn prebaked_transactions() -> Vec<DEntryTransaction> {
     ]
 }
 
-#[async_std::main]
+#[async_main]
 #[instrument]
 async fn main() {
     // Setup tracing listener
@@ -119,7 +122,7 @@ async fn main() {
     // Wait for the networking implementations to connect
     for (n, _, _, _) in &networkings {
         while n.connection_table_size().await < nodes - 1 {
-            async_std::task::sleep(std::time::Duration::from_millis(10)).await;
+            async_sleep(std::time::Duration::from_millis(10)).await;
         }
     }
     // Create the hotshots
@@ -328,7 +331,7 @@ async fn get_networking<
             match x.generate_task(c) {
                 Some(task) => {
                     task.into_iter().for_each(|x| {
-                        async_std::task::spawn(x);
+                        async_spawn(x);
                     });
                     sync.await.expect("sync.await failed");
                 }

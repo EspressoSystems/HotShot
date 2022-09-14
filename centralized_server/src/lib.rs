@@ -6,11 +6,22 @@ mod runs;
 
 pub use config::NetworkConfig;
 
-use async_std::{
-    io::{ReadExt, WriteExt},
-    net::{TcpListener, TcpStream},
-    prelude::FutureExt,
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::{
+            io::{ReadExt, WriteExt},
+            net::{TcpListener, TcpStream},
+        };
+        use std::net::Shutdown;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::{
+            io::{AsyncReadExt, AsyncWriteExt},
+            net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
+        };
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
 use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
@@ -19,10 +30,17 @@ use futures::FutureExt as _;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::bincode::bincode_opts;
 use runs::RoundConfig;
+use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
+use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
+use hotshot_utils::{
+    art::{async_spawn, async_timeout},
+    bincode::bincode_opts,
+};
 use snafu::ResultExt;
 use std::{
     marker::PhantomData,
-    net::{IpAddr, Shutdown, SocketAddr},
+    net::{IpAddr, SocketAddr, ShutDown},
+    num::NonZeroUsize,
     time::Duration,
 };
 use tracing::{debug, error};
@@ -116,7 +134,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     pub async fn run(self) {
         let (sender, receiver) = flume::unbounded();
 
-        let background_task_handle = async_std::task::spawn({
+        let background_task_handle = async_spawn({
             let sender = sender.clone();
             async move {
                 if let Err(e) = background_task(sender, receiver, self.config).await {
@@ -138,7 +156,26 @@ impl<K: SignatureKey + 'static> Server<K> {
                 result = self.listener.accept().fuse() => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_std::task::spawn(client::spawn(addr, stream, sender.clone()));
+                            async_spawn(client::spawn(addr, stream, sender.clone()));
+                            // TODO most likely don't want this but double check to be sure.
+                            // async_spawn({
+                            //     let sender = sender.clone();
+                            //     async move {
+                            //         let mut key = None;
+                            //         if let Err(e) =
+                            //             spawn_client(addr, stream, &mut key, sender.clone()).await
+                            //         {
+                            //             debug!("Client from {:?} encountered an error: {:?}", addr, e);
+                            //         } else {
+                            //             debug!("Client from {:?} shut down", addr);
+                            //         }
+                            //         if let Some(key) = key {
+                            //             let _ = sender
+                            //                 .send_async(ToBackground::ClientDisconnected { key })
+                            //                 .await;
+                            //         }
+                            //     }
+                            // });
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);
@@ -157,10 +194,19 @@ impl<K: SignatureKey + 'static> Server<K> {
             .send_async(ToBackground::Shutdown)
             .await
             .expect("Could not notify background thread that we're shutting down");
-        background_task_handle
-            .timeout(Duration::from_secs(5))
-            .await
-            .expect("Could not join on the background thread");
+        let timeout = async_timeout(Duration::from_secs(5), background_task_handle).await;
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "async-std-executor")] {
+                timeout
+                    .expect("Could not join on the background thread");
+            } else if #[cfg(feature = "tokio-executor")] {
+                timeout
+                    .expect("background task timed_out")
+                    .expect("Could not join on the background thread");
+            } else {
+                std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+            }
+        }
     }
 }
 
@@ -296,10 +342,106 @@ pub enum Error {
     Decode { source: bincode::Error },
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use TcpStream as WriteTcpStream;
+        use TcpStream as ReadTcpStream;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use OwnedWriteHalf as WriteTcpStream;
+        use OwnedReadHalf as ReadTcpStream;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
+
 /// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
+pub struct TcpStreamSendUtil {
+    stream: WriteTcpStream,
+}
+
+/// Utility struct that wraps a `TcpStream` and expects a length before each messages
+pub struct TcpStreamRecvUtil {
+    stream: ReadTcpStream,
+    buffer: Vec<u8>,
+}
+
+/// Utility struct that wraps a `TcpStream` and handles length prefixes bidirectionally
 pub struct TcpStreamUtil {
     stream: TcpStream,
     buffer: Vec<u8>,
+}
+
+impl TcpStreamSendUtil {
+    pub fn new(stream: WriteTcpStream) -> Self {
+        Self { stream }
+    }
+
+    pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
+        let bytes = bincode_opts()
+            .serialize(&m)
+            .expect("Could not serialize message");
+        let len_bytes = (bytes.len() as u32).to_le_bytes();
+        self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
+        self.stream.write_all(&bytes).await.context(IoSnafu)?;
+        Ok(())
+    }
+}
+
+impl Drop for TcpStreamSendUtil {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "async-std-executor")] {
+                    let _ = self.stream.shutdown(Shutdown::Write);
+                } else if #[cfg(feature = "tokio-executor")] {
+                    let _ = self.stream.shutdown();
+                } else {
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+                }
+            }
+        }
+    }
+}
+
+impl TcpStreamRecvUtil {
+    pub fn new(stream: ReadTcpStream) -> Self {
+        Self {
+            stream,
+            buffer: Vec::new(),
+        }
+    }
+
+    pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
+        loop {
+            if self.buffer.len() > 4 {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&self.buffer[..4]);
+                let len = u32::from_le_bytes(bytes) as usize;
+                if self.buffer.len() >= 4 + len {
+                    let bytes: Vec<u8> = self.buffer.drain(..len + 4).skip(4).collect();
+                    return bincode_opts().deserialize::<M>(&bytes).context(DecodeSnafu);
+                }
+            }
+            let mut buffer = [0u8; 1024];
+            let n = self.stream.read(&mut buffer).await.context(IoSnafu)?;
+            if n == 0 {
+                return Err(Error::Disconnected);
+            }
+            self.buffer.extend(&buffer[..n]);
+        }
+    }
+}
+
+impl Drop for TcpStreamRecvUtil {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "async-std-executor")] {
+                    let _ = self.stream.shutdown(Shutdown::Read);
+                }
+            }
+        }
+    }
 }
 
 impl TcpStreamUtil {
@@ -348,7 +490,15 @@ impl TcpStreamUtil {
 impl Drop for TcpStreamUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            let _ = self.stream.shutdown(Shutdown::Both);
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "async-std-executor")] {
+                    let _ = self.stream.shutdown(Shutdown::Both);
+                } else if #[cfg(feature = "tokio-executor")] {
+                    let _ = self.stream.shutdown();
+                } else {
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+                }
+            }
         }
     }
 }

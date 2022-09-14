@@ -11,12 +11,16 @@ pub use storage::{Result as StorageResult, Storage};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            pub use super::networking::w_network::WNetwork;
+        }
+    }
     pub use super::{
         networking::{
             centralized_server_network::CentralizedServerNetwork,
             libp2p_network::{Libp2pNetwork, PeerInfoVec},
             memory_network::{DummyReliability, MasterMap, MemoryNetwork},
-            w_network::WNetwork,
         },
         storage::memory_storage::MemoryStorage, // atomic_storage::AtomicStorage,
     };

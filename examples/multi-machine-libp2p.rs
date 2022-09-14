@@ -1,4 +1,13 @@
-use async_std::{net::TcpStream, sync::RwLock};
+// TODO this should really be moved into the utils crate.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::TcpStream;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::net::TcpStream;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
@@ -19,11 +28,14 @@ use hotshot_types::{
     },
     ExecutionType, HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{
     identity::Keypair,
     multiaddr::{self, Protocol},
     Multiaddr, PeerId,
+};
+use hotshot_utils::{
+    art::async_main,
+    test_util::{setup_backtrace, setup_logging},
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use std::{
@@ -482,7 +494,7 @@ impl Config {
     }
 }
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     setup_logging();
     setup_backtrace();

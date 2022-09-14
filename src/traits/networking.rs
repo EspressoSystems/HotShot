@@ -9,6 +9,7 @@
 pub mod centralized_server_network;
 pub mod libp2p_network;
 pub mod memory_network;
+#[cfg(feature = "async-std-executor")]
 pub mod w_network;
 
 pub use hotshot_types::traits::network::{

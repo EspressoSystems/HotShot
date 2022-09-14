@@ -3,7 +3,7 @@
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
 use crate::{traits::StateContents, QuorumCertificate};
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     constants::GENESIS_VIEW,
@@ -133,15 +133,16 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
-
     use super::*;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
+    use std::collections::BTreeMap;
+    use tracing::instrument;
 
+    #[instrument]
     fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
@@ -161,7 +162,12 @@ mod test {
         )
     }
 
-    #[async_std::test]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
     async fn memory_storage() {
         let storage =
             MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())

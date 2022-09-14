@@ -4,14 +4,24 @@ version = "0.1.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+full-ci = ["async-std-executor"]
+tokio-ci = ["tokio-executor"]
+async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
+tokio-executor = ["dep:tokio", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+
 [dependencies]
+async-lock = "2.5"
+async-std = { version = "1.12", optional = true }
 async-trait = "0.1.57"
-custom_debug = "0.5"
-futures = "0.3.24"
-hotshot-types = { path = "../types" }
-snafu = "0.7.0"
-async-std = "1.12.0"
-tracing = "0.1.36"
-flume = "0.10.14"
-hotshot-utils = { path = "../utils", features = ["logging-utils"] }
+cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+custom_debug = "0.5"
+flume = "0.10.14"
+futures = "0.3.24"
+hotshot-types = { path = "../types", default-features = false  }
+hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
+snafu = "0.7.0"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tracing = "0.1.36"

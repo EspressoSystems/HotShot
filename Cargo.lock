@@ -407,6 +407,7 @@ dependencies = [
  "futures-util",
  "log",
  "pin-project-lite 0.2.9",
+ "tokio",
  "tungstenite",
 ]
 
@@ -1617,6 +1618,7 @@ dependencies = [
 name = "hotshot"
 version = "0.1.1"
 dependencies = [
+ "async-lock",
  "async-std",
  "async-trait",
  "async-tungstenite",
@@ -1624,6 +1626,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
+ "cfg-if",
  "clap 3.2.21",
  "commit",
  "custom_debug",
@@ -1643,6 +1646,7 @@ dependencies = [
  "serde",
  "snafu",
  "tempfile",
+ "tokio",
  "toml",
  "tracing",
  "tracing-unwrap",
@@ -1654,6 +1658,7 @@ version = "0.1.1"
 dependencies = [
  "async-std",
  "bincode",
+ "cfg-if",
  "commit",
  "flume",
  "futures",
@@ -1662,6 +1667,7 @@ dependencies = [
  "libp2p-core",
  "serde",
  "snafu",
+ "tokio",
  "toml",
  "tracing",
 ]
@@ -1670,8 +1676,10 @@ dependencies = [
 name = "hotshot-consensus"
 version = "0.1.0"
 dependencies = [
+ "async-lock",
  "async-std",
  "async-trait",
+ "cfg-if",
  "commit",
  "custom_debug",
  "flume",
@@ -1679,6 +1687,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
+ "tokio",
  "tracing",
 ]
 
@@ -1688,6 +1697,7 @@ version = "0.1.1"
 dependencies = [
  "async-std",
  "bincode",
+ "cfg-if",
  "clap 3.2.21",
  "commit",
  "flume",
@@ -1696,6 +1706,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "serde",
+ "tokio",
  "toml",
  "tracing",
 ]
@@ -1706,6 +1717,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "async-trait",
+ "cfg-if",
  "commit",
  "either",
  "futures",
@@ -1717,6 +1729,7 @@ dependencies = [
  "rand 0.8.5",
  "snafu",
  "tempfile",
+ "tokio",
  "tracing",
 ]
 
@@ -1724,12 +1737,14 @@ dependencies = [
 name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "async-std",
  "async-trait",
  "async-tungstenite",
  "atomic_store",
  "bincode",
  "blake3",
+ "cfg-if",
  "commit",
  "custom_debug",
  "ed25519-compact",
@@ -1743,6 +1758,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64",
+ "tokio",
  "tracing",
 ]
 
@@ -1750,12 +1766,16 @@ dependencies = [
 name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
+ "async-lock",
  "async-std",
  "async-trait",
  "bincode",
+ "cfg-if",
  "color-eyre",
  "flume",
  "futures",
+ "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-error",
  "tracing-subscriber",
@@ -2197,6 +2217,7 @@ dependencies = [
  "rand 0.8.5",
  "smallvec",
  "socket2",
+ "tokio",
  "void",
 ]
 
@@ -2238,10 +2259,12 @@ dependencies = [
 name = "libp2p-networking"
 version = "0.1.0"
 dependencies = [
+ "async-lock",
  "async-std",
  "async-trait",
  "bincode",
  "blake3",
+ "cfg-if",
  "clap 3.2.21",
  "color-eyre",
  "custom_debug",
@@ -2266,6 +2289,8 @@ dependencies = [
  "serde_json",
  "snafu",
  "tide",
+ "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -2445,12 +2470,14 @@ dependencies = [
  "async-io",
  "futures",
  "futures-timer",
+ "if-addrs",
  "if-watch",
  "ipnet",
  "libc",
  "libp2p-core",
  "log",
  "socket2",
+ "tokio",
 ]
 
 [[package]]
@@ -4307,9 +4334,34 @@ dependencies = [
  "libc",
  "memchr",
  "mio",
+ "num_cpus",
+ "once_cell",
  "pin-project-lite 0.2.9",
  "socket2",
+ "tokio-macros",
  "winapi",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df54d54117d6fdc4e4fea40fe1e4e566b3505700e148a6827e59b34b0d2600d9"
+dependencies = [
+ "futures-core",
+ "pin-project-lite 0.2.9",
+ "tokio",
 ]
 
 [[package]]
@@ -4436,6 +4488,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tinyvec",
+ "tokio",
  "url",
 ]
 
@@ -4455,6 +4508,7 @@ dependencies = [
  "resolv-conf",
  "smallvec",
  "thiserror",
+ "tokio",
  "trust-dns-proto",
 ]
 

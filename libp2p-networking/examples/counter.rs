@@ -1,18 +1,17 @@
-use clap::Parser;
-use color_eyre::eyre::Result;
-
 pub mod common;
 
+use clap::Parser;
+use color_eyre::eyre::Result;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
 use common::{
     lossy_network::{IsolationConfig, LossyNetworkBuilder},
     ExecutionEnvironment,
 };
-
 use common::{start_main, CliOpt};
+use hotshot_utils::art::async_main;
 use tracing::instrument;
 
-#[async_std::main]
+#[async_main]
 #[instrument]
 async fn main() -> Result<()> {
     let args = CliOpt::from_args();
