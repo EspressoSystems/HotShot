@@ -185,11 +185,7 @@ pub mod test_util {
             let fmt_env = var("RUST_LOG_FORMAT").map(|x| x.to_lowercase());
 
             #[cfg(feature = "tokio-executor")]
-            let mut console_layer = false;
-            #[cfg(feature = "tokio-executor")]
-            if var("TOKIO_CONSOLE_ENABLED") == Ok("true".to_string()) {
-                console_layer = true;
-            }
+            let console_layer = var("TOKIO_CONSOLE_ENABLED") == Ok("true".to_string());
 
             match fmt_env.as_deref().map(|x| x.trim()) {
                 Ok("full") => {
