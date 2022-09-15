@@ -270,13 +270,12 @@ impl CliOrchestrated {
             node_type,
             identity,
             bound_addr: format!(
-                "/{}/{}/tcp/{}",
+                "/{}/0.0.0.0/tcp/{}",
                 if libp2p_config.public_ip.is_ipv4() {
                     "ip4"
                 } else {
                     "ip6"
                 },
-                libp2p_config.public_ip,
                 libp2p_config.base_port + config.node_index as u16
             )
             .parse()
@@ -410,7 +409,7 @@ impl Config {
             execution_type: ExecutionType::Continuous,
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
             threshold: NonZeroUsize::new(self.threshold as usize).unwrap(),
-            max_transactions: NonZeroUsize::new(100).unwrap(),
+            max_transactions: NonZeroUsize::new(self.num_txn_per_round as usize * 2).unwrap(),
             known_nodes: known_nodes.clone(),
             next_view_timeout: self.next_view_timeout * 1000,
             timeout_ratio: (11, 10),
