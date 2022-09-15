@@ -44,7 +44,10 @@ async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_n
     let mut leaf = random_leaf(DEntryBlock::genesis());
     leaf.view_number = view_number;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
-    let msg = ConsensusMessage::Proposal(Proposal { leaf, signature });
+    let msg = ConsensusMessage::Proposal(Proposal {
+        leaf: leaf.into(),
+        signature,
+    });
 
     // Send proposal
     handle.send_broadcast_consensus_message(msg.clone()).await;

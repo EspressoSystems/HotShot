@@ -116,7 +116,36 @@ pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>
 /// `Commitment` to the `Transaction` type associated with a `StateContents`, as a syntactic shortcut
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
-/// A node in `HotShot`'s consensus-internal merkle tree.
+/// subset of state that we stick into a leaf.
+#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+pub struct ProposalLeaf<STATE: StateContents> {
+    /// CurView from leader when proposing leaf
+    pub view_number: ViewNumber,
+
+    /// Per spec, justification
+    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
+    pub justify_qc: QuorumCertificate<STATE>,
+
+    /// The hash of the parent `Leaf`
+    /// So we can ask if it extends
+    #[debug(skip)]
+    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
+    pub parent_commitment: Commitment<Leaf<STATE>>,
+
+    /// Block leaf wants to apply
+    #[serde(deserialize_with = "STATE::Block::deserialize")]
+    pub deltas: STATE::Block,
+
+    /// What the state should be after applying `self.deltas`
+    #[serde(deserialize_with = "<Commitment<STATE> as Deserialize>::deserialize")]
+    #[debug(skip)]
+    pub state_commitment: Commitment<STATE>,
+
+    /// Transactions that were marked for rejection while collecting deltas
+    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
+    pub rejected: Vec<TxnCommitment<STATE>>,
+}
+
 ///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
@@ -191,6 +220,19 @@ impl<STATE: StateContents> Committable for Leaf<STATE> {
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
             .finalize()
+    }
+}
+
+impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
+    fn from(leaf: Leaf<STATE>) -> Self {
+        Self {
+            view_number: leaf.view_number,
+            justify_qc: leaf.justify_qc,
+            parent_commitment: leaf.parent_commitment,
+            deltas: leaf.deltas,
+            state_commitment: leaf.state.commit(),
+            rejected: leaf.rejected,
+        }
     }
 }
 
