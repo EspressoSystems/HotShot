@@ -4,6 +4,7 @@ mod client;
 mod clients;
 mod runs;
 
+use bincode::Options;
 pub use config::NetworkConfig;
 
 cfg_if::cfg_if! {
@@ -22,16 +23,13 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
-use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_utils::bincode::bincode_opts;
 use runs::RoundConfig;
-use hotshot_types::{traits::signature_key::EncodedPublicKey, HotShotConfig};
-use hotshot_types::{traits::signature_key::SignatureKey, ExecutionType};
+
+use hotshot_types::{traits::signature_key::SignatureKey};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -39,8 +37,7 @@ use hotshot_utils::{
 use snafu::ResultExt;
 use std::{
     marker::PhantomData,
-    net::{IpAddr, SocketAddr, ShutDown},
-    num::NonZeroUsize,
+    net::{IpAddr, SocketAddr},
     time::Duration,
 };
 use tracing::{debug, error};
@@ -353,6 +350,21 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
+            (stream.clone(), stream)
+        }
+    } else if #[cfg(feature = "tokio-executor")] {
+        fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
+            stream.into_split()
+        }
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
+
 
 /// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
 pub struct TcpStreamSendUtil {

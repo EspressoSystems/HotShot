@@ -1,5 +1,5 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
-use async_std::{fs, path::Path};
+use std::{fs, path::Path};
 use flume::Sender;
 use libp2p_core::PeerId;
 use std::{
@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 use tracing::error;
+use hotshot_utils::art::{async_spawn, async_sleep};
 
 /// Contains information about the current round
 pub struct RoundConfig<K> {
@@ -47,21 +48,21 @@ impl<K> RoundConfig<K> {
         let run = result.run.0;
         let folder = run.to_string();
         let folder = Path::new(&folder);
-        if !folder.exists().await {
+        if !folder.exists() {
             // folder does not exist, create it and copy over the network config to `config.toml`
             let config = &self.configs[run];
-            fs::create_dir_all(folder).await?;
+            fs::create_dir_all(folder)?;
             fs::write(
                 format!("{}/config.toml", run),
                 toml::to_string_pretty(config).expect("Could not serialize"),
             )
-            .await?;
+            ?;
         }
         fs::write(
             format!("{}/{}.toml", run, result.node_index),
             toml::to_string_pretty(&result).expect("Could not serialize"),
         )
-        .await?;
+        ?;
 
         Ok(())
     }
@@ -164,9 +165,9 @@ impl<K> RoundConfig<K> {
 
         if self.next_node_index == total_nodes.get() {
             let run = Run(self.current_run);
-            async_std::task::spawn(async move {
+            async_spawn(async move {
                 tracing::error!("Reached enough nodes, starting in 60 seconds");
-                async_std::task::sleep(Duration::from_secs(60)).await;
+                async_sleep(Duration::from_secs(60)).await;
                 start_round_sender
                     .send_async(ToBackground::StartRun(run))
                     .await

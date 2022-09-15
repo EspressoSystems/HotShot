@@ -7,6 +7,7 @@ use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
 };
+use hotshot_utils::art::async_main;
 use hotshot_utils::test_util::setup_logging;
 use std::{fs, num::NonZeroUsize, time::Duration};
 
@@ -16,7 +17,7 @@ enum Args {
     Libp2p { host: String, port: u16 },
 }
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     setup_logging();
     let args = Args::parse();

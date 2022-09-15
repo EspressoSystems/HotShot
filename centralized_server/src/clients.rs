@@ -7,21 +7,6 @@ use tracing::debug;
 
 pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, Sender<FromServer<K>>>>);
 
-
-// cfg_if::cfg_if! {
-//     if #[cfg(feature = "async-std-executor")] {
-//         fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
-//             (stream.clone(), stream)
-//         }
-//     } else if #[cfg(feature = "tokio-executor")] {
-//         fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
-//             stream.into_split()
-//         }
-//     } else {
-//         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
-//     }
-// }
-//
 impl<K: SignatureKey + PartialEq> Clients<K> {
     pub fn new() -> Self {
         Self(Vec::new())

@@ -8,6 +8,7 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
     }
 }
+use async_lock::RwLock;
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,

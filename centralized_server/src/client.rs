@@ -1,9 +1,19 @@
-use crate::{config::ClientConfig, Error, FromServer, Run, TcpStreamUtil, ToBackground, ToServer};
-use async_std::net::TcpStream;
+use crate::{config::ClientConfig, Error, FromServer, Run, ToBackground, ToServer, split_stream, TcpStreamSendUtil, TcpStreamRecvUtil};
+use hotshot_utils::art::async_spawn;
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
 use std::net::SocketAddr;
 use tracing::debug;
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::net::TcpStream;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::net::TcpStream;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
 
 pub(crate) async fn spawn<K: SignatureKey + 'static>(
     addr: SocketAddr,
@@ -35,19 +45,22 @@ async fn run_client<K: SignatureKey + 'static>(
     parent_run: &mut Option<Run>,
     to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
+    let (read_stream, write_stream) = split_stream(stream);
+
     let (sender, receiver) = flume::unbounded();
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
-    async_std::task::spawn({
-        let mut stream = TcpStreamUtil::new(stream.clone());
+    async_spawn({
+        let mut send_stream = TcpStreamSendUtil::new(write_stream);
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                if let Err(e) = stream.send(msg).await {
+                if let Err(e) = send_stream.send(msg).await {
                     debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
                 }
             }
         }
     });
+
 
     // Get the network config and the run # from the background thread.
     let ClientConfig { run, config } = {
@@ -65,9 +78,10 @@ async fn run_client<K: SignatureKey + 'static>(
     };
     // Make sure to let `spawn` know what run # we have gotten
     *parent_run = Some(run);
-    let mut stream = TcpStreamUtil::new(stream);
+
+    let mut recv_stream = TcpStreamRecvUtil::new(read_stream);
     loop {
-        let msg = stream.recv::<ToServer<K>>().await?;
+        let msg = recv_stream.recv::<ToServer<K>>().await?;
 
         // Most of these messages are mapped to `ToBackground` and send to the background thread.
         // See `background_task` in `src/lib.rs` for more information

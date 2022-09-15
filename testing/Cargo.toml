@@ -4,12 +4,15 @@ version = "0.1.0"
 edition = "2021"
 description = "Types and traits for the HotShot consesus module"
 authors = ["Victor Koenders <vkoenders@espressosys.com>"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
 default = []
-full-ci = ["async-std-executor", "slow-tests"]
-tokio-ci = ["tokio-executor", "slow-tests"]
+full-ci = ["async-std-executor", "slow-tests", "demo"]
+tokio-ci = ["tokio-executor", "slow-tests", "demo"]
+demo = [
+  "hotshot/demo"
+]
+# NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
 async-std-executor = ["dep:async-std", "hotshot/async-std-executor", "hotshot-consensus/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-consensus/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
@@ -21,7 +24,7 @@ cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 either = { version = "1.8.0" }
 futures = "0.3.24"
-hotshot = { path = "../", features = ["hotshot-testing"] }
+hotshot = { path = "../", features = ["hotshot-testing"], default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
