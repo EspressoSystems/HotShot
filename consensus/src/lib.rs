@@ -222,6 +222,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
+                                warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
                                 continue;
                             }
                             Leaf::new(
