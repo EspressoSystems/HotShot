@@ -1,15 +1,22 @@
 mod common;
 
 use crate::common::print_connections;
-use async_std::{
-    prelude::StreamExt,
-    sync::RwLock,
-    task::{sleep, spawn},
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::prelude::StreamExt;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio_stream::StreamExt;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+    }
+}
+use async_lock::RwLock;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
-
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{
+    art::{async_sleep, async_spawn},
+    bincode::bincode_opts,
+};
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };
@@ -127,9 +134,19 @@ async fn run_request_response_increment<'a>(
         let new_state = requestee_handle.state().await;
 
         // set up state change listener
-        let mut stream = requester_handle
-            .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "async-std-executor")] {
+                let mut stream = requester_handle
+                    .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
+            } else if #[cfg(feature = "tokio-executor")] {
+                let mut stream = Box::pin(
+                    requester_handle.state_wait_timeout_until_with_trigger(
+                        timeout,
+                        move |state| *state == new_state
+                    )
+                );
+            }
+        }
         let requestee_pid = requestee_handle.peer_id();
 
         stream.next().await.unwrap().unwrap();
@@ -166,7 +183,16 @@ async fn run_gossip_round(
     let msg_handle = get_random_handle(handles);
     msg_handle.modify_state(|s| *s = new_state).await;
 
-    let mut futs = Vec::new();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            let mut futs = Vec::new();
+        } else if #[cfg(feature = "tokio-executor")] {
+            let mut futs = Box::pin(
+                Vec::new()
+            );
+        }
+    }
+
     let len = handles.len();
     for handle in handles {
         // already modified, so skip msg_handle
@@ -178,7 +204,15 @@ async fn run_gossip_round(
         }
     }
 
-    let mut merged_streams = futures::stream::select_all(futs);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "async-std-executor")] {
+            let mut merged_streams = futures::stream::select_all(futs);
+        } else if #[cfg(feature = "tokio-executor")] {
+            let mut merged_streams = Box::pin(
+                futures::stream::select_all(futs)
+            );
+        }
+    }
 
     // make sure all are ready/listening
     for i in 0..len - 1 {
@@ -376,7 +410,7 @@ async fn run_request_response_increment_all(
     for _ in 0..futs.len() {
         let fut = futs.pop().unwrap();
         let results = results.clone();
-        spawn(async move {
+        async_spawn(async move {
             let res = fut.await;
             results.write().await.push(res);
         });
@@ -387,7 +421,7 @@ async fn run_request_response_increment_all(
             break;
         }
         info!("NUMBER OF RESULTS for increment all is: {}", l);
-        sleep(Duration::from_secs(1)).await;
+        async_sleep(Duration::from_secs(1)).await;
     }
 
     if results.read().await.iter().any(|x| x.is_err()) {
@@ -401,7 +435,11 @@ async fn run_request_response_increment_all(
 }
 
 /// simple case of direct message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_request_response_one_round() {
     test_bed(
@@ -415,7 +453,11 @@ async fn test_coverage_request_response_one_round() {
 }
 
 /// stress test of direct messsage
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_request_response_many_rounds() {
     test_bed(
@@ -429,7 +471,11 @@ async fn test_coverage_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_intersperse_many_rounds() {
     test_bed(
@@ -443,7 +489,11 @@ async fn test_coverage_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_gossip_many_rounds() {
     test_bed(
@@ -457,7 +507,11 @@ async fn test_coverage_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_gossip_one_round() {
     test_bed(
@@ -471,7 +525,11 @@ async fn test_coverage_gossip_one_round() {
 }
 
 /// simple case of direct message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_one_round() {
@@ -486,7 +544,11 @@ async fn test_stress_request_response_one_round() {
 }
 
 /// stress test of direct messsage
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_many_rounds() {
@@ -501,7 +563,11 @@ async fn test_stress_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_intersperse_many_rounds() {
@@ -516,7 +582,11 @@ async fn test_stress_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_many_rounds() {
@@ -531,7 +601,11 @@ async fn test_stress_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_one_round() {
@@ -546,7 +620,11 @@ async fn test_stress_gossip_one_round() {
 }
 
 /// simple case of one dht publish event
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_one_round() {
@@ -561,7 +639,11 @@ async fn test_stress_dht_one_round() {
 }
 
 /// many dht publishing events
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_many_rounds() {
@@ -576,7 +658,11 @@ async fn test_stress_dht_many_rounds() {
 }
 
 /// simple case of one dht publish event
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_dht_one_round() {
     test_bed(
@@ -590,7 +676,11 @@ async fn test_coverage_dht_one_round() {
 }
 
 /// many dht publishing events
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_coverage_dht_many_rounds() {
     test_bed(

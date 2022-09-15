@@ -13,7 +13,11 @@ use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
 
 /// libp2p network test
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
     let description = GeneralTestDescriptionBuilder {
@@ -43,7 +47,11 @@ async fn libp2p_network() {
 }
 
 // stress test for libp2p
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {

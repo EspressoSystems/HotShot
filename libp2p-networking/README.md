@@ -7,21 +7,21 @@ Networking library inteded for use with HotShot. Builds upon abstractions on lib
 To get very verbose logging:
 
 ```bash
-RUST_LOG_OUTPUT=OUTFILE RUST_LOG="trace" cargo run --release
+RUST_LOG_OUTPUT=OUTFILE RUST_LOG="trace" cargo run --features=async-std-executor --release
 ```
 
 The idea here is to spin up several nodes in a p2p network. These nodes can share messages with each other.
 
 ```
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- -p 1111"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/1111 -p 2222"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/2222 -p 3333"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/3333 -p 4444"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/4444 -p 5555"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/5555 -p 6666"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/6666 -p 7777"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/7777 -p 8888"
-nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --release --example clichat -- /ip4/127.0.0.1/tcp/8888 -p 9999"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- -p 1111"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/1111 -p 2222"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/2222 -p 3333"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/3333 -p 4444"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/4444 -p 5555"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/5555 -p 6666"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/6666 -p 7777"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/7777 -p 8888"
+nix develop -c "RUST_LOG_OUTPUT=OUTFILE_0 RUST_LOG=error cargo run --features=async-std-executor --release --example clichat -- /ip4/127.0.0.1/tcp/8888 -p 9999"
 ```
 
 At this point the idea is that each node will continue to attempt to connect to nodes
@@ -35,7 +35,7 @@ Press `q` to quit the program from the messages view.
 
 Each node has its own counter. The idea behind these tests is to support "broadcast" messages and "direct" messages to increment each nodes counter.
 
-`cargo test --release stress`
+`cargo test --features=async-std-executor --release stress`
 
 spawns off five integration tests.
 
@@ -67,11 +67,11 @@ A sample invocation locally:
 
 ```bash
 # run each line in a separate terminal
-nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8000
-nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8001
-nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8002
-nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8003
-nix develop -c cargo run --features webui --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8004
+nix develop -c cargo run --features webui,async-std-executor  --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8000
+nix develop -c cargo run --features webui,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8001
+nix develop -c cargo run --features webui,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8002
+nix develop -c cargo run --features webui,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8003
+nix develop -c cargo run --features webui,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8004
 ```
 
 To run on the AWS cluster, see [here](https://github.com/EspressoSystems/cloud-infrastructure/blob/c86873a5c647772836907fc206fce5702a5878bb/ansible/networking-demo/README.md).
@@ -81,22 +81,22 @@ One may introduce simulated network latency via the network emulationn queueing 
 
 ```bash
 # run each line in a separate AWS instance
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Metal
 ```
 
 And on docker:
 
 ```bash
 # run each line in a separate Docker container instance
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
-nix develop -c cargo run --features lossy_network --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9000 --node_type Bootstrap --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9001 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9002 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9003 --node_type Regular --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
+nix develop -c cargo run --features lossy_network,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --env Docker
 ```
 
 On an AWS instance, a separate network namespace is created and connected to `ens5` via a network bridge, and a netem qdisc is introduced to the veth interface in the namespace. Within a docker container, a netem qdisc is added on interface `eth0`.

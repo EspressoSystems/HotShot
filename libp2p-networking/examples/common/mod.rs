@@ -4,20 +4,19 @@ pub mod web;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub mod lossy_network;
 
-use async_std::{
-    prelude::StreamExt,
-    task::{sleep, spawn},
-};
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
-
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::prelude::StreamExt;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio_stream::StreamExt;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+    }
+}
 
 use clap::Parser;
+use hotshot_utils::art::{async_sleep, async_spawn};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
@@ -30,6 +29,12 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::fmt::Debug;
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use tracing::{error, info, instrument, warn};
 
 #[cfg(feature = "webui")]
@@ -538,7 +543,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             let (s, _r) = flume::bounded::<bool>(1);
 
-            spawn({
+            async_spawn({
                 let handle = handle.clone();
                 // the "conductor id"
                 // periodically say "ignore me!"
@@ -553,13 +558,13 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                         {
                             error!("Error {:?} gossiping the conductor ID to cluster.", e);
                         }
-                        sleep(Duration::from_secs(1)).await;
+                        async_sleep(Duration::from_secs(1)).await;
                     }
                 }
             });
 
             // For now, just do a sleep waiting for nodes to spin up. It's easier.
-            sleep(Duration::from_secs(10)).await;
+            async_sleep(Duration::from_secs(10)).await;
 
             // kill conductor id broadcast thread
             s.send_async(true).await.unwrap();
@@ -610,7 +615,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .context(HandleSnafu)?;
             spawn_handler(handle.clone(), regular_handle_network_event).await;
             while !handle.is_killed().await {
-                async_std::task::sleep(Duration::from_millis(100)).await;
+                async_sleep(Duration::from_millis(100)).await;
             }
         }
     }
@@ -685,7 +690,7 @@ pub async fn conductor_handle_network_event(
         }
         DirectRequest(m, peer_id, chan) => {
             info!("recv: {:?}", m);
-            spawn({
+            async_spawn({
                 let handle = handle.clone();
                 async move {
                     handle.direct_response(chan, &Message::DummyRecv).await?;

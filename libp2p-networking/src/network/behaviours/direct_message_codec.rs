@@ -1,4 +1,3 @@
-use async_std::io;
 use async_trait::async_trait;
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use libp2p::{
@@ -9,6 +8,7 @@ use libp2p::{
     request_response::RequestResponseCodec,
 };
 use serde::{Deserialize, Serialize};
+use std::io;
 
 /// Protocol for direct messages
 #[derive(Debug, Clone)]

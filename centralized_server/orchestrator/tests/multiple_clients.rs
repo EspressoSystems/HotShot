@@ -1,4 +1,3 @@
-use async_std::prelude::FutureExt;
 use commit::{Commitment, Committable};
 use hotshot::{
     traits::{BlockContents, StateContents},
@@ -12,14 +11,19 @@ type Server = hotshot_centralized_server::Server<TestSignatureKey>;
 type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
 type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
 
-#[async_std::test]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
 async fn multiple_clients() {
+    use hotshot_utils::art::{async_spawn, async_timeout};
     let (shutdown, shutdown_receiver) = flume::bounded(1);
     let server = Server::new(Ipv4Addr::LOCALHOST.into(), 0)
         .await
         .with_shutdown_signal(shutdown_receiver);
     let server_addr = server.addr();
-    let server_join_handle = async_std::task::spawn(server.run());
+    let server_join_handle = async_spawn(server.run());
 
     // Connect first client
     let mut first_client = TcpStreamUtil::connect(server_addr).await.unwrap();
@@ -133,8 +137,7 @@ async fn multiple_clients() {
 
     // Shut down the server
     shutdown.send(()).unwrap();
-    server_join_handle
-        .timeout(Duration::from_secs(5))
+    async_timeout(Duration::from_secs(5), server_join_handle)
         .await
         .expect("Could not shut down server");
 }

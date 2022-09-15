@@ -1,4 +1,4 @@
-use async_std::sync::{Mutex, RwLock};
+use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use flume::{unbounded, Receiver, Sender};
 use futures::executor::block_on;

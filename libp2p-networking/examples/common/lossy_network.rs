@@ -1,6 +1,15 @@
 use super::ExecutionEnvironment;
-use async_std::process::Command;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use async_std::process::Command;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use tokio::process::Command;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+    }
+}
 use futures::TryStreamExt;
+use hotshot_utils::art::async_spawn;
 use netlink_packet_route::DecodeError;
 use nix::{
     errno::Errno,
@@ -133,7 +142,7 @@ impl LossyNetwork {
     async fn create_qdisc_netlink(&self, veth: &str) -> Result<(), LossyNetworkError> {
         let (connection, handle, _) =
             new_connection_with_socket::<SmolSocket>().context(IoSnafu)?;
-        async_std::task::spawn(connection);
+        async_spawn(connection);
         let mut links = handle.link().get().match_name(veth.to_string()).execute();
         if let Some(link) = links.try_next().await.context(RtNetlinkSnafu)? {
             handle
@@ -196,7 +205,7 @@ impl IsolationConfig {
     async fn isolate_netlink(&self, eth_name: &str) -> Result<(), LossyNetworkError> {
         let (connection, handle, _) =
             new_connection_with_socket::<SmolSocket>().context(IoSnafu)?;
-        async_std::task::spawn(connection);
+        async_spawn(connection);
 
         // create new netns
         let counter_ns_name = self.counter_ns.clone();
@@ -318,7 +327,7 @@ impl IsolationConfig {
         // get connection metadata in new net namespace
         let (connection, handle, _) =
             new_connection_with_socket::<SmolSocket>().context(IoSnafu)?;
-        async_std::task::spawn(connection);
+        async_spawn(connection);
 
         // set lo interface to up
         let lo_idx = handle
@@ -484,7 +493,7 @@ impl IsolationConfig {
             .context(RtNetlinkSnafu)?;
         let (connection, handle, _) =
             new_connection_with_socket::<SmolSocket>().context(IoSnafu)?;
-        async_std::task::spawn(connection);
+        async_spawn(connection);
         del_link(handle, self.bridge_name.clone()).await?;
         // delete creates iptables rules
         self.undo_firewall(eth_name).await?;
