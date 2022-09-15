@@ -11,7 +11,9 @@ default = []
 full-ci = ["async-std-executor", "logging-utils"]
 tokio-ci = ["tokio-executor", "logging-utils"]
 async-std-executor = ["dep:async-std"]
-tokio-executor = ["dep:tokio", "dep:tokio-stream"]
+tokio-executor = ["dep:tokio", "dep:tokio-stream", "dep:console-subscriber"]
+
+
 # needed for logging feature
 logging-utils = ["tracing-subscriber"]
 
@@ -29,3 +31,4 @@ tokio-stream = { version = "0.1.9", optional = true }
 tracing = "0.1.36"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.15", features = ["env-filter", "json"], optional = true }
+console-subscriber = { version = "0.1.8", optional = true}

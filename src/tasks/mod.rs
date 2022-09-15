@@ -3,9 +3,9 @@
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
-        use async_std::task::{spawn_local, yield_now, JoinHandle};
+        use async_std::task::{yield_now, JoinHandle};
     } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::task::{spawn_local, yield_now, JoinHandle};
+        use tokio::task::{yield_now, JoinHandle};
     } else {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
@@ -21,7 +21,7 @@ use hotshot_types::{
     ExecutionType,
 };
 use hotshot_utils::{
-    art::{async_sleep, async_spawn, async_timeout},
+    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     broadcast::channel,
 };
 use std::{
@@ -400,7 +400,7 @@ pub async fn network_lookup_task<I: NodeImplementation>(
                 completion_map.insert(view_to_lookup, is_done.clone());
                 let c_api = c_api.clone();
                 let networking = networking.clone();
-                spawn_local(async move {
+                async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
                     networking
                         .notify_of_subsequent_leader(
