@@ -7,8 +7,8 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 
 [features]
 default = []
-full-ci = ["async-std-executor", "slow-tests", "demo"]
-tokio-ci = ["tokio-executor", "slow-tests", "demo"]
+full-ci = ["async-std-executor", "demo"]
+tokio-ci = ["tokio-executor", "demo"]
 demo = [
   "hotshot/demo"
 ]
