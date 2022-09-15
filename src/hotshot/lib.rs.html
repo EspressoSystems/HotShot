@@ -845,13 +845,6 @@
 <span id="839">839</span>
 <span id="840">840</span>
 <span id="841">841</span>
-<span id="842">842</span>
-<span id="843">843</span>
-<span id="844">844</span>
-<span id="845">845</span>
-<span id="846">846</span>
-<span id="847">847</span>
-<span id="848">848</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -893,21 +886,14 @@
 <span class="kw">mod</span> <span class="ident">tasks</span>;
 <span class="kw">mod</span> <span class="ident">utils</span>;
 
+<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn_local</span>;
+
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>},
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>},
 };
 
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">async_std::task::spawn_local</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">tokio::task::spawn_local</span>;
-    } <span class="kw">else</span> {
-        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-}
 <span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">commit</span>::{<span class="ident">Commitment</span>, <span class="ident">Committable</span>};
@@ -1262,7 +1248,7 @@
         <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">pk</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">kind</span>.<span class="ident">into</span>();
-        <span class="ident">spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
+        <span class="ident">async_spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">if</span> <span class="ident">inner</span>
                 .<span class="ident">networking</span>
                 .<span class="ident">broadcast_message</span>(<span class="ident">Message</span> { <span class="ident">sender</span>: <span class="ident">pk</span>, <span class="ident">kind</span> })
@@ -1607,7 +1593,7 @@
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;send_direct_message&quot;</span>);
-        <span class="ident">spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
+        <span class="ident">async_spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="ident">inner</span>
                 .<span class="ident">networking</span>
                 .<span class="ident">message_node</span>(

@@ -552,9 +552,9 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">create_or_obtain_chan_from_write</span>, <span class="ident">types::HotShotHandle</span>, <span class="ident">HotShot</span>, <span class="ident">HotShotConsensusApi</span>};
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn_local</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
+        <span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
     } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">tokio::task</span>::{<span class="ident">spawn_local</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
+        <span class="kw">use</span> <span class="ident">tokio::task</span>::{<span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
     } <span class="kw">else</span> {
         <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
     }
@@ -570,7 +570,7 @@
     <span class="ident">ExecutionType</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>, <span class="ident">async_timeout</span>},
+    <span class="ident">art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>, <span class="ident">async_spawn_local</span>, <span class="ident">async_timeout</span>},
     <span class="ident">broadcast::channel</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -949,7 +949,7 @@
                 <span class="ident">completion_map</span>.<span class="ident">insert</span>(<span class="ident">view_to_lookup</span>, <span class="ident">is_done</span>.<span class="ident">clone</span>());
                 <span class="kw">let</span> <span class="ident">c_api</span> <span class="op">=</span> <span class="ident">c_api</span>.<span class="ident">clone</span>();
                 <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="ident">networking</span>.<span class="ident">clone</span>();
-                <span class="ident">spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
+                <span class="ident">async_spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
                     <span class="macro">info!</span>(<span class="string">&quot;starting lookup for {:?}&quot;</span>, <span class="ident">view_to_lookup</span>);
                     <span class="ident">networking</span>
                         .<span class="ident">notify_of_subsequent_leader</span>(
