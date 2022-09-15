@@ -50,6 +50,32 @@
           inherit system;
         };
 
+        tokio-console =
+          pkgs.rustPlatform.buildRustPackage rec {
+            pname = "tokio-console";
+            version = "0.1.7";
+
+            src = pkgs.fetchFromGitHub {
+              owner = "tokio-rs";
+              repo = "console";
+              rev = "tokio-console-v${version}";
+              sha256 = "sha256-yTNLKpBkzzN0X73CjN/UXRGjAGOnCCgJa6A6loA6baM=";
+            };
+
+            cargoSha256 = "sha256-K/auhqlL/K6RYE0lHyvSUqK1cOwJBBZD3QTUevZzLXQ=";
+
+            nativeBuildInputs = [ pkgs.protobuf ];
+
+            meta = with pkgs.lib; {
+              description = "A debugger for asynchronous Rust code";
+              homepage = "https://github.com/tokio-rs/console";
+              license = with licenses; [ mit ];
+              maintainers = with maintainers; [ max-niederman ];
+            };
+
+            doCheck = false;
+          };
+
         cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
           pname = "cargo-llvm-cov";
           version = "0.3.0";
@@ -150,6 +176,15 @@
             shellHook = ''
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
+          };
+
+          # usage: setup for tokio with console
+          consoleShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            TOKIO_CONSOLE_ENABLED = "true";
+            RUSTFLAGS="--cfg tokio_unstable";
+            RUST_LOG="tokio=trace,runtime=trace";
+            buildInputs = with pkgs; [ tokio-console fenixStable ripgrep ] ++ buildDeps;
           };
 
           # usage: evaluate performance (llvm-cov + flamegraph)
