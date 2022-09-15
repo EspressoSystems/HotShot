@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
             net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
         };
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 use clients::Clients;
@@ -29,7 +29,7 @@ use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use runs::RoundConfig;
 
-use hotshot_types::{traits::signature_key::SignatureKey};
+use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -201,7 +201,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                     .expect("background task timed_out")
                     .expect("Could not join on the background thread");
             } else {
-                std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+                std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
             }
         }
     }
@@ -347,7 +347,7 @@ cfg_if::cfg_if! {
         use OwnedWriteHalf as WriteTcpStream;
         use OwnedReadHalf as ReadTcpStream;
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 
@@ -361,10 +361,9 @@ cfg_if::cfg_if! {
             stream.into_split()
         }
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
-
 
 /// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
 pub struct TcpStreamSendUtil {
@@ -408,7 +407,7 @@ impl Drop for TcpStreamSendUtil {
                 } else if #[cfg(feature = "tokio-executor")] {
                     let _ = self.stream.shutdown();
                 } else {
-                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
                 }
             }
         }
@@ -508,7 +507,7 @@ impl Drop for TcpStreamUtil {
                 } else if #[cfg(feature = "tokio-executor")] {
                     let _ = self.stream.shutdown();
                 } else {
-                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
                 }
             }
         }

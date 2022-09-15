@@ -1,13 +1,13 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
-use std::{fs, path::Path};
 use flume::Sender;
+use hotshot_utils::art::{async_sleep, async_spawn};
 use libp2p_core::PeerId;
+use std::{fs, path::Path};
 use std::{
     net::{IpAddr, SocketAddr},
     time::Duration,
 };
 use tracing::error;
-use hotshot_utils::art::{async_spawn, async_sleep};
 
 /// Contains information about the current round
 pub struct RoundConfig<K> {
@@ -55,14 +55,12 @@ impl<K> RoundConfig<K> {
             fs::write(
                 format!("{}/config.toml", run),
                 toml::to_string_pretty(config).expect("Could not serialize"),
-            )
-            ?;
+            )?;
         }
         fs::write(
             format!("{}/{}.toml", run, result.node_index),
             toml::to_string_pretty(&result).expect("Could not serialize"),
-        )
-        ?;
+        )?;
 
         Ok(())
     }

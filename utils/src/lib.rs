@@ -37,7 +37,7 @@ pub mod hack {
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "async-std-executor", feature = "tokio-executor"))] {
-        std::compile_error!{"Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate."};
+        std::compile_error!{"Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate."}
     } else if #[cfg(feature = "async-std-executor")] {
         /// async runtime/executor symmetric wrappers, `async-std` edition
         pub mod art {
@@ -114,7 +114,7 @@ cfg_if::cfg_if! {
             }
         }
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 

@@ -5,7 +5,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use tokio::net::TcpStream;
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 use async_lock::RwLock;
@@ -29,14 +29,14 @@ use hotshot_types::{
     },
     ExecutionType, HotShotConfig,
 };
+use hotshot_utils::{
+    art::async_main,
+    test_util::{setup_backtrace, setup_logging},
+};
 use libp2p::{
     identity::Keypair,
     multiaddr::{self, Protocol},
     Multiaddr, PeerId,
-};
-use hotshot_utils::{
-    art::async_main,
-    test_util::{setup_backtrace, setup_logging},
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use std::{

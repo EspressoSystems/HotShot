@@ -1,7 +1,10 @@
-use crate::{config::ClientConfig, Error, FromServer, Run, ToBackground, ToServer, split_stream, TcpStreamSendUtil, TcpStreamRecvUtil};
-use hotshot_utils::art::async_spawn;
+use crate::{
+    config::ClientConfig, split_stream, Error, FromServer, Run, TcpStreamRecvUtil,
+    TcpStreamSendUtil, ToBackground, ToServer,
+};
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_utils::art::async_spawn;
 use std::net::SocketAddr;
 use tracing::debug;
 
@@ -11,7 +14,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use tokio::net::TcpStream;
     } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 
@@ -60,7 +63,6 @@ async fn run_client<K: SignatureKey + 'static>(
             }
         }
     });
-
 
     // Get the network config and the run # from the background thread.
     let ClientConfig { run, config } = {
