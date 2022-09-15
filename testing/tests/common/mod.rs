@@ -484,18 +484,6 @@ macro_rules! gen_inner_fn {
     };
 }
 
-//     |                ^^^^^^^^^^^^^ required by this bound in `common::GeneralTestDescriptionBuilder::build`
-//     = note: this error originates in the macro `gen_inner_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
-// help: consider specifying the generic arguments
-//     |
-// 461 |             let built: $TEST_TYPE = description.build::<hotshot::traits::implementations::MemoryNetwork<Message<hotshot::demos::dentry::DEntryState, Ed25519Pub>, Ed25519Pub>, hotshot
-// ::traits::implementations::MemoryStorage<hotshot::demos::dentry::DEntryState>, BLOCK, hotshot::demos::dentry::DEntryState>();
-//     |                                                      +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// help: consider specifying the type arguments in the function call
-//     |
-// 461 |             let built: $TEST_TYPE = description.build::<NETWORK, STORAGE, BLOCK, STATE>();
-//
 /// Generate a test.
 /// Args:
 /// - $TEST_TYPE: TestDescription type
