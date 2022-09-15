@@ -58,7 +58,6 @@ pub struct Libp2pConfigFile {
     pub propose_min_round_time: u64,
     pub propose_max_round_time: u64,
     pub online_time: u64,
-    pub num_txn_per_round: u64,
     pub base_port: u16,
 }
 
@@ -131,7 +130,7 @@ impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
                 propose_min_round_time: libp2p_config.propose_min_round_time,
                 propose_max_round_time: libp2p_config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
-                num_txn_per_round: libp2p_config.num_txn_per_round,
+                num_txn_per_round: val.transactions_per_round as _,
             }),
             config: val.config.into(),
         }
