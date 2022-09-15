@@ -23,6 +23,7 @@
 <span id="17">17</span>
 <span id="18">18</span>
 <span id="19">19</span>
+<span id="20">20</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access abstraction</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module contains a trait abstracting over network access, as well as implementations of that</span>
@@ -34,6 +35,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">centralized_server_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">libp2p_network</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory_network</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">w_network</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::traits::network</span>::{

@@ -118,6 +118,7 @@
 <span id="112">112</span>
 <span id="113">113</span>
 <span id="114">114</span>
+<span id="115">115</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot::types</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
@@ -127,6 +128,7 @@
     <span class="ident">config</span>::{<span class="ident">HotShotConfigFile</span>, <span class="ident">Libp2pConfigFile</span>, <span class="ident">NetworkConfigFile</span>, <span class="ident">RoundConfig</span>},
     <span class="ident">NetworkConfig</span>, <span class="ident">Server</span>,
 };
+<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_main</span>;
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util::setup_logging</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs</span>, <span class="ident">num::NonZeroUsize</span>, <span class="ident">time::Duration</span>};
 
@@ -136,7 +138,7 @@
     <span class="ident">Libp2p</span> { <span class="ident">host</span>: <span class="ident">String</span>, <span class="ident">port</span>: <span class="ident">u16</span> },
 }
 
-<span class="attribute">#[<span class="ident">async_std::main</span>]</span>
+<span class="attribute">#[<span class="ident">async_main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="ident">setup_logging</span>();
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">Args::parse</span>();

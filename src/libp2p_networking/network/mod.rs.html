@@ -297,6 +297,10 @@
 <span id="291">291</span>
 <span id="292">292</span>
 <span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -320,10 +324,12 @@
     },
     <span class="ident">node::network_node_handle_error::TimeoutSnafu</span>,
 };
-<span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">prelude::FutureExt</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">task::spawn</span>};
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">channel::oneshot::Sender</span>, <span class="ident">select</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
+    <span class="ident">art</span>::{<span class="ident">async_spawn</span>, <span class="ident">async_timeout</span>},
+    <span class="ident">bincode::bincode_opts</span>,
+};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">build_multiaddr</span>,
     <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},
@@ -543,7 +549,7 @@
 {
     <span class="kw">let</span> <span class="ident">recv_kill</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">recv_kill</span>();
     <span class="kw">let</span> <span class="ident">recv_event</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">recv_network</span>();
-    <span class="ident">spawn</span>(
+    <span class="ident">async_spawn</span>(
         <span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">loop</span> {
                 <span class="macro">select!</span>(
@@ -574,10 +580,12 @@
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
     <span class="macro">info!</span>(<span class="string">&quot;known_nodes{:?}&quot;</span>, <span class="ident">known_nodes</span>);
     <span class="ident">handle</span>.<span class="ident">add_known_peers</span>(<span class="ident">known_nodes</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="ident">NetworkNodeHandle::wait_to_connect</span>(<span class="ident">handle</span>.<span class="ident">clone</span>(), <span class="number">4</span>, <span class="ident">handle</span>.<span class="ident">recv_network</span>(), <span class="ident">idx</span>)
-        .<span class="ident">timeout</span>(<span class="ident">timeout_len</span>)
-        .<span class="kw">await</span>
-        .<span class="ident">context</span>(<span class="ident">TimeoutSnafu</span>)<span class="question-mark">?</span><span class="question-mark">?</span>;
+    <span class="ident">async_timeout</span>(
+        <span class="ident">timeout_len</span>,
+        <span class="ident">NetworkNodeHandle::wait_to_connect</span>(<span class="ident">handle</span>.<span class="ident">clone</span>(), <span class="number">4</span>, <span class="ident">handle</span>.<span class="ident">recv_network</span>(), <span class="ident">idx</span>),
+    )
+    .<span class="kw">await</span>
+    .<span class="ident">context</span>(<span class="ident">TimeoutSnafu</span>)<span class="question-mark">?</span><span class="question-mark">?</span>;
     <span class="ident">handle</span>.<span class="ident">subscribe</span>(<span class="string">&quot;global&quot;</span>.<span class="ident">to_string</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())

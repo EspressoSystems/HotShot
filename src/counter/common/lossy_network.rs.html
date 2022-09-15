@@ -592,9 +592,27 @@
 <span id="586">586</span>
 <span id="587">587</span>
 <span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ExecutionEnvironment</span>;
-<span class="kw">use</span> <span class="ident">async_std::process::Command</span>;
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">async_std::process::Command</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">tokio::process::Command</span>;
+    } <span class="kw">else</span> {
+        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+    }
+}
 <span class="kw">use</span> <span class="ident">futures::TryStreamExt</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn</span>;
 <span class="kw">use</span> <span class="ident">netlink_packet_route::DecodeError</span>;
 <span class="kw">use</span> <span class="ident">nix</span>::{
     <span class="ident">errno::Errno</span>,
@@ -727,7 +745,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_qdisc_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">veth</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
             <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_std::task::spawn</span>(<span class="ident">connection</span>);
+        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">links</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">link</span>().<span class="ident">get</span>().<span class="ident">match_name</span>(<span class="ident">veth</span>.<span class="ident">to_string</span>()).<span class="ident">execute</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">link</span>) <span class="op">=</span> <span class="ident">links</span>.<span class="ident">try_next</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span> {
             <span class="ident">handle</span>
@@ -790,7 +808,7 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">isolate_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">eth_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
             <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_std::task::spawn</span>(<span class="ident">connection</span>);
+        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
 
         <span class="comment">// create new netns</span>
         <span class="kw">let</span> <span class="ident">counter_ns_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">counter_ns</span>.<span class="ident">clone</span>();
@@ -912,7 +930,7 @@
         <span class="comment">// get connection metadata in new net namespace</span>
         <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
             <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_std::task::spawn</span>(<span class="ident">connection</span>);
+        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
 
         <span class="comment">// set lo interface to up</span>
         <span class="kw">let</span> <span class="ident">lo_idx</span> <span class="op">=</span> <span class="ident">handle</span>
@@ -1078,7 +1096,7 @@
             .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
             <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_std::task::spawn</span>(<span class="ident">connection</span>);
+        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
         <span class="ident">del_link</span>(<span class="ident">handle</span>, <span class="self">self</span>.<span class="ident">bridge_name</span>.<span class="ident">clone</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="comment">// delete creates iptables rules</span>
         <span class="self">self</span>.<span class="ident">undo_firewall</span>(<span class="ident">eth_name</span>).<span class="kw">await</span><span class="question-mark">?</span>;

@@ -846,6 +846,12 @@
 <span id="840">840</span>
 <span id="841">841</span>
 <span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -893,10 +899,16 @@
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>},
 };
 
-<span class="kw">use</span> <span class="ident">async_std</span>::{
-    <span class="ident">sync</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>},
-    <span class="ident">task</span>::{<span class="self">self</span>, <span class="ident">spawn_local</span>},
-};
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">async_std::task::spawn_local</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">tokio::task::spawn_local</span>;
+    } <span class="kw">else</span> {
+        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+    }
+}
+<span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">commit</span>::{<span class="ident">Commitment</span>, <span class="ident">Committable</span>};
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">Receiver</span>, <span class="ident">Sender</span>};
@@ -919,7 +931,7 @@
     },
     <span class="ident">HotShotConfig</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils::broadcast::BroadcastSender</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{<span class="ident">art::async_spawn</span>, <span class="ident">broadcast::BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
@@ -1172,7 +1184,7 @@
         <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">DataMessage::SubmitTransaction</span>(<span class="ident">transaction</span>);
 
         <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-        <span class="ident">task::spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
+        <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="ident">api</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">message</span>).<span class="kw">await</span>.<span class="ident">is_err</span>();
         });
         <span class="prelude-val">Ok</span>(())

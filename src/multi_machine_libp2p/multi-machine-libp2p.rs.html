@@ -612,7 +612,30 @@
 <span id="606">606</span>
 <span id="607">607</span>
 <span id="608">608</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std</span>::{<span class="ident">net::TcpStream</span>, <span class="ident">sync::RwLock</span>};
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+</pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">async_std::net::TcpStream</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">tokio::net::TcpStream</span>;
+    } <span class="kw">else</span> {
+        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+    }
+}
+<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -633,7 +656,10 @@
     },
     <span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
+    <span class="ident">art::async_main</span>,
+    <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
+};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">identity::Keypair</span>,
     <span class="ident">multiaddr</span>::{<span class="self">self</span>, <span class="ident">Protocol</span>},
@@ -1096,7 +1122,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">async_std::main</span>]</span>
+<span class="attribute">#[<span class="ident">async_main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="ident">setup_logging</span>();
     <span class="ident">setup_backtrace</span>();

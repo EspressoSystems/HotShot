@@ -527,14 +527,39 @@
 <span id="521">521</span>
 <span id="522">522</span>
 <span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">create_or_obtain_chan_from_write</span>, <span class="ident">types::HotShotHandle</span>, <span class="ident">HotShot</span>, <span class="ident">HotShotConsensusApi</span>};
-<span class="kw">use</span> <span class="ident">async_std</span>::{
-    <span class="ident">prelude::FutureExt</span>,
-    <span class="ident">sync::RwLock</span>,
-    <span class="ident">task</span>::{<span class="ident">sleep</span>, <span class="ident">spawn</span>, <span class="ident">spawn_local</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>},
-};
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">async_std::task</span>::{<span class="ident">spawn_local</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">tokio::task</span>::{<span class="ident">spawn_local</span>, <span class="ident">yield_now</span>, <span class="ident">JoinHandle</span>};
+    } <span class="kw">else</span> {
+        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+    }
+}
+<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">Receiver</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">hotshot_consensus</span>::{<span class="ident">ConsensusApi</span>, <span class="ident">Leader</span>, <span class="ident">NextLeader</span>, <span class="ident">Replica</span>, <span class="ident">ViewQueue</span>};
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
@@ -544,7 +569,10 @@
     <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">node_implementation::NodeImplementation</span>},
     <span class="ident">ExecutionType</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils::broadcast::channel</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
+    <span class="ident">art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>, <span class="ident">async_timeout</span>},
+    <span class="ident">broadcast::channel</span>,
+};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">sync</span>::{
@@ -616,7 +644,7 @@
             (<span class="ident">inner</span>.<span class="ident">consensus_task_handle</span>, <span class="string">&quot;network_change_task_handle&quot;</span>),
         ] {
             <span class="macro">assert!</span>(
-                <span class="ident">handle</span>.<span class="ident">timeout</span>(<span class="ident">long_timeout</span>).<span class="kw">await</span>.<span class="ident">is_ok</span>(),
+                <span class="ident">async_timeout</span>(<span class="ident">long_timeout</span>, <span class="ident">handle</span>).<span class="kw">await</span>.<span class="ident">is_ok</span>(),
                 <span class="string">&quot;{} did not shut down within a second&quot;</span>,
                 <span class="ident">name</span>
             );
@@ -656,20 +684,20 @@
     <span class="kw">let</span> <span class="ident">shut_down</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">AtomicBool::new</span>(<span class="bool-val">false</span>));
     <span class="kw">let</span> <span class="ident">started</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">AtomicBool::new</span>(<span class="bool-val">false</span>));
 
-    <span class="kw">let</span> <span class="ident">network_broadcast_task_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(
+    <span class="kw">let</span> <span class="ident">network_broadcast_task_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(
         <span class="ident">network_broadcast_task</span>(<span class="ident">hotshot</span>.<span class="ident">clone</span>(), <span class="ident">shut_down</span>.<span class="ident">clone</span>())
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Broadcast Task&quot;</span>,)),
     );
-    <span class="kw">let</span> <span class="ident">network_direct_task_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(
+    <span class="kw">let</span> <span class="ident">network_direct_task_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(
         <span class="ident">network_direct_task</span>(<span class="ident">hotshot</span>.<span class="ident">clone</span>(), <span class="ident">shut_down</span>.<span class="ident">clone</span>())
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Direct Task&quot;</span>,)),
     );
-    <span class="kw">let</span> <span class="ident">network_change_task_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(
+    <span class="kw">let</span> <span class="ident">network_change_task_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(
         <span class="ident">network_change_task</span>(<span class="ident">hotshot</span>.<span class="ident">clone</span>(), <span class="ident">shut_down</span>.<span class="ident">clone</span>())
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot network change listener task&quot;</span>,)),
     );
 
-    <span class="ident">spawn</span>(
+    <span class="ident">async_spawn</span>(
         <span class="ident">network_lookup_task</span>(<span class="ident">hotshot</span>.<span class="ident">clone</span>(), <span class="ident">shut_down</span>.<span class="ident">clone</span>())
             .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot network lookup task&quot;</span>,)),
     );
@@ -682,7 +710,7 @@
         }
     };
 
-    <span class="kw">let</span> <span class="ident">consensus_task_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(
+    <span class="kw">let</span> <span class="ident">consensus_task_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(
         <span class="ident">view_runner</span>(
             <span class="ident">hotshot</span>.<span class="ident">clone</span>(),
             <span class="ident">started</span>.<span class="ident">clone</span>(),
@@ -793,7 +821,7 @@
         <span class="ident">high_qc</span>: <span class="ident">high_qc</span>.<span class="ident">clone</span>(),
         <span class="ident">api</span>: <span class="ident">c_api</span>.<span class="ident">clone</span>(),
     };
-    <span class="kw">let</span> <span class="ident">replica_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">replica</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
+    <span class="kw">let</span> <span class="ident">replica_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">replica</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
     <span class="ident">task_handles</span>.<span class="ident">push</span>(<span class="ident">replica_handle</span>);
 
     <span class="kw">if</span> <span class="ident">c_api</span>.<span class="ident">is_leader</span>(<span class="ident">cur_view</span>).<span class="kw">await</span> {
@@ -805,7 +833,7 @@
             <span class="ident">transactions</span>: <span class="ident">txns</span>,
             <span class="ident">api</span>: <span class="ident">c_api</span>.<span class="ident">clone</span>(),
         };
-        <span class="kw">let</span> <span class="ident">leader_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">leader</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
+        <span class="kw">let</span> <span class="ident">leader_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">leader</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
         <span class="ident">task_handles</span>.<span class="ident">push</span>(<span class="ident">leader_handle</span>);
     }
 
@@ -818,18 +846,18 @@
             <span class="ident">cur_view</span>,
             <span class="ident">api</span>: <span class="ident">c_api</span>.<span class="ident">clone</span>(),
         };
-        <span class="kw">let</span> <span class="ident">next_leader_handle</span> <span class="op">=</span> <span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">next_leader</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
+        <span class="kw">let</span> <span class="ident">next_leader_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">next_leader</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
         <span class="ident">task_handles</span>.<span class="ident">push</span>(<span class="ident">next_leader_handle</span>);
     }
 
     <span class="kw">let</span> <span class="ident">children_finished</span> <span class="op">=</span> <span class="ident">futures::future::join_all</span>(<span class="ident">task_handles</span>);
 
-    <span class="ident">spawn</span>({
+    <span class="ident">async_spawn</span>({
         <span class="kw">let</span> <span class="ident">next_view_timeout</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>;
         <span class="kw">let</span> <span class="ident">next_view_timeout</span> <span class="op">=</span> <span class="ident">next_view_timeout</span>;
         <span class="kw">let</span> <span class="ident">hotshot</span>: <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">clone</span>();
         <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="ident">sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">next_view_timeout</span>)).<span class="kw">await</span>;
+            <span class="ident">async_sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">next_view_timeout</span>)).<span class="kw">await</span>;
             <span class="ident">hotshot</span>
                 .<span class="ident">timeout_view</span>(<span class="ident">cur_view</span>, <span class="ident">send_replica</span>, <span class="ident">send_next_leader</span>)
                 .<span class="kw">await</span>;
@@ -839,7 +867,19 @@
     <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">children_finished</span>.<span class="kw">await</span>;
 
     <span class="comment">// unwrap is fine since results must have &gt;= 1 item(s)</span>
-    <span class="kw">let</span> <span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">results</span>.<span class="ident">into_iter</span>().<span class="ident">max_by_key</span>(<span class="op">|</span><span class="ident">qc</span><span class="op">|</span> <span class="ident">qc</span>.<span class="ident">view_number</span>).<span class="ident">unwrap</span>();
+    <span class="macro">cfg_if::cfg_if!</span> {
+        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+            <span class="kw">let</span> <span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">results</span>.<span class="ident">into_iter</span>().<span class="ident">max_by_key</span>(<span class="op">|</span><span class="ident">qc</span><span class="op">|</span> <span class="ident">qc</span>.<span class="ident">view_number</span>).<span class="ident">unwrap</span>();
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+            <span class="kw">let</span> <span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">results</span>
+                .<span class="ident">into_iter</span>()
+                .<span class="ident">filter_map</span>(<span class="ident">std::result::Result::ok</span>)
+                .<span class="ident">max_by_key</span>(<span class="op">|</span><span class="ident">qc</span><span class="op">|</span> <span class="ident">qc</span>.<span class="ident">view_number</span>)
+                .<span class="ident">unwrap</span>();
+        } <span class="kw">else</span> {
+            <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+        }
+    }
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">consensus</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">hotstuff</span>.<span class="ident">write</span>().<span class="kw">await</span>;
     <span class="ident">consensus</span>.<span class="ident">high_qc</span> <span class="op">=</span> <span class="ident">high_qc</span>;
@@ -950,7 +990,7 @@
         };
         <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
             <span class="macro">trace!</span>(<span class="string">&quot;No message, sleeping for {} ms&quot;</span>, <span class="ident">incremental_backoff_ms</span>);
-            <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
+            <span class="ident">async_sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
             <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
             <span class="kw">continue</span>;
         }
@@ -995,7 +1035,7 @@
         };
         <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
             <span class="macro">trace!</span>(<span class="string">&quot;No message, sleeping for {} ms&quot;</span>, <span class="ident">incremental_backoff_ms</span>);
-            <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
+            <span class="ident">async_sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
             <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
             <span class="kw">continue</span>;
         }
@@ -1038,7 +1078,7 @@
         };
         <span class="kw">if</span> <span class="ident">queue</span>.<span class="ident">is_empty</span>() {
             <span class="macro">trace!</span>(<span class="string">&quot;No message, sleeping for {} ms&quot;</span>, <span class="ident">incremental_backoff_ms</span>);
-            <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
+            <span class="ident">async_sleep</span>(<span class="ident">Duration::from_millis</span>(<span class="ident">incremental_backoff_ms</span>)).<span class="kw">await</span>;
             <span class="ident">incremental_backoff_ms</span> <span class="op">=</span> (<span class="ident">incremental_backoff_ms</span> <span class="op">*</span> <span class="number">2</span>).<span class="ident">min</span>(<span class="number">1000</span>);
             <span class="kw">continue</span>;
         }

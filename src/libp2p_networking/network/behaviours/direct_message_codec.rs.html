@@ -102,8 +102,7 @@
 <span id="96">96</span>
 <span id="97">97</span>
 <span id="98">98</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_std::io</span>;
-<span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncWrite</span>, <span class="ident">AsyncWriteExt</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">core</span>::{
@@ -113,6 +112,7 @@
     <span class="ident">request_response::RequestResponseCodec</span>,
 };
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="kw">use</span> <span class="ident">std::io</span>;
 
 <span class="doccomment">/// Protocol for direct messages</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>

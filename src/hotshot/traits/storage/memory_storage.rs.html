@@ -190,12 +190,18 @@
 <span id="184">184</span>
 <span id="185">185</span>
 <span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">traits::StateContents</span>, <span class="ident">QuorumCertificate</span>};
-<span class="kw">use</span> <span class="ident">async_std::sync::RwLock</span>;
+<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">constants::GENESIS_VIEW</span>,
@@ -325,15 +331,16 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::fake_commitment</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::Leaf</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::QuorumCertificate</span>;
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wildcard_imports</span>)]</span>
     <span class="kw">use</span> <span class="ident">hotshot_types::traits::block_contents::dummy</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+    <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 
+    <span class="attribute">#[<span class="ident">instrument</span>]</span>
     <span class="kw">fn</span> <span class="ident">random_stored_view</span>(<span class="ident">number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">StoredView</span><span class="op">&lt;</span><span class="ident">DummyState</span><span class="op">&gt;</span> {
         <span class="comment">// TODO is it okay to be using genesis here?</span>
         <span class="kw">let</span> <span class="ident">dummy_block_commit</span> <span class="op">=</span> <span class="ident">fake_commitment</span>::<span class="op">&lt;</span><span class="ident">DummyBlock</span><span class="op">&gt;</span>();
@@ -353,7 +360,12 @@
         )
     }
 
-    <span class="attribute">#[<span class="ident">async_std::test</span>]</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(
+        <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>,
+        <span class="ident">tokio::test</span>(<span class="ident">flavor</span> <span class="op">=</span> <span class="string">&quot;multi_thread&quot;</span>, <span class="ident">worker_threads</span> <span class="op">=</span> <span class="number">2</span>)
+    )]</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>, <span class="ident">async_std::test</span>)]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>]</span>
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">memory_storage</span>() {
         <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span>
             <span class="ident">MemoryStorage::construct_tmp_storage</span>(<span class="ident">DummyBlock::random</span>(), <span class="ident">DummyState::random</span>())

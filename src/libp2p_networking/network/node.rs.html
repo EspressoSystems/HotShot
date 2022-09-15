@@ -614,9 +614,9 @@
     <span class="ident">error</span>::{<span class="ident">GossipsubBuildSnafu</span>, <span class="ident">GossipsubConfigSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">TransportSnafu</span>},
     <span class="ident">gen_transport</span>, <span class="ident">ClientRequest</span>, <span class="ident">NetworkDef</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkEventInternal</span>, <span class="ident">NetworkNodeType</span>,
 };
-<span class="kw">use</span> <span class="ident">async_std::task::spawn</span>;
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">unbounded</span>, <span class="ident">Receiver</span>, <span class="ident">Sender</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">StreamExt</span>};
+<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn</span>;
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">core</span>::{<span class="ident">either::EitherError</span>, <span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>},
     <span class="ident">gossipsub</span>::{
@@ -846,7 +846,7 @@
                 <span class="ident">DMBehaviour::new</span>(<span class="ident">request_response</span>),
             );
             <span class="kw">let</span> <span class="ident">executor</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="op">|</span><span class="ident">fut</span><span class="op">|</span> {
-                <span class="ident">async_std::task::spawn</span>(<span class="ident">fut</span>);
+                <span class="ident">async_spawn</span>(<span class="ident">fut</span>);
             });
 
             <span class="ident">SwarmBuilder::new</span>(<span class="ident">transport</span>, <span class="ident">network</span>, <span class="ident">peer_id</span>)
@@ -1144,7 +1144,7 @@
         <span class="kw">let</span> (<span class="ident">s_input</span>, <span class="ident">s_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>();
         <span class="kw">let</span> (<span class="ident">r_input</span>, <span class="ident">r_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>();
 
-        <span class="ident">spawn</span>(
+        <span class="ident">async_spawn</span>(
             <span class="kw">async</span> <span class="kw">move</span> {
                 <span class="kw">loop</span> {
                     <span class="macro">select!</span> {

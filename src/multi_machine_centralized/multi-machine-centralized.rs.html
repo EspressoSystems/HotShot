@@ -222,6 +222,9 @@
 <span id="216">216</span>
 <span id="217">217</span>
 <span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
@@ -241,7 +244,10 @@
     },
     <span class="ident">HotShotConfig</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
+    <span class="ident">art</span>::{<span class="ident">async_main</span>, <span class="ident">async_sleep</span>},
+    <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
+};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">VecDeque</span>},
     <span class="ident">mem</span>,
@@ -308,7 +314,7 @@
     (<span class="ident">state</span>, <span class="ident">hotshot</span>)
 }
 
-<span class="attribute">#[<span class="ident">async_std::main</span>]</span>
+<span class="attribute">#[<span class="ident">async_main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
     <span class="comment">// Setup tracing listener</span>
     <span class="ident">setup_logging</span>();
@@ -331,7 +337,7 @@
     <span class="kw">while</span> <span class="op">!</span><span class="ident">network</span>.<span class="ident">run_ready</span>() {
         <span class="kw">let</span> <span class="ident">connected_clients</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">get_connected_client_count</span>().<span class="kw">await</span>;
         <span class="macro">error!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
-        <span class="ident">async_std::task::sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+        <span class="ident">async_sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
     <span class="kw">let</span> <span class="ident">NetworkConfig</span> {
