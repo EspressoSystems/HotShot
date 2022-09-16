@@ -36,7 +36,8 @@ use hotshot_utils::{
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeSet, HashMap, hash_map::Entry},
+    cmp,
+    collections::{hash_map::Entry, BTreeSet, HashMap},
     net::{Ipv4Addr, SocketAddr},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -99,12 +100,15 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
-            .send_async(((
-                ToServer::Broadcast {
-                    message_len: message.len() as u64,
-                },
-                message.clone(),
-            ), None))
+            .send_async((
+                (
+                    ToServer::Broadcast {
+                        message_len: message.len() as u64,
+                    },
+                    message.clone(),
+                ),
+                None,
+            ))
             .await
             .expect("Background thread exited");
         self.receiving_loopback.send_async((
@@ -133,12 +137,15 @@ impl<K: SignatureKey> Inner<K> {
             .expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
         } else {
             self.sending
-                .send_async(((
-                    ToServer::Direct {
-                        target,
-                        message_len: message.len() as u64,
-                    },
-                    message,), None,
+                .send_async((
+                    (
+                        ToServer::Direct {
+                            target,
+                            message_len: message.len() as u64,
+                        },
+                        message,
+                    ),
+                    None,
                 ))
                 .await
                 .expect("Background thread exited");
@@ -159,56 +166,61 @@ impl<K: SignatureKey> Inner<K> {
     /// This will block this entire `Inner` struct until a message is found.
     async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
-        F: Fn(&(FromServer<K>, Vec<u8>), usize, &mut HashMap<K, MsgStepContext>) -> MsgStepOutcome<RET>,
+        F: Fn(
+            &(FromServer<K>, Vec<u8>),
+            usize,
+            &mut HashMap<K, MsgStepContext>,
+        ) -> MsgStepOutcome<RET>,
         FAIL: FnOnce(usize, &mut HashMap<K, MsgStepContext>) -> RET,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
         let mut context_map: HashMap<K, MsgStepContext> = HashMap::new();
         // pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
         let temp_start_index = incoming_queue.len();
-        for (i, msg) in incoming_queue.iter().enumerate()  {
+        for (i, msg) in incoming_queue.iter().enumerate() {
             match c(msg, i, &mut context_map) {
                 MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {
                     continue;
-                },
+                }
                 MsgStepOutcome::Complete(indexes, ret) => {
-                let mut incoming_queue_mutation = RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
+                    let mut incoming_queue_mutation =
+                        RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
 
-                let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
-                *incoming_queue_mutation = incoming_queue
-                    .into_iter()
-                    .enumerate()
-                    .filter_map(|(i, msg)| {
-                        if indexes.contains(&i) {
-                            None
-                        } else {
-                            Some(msg)
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                    
+                    let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
+                    *incoming_queue_mutation = incoming_queue
+                        .into_iter()
+                        .enumerate()
+                        .filter_map(|(i, msg)| {
+                            if indexes.contains(&i) {
+                                None
+                            } else {
+                                Some(msg)
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
                     return ret;
                 }
             }
         }
         let mut temp_queue = Vec::new();
-        for (i, msg) in itertools::iterate(temp_start_index, |i| i+1).zip(self.receiving.iter()) {
+        for (i, msg) in itertools::iterate(temp_start_index, |i| i + 1).zip(self.receiving.iter()) {
             match c(&msg, i, &mut context_map) {
                 MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {
                     temp_queue.push(msg);
                     continue;
-                },
+                }
                 MsgStepOutcome::Complete(indexes, ret) => {
-                    let unchanged = 
-                        // no queued messages taken,
-                        indexes.iter().peekable().peek() == Some(&&temp_start_index) &&
-                        // all received messages taken (including this one)
-                        indexes.len() == temp_queue.len() + 1;
+                    // no queued messages taken,
+                    // all received messages taken (including this one)
+                    let unchanged = indexes.iter().peekable().peek() == Some(&&temp_start_index)
+                        && indexes.len() == temp_queue.len() + 1;
                     if !unchanged {
-                let mut incoming_queue_mutation = RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
+                        let mut incoming_queue_mutation =
+                            RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
 
-                let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
-                *incoming_queue_mutation = incoming_queue
+                        let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
+                        *incoming_queue_mutation = incoming_queue
                             .into_iter()
                             .chain(temp_queue)
                             .enumerate()
@@ -221,7 +233,7 @@ impl<K: SignatureKey> Inner<K> {
                             })
                             .collect::<Vec<_>>();
                     }
-                    
+
                     return ret;
                 }
             }
@@ -235,9 +247,13 @@ impl<K: SignatureKey> Inner<K> {
     /// Remove all messages from the internal queue, and then the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
     ///
     /// This will not block, and will return 0 items if nothing is in the internal queue or channel.
-    async fn remove_messages_from_queue<F, RET,>(&self, c: F) -> Vec<RET>
+    async fn remove_messages_from_queue<F, RET>(&self, c: F) -> Vec<RET>
     where
-        F: Fn(&(FromServer<K>, Vec<u8>), usize, &mut HashMap<K, MsgStepContext>) -> MsgStepOutcome<RET>,
+        F: Fn(
+            &(FromServer<K>, Vec<u8>),
+            usize,
+            &mut HashMap<K, MsgStepContext>,
+        ) -> MsgStepOutcome<RET>,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
         let mut result = Vec::new();
@@ -251,27 +267,26 @@ impl<K: SignatureKey> Inner<K> {
             .chain(temp_queue.iter())
             .enumerate()
             .for_each(|(i, msg)| match c(msg, i, &mut context_map) {
-                MsgStepOutcome::Skip => {}
-                MsgStepOutcome::Begin | MsgStepOutcome::Continue => {}
+                MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {}
                 MsgStepOutcome::Complete(mut indexes, ret) => {
                     dead_indexes.append(&mut indexes);
                     result.push(ret);
                 }
             });
 
-        let unchanged = 
-            // nothing taken, no new messages received
-            (dead_indexes.is_empty() && temp_queue.is_empty()) || 
-            // no queued messages taken,
-            (dead_indexes.iter().peekable().peek() == Some(&&incoming_queue.len()) &&
-            // all received messages taken
-            dead_indexes.len() == temp_queue.len());
+        // (nothing taken && no new messages received)
+        // || (no queued messages taken
+        //   && all received messages taken)
+        let unchanged = (dead_indexes.is_empty() && temp_queue.is_empty())
+            || (dead_indexes.iter().peekable().peek() == Some(&&incoming_queue.len())
+                && dead_indexes.len() == temp_queue.len());
 
         if !unchanged {
-                let mut incoming_queue_mutation = RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
+            let mut incoming_queue_mutation =
+                RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
 
-                let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
-                *incoming_queue_mutation = incoming_queue
+            let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
+            *incoming_queue_mutation = incoming_queue
                 .into_iter()
                 .chain(temp_queue)
                 .enumerate()
@@ -301,23 +316,25 @@ impl<K: SignatureKey> Inner<K> {
                 {
                     let mut consumed_indexes = BTreeSet::new();
                     consumed_indexes.insert(index);
-                    if payload.len() < *message_len as usize {
-                        let prev = context_map.insert(source.clone(), MsgStepContext {
-                            consumed_indexes,
-                            message_len: *message_len,
-                            accumulated_stream: payload.clone(),
-                        });
+                    match (payload.len() as u64).cmp(message_len) {
+                        cmp::Ordering::Less => {
+                            let prev = context_map.insert(source.clone(), MsgStepContext {
+                                consumed_indexes,
+                                message_len: *message_len,
+                                accumulated_stream: payload.clone(),
+                            });
 
-                        if prev.is_some() {
+                            if prev.is_some() {
 
-                        }
+                            }
 
-                        MsgStepOutcome::Begin
-                    } else if payload.len() > *message_len as usize {
-                        tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
-                        MsgStepOutcome::Skip
-                    } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload))
+                            MsgStepOutcome::Begin
+                        },
+                        cmp::Ordering::Greater => {
+                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            MsgStepOutcome::Skip
+                        },
+                        cmp::Ordering::Equal => MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload)),
                     }
                 },
                 (FromServer::BroadcastPayload { source, .. }, payload) => {
@@ -325,20 +342,20 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload));
-                            outcome
+                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload))
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            if context.get().accumulated_stream.len() < context.get().message_len as usize {
-                                MsgStepOutcome::Continue
-                            } else if context.get().accumulated_stream.len() > context.get().message_len as usize {
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
-                                context.remove_entry();
-                                MsgStepOutcome::Skip
-                            } else {
-                            let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream));
-                                outcome
+                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
+                                cmp::Ordering::Less => MsgStepOutcome::Continue,
+                                cmp::Ordering::Greater => {
+                                    let (_, context) = context.remove_entry();
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.message_len, context.accumulated_stream.len());
+                                    MsgStepOutcome::Skip
+                                }
+                                cmp::Ordering::Equal => {
+                                    let (_, context) = context.remove_entry();
+                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
+                                }
                             }
                         }
                     } else {
@@ -366,23 +383,25 @@ impl<K: SignatureKey> Inner<K> {
                 {
                     let mut consumed_indexes = BTreeSet::new();
                     consumed_indexes.insert(index);
-                    if payload.len() < *message_len as usize {
-                        let prev = context_map.insert(source.clone(), MsgStepContext {
-                            consumed_indexes,
-                            message_len: *message_len,
-                            accumulated_stream: payload.clone(),
-                        });
+                    match (payload.len() as u64).cmp(message_len) {
+                        cmp::Ordering::Less => {
+                            let prev = context_map.insert(source.clone(), MsgStepContext {
+                                consumed_indexes,
+                                message_len: *message_len,
+                                accumulated_stream: payload.clone(),
+                            });
 
-                        if prev.is_some() {
+                            if prev.is_some() {
 
-                        }
+                            }
 
-                        MsgStepOutcome::Begin
-                    } else if payload.len() > *message_len as usize {
-                        tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
-                        MsgStepOutcome::Skip
-                    } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu))
+                            MsgStepOutcome::Begin
+                        },
+                        cmp::Ordering::Greater => {
+                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            MsgStepOutcome::Skip
+                        },
+                        cmp::Ordering::Equal => MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu)),
                     }
                 },
                 (FromServer::BroadcastPayload { source, .. }, payload) => {
@@ -390,21 +409,21 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu));
-                            outcome
+                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            if context.get().accumulated_stream.len() < context.get().message_len as usize {
-                                MsgStepOutcome::Continue
-                            } else if context.get().accumulated_stream.len() > context.get().message_len as usize {
+                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
+                                cmp::Ordering::Less => MsgStepOutcome::Continue,
+                                cmp::Ordering::Greater => {
+                                    let (_, context) = context.remove_entry();
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
+                                    MsgStepOutcome::Skip
+                                }
+                                cmp::Ordering::Equal => {
                                 let (_, context) = context.remove_entry();
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
-                                MsgStepOutcome::Skip
-                            } else {
-                                let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu));
-                                outcome
+                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
                             }
+                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -427,7 +446,7 @@ impl<K: SignatureKey> Inner<K> {
     >(
         &self,
     ) -> Vec<Result<M, bincode::Error>> {
-         self.remove_messages_from_queue(|msg, index, context_map| {
+        self.remove_messages_from_queue(|msg, index, context_map| {
             match msg {
                 (FromServer::Direct {
                     source,
@@ -437,23 +456,27 @@ impl<K: SignatureKey> Inner<K> {
                 {
                     let mut consumed_indexes = BTreeSet::new();
                     consumed_indexes.insert(index);
-                    if payload.len() < *message_len as usize {
-                        let prev = context_map.insert(source.clone(), MsgStepContext {
-                            consumed_indexes,
-                            message_len: *message_len,
-                            accumulated_stream: payload.clone(),
-                        });
+                    match (payload.len() as u64).cmp(message_len) {
+                        cmp::Ordering::Less => {
+                            let prev = context_map.insert(source.clone(), MsgStepContext {
+                                consumed_indexes,
+                                message_len: *message_len,
+                                accumulated_stream: payload.clone(),
+                            });
 
-                        if prev.is_some() {
+                            if prev.is_some() {
 
-                        }
+                            }
 
-                        MsgStepOutcome::Begin
-                    } else if payload.len() > *message_len as usize {
-                        tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
-                        MsgStepOutcome::Skip
-                    } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload))
+                            MsgStepOutcome::Begin
+                        },
+                        cmp::Ordering::Greater => {
+                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            MsgStepOutcome::Skip
+                        },
+                        cmp::Ordering::Equal => {
+                            MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload))
+                        },
                     }
                 },
                 (FromServer::DirectPayload { source, .. }, payload) => {
@@ -461,21 +484,23 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload));
-                            outcome
+                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload))
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            if context.get().accumulated_stream.len() < context.get().message_len as usize {
+                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
+                                cmp::Ordering::Less => {
                                 MsgStepOutcome::Continue
-                            } else if context.get().accumulated_stream.len() > context.get().message_len as usize {
+                                }
+                                cmp::Ordering::Greater => {
                                 tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
                                 context.remove_entry();
                                 MsgStepOutcome::Skip
-                            } else {
+                                }
+                                cmp::Ordering::Equal => {
                             let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream));
-                                outcome
+                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
                             }
+                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -486,7 +511,7 @@ impl<K: SignatureKey> Inner<K> {
             }
         })
         .await
-        }
+    }
 
     /// Get the next incoming direct message received from the server. Will lock up this struct internally until a message was received.
     async fn get_next_direct_message<
@@ -504,23 +529,27 @@ impl<K: SignatureKey> Inner<K> {
                 {
                     let mut consumed_indexes = BTreeSet::new();
                     consumed_indexes.insert(index);
-                    if payload.len() < *message_len as usize {
-                        let prev = context_map.insert(source.clone(), MsgStepContext {
-                            consumed_indexes,
-                            message_len: *message_len,
-                            accumulated_stream: payload.clone(),
-                        });
+                    match (payload.len() as u64).cmp(message_len) {
+                        cmp::Ordering::Less => {
+                            let prev = context_map.insert(source.clone(), MsgStepContext {
+                                consumed_indexes,
+                                message_len: *message_len,
+                                accumulated_stream: payload.clone(),
+                            });
 
-                        if prev.is_some() {
+                            if prev.is_some() {
 
-                        }
+                            }
 
-                        MsgStepOutcome::Begin
-                    } else if payload.len() > *message_len as usize {
-                        tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
-                        MsgStepOutcome::Skip
-                    } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu))
+                            MsgStepOutcome::Begin
+                        },
+                        cmp::Ordering::Greater => {
+                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            MsgStepOutcome::Skip
+                        },
+                        cmp::Ordering::Equal => {
+                            MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
+                        },
                     }
                 },
                 (FromServer::DirectPayload { source, .. }, payload) => {
@@ -528,21 +557,23 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu));
-                            outcome
+                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            if context.get().accumulated_stream.len() < context.get().message_len as usize {
+                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
+                                cmp::Ordering::Less => {
                                 MsgStepOutcome::Continue
-                            } else if context.get().accumulated_stream.len() > context.get().message_len as usize {
+                                }
+                                cmp::Ordering::Greater => {
                                 let (_, context) = context.remove_entry();
                                 tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
                                 MsgStepOutcome::Skip
-                            } else {
+                                }
+                                cmp::Ordering::Equal => {
                                 let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu));
-                                outcome
+                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
                             }
+                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -564,8 +595,13 @@ impl<K: SignatureKey> Inner<K> {
             let mut remove_this = BTreeSet::new();
             remove_this.insert(index);
             match &msg.0 {
-                FromServer::NodeConnected { key } => MsgStepOutcome::Complete(remove_this, NetworkChange::NodeConnected(key.clone())),
-                FromServer::NodeDisconnected { key } => MsgStepOutcome::Complete(remove_this, NetworkChange::NodeDisconnected(key.clone())),
+                FromServer::NodeConnected { key } => {
+                    MsgStepOutcome::Complete(remove_this, NetworkChange::NodeConnected(key.clone()))
+                }
+                FromServer::NodeDisconnected { key } => MsgStepOutcome::Complete(
+                    remove_this,
+                    NetworkChange::NodeDisconnected(key.clone()),
+                ),
                 _ => MsgStepOutcome::Skip,
             }
         })
@@ -770,55 +806,55 @@ async fn run_background<K: SignatureKey>(
 
     loop {
         futures::select! {
-            res = stream.recv().fuse() => {
-                let msg = res?;
-                match msg {
-                    x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                        from_background_sender.send_async((x, Vec::new())).await.map_err(|_| Error::FailedToReceive)?;
-                    },
-                    
-                    x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                        let payload = if x.has_payload() {
-    stream.recv_raw_all(x.payload_len()).await?
-} else {
-    Vec::new()
-};
-                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                    },
-                    
-                    x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
-                        let payload = if x.has_payload() {
-    stream.recv_raw_all(x.payload_len()).await?
-} else {
-    Vec::new()
-};
-                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                    },
+                    res = stream.recv().fuse() => {
+                        let msg = res?;
+                        match msg {
+                            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                                from_background_sender.send_async((x, Vec::new())).await.map_err(|_| Error::FailedToReceive)?;
+                            },
 
-                    FromServer::ClientCount(count) => {
-                        let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                        for sender in senders {
-                            let _ = sender.try_send(count);
+                            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                                let payload = if x.has_payload() {
+            stream.recv_raw_all(x.payload_len()).await?
+        } else {
+            Vec::new()
+        };
+                                from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
+                            },
+
+                            x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
+                                let payload = if x.has_payload() {
+            stream.recv_raw_all(x.payload_len()).await?
+        } else {
+            Vec::new()
+        };
+                                from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
+                            },
+
+                            FromServer::ClientCount(count) => {
+                                let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                                for sender in senders {
+                                    let _ = sender.try_send(count);
+                                }
+                            },
+
+                            FromServer::Config { .. } => {
+                                tracing::warn!("Received config from server but we're already running");
+                            }
+
+                            FromServer::Start => {
+                                connection.run_ready.store(true, Ordering::Relaxed);
+                            }
                         }
                     },
-
-                    FromServer::Config { .. } => {
-                        tracing::warn!("Received config from server but we're already running");
-                    }
-
-                    FromServer::Start => {
-                        connection.run_ready.store(true, Ordering::Relaxed);
+                    result = to_background.recv_async().fuse() => {
+                        let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
+                        stream.send(msg).await?;
+                        if let Some(confirm) = confirm {
+                            let _ = confirm.send_async(()).await;
+                        }
                     }
                 }
-            },
-            result = to_background.recv_async().fuse() => {
-                let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
-                stream.send(msg).await?;
-                if let Some(confirm) = confirm {
-                    let _ = confirm.send_async(()).await;
-                }
-            }
-        }
     }
 }
 
@@ -851,9 +887,9 @@ impl From<hotshot_centralized_server::Error> for Error {
                 Self::CouldNotDeserialize { source }
             }
             hotshot_centralized_server::Error::Disconnected => Self::Disconnected,
-            hotshot_centralized_server::Error::BackgroundShutdown => unreachable!(), // should never be reached
-            hotshot_centralized_server::Error::SizeMismatch => unreachable!(),
-            hotshot_centralized_server::Error::VecToArray { .. } => unreachable!(),
+            hotshot_centralized_server::Error::BackgroundShutdown
+            | hotshot_centralized_server::Error::SizeMismatch
+            | hotshot_centralized_server::Error::VecToArray { .. } => unreachable!(), // should never be reached
         }
     }
 }
@@ -904,9 +940,7 @@ where
     }
 
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
-        self.inner
-            .get_next_broadcast()
-            .await
+        self.inner.get_next_broadcast().await
     }
 
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
@@ -919,9 +953,7 @@ where
     }
 
     async fn next_direct(&self) -> Result<M, NetworkError> {
-        self.inner
-            .get_next_direct_message()
-            .await
+        self.inner.get_next_direct_message().await
     }
 
     async fn known_nodes(&self) -> Vec<P> {
