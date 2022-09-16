@@ -16,7 +16,7 @@ async-std-executor = [
         "hotshot-types/async-std-executor",
         "hotshot-utils/async-std-executor",
         "libp2p-networking/async-std-executor"]
-default = [ "demo", "docs", "doc-images", "tokio-executor" ]
+default = [ "demo", "docs", "doc-images" ]
 # Enable demo/testing logic
 demo = ["blake3", "hotshot-types/demo", "libp2p/rsa"]
 # Build the extended documentation
