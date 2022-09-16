@@ -154,25 +154,6 @@ impl<K: SignatureKey + 'static> Server<K> {
                     match result {
                         Ok((stream, addr)) => {
                             async_spawn(client::spawn(addr, stream, sender.clone()));
-                            // TODO most likely don't want this but double check to be sure.
-                            // async_spawn({
-                            //     let sender = sender.clone();
-                            //     async move {
-                            //         let mut key = None;
-                            //         if let Err(e) =
-                            //             spawn_client(addr, stream, &mut key, sender.clone()).await
-                            //         {
-                            //             debug!("Client from {:?} encountered an error: {:?}", addr, e);
-                            //         } else {
-                            //             debug!("Client from {:?} shut down", addr);
-                            //         }
-                            //         if let Some(key) = key {
-                            //             let _ = sender
-                            //                 .send_async(ToBackground::ClientDisconnected { key })
-                            //                 .await;
-                            //         }
-                            //     }
-                            // });
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);

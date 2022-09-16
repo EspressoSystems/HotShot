@@ -46,7 +46,7 @@ jobs:
         run: cargo audit --deny warnings  --ignore RUSTSEC-2021-0139
 
       - name: Check
-        run: cargo check --features=full-ci
+        run: cargo check --features=full-ci --workspace
 
       - name: Build all crates in workspace
         run: cargo build --verbose --release --features=full-ci --lib --bins --tests --benches --workspace --examples

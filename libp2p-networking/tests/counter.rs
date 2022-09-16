@@ -187,9 +187,7 @@ async fn run_gossip_round(
         if #[cfg(feature = "async-std-executor")] {
             let mut futs = Vec::new();
         } else if #[cfg(feature = "tokio-executor")] {
-            let mut futs = Box::pin(
-                Vec::new()
-            );
+            let mut futs = Vec::new();
         }
     }
 
@@ -200,7 +198,7 @@ async fn run_gossip_round(
             let stream = handle.state_wait_timeout_until_with_trigger(timeout_duration, |state| {
                 *state == new_state
             });
-            futs.push(stream);
+            futs.push(Box::pin(stream));
         }
     }
 

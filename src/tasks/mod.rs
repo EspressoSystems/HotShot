@@ -79,6 +79,7 @@ impl TaskHandle {
         // (exponential timeout maxed out)
         // then this needs to be slightly longer such that it ends up being checked
         let long_timeout = inner.shutdown_timeout + Duration::new(20, 0);
+
         for (handle, name) in [
             (
                 inner.network_broadcast_task_handle,

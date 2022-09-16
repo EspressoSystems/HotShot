@@ -644,15 +644,17 @@ pub async fn conductor_broadcast(
         broadcast_type: ConductorMessageMethod::Broadcast,
     });
 
-    let mut res_fut = handle.state_wait_timeout_until_with_trigger(timeout, |state| {
-        state
-            .current_epoch
-            .node_states
-            .iter()
-            .filter(|(_, &s)| s >= new_state)
-            .count()
-            >= SUCCESS_NUMBER
-    });
+    let mut res_fut = Box::pin(
+        handle.state_wait_timeout_until_with_trigger(timeout, |state| {
+            state
+                .current_epoch
+                .node_states
+                .iter()
+                .filter(|(_, &s)| s >= new_state)
+                .count()
+                >= SUCCESS_NUMBER
+        }),
+    );
 
     // wait for ready signal
     res_fut.next().await.unwrap().unwrap();
