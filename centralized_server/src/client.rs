@@ -1,6 +1,6 @@
 use crate::{
     config::ClientConfig, split_stream, Error, FromBackground, Run, TcpStreamRecvUtil,
-    TcpStreamSendUtil, ToBackground, ToServer,
+    TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;

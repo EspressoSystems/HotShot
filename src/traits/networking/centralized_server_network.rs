@@ -17,7 +17,8 @@ use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::{future::BoxFuture, FutureExt};
 use hotshot_centralized_server::{
-    FromServer, NetworkConfig, Run, RunResults, TcpStreamUtil, ToServer,
+    FromServer, NetworkConfig, Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv,
+    TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::traits::{
     network::{

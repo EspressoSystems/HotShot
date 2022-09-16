@@ -1658,6 +1658,7 @@ name = "hotshot-centralized-server"
 version = "0.1.1"
 dependencies = [
  "async-std",
+ "async-trait",
  "bincode",
  "cfg-if",
  "commit",

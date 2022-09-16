@@ -4,7 +4,6 @@ mod client;
 mod clients;
 mod runs;
 
-use bincode::Options;
 pub use config::NetworkConfig;
 
 cfg_if::cfg_if! {
@@ -23,6 +22,8 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
+use async_trait::async_trait;
+use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use flume::{Receiver, Sender};
@@ -34,9 +35,9 @@ use hotshot_utils::{
 };
 use runs::RoundConfig;
 use snafu::ResultExt;
-use std::convert::TryInto;
 use std::{
-    marker::PhantomData,
+    convert::TryInto,
+    marker::{PhantomData, Send},
     net::{IpAddr, SocketAddr},
     time::Duration,
 };
@@ -573,6 +574,107 @@ cfg_if::cfg_if! {
     }
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        pub trait AsyncReadStream: ReadExt + Unpin + Send {}
+        pub trait AsyncWriteStream: WriteExt + Unpin + Send {}
+        impl<T> AsyncReadStream for T where T: ReadExt + Unpin + Send {}
+        impl<T> AsyncWriteStream for T where T: WriteExt + Unpin + Send {}
+    } else if #[cfg(feature = "tokio-executor")] {
+        pub trait AsyncReadStream: AsyncReadExt + Unpin + Send + ?Sized {}
+        pub trait AsyncWriteStream: AsyncWriteExt + Unpin + Send {}
+        impl<T> AsyncReadStream for T where T: AsyncReadExt + Unpin + Send + ?Sized {}
+        impl<T> AsyncWriteStream for T where T: AsyncWriteExt + Send + Unpin {}
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
+    }
+}
+
+#[async_trait]
+pub trait TcpStreamUtilWithRecv {
+    type ReadStream: AsyncReadStream;
+    fn read_stream(&mut self) -> &mut Self::ReadStream;
+    // impl the recv functions against read_stream
+
+    async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
+        // very important, usize will break if we mix native sizes.
+        let len_buffer = self.recv_raw_all(std::mem::size_of::<u32>()).await?;
+        let len_buffer =
+            TryInto::<[u8; 4]>::try_into(len_buffer).map_err(|v| Error::VecToArray {
+                source_len: v.len(),
+                target_len: 4,
+            })?;
+        let len = u32::from_le_bytes(len_buffer) as usize;
+        let bincode_buffer = self.recv_raw_all(len).await?;
+        bincode_opts()
+            .deserialize::<M>(&bincode_buffer)
+            .context(DecodeSnafu)
+    }
+
+    async fn recv_raw_impl(&mut self, remaining: usize, recv_all: bool) -> Result<Vec<u8>, Error> {
+        let mut remaining = remaining;
+        let mut result = Vec::new();
+        result.reserve(remaining);
+        while remaining > 0 {
+            let mut buffer = [0u8; 1024];
+            let read_len = std::cmp::min(remaining, 1024);
+            let received = self
+                .read_stream()
+                .read(&mut buffer[..read_len])
+                .await
+                .context(IoSnafu)?;
+            result.append(&mut buffer[..received].to_vec());
+            if !recv_all && received < read_len {
+                break;
+            }
+            remaining -= received;
+        }
+        Ok(result)
+    }
+
+    async fn recv_raw(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, false).await
+    }
+
+    async fn recv_raw_all(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, true).await
+    }
+}
+
+#[async_trait]
+pub trait TcpStreamUtilWithSend {
+    type WriteStream: AsyncWriteStream;
+    fn write_stream(&mut self) -> &mut Self::WriteStream;
+    // impl the send functions against write_stream
+
+    async fn send<M: serde::Serialize + Send>(&mut self, m: M) -> Result<(), Error> {
+        let bytes = bincode_opts()
+            .serialize(&m)
+            .expect("Could not serialize message");
+        let len_bytes = (bytes.len() as u32).to_le_bytes();
+        self.write_stream()
+            .write_all(&len_bytes)
+            .await
+            .context(IoSnafu)?;
+        self.write_stream()
+            .write_all(&bytes)
+            .await
+            .context(IoSnafu)?;
+        Ok(())
+    }
+
+    async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
+        if slice.len() != slice_len {
+            return Err(Error::SizeMismatch);
+        }
+        self.write_stream()
+            .write_all(slice)
+            .await
+            .context(IoSnafu)?;
+        Ok(())
+    }
+}
+
 /// Utility struct that wraps a `TcpStream` and prefixes all messages with a length
 pub struct TcpStreamSendUtil {
     stream: WriteTcpStream,
@@ -588,27 +690,41 @@ pub struct TcpStreamUtil {
     stream: TcpStream,
 }
 
+#[async_trait]
+impl TcpStreamUtilWithRecv for TcpStreamUtil {
+    type ReadStream = TcpStream;
+    fn read_stream(&mut self) -> &mut Self::ReadStream {
+        &mut self.stream
+    }
+}
+
+#[async_trait]
+impl TcpStreamUtilWithSend for TcpStreamUtil {
+    type WriteStream = TcpStream;
+    fn write_stream(&mut self) -> &mut Self::WriteStream {
+        &mut self.stream
+    }
+}
+
+#[async_trait]
+impl TcpStreamUtilWithRecv for TcpStreamRecvUtil {
+    type ReadStream = ReadTcpStream;
+    fn read_stream(&mut self) -> &mut Self::ReadStream {
+        &mut self.stream
+    }
+}
+
+#[async_trait]
+impl TcpStreamUtilWithSend for TcpStreamSendUtil {
+    type WriteStream = WriteTcpStream;
+    fn write_stream(&mut self) -> &mut Self::WriteStream {
+        &mut self.stream
+    }
+}
+
 impl TcpStreamSendUtil {
     pub fn new(stream: WriteTcpStream) -> Self {
         Self { stream }
-    }
-
-    pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
-        let bytes = bincode_opts()
-            .serialize(&m)
-            .expect("Could not serialize message");
-        let len_bytes = (bytes.len() as u32).to_le_bytes();
-        self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
-        self.stream.write_all(&bytes).await.context(IoSnafu)?;
-        Ok(())
-    }
-
-    pub async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
-        if slice.len() != slice_len {
-            return Err(Error::SizeMismatch);
-        }
-        self.stream.write_all(slice).await.context(IoSnafu)?;
-        Ok(())
     }
 }
 
@@ -632,50 +748,6 @@ impl TcpStreamRecvUtil {
     pub fn new(stream: ReadTcpStream) -> Self {
         Self { stream }
     }
-
-    pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
-        // very important, usize will break if we mix native sizes.
-        let len_buffer = self.recv_raw_all(std::mem::size_of::<u32>()).await?;
-        let len_buffer =
-            TryInto::<[u8; 4]>::try_into(len_buffer).map_err(|v| Error::VecToArray {
-                source_len: v.len(),
-                target_len: 4,
-            })?;
-        let len = u32::from_le_bytes(len_buffer) as usize;
-        let bincode_buffer = self.recv_raw_all(len).await?;
-        bincode_opts()
-            .deserialize::<M>(&bincode_buffer)
-            .context(DecodeSnafu)
-    }
-
-    async fn recv_raw_impl(&mut self, remaining: usize, recv_all: bool) -> Result<Vec<u8>, Error> {
-        let mut remaining = remaining;
-        let mut result = Vec::new();
-        result.reserve(remaining);
-        while remaining > 0 {
-            let mut buffer = [0u8; 1024];
-            let read_len = std::cmp::min(remaining, 1024);
-            let received = self
-                .stream
-                .read(&mut buffer[..read_len])
-                .await
-                .context(IoSnafu)?;
-            result.append(&mut buffer[..received].to_vec());
-            if !recv_all && received < read_len {
-                break;
-            }
-            remaining -= received;
-        }
-        Ok(result)
-    }
-
-    pub async fn recv_raw(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
-        self.recv_raw_impl(remaining, false).await
-    }
-
-    pub async fn recv_raw_all(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
-        self.recv_raw_impl(remaining, true).await
-    }
 }
 
 impl Drop for TcpStreamRecvUtil {
@@ -697,69 +769,6 @@ impl TcpStreamUtil {
     pub async fn connect(addr: SocketAddr) -> std::io::Result<Self> {
         let stream = TcpStream::connect(addr).await?;
         Ok(Self::new(stream))
-    }
-
-    pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
-        // very important, usize will break if we mix native sizes.
-        let len_buffer = self.recv_raw_all(std::mem::size_of::<u32>()).await?;
-        let len_buffer = std::convert::TryInto::<[u8; 4]>::try_into(len_buffer).map_err(|v| {
-            Error::VecToArray {
-                source_len: v.len(),
-                target_len: 4,
-            }
-        })?;
-        let len = u32::from_le_bytes(len_buffer) as usize;
-        let bincode_buffer = self.recv_raw_all(len).await?;
-        bincode_opts()
-            .deserialize::<M>(&bincode_buffer)
-            .context(DecodeSnafu)
-    }
-
-    async fn recv_raw_impl(&mut self, remaining: usize, recv_all: bool) -> Result<Vec<u8>, Error> {
-        let mut remaining = remaining;
-        let mut result = Vec::new();
-        result.reserve(remaining);
-        while remaining > 0 {
-            let mut buffer = [0u8; 1024];
-            let read_len = std::cmp::min(remaining, 1024);
-            let received = self
-                .stream
-                .read(&mut buffer[..read_len])
-                .await
-                .context(IoSnafu)?;
-            result.append(&mut buffer[..received].to_vec());
-            if !recv_all && received < read_len {
-                break;
-            }
-            remaining -= received;
-        }
-        Ok(result)
-    }
-
-    pub async fn recv_raw(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
-        self.recv_raw_impl(remaining, false).await
-    }
-
-    pub async fn recv_raw_all(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
-        self.recv_raw_impl(remaining, true).await
-    }
-
-    pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
-        let bytes = bincode_opts()
-            .serialize(&m)
-            .expect("Could not serialize message");
-        let len_bytes = (bytes.len() as u32).to_le_bytes();
-        self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
-        self.stream.write_all(&bytes).await.context(IoSnafu)?;
-        Ok(())
-    }
-
-    pub async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
-        if slice.len() != slice_len {
-            return Err(Error::SizeMismatch);
-        }
-        self.stream.write_all(slice).await.context(IoSnafu)?;
-        Ok(())
     }
 }
 

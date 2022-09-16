@@ -3,7 +3,7 @@ use hotshot::{
     traits::{BlockContents, StateContents},
     types::SignatureKey,
 };
-use hotshot_centralized_server::TcpStreamUtil;
+use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
 use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
 

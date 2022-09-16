@@ -20,7 +20,9 @@ use hotshot::{
     types::{ed25519::Ed25519Priv, HotShotHandle, Message},
     HotShot,
 };
-use hotshot_centralized_server::{Run, RunResults, TcpStreamUtil};
+use hotshot_centralized_server::{
+    Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
+};
 use hotshot_types::{
     traits::{
         network::NetworkingImplementation,
