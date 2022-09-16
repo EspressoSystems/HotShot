@@ -607,7 +607,7 @@ impl TcpStreamSendUtil {
         if slice.len() != slice_len {
             return Err(Error::SizeMismatch);
         }
-        self.stream.write_all(&slice).await.context(IoSnafu)?;
+        self.stream.write_all(slice).await.context(IoSnafu)?;
         Ok(())
     }
 }
@@ -758,7 +758,7 @@ impl TcpStreamUtil {
         if slice.len() != slice_len {
             return Err(Error::SizeMismatch);
         }
-        self.stream.write_all(&slice).await.context(IoSnafu)?;
+        self.stream.write_all(slice).await.context(IoSnafu)?;
         Ok(())
     }
 }

@@ -26,10 +26,11 @@ async fn multiple_clients() {
     let server_join_handle = async_spawn(server.run());
 
     // Connect first client
+    let first_client_key = TestSignatureKey { idx: 1 };
     let mut first_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     first_client
         .send(ToServer::Identify {
-            key: TestSignatureKey { idx: 1 },
+            key: first_client_key.clone(),
         })
         .await
         .unwrap();
@@ -46,10 +47,11 @@ async fn multiple_clients() {
     }
 
     // Connect second client
+    let second_client_key = TestSignatureKey { idx: 2 };
     let mut second_client = TcpStreamUtil::connect(server_addr).await.unwrap();
     second_client
         .send(ToServer::Identify {
-            key: TestSignatureKey { idx: 2 },
+            key: second_client_key.clone(),
         })
         .await
         .unwrap();
@@ -57,9 +59,7 @@ async fn multiple_clients() {
     // Assert that the first client gets a notification of this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     match msg {
-        FromServer::NodeConnected {
-            key: TestSignatureKey { idx: 2 },
-        } => {}
+        FromServer::NodeConnected { .. } => {}
         x => panic!("Expected NodeConnected, got {x:?}"),
     }
     // Assert that there are 2 clients connected
@@ -83,38 +83,71 @@ async fn multiple_clients() {
     }
 
     // Send a direct message from 1 -> 2
-    let message = vec![1, 2, 3, 4];
+    let direct_message = vec![1, 2, 3, 4];
+    let direct_message_len = direct_message.len() * std::mem::size_of::<i32>();
     first_client
         .send(ToServer::Direct {
             target: TestSignatureKey { idx: 2 },
-            message_len: (message.len() * std::mem::size_of::<i32>()) as u64,
+            message_len: direct_message_len as u64,
         })
         .await
         .unwrap();
     first_client
-        .send_raw(&message, message.len() * std::mem::size_of::<i32>())
+        .send_raw(&direct_message, direct_message_len)
         .await
         .unwrap();
 
     // Check that 2 received this
     let msg = second_client.recv::<FromServer>().await.unwrap();
     match msg {
-        FromServer::Direct { message } => assert_eq!(message, vec![1, 2, 3, 4]),
+        FromServer::Direct {
+            source,
+            payload_len,
+            ..
+        } => {
+            assert_eq!(source, first_client_key);
+            assert_eq!(payload_len, 0);
+        }
         x => panic!("Expected Direct, got {:?}", x),
     }
+    let payload_msg = second_client.recv::<FromServer>().await.unwrap();
+    match payload_msg {
+        FromServer::DirectPayload { payload_len, .. } => {
+            assert_eq!(payload_len, direct_message_len as u64)
+        }
+        x => panic!("Expected DirectPayload, got {:?}", x),
+    }
+    let payload = second_client
+        .recv_raw(payload_msg.payload_len())
+        .await
+        .unwrap();
+    assert!(payload.len() == direct_message_len);
 
+    let broadcast_message = vec![50, 40, 30, 20, 10];
+    let broadcast_message_len = broadcast_message.len() * std::mem::size_of::<i32>();
     // Send a broadcast from 2
     second_client
         .send(ToServer::Broadcast {
-            message: vec![50, 40, 30, 20, 10],
+            message_len: broadcast_message_len as u64,
         })
+        .await
+        .unwrap();
+    second_client
+        .send_raw(&broadcast_message, broadcast_message_len)
         .await
         .unwrap();
 
     // Check that 1 received this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     match msg {
-        FromServer::Broadcast { message } => assert_eq!(message, vec![50, 40, 30, 20, 10]),
+        FromServer::Broadcast {
+            source,
+            payload_len,
+            ..
+        } => {
+            assert_eq!(source, first_client_key);
+            assert_eq!(payload_len, 0);
+        }
         x => panic!("Expected Broadcast, got {:?}", x),
     }
 

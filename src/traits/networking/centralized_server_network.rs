@@ -72,16 +72,26 @@ struct Inner<K: SignatureKey> {
     run_ready: AtomicBool,
 }
 
+/// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
 enum MsgStepOutcome<RET> {
+    /// this does not match the closure's criteria
     Skip,
+    /// this is the first step of a multi-step match
     Begin,
+    /// this is an intermediate step of a multi-step match
     Continue,
+    /// this completes a match of one or more steps
     Complete(BTreeSet<usize>, RET),
 }
 
+/// Internal implementation detail; retains state for interleaved streams external to the closure, for consistency
 struct MsgStepContext {
+    /// Accumulates the indexes this stream will consume, if completed
     consumed_indexes: BTreeSet<usize>,
+    /// The total size the message will have
+    /// For streams that start with a size, rather than being unbounded with an explicit terminator
     message_len: u64,
+    /// collects the data for a stream, allowing it to be deserialized upon completion
     accumulated_stream: Vec<u8>,
 }
 
@@ -147,9 +157,10 @@ impl<K: SignatureKey> Inner<K> {
     /// Remove the first message from the internal queue, or the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
     ///
     /// This will block this entire `Inner` struct until a message is found.
-    async fn remove_next_message_from_queue<F, RET>(&self, c: F) -> RET
+    async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
         F: Fn(&(FromServer<K>, Vec<u8>), usize, &mut HashMap<K, MsgStepContext>) -> MsgStepOutcome<RET>,
+        FAIL: FnOnce(usize, &mut HashMap<K, MsgStepContext>) -> RET,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
         let mut context_map: HashMap<K, MsgStepContext> = HashMap::new();
@@ -215,8 +226,10 @@ impl<K: SignatureKey> Inner<K> {
                 }
             }
         }
+        let mut incoming_queue_mutation = RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
+        incoming_queue_mutation.append(&mut temp_queue);
         tracing::error!("Could not receive message from centralized server queue");
-        panic!("Could not receive message from centralized server queue");
+        f(incoming_queue_mutation.len(), &mut context_map)
     }
 
     /// Remove all messages from the internal queue, and then the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
@@ -342,7 +355,7 @@ impl<K: SignatureKey> Inner<K> {
     /// Get the next incoming broadcast message received from the server. Will lock up this struct internally until a message was received.
     async fn get_next_broadcast<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
-    ) -> Result<M, bincode::Error> {
+    ) -> Result<M, NetworkError> {
         self.remove_next_message_from_queue(|msg, index, context_map| {
             match msg {
                 (FromServer::Broadcast {
@@ -369,7 +382,7 @@ impl<K: SignatureKey> Inner<K> {
                         tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
                         MsgStepOutcome::Skip
                     } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload))
+                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu))
                     }
                 },
                 (FromServer::BroadcastPayload { source, .. }, payload) => {
@@ -377,7 +390,7 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload));
+                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu));
                             outcome
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
@@ -389,7 +402,7 @@ impl<K: SignatureKey> Inner<K> {
                                 MsgStepOutcome::Skip
                             } else {
                                 let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream));
+                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu));
                                 outcome
                             }
                         }
@@ -400,7 +413,11 @@ impl<K: SignatureKey> Inner<K> {
                 },
                 (_, _) => MsgStepOutcome::Skip,
             }
-        })
+        },
+        |_, _| {
+            Err(NetworkError::ChannelDisconnected)
+        },
+)
         .await
     }
 
@@ -476,7 +493,7 @@ impl<K: SignatureKey> Inner<K> {
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
         &self,
-    ) -> Result<M, bincode::Error> {
+    ) -> Result<M, NetworkError> {
         self.remove_next_message_from_queue(|msg, index, context_map| {
             match msg {
                 (FromServer::Direct {
@@ -503,7 +520,7 @@ impl<K: SignatureKey> Inner<K> {
                         tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
                         MsgStepOutcome::Skip
                     } else {
-                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload))
+                        MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu))
                     }
                 },
                 (FromServer::DirectPayload { source, .. }, payload) => {
@@ -511,7 +528,7 @@ impl<K: SignatureKey> Inner<K> {
                         context.get_mut().consumed_indexes.insert(index);
                         if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
                             let (_, context) = context.remove_entry();
-                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload));
+                            let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&payload).context(FailedToDeserializeSnafu));
                             outcome
                         } else {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
@@ -523,7 +540,7 @@ impl<K: SignatureKey> Inner<K> {
                                 MsgStepOutcome::Skip
                             } else {
                                 let (_, context) = context.remove_entry();
-                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream));
+                                let outcome = MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu));
                                 outcome
                             }
                         }
@@ -534,6 +551,9 @@ impl<K: SignatureKey> Inner<K> {
                 },
                 (_, _) => MsgStepOutcome::Skip,
             }
+        },
+        |_, _| {
+            Err(NetworkError::ChannelDisconnected)
         })
         .await
     }
@@ -887,7 +907,6 @@ where
         self.inner
             .get_next_broadcast()
             .await
-            .context(FailedToDeserializeSnafu)
     }
 
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
@@ -903,7 +922,6 @@ where
         self.inner
             .get_next_direct_message()
             .await
-            .context(FailedToDeserializeSnafu)
     }
 
     async fn known_nodes(&self) -> Vec<P> {
