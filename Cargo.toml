@@ -69,7 +69,7 @@ hotshot-types = { path = "./types", version = "0.1.0", default-features = false 
 hotshot-utils = { path = "./utils", version = "0.1.0", default-features = false, features = ["logging-utils"] }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 
-libp2p = { path = "/home/jrestivo/benchmarks/rust-libp2p", default-features = false, features = [
+libp2p = { version = "0.48.0", default-features = false, features = [
     "autonat",
     "deflate",
     "floodsub",
