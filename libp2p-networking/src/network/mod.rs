@@ -27,10 +27,21 @@ use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
 };
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-std-executor")] {
+        use libp2p::dns::DnsConfig as DnsConfig;
+        use tcp::TcpTransport as TcpTransport;
+    } else if #[cfg(feature = "tokio-executor")] {
+        use libp2p::dns::TokioDnsConfig as DnsConfig;
+        use tcp::TokioTcpTransport as TcpTransport;
+    } else {
+        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+    }
+
+}
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
-    dns,
     gossipsub::TopicHash,
     identify::IdentifyEvent,
     identity::Keypair,
@@ -193,13 +204,16 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
 pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
-    let transport = {
-        let dns_tcp = dns::DnsConfig::system(tcp::TcpTransport::new(
-            tcp::GenTcpConfig::new().nodelay(true),
-        ));
-        dns_tcp
+    let transport = loop {
+        let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::GenTcpConfig::new().nodelay(true)));
+
+        #[cfg(feature = "async-std-executor")]
+        break dns_tcp
             .await
-            .map_err(|e| NetworkError::TransportLaunch { source: e })?
+            .map_err(|e| NetworkError::TransportLaunch { source: e })?;
+
+        #[cfg(feature = "tokio-executor")]
+        break dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e })?;
     };
 
     // keys for signing messages
