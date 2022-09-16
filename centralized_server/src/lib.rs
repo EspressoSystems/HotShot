@@ -27,14 +27,14 @@ use clients::Clients;
 use config::ClientConfig;
 use flume::{Receiver, Sender};
 use futures::FutureExt as _;
-use runs::RoundConfig;
-
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
 };
+use runs::RoundConfig;
 use snafu::ResultExt;
+use std::convert::TryInto;
 use std::{
     marker::PhantomData,
     net::{IpAddr, SocketAddr},
@@ -46,10 +46,27 @@ use tracing::{debug, error};
 pub enum ToServer<K> {
     GetConfig,
     Identify { key: K },
-    Broadcast { message: Vec<u8> },
-    Direct { target: K, message: Vec<u8> },
+    Broadcast { message_len: u64 },
+    Direct { target: K, message_len: u64 },
     RequestClientCount,
     Results(RunResults),
+}
+
+impl<K: SignatureKey> ToServer<K> {
+    pub fn has_payload(&self) -> bool {
+        self.payload_len() > 0
+    }
+    pub fn payload_len(&self) -> usize {
+        match self {
+            Self::GetConfig
+            | Self::Identify { .. }
+            | Self::RequestClientCount
+            | Self::Results(..) => 0usize,
+            Self::Broadcast { message_len } | Self::Direct { message_len, .. } => {
+                *message_len as usize
+            }
+        }
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -71,13 +88,140 @@ pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum FromServer<K> {
-    Config { config: NetworkConfig<K>, run: Run },
-    NodeConnected { key: K },
-    NodeDisconnected { key: K },
-    Broadcast { message: Vec<u8> },
-    Direct { message: Vec<u8> },
+    Config {
+        config: NetworkConfig<K>,
+        run: Run,
+    },
+    NodeConnected {
+        key: K,
+    },
+    NodeDisconnected {
+        key: K,
+    },
+    Broadcast {
+        source: K,
+        message_len: u64,
+        payload_len: u64,
+    },
+    BroadcastPayload {
+        source: K,
+        payload_len: u64,
+    },
+    Direct {
+        source: K,
+        message_len: u64,
+        payload_len: u64,
+    },
+    DirectPayload {
+        source: K,
+        payload_len: u64,
+    },
     ClientCount(usize),
     Start,
+}
+
+impl<K> FromServer<K> {
+    pub fn has_payload(&self) -> bool {
+        self.payload_len() > 0
+    }
+    pub fn payload_len(&self) -> usize {
+        match self {
+            Self::Config { .. }
+            | Self::NodeConnected { .. }
+            | Self::NodeDisconnected { .. }
+            | Self::ClientCount(..)
+            | Self::Start => 0usize,
+            Self::Broadcast { payload_len, .. }
+            | Self::BroadcastPayload { payload_len, .. }
+            | Self::Direct { payload_len, .. }
+            | Self::DirectPayload { payload_len, .. } => *payload_len as usize,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct FromBackground<K> {
+    header: FromServer<K>,
+    payload: Option<Vec<u8>>,
+}
+
+impl<K> FromBackground<K> {
+    pub fn config(config: NetworkConfig<K>, run: Run) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::Config { config, run },
+            payload: None,
+        }
+    }
+    pub fn node_connected(key: K) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::NodeConnected { key },
+            payload: None,
+        }
+    }
+    pub fn node_disconnected(key: K) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::NodeDisconnected { key },
+            payload: None,
+        }
+    }
+    pub fn broadcast(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::Broadcast {
+                source,
+                message_len,
+                payload_len: if let Some(p) = &payload {
+                    p.len() as u64
+                } else {
+                    0
+                },
+            },
+            payload,
+        }
+    }
+    pub fn broadcast_payload(source: K, payload: Vec<u8>) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::BroadcastPayload {
+                source,
+                payload_len: payload.len() as u64,
+            },
+            payload: Some(payload),
+        }
+    }
+    pub fn direct(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::Direct {
+                source,
+                message_len,
+                payload_len: if let Some(p) = &payload {
+                    p.len() as u64
+                } else {
+                    0
+                },
+            },
+            payload,
+        }
+    }
+    pub fn direct_payload(source: K, payload: Vec<u8>) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::DirectPayload {
+                source,
+                payload_len: payload.len() as u64,
+            },
+            payload: Some(payload),
+        }
+    }
+    pub fn client_count(client_count: usize) -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::ClientCount(client_count),
+            payload: None,
+        }
+    }
+    pub fn start() -> FromBackground<K> {
+        FromBackground {
+            header: FromServer::Start,
+            payload: None,
+        }
+    }
 }
 
 pub struct Server<K: SignatureKey + 'static> {
@@ -233,7 +377,13 @@ async fn background_task<K: SignatureKey + 'static>(
             ToBackground::NewClient { run, key, sender } => {
                 // notify everyone else of the new client
                 clients
-                    .broadcast(run, FromServer::NodeConnected { key: key.clone() })
+                    .broadcast(
+                        run,
+                        FromBackground {
+                            header: FromServer::NodeConnected { key: key.clone() },
+                            payload: None,
+                        },
+                    )
                     .await;
                 // add the client
                 clients.insert(run, key, sender);
@@ -243,31 +393,67 @@ async fn background_task<K: SignatureKey + 'static>(
                 clients.remove(run, key.clone());
                 // notify everyone of the client disconnecting
                 clients
-                    .broadcast(run, FromServer::NodeDisconnected { key })
+                    .broadcast(run, FromBackground::node_disconnected(key))
                     .await;
             }
             ToBackground::IncomingBroadcast {
                 run,
-                message,
                 sender,
+                message_len,
             } => {
                 clients
-                    .broadcast_except_self(run, sender, FromServer::Broadcast { message })
+                    .broadcast_except_self(
+                        run,
+                        sender.clone(),
+                        FromBackground::broadcast(sender, message_len, None),
+                    )
+                    .await;
+            }
+            ToBackground::IncomingBroadcastChunk {
+                run,
+                sender,
+                message_chunk,
+            } => {
+                clients
+                    .broadcast_except_self(
+                        run,
+                        sender.clone(),
+                        FromBackground::broadcast_payload(sender, message_chunk),
+                    )
                     .await;
             }
             ToBackground::IncomingDirectMessage {
                 run,
+                sender,
                 receiver,
-                message,
+                message_len,
             } => {
                 clients
-                    .direct_message(run, receiver, FromServer::Direct { message })
+                    .direct_message(
+                        run,
+                        receiver,
+                        FromBackground::direct(sender, message_len, None),
+                    )
+                    .await;
+            }
+            ToBackground::IncomingDirectMessageChunk {
+                run,
+                sender,
+                receiver,
+                message_chunk,
+            } => {
+                clients
+                    .direct_message(
+                        run,
+                        receiver,
+                        FromBackground::direct_payload(sender, message_chunk),
+                    )
                     .await;
             }
             ToBackground::RequestClientCount { run, sender } => {
                 let client_count = clients.len(run);
                 clients
-                    .direct_message(run, sender, FromServer::ClientCount(client_count))
+                    .direct_message(run, sender, FromBackground::client_count(client_count))
                     .await;
             }
             ToBackground::Results { results } => {
@@ -290,7 +476,7 @@ async fn background_task<K: SignatureKey + 'static>(
             }
             ToBackground::StartRun(run) => {
                 error!("Starting run {run:?} ({} nodes)", clients.len(run));
-                clients.broadcast(run, FromServer::Start).await;
+                clients.broadcast(run, FromBackground::start()).await;
             }
         }
     }
@@ -302,7 +488,7 @@ pub enum ToBackground<K> {
     NewClient {
         run: Run,
         key: K,
-        sender: Sender<FromServer<K>>,
+        sender: Sender<FromBackground<K>>,
     },
     ClientDisconnected {
         run: Run,
@@ -311,12 +497,24 @@ pub enum ToBackground<K> {
     IncomingBroadcast {
         run: Run,
         sender: K,
-        message: Vec<u8>,
+        message_len: u64,
     },
     IncomingDirectMessage {
         run: Run,
+        sender: K,
         receiver: K,
-        message: Vec<u8>,
+        message_len: u64,
+    },
+    IncomingBroadcastChunk {
+        run: Run,
+        sender: K,
+        message_chunk: Vec<u8>,
+    },
+    IncomingDirectMessageChunk {
+        run: Run,
+        sender: K,
+        receiver: K,
+        message_chunk: Vec<u8>,
     },
     RequestClientCount {
         run: Run,
@@ -333,10 +531,20 @@ pub enum ToBackground<K> {
 
 #[derive(snafu::Snafu, Debug)]
 pub enum Error {
-    Io { source: std::io::Error },
+    Io {
+        source: std::io::Error,
+    },
     BackgroundShutdown,
     Disconnected,
-    Decode { source: bincode::Error },
+    Decode {
+        source: bincode::Error,
+    },
+    SizeMismatch,
+    #[snafu(display("Could not convert Vec of size {source_len} to array of size {target_len}"))]
+    VecToArray {
+        source_len: usize,
+        target_len: usize,
+    },
 }
 
 cfg_if::cfg_if! {
@@ -373,13 +581,11 @@ pub struct TcpStreamSendUtil {
 /// Utility struct that wraps a `TcpStream` and expects a length before each messages
 pub struct TcpStreamRecvUtil {
     stream: ReadTcpStream,
-    buffer: Vec<u8>,
 }
 
 /// Utility struct that wraps a `TcpStream` and handles length prefixes bidirectionally
 pub struct TcpStreamUtil {
     stream: TcpStream,
-    buffer: Vec<u8>,
 }
 
 impl TcpStreamSendUtil {
@@ -394,6 +600,14 @@ impl TcpStreamSendUtil {
         let len_bytes = (bytes.len() as u32).to_le_bytes();
         self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
         self.stream.write_all(&bytes).await.context(IoSnafu)?;
+        Ok(())
+    }
+
+    pub async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
+        if slice.len() != slice_len {
+            return Err(Error::SizeMismatch);
+        }
+        self.stream.write_all(&slice).await.context(IoSnafu)?;
         Ok(())
     }
 }
@@ -416,30 +630,51 @@ impl Drop for TcpStreamSendUtil {
 
 impl TcpStreamRecvUtil {
     pub fn new(stream: ReadTcpStream) -> Self {
-        Self {
-            stream,
-            buffer: Vec::new(),
-        }
+        Self { stream }
     }
 
     pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
-        loop {
-            if self.buffer.len() > 4 {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&self.buffer[..4]);
-                let len = u32::from_le_bytes(bytes) as usize;
-                if self.buffer.len() >= 4 + len {
-                    let bytes: Vec<u8> = self.buffer.drain(..len + 4).skip(4).collect();
-                    return bincode_opts().deserialize::<M>(&bytes).context(DecodeSnafu);
-                }
-            }
+        // very important, usize will break if we mix native sizes.
+        let len_buffer = self.recv_raw_all(std::mem::size_of::<u32>()).await?;
+        let len_buffer =
+            TryInto::<[u8; 4]>::try_into(len_buffer).map_err(|v| Error::VecToArray {
+                source_len: v.len(),
+                target_len: 4,
+            })?;
+        let len = u32::from_le_bytes(len_buffer) as usize;
+        let bincode_buffer = self.recv_raw_all(len).await?;
+        bincode_opts()
+            .deserialize::<M>(&bincode_buffer)
+            .context(DecodeSnafu)
+    }
+
+    async fn recv_raw_impl(&mut self, remaining: usize, recv_all: bool) -> Result<Vec<u8>, Error> {
+        let mut remaining = remaining;
+        let mut result = Vec::new();
+        result.reserve(remaining);
+        while remaining > 0 {
             let mut buffer = [0u8; 1024];
-            let n = self.stream.read(&mut buffer).await.context(IoSnafu)?;
-            if n == 0 {
-                return Err(Error::Disconnected);
+            let read_len = std::cmp::min(remaining, 1024);
+            let received = self
+                .stream
+                .read(&mut buffer[..read_len])
+                .await
+                .context(IoSnafu)?;
+            result.append(&mut buffer[..received].to_vec());
+            if !recv_all && received < read_len {
+                break;
             }
-            self.buffer.extend(&buffer[..n]);
+            remaining -= received;
         }
+        Ok(result)
+    }
+
+    pub async fn recv_raw(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, false).await
+    }
+
+    pub async fn recv_raw_all(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, true).await
     }
 }
 
@@ -457,10 +692,7 @@ impl Drop for TcpStreamRecvUtil {
 
 impl TcpStreamUtil {
     pub fn new(stream: TcpStream) -> Self {
-        Self {
-            stream,
-            buffer: Vec::new(),
-        }
+        Self { stream }
     }
     pub async fn connect(addr: SocketAddr) -> std::io::Result<Self> {
         let stream = TcpStream::connect(addr).await?;
@@ -468,23 +700,48 @@ impl TcpStreamUtil {
     }
 
     pub async fn recv<M: serde::de::DeserializeOwned>(&mut self) -> Result<M, Error> {
-        loop {
-            if self.buffer.len() > 4 {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&self.buffer[..4]);
-                let len = u32::from_le_bytes(bytes) as usize;
-                if self.buffer.len() >= 4 + len {
-                    let bytes: Vec<u8> = self.buffer.drain(..len + 4).skip(4).collect();
-                    return bincode_opts().deserialize::<M>(&bytes).context(DecodeSnafu);
-                }
+        // very important, usize will break if we mix native sizes.
+        let len_buffer = self.recv_raw_all(std::mem::size_of::<u32>()).await?;
+        let len_buffer = std::convert::TryInto::<[u8; 4]>::try_into(len_buffer).map_err(|v| {
+            Error::VecToArray {
+                source_len: v.len(),
+                target_len: 4,
             }
+        })?;
+        let len = u32::from_le_bytes(len_buffer) as usize;
+        let bincode_buffer = self.recv_raw_all(len).await?;
+        bincode_opts()
+            .deserialize::<M>(&bincode_buffer)
+            .context(DecodeSnafu)
+    }
+
+    async fn recv_raw_impl(&mut self, remaining: usize, recv_all: bool) -> Result<Vec<u8>, Error> {
+        let mut remaining = remaining;
+        let mut result = Vec::new();
+        result.reserve(remaining);
+        while remaining > 0 {
             let mut buffer = [0u8; 1024];
-            let n = self.stream.read(&mut buffer).await.context(IoSnafu)?;
-            if n == 0 {
-                return Err(Error::Disconnected);
+            let read_len = std::cmp::min(remaining, 1024);
+            let received = self
+                .stream
+                .read(&mut buffer[..read_len])
+                .await
+                .context(IoSnafu)?;
+            result.append(&mut buffer[..received].to_vec());
+            if !recv_all && received < read_len {
+                break;
             }
-            self.buffer.extend(&buffer[..n]);
+            remaining -= received;
         }
+        Ok(result)
+    }
+
+    pub async fn recv_raw(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, false).await
+    }
+
+    pub async fn recv_raw_all(&mut self, remaining: usize) -> Result<Vec<u8>, Error> {
+        self.recv_raw_impl(remaining, true).await
     }
 
     pub async fn send<M: serde::Serialize>(&mut self, m: M) -> Result<(), Error> {
@@ -494,6 +751,14 @@ impl TcpStreamUtil {
         let len_bytes = (bytes.len() as u32).to_le_bytes();
         self.stream.write_all(&len_bytes).await.context(IoSnafu)?;
         self.stream.write_all(&bytes).await.context(IoSnafu)?;
+        Ok(())
+    }
+
+    pub async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
+        if slice.len() != slice_len {
+            return Err(Error::SizeMismatch);
+        }
+        self.stream.write_all(&slice).await.context(IoSnafu)?;
         Ok(())
     }
 }

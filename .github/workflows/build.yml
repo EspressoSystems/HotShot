@@ -54,7 +54,7 @@ jobs:
       - name: Unit and integration tests for all crates in workspace
         run: |
           cargo test --verbose --release --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
 

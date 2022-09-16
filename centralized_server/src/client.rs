@@ -1,5 +1,5 @@
 use crate::{
-    config::ClientConfig, split_stream, Error, FromServer, Run, TcpStreamRecvUtil,
+    config::ClientConfig, split_stream, Error, FromBackground, Run, TcpStreamRecvUtil,
     TcpStreamSendUtil, ToBackground, ToServer,
 };
 use flume::Sender;
@@ -106,10 +106,7 @@ async fn run_client<K: SignatureKey + 'static>(
             // The client requested the config
             (ToServer::GetConfig, _) => {
                 sender
-                    .send_async(FromServer::Config {
-                        config: config.clone(),
-                        run,
-                    })
+                    .send_async(FromBackground::config(config.clone(), run))
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -118,27 +115,62 @@ async fn run_client<K: SignatureKey + 'static>(
                 debug!("{:?} received message but is not identified yet", address);
             }
             // Client wants to broadcast a message
-            (ToServer::Broadcast { message }, true) => {
+            (ToServer::Broadcast { message_len }, true) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingBroadcast {
                         run,
-                        sender,
-                        message,
+                        sender: sender.clone(),
+                        message_len,
                     })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
+                let mut remaining = message_len as usize;
+                while remaining > 0 {
+                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    remaining -= message_chunk.len();
+                    to_background
+                        .send_async(ToBackground::IncomingBroadcastChunk {
+                            run,
+                            sender: sender.clone(),
+                            message_chunk,
+                        })
+                        .await
+                        .map_err(|_| Error::BackgroundShutdown)?;
+                }
             }
             // Client wants to send a direct message to another client
-            (ToServer::Direct { message, target }, true) => {
+            (
+                ToServer::Direct {
+                    message_len,
+                    target,
+                },
+                true,
+            ) => {
+                let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingDirectMessage {
                         run,
-                        receiver: target,
-                        message,
+                        sender: sender.clone(),
+                        receiver: target.clone(),
+                        message_len,
                     })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
+                let mut remaining = message_len as usize;
+                while remaining > 0 {
+                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    remaining -= message_chunk.len();
+                    to_background
+                        .send_async(ToBackground::IncomingDirectMessageChunk {
+                            run,
+                            sender: sender.clone(),
+                            receiver: target.clone(),
+                            message_chunk,
+                        })
+                        .await
+                        .map_err(|_| Error::BackgroundShutdown)?;
+                }
             }
             // Client wants to know how many clients are connected in the current run
             (ToServer::RequestClientCount, true) => {

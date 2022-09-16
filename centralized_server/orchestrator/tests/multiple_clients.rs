@@ -83,11 +83,16 @@ async fn multiple_clients() {
     }
 
     // Send a direct message from 1 -> 2
+    let message = vec![1, 2, 3, 4];
     first_client
         .send(ToServer::Direct {
             target: TestSignatureKey { idx: 2 },
-            message: vec![1, 2, 3, 4],
+            message_len: (message.len() * std::mem::size_of::<i32>()) as u64,
         })
+        .await
+        .unwrap();
+    first_client
+        .send_raw(&message, message.len() * std::mem::size_of::<i32>())
         .await
         .unwrap();
 

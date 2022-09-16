@@ -1638,6 +1638,7 @@ dependencies = [
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
+ "itertools",
  "libp2p",
  "libp2p-networking",
  "rand 0.8.5",
