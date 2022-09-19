@@ -117,7 +117,7 @@ pub enum FromServer<K> {
         source: K,
         payload_len: u64,
     },
-    ClientCount(usize),
+    ClientCount(u32),
     Start,
 }
 
@@ -211,7 +211,7 @@ impl<K> FromBackground<K> {
             payload: Some(payload),
         }
     }
-    pub fn client_count(client_count: usize) -> FromBackground<K> {
+    pub fn client_count(client_count: u32) -> FromBackground<K> {
         FromBackground {
             header: FromServer::ClientCount(client_count),
             payload: None,
@@ -454,7 +454,11 @@ async fn background_task<K: SignatureKey + 'static>(
             ToBackground::RequestClientCount { run, sender } => {
                 let client_count = clients.len(run);
                 clients
-                    .direct_message(run, sender, FromBackground::client_count(client_count))
+                    .direct_message(
+                        run,
+                        sender,
+                        FromBackground::client_count(client_count as u32),
+                    )
                     .await;
             }
             ToBackground::Results { results } => {
@@ -540,7 +544,11 @@ pub enum Error {
     Decode {
         source: bincode::Error,
     },
-    SizeMismatch,
+    #[snafu(display("Slice of size {slice_len} expected size {passed_len}"))]
+    SizeMismatch {
+        slice_len: usize,
+        passed_len: usize,
+    },
     #[snafu(display("Could not convert Vec of size {source_len} to array of size {target_len}"))]
     VecToArray {
         source_len: usize,
@@ -605,6 +613,11 @@ pub trait TcpStreamUtilWithRecv {
                 target_len: 4,
             })?;
         let len = u32::from_le_bytes(len_buffer) as usize;
+        tracing::error!(
+            "REMOVE THIS {:?} {} recv with size {len}",
+            std::thread::current().id(),
+            async_std::task::current().id(),
+        );
         let bincode_buffer = self.recv_raw_all(len).await?;
         bincode_opts()
             .deserialize::<M>(&bincode_buffer)
@@ -618,11 +631,21 @@ pub trait TcpStreamUtilWithRecv {
         while remaining > 0 {
             let mut buffer = [0u8; 1024];
             let read_len = std::cmp::min(remaining, 1024);
+            tracing::error!(
+                "REMOVE THIS {:?} {} reading {read_len} bytes",
+                std::thread::current().id(),
+                async_std::task::current().id(),
+            );
             let received = self
                 .read_stream()
                 .read(&mut buffer[..read_len])
                 .await
                 .context(IoSnafu)?;
+            tracing::error!(
+                "REMOVE THIS {:?} {} received {received} bytes",
+                std::thread::current().id(),
+                async_std::task::current().id(),
+            );
             result.append(&mut buffer[..received].to_vec());
             if !recv_all && received < read_len {
                 break;
@@ -651,6 +674,12 @@ pub trait TcpStreamUtilWithSend {
         let bytes = bincode_opts()
             .serialize(&m)
             .expect("Could not serialize message");
+        tracing::error!(
+            "REMOVE THIS {:?} {} send with size {}",
+            std::thread::current().id(),
+            async_std::task::current().id(),
+            bytes.len()
+        );
         let len_bytes = (bytes.len() as u32).to_le_bytes();
         self.write_stream()
             .write_all(&len_bytes)
@@ -663,9 +692,12 @@ pub trait TcpStreamUtilWithSend {
         Ok(())
     }
 
-    async fn send_raw(&mut self, slice: &[u8], slice_len: usize) -> Result<(), Error> {
-        if slice.len() != slice_len {
-            return Err(Error::SizeMismatch);
+    async fn send_raw(&mut self, slice: &[u8], passed_len: usize) -> Result<(), Error> {
+        if slice.len() != passed_len {
+            return Err(Error::SizeMismatch {
+                slice_len: slice.len(),
+                passed_len,
+            });
         }
         self.write_stream()
             .write_all(slice)

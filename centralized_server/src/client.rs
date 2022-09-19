@@ -50,15 +50,24 @@ async fn run_client<K: SignatureKey + 'static>(
 ) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, receiver) = flume::unbounded();
+    let (sender, receiver) = flume::unbounded::<FromBackground<K>>();
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
         let mut send_stream = TcpStreamSendUtil::new(write_stream);
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                if let Err(e) = send_stream.send(msg).await {
+                let FromBackground { header, payload } = msg;
+                if let Err(e) = send_stream.send(header).await {
                     debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
+                }
+                if let Some(payload) = payload {
+                    if !payload.is_empty() {
+                        if let Err(e) = send_stream.send_raw(&payload, payload.len()).await {
+                            debug!("Lost connection to {:?}: {:?}", address, e);
+                            break;
+                        }
+                    }
                 }
             }
         }

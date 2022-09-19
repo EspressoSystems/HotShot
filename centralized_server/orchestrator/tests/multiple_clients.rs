@@ -84,7 +84,7 @@ async fn multiple_clients() {
 
     // Send a direct message from 1 -> 2
     let direct_message = vec![1, 2, 3, 4];
-    let direct_message_len = direct_message.len() * std::mem::size_of::<i32>();
+    let direct_message_len = direct_message.len();
     first_client
         .send(ToServer::Direct {
             target: TestSignatureKey { idx: 2 },
@@ -124,7 +124,7 @@ async fn multiple_clients() {
     assert!(payload.len() == direct_message_len);
 
     let broadcast_message = vec![50, 40, 30, 20, 10];
-    let broadcast_message_len = broadcast_message.len() * std::mem::size_of::<i32>();
+    let broadcast_message_len = broadcast_message.len();
     // Send a broadcast from 2
     second_client
         .send(ToServer::Broadcast {
@@ -145,7 +145,7 @@ async fn multiple_clients() {
             payload_len,
             ..
         } => {
-            assert_eq!(source, first_client_key);
+            assert_eq!(source, second_client_key);
             assert_eq!(payload_len, 0);
         }
         x => panic!("Expected Broadcast, got {:?}", x),

@@ -69,7 +69,7 @@ struct Inner<K: SignatureKey> {
     /// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
     incoming_queue: RwLock<Vec<(FromServer<K>, Vec<u8>)>>,
     /// a sender used to immediately broadcast the amount of clients connected
-    request_client_count_sender: RwLock<Vec<Sender<usize>>>,
+    request_client_count_sender: RwLock<Vec<Sender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
     run_ready: AtomicBool,
 }
@@ -154,7 +154,7 @@ impl<K: SignatureKey> Inner<K> {
     }
 
     /// Request the client count from the server
-    async fn request_client_count(&self, sender: Sender<usize>) {
+    async fn request_client_count(&self, sender: Sender<u32>) {
         self.request_client_count_sender.write().await.push(sender);
         self.sending
             .send_async(((ToServer::RequestClientCount, Vec::new()), None))
@@ -768,7 +768,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     }
 
     /// Get the amount of clients that are connected
-    pub async fn get_connected_client_count(&self) -> usize {
+    pub async fn get_connected_client_count(&self) -> u32 {
         let (sender, receiver) = flume::bounded(1);
         self.inner.request_client_count(sender).await;
         receiver
@@ -807,55 +807,55 @@ async fn run_background<K: SignatureKey>(
 
     loop {
         futures::select! {
-                    res = stream.recv().fuse() => {
-                        let msg = res?;
-                        match msg {
-                            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                                from_background_sender.send_async((x, Vec::new())).await.map_err(|_| Error::FailedToReceive)?;
-                            },
+            res = stream.recv().fuse() => {
+                let msg = res?;
+                match msg {
+                    x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                        from_background_sender.send_async((x, Vec::new())).await.map_err(|_| Error::FailedToReceive)?;
+                    },
 
-                            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                                let payload = if x.has_payload() {
-            stream.recv_raw_all(x.payload_len()).await?
-        } else {
-            Vec::new()
-        };
-                                from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                            },
+                    x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                        let payload = if x.has_payload() {
+                            stream.recv_raw_all(x.payload_len()).await?
+                        } else {
+                            Vec::new()
+                        };
+                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
+                    },
 
-                            x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
-                                let payload = if x.has_payload() {
-            stream.recv_raw_all(x.payload_len()).await?
-        } else {
-            Vec::new()
-        };
-                                from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                            },
+                    x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
+                        let payload = if x.has_payload() {
+                            stream.recv_raw_all(x.payload_len()).await?
+                        } else {
+                            Vec::new()
+                        };
+                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
+                    },
 
-                            FromServer::ClientCount(count) => {
-                                let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                                for sender in senders {
-                                    let _ = sender.try_send(count);
-                                }
-                            },
-
-                            FromServer::Config { .. } => {
-                                tracing::warn!("Received config from server but we're already running");
-                            }
-
-                            FromServer::Start => {
-                                connection.run_ready.store(true, Ordering::Relaxed);
-                            }
+                    FromServer::ClientCount(count) => {
+                        let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                        for sender in senders {
+                            let _ = sender.try_send(count);
                         }
                     },
-                    result = to_background.recv_async().fuse() => {
-                        let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
-                        stream.send(msg).await?;
-                        if let Some(confirm) = confirm {
-                            let _ = confirm.send_async(()).await;
-                        }
+
+                    FromServer::Config { .. } => {
+                        tracing::warn!("Received config from server but we're already running");
+                    }
+
+                    FromServer::Start => {
+                        connection.run_ready.store(true, Ordering::Relaxed);
                     }
                 }
+            },
+            result = to_background.recv_async().fuse() => {
+                let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
+                stream.send(msg).await?;
+                if let Some(confirm) = confirm {
+                    let _ = confirm.send_async(()).await;
+                }
+            }
+        }
     }
 }
 
@@ -889,7 +889,7 @@ impl From<hotshot_centralized_server::Error> for Error {
             }
             hotshot_centralized_server::Error::Disconnected => Self::Disconnected,
             hotshot_centralized_server::Error::BackgroundShutdown
-            | hotshot_centralized_server::Error::SizeMismatch
+            | hotshot_centralized_server::Error::SizeMismatch { .. }
             | hotshot_centralized_server::Error::VecToArray { .. } => unreachable!(), // should never be reached
         }
     }
