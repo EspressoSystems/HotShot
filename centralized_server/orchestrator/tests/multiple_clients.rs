@@ -150,6 +150,22 @@ async fn multiple_clients() {
         }
         x => panic!("Expected Broadcast, got {:?}", x),
     }
+    let payload_msg = first_client.recv::<FromServer>().await.unwrap();
+    match payload_msg {
+        FromServer::BroadcastPayload {
+            source,
+            payload_len,
+        } => {
+            assert_eq!(source, second_client_key);
+            assert_eq!(payload_len as usize, broadcast_message_len);
+        }
+        x => panic!("Expected BroadcastPayload, got {:?}", x),
+    }
+    let payload = first_client
+        .recv_raw_all(broadcast_message_len)
+        .await
+        .unwrap();
+    assert_eq!(payload, broadcast_message);
 
     // Disconnect the second client
     drop(second_client);
