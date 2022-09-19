@@ -39,6 +39,7 @@ use std::{
     convert::TryInto,
     marker::{PhantomData, Send},
     net::{IpAddr, SocketAddr},
+    num::NonZeroUsize,
     time::Duration,
 };
 use tracing::{debug, error};
@@ -54,17 +55,14 @@ pub enum ToServer<K> {
 }
 
 impl<K: SignatureKey> ToServer<K> {
-    pub fn has_payload(&self) -> bool {
-        self.payload_len() > 0
-    }
-    pub fn payload_len(&self) -> usize {
+    pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::GetConfig
             | Self::Identify { .. }
             | Self::RequestClientCount
-            | Self::Results(..) => 0usize,
+            | Self::Results(..) => None,
             Self::Broadcast { message_len } | Self::Direct { message_len, .. } => {
-                *message_len as usize
+                (*message_len as usize).try_into().ok()
             }
         }
     }
@@ -122,20 +120,17 @@ pub enum FromServer<K> {
 }
 
 impl<K> FromServer<K> {
-    pub fn has_payload(&self) -> bool {
-        self.payload_len() > 0
-    }
-    pub fn payload_len(&self) -> usize {
+    pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::Config { .. }
             | Self::NodeConnected { .. }
             | Self::NodeDisconnected { .. }
             | Self::ClientCount(..)
-            | Self::Start => 0usize,
+            | Self::Start => None,
             Self::Broadcast { payload_len, .. }
             | Self::BroadcastPayload { payload_len, .. }
             | Self::Direct { payload_len, .. }
-            | Self::DirectPayload { payload_len, .. } => *payload_len as usize,
+            | Self::DirectPayload { payload_len, .. } => (*payload_len as usize).try_into().ok(),
         }
     }
 }
@@ -378,13 +373,7 @@ async fn background_task<K: SignatureKey + 'static>(
             ToBackground::NewClient { run, key, sender } => {
                 // notify everyone else of the new client
                 clients
-                    .broadcast(
-                        run,
-                        FromBackground {
-                            header: FromServer::NodeConnected { key: key.clone() },
-                            payload: None,
-                        },
-                    )
+                    .broadcast(run, FromBackground::node_connected(key.clone()))
                     .await;
                 // add the client
                 clients.insert(run, key, sender);

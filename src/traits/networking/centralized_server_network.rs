@@ -815,8 +815,8 @@ async fn run_background<K: SignatureKey>(
                     },
 
                     x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                        let payload = if x.has_payload() {
-                            stream.recv_raw_all(x.payload_len()).await?
+                        let payload = if let Some(payload_len) = x.payload_len() {
+                            stream.recv_raw_all(payload_len.into()).await?
                         } else {
                             Vec::new()
                         };
@@ -824,8 +824,8 @@ async fn run_background<K: SignatureKey>(
                     },
 
                     x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
-                        let payload = if x.has_payload() {
-                            stream.recv_raw_all(x.payload_len()).await?
+                        let payload = if let Some(payload_len) = x.payload_len() {
+                            stream.recv_raw_all(payload_len.into()).await?
                         } else {
                             Vec::new()
                         };

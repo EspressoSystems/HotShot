@@ -59,7 +59,10 @@ async fn multiple_clients() {
     // Assert that the first client gets a notification of this
     let msg = first_client.recv::<FromServer>().await.unwrap();
     match msg {
-        FromServer::NodeConnected { .. } => {}
+        FromServer::NodeConnected {
+            key: TestSignatureKey { idx: 2 },
+            ..
+        } => {}
         x => panic!("Expected NodeConnected, got {x:?}"),
     }
     // Assert that there are 2 clients connected
@@ -117,11 +120,11 @@ async fn multiple_clients() {
         }
         x => panic!("Expected DirectPayload, got {:?}", x),
     }
-    let payload = second_client
-        .recv_raw(payload_msg.payload_len())
-        .await
-        .unwrap();
-    assert!(payload.len() == direct_message_len);
+    if let Some(payload_len) = payload_msg.payload_len() {
+        let payload = second_client.recv_raw(payload_len.into()).await.unwrap();
+        assert!(payload.len() == direct_message_len);
+        assert_eq!(payload, direct_message);
+    }
 
     let broadcast_message = vec![50, 40, 30, 20, 10];
     let broadcast_message_len = broadcast_message.len();
@@ -151,21 +154,21 @@ async fn multiple_clients() {
         x => panic!("Expected Broadcast, got {:?}", x),
     }
     let payload_msg = first_client.recv::<FromServer>().await.unwrap();
-    match payload_msg {
+    match &payload_msg {
         FromServer::BroadcastPayload {
             source,
             payload_len,
         } => {
-            assert_eq!(source, second_client_key);
-            assert_eq!(payload_len as usize, broadcast_message_len);
+            assert_eq!(source, &second_client_key);
+            assert_eq!(*payload_len as usize, broadcast_message_len);
         }
         x => panic!("Expected BroadcastPayload, got {:?}", x),
     }
-    let payload = first_client
-        .recv_raw_all(broadcast_message_len)
-        .await
-        .unwrap();
-    assert_eq!(payload, broadcast_message);
+    if let Some(payload_len) = &payload_msg.payload_len() {
+        let payload = first_client.recv_raw((*payload_len).into()).await.unwrap();
+        assert!(payload.len() == broadcast_message_len);
+        assert_eq!(payload, broadcast_message);
+    }
 
     // Disconnect the second client
     drop(second_client);
