@@ -53,12 +53,12 @@ pub trait Vrf<VrfHasher> {
 }
 
 /// A structure for dynamic committee.
-pub struct DynamicCommittee<S, const N: usize> {
+pub struct DynamicCommittee<S> {
     /// State phantom.
     _state_phantom: PhantomData<S>,
 }
 
-impl<S, const N: usize> Vrf<Hasher> for DynamicCommittee<S, N> {
+impl<S> Vrf<Hasher> for DynamicCommittee<S> {
     type PublicKey = Ed25519Pub;
     type SecretKey = Ed25519Priv;
     type Proof = EncodedSignature;
@@ -103,7 +103,7 @@ type VoteToken = EncodedSignature;
 /// A tuple of a validated vote token and the associated selected stake.
 type ValidatedVoteToken = (Ed25519Pub, EncodedSignature, HashSet<u64>);
 
-impl<S, const N: usize> Default for DynamicCommittee<S, N> {
+impl<S> Default for DynamicCommittee<S> {
     fn default() -> Self {
         Self {
             _state_phantom: PhantomData,
@@ -111,7 +111,7 @@ impl<S, const N: usize> Default for DynamicCommittee<S, N> {
     }
 }
 
-impl<S: StateContents, const N: usize> DynamicCommittee<S, N> {
+impl<S: StateContents> DynamicCommittee<S> {
     /// Creates a new dynamic committee.
     pub fn new() -> Self {
         Self {
@@ -273,7 +273,6 @@ mod tests {
     use std::collections::BTreeMap;
 
     type S = DummyState;
-    const N: usize = H_256;
     const VIEW_NUMBER: ViewNumber = ViewNumber::new(10);
     const INCORRECT_VIEW_NUMBER: ViewNumber = ViewNumber::new(11);
     const NEXT_STATE: [u8; H_256] = [20; H_256];
@@ -328,22 +327,22 @@ mod tests {
             let next_state = RawCommitmentBuilder::new("")
                 .fixed_size_bytes(&NEXT_STATE)
                 .finalize();
-            let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
-            let proof = DynamicCommittee::<S, N>::prove(&secret_key_honest, &input);
-            let valid = DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, input);
+            let input = DynamicCommittee::<S>::hash_commitee_seed(VIEW_NUMBER, next_state);
+            let proof = DynamicCommittee::<S>::prove(&secret_key_honest, &input);
+            let valid = DynamicCommittee::<S>::verify(proof.clone(), public_key_honest, input);
             assert!(valid);
 
             // VRF verification should fail if the secret key share does not correspond to the public
             // key share
-            let incorrect_proof = DynamicCommittee::<S, N>::prove(&secret_key_byzantine, &input);
-            let valid = DynamicCommittee::<S, N>::verify(incorrect_proof, public_key_honest, input);
+            let incorrect_proof = DynamicCommittee::<S>::prove(&secret_key_byzantine, &input);
+            let valid = DynamicCommittee::<S>::verify(incorrect_proof, public_key_honest, input);
             assert!(!valid);
 
             // VRF verification should fail if the view number used for proof generation is incorrect
             let incorrect_input =
-                DynamicCommittee::<S, N>::hash_commitee_seed(INCORRECT_VIEW_NUMBER, next_state);
+                DynamicCommittee::<S>::hash_commitee_seed(INCORRECT_VIEW_NUMBER, next_state);
             let valid =
-                DynamicCommittee::<S, N>::verify(proof.clone(), public_key_honest, incorrect_input);
+                DynamicCommittee::<S>::verify(proof.clone(), public_key_honest, incorrect_input);
             assert!(!valid);
 
             // VRF verification should fail if the next state used for proof generation is incorrect
@@ -351,8 +350,8 @@ mod tests {
                 .fixed_size_bytes(&INCORRECT_NEXT_STATE)
                 .finalize();
             let incorrect_input =
-                DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, incorrect_next_state);
-            let valid = DynamicCommittee::<S, N>::verify(proof, public_key_honest, incorrect_input);
+                DynamicCommittee::<S>::hash_commitee_seed(VIEW_NUMBER, incorrect_next_state);
+            let valid = DynamicCommittee::<S>::verify(proof, public_key_honest, incorrect_input);
             assert!(!valid);
         });
     }
@@ -407,18 +406,18 @@ mod tests {
             let next_state = RawCommitmentBuilder::new("")
                 .fixed_size_bytes(&NEXT_STATE)
                 .finalize();
-            let input = DynamicCommittee::<S, N>::hash_commitee_seed(VIEW_NUMBER, next_state);
-            let proof = DynamicCommittee::<S, N>::prove(&secret_key_share, &input);
+            let input = DynamicCommittee::<S>::hash_commitee_seed(VIEW_NUMBER, next_state);
+            let proof = DynamicCommittee::<S>::prove(&secret_key_share, &input);
 
             // VRF selection should produce deterministic results
             let stake_table = dummy_stake_table(&pub_keys);
-            let selected_stake = DynamicCommittee::<S, N>::select_stake(
+            let selected_stake = DynamicCommittee::<S>::select_stake(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 &pub_key,
                 proof.clone(),
             );
-            let selected_stake_again = DynamicCommittee::<S, N>::select_stake(
+            let selected_stake_again = DynamicCommittee::<S>::select_stake(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 &pub_key,
@@ -442,9 +441,9 @@ mod tests {
             let stake_table = dummy_stake_table(&pub_keys);
 
             // Leader selection should produce deterministic results
-            let selected_leader = DynamicCommittee::<S, N>::get_leader(&stake_table, VIEW_NUMBER);
+            let selected_leader = DynamicCommittee::<S>::get_leader(&stake_table, VIEW_NUMBER);
             let selected_leader_again =
-                DynamicCommittee::<S, N>::get_leader(&stake_table, VIEW_NUMBER);
+                DynamicCommittee::<S>::get_leader(&stake_table, VIEW_NUMBER);
             assert_eq!(selected_leader, selected_leader_again);
         });
     }
@@ -473,7 +472,7 @@ mod tests {
             let next_state = RawCommitmentBuilder::new("")
                 .fixed_size_bytes(&NEXT_STATE)
                 .finalize();
-            let vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            let vote_token = DynamicCommittee::<S>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -483,7 +482,7 @@ mod tests {
             assert!(vote_token.is_none());
 
             // Votes should be granted with the correct private key, view number, and next state
-            let vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            let vote_token = DynamicCommittee::<S>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -491,7 +490,7 @@ mod tests {
                 next_state,
             )
             .unwrap();
-            let votes = DynamicCommittee::<S, N>::get_votes(
+            let votes = DynamicCommittee::<S>::get_votes(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -505,7 +504,7 @@ mod tests {
             assert!(!validated_vote_token.2.is_empty());
 
             // No vote should be granted if the private key does not correspond to the public key
-            let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            let incorrect_vote_token = DynamicCommittee::<S>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -513,7 +512,7 @@ mod tests {
                 next_state,
             )
             .unwrap();
-            let votes = DynamicCommittee::<S, N>::get_votes(
+            let votes = DynamicCommittee::<S>::get_votes(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -524,7 +523,7 @@ mod tests {
             assert!(votes.is_none());
 
             // No vote should be granted if the view number used for token generation is incorrect
-            let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            let incorrect_vote_token = DynamicCommittee::<S>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 INCORRECT_VIEW_NUMBER,
@@ -532,7 +531,7 @@ mod tests {
                 next_state,
             )
             .unwrap();
-            let votes = DynamicCommittee::<S, N>::get_votes(
+            let votes = DynamicCommittee::<S>::get_votes(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -546,7 +545,7 @@ mod tests {
             let incorrect_next_state = RawCommitmentBuilder::new("")
                 .fixed_size_bytes(&INCORRECT_NEXT_STATE)
                 .finalize();
-            let incorrect_vote_token = DynamicCommittee::<S, N>::make_vote_token(
+            let incorrect_vote_token = DynamicCommittee::<S>::make_vote_token(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
@@ -554,7 +553,7 @@ mod tests {
                 incorrect_next_state,
             )
             .unwrap();
-            let votes = DynamicCommittee::<S, N>::get_votes(
+            let votes = DynamicCommittee::<S>::get_votes(
                 &stake_table,
                 SELECTION_THRESHOLD,
                 VIEW_NUMBER,
