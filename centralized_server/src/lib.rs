@@ -589,9 +589,9 @@ cfg_if::cfg_if! {
         impl<T> AsyncReadStream for T where T: ReadExt + Unpin + Send {}
         impl<T> AsyncWriteStream for T where T: WriteExt + Unpin + Send {}
     } else if #[cfg(feature = "tokio-executor")] {
-        pub trait AsyncReadStream: AsyncReadExt + Unpin + Send + ?Sized {}
+        pub trait AsyncReadStream: AsyncReadExt + Unpin + Send {}
         pub trait AsyncWriteStream: AsyncWriteExt + Unpin + Send {}
-        impl<T> AsyncReadStream for T where T: AsyncReadExt + Unpin + Send + ?Sized {}
+        impl<T> AsyncReadStream for T where T: AsyncReadExt + Unpin + Send {}
         impl<T> AsyncWriteStream for T where T: AsyncWriteExt + Send + Unpin {}
     } else {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
