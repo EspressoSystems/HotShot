@@ -326,7 +326,7 @@ impl<K: SignatureKey> Inner<K> {
                             });
 
                             if prev.is_some() {
-
+                                tracing::error!(?source, "FromServer::Broadcast encountered, incomplete prior Broadcast from same source");
                             }
 
                             MsgStepOutcome::Begin
@@ -393,6 +393,7 @@ impl<K: SignatureKey> Inner<K> {
                             });
 
                             if prev.is_some() {
+                                tracing::error!(?source, "FromServer::Broadcast encountered, incomplete prior Broadcast from same source");
 
                             }
 
@@ -466,13 +467,13 @@ impl<K: SignatureKey> Inner<K> {
                             });
 
                             if prev.is_some() {
-
+                                tracing::error!(?source, "FromServer::Direct encountered, incomplete prior Direct from same source");
                             }
 
                             MsgStepOutcome::Begin
                         },
                         cmp::Ordering::Greater => {
-                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            tracing::error!("FromServer::Direct with message_len {message_len}b, payload is {}b", payload.len());
                             MsgStepOutcome::Skip
                         },
                         cmp::Ordering::Equal => {
@@ -539,13 +540,13 @@ impl<K: SignatureKey> Inner<K> {
                             });
 
                             if prev.is_some() {
-
+                                tracing::error!(?source, "FromServer::Direct encountered, incomplete prior Direct from same source");
                             }
 
                             MsgStepOutcome::Begin
                         },
                         cmp::Ordering::Greater => {
-                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
+                            tracing::error!("FromServer::Direct with message_len {message_len}b, payload is {}b", payload.len());
                             MsgStepOutcome::Skip
                         },
                         cmp::Ordering::Equal => {

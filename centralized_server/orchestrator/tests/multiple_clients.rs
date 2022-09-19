@@ -5,7 +5,9 @@ use hotshot::{
 };
 use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
 use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
+use tracing::instrument;
 
 type Server = hotshot_centralized_server::Server<TestSignatureKey>;
 type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
@@ -16,7 +18,10 @@ type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
 async fn multiple_clients() {
+    setup_logging();
+    setup_backtrace();
     use hotshot_utils::art::{async_spawn, async_timeout};
     let (shutdown, shutdown_receiver) = flume::bounded(1);
     let server = Server::new(Ipv4Addr::LOCALHOST.into(), 0)
@@ -181,6 +186,7 @@ async fn multiple_clients() {
         } => {}
         x => panic!("Expected NodeDisconnected, got {x:?}"),
     }
+
     // Assert that the server reports 1 client being connected
     first_client
         .send(ToServer::RequestClientCount)

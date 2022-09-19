@@ -620,6 +620,9 @@ pub trait TcpStreamUtilWithRecv {
                 .read(&mut buffer[..read_len])
                 .await
                 .context(IoSnafu)?;
+            if received == 0 {
+                return Err(Error::Disconnected);
+            }
             result.append(&mut buffer[..received].to_vec());
             if !recv_all && received < read_len {
                 break;
