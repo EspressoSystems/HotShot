@@ -583,34 +583,7 @@
 <span id="577">577</span>
 <span id="578">578</span>
 <span id="579">579</span>
-<span id="580">580</span>
-<span id="581">581</span>
-<span id="582">582</span>
-<span id="583">583</span>
-<span id="584">584</span>
-<span id="585">585</span>
-<span id="586">586</span>
-<span id="587">587</span>
-<span id="588">588</span>
-<span id="589">589</span>
-<span id="590">590</span>
-<span id="591">591</span>
-<span id="592">592</span>
-<span id="593">593</span>
-<span id="594">594</span>
-<span id="595">595</span>
-<span id="596">596</span>
-<span id="597">597</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ExecutionEnvironment</span>;
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">async_std::process::Command</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">tokio::process::Command</span>;
-    } <span class="kw">else</span> {
-        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-}
 <span class="kw">use</span> <span class="ident">futures::TryStreamExt</span>;
 <span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn</span>;
 <span class="kw">use</span> <span class="ident">netlink_packet_route::DecodeError</span>;
@@ -624,6 +597,7 @@
     <span class="ident">NETNS_PATH</span>,
 };
 <span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
+<span class="kw">use</span> <span class="ident">std::process::Command</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">fs::File</span>,
     <span class="ident">net</span>::{<span class="ident">AddrParseError</span>, <span class="ident">Ipv4Addr</span>},
@@ -1007,7 +981,6 @@
             <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
                 .<span class="ident">args</span>([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, <span class="ident">eth_name</span>, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1017,7 +990,6 @@
             <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
                 .<span class="ident">args</span>([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, <span class="ident">eth_name</span>, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1039,7 +1011,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1058,7 +1029,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1077,7 +1047,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1111,7 +1080,6 @@
             <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
                 .<span class="ident">args</span>([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">eth_name</span>, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1121,7 +1089,6 @@
             <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
                 .<span class="ident">args</span>([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">eth_name</span>, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1142,7 +1109,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1161,7 +1127,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );
@@ -1180,7 +1145,6 @@
                     <span class="string">&quot;MASQUERADE&quot;</span>
                 ])
                 .<span class="ident">output</span>()
-                .<span class="kw">await</span>
                 .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
                 .<span class="ident">status</span>
         );

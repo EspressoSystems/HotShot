@@ -301,6 +301,21 @@
 <span id="295">295</span>
 <span id="296">296</span>
 <span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -330,10 +345,21 @@
     <span class="ident">art</span>::{<span class="ident">async_spawn</span>, <span class="ident">async_timeout</span>},
     <span class="ident">bincode::bincode_opts</span>,
 };
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">libp2p::dns::DnsConfig</span> <span class="kw">as</span> <span class="ident">DnsConfig</span>;
+        <span class="kw">use</span> <span class="ident">tcp::TcpTransport</span> <span class="kw">as</span> <span class="ident">TcpTransport</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
+        <span class="kw">use</span> <span class="ident">libp2p::dns::TokioDnsConfig</span> <span class="kw">as</span> <span class="ident">DnsConfig</span>;
+        <span class="kw">use</span> <span class="ident">tcp::TokioTcpTransport</span> <span class="kw">as</span> <span class="ident">TcpTransport</span>;
+    } <span class="kw">else</span> {
+        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+    }
+
+}
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">build_multiaddr</span>,
     <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},
-    <span class="ident">dns</span>,
     <span class="ident">gossipsub::TopicHash</span>,
     <span class="ident">identify::IdentifyEvent</span>,
     <span class="ident">identity::Keypair</span>,
@@ -496,14 +522,18 @@
 <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">gen_transport</span>(
     <span class="ident">identity</span>: <span class="ident">Keypair</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Boxed</span><span class="op">&lt;</span>(<span class="ident">PeerId</span>, <span class="ident">StreamMuxerBox</span>)<span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">dns_tcp</span> <span class="op">=</span> <span class="ident">dns::DnsConfig::system</span>(<span class="ident">tcp::TcpTransport::new</span>(
-            <span class="ident">tcp::GenTcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>),
-        ));
-        <span class="ident">dns_tcp</span>
+    <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
+        <span class="kw">let</span> <span class="ident">dns_tcp</span> <span class="op">=</span> <span class="ident">DnsConfig::system</span>(<span class="ident">TcpTransport::new</span>(<span class="ident">tcp::GenTcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>)));
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span>
+        <span class="kw">return</span> <span class="ident">dns_tcp</span>
             .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">NetworkError::TransportLaunch</span> { <span class="ident">source</span>: <span class="ident">e</span> })<span class="question-mark">?</span>
-    };
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">NetworkError::TransportLaunch</span> { <span class="ident">source</span>: <span class="ident">e</span> });
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span>
+        <span class="kw">return</span> <span class="ident">dns_tcp</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">NetworkError::TransportLaunch</span> { <span class="ident">source</span>: <span class="ident">e</span> });
+    }
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// keys for signing messages</span>
     <span class="kw">let</span> <span class="ident">noise_keys</span> <span class="op">=</span> <span class="ident">noise::Keypair</span>::<span class="op">&lt;</span><span class="ident">noise::X25519Spec</span><span class="op">&gt;</span><span class="ident">::new</span>()
