@@ -204,17 +204,18 @@ pub fn gen_multiaddr(port: u16) -> Multiaddr {
 pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
-    let transport = loop {
+    let transport = async move {
         let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::GenTcpConfig::new().nodelay(true)));
 
         #[cfg(feature = "async-std-executor")]
-        break dns_tcp
+        return dns_tcp
             .await
-            .map_err(|e| NetworkError::TransportLaunch { source: e })?;
+            .map_err(|e| NetworkError::TransportLaunch { source: e });
 
         #[cfg(feature = "tokio-executor")]
-        break dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e })?;
-    };
+        return dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
+    }
+    .await?;
 
     // keys for signing messages
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
