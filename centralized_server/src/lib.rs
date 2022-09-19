@@ -613,11 +613,6 @@ pub trait TcpStreamUtilWithRecv {
                 target_len: 4,
             })?;
         let len = u32::from_le_bytes(len_buffer) as usize;
-        tracing::error!(
-            "REMOVE THIS {:?} {} recv with size {len}",
-            std::thread::current().id(),
-            async_std::task::current().id(),
-        );
         let bincode_buffer = self.recv_raw_all(len).await?;
         bincode_opts()
             .deserialize::<M>(&bincode_buffer)
@@ -631,21 +626,11 @@ pub trait TcpStreamUtilWithRecv {
         while remaining > 0 {
             let mut buffer = [0u8; 1024];
             let read_len = std::cmp::min(remaining, 1024);
-            tracing::error!(
-                "REMOVE THIS {:?} {} reading {read_len} bytes",
-                std::thread::current().id(),
-                async_std::task::current().id(),
-            );
             let received = self
                 .read_stream()
                 .read(&mut buffer[..read_len])
                 .await
                 .context(IoSnafu)?;
-            tracing::error!(
-                "REMOVE THIS {:?} {} received {received} bytes",
-                std::thread::current().id(),
-                async_std::task::current().id(),
-            );
             result.append(&mut buffer[..received].to_vec());
             if !recv_all && received < read_len {
                 break;
@@ -674,12 +659,6 @@ pub trait TcpStreamUtilWithSend {
         let bytes = bincode_opts()
             .serialize(&m)
             .expect("Could not serialize message");
-        tracing::error!(
-            "REMOVE THIS {:?} {} send with size {}",
-            std::thread::current().id(),
-            async_std::task::current().id(),
-            bytes.len()
-        );
         let len_bytes = (bytes.len() as u32).to_le_bytes();
         self.write_stream()
             .write_all(&len_bytes)
