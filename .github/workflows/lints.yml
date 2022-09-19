@@ -40,4 +40,4 @@ jobs:
         run: |
              cargo clippy --workspace --all-targets --no-default-features --features=full-ci --bins --tests --examples -- -D warnings
              cargo clean
-             cargo clippy --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings
+             cargo clippy --workspace --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings

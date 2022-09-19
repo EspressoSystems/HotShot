@@ -503,6 +503,7 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
+                #[cfg(feature = "async-std-executor")]
                 #[test]
                 fn $fn_name($($args)+) {
                     gen_inner_fn!($TEST_TYPE, $e);
@@ -518,7 +519,7 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
-                #[cfg(feature = "slow-tests")]
+                #[cfg(all(feature = "slow-tests", feature = "async-std-executor"))]
                 #[test]
                 fn $fn_name($($args)+) {
                     gen_inner_fn!($TEST_TYPE, $e);
@@ -535,6 +536,7 @@ macro_rules! cross_test {
                 }
                 )]
                 #[test]
+                #[cfg(feature = "async-std-executor")]
                 #[ignore]
                 fn $fn_name($($args)+) {
                     gen_inner_fn!($TEST_TYPE, $e);
@@ -550,7 +552,7 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
-                #[cfg(feature = "slow-tests")]
+                #[cfg(all(feature = "slow-tests", feature = "async-std-executor"))]
                 #[test]
                 #[ignore]
                 fn $fn_name($($args)+) {
@@ -559,30 +561,45 @@ macro_rules! cross_test {
         }
     };
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: false, args: ) => {
-        #[test]
-        fn $fn_name() {
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        #[cfg_attr(feature = "async-std-executor", async_std::test)]
+        async fn $fn_name() {
             gen_inner_fn!($TEST_TYPE, $e);
         }
     };
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: true, slow: true, args: ) => {
         #[cfg(feature = "slow-tests")]
-        #[test]
-        fn $fn_name() {
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        #[cfg_attr(feature = "async-std-executor", async_std::test)]
+        async fn $fn_name() {
             gen_inner_fn!($TEST_TYPE, $e);
         }
     };
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: false, args: ) => {
-        #[test]
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        #[cfg_attr(feature = "async-std-executor", async_std::test)]
         #[ignore]
-        fn $fn_name() {
+        async fn $fn_name() {
             gen_inner_fn!($TEST_TYPE, $e);
         }
     };
     ($TEST_TYPE:ty, $fn_name:ident, $e:expr, keep: false, slow: true, args: ) => {
         #[cfg(feature = "slow-tests")]
-        #[test]
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
         #[ignore]
-        fn $fn_name() {
+        async fn $fn_name() {
             gen_inner_fn!($TEST_TYPE, $e);
         }
     };
