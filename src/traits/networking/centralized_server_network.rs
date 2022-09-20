@@ -40,6 +40,7 @@ use std::{
     cmp,
     collections::{hash_map::Entry, BTreeSet, HashMap},
     net::{Ipv4Addr, SocketAddr},
+    num::NonZeroUsize,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -851,7 +852,19 @@ async fn run_background<K: SignatureKey>(
             },
             result = to_background.recv_async().fuse() => {
                 let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
-                stream.send(msg).await?;
+                let (header, payload) = msg;
+                let expect_payload = &header.payload_len();
+                if let Some(payload_expected_len) = *expect_payload {
+                    if payload.len() != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
+                        tracing::warn!(?header, "expected payload of {payload_expected_len} bytes, got {} bytes", payload.len());
+                    }
+                }
+                stream.send(header).await?;
+                if payload.len() > 0 {
+                    stream.send_raw(&payload, payload.len()).await?;
+                }
+
+
                 if let Some(confirm) = confirm {
                     let _ = confirm.send_async(()).await;
                 }
