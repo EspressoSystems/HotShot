@@ -173,8 +173,10 @@ async fn main() {
 
         match view_results {
             Ok((state, blocks)) => {
-                for (account, balance) in &state[0].balances {
-                    debug!("    - {}: {}", account, balance);
+                if let Some(state) = state.get(0) {
+                    for (account, balance) in &state.balances {
+                        debug!("    - {}: {}", account, balance);
+                    }
                 }
                 for block in blocks {
                     total_transactions += block.txn_count();
