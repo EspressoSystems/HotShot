@@ -625,6 +625,8 @@
 <span id="619">619</span>
 <span id="620">620</span>
 <span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
@@ -647,7 +649,9 @@
     <span class="ident">types</span>::{<span class="ident">ed25519::Ed25519Priv</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
     <span class="ident">HotShot</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{<span class="ident">Run</span>, <span class="ident">RunResults</span>, <span class="ident">TcpStreamUtil</span>};
+<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{
+    <span class="ident">Run</span>, <span class="ident">RunResults</span>, <span class="ident">TcpStreamUtil</span>, <span class="ident">TcpStreamUtilWithRecv</span>, <span class="ident">TcpStreamUtilWithSend</span>,
+};
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">traits</span>::{
         <span class="ident">network::NetworkingImplementation</span>,
