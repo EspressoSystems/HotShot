@@ -50,6 +50,10 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 let run = toml::from_str::<NetworkConfigFile>(&str).expect("Invalid TOML");
                 let mut run: NetworkConfig<Ed25519Pub> = run.into();
 
+                if !is_libp2p {
+                    run.libp2p_config = None;
+                }
+
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
                         let private_key =
