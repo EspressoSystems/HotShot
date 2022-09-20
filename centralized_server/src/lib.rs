@@ -719,7 +719,7 @@ impl Drop for TcpStreamSendUtil {
                 if #[cfg(feature = "async-std-executor")] {
                     let _ = self.stream.shutdown(Shutdown::Write);
                 } else if #[cfg(feature = "tokio-executor")] {
-                    let _ = self.stream.shutdown();
+                    let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
                 } else {
                     std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
                 }
@@ -763,7 +763,7 @@ impl Drop for TcpStreamUtil {
                 if #[cfg(feature = "async-std-executor")] {
                     let _ = self.stream.shutdown(Shutdown::Both);
                 } else if #[cfg(feature = "tokio-executor")] {
-                    let _ = self.stream.shutdown();
+                    let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
                 } else {
                     std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
                 }

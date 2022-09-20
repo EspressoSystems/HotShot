@@ -57,11 +57,7 @@ async fn run_client<K: SignatureKey + 'static>(
         async move {
             while let Ok(msg) = receiver.recv_async().await {
                 let FromBackground { header, payload } = msg;
-                let payload_len = if payload.is_some() {
-                    payload.as_ref().unwrap().len()
-                } else {
-                    0
-                };
+                let payload_len = payload.as_ref().map(|p| p.len()).unwrap_or(0);
                 if let Some(payload_expected_len) = header.payload_len() {
                     if payload_len != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
                         warn!(?header, "expecting {payload_expected_len} bytes, but payload has {payload_len} bytes");

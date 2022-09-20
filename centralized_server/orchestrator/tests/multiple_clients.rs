@@ -129,6 +129,8 @@ async fn multiple_clients() {
         let payload = second_client.recv_raw(payload_len.into()).await.unwrap();
         assert!(payload.len() == direct_message_len);
         assert_eq!(payload, direct_message);
+    } else {
+        panic!("Expected payload");
     }
 
     let broadcast_message = vec![50, 40, 30, 20, 10];
@@ -173,6 +175,8 @@ async fn multiple_clients() {
         let payload = first_client.recv_raw((*payload_len).into()).await.unwrap();
         assert!(payload.len() == broadcast_message_len);
         assert_eq!(payload, broadcast_message);
+    } else {
+        panic!("Expected payload");
     }
 
     // Disconnect the second client
