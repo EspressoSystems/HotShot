@@ -1,12 +1,12 @@
 use crate::{
-    config::ClientConfig, split_stream, Error, FromServer, Run, TcpStreamRecvUtil,
-    TcpStreamSendUtil, ToBackground, ToServer,
+    config::ClientConfig, split_stream, Error, FromBackground, Run, TcpStreamRecvUtil,
+    TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::art::async_spawn;
-use std::net::SocketAddr;
-use tracing::debug;
+use std::{net::SocketAddr, num::NonZeroUsize};
+use tracing::{debug, warn};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
@@ -50,15 +50,37 @@ async fn run_client<K: SignatureKey + 'static>(
 ) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, receiver) = flume::unbounded();
+    let (sender, receiver) = flume::unbounded::<FromBackground<K>>();
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
         let mut send_stream = TcpStreamSendUtil::new(write_stream);
         async move {
             while let Ok(msg) = receiver.recv_async().await {
-                if let Err(e) = send_stream.send(msg).await {
+                let FromBackground { header, payload } = msg;
+                let payload_len = payload.as_ref().map(|p| p.len()).unwrap_or(0);
+                if let Some(payload_expected_len) = header.payload_len() {
+                    if payload_len != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
+                        warn!(?header, "expecting {payload_expected_len} bytes, but payload has {payload_len} bytes");
+                        break;
+                    }
+                } else if payload_len > 0 {
+                    warn!(
+                        ?header,
+                        "expecting no payload, but payload has {payload_len} bytes"
+                    );
+                    break;
+                }
+                if let Err(e) = send_stream.send(header).await {
                     debug!("Lost connection to {:?}: {:?}", address, e);
                     break;
+                }
+                if let Some(payload) = payload {
+                    if !payload.is_empty() {
+                        if let Err(e) = send_stream.send_raw(&payload, payload.len()).await {
+                            debug!("Lost connection to {:?}: {:?}", address, e);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -106,10 +128,7 @@ async fn run_client<K: SignatureKey + 'static>(
             // The client requested the config
             (ToServer::GetConfig, _) => {
                 sender
-                    .send_async(FromServer::Config {
-                        config: config.clone(),
-                        run,
-                    })
+                    .send_async(FromBackground::config(config.clone(), run))
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -118,27 +137,62 @@ async fn run_client<K: SignatureKey + 'static>(
                 debug!("{:?} received message but is not identified yet", address);
             }
             // Client wants to broadcast a message
-            (ToServer::Broadcast { message }, true) => {
+            (ToServer::Broadcast { message_len }, true) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingBroadcast {
                         run,
-                        sender,
-                        message,
+                        sender: sender.clone(),
+                        message_len,
                     })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
+                let mut remaining = message_len as usize;
+                while remaining > 0 {
+                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    remaining -= message_chunk.len();
+                    to_background
+                        .send_async(ToBackground::IncomingBroadcastChunk {
+                            run,
+                            sender: sender.clone(),
+                            message_chunk,
+                        })
+                        .await
+                        .map_err(|_| Error::BackgroundShutdown)?;
+                }
             }
             // Client wants to send a direct message to another client
-            (ToServer::Direct { message, target }, true) => {
+            (
+                ToServer::Direct {
+                    message_len,
+                    target,
+                },
+                true,
+            ) => {
+                let sender = parent_key.clone().unwrap();
                 to_background
                     .send_async(ToBackground::IncomingDirectMessage {
                         run,
-                        receiver: target,
-                        message,
+                        sender: sender.clone(),
+                        receiver: target.clone(),
+                        message_len,
                     })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
+                let mut remaining = message_len as usize;
+                while remaining > 0 {
+                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    remaining -= message_chunk.len();
+                    to_background
+                        .send_async(ToBackground::IncomingDirectMessageChunk {
+                            run,
+                            sender: sender.clone(),
+                            receiver: target.clone(),
+                            message_chunk,
+                        })
+                        .await
+                        .map_err(|_| Error::BackgroundShutdown)?;
+                }
             }
             // Client wants to know how many clients are connected in the current run
             (ToServer::RequestClientCount, true) => {

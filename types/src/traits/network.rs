@@ -89,6 +89,8 @@ pub enum NetworkError {
     IdentityHandshake,
     /// The underlying connection has been shut down
     ShutDown,
+    /// An underlying flume channel has disconnected
+    ChannelDisconnected,
 }
 
 /// Describes, generically, the behaviors a networking implementation must have

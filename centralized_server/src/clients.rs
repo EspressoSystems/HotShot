@@ -1,18 +1,18 @@
-use crate::{FromServer, Run};
+use crate::{FromBackground, Run};
 use flume::Sender;
 use futures::FutureExt;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
-pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, Sender<FromServer<K>>>>);
+pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K>>>>);
 
 impl<K: SignatureKey + PartialEq> Clients<K> {
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub async fn broadcast(&mut self, run: Run, msg: FromServer<K>) {
+    pub async fn broadcast(&mut self, run: Run, msg: FromBackground<K>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let futures = futures::future::join_all(clients.iter().map(|(id, sender)| {
@@ -28,7 +28,12 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         self.prune_nodes(run, keys_to_remove).await;
     }
 
-    pub async fn broadcast_except_self(&mut self, run: Run, sender_key: K, message: FromServer<K>) {
+    pub async fn broadcast_except_self(
+        &mut self,
+        run: Run,
+        sender_key: K,
+        message: FromBackground<K>,
+    ) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let futures = futures::future::join_all(clients.iter().filter_map(|(id, sender)| {
@@ -56,7 +61,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         }
     }
 
-    pub async fn direct_message(&mut self, run: Run, receiver: K, msg: FromServer<K>) {
+    pub async fn direct_message(&mut self, run: Run, receiver: K, msg: FromBackground<K>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let receiver = OrdKey::from(receiver);
@@ -82,7 +87,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
             }
             let mut futures = Vec::with_capacity(clients.len() * clients_to_remove.len());
             for client in clients_to_remove {
-                let message = FromServer::NodeDisconnected { key: client.key };
+                let message = FromBackground::node_disconnected(client.key);
                 futures.extend(clients.iter().map(|(id, sender)| {
                     sender
                         .send_async(message.clone())
@@ -101,7 +106,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         self.0.get(run.0).map(|r| r.len()).unwrap_or(0)
     }
 
-    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromServer<K>>) {
+    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromBackground<K>>) {
         self.ensure_run_exists(run);
         self.0[run.0].insert(key.into(), sender);
     }

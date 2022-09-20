@@ -67,8 +67,8 @@ hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", d
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils", version = "0.1.0", default-features = false, features = ["logging-utils"] }
+itertools = "0.10"
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
-
 libp2p = { version = "0.48.0", default-features = false, features = [
     "autonat",
     "deflate",

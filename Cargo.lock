@@ -1782,6 +1782,7 @@ dependencies = [
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
+ "itertools",
  "libp2p",
  "libp2p-networking",
  "rand 0.8.5",
@@ -1801,6 +1802,7 @@ name = "hotshot-centralized-server"
 version = "0.1.1"
 dependencies = [
  "async-std",
+ "async-trait",
  "bincode",
  "cfg-if",
  "commit",
