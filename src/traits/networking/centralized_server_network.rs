@@ -860,7 +860,7 @@ async fn run_background<K: SignatureKey>(
                     }
                 }
                 stream.send(header).await?;
-                if payload.len() > 0 {
+                if !payload.is_empty() {
                     stream.send_raw(&payload, payload.len()).await?;
                 }
 
