@@ -94,6 +94,27 @@ ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FO
 
 The specification and research paper is available in the [papers](https://github.com/EspressoSystems/papers/tree/main/hotshot-paper) repository.
 
+# Tokio-console
+
+To use tokio-console, drop into the console shell:
+
+```
+nix develop .#consoleShell
+```
+
+Then, run an example. For example:
+
+```
+BOOTSTRAP_ADDRS="0.us-east-2.cluster.aws.espresso.network:9000,1.us-east-2.cluster.aws.espresso.network:9000,2.us-east-2.cluster.aws.espresso.network:9000,3.us-east-2.cluster.aws.espresso.network:9000,4.us-east-2.cluster.aws.espresso.network:9000,5.us-east-2.cluster.aws.espresso.network:9000,6.us-east-2.cluster.aws.espresso.network:9000" START_TIMESTAMP="2022-09-09 15:42:00 -04:00:00" BOOTSTRAP_MESH_N_HIGH=50 BOOTSTRAP_MESH_N_LOW=20 BOOTSTRAP_MESH_OUTBOUND_MIN=15 BOOTSTRAP_MESH_N=30 MESH_N_HIGH=50 MESH_N_LOW=20 MESH_OUTBOUND_MIN=15 MESH_N=30 NEXT_VIEW_TIMEOUT=10 PROPOSE_MIN_ROUND_TIME=1 PROPOSE_MAX_ROUND_TIME=10 cargo run  --release --features=tokio-executor,demo --no-default-features --example multi-machine-libp2p -- --num_nodes=7   --num_txn_per_round=200  --online_time=20 --bound_addr=0.0.0.0:9000 --seed=1234   --node_idx=6 --padding 30 --num_bootstrap 30
+````
+
+On a separate terminal, also drop into the console shell and start tokio-console:
+```
+nix develop .#consoleShell -c tokio-console
+```
+
+This second window should now display task usage.
+
 # Resource Usage Statistics
 
 To generate usage stats:

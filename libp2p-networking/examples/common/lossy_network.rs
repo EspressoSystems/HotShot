@@ -1,13 +1,4 @@
 use super::ExecutionEnvironment;
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::process::Command;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::process::Command;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use futures::TryStreamExt;
 use hotshot_utils::art::async_spawn;
 use netlink_packet_route::DecodeError;
@@ -21,6 +12,7 @@ use rtnetlink::{
     NETNS_PATH,
 };
 use snafu::{ResultExt, Snafu};
+use std::process::Command;
 use std::{
     fs::File,
     net::{AddrParseError, Ipv4Addr},
@@ -404,7 +396,6 @@ impl IsolationConfig {
             Command::new("iptables")
                 .args(["-A", "FORWARD", "-o", eth_name, "-i", "br0", "-j", "ACCEPT"])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -414,7 +405,6 @@ impl IsolationConfig {
             Command::new("iptables")
                 .args(["-A", "FORWARD", "-i", eth_name, "-o", "br0", "-j", "ACCEPT"])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -436,7 +426,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -455,7 +444,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -474,7 +462,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -508,7 +495,6 @@ impl IsolationConfig {
             Command::new("iptables")
                 .args(["-D", "FORWARD", "-o", &eth_name, "-i", "br0", "-j", "ACCEPT"])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -518,7 +504,6 @@ impl IsolationConfig {
             Command::new("iptables")
                 .args(["-D", "FORWARD", "-i", &eth_name, "-o", "br0", "-j", "ACCEPT"])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -539,7 +524,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -558,7 +542,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );
@@ -577,7 +560,6 @@ impl IsolationConfig {
                     "MASQUERADE"
                 ])
                 .output()
-                .await
                 .context(IoSnafu)?
                 .status
         );

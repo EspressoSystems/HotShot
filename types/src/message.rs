@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         BlockContents, StateContents,
@@ -148,8 +148,8 @@ pub struct Proposal<STATE: StateContents> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    #[serde(deserialize_with = "<Leaf<STATE> as Deserialize>::deserialize")]
-    pub leaf: Leaf<STATE>,
+    #[serde(deserialize_with = "<ProposalLeaf<STATE> as Deserialize>::deserialize")]
+    pub leaf: ProposalLeaf<STATE>,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
 }

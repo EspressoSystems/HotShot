@@ -39,21 +39,14 @@ pub mod types;
 mod tasks;
 mod utils;
 
+use hotshot_utils::art::async_spawn_local;
+
 use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, EventType, HotShotHandle},
 };
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::task::spawn_local;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::task::spawn_local;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
@@ -408,7 +401,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
         let kind = kind.into();
-        spawn_local(async move {
+        async_spawn_local(async move {
             if inner
                 .networking
                 .broadcast_message(Message { sender: pk, kind })
@@ -753,7 +746,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
-        spawn_local(async move {
+        async_spawn_local(async move {
             inner
                 .networking
                 .message_node(

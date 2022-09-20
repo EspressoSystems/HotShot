@@ -200,9 +200,14 @@ async fn multiple_clients() {
 
     // Shut down the server
     shutdown.send(()).unwrap();
-    async_timeout(Duration::from_secs(5), server_join_handle)
-        .await
-        .expect("Could not shut down server");
+
+    let f = async_timeout(Duration::from_secs(5), server_join_handle).await;
+
+    #[cfg(feature = "async-std-executor")]
+    f.unwrap();
+
+    #[cfg(feature = "tokio-executor")]
+    f.unwrap().unwrap();
 }
 
 #[derive(Debug)]

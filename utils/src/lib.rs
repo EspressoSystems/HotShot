@@ -46,7 +46,7 @@ cfg_if::cfg_if! {
             use async_std::prelude::FutureExt;
             pub use async_std::{
                 main as async_main,
-                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn},
+                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local},
                 test as async_test,
             };
             /// executor stream abstractions
@@ -83,9 +83,11 @@ cfg_if::cfg_if! {
             pub use tokio::{
                 main as async_main,
                 task::spawn as async_spawn,
+                task::spawn as async_spawn_local,
                 test as async_test,
                 time::{sleep as async_sleep, timeout as async_timeout},
             };
+
             /// executor stream abstractions
             pub mod stream {
                 /// executor strean timeout abstractions
@@ -154,6 +156,7 @@ pub mod test_util {
     }
 
     /// Set up logging exactly once
+    #[allow(clippy::too_many_lines)]
     pub fn setup_logging() {
         INIT.call_once(|| {
             let internal_event_filter =
@@ -181,28 +184,43 @@ pub mod test_util {
                     Err(VarError::NotPresent) => FmtSpan::NONE,
                 };
             let fmt_env = var("RUST_LOG_FORMAT").map(|x| x.to_lowercase());
+
+            #[cfg(feature = "tokio-executor")]
+            let console_layer = var("TOKIO_CONSOLE_ENABLED") == Ok("true".to_string());
+
             match fmt_env.as_deref().map(|x| x.trim()) {
                 Ok("full") => {
                     let fmt_layer = fmt::Layer::default()
                         .with_span_events(internal_event_filter)
                         .with_ansi(true)
                         .with_test_writer();
-                    Registry::default()
+                    let registry = Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
-                        .with(fmt_layer)
-                        .init();
+                        .with(fmt_layer);
+
+                    #[cfg(feature = "tokio-executor")]
+                    if console_layer {
+                        registry.with(console_subscriber::spawn()).init();
+                        return;
+                    }
+                    registry.init();
                 },
                 Ok("json") => {
                     let fmt_layer = fmt::Layer::default()
                         .with_span_events(internal_event_filter)
                         .json()
                         .with_test_writer();
-                    Registry::default()
+                    let registry = Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
-                        .with(fmt_layer)
-                        .init();
+                        .with(fmt_layer);
+                    #[cfg(feature = "tokio-executor")]
+                    if console_layer {
+                        registry.with(console_subscriber::spawn()).init();
+                        return;
+                    }
+                    registry.init();
                 },
                 Ok("compact") => {
                     let fmt_layer = fmt::Layer::default()
@@ -210,11 +228,16 @@ pub mod test_util {
                         .with_ansi(true)
                         .compact()
                         .with_test_writer();
-                    Registry::default()
+                    let registry = Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
-                        .with(fmt_layer)
-                        .init();
+                        .with(fmt_layer);
+                    #[cfg(feature = "tokio-executor")]
+                    if console_layer {
+                        registry.with(console_subscriber::spawn()).init();
+                        return;
+                    }
+                    registry.init();
                 },
                 _ => {
                     let fmt_layer = fmt::Layer::default()
@@ -222,11 +245,16 @@ pub mod test_util {
                         .with_ansi(true)
                         .pretty()
                         .with_test_writer();
-                    Registry::default()
+                    let registry = Registry::default()
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
-                        .with(fmt_layer)
-                        .init();
+                        .with(fmt_layer);
+                    #[cfg(feature = "tokio-executor")]
+                    if console_layer {
+                        registry.with(console_subscriber::spawn()).init();
+                        return;
+                    }
+                    registry.init();
                 },
             };
 
