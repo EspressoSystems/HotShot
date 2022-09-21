@@ -12,6 +12,7 @@ full-ci = ["async-std-executor", "logging-utils"]
 tokio-ci = ["tokio-executor", "logging-utils"]
 async-std-executor = ["dep:async-std"]
 tokio-executor = ["dep:tokio", "dep:tokio-stream", "dep:console-subscriber"]
+profiling = []
 
 
 # needed for logging feature

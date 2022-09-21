@@ -24,6 +24,7 @@ docs = []
 doc-images = []
 full-ci = ["async-std-executor", "demo", "docs", "doc-images", "hotshot-testing"]
 tokio-ci = ["tokio-executor", "demo", "docs", "doc-images", "hotshot-testing"]
+profiling = ["hotshot-utils/profiling"]
 hotshot-testing = []
 tokio-executor = [
         "dep:tokio",

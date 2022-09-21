@@ -28,6 +28,7 @@ tokio-executor = [
     "libp2p/dns-tokio",
     "libp2p/mdns-tokio",
     "libp2p/tcp-tokio"]
+profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
 async-lock = "2.5"

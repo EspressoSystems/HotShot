@@ -87,15 +87,22 @@ cfg_if::cfg_if! {
                 time::{sleep as async_sleep, timeout as async_timeout},
             };
 
-            /// spawn and log task id
-            pub fn async_spawn<T>(future: T) -> tokio::task::JoinHandle<T::Output>
-                where
-                T: futures::Future + Send + 'static,
-                T::Output: Send + 'static, {
-                    let async_span = tracing::error_span!("Task Root", tsk_id = tracing::field::Empty);
-                    let join_handle = tokio::task::spawn(tracing::Instrument::instrument(async{future.await}, async_span.clone()));
-                    async_span.record("tsk_id", tracing::field::display(join_handle.id()));
-                    join_handle
+
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "profiling")] {
+                    /// spawn and log task id
+                    pub fn async_spawn<T>(future: T) -> tokio::task::JoinHandle<T::Output>
+                        where
+                        T: futures::Future + Send + 'static,
+                        T::Output: Send + 'static, {
+                            let async_span = tracing::error_span!("Task Root", tsk_id = tracing::field::Empty);
+                            let join_handle = tokio::task::spawn(tracing::Instrument::instrument(async{future.await}, async_span.clone()));
+                            async_span.record("tsk_id", tracing::field::display(join_handle.id()));
+                            join_handle
+                        }
+                } else {
+                    pub use tokio::spawn as async_spawn;
+                }
             }
 
             /// Generates tokio runtime then provides `block_on` with `tokio` that matches `async_std::task::block_on`

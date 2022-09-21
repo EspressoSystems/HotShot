@@ -9,6 +9,7 @@ full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
 async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
 async-std = { version = "1.12", optional = true }
