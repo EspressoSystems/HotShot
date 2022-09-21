@@ -23,5 +23,5 @@ futures = "0.3.24"
 hotshot-types = { path = "../types", default-features = false  }
 hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
 snafu = "0.7.0"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", features = ["full", "tracing"], optional = true }
 tracing = "0.1.36"

@@ -46,7 +46,7 @@ cfg_if::cfg_if! {
             use async_std::prelude::FutureExt;
             pub use async_std::{
                 main as async_main,
-                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local},
+                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local, block_on as async_block_on_with_runtime},
                 test as async_test,
             };
             /// executor stream abstractions
@@ -82,11 +82,32 @@ cfg_if::cfg_if! {
         pub mod art {
             pub use tokio::{
                 main as async_main,
-                task::spawn as async_spawn,
                 task::spawn as async_spawn_local,
                 test as async_test,
                 time::{sleep as async_sleep, timeout as async_timeout},
             };
+
+            /// spawn and log task id
+            pub fn async_spawn<T>(future: T) -> tokio::task::JoinHandle<T::Output>
+                where
+                T: futures::Future + Send + 'static,
+                T::Output: Send + 'static, {
+                    let async_span = tracing::error_span!("Task Root", tsk_id = tracing::field::Empty);
+                    let join_handle = tokio::task::spawn(tracing::Instrument::instrument(async{future.await}, async_span.clone()));
+                    async_span.record("tsk_id", tracing::field::display(join_handle.id()));
+                    join_handle
+            }
+
+            /// Generates tokio runtime then provides `block_on` with `tokio` that matches `async_std::task::block_on`
+            /// # Panics
+            /// If we're already in a runtime
+            pub fn async_block_on_with_runtime<F, T>(future: F) -> T
+            where
+                F: std::future::Future<Output = T>,
+            {
+                tokio::runtime::Runtime::new().unwrap().block_on(future)
+            }
+
 
             /// executor stream abstractions
             pub mod stream {

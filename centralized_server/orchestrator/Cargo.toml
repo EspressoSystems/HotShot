@@ -24,7 +24,7 @@ hotshot = { path = "../../", default-features = false }
 hotshot-centralized-server = { path = "../", default-features = false  }
 hotshot-types = { path = "../../types", default-features = false  }
 hotshot-utils = { path = "../../utils", default-features = false  }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", features = ["full", "tracing"], optional = true }
 toml = "0.5.9"
 tracing = "0.1.36"
 
