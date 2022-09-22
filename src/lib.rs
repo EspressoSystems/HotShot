@@ -37,10 +37,12 @@ pub mod traits;
 pub mod types;
 
 mod tasks;
-mod utils;
 
-use hotshot_utils::art::async_spawn_local;
-use hotshot_types::{traits::storage::ViewEntry, error::StorageSnafu};
+use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
+use hotshot_utils::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use snafu::ResultExt;
 
 use crate::{
@@ -52,13 +54,12 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use flume::{Receiver, Sender};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
     constants::GENESIS_VIEW,
-    data::{ViewNumber, fake_commitment},
+    data::{fake_commitment, ViewNumber},
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -76,7 +77,7 @@ use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     num::NonZeroUsize,
-    sync::Arc,
+    sync::{atomic::Ordering, Arc},
     time::Duration,
 };
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -161,10 +162,10 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     next_leader_channel_map: Arc<RwLock<SendToTasks<I>>>,
 
     /// for sending messages to network lookup task
-    send_network_lookup: Sender<Option<ViewNumber>>,
+    send_network_lookup: UnboundedSender<Option<ViewNumber>>,
 
     /// for receiving messages in the network lookup task
-    recv_network_lookup: Receiver<Option<ViewNumber>>,
+    recv_network_lookup: UnboundedReceiver<Option<ViewNumber>>,
 
     /// uid for instrumentation
     id: u64,
@@ -174,7 +175,14 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, cluster_public_keys, networking, storage, election, initializer))]
+    #[instrument(skip(
+        private_key,
+        cluster_public_keys,
+        networking,
+        storage,
+        election,
+        initializer
+    ))]
     pub async fn new(
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
@@ -185,7 +193,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>
+        initializer: HotShotInitializer<I::State>,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
 
@@ -217,8 +225,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let anchored_leaf = initializer.inner;
 
         // insert to storage
-        inner.storage.append(
-            vec![ ViewEntry::Success(anchored_leaf.clone().into()) ]).await.context(StorageSnafu)?;
+        inner
+            .storage
+            .append(vec![ViewEntry::Success(anchored_leaf.clone().into())])
+            .await
+            .context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
@@ -248,7 +259,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
 
-        let (send_network_lookup, recv_network_lookup) = flume::unbounded();
+        let (send_network_lookup, recv_network_lookup) = unbounded();
 
         Ok(Self {
             id: nonce,
@@ -290,17 +301,17 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     pub async fn timeout_view(
         &self,
         current_view: ViewNumber,
-        send_replica: Sender<ConsensusMessage<I::State>>,
-        send_next_leader: Option<Sender<ConsensusMessage<I::State>>>,
+        send_replica: UnboundedSender<ConsensusMessage<I::State>>,
+        send_next_leader: Option<UnboundedSender<ConsensusMessage<I::State>>>,
     ) {
         let msg = ConsensusMessage::<I::State>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
-            if chan.send_async(msg.clone()).await.is_err() {
+            if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
             }
         };
         // NOTE this should always exist
-        if send_replica.send_async(msg).await.is_err() {
+        if send_replica.send(msg).await.is_err() {
             warn!("Error timing out replica task");
         };
     }
@@ -366,7 +377,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>
+        initializer: HotShotInitializer<I::State>,
     ) -> Result<HotShotHandle<I>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -379,7 +390,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             storage,
             handler,
             election,
-            initializer
+            initializer,
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
@@ -471,13 +482,12 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
-                    .await
-                    .sender_chan;
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                // sends the message if not stale, and if there isn't already a proposal in there
-                if chan.is_empty() && chan.send_async(msg).await.is_err() {
-                    error!("Failed to replica task!");
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed) {
+                    if chan.sender_chan.send(msg).await.is_err() {
+                        warn!("Failed to send to next leader!");
+                    }
                 }
             }
             ConsensusMessage::NextViewInterrupt(_) => {
@@ -528,12 +538,12 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
-                    .await
-                    .sender_chan;
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                if chan.send_async(c).await.is_err() {
-                    warn!("Failed to send to next leader!");
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed) {
+                    if chan.sender_chan.send(c).await.is_err() {
+                        warn!("Failed to send to next leader!");
+                    }
                 }
             }
         }
@@ -842,16 +852,19 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 /// initializer struct for creating starting block
 pub struct HotShotInitializer<STATE: StateContents> {
     /// the leaf specified initialization
-    inner: Leaf<STATE>
+    inner: Leaf<STATE>,
 }
 
 impl<STATE: StateContents> HotShotInitializer<STATE> {
-
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
-        let state = STATE::default().append(&genesis_block).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let state = STATE::default()
+            .append(&genesis_block)
+            .map_err(|err| HotShotError::Misc {
+                context: err.to_string(),
+            })?;
         let view_number = GENESIS_VIEW;
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
@@ -862,21 +875,13 @@ impl<STATE: StateContents> HotShotInitializer<STATE> {
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,
                 state,
-                rejected: Vec::new()
-            }
-
+                rejected: Vec::new(),
+            },
         })
-
     }
 
     /// reload previous state based on most recent leaf
     pub fn from_reload(anchor_leaf: Leaf<STATE>) -> Self {
-        Self {
-            inner: anchor_leaf
-        }
-
+        Self { inner: anchor_leaf }
     }
-
 }
-
-

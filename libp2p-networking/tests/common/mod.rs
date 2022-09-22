@@ -1,6 +1,6 @@
-use flume::RecvError;
 use futures::{future::join_all, Future};
 use hotshot_utils::art::{async_sleep, async_timeout};
+use hotshot_utils::channel::RecvError;
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{

@@ -16,6 +16,7 @@ cfg_if::cfg_if! {
 
 use clap::Parser;
 use hotshot_utils::art::{async_sleep, async_spawn};
+use hotshot_utils::channel::oneshot;
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
@@ -541,7 +542,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             let conductor_peerid = handle.peer_id();
 
-            let (s, _r) = flume::bounded::<bool>(1);
+            let (s, _r) = oneshot::<bool>();
 
             async_spawn({
                 let handle = handle.clone();
@@ -567,7 +568,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             async_sleep(Duration::from_secs(10)).await;
 
             // kill conductor id broadcast thread
-            s.send_async(true).await.unwrap();
+            s.send(true);
 
             for i in 0..opts.num_gossip {
                 info!("iteration i: {}", i);

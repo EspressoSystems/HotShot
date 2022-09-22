@@ -315,7 +315,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         channel_map
             .channel_map
             .get(&view_number)
-            .map(|chan| chan.receiver_chan.len())
+            .and_then(|chan| chan.receiver_chan.len())
     }
 
     /// Get length of the next leaders's receiver channel
@@ -329,6 +329,6 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         channel_map
             .channel_map
             .get(&view_number)
-            .map(|chan| chan.receiver_chan.len())
+            .and_then(|chan| chan.receiver_chan.len())
     }
 }

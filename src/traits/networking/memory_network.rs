@@ -4,19 +4,19 @@
 //! integration tests.
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
-use crate::utils::ReceiverExt;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::traits::{
-    network::{NetworkChange, TestableNetworkingImplementation},
+    network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn},
     bincode::bincode_opts,
+    channel::{bounded, BoundedReceiver, BoundedSender, SendError},
 };
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -79,20 +79,20 @@ struct MemoryNetworkInner<T, P: SignatureKey + 'static> {
     #[allow(dead_code)]
     pub_key: P,
     /// Input for broadcast messages
-    broadcast_input: RwLock<Option<flume::Sender<Vec<u8>>>>,
+    broadcast_input: RwLock<Option<BoundedSender<Vec<u8>>>>,
     /// Input for direct messages
-    direct_input: RwLock<Option<flume::Sender<Vec<u8>>>>,
+    direct_input: RwLock<Option<BoundedSender<Vec<u8>>>>,
     /// Output for broadcast messages
-    broadcast_output: flume::Receiver<T>,
+    broadcast_output: BoundedReceiver<T>,
     /// Output for direct messages
-    direct_output: flume::Receiver<T>,
+    direct_output: BoundedReceiver<T>,
     /// The master map
     master_map: Arc<MasterMap<T, P>>,
 
     /// Input for network change messages
-    network_changes_input: RwLock<Option<flume::Sender<NetworkChange<P>>>>,
+    network_changes_input: RwLock<Option<BoundedSender<NetworkChange<P>>>>,
     /// Output for network change messages
-    network_changes_output: flume::Receiver<NetworkChange<P>>,
+    network_changes_output: BoundedReceiver<NetworkChange<P>>,
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
@@ -132,11 +132,11 @@ where
         reliability_config: Option<Arc<dyn 'static + NetworkReliability>>,
     ) -> MemoryNetwork<T, P> {
         info!("Attaching new MemoryNetwork");
-        let (broadcast_input, broadcast_task_recv) = flume::bounded(128);
-        let (direct_input, direct_task_recv) = flume::bounded(128);
-        let (broadcast_task_send, broadcast_output) = flume::bounded(128);
-        let (direct_task_send, direct_output) = flume::bounded(128);
-        let (network_changes_input, network_changes_output) = flume::bounded(128);
+        let (broadcast_input, broadcast_task_recv) = bounded(128);
+        let (direct_input, direct_task_recv) = bounded(128);
+        let (broadcast_task_send, broadcast_output) = bounded(128);
+        let (direct_task_send, direct_output) = bounded(128);
+        let (network_changes_input, network_changes_output) = bounded(128);
         let in_flight_message_count = AtomicUsize::new(0);
         trace!("Channels open, spawning background task");
 
@@ -168,7 +168,7 @@ where
                                                 if delay > std::time::Duration::ZERO {
                                                     async_sleep(delay).await;
                                                 }
-                                                let res = dts.send_async(x).await;
+                                                let res = dts.send(x).await;
                                                 if res.is_ok() {
                                                     trace!("Passed message to output queue");
                                                 } else {
@@ -179,7 +179,7 @@ where
                                             }
                                         });
                                     } else {
-                                        let res = dts.send_async(x).await;
+                                        let res = dts.send(x).await;
                                         if res.is_ok() {
                                             trace!("Passed message to output queue");
                                         } else {
@@ -206,7 +206,7 @@ where
                                                 if delay > std::time::Duration::ZERO {
                                                     async_sleep(delay).await;
                                                 }
-                                                let res = bts.send_async(x).await;
+                                                let res = bts.send(x).await;
                                                 if res.is_ok() {
                                                     trace!("Passed message to output queue");
                                                 } else {
@@ -215,7 +215,7 @@ where
                                             }
                                         });
                                     } else {
-                                        let res = bts.send_async(x).await;
+                                        let res = bts.send(x).await;
                                         if res.is_ok() {
                                             trace!("Passed message to output queue");
                                         } else {
@@ -264,28 +264,28 @@ where
     }
 
     /// Send a [`Vec<u8>`] message to the inner `broadcast_input`
-    async fn broadcast_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+    async fn broadcast_input(&self, message: Vec<u8>) -> Result<(), SendError<Vec<u8>>> {
         self.inner
             .in_flight_message_count
             .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.broadcast_input.read().await;
         if let Some(input) = &*input {
-            input.send_async(message).await
+            input.send(message).await
         } else {
-            Err(flume::SendError(message))
+            Err(SendError(message))
         }
     }
 
     /// Send a [`Vec<u8>`] message to the inner `direct_input`
-    async fn direct_input(&self, message: Vec<u8>) -> Result<(), flume::SendError<Vec<u8>>> {
+    async fn direct_input(&self, message: Vec<u8>) -> Result<(), SendError<Vec<u8>>> {
         self.inner
             .in_flight_message_count
             .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.direct_input.read().await;
         if let Some(input) = &*input {
-            input.send_async(message).await
+            input.send(message).await
         } else {
-            Err(flume::SendError(message))
+            Err(SendError(message))
         }
     }
 
@@ -293,12 +293,12 @@ where
     async fn network_changes_input(
         &self,
         message: NetworkChange<P>,
-    ) -> Result<(), flume::SendError<NetworkChange<P>>> {
+    ) -> Result<(), SendError<NetworkChange<P>>> {
         let input = self.inner.network_changes_input.read().await;
         if let Some(input) = &*input {
-            input.send_async(message).await
+            input.send(message).await
         } else {
-            Err(flume::SendError(message))
+            Err(SendError(message))
         }
     }
 }
@@ -390,9 +390,9 @@ impl<
         let ret = self
             .inner
             .broadcast_output
-            .recv_async_drain()
+            .drain_at_least_one()
             .await
-            .ok_or(NetworkError::ShutDown)?;
+            .context(ChannelDisconnectedSnafu)?;
         self.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
@@ -404,7 +404,7 @@ impl<
         let ret = self
             .inner
             .broadcast_output
-            .recv_async()
+            .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)?;
         self.inner
@@ -418,9 +418,9 @@ impl<
         let ret = self
             .inner
             .direct_output
-            .recv_async_drain()
+            .drain_at_least_one()
             .await
-            .ok_or(NetworkError::ShutDown)?;
+            .context(ChannelDisconnectedSnafu)?;
         self.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
@@ -432,7 +432,7 @@ impl<
         let ret = self
             .inner
             .direct_output
-            .recv_async()
+            .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)?;
         self.inner
@@ -454,9 +454,9 @@ impl<
     async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         self.inner
             .network_changes_output
-            .recv_async_drain()
+            .drain_at_least_one()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .context(ChannelDisconnectedSnafu)
     }
 
     async fn shut_down(&self) {

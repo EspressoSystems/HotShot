@@ -7,17 +7,17 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::DashSet;
-use flume::Sender;
 use hotshot_types::traits::{
     network::{
-        FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
-        TestableNetworkingImplementation,
+        ChannelDisconnectedSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
+        NetworkingImplementation, TestableNetworkingImplementation,
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, async_timeout},
     bincode::bincode_opts,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use libp2p_networking::{
     network::{
@@ -40,8 +40,6 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
-
-use crate::utils::ReceiverExt;
 
 /// hardcoded topic of QC used
 pub const QC_TOPIC: &str = "global";
@@ -79,13 +77,13 @@ struct Libp2pNetworkInner<
     /// to public key provided by libp2p
     pubkey_pid_map: RwLock<BiHashMap<P, PeerId>>,
     /// map of known replica peer ids to public keys
-    broadcast_recv: flume::Receiver<M>,
+    broadcast_recv: UnboundedReceiver<M>,
     /// Sender for broadcast messages
-    broadcast_send: flume::Sender<M>,
+    broadcast_send: UnboundedSender<M>,
     /// Sender for direct messages (only used for sending messages back to oneself)
-    direct_send: flume::Sender<M>,
+    direct_send: UnboundedSender<M>,
     /// Receiver for direct messages
-    direct_recv: flume::Receiver<M>,
+    direct_recv: UnboundedReceiver<M>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -268,8 +266,8 @@ impl<
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        let (direct_send, direct_recv) = flume::unbounded();
-        let (broadcast_send, broadcast_recv) = flume::unbounded();
+        let (direct_send, direct_recv) = unbounded();
+        let (broadcast_send, broadcast_recv) = unbounded();
 
         let result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
@@ -396,18 +394,22 @@ impl<
 
     /// task to propagate messages to handlers
     /// terminates on shut down of network
-    fn spawn_event_generator(&self, direct_send: Sender<M>, broadcast_send: Sender<M>) {
+    fn spawn_event_generator(
+        &self,
+        direct_send: UnboundedSender<M>,
+        broadcast_send: UnboundedSender<M>,
+    ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
             let nw_recv = handle.inner.handle.recv_network();
-            while let Ok(msg) = nw_recv.recv_async().await {
+            while let Ok(msg) = nw_recv.recv().await {
                 match msg {
                     GossipMsg(msg, _topic) => {
                         let result: Result<M, _> = bincode_opts().deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
-                                .send_async(result)
+                                .send(result)
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
@@ -418,7 +420,7 @@ impl<
                             .context(FailedToSerializeSnafu);
                         if let Ok(result) = result {
                             direct_send
-                                .send_async(result)
+                                .send(result)
                                 .await
                                 .map_err(|_| NetworkError::ChannelSend)?;
                         }
@@ -474,7 +476,7 @@ impl<
         // send to self?
         self.inner
             .broadcast_send
-            .send_async(message.clone())
+            .send(message.clone())
             .await
             .unwrap();
         self.inner
@@ -494,7 +496,7 @@ impl<
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
-            self.inner.direct_send.send_async(message).await.unwrap();
+            self.inner.direct_send.send(message).await.unwrap();
             return Ok(());
         }
 
@@ -546,9 +548,9 @@ impl<
         } else {
             self.inner
                 .broadcast_recv
-                .recv_async_drain()
+                .drain_at_least_one()
                 .await
-                .ok_or(NetworkError::ShutDown)
+                .context(ChannelDisconnectedSnafu)
         }
     }
 
@@ -559,7 +561,7 @@ impl<
         } else {
             self.inner
                 .broadcast_recv
-                .recv_async()
+                .recv()
                 .await
                 .map_err(|_| NetworkError::ShutDown)
         }
@@ -572,9 +574,9 @@ impl<
         } else {
             self.inner
                 .direct_recv
-                .recv_async_drain()
+                .drain_at_least_one()
                 .await
-                .ok_or(NetworkError::ShutDown)
+                .context(ChannelDisconnectedSnafu)
         }
     }
 
@@ -585,7 +587,7 @@ impl<
         } else {
             self.inner
                 .direct_recv
-                .recv_async()
+                .recv()
                 .await
                 .map_err(|_| NetworkError::ShutDown)
         }

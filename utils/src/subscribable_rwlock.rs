@@ -1,6 +1,6 @@
+use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use flume::{unbounded, Receiver, Sender};
 use futures::executor::block_on;
 use std::fmt;
 
@@ -9,7 +9,7 @@ use std::fmt;
 pub trait ReadView<T: Clone> {
     /// subscribe to state changes. Receive
     /// the updated state upon state change
-    async fn subscribe(&self) -> Receiver<T>;
+    async fn subscribe(&self) -> UnboundedReceiver<T>;
     /// async clone the internal state and return it
     async fn cloned_async(&self) -> T;
     /// clone the internal state and return it
@@ -26,7 +26,7 @@ pub trait ThreadedReadView<T: Clone + Sync + Send>:
 #[derive(Default)]
 pub struct SubscribableRwLock<T: Clone> {
     /// A list of subscribers to the rwlock
-    subscribers: Mutex<Vec<Sender<T>>>,
+    subscribers: Mutex<Vec<UnboundedSender<T>>>,
     /// The lock holding the state
     rw_lock: RwLock<T>,
 }
@@ -35,7 +35,7 @@ impl<T: Clone + Sync + Send + std::fmt::Debug> ThreadedReadView<T> for Subscriba
 
 #[async_trait]
 impl<T: Clone + Send + Sync> ReadView<T> for SubscribableRwLock<T> {
-    async fn subscribe(&self) -> Receiver<T> {
+    async fn subscribe(&self) -> UnboundedReceiver<T> {
         let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
         receiver
@@ -85,7 +85,7 @@ impl<T: Clone> SubscribableRwLock<T> {
         let mut lock = self.subscribers.lock().await;
         let mut idx_to_remove = Vec::new();
         for (idx, sender) in lock.iter().enumerate() {
-            if sender.send(t.clone()).is_err() {
+            if sender.send(t.clone()).await.is_err() {
                 idx_to_remove.push(idx);
             }
         }

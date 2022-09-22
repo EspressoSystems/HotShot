@@ -14,7 +14,6 @@ cfg_if::cfg_if! {
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
-use flume::{Receiver, Sender};
 use futures::{future::BoxFuture, FutureExt};
 use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
@@ -33,6 +32,7 @@ use hotshot_types::traits::{
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
     bincode::bincode_opts,
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
@@ -62,15 +62,15 @@ struct Inner<K: SignatureKey> {
     running: AtomicBool,
     /// A queue of messages to be send to the server. This is emptied by `run_background`.
     /// Each message can optionally have a callback sender that will be invoked when the message is send.
-    sending: Sender<((ToServer<K>, Vec<u8>), Option<Sender<()>>)>,
+    sending: UnboundedSender<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
     /// A loopback sender that will send to `receiving`, for broadcasting to self.
-    receiving_loopback: Sender<(FromServer<K>, Vec<u8>)>,
+    receiving_loopback: UnboundedSender<(FromServer<K>, Vec<u8>)>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
-    receiving: Receiver<(FromServer<K>, Vec<u8>)>,
+    receiving: UnboundedReceiver<(FromServer<K>, Vec<u8>)>,
     /// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
     incoming_queue: RwLock<Vec<(FromServer<K>, Vec<u8>)>>,
     /// a sender used to immediately broadcast the amount of clients connected
-    request_client_count_sender: RwLock<Vec<Sender<u32>>>,
+    request_client_count_sender: RwLock<Vec<OneShotSender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
     run_ready: AtomicBool,
 }
@@ -102,7 +102,7 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
-            .send_async((
+            .send((
                 (
                     ToServer::Broadcast {
                         message_len: message.len() as u64,
@@ -113,7 +113,7 @@ impl<K: SignatureKey> Inner<K> {
             ))
             .await
             .expect("Background thread exited");
-        self.receiving_loopback.send_async((
+        self.receiving_loopback.send((
             FromServer::Broadcast {
                 source: self.own_key.clone(),
                 message_len: message.len() as u64,
@@ -127,7 +127,7 @@ impl<K: SignatureKey> Inner<K> {
     /// Send a direct message to the server.
     async fn direct_message(&self, target: K, message: Vec<u8>) {
         if target == self.own_key {
-            self.receiving_loopback.send_async((
+            self.receiving_loopback.send((
                 FromServer::Direct {
                     source: self.own_key.clone(),
                     message_len: message.len() as u64,
@@ -139,7 +139,7 @@ impl<K: SignatureKey> Inner<K> {
             .expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
         } else {
             self.sending
-                .send_async((
+                .send((
                     (
                         ToServer::Direct {
                             target,
@@ -155,10 +155,10 @@ impl<K: SignatureKey> Inner<K> {
     }
 
     /// Request the client count from the server
-    async fn request_client_count(&self, sender: Sender<u32>) {
+    async fn request_client_count(&self, sender: OneShotSender<u32>) {
         self.request_client_count_sender.write().await.push(sender);
         self.sending
-            .send_async(((ToServer::RequestClientCount, Vec::new()), None))
+            .send(((ToServer::RequestClientCount, Vec::new()), None))
             .await
             .expect("Background thread exited");
     }
@@ -206,8 +206,11 @@ impl<K: SignatureKey> Inner<K> {
             }
         }
         let mut temp_queue = Vec::new();
-        for (i, msg) in itertools::iterate(temp_start_index, |i| i + 1).zip(self.receiving.iter()) {
-            match c(&msg, i, &mut context_map) {
+        let mut i = temp_start_index;
+        while let Ok(msg) = self.receiving.recv().await {
+            let step_outcome = c(&msg, i, &mut context_map);
+            i += 1;
+            match step_outcome {
                 MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {
                     temp_queue.push(msg);
                     continue;
@@ -261,7 +264,10 @@ impl<K: SignatureKey> Inner<K> {
         let mut result = Vec::new();
         let mut context_map: HashMap<K, MsgStepContext> = HashMap::new();
         // pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
-        let temp_queue: Vec<_> = self.receiving.drain().collect();
+        let temp_queue: Vec<_> = self
+            .receiving
+            .drain()
+            .expect("Could not drain the receiver");
         let mut dead_indexes = BTreeSet::new();
 
         incoming_queue
@@ -437,7 +443,7 @@ impl<K: SignatureKey> Inner<K> {
             }
         },
         |_, _| {
-            Err(NetworkError::ChannelDisconnected)
+            Err(NetworkError::NoMessagesInQueue)
         },
 )
         .await
@@ -587,7 +593,7 @@ impl<K: SignatureKey> Inner<K> {
             }
         },
         |_, _| {
-            Err(NetworkError::ChannelDisconnected)
+            Err(NetworkError::NoMessagesInQueue)
         })
         .await
     }
@@ -618,7 +624,7 @@ pub struct CentralizedServerNetwork<K: SignatureKey> {
     /// The inner state
     inner: Arc<Inner<K>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
-    server_shutdown_signal: Option<Arc<Sender<()>>>,
+    server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 impl CentralizedServerNetwork<Ed25519Pub> {
@@ -688,14 +694,14 @@ impl CentralizedServerNetwork<Ed25519Pub> {
 
     /// Send the results for this run to the server
     pub async fn send_results(&self, results: RunResults) {
-        let (sender, receiver) = flume::bounded(1);
+        let (sender, receiver) = oneshot();
         let _result = self
             .inner
             .sending
-            .send_async(((ToServer::Results(results), Vec::new()), Some(sender)))
+            .send(((ToServer::Results(results), Vec::new()), Some(sender)))
             .await;
         // Wait until it's successfully send before shutting down
-        let _ = receiver.recv_async().await;
+        let _ = receiver.recv().await;
     }
 
     /// Returns `true` if the server indicated that the current run was ready to start
@@ -742,8 +748,8 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     where
         F: FnMut() -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> + Send + 'static,
     {
-        let (to_background_sender, to_background) = flume::unbounded();
-        let (from_background_sender, from_background) = flume::unbounded();
+        let (to_background_sender, to_background) = unbounded();
+        let (from_background_sender, from_background) = unbounded();
         let receiving_loopback = from_background_sender.clone();
 
         let inner = Arc::new(Inner {
@@ -788,10 +794,10 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
 
     /// Get the amount of clients that are connected
     pub async fn get_connected_client_count(&self) -> u32 {
-        let (sender, receiver) = flume::bounded(1);
+        let (sender, receiver) = oneshot();
         self.inner.request_client_count(sender).await;
         receiver
-            .recv_async()
+            .recv()
             .await
             .expect("Could not request client count from server")
     }
@@ -805,8 +811,8 @@ async fn run_background<K: SignatureKey>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
     key: K,
-    to_background: Receiver<((ToServer<K>, Vec<u8>), Option<Sender<()>>)>,
-    from_background_sender: Sender<(FromServer<K>, Vec<u8>)>,
+    to_background: UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
+    from_background_sender: UnboundedSender<(FromServer<K>, Vec<u8>)>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
     // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
@@ -840,10 +846,10 @@ async fn run_background<K: SignatureKey>(
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 async fn run_background_send<K: SignatureKey>(
     mut stream: TcpStreamSendUtil,
-    to_background: Receiver<((ToServer<K>, Vec<u8>), Option<Sender<()>>)>,
+    to_background: UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
 ) -> Result<(), Error> {
     loop {
-        let result = to_background.recv_async().await;
+        let result = to_background.recv().await;
         let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
         let (header, payload) = msg;
         let expect_payload = &header.payload_len();
@@ -862,7 +868,7 @@ async fn run_background_send<K: SignatureKey>(
         }
 
         if let Some(confirm) = confirm {
-            let _ = confirm.send_async(()).await;
+            let _ = confirm.send(());
         }
     }
 }
@@ -872,7 +878,7 @@ async fn run_background_send<K: SignatureKey>(
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
 async fn run_background_recv<K: SignatureKey>(
     mut stream: TcpStreamRecvUtil,
-    from_background_sender: Sender<(FromServer<K>, Vec<u8>)>,
+    from_background_sender: UnboundedSender<(FromServer<K>, Vec<u8>)>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
     loop {
@@ -880,7 +886,7 @@ async fn run_background_recv<K: SignatureKey>(
         match msg {
             x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
                 from_background_sender
-                    .send_async((x, Vec::new()))
+                    .send((x, Vec::new()))
                     .await
                     .map_err(|_| Error::FailedToReceive)?;
             }
@@ -892,7 +898,7 @@ async fn run_background_recv<K: SignatureKey>(
                     Vec::new()
                 };
                 from_background_sender
-                    .send_async((x, payload))
+                    .send((x, payload))
                     .await
                     .map_err(|_| Error::FailedToReceive)?;
             }
@@ -904,7 +910,7 @@ async fn run_background_recv<K: SignatureKey>(
                     Vec::new()
                 };
                 from_background_sender
-                    .send_async((x, payload))
+                    .send((x, payload))
                     .await
                     .map_err(|_| Error::FailedToReceive)?;
             }
@@ -913,7 +919,7 @@ async fn run_background_recv<K: SignatureKey>(
                 let senders =
                     std::mem::take(&mut *connection.request_client_count_sender.write().await);
                 for sender in senders {
-                    let _ = sender.try_send(count);
+                    sender.send(count);
                 }
             }
 
@@ -1067,7 +1073,7 @@ where
         expected_node_count: usize,
         _num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let (server_shutdown_sender, server_shutdown) = flume::bounded(1);
+        let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
 
         let server = async_block_on(hotshot_centralized_server::Server::<P>::new(
@@ -1105,9 +1111,7 @@ impl<P: SignatureKey> Drop for CentralizedServerNetwork<P> {
             // we try to unwrap this Arc. If we're the last one with a reference to this arc, we'll be able to unwrap this
             // if we're the last one with a reference, we should send a message on this channel as it'll gracefully shut down the server
             if let Ok(sender) = Arc::try_unwrap(shutdown) {
-                if let Err(e) = sender.send(()) {
-                    error!("Could not notify server to shut down: {:?}", e);
-                }
+                sender.send(());
             }
         }
     }

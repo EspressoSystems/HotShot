@@ -22,7 +22,7 @@ use self::{
     node::network_node_handle_error::TimeoutSnafu,
 };
 use bincode::Options;
-use futures::{channel::oneshot::Sender, select, Future, FutureExt};
+use futures::{channel::oneshot::Sender, select, Future};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -259,17 +259,20 @@ pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
 ) where
     Fut: Future<Output = Result<(), NetworkNodeHandleError>> + std::marker::Send + 'static,
 {
-    let recv_kill = handle.recv_kill();
+    let recv_kill = handle
+        .recv_kill()
+        .await
+        .expect("Kill handle is already taken");
     let recv_event = handle.recv_network();
     async_spawn(
         async move {
             loop {
                 select!(
-                    _ = recv_kill.recv_async().fuse() => {
+                    _ = recv_kill.recv_fuse() => {
                         handle.mark_killed().await;
                         break;
                     },
-                    event = recv_event.recv_async().fuse() => {
+                    event = recv_event.recv_fuse() => {
                         event_handler(event.map_err(|_| NetworkNodeHandleError::RecvError)?, handle.clone()).await?;
                     },
                 );

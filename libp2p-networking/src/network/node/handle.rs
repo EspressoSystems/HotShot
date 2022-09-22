@@ -5,12 +5,15 @@ use crate::network::{
 };
 use async_lock::Mutex;
 use bincode::Options;
-use flume::{bounded, Receiver, SendError, Sender};
 use futures::{stream::FuturesOrdered, Future};
 use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
 use hotshot_utils::{
     art::{async_sleep, async_timeout, future::to, stream},
     bincode::bincode_opts,
+    channel::{
+        bounded, oneshot, BoundedReceiver, BoundedSender, OneShotReceiver, OneShotSender,
+        SendError, UnboundedReceiver, UnboundedSender,
+    },
     subscribable_mutex::SubscribableMutex,
 };
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
@@ -29,15 +32,15 @@ pub struct NetworkNodeHandle<S> {
     /// the state of the replica
     state: Arc<SubscribableMutex<S>>,
     /// send an action to the networkbehaviour
-    send_network: Sender<ClientRequest>,
+    send_network: UnboundedSender<ClientRequest>,
     /// receive an action from the networkbehaviour
-    recv_network: Receiver<NetworkEvent>,
+    recv_network: UnboundedReceiver<NetworkEvent>,
     /// whether or not the handle has been killed
     killed: Arc<Mutex<bool>>,
     /// kill the event handler for events from the swarm
-    kill_switch: Sender<()>,
+    kill_switch: Arc<Mutex<Option<OneShotSender<()>>>>,
     /// receiving end of `kill_switch`
-    recv_kill: Receiver<()>,
+    recv_kill: Arc<Mutex<Option<OneShotReceiver<()>>>>,
     /// the local address we're listening on
     listen_addr: Multiaddr,
     /// the peer id of the networkbehaviour
@@ -46,7 +49,7 @@ pub struct NetworkNodeHandle<S> {
     id: usize,
 
     /// A list of webui listeners that are listening for changes on this node
-    webui_listeners: Arc<Mutex<Vec<Sender<()>>>>,
+    webui_listeners: Arc<Mutex<Vec<BoundedSender<()>>>>,
 }
 
 impl<S: Default + Debug> NetworkNodeHandle<S> {
@@ -69,7 +72,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .context(NetworkSnafu)?;
         info!("LISTEN ADDRESS IS {:?}", listen_addr);
         let (send_chan, recv_chan) = network.spawn_listeners().await.context(NetworkSnafu)?;
-        let (kill_switch, recv_kill) = flume::bounded(1);
+        let (kill_switch, recv_kill) = oneshot();
 
         Ok(NetworkNodeHandle {
             network_config: config,
@@ -77,8 +80,8 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             send_network: send_chan,
             recv_network: recv_chan,
             killed: Arc::new(Mutex::new(false)),
-            kill_switch,
-            recv_kill,
+            kill_switch: Arc::new(Mutex::new(Some(kill_switch))),
+            recv_kill: Arc::new(Mutex::new(Some(recv_kill))),
             listen_addr,
             peer_id,
             id,
@@ -93,14 +96,15 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     #[instrument]
     pub async fn shutdown(&self) -> Result<(), NetworkNodeHandleError> {
         self.send_network
-            .send_async(ClientRequest::Shutdown)
+            .send(ClientRequest::Shutdown)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         // if this fails, the thread has already been killed.
-        self.kill_switch
-            .send_async(())
-            .await
-            .context(CantKillTwiceSnafu)?;
+        if let Some(kill_switch) = self.kill_switch.lock().await.take() {
+            kill_switch.send(());
+        } else {
+            tracing::warn!("The network node handle is shutting down, but the kill switch was already consumed");
+        }
         Ok(())
     }
 
@@ -111,7 +115,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn begin_bootstrap(&self) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::BeginBootstrap;
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -126,7 +130,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     pub async fn wait_to_connect(
         node: Arc<NetworkNodeHandle<S>>,
         num_peers: usize,
-        chan: Receiver<NetworkEvent>,
+        chan: UnboundedReceiver<NetworkEvent>,
         node_idx: usize,
     ) -> Result<(), NetworkNodeHandleError> {
         // kick off bootstrap
@@ -159,7 +163,7 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetRoutingTable(s);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -173,7 +177,7 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::LookupPeer(peer_id, s);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -278,7 +282,7 @@ impl<S> NetworkNodeHandle<S> {
         // Keep a list of indexes that are unable to send the update
         let mut indexes_to_remove = Vec::new();
         for (idx, sender) in lock.iter().enumerate() {
-            if sender.send_async(()).await.is_err() {
+            if sender.send(()).await.is_err() {
                 indexes_to_remove.push(idx);
             }
         }
@@ -295,7 +299,7 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -308,7 +312,7 @@ impl<S> NetworkNodeHandle<S> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Unsubscribe(topic, s);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -321,7 +325,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::IgnorePeers(peers);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -338,7 +342,7 @@ impl<S> NetworkNodeHandle<S> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -355,7 +359,7 @@ impl<S> NetworkNodeHandle<S> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -370,7 +374,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::Prune(pid);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -387,7 +391,7 @@ impl<S> NetworkNodeHandle<S> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
@@ -402,18 +406,18 @@ impl<S> NetworkNodeHandle<S> {
         info!("ADDING KNOWN PEERS TO {:?}", self.peer_id);
         let req = ClientRequest::AddKnownPeers(known_peers);
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    /// Get a clone of the internal `killed` receiver
-    pub fn recv_kill(&self) -> Receiver<()> {
-        self.recv_kill.clone()
+    /// Get the internal `killed` receiver. This will return a receiver the first time this is called, and `None` every subsequent time.
+    pub async fn recv_kill(&self) -> Option<OneShotReceiver<()>> {
+        self.recv_kill.lock().await.take()
     }
 
     /// Get a clone of the internal network receiver
-    pub fn recv_network(&self) -> Receiver<NetworkEvent> {
+    pub fn recv_network(&self) -> UnboundedReceiver<NetworkEvent> {
         self.recv_network.clone()
     }
 
@@ -428,7 +432,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
         self.send_network
-            .send_async(req)
+            .send(req)
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         Ok(())
@@ -491,7 +495,7 @@ impl<S> NetworkNodeHandle<S> {
     }
 
     /// Register a webui listener
-    pub async fn register_webui_listener(&self) -> Receiver<()> {
+    pub async fn register_webui_listener(&self) -> BoundedReceiver<()> {
         let (sender, receiver) = bounded(100);
         let mut lock = self.webui_listeners.lock().await;
         lock.push(sender);

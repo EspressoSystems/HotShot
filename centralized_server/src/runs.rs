@@ -1,6 +1,6 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
-use flume::Sender;
 use hotshot_utils::art::{async_sleep, async_spawn};
+use hotshot_utils::channel::{OneShotSender, UnboundedSender};
 use libp2p_core::PeerId;
 use std::{fs, path::Path};
 use std::{
@@ -12,7 +12,7 @@ use tracing::error;
 /// Contains information about the current round
 pub struct RoundConfig<K> {
     configs: Vec<NetworkConfig<K>>,
-    libp2p_config_sender: Vec<(IpAddr, Sender<ClientConfig<K>>)>,
+    libp2p_config_sender: Vec<(IpAddr, OneShotSender<ClientConfig<K>>)>,
     current_run: usize,
     next_node_index: usize,
 }
@@ -68,8 +68,8 @@ impl<K> RoundConfig<K> {
     pub async fn get_next_config(
         &mut self,
         addr: IpAddr,
-        sender: Sender<ClientConfig<K>>,
-        start_round_sender: Sender<ToBackground<K>>,
+        sender: OneShotSender<ClientConfig<K>>,
+        start_round_sender: UnboundedSender<ToBackground<K>>,
     ) where
         K: Clone + Send + 'static,
     {
@@ -77,7 +77,7 @@ impl<K> RoundConfig<K> {
         let mut config: &mut NetworkConfig<K> = match self.configs.get_mut(self.current_run) {
             Some(config) => config,
             None => {
-                let _ = sender.send_async(ClientConfig::default()).await;
+                sender.send(ClientConfig::default());
                 return;
             }
         };
@@ -107,9 +107,9 @@ impl<K> RoundConfig<K> {
                             pair.to_protobuf_encoding().unwrap(),
                         ));
                     }
-                    for (idx, (addr, sender)) in self.libp2p_config_sender.iter().enumerate() {
+                    for (idx, (addr, sender)) in self.libp2p_config_sender.drain(..).enumerate() {
                         let config =
-                            set_config(config.clone(), *addr, Run(self.current_run), idx as u64);
+                            set_config(config.clone(), addr, Run(self.current_run), idx as u64);
 
                         let _ = sender.send(ClientConfig {
                             run: Run(self.current_run),
@@ -137,7 +137,7 @@ impl<K> RoundConfig<K> {
             config = match self.configs.get_mut(self.current_run) {
                 Some(config) => config,
                 None => {
-                    let _ = sender.send_async(ClientConfig::default()).await;
+                    sender.send(ClientConfig::default());
                     return;
                 }
             };
@@ -152,12 +152,10 @@ impl<K> RoundConfig<K> {
             Run(self.current_run),
             self.next_node_index as u64,
         );
-        let _ = sender
-            .send_async(ClientConfig {
-                run: Run(self.current_run),
-                config,
-            })
-            .await;
+        sender.send(ClientConfig {
+            run: Run(self.current_run),
+            config,
+        });
 
         self.next_node_index += 1;
 
@@ -167,7 +165,7 @@ impl<K> RoundConfig<K> {
                 tracing::error!("Reached enough nodes, starting in 60 seconds");
                 async_sleep(Duration::from_secs(60)).await;
                 start_round_sender
-                    .send_async(ToBackground::StartRun(run))
+                    .send(ToBackground::StartRun(run))
                     .await
                     .expect("Could not start round");
             });

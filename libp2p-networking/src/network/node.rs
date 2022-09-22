@@ -1,6 +1,18 @@
 mod config;
 mod handle;
 
+pub use self::{
+    config::{
+        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+    },
+    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
+};
+
+use super::{
+    behaviours::gossip::GossipBehaviour,
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
+};
 use crate::network::{
     behaviours::{
         dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
@@ -11,21 +23,11 @@ use crate::network::{
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
-
-pub use self::{
-    config::{
-        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-    },
-    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
-};
-use super::{
-    behaviours::gossip::GossipBehaviour,
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
-};
-use flume::{unbounded, Receiver, Sender};
 use futures::{select, StreamExt};
-use hotshot_utils::art::async_spawn;
+use hotshot_utils::{
+    art::async_spawn,
+    channel::{unbounded, RecvError, UnboundedReceiver, UnboundedSender},
+};
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -290,7 +292,7 @@ impl NetworkNode {
     #[instrument(skip(self))]
     async fn handle_client_requests(
         &mut self,
-        msg: Result<ClientRequest, flume::RecvError>,
+        msg: Result<ClientRequest, RecvError>,
     ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
         match msg {
@@ -400,7 +402,7 @@ impl NetworkNode {
                 ConnectionHandlerUpgrErr<Error>,
             >,
         >,
-        send_to_client: &Sender<NetworkEvent>,
+        send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
         #[allow(clippy::enum_glob_use)]
@@ -518,7 +520,7 @@ impl NetworkNode {
                 if let Some(event) = maybe_event {
                     // forward messages directly to Client
                     send_to_client
-                        .send_async(event)
+                        .send(event)
                         .await
                         .map_err(|_e| NetworkError::StreamClosed)?;
                 }
@@ -549,7 +551,13 @@ impl NetworkNode {
     #[instrument]
     pub async fn spawn_listeners(
         mut self,
-    ) -> Result<(Sender<ClientRequest>, Receiver<NetworkEvent>), NetworkError> {
+    ) -> Result<
+        (
+            UnboundedSender<ClientRequest>,
+            UnboundedReceiver<NetworkEvent>,
+        ),
+        NetworkError,
+    > {
         let (s_input, s_output) = unbounded::<ClientRequest>();
         let (r_input, r_output) = unbounded::<NetworkEvent>();
 
@@ -563,7 +571,7 @@ impl NetworkNode {
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
-                        msg = s_output.recv_async() => {
+                        msg = s_output.recv_fuse() => {
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 break
