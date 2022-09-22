@@ -115,6 +115,29 @@ nix develop .#consoleShell -c tokio-console
 
 This second window should now display task usage.
 
+# Open Telemetry + Jaeger Integration
+
+To view distributed logs with just the centralized server and one client, first edit the `centralized_server/orchestrator` file to include have a threshold and num_nodes of 1.
+
+Then open 3 terminals.
+
+```bash
+# Terminal 1
+# Start the jaeger instance to view spans
+docker run -d -p6831:6831/udp -p6832:6832/udp -p16686:16686 -p14268:14268 jaegertracing/all-in-one:latest
+
+# Terminal 2
+# Start the CDN
+pushd centralized_server/orchestrator
+nix develop .#consoleShell
+export TOKIO_CONSOLE_ENABLED=false
+cargo run  --release  --features=tokio-ci,profiling -- centralized 127.0.0.1 4748
+
+# Terminal 3
+# Start the client
+cargo run --example=multi-machine-centralized --release  --features=tokio-ci,profiling -- 127.0.0.1 4748
+```
+
 # Resource Usage Statistics
 
 To generate usage stats:
