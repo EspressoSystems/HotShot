@@ -3,8 +3,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
-        StateContents,
+        implementations::{CentralizedServerNetwork, MemoryStorage, Stateless}, Storage,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
@@ -22,7 +21,7 @@ use hotshot_utils::{
     test_util::{setup_backtrace, setup_logging},
 };
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -53,21 +52,11 @@ async fn init_state_and_hotshot(
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block
-    let accounts: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000_000),
-        ("John", 400_000_000),
-        ("Nathan Y", 600_000_000),
-        ("Ian", 300_000_000),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    let block = DEntryBlock::genesis_from(accounts);
+    let genesis_block = DEntryBlock::genesis();
+    let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
     let pub_key = Ed25519Pub::from_private(&priv_key);
-    let state = DEntryState::default().append(&block).unwrap();
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
         known_nodes.clone(),
@@ -76,13 +65,18 @@ async fn init_state_and_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(block.clone(), state.clone()),
+        MemoryStorage::new(),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
+        initializer
     )
     .await
     .expect("Could not init hotshot");
     debug!("hotshot launched");
+
+    let storage : &MemoryStorage<DEntryState> = hotshot.storage();
+
+    let state = storage.get_anchored_view().await.unwrap().state;
 
     (state, hotshot)
 }

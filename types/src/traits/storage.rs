@@ -66,7 +66,7 @@ where
     /// Will be deleted/lost immediately after storage is dropped
     /// # Errors
     /// Errors if it is not possible to construct temporary storage.
-    fn construct_tmp_storage(block: <STATE as StateContents>::Block, state: STATE) -> Result<Self>;
+    fn construct_tmp_storage() -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
     async fn get_full_state(&self) -> StorageState<STATE>;

@@ -146,7 +146,6 @@ pub struct ProposalLeaf<STATE: StateContents> {
     pub rejected: Vec<TxnCommitment<STATE>>,
 }
 
-///
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
@@ -169,7 +168,7 @@ pub struct Leaf<STATE: StateContents> {
     #[serde(deserialize_with = "STATE::Block::deserialize")]
     pub deltas: STATE::Block,
 
-    /// What the state should be after applying `self.deltas`
+    /// What the state should be AFTER applying `self.deltas`
     #[serde(deserialize_with = "STATE::deserialize")]
     pub state: STATE,
 
@@ -274,7 +273,6 @@ impl<STATE: StateContents> Leaf<STATE> {
         let state = STATE::default().append(&deltas).unwrap();
         Self {
             view_number: GENESIS_VIEW,
-            // FIXME this is recursive
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,

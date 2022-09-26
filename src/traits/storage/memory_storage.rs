@@ -2,14 +2,13 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::{traits::StateContents, QuorumCertificate};
+use crate::{traits::StateContents};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
-    constants::GENESIS_VIEW,
-    data::{fake_commitment, ViewNumber},
+    data::{ViewNumber},
     traits::storage::{
-        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewAppend,
+        Result, Storage, StorageError, StorageState, StoredView, TestableStorage,
         ViewEntry,
     },
 };
@@ -36,27 +35,16 @@ where
     inner: Arc<RwLock<MemoryStorageInternal<STATE>>>,
 }
 
+#[allow(clippy::new_without_default)]
 impl<STATE: StateContents> MemoryStorage<STATE> {
     /// Create a new instance of the memory storage with the given block and state
-    pub fn new(block: <STATE as StateContents>::Block, state: STATE) -> Self {
-        let mut inner = MemoryStorageInternal {
+    /// NOTE: left as `new` because this API is not stable
+    /// we may add arguments to new in the future
+    pub fn new() -> Self {
+        let inner = MemoryStorageInternal {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
         };
-        // TODO we should probably be passing the entire leaf in here...
-        // or at least, more information.
-        let qc = QuorumCertificate::genesis();
-        inner.stored.insert(
-            GENESIS_VIEW,
-            StoredView {
-                append: ViewAppend::Block { block },
-                parent: fake_commitment(),
-                justify_qc: qc,
-                state,
-                view_number: GENESIS_VIEW,
-                rejected: Vec::new(),
-            },
-        );
         Self {
             inner: Arc::new(RwLock::new(inner)),
         }
@@ -68,8 +56,8 @@ impl<STATE> TestableStorage<STATE> for MemoryStorage<STATE>
 where
     STATE: StateContents + 'static,
 {
-    fn construct_tmp_storage(block: <STATE as StateContents>::Block, state: STATE) -> Result<Self> {
-        Ok(Self::new(block, state))
+    fn construct_tmp_storage() -> Result<Self> {
+        Ok(Self::new())
     }
 
     async fn get_full_state(&self) -> StorageState<STATE> {
@@ -134,6 +122,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use hotshot_types::constants::GENESIS_VIEW;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
@@ -170,7 +159,7 @@ mod test {
     #[instrument]
     async fn memory_storage() {
         let storage =
-            MemoryStorage::construct_tmp_storage(DummyBlock::random(), DummyState::random())
+            MemoryStorage::construct_tmp_storage()
                 .unwrap();
         let genesis = random_stored_view(GENESIS_VIEW);
         storage

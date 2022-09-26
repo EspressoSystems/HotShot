@@ -22,7 +22,7 @@ use hotshot_types::{
 };
 use hotshot_utils::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::channel,
+    broadcast::{channel},
 };
 use std::{
     collections::HashMap,
@@ -179,7 +179,6 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
         hotshot: hotshot.clone(),
         stream_output: broadcast_receiver,
         storage: hotshot.inner.storage.clone(),
-        // TODO this should really be in the same place as started...
         shut_down,
     };
     *hotshot.inner.event_sender.write().await = Some(broadcast_sender);
