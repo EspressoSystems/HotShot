@@ -627,27 +627,31 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
+                // The following block was triggering failues in benchmarking.
+                // It's probable that we have an ordering problem in send_direct_message,
+                // which we need to fix, either here or in the centralized server, but for now,
+                // this is not needed, and taking it out unblocks benchmarking.
 
-                let anchor = match self.inner.storage.get_anchored_view().await {
-                    Ok(anchor) => anchor,
-                    Err(e) => {
-                        error!(?e, "Could not retrieve newest QC");
-                        return;
-                    }
-                };
-                let msg = DataMessage::NewestQuorumCertificate {
-                    quorum_certificate: anchor.justify_qc,
-                    block: anchor.append.into_deltas(),
-                    state: anchor.state,
-                    parent_commitment: anchor.parent,
-                    rejected: anchor.rejected,
-                };
-                if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
-                    error!(
-                        ?e,
-                        "Could not send newest quorumcertificate to node {:?}", peer
-                    );
-                }
+                // let anchor = match self.inner.storage.get_anchored_view().await {
+                //     Ok(anchor) => anchor,
+                //     Err(e) => {
+                //         error!(?e, "Could not retrieve newest QC");
+                //         return;
+                //     }
+                // };
+                // let msg = DataMessage::NewestQuorumCertificate {
+                //     quorum_certificate: anchor.justify_qc,
+                //     block: anchor.append.into_deltas(),
+                //     state: anchor.state,
+                //     parent_commitment: anchor.parent,
+                //     rejected: anchor.rejected,
+                // };
+                // if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
+                //     error!(
+                //         ?e,
+                //         "Could not send newest quorumcertificate to node {:?}", peer
+                //     );
+                // }
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);
