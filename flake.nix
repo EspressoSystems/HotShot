@@ -144,6 +144,7 @@
           zlib.dev
           zlib.out
           fenix.packages.${system}.rust-analyzer
+          just
         ] ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security pkgs.libiconv darwin.apple_sdk.frameworks.SystemConfiguration ];
       in
       {
@@ -179,12 +180,25 @@
           };
 
           # usage: setup for tokio with console
+          #        with support for opentelemetry
           consoleShell = pkgs.mkShell {
             inherit CARGO_TARGET_DIR;
+            OTEL_BSP_MAX_EXPORT_BATCH_SIZE=25;
+            OTEL_BSP_MAX_QUEUE_SIZE=32768;
+            OTL_ENABLED="true";
             TOKIO_CONSOLE_ENABLED = "true";
             RUSTFLAGS="--cfg tokio_unstable";
             RUST_LOG="tokio=trace,runtime=trace";
-            buildInputs = with pkgs; [ tokio-console fenixStable ripgrep ] ++ buildDeps;
+            LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib/";
+            OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include/";
+            OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib/";
+            buildInputs = with pkgs; [
+              openssl.dev
+              openssl.out
+              tokio-console
+              fenixStable
+              ripgrep
+            ] ++ buildDeps;
           };
 
           # usage: evaluate performance (llvm-cov + flamegraph)

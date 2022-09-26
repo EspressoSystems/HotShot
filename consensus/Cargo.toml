@@ -10,6 +10,7 @@ full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
 async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
 async-lock = "2.5"
@@ -23,5 +24,18 @@ futures = "0.3.24"
 hotshot-types = { path = "../types", default-features = false  }
 hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
 snafu = "0.7.0"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing" ] }
 tracing = "0.1.36"

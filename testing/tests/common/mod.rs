@@ -477,6 +477,22 @@ macro_rules! gen_inner_fn {
         // NOTE we need this since proptest doesn't implement async things
         hotshot_utils::art::async_block_on(async move {
             hotshot_utils::test_util::setup_logging();
+            hotshot_utils::test_util::setup_backtrace();
+            let description: $crate::GeneralTestDescriptionBuilder = $e;
+            let built: $TEST_TYPE = description.build();
+            built.execute().await.unwrap()
+        });
+    };
+}
+
+/// special casing for proptest. Need the inner thing to block
+#[macro_export]
+macro_rules! gen_inner_fn_proptest {
+    ($TEST_TYPE:ty, $e:expr) => {
+        // NOTE we need this since proptest doesn't implement async things
+        hotshot_utils::art::async_block_on_with_runtime(async move {
+            hotshot_utils::test_util::setup_logging();
+            hotshot_utils::test_util::setup_backtrace();
             let description: $crate::GeneralTestDescriptionBuilder = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -503,10 +519,9 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
-                #[cfg(feature = "async-std-executor")]
                 #[test]
                 fn $fn_name($($args)+) {
-                    gen_inner_fn!($TEST_TYPE, $e);
+                    gen_inner_fn_proptest!($TEST_TYPE, $e);
                 }
         }
     };
@@ -519,10 +534,10 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
-                #[cfg(all(feature = "slow-tests", feature = "async-std-executor"))]
+                #[cfg(feature = "slow-tests")]
                 #[test]
                 fn $fn_name($($args)+) {
-                    gen_inner_fn!($TEST_TYPE, $e);
+                    gen_inner_fn_proptest!($TEST_TYPE, $e);
                 }
         }
     };
@@ -536,10 +551,9 @@ macro_rules! cross_test {
                 }
                 )]
                 #[test]
-                #[cfg(feature = "async-std-executor")]
                 #[ignore]
                 fn $fn_name($($args)+) {
-                    gen_inner_fn!($TEST_TYPE, $e);
+                    gen_inner_fn_proptest!($TEST_TYPE, $e);
                 }
         }
     };
@@ -552,7 +566,7 @@ macro_rules! cross_test {
                     .. proptest::prelude::ProptestConfig::default()
                 }
                 )]
-                #[cfg(all(feature = "slow-tests", feature = "async-std-executor"))]
+                #[cfg(feature = "slow-tests")]
                 #[test]
                 #[ignore]
                 fn $fn_name($($args)+) {

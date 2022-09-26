@@ -46,7 +46,7 @@ cfg_if::cfg_if! {
             use async_std::prelude::FutureExt;
             pub use async_std::{
                 main as async_main,
-                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local},
+                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local, block_on as async_block_on_with_runtime},
                 test as async_test,
             };
             /// executor stream abstractions
@@ -82,11 +82,39 @@ cfg_if::cfg_if! {
         pub mod art {
             pub use tokio::{
                 main as async_main,
-                task::spawn as async_spawn,
                 task::spawn as async_spawn_local,
                 test as async_test,
                 time::{sleep as async_sleep, timeout as async_timeout},
             };
+
+
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "profiling")] {
+                    /// spawn and log task id
+                    pub fn async_spawn<T>(future: T) -> tokio::task::JoinHandle<T::Output>
+                        where
+                        T: futures::Future + Send + 'static,
+                        T::Output: Send + 'static, {
+                            let async_span = tracing::error_span!("Task Root", tsk_id = tracing::field::Empty);
+                            let join_handle = tokio::task::spawn(tracing::Instrument::instrument(async{future.await}, async_span.clone()));
+                            async_span.record("tsk_id", tracing::field::display(join_handle.id()));
+                            join_handle
+                        }
+                } else {
+                    pub use tokio::spawn as async_spawn;
+                }
+            }
+
+            /// Generates tokio runtime then provides `block_on` with `tokio` that matches `async_std::task::block_on`
+            /// # Panics
+            /// If we're already in a runtime
+            pub fn async_block_on_with_runtime<F, T>(future: F) -> T
+            where
+                F: std::future::Future<Output = T>,
+            {
+                tokio::runtime::Runtime::new().unwrap().block_on(future)
+            }
+
 
             /// executor stream abstractions
             pub mod stream {
@@ -131,13 +159,12 @@ pub mod test_util {
     )]
     use std::{
         env::{var, VarError},
-        sync::Once,
+        sync::Once
     };
     use tracing_error::ErrorLayer;
     use tracing_subscriber::{
-        fmt::{self, format::FmtSpan},
-        prelude::*,
-        EnvFilter, Registry,
+        fmt::format::FmtSpan,
+        EnvFilter, Registry
     };
 
     /// Ensure logging is only
@@ -155,9 +182,80 @@ pub mod test_util {
         });
     }
 
+    #[cfg(feature = "profiling")]
+    /// generate the open telemetry layer
+    /// and set the global propagator
+    fn gen_opentelemetry_layer() -> opentelemetry::sdk::trace::Tracer {
+        use opentelemetry::{KeyValue, sdk::{Resource, trace::{RandomIdGenerator, Sampler}}};
+        opentelemetry::global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+        opentelemetry_jaeger::new_agent_pipeline()
+            .with_service_name("HotShot Tracing")
+            .with_auto_split_batch(true)
+            .with_trace_config(
+                opentelemetry::sdk::trace::config()
+                .with_sampler(Sampler::AlwaysOn)
+                .with_id_generator(RandomIdGenerator::default())
+                .with_max_events_per_span(64)
+                .with_max_attributes_per_span(64)
+                .with_max_events_per_span(64)
+                // resources will translated to tags in jaeger spans
+                .with_resource(Resource::new(vec![KeyValue::new("key", "value"),
+                KeyValue::new("process_key", "process_value")])),
+                )
+            // TODO make this toggle-able between tokio and async-std
+            .install_batch(opentelemetry::runtime::Tokio)
+            // TODO make endpoint configurable
+            // .with_endpoint("http://localhost:14250/api/trace")
+            .unwrap()
+    }
+
+    /// complete init of the tracer
+    /// this is needed because the types are janky
+    /// I couldn't get the types to play nicely with a generic function
+    macro_rules! complete_init {
+        ( $R:expr ) => {
+            #[cfg(feature = "tokio-executor")]
+            let console_layer = var("TOKIO_CONSOLE_ENABLED") == Ok("true".to_string());
+
+            #[cfg(feature = "profiling")]
+            let tracer_enabled = var("OTL_ENABLED") == Ok("true".to_string());
+
+            #[cfg(all(feature = "tokio-executor", feature = "profiling"))]
+            if console_layer && tracer_enabled {
+                let registry = $R
+                    .with(console_subscriber::spawn());
+                let registry = registry.with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer()));
+                registry.init();
+                return;
+            }
+
+
+            #[cfg(feature = "profiling")]
+            if tracer_enabled {
+                $R.with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer())).init();
+                return
+            }
+
+            #[cfg(feature = "tokio-executor")]
+            if console_layer {
+                $R.with(console_subscriber::spawn()).init();
+                return;
+            }
+
+            $R.init();
+        };
+    }
+
+
     /// Set up logging exactly once
     #[allow(clippy::too_many_lines)]
     pub fn setup_logging() {
+
+        use tracing_subscriber::{
+            fmt, layer::SubscriberExt, util::SubscriberInitExt
+        };
+
+
         INIT.call_once(|| {
             let internal_event_filter =
                 match var("RUST_LOG_SPAN_EVENTS") {
@@ -173,11 +271,11 @@ pub mod test_util {
                                 "active" => FmtSpan::ACTIVE,
                                 "full" => FmtSpan::FULL,
                                 _ => panic!("test-env-log: RUST_LOG_SPAN_EVENTS must contain filters separated by `,`.\n\t\
-                                             For example: `active` or `new,close`\n\t\
+                                            For example: `active` or `new,close`\n\t\
                                              Supported filters: new, enter, exit, close, active, full\n\t\
                                              Got: {}", value),
                             })
-                            .fold(FmtSpan::NONE, |acc, filter| filter | acc)
+                        .fold(FmtSpan::NONE, |acc, filter| filter | acc)
                     },
                     Err(VarError::NotUnicode(_)) =>
                         panic!("test-env-log: RUST_LOG_SPAN_EVENTS must contain a valid UTF-8 string"),
@@ -185,8 +283,6 @@ pub mod test_util {
                 };
             let fmt_env = var("RUST_LOG_FORMAT").map(|x| x.to_lowercase());
 
-            #[cfg(feature = "tokio-executor")]
-            let console_layer = var("TOKIO_CONSOLE_ENABLED") == Ok("true".to_string());
 
             match fmt_env.as_deref().map(|x| x.trim()) {
                 Ok("full") => {
@@ -199,12 +295,8 @@ pub mod test_util {
                         .with(ErrorLayer::default())
                         .with(fmt_layer);
 
-                    #[cfg(feature = "tokio-executor")]
-                    if console_layer {
-                        registry.with(console_subscriber::spawn()).init();
-                        return;
-                    }
-                    registry.init();
+                    complete_init!(registry);
+
                 },
                 Ok("json") => {
                     let fmt_layer = fmt::Layer::default()
@@ -215,12 +307,7 @@ pub mod test_util {
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer);
-                    #[cfg(feature = "tokio-executor")]
-                    if console_layer {
-                        registry.with(console_subscriber::spawn()).init();
-                        return;
-                    }
-                    registry.init();
+                    complete_init!(registry);
                 },
                 Ok("compact") => {
                     let fmt_layer = fmt::Layer::default()
@@ -232,12 +319,7 @@ pub mod test_util {
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer);
-                    #[cfg(feature = "tokio-executor")]
-                    if console_layer {
-                        registry.with(console_subscriber::spawn()).init();
-                        return;
-                    }
-                    registry.init();
+                    complete_init!(registry);
                 },
                 _ => {
                     let fmt_layer = fmt::Layer::default()
@@ -249,18 +331,22 @@ pub mod test_util {
                         .with(EnvFilter::from_default_env())
                         .with(ErrorLayer::default())
                         .with(fmt_layer);
-                    #[cfg(feature = "tokio-executor")]
-                    if console_layer {
-                        registry.with(console_subscriber::spawn()).init();
-                        return;
-                    }
-                    registry.init();
+                    complete_init!(registry);
                 },
             };
 
             std::panic::set_hook(Box::new(|info| {
                 tracing::error!(?info, "Thread panicked!");
+                #[cfg(feature = "profiling")]
+                opentelemetry::global::shutdown_tracer_provider();
             }));
         });
+    }
+
+    /// shuts down logging
+    pub fn shutdown_logging() {
+        #[cfg(feature = "profiling")]
+        opentelemetry::global::shutdown_tracer_provider();
+
     }
 }

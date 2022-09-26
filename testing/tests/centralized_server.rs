@@ -7,6 +7,7 @@ use hotshot::{
     traits::implementations::{CentralizedServerNetwork, MemoryStorage},
 };
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+use hotshot_utils::test_util::shutdown_logging;
 use tracing::instrument;
 
 /// Centralized server network test
@@ -35,6 +36,7 @@ async fn centralized_server_network() {
         .execute()
         .await
         .unwrap();
+    shutdown_logging();
 }
 
 // stress test for a centralized server

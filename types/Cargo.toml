@@ -13,6 +13,7 @@ full-ci = ["demo", "async-std-executor"]
 tokio-ci = ["demo", "tokio-executor"]
 async-std-executor = ["dep:async-std", "async-tungstenite/async-std-runtime", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "async-tungstenite/tokio-runtime", "hotshot-utils/tokio-executor"]
+profiling = ["hotshot-utils/profiling"]
 demo = ["ed25519-compact"]
 
 [dependencies]
@@ -36,7 +37,20 @@ serde = { version = "1.0.145", features = ["derive"] }
 serde_bytes = "0.11.7"
 snafu = "0.7.0"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.0" }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing" ] }
 tracing = "0.1.36"
 
 [dev-dependencies]

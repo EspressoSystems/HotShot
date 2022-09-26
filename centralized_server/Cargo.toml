@@ -9,6 +9,7 @@ full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
 async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
 async-std = { version = "1.12", optional = true }
@@ -21,7 +22,20 @@ futures = "0.3.24"
 libp2p-core = { version = "0.36.0", default-features = false }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing" ] }
 tracing = "0.1.36"
 serde = { version = "1.0.145", features = ["derive"] }
 snafu = "0.7.1"

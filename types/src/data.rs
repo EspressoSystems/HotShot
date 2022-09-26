@@ -274,7 +274,6 @@ impl<STATE: StateContents> Leaf<STATE> {
         let state = STATE::default().append(&deltas).unwrap();
         Self {
             view_number: GENESIS_VIEW,
-            // FIXME this is recursive
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,

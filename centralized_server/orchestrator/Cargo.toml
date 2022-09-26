@@ -12,6 +12,7 @@ demo = [
 ]
 async-std-executor = ["dep:async-std", "hotshot/async-std-executor", "hotshot-centralized-server/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
 tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-centralized-server/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
 clap = { version = "3.2.22", features = ["derive", "env"] }
@@ -24,7 +25,20 @@ hotshot = { path = "../../", default-features = false }
 hotshot-centralized-server = { path = "../", default-features = false  }
 hotshot-types = { path = "../../types", default-features = false  }
 hotshot-utils = { path = "../../utils", default-features = false  }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing" ] }
 toml = "0.5.9"
 tracing = "0.1.36"
 
