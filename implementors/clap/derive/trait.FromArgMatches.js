@@ -1,5 +1,4 @@
 (function() {var implementors = {};
-implementors["clichat"] = [{"text":"impl FromArgMatches for <a class=\"struct\" href=\"clichat/struct.CliOpt.html\" title=\"struct clichat::CliOpt\">CliOpt</a>","synthetic":false,"types":["clichat::CliOpt"]}];
 implementors["counter"] = [{"text":"impl FromArgMatches for <a class=\"struct\" href=\"counter/common/struct.CliOpt.html\" title=\"struct counter::common::CliOpt\">CliOpt</a>","synthetic":false,"types":["counter::common::CliOpt"]}];
 implementors["dentry_simulator"] = [{"text":"impl FromArgMatches for <a class=\"struct\" href=\"dentry_simulator/struct.Opt.html\" title=\"struct dentry_simulator::Opt\">Opt</a>","synthetic":false,"types":["dentry_simulator::Opt"]}];
 implementors["hotshot_orchestrator"] = [{"text":"impl FromArgMatches for <a class=\"enum\" href=\"hotshot_orchestrator/enum.Args.html\" title=\"enum hotshot_orchestrator::Args\">Args</a>","synthetic":false,"types":["hotshot_orchestrator::Args"]}];

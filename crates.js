@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["clichat","counter","dentry_simulator","hotshot","hotshot_orchestrator","libp2p_networking","multi_machine","multi_machine_centralized","multi_machine_libp2p"];
+window.ALL_CRATES = ["counter","dentry_simulator","hotshot","hotshot_orchestrator","libp2p_networking","multi_machine","multi_machine_centralized","multi_machine_libp2p"];
