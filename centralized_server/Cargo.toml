@@ -23,6 +23,6 @@ hotshot-types = { version = "0.1.0", path = "../types", default-features = false
 hotshot-utils = { path = "../utils", default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 tracing = "0.1.36"
-serde = { version = "1.0.143", features = ["derive"] }
+serde = { version = "1.0.145", features = ["derive"] }
 snafu = "0.7.1"
 toml = "0.5.9"
