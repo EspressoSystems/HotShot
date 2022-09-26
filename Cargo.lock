@@ -1332,9 +1332,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519-compact"
-version = "1.0.12"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c25036262e9b9c81fe4c6decb438f753f66a8f06aac5dbe9eb2b28355c85c3f5"
+checksum = "bee9df587982575886a8682edcee11877894349a805f25629c27f63abe3e9ae8"
 dependencies = [
  "getrandom 0.2.7",
 ]
@@ -2329,9 +2329,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.3"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
 ]
