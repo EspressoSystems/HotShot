@@ -541,7 +541,6 @@
 <span id="541">541</span>
 <span id="542">542</span>
 <span id="543">543</span>
-<span id="544">544</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">create_or_obtain_chan_from_write</span>, <span class="ident">types::HotShotHandle</span>, <span class="ident">HotShot</span>, <span class="ident">HotShotConsensusApi</span>};
@@ -566,7 +565,7 @@
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
     <span class="ident">art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>, <span class="ident">async_spawn_local</span>, <span class="ident">async_timeout</span>},
-    <span class="ident">broadcast::channel</span>,
+    <span class="ident">broadcast</span>::{<span class="ident">channel</span>},
 };
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
@@ -723,7 +722,6 @@
         <span class="ident">hotshot</span>: <span class="ident">hotshot</span>.<span class="ident">clone</span>(),
         <span class="ident">stream_output</span>: <span class="ident">broadcast_receiver</span>,
         <span class="ident">storage</span>: <span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">clone</span>(),
-        <span class="comment">// TODO this should really be in the same place as started...</span>
         <span class="ident">shut_down</span>,
     };
     <span class="kw-2">*</span><span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">write</span>().<span class="kw">await</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">broadcast_sender</span>);

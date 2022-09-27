@@ -315,6 +315,23 @@
 <span id="315">315</span>
 <span id="316">316</span>
 <span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -326,7 +343,7 @@
     <span class="ident">data::Leaf</span>,
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
     <span class="ident">event::EventType</span>,
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">StateContents</span>},
+    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">StateContents</span>, <span class="ident">storage::Storage</span>}, <span class="ident">constants::GENESIS_VIEW</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{
@@ -461,6 +478,23 @@
     <span class="doccomment">/// This will cause the background task to start running consensus again.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">background_task_handle</span>.<span class="ident">start</span>().<span class="kw">await</span>;
+        <span class="comment">// if is genesis</span>
+        <span class="kw">let</span> <span class="ident">_anchor</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>();
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">anchor_leaf</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>().<span class="ident">get_anchored_view</span>().<span class="kw">await</span> {
+            <span class="kw">if</span> <span class="ident">anchor_leaf</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">GENESIS_VIEW</span> {
+                <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">Event</span> {
+                    <span class="ident">view_number</span>: <span class="ident">GENESIS_VIEW</span>,
+                    <span class="ident">event</span>: <span class="ident">EventType::Decide</span> { <span class="ident">leaf_chain</span>: <span class="ident">Arc::new</span>(<span class="macro">vec!</span>[<span class="ident">anchor_leaf</span>.<span class="ident">into</span>()]) },
+                };
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">sender_handle</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                    <span class="macro">error!</span>(<span class="string">&quot;Error sending genesis storage event upstream!&quot;</span>);
+                }
+
+            }
+
+        } <span class="kw">else</span> {
+            <span class="macro">error!</span>(<span class="string">&quot;Hotshot storage has no anchor leaf!&quot;</span>);
+        }
     }
 
     <span class="doccomment">/// Signals the underlying [`HotShot`] to run one round, if paused.</span>

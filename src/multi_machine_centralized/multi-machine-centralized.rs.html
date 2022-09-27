@@ -221,13 +221,16 @@
 <span id="221">221</span>
 <span id="222">222</span>
 <span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
         <span class="ident">election::StaticCommittee</span>,
-        <span class="ident">implementations</span>::{<span class="ident">CentralizedServerNetwork</span>, <span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>},
-        <span class="ident">StateContents</span>,
+        <span class="ident">implementations</span>::{<span class="ident">CentralizedServerNetwork</span>, <span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>}, <span class="ident">Storage</span>,
     },
     <span class="ident">types</span>::{<span class="ident">ed25519::Ed25519Priv</span>, <span class="ident">HotShotHandle</span>},
     <span class="ident">HotShot</span>,
@@ -245,7 +248,7 @@
     <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
 };
 <span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">VecDeque</span>},
+    <span class="ident">collections</span>::{<span class="ident">VecDeque</span>, <span class="ident">BTreeMap</span>},
     <span class="ident">mem</span>,
     <span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">SocketAddr</span>},
     <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
@@ -286,11 +289,11 @@
     .<span class="ident">into_iter</span>()
     .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
     .<span class="ident">collect</span>();
-    <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis_from</span>(<span class="ident">accounts</span>);
+    <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis_from</span>(<span class="ident">accounts</span>);
+    <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
 
     <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">seed</span>, <span class="ident">node_id</span>);
     <span class="kw">let</span> <span class="ident">pub_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>);
-    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">DEntryState::default</span>().<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">block</span>).<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">known_nodes</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">known_nodes</span>.<span class="ident">clone</span>();
     <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
         <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
@@ -299,13 +302,18 @@
         <span class="ident">node_id</span>,
         <span class="ident">config</span>,
         <span class="ident">networking</span>,
-        <span class="ident">MemoryStorage::new</span>(<span class="ident">block</span>.<span class="ident">clone</span>(), <span class="ident">state</span>.<span class="ident">clone</span>()),
+        <span class="ident">MemoryStorage::new</span>(),
         <span class="ident">Stateless::default</span>(),
         <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
+        <span class="ident">initializer</span>
     )
     .<span class="kw">await</span>
     .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
+
+    <span class="kw">let</span> <span class="ident">storage</span> : <span class="kw-2">&amp;</span><span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">storage</span>();
+
+    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">state</span>;
 
     (<span class="ident">state</span>, <span class="ident">hotshot</span>)
 }
