@@ -1,5 +1,4 @@
 use cfg_if::cfg_if;
-use futures::{future::FusedFuture, FutureExt};
 
 cfg_if! {
     if #[cfg(feature = "channel-tokio")] {
@@ -87,23 +86,8 @@ impl<T> OneShotReceiver<T> {
             }
         }
     }
-
-    /// Take a fused receive from this `OneShotReceiver`.
-    ///
-    /// This takes a `&self` so the caller must make sure that this is no longer used if a message is received on this channel.
-    #[must_use]
-    pub fn recv_fuse(&self) -> impl FusedFuture<Output = Result<T, OneShotRecvError>> + '_ {
-        cfg_if! {
-            if #[cfg(feature = "channel-tokio")] {
-                self.0.map_err(Into::into).fuse()
-            } else if #[cfg(feature = "channel-flume")] {
-                self.0.recv_async().fuse()
-            } else {
-                self.0.recv().fuse()
-            }
-        }
-    }
 }
+
 // Debug impl
 impl<T> std::fmt::Debug for OneShotSender<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

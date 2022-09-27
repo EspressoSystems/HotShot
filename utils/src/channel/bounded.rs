@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use futures::{future::FusedFuture, FutureExt, Stream};
+use futures::Stream;
 
 cfg_if! {
     if #[cfg(feature = "channel-tokio")] {
@@ -127,10 +127,6 @@ impl<T> Receiver<T> {
                 Some(self.0.into_stream())
             }
         }
-    }
-    #[must_use]
-    pub fn recv_fuse(&self) -> impl FusedFuture<Output = Result<T, RecvError>> + '_ {
-        self.recv().fuse()
     }
     pub fn try_recv(&self) -> Result<T, TryRecvError> {
         cfg_if! {

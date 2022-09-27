@@ -1,7 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use cfg_if::cfg_if;
-use futures::{future::FusedFuture, FutureExt, Stream};
+use futures::Stream;
 
 cfg_if! {
     if #[cfg(feature = "channel-tokio")] {
@@ -126,10 +126,6 @@ impl<T> UnboundedReceiver<T> {
             }
         }
     }
-    #[must_use]
-    pub fn recv_fuse(&self) -> impl FusedFuture<Output = Result<T, UnboundedRecvError>> + '_ {
-        self.recv().fuse()
-    }
     pub fn try_recv(&self) -> Result<T, UnboundedTryRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-tokio")] {
@@ -178,7 +174,7 @@ impl<T> UnboundedReceiver<T> {
         }
         Ok(result)
     }
-    #[allow(clippy::len_without_is_empty)]
+    #[allow(clippy::len_without_is_empty, clippy::unused_self)]
     #[must_use]
     pub fn len(&self) -> Option<usize> {
         cfg_if::cfg_if! {
