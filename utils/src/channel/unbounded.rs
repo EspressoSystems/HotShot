@@ -82,6 +82,7 @@ pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
 }
 
 impl<T> UnboundedSender<T> {
+    #[allow(clippy::unused_async)] // under tokio this function is actually sync
     pub async fn send(&self, msg: T) -> Result<(), UnboundedSendError<T>> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
