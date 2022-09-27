@@ -236,35 +236,6 @@ pub async fn gen_transport(
         .boxed())
 }
 
-// /// Glue function that listens for events from the Swarm corresponding to `handle`
-// /// and calls `event_handler` when an event is observed.
-// /// The idea is that this function can be used independent of the actual state
-// /// we use
-// #[allow(clippy::panic)]
-// #[instrument(skip(event_handler, receiver))]
-// pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
-//     handle: Arc<NetworkNodeHandle<S>>,
-//     receiver: NetworkNodeReceiver,
-//     event_handler: impl (Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> Fut)
-//         + std::marker::Sync
-//         + std::marker::Send
-//         + 'static,
-// ) where
-//     Fut: Future<Output = Result<(), NetworkNodeHandleError>> + std::marker::Send + 'static,
-// {
-//     async_spawn(
-//         async move {
-//             while let Some(event) = receiver.next_or_killed().await {
-//                 event_handler(event, handle.clone()).await?;
-//             }
-//             handle.mark_killed().await;
-
-//             Ok::<(), NetworkNodeHandleError>(())
-//         }
-//         .instrument(info_span!("Libp2p Counter Handler")),
-//     );
-// }
-
 /// a single node, connects them to each other
 /// and waits for connections to propagate to all nodes.
 #[instrument]

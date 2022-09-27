@@ -537,22 +537,6 @@ impl<S> NetworkNodeHandle<S> {
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
 
-    // /// Get the internal `killed` receiver. This will return a receiver the first time this is called, and `None` every subsequent time.
-    // pub async fn recv_kill(&self) -> Option<OneShotReceiver<()>> {
-    //     self.recv_kill.lock().await.take()
-    // }
-
-    // /// Get a clone of the internal network receiver
-    // pub fn recv_network(&self) -> UnboundedReceiver<NetworkEvent> {
-    //     // self.recv_network.clone()
-    //     todo!()
-    // }
-
-    /// Mark this network as killed
-    pub async fn mark_killed(&self) {
-        self.receiver.killed.store(true, Ordering::Relaxed);
-    }
-
     /// Send a client request to the network
     ///
     /// # Errors
@@ -617,7 +601,7 @@ impl<S> NetworkNodeHandle<S> {
     }
 
     /// Returns `true` if the network state is killed
-    pub async fn is_killed(&self) -> bool {
+    pub fn is_killed(&self) -> bool {
         self.receiver.killed.load(Ordering::Relaxed)
     }
 

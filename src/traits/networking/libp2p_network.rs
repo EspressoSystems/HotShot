@@ -454,7 +454,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
     async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
         self.wait_for_ready().await;
@@ -479,7 +479,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
     async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
 
@@ -533,7 +533,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::broadcast_queue", skip_all)]
     async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
             self.inner
@@ -546,7 +546,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::next_broadcast", skip_all)]
     async fn next_broadcast(&self) -> Result<M, NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
             self.inner
@@ -559,7 +559,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::direct_queue", skip_all)]
     async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
             self.inner
@@ -572,7 +572,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::next_direct", skip_all)]
     async fn next_direct(&self) -> Result<M, NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
             self.inner
@@ -596,7 +596,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::network_changes", skip_all, self.peer_id)]
     async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
         let mut result = vec![];
@@ -639,7 +639,7 @@ impl<
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
     async fn shut_down(&self) {
-        if self.inner.handle.is_killed().await {
+        if self.inner.handle.is_killed() {
             error!("Called shut down when already shut down! Noop.");
         } else {
             self.inner.handle.shutdown().await.unwrap();
