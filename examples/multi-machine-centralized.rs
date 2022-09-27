@@ -21,7 +21,7 @@ use hotshot_utils::{
     test_util::{setup_backtrace, setup_logging},
 };
 use std::{
-    collections::{VecDeque},
+    collections::{VecDeque, BTreeMap},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -52,7 +52,17 @@ async fn init_state_and_hotshot(
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block
-    let genesis_block = DEntryBlock::genesis();
+    let accounts: BTreeMap<Account, Balance> = vec![
+        ("Joe", 1_000_000),
+        ("Nathan M", 500_000_000),
+        ("John", 400_000_000),
+        ("Nathan Y", 600_000_000),
+        ("Ian", 300_000_000),
+    ]
+    .into_iter()
+    .map(|(x, y)| (x.to_string(), y))
+    .collect();
+    let genesis_block = DEntryBlock::genesis_from(accounts);
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
