@@ -61,9 +61,7 @@ where
         Self {
             network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                let block = BLOCK::genesis();
-                let state = STATE::default().append(&block).unwrap();
-                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage(block, state).unwrap()
+                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage().unwrap()
             }),
             block: Box::new(|_| BLOCK::genesis()),
             config,

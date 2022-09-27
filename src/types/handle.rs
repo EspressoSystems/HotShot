@@ -9,7 +9,7 @@ use hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    traits::{network::NetworkingImplementation, StateContents},
+    traits::{network::NetworkingImplementation, StateContents, storage::Storage}, constants::GENESIS_VIEW,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
@@ -144,6 +144,23 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// This will cause the background task to start running consensus again.
     pub async fn start(&self) {
         self.hotshot.inner.background_task_handle.start().await;
+        // if is genesis
+        let _anchor = self.storage();
+        if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
+            if anchor_leaf.view_number == GENESIS_VIEW {
+                let event = Event {
+                    view_number: GENESIS_VIEW,
+                    event: EventType::Decide { leaf_chain: Arc::new(vec![anchor_leaf.into()]) },
+                };
+                if self.sender_handle.send_async(event).await.is_err() {
+                    error!("Error sending genesis storage event upstream!");
+                }
+
+            }
+
+        } else {
+            error!("Hotshot storage has no anchor leaf!");
+        }
     }
 
     /// Signals the underlying [`HotShot`] to run one round, if paused.

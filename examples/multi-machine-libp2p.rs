@@ -15,7 +15,7 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{Libp2pNetwork, MemoryStorage, Stateless},
-        NetworkError, StateContents,
+        NetworkError, Storage,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle, Message},
     HotShot,
@@ -395,10 +395,8 @@ impl Config {
 
         networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
     ) -> (DEntryState, HotShotHandle<Node>) {
-        // Create the initial state
-        // NOTE: all balances must be positive
-        // so we avoid a negative balance
-        let block = DEntryBlock::genesis();
+        let genesis_block = DEntryBlock::genesis();
+        let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         // Create the initial hotshot
         let known_nodes: Vec<_> = (0..self.num_nodes as u64)
@@ -423,7 +421,6 @@ impl Config {
             num_bootstrap: 7,
         };
         debug!(?config);
-        let state = DEntryState::default().append(&block).unwrap();
         let hotshot = HotShot::init(
             known_nodes.clone(),
             self.pubkey,
@@ -431,13 +428,18 @@ impl Config {
             self.node_id as u64,
             config,
             networking,
-            MemoryStorage::new(block.clone(), state.clone()),
+            MemoryStorage::new(),
             Stateless::default(),
             StaticCommittee::new(known_nodes),
+            initializer
         )
         .await
         .expect("Could not init hotshot");
         debug!("hotshot launched");
+
+        let storage : &MemoryStorage<DEntryState> = hotshot.storage();
+
+        let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }

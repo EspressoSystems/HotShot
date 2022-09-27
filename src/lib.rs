@@ -40,6 +40,8 @@ mod tasks;
 mod utils;
 
 use hotshot_utils::art::async_spawn_local;
+use hotshot_types::{traits::storage::ViewEntry, error::StorageSnafu};
+use snafu::ResultExt;
 
 use crate::{
     data::{Leaf, QuorumCertificate},
@@ -56,8 +58,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     constants::GENESIS_VIEW,
-    data::ViewNumber,
-    error::StorageSnafu,
+    data::{ViewNumber, fake_commitment},
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
@@ -71,7 +72,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
-use snafu::ResultExt;
+
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     num::NonZeroUsize,
@@ -173,7 +174,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, cluster_public_keys, networking, storage, election))]
+    #[instrument(skip(private_key, cluster_public_keys, networking, storage, election, initializer))]
     pub async fn new(
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
@@ -184,6 +185,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
+        initializer: HotShotInitializer<I::State>
     ) -> Result<Self> {
         info!("Creating a new hotshot");
 
@@ -212,18 +214,16 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             cluster_public_keys: cluster_public_keys.into_iter().collect(),
         });
 
-        let anchored = inner
-            .storage
-            .get_anchored_view()
-            .await
-            .context(StorageSnafu)?;
+        let anchored_leaf = initializer.inner;
 
-        let anchored_leaf: Leaf<_> = anchored.clone().into();
+        // insert to storage
+        inner.storage.append(
+            vec![ ViewEntry::Success(anchored_leaf.clone().into()) ]).await.context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
-            anchored.view_number,
+            anchored_leaf.view_number,
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -232,20 +232,18 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         );
 
         let mut saved_leaves = HashMap::new();
-        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf);
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        let start_view = anchored.view_number;
+        let start_view = anchored_leaf.view_number;
 
-        // TODO jr add constructor and private the consensus fields
-        // and also ViewNumber's contained number
         let hotstuff = Consensus {
             state_map,
             cur_view: start_view,
-            last_decided_view: anchored.view_number,
+            last_decided_view: anchored_leaf.view_number,
             transactions: Arc::default(),
             saved_leaves,
             locked_view: GENESIS_VIEW,
-            high_qc: anchored.justify_qc,
+            high_qc: anchored_leaf.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -368,6 +366,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         storage: I::Storage,
         handler: I::StatefulHandler,
         election: I::Election,
+        initializer: HotShotInitializer<I::State>
     ) -> Result<HotShotHandle<I>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -380,6 +379,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             storage,
             handler,
             election,
+            initializer
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
@@ -843,3 +843,45 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         }
     }
 }
+
+/// initializer struct for creating starting block
+pub struct HotShotInitializer<STATE: StateContents> {
+    /// the leaf specified initialization
+    inner: Leaf<STATE>
+}
+
+impl<STATE: StateContents> HotShotInitializer<STATE> {
+
+    /// initialize from genesis
+    /// # Errors
+    /// If we are unable to apply the genesis block to the default state
+    pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
+        let state = STATE::default().append(&genesis_block).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let view_number = GENESIS_VIEW;
+        let justify_qc = QuorumCertificate::<STATE>::genesis();
+
+        Ok(Self {
+            inner: Leaf {
+                view_number,
+                justify_qc,
+                parent_commitment: fake_commitment(),
+                deltas: genesis_block,
+                state,
+                rejected: Vec::new()
+            }
+
+        })
+
+    }
+
+    /// reload previous state based on most recent leaf
+    pub fn from_reload(anchor_leaf: Leaf<STATE>) -> Self {
+        Self {
+            inner: anchor_leaf
+        }
+
+    }
+
+}
+
+

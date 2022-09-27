@@ -23,7 +23,7 @@ use hotshot::{
         NetworkingImplementation, NodeImplementation, StateContents, Storage,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotError, H_256,
+    HotShot, HotShotError, H_256, HotShotInitializer,
 };
 use hotshot_types::{
     traits::{
@@ -186,7 +186,8 @@ where
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
-            let node_id = self.add_node_with_config(network, storage, config).await;
+            let initializer = HotShotInitializer::from_genesis(<<STATE as StateContents>::Block as TestableBlock>::genesis()).unwrap();
+            let node_id = self.add_node_with_config(network, storage, initializer, config).await;
             results.push(node_id);
         }
 
@@ -213,6 +214,7 @@ where
         &mut self,
         network: NETWORK,
         storage: STORAGE,
+        initializer: HotShotInitializer<STATE>,
         config: HotShotConfig<Ed25519Pub>,
     ) -> u64 {
         let node_id = self.next_node_id;
@@ -231,6 +233,7 @@ where
             storage,
             Stateless::default(),
             StaticCommittee::new(known_nodes),
+            initializer
         )
         .await
         .expect("Could not init hotshot");

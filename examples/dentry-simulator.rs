@@ -15,7 +15,6 @@ use hotshot_utils::{
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    collections::BTreeMap,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
@@ -26,7 +25,6 @@ use hotshot::{
     traits::{
         election::StaticCommittee,
         implementations::{MemoryStorage, Stateless, WNetwork},
-        StateContents,
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
@@ -128,7 +126,7 @@ async fn main() {
     // Create the hotshots
     let mut hotshots: Vec<HotShotHandle<_>> =
         join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_hotshot(nodes, threshold, node_id, network, initial_block())
+            get_hotshot(nodes, threshold, node_id, network)
         }))
         .await;
 
@@ -289,21 +287,6 @@ async fn main() {
     );
 }
 
-/// Provides the initial state for the simulation
-fn initial_block() -> DEntryBlock {
-    let accounts: BTreeMap<Account, Balance> = vec![
-        ("Joe", 1_000_000),
-        ("Nathan M", 500_000_000),
-        ("John", 400_000_000),
-        ("Nathan Y", 600_000_000),
-        ("Ian", 300_000_000),
-    ]
-    .into_iter()
-    .map(|(x, y)| (x.to_string(), y))
-    .collect();
-    DEntryBlock::genesis_from(accounts)
-}
-
 /// Trys to get a networking implementation with the given id
 ///
 /// also starts the background task
@@ -346,13 +329,12 @@ async fn get_networking<
 }
 
 /// Creates a hotshot
-#[instrument(skip(networking, block))]
+#[instrument(skip(networking))]
 async fn get_hotshot(
     nodes: usize,
     threshold: usize,
     node_id: u64,
     networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    block: DEntryBlock,
 ) -> HotShotHandle<Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
@@ -378,7 +360,8 @@ async fn get_hotshot(
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
     let public_key = Ed25519Pub::from_private(&private_key);
-    let state = DEntryState::default().append(&block).unwrap();
+    let genesis_block = DEntryBlock::genesis();
+    let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
     let h = HotShot::init(
         known_nodes.clone(),
         public_key,
@@ -386,9 +369,10 @@ async fn get_hotshot(
         node_id,
         config,
         networking,
-        MemoryStorage::new(block, state),
+        MemoryStorage::new(),
         Stateless::default(),
         StaticCommittee::new(known_nodes),
+        initializer
     )
     .await
     .expect("Could not init hotshot");

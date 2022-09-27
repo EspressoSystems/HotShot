@@ -44,10 +44,6 @@ required-features = ["demo", "async-std-executor"]
 name = "multi-machine-libp2p"
 required-features = ["demo", "libp2p/rsa"]
 
-[[example]]
-name = "multi-machine"
-required-features = ["async-std-executor"]
-
 [dependencies]
 async-lock = "2.5"
 async-std = { version = "1.12", optional = true }
