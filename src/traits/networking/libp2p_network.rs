@@ -9,13 +9,13 @@ use bincode::Options;
 use dashmap::DashSet;
 use hotshot_types::traits::{
     network::{
-        ChannelDisconnectedSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-        NetworkingImplementation, TestableNetworkingImplementation,
+        FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
+        TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
     },
     signature_key::{SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn, async_timeout},
+    art::{async_block_on, async_sleep, async_spawn},
     bincode::bincode_opts,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
@@ -325,19 +325,10 @@ impl<
                 let timeout_duration = Duration::from_secs(600);
                 // perform connection
                 error!("WAITING TO CONNECT ON NODE {:?}", id);
-                async_timeout(
-                    timeout_duration,
-                    NetworkNodeHandle::wait_to_connect(
-                        handle.clone(),
-                        // this is a safe lower bet on the number of nodes in the network.
-                        4,
-                        handle.recv_network(),
-                        id,
-                    ),
-                )
-                .await
-                .unwrap()
-                .unwrap();
+                handle
+                    .wait_to_connect(4, id, timeout_duration)
+                    .await
+                    .unwrap();
 
                 while !is_bootstrapped.load(std::sync::atomic::Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
@@ -402,8 +393,7 @@ impl<
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
         async_spawn(async move {
-            let nw_recv = handle.inner.handle.recv_network();
-            while let Ok(msg) = nw_recv.recv().await {
+            while let Ok(msg) = handle.inner.handle.receiver().recv().await {
                 match msg {
                     GossipMsg(msg, _topic) => {
                         let result: Result<M, _> = bincode_opts().deserialize(&msg);
@@ -550,7 +540,7 @@ impl<
                 .broadcast_recv
                 .drain_at_least_one()
                 .await
-                .context(ChannelDisconnectedSnafu)
+                .context(UnboundedChannelDisconnectedSnafu)
         }
     }
 
@@ -576,7 +566,7 @@ impl<
                 .direct_recv
                 .drain_at_least_one()
                 .await
-                .context(ChannelDisconnectedSnafu)
+                .context(UnboundedChannelDisconnectedSnafu)
         }
     }
 

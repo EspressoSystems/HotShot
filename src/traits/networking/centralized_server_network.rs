@@ -748,7 +748,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     where
         F: FnMut() -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> + Send + 'static,
     {
-        let (to_background_sender, to_background) = unbounded();
+        let (to_background_sender, mut to_background) = unbounded();
         let (from_background_sender, from_background) = unbounded();
         let receiving_loopback = from_background_sender.clone();
 
@@ -774,7 +774,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
                         recv_stream,
                         send_stream,
                         key.clone(),
-                        to_background.clone(),
+                        &mut to_background,
                         from_background_sender.clone(),
                         Arc::clone(&inner),
                     )
@@ -811,7 +811,7 @@ async fn run_background<K: SignatureKey>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
     key: K,
-    to_background: UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
+    to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
     from_background_sender: UnboundedSender<(FromServer<K>, Vec<u8>)>,
     connection: Arc<Inner<K>>,
 ) -> Result<(), Error> {
@@ -846,7 +846,7 @@ async fn run_background<K: SignatureKey>(
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 async fn run_background_send<K: SignatureKey>(
     mut stream: TcpStreamSendUtil,
-    to_background: UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
+    to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
 ) -> Result<(), Error> {
     loop {
         let result = to_background.recv().await;

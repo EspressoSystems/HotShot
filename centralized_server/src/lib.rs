@@ -457,6 +457,7 @@ async fn background_task<K: SignatureKey + 'static>(
     }
 }
 
+#[derive(Debug)]
 pub enum ToBackground<K> {
     Shutdown,
     StartRun(Run),

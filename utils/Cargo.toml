@@ -19,7 +19,7 @@ profiling = [
     "opentelemetry-aws",
 ]
 channel-flume = ["flume"]
-channel-tokio = ["dep:tokio"]
+channel-tokio = ["dep:tokio", "dep:tokio-stream"]
 channel-async-std = ["dep:async-std"]
 
 

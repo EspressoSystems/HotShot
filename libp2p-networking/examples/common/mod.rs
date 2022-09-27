@@ -21,7 +21,7 @@ use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
-    network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm, NetworkEvent,
+    network_node_handle_error::NodeConfigSnafu, spin_up_swarm, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
 use rand::{
@@ -535,7 +535,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .context(HandleSnafu)?;
             info!("spun up!");
 
-            spawn_handler(handle.clone(), conductor_handle_network_event).await;
+            let handler_fut = handle.spawn_handler(conductor_handle_network_event).await;
             info!("spawned handler");
 
             handle.notify_webui().await;
@@ -582,6 +582,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .modify_state(|s| s.complete_round(EpochType::BroadcastViaGossip))
                     .await;
             }
+            handler_fut.await;
 
             #[cfg(feature = "benchmark-output")]
             {
@@ -614,10 +615,11 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
                 .await
                 .context(HandleSnafu)?;
-            spawn_handler(handle.clone(), regular_handle_network_event).await;
-            while !handle.is_killed().await {
-                async_sleep(Duration::from_millis(100)).await;
-            }
+            let handler_fut = handle.spawn_handler(regular_handle_network_event).await;
+            handler_fut.await;
+            // while !handle.is_killed().await {
+            //     async_sleep(Duration::from_millis(100)).await;
+            // }
         }
     }
 

@@ -8,7 +8,7 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
-use crate::channel::{bounded, BoundedReceiver, BoundedSender};
+use crate::channel::{bounded, Receiver, Sender};
 use async_lock::{Mutex, MutexGuard};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
@@ -22,7 +22,7 @@ use tracing::warn;
 #[derive(Default)]
 pub struct SubscribableMutex<T: ?Sized> {
     /// A list of subscribers of this mutex.
-    subscribers: Mutex<Vec<BoundedSender<()>>>,
+    subscribers: Mutex<Vec<Sender<()>>>,
     /// The inner mutex holding the value.
     /// Note that because of the `T: ?Sized` constraint, this must be the last field in this struct.
     mutex: Mutex<T>,
@@ -71,7 +71,7 @@ impl<T> SubscribableMutex<T> {
     }
 
     /// Create a [`Receiver`] that will be notified every time a thread calls [`Self::notify_change_subscribers`]
-    pub async fn subscribe(&self) -> BoundedReceiver<()> {
+    pub async fn subscribe(&self) -> Receiver<()> {
         let (sender, receiver) = bounded(1);
         self.subscribers.lock().await.push(sender);
         receiver

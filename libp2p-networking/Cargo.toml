@@ -45,6 +45,12 @@ tokio-executor = [
     "libp2p/tcp-tokio",
 ]
 profiling = ["hotshot-utils/profiling"]
+channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
+channel-tokio = ["hotshot-types/channel-tokio", "hotshot-utils/channel-tokio"]
+channel-async-std = [
+    "hotshot-types/channel-async-std",
+    "hotshot-utils/channel-async-std",
+]
 
 [dependencies]
 async-lock = "2.5"

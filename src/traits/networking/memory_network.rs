@@ -16,7 +16,7 @@ use hotshot_types::traits::{
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn},
     bincode::bincode_opts,
-    channel::{bounded, BoundedReceiver, BoundedSender, SendError},
+    channel::{bounded, Receiver, SendError, Sender},
 };
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -79,20 +79,20 @@ struct MemoryNetworkInner<T, P: SignatureKey + 'static> {
     #[allow(dead_code)]
     pub_key: P,
     /// Input for broadcast messages
-    broadcast_input: RwLock<Option<BoundedSender<Vec<u8>>>>,
+    broadcast_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Input for direct messages
-    direct_input: RwLock<Option<BoundedSender<Vec<u8>>>>,
+    direct_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Output for broadcast messages
-    broadcast_output: BoundedReceiver<T>,
+    broadcast_output: Receiver<T>,
     /// Output for direct messages
-    direct_output: BoundedReceiver<T>,
+    direct_output: Receiver<T>,
     /// The master map
     master_map: Arc<MasterMap<T, P>>,
 
     /// Input for network change messages
-    network_changes_input: RwLock<Option<BoundedSender<NetworkChange<P>>>>,
+    network_changes_input: RwLock<Option<Sender<NetworkChange<P>>>>,
     /// Output for network change messages
-    network_changes_output: BoundedReceiver<NetworkChange<P>>,
+    network_changes_output: Receiver<NetworkChange<P>>,
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
@@ -144,10 +144,14 @@ where
             async move {
                 debug!("Starting background task");
                 // direct input is right stream
-                let direct = direct_task_recv.into_stream().map(Combo::<Vec<u8>>::Direct);
+                let direct = direct_task_recv
+                    .into_stream()
+                    .expect("Could not turn task into stream")
+                    .map(Combo::<Vec<u8>>::Direct);
                 // broadcast input is left stream
                 let broadcast = broadcast_task_recv
                     .into_stream()
+                    .expect("Could not turn task into stream")
                     .map(Combo::<Vec<u8>>::Broadcast);
                 // Combine the streams
                 let mut combined = futures::stream::select(direct, broadcast);

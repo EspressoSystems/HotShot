@@ -14,6 +14,13 @@ jobs:
   lints:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      matrix:
+        features:
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std",
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume",
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio",
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume",
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
@@ -38,6 +45,4 @@ jobs:
 
       - name: Clippy
         run: |
-             cargo clippy --workspace --all-targets --no-default-features --features=full-ci --bins --tests --examples -- -D warnings
-             cargo clean
-             cargo clippy --workspace --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings
+          cargo clippy --workspace --all-targets --no-default-features --features "${{ matrix.features }}" --bins --tests --examples -- -D warnings

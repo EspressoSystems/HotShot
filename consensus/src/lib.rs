@@ -18,10 +18,10 @@
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod traits;
-use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
+
 pub use traits::ConsensusApi;
 
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
 use hotshot_types::{
     constants::GENESIS_VIEW,
@@ -35,6 +35,7 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
+use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::sync::{atomic::AtomicBool, Arc};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -82,7 +83,7 @@ pub struct ViewQueue<I: NodeImplementation> {
     pub sender_chan: UnboundedSender<ConsensusMessage<I::State>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: UnboundedReceiver<ConsensusMessage<I::State>>,
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,
@@ -94,7 +95,7 @@ impl<I: NodeImplementation> Default for ViewQueue<I> {
         let (s, r) = unbounded();
         ViewQueue {
             sender_chan: s,
-            receiver_chan: r,
+            receiver_chan: Arc::new(Mutex::new(r)),
             has_received_proposal: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -170,7 +171,7 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: UnboundedReceiver<ConsensusMessage<I::State>>,
+    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// view number this view is executing in
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
@@ -191,8 +192,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         RwLockUpgradableReadGuard<'a, Consensus<I>>,
         std::result::Result<Leaf<I::State>, ()>,
     ) {
+        let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
-            let msg = self.proposal_collection_chan.recv().await;
+            let msg = lock.recv().await;
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
@@ -590,7 +592,7 @@ pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<I::State>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: UnboundedReceiver<ConsensusMessage<I::State>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Limited access to the consensus protocol
@@ -619,7 +621,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
-        while let Ok(msg) = self.vote_collection_chan.recv().await {
+        let lock = self.vote_collection_chan.lock().await;
+        while let Ok(msg) = lock.recv().await {
             info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;

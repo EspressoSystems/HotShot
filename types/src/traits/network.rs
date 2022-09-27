@@ -94,6 +94,11 @@ pub enum NetworkError {
         /// Source of error
         source: hotshot_utils::channel::RecvError,
     },
+    /// An underlying unbounded channel has disconnected
+    UnboundedChannelDisconnected {
+        /// Source of error
+        source: hotshot_utils::channel::UnboundedRecvError,
+    },
     /// The centralized server could not find a specific message.
     NoMessagesInQueue,
 }

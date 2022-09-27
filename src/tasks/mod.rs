@@ -374,7 +374,8 @@ pub async fn network_lookup_task<I: NodeImplementation>(
     let mut completion_map: HashMap<ViewNumber, Arc<AtomicBool>> = HashMap::default();
 
     while !shut_down.load(Ordering::Relaxed) {
-        if let Ok(Some(cur_view)) = hotshot.recv_network_lookup.recv().await {
+        let lock = hotshot.recv_network_lookup.lock().await;
+        if let Ok(Some(cur_view)) = lock.recv().await {
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
             // perform pruning

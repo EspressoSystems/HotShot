@@ -39,9 +39,7 @@ use hotshot_types::traits::{
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, async_timeout},
     bincode::bincode_opts,
-    channel::{
-        bounded, unbounded, BoundedReceiver, BoundedSender, UnboundedReceiver, UnboundedSender,
-    },
+    channel::{bounded, unbounded, Receiver, Sender, UnboundedReceiver, UnboundedSender},
 };
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -121,7 +119,7 @@ impl<T, P> Command<T, P> {
 #[derive(Clone)]
 struct Handle<T, P> {
     /// Messages to be sent by this node
-    outbound: BoundedSender<Command<T, P>>,
+    outbound: Sender<Command<T, P>>,
     /// The address of the remote
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
@@ -172,18 +170,18 @@ struct Waiters {
 #[derive(Clone)]
 struct Inputs<T> {
     /// Input to broadcast queue
-    broadcast: BoundedSender<T>,
+    broadcast: Sender<T>,
     /// Input to direct queue
-    direct: BoundedSender<T>,
+    direct: Sender<T>,
 }
 
 /// Holds onto the output queues for a [`WNetwork`]
 #[derive(Clone)]
 struct Outputs<T> {
     /// Output from broadcast queue
-    broadcast: BoundedReceiver<T>,
+    broadcast: Receiver<T>,
     /// Output from direct queue
-    direct: BoundedReceiver<T>,
+    direct: Receiver<T>,
 }
 
 /// Internal enum for combining message and command streams
@@ -380,7 +378,10 @@ impl<
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),
             });
-            let ob_stream =  r_outbound.into_stream().map(Combo::Command);
+            let ob_stream =  r_outbound
+                .into_stream()
+                .expect("Could not turn r_outbound into a stream")
+                .map(Combo::Command);
             let mut combined_stream = futures::stream::select(ws_stream,ob_stream);
             debug!("Entering processing loop");
             while let Some(m) = combined_stream.next().await {

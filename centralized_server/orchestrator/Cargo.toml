@@ -24,6 +24,13 @@ tokio-executor = [
 ]
 profiling = ["hotshot-utils/profiling"]
 
+channel-async-std = [
+  "hotshot/channel-async-std",
+  "hotshot-utils/channel-async-std",
+]
+channel-tokio = ["hotshot/channel-tokio", "hotshot-utils/channel-tokio"]
+channel-flume = ["hotshot/channel-flume", "hotshot-utils/channel-flume"]
+
 [dependencies]
 clap = { version = "3.2.22", features = ["derive", "env"] }
 # TODO may need to pull in the attributes feature flag?

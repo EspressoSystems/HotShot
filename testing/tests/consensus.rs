@@ -15,7 +15,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
 };
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;

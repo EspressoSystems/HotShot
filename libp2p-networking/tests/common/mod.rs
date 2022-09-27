@@ -1,11 +1,12 @@
+use futures::FutureExt;
 use futures::{future::join_all, Future};
-use hotshot_utils::art::{async_sleep, async_timeout};
+use hotshot_utils::art::async_sleep;
 use hotshot_utils::channel::RecvError;
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{
-    network_node_handle_error::NodeConfigSnafu, spawn_handler, NetworkEvent,
-    NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
+    network_node_handle_error::NodeConfigSnafu, NetworkEvent, NetworkNodeConfigBuilder,
+    NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
 use snafu::{ResultExt, Snafu};
 use std::{
@@ -44,12 +45,12 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
 
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
-    let handles: Vec<Arc<NetworkNodeHandle<S>>> =
-        spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
-            .await
-            .unwrap();
+    let handles = spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
+        .await
+        .unwrap();
+
     for handle in &handles {
-        spawn_handler(handle.clone(), client_handler.clone()).await;
+        let _ = handle.spawn_handler(client_handler.clone());
     }
 
     run_test(handles.clone(), timeout).await;
@@ -119,24 +120,23 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .node_type(NetworkNodeType::Bootstrap)
             .to_connect_addrs(HashSet::default())
             .bound_addr(Some(addr));
-        let node = Arc::new(
-            NetworkNodeHandle::new(
-                config
-                    .build()
-                    .context(NodeConfigSnafu)
-                    .context(HandleSnafu)?,
-                i,
-            )
-            .await
-            .context(HandleSnafu)?,
-        );
+        let node = NetworkNodeHandle::new(
+            config
+                .build()
+                .context(NodeConfigSnafu)
+                .context(HandleSnafu)?,
+            i,
+        )
+        .await
+        .context(HandleSnafu)?;
+        let node = Arc::new(node);
         let addr = node.listen_addr();
         error!("listen addr for {} is {:?}", i, addr);
         bootstrap_addrs.push((node.peer_id(), addr));
-        connecting_futs.push(async_timeout(
-            timeout_len,
-            NetworkNodeHandle::wait_to_connect(node.clone(), 4, node.recv_network(), i),
-        ));
+        connecting_futs.push({
+            let node = node.clone();
+            async move { node.wait_to_connect(4, i, timeout_len).await }.boxed_local()
+        });
         handles.push(node);
     }
 
@@ -155,21 +155,18 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let node = Arc::new(
-            NetworkNodeHandle::new(regular_node_config.clone(), j + num_bootstrap)
-                .await
-                .context(HandleSnafu)?,
-        );
-        connecting_futs.push(async_timeout(
-            timeout_len,
-            NetworkNodeHandle::wait_to_connect(
-                node.clone(),
-                // connected to 4 nodes to be "ready"
-                4,
-                node.recv_network(),
-                num_bootstrap + j,
-            ),
-        ));
+        let node = NetworkNodeHandle::new(regular_node_config.clone(), j + num_bootstrap)
+            .await
+            .context(HandleSnafu)?;
+        let node = Arc::new(node);
+        connecting_futs.push({
+            let node = node.clone();
+            async move {
+                node.wait_to_connect(4, num_bootstrap + j, timeout_len)
+                    .await
+            }
+            .boxed_local()
+        });
 
         handles.push(node);
     }
@@ -199,9 +196,8 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
     let res = join_all(connecting_futs.into_iter()).await;
     let mut failing_nodes = Vec::new();
     for (idx, a_node) in res.iter().enumerate() {
-        match a_node {
-            Ok(Err(_)) | Err(_) => failing_nodes.push(idx),
-            Ok(Ok(_)) => (),
+        if a_node.is_err() {
+            failing_nodes.push(idx);
         }
     }
     if !failing_nodes.is_empty() {

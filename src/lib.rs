@@ -165,7 +165,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     send_network_lookup: UnboundedSender<Option<ViewNumber>>,
 
     /// for receiving messages in the network lookup task
-    recv_network_lookup: UnboundedReceiver<Option<ViewNumber>>,
+    recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<ViewNumber>>>>,
 
     /// uid for instrumentation
     id: u64,
@@ -269,7 +269,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
-            recv_network_lookup,
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
         })
     }
 
@@ -484,10 +484,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                if !chan.has_received_proposal.swap(true, Ordering::Relaxed) {
-                    if chan.sender_chan.send(msg).await.is_err() {
-                        warn!("Failed to send to next leader!");
-                    }
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
+                    && chan.sender_chan.send(msg).await.is_err()
+                {
+                    warn!("Failed to send to next leader!");
                 }
             }
             ConsensusMessage::NextViewInterrupt(_) => {
@@ -540,10 +540,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                if !chan.has_received_proposal.swap(true, Ordering::Relaxed) {
-                    if chan.sender_chan.send(c).await.is_err() {
-                        warn!("Failed to send to next leader!");
-                    }
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
+                    && chan.sender_chan.send(c).await.is_err()
+                {
+                    warn!("Failed to send to next leader!");
                 }
             }
         }

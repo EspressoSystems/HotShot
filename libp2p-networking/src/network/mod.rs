@@ -14,19 +14,13 @@ pub use self::{
     },
 };
 
-use self::{
-    behaviours::{
-        dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
-        gossip::GossipEvent,
-    },
-    node::network_node_handle_error::TimeoutSnafu,
+use self::behaviours::{
+    dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
+    gossip::GossipEvent,
 };
 use bincode::Options;
-use futures::{channel::oneshot::Sender, select, Future};
-use hotshot_utils::{
-    art::{async_spawn, async_timeout},
-    bincode::bincode_opts,
-};
+use futures::channel::oneshot::Sender;
+use hotshot_utils::bincode::bincode_opts;
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
         use libp2p::dns::DnsConfig as DnsConfig;
@@ -37,7 +31,6 @@ cfg_if::cfg_if! {
     } else {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
-
 }
 use libp2p::{
     build_multiaddr,
@@ -53,9 +46,8 @@ use libp2p::{
 };
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
 use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
-use tracing::{info, info_span, instrument, Instrument};
+use tracing::{info, instrument};
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
@@ -244,44 +236,34 @@ pub async fn gen_transport(
         .boxed())
 }
 
-/// Glue function that listens for events from the Swarm corresponding to `handle`
-/// and calls `event_handler` when an event is observed.
-/// The idea is that this function can be used independent of the actual state
-/// we use
-#[allow(clippy::panic)]
-#[instrument(skip(event_handler))]
-pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
-    handle: Arc<NetworkNodeHandle<S>>,
-    event_handler: impl (Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> Fut)
-        + std::marker::Sync
-        + std::marker::Send
-        + 'static,
-) where
-    Fut: Future<Output = Result<(), NetworkNodeHandleError>> + std::marker::Send + 'static,
-{
-    let recv_kill = handle
-        .recv_kill()
-        .await
-        .expect("Kill handle is already taken");
-    let recv_event = handle.recv_network();
-    async_spawn(
-        async move {
-            loop {
-                select!(
-                    _ = recv_kill.recv_fuse() => {
-                        handle.mark_killed().await;
-                        break;
-                    },
-                    event = recv_event.recv_fuse() => {
-                        event_handler(event.map_err(|_| NetworkNodeHandleError::RecvError)?, handle.clone()).await?;
-                    },
-                );
-            }
-            Ok::<(), NetworkNodeHandleError>(())
-        }
-        .instrument(info_span!("Libp2p Counter Handler")),
-    );
-}
+// /// Glue function that listens for events from the Swarm corresponding to `handle`
+// /// and calls `event_handler` when an event is observed.
+// /// The idea is that this function can be used independent of the actual state
+// /// we use
+// #[allow(clippy::panic)]
+// #[instrument(skip(event_handler, receiver))]
+// pub async fn spawn_handler<S: 'static + Send + Default + Debug, Fut>(
+//     handle: Arc<NetworkNodeHandle<S>>,
+//     receiver: NetworkNodeReceiver,
+//     event_handler: impl (Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> Fut)
+//         + std::marker::Sync
+//         + std::marker::Send
+//         + 'static,
+// ) where
+//     Fut: Future<Output = Result<(), NetworkNodeHandleError>> + std::marker::Send + 'static,
+// {
+//     async_spawn(
+//         async move {
+//             while let Some(event) = receiver.next_or_killed().await {
+//                 event_handler(event, handle.clone()).await?;
+//             }
+//             handle.mark_killed().await;
+
+//             Ok::<(), NetworkNodeHandleError>(())
+//         }
+//         .instrument(info_span!("Libp2p Counter Handler")),
+//     );
+// }
 
 /// a single node, connects them to each other
 /// and waits for connections to propagate to all nodes.
@@ -295,12 +277,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 ) -> Result<(), NetworkNodeHandleError> {
     info!("known_nodes{:?}", known_nodes);
     handle.add_known_peers(known_nodes).await?;
-    async_timeout(
-        timeout_len,
-        NetworkNodeHandle::wait_to_connect(handle.clone(), 4, handle.recv_network(), idx),
-    )
-    .await
-    .context(TimeoutSnafu)??;
+    handle.wait_to_connect(4, idx, timeout_len).await?;
     handle.subscribe("global".to_string()).await?;
 
     Ok(())

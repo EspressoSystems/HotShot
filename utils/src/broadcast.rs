@@ -1,6 +1,6 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 use crate::art::async_block_on;
-use crate::channel::{RecvError, SendError, UnboundedReceiver, UnboundedSender};
+use crate::channel::{SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender};
 use async_lock::RwLock;
 
 use std::{
@@ -105,7 +105,7 @@ where
     /// # Errors
     ///
     /// Will return `Err` if the upstream sender has been disconnected.
-    pub async fn recv_async(&self) -> Result<T, RecvError> {
+    pub async fn recv_async(&self) -> Result<T, UnboundedRecvError> {
         self.output.recv().await
     }
 

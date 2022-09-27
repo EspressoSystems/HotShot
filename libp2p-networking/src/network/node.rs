@@ -5,7 +5,9 @@ pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
     },
-    handle::{network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError},
+    handle::{
+        network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
+    },
 };
 
 use super::{
@@ -23,10 +25,10 @@ use crate::network::{
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
-use futures::{select, StreamExt};
+use futures::{select, FutureExt, StreamExt};
 use hotshot_utils::{
     art::async_spawn,
-    channel::{unbounded, RecvError, UnboundedReceiver, UnboundedSender},
+    channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
@@ -292,7 +294,7 @@ impl NetworkNode {
     #[instrument(skip(self))]
     async fn handle_client_requests(
         &mut self,
-        msg: Result<ClientRequest, RecvError>,
+        msg: Result<ClientRequest, UnboundedRecvError>,
     ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
         match msg {
@@ -571,7 +573,7 @@ impl NetworkNode {
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
-                        msg = s_output.recv_fuse() => {
+                        msg = s_output.recv().fuse() => {
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 break

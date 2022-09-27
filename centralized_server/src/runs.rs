@@ -2,9 +2,11 @@ use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
 use hotshot_utils::art::{async_sleep, async_spawn};
 use hotshot_utils::channel::{OneShotSender, UnboundedSender};
 use libp2p_core::PeerId;
-use std::{fs, path::Path};
 use std::{
+    fmt::Debug,
+    fs,
     net::{IpAddr, SocketAddr},
+    path::Path,
     time::Duration,
 };
 use tracing::error;
@@ -71,7 +73,7 @@ impl<K> RoundConfig<K> {
         sender: OneShotSender<ClientConfig<K>>,
         start_round_sender: UnboundedSender<ToBackground<K>>,
     ) where
-        K: Clone + Send + 'static,
+        K: Debug + Clone + Send + 'static,
     {
         let total_runs = self.configs.len();
         let mut config: &mut NetworkConfig<K> = match self.configs.get_mut(self.current_run) {
@@ -111,7 +113,7 @@ impl<K> RoundConfig<K> {
                         let config =
                             set_config(config.clone(), addr, Run(self.current_run), idx as u64);
 
-                        let _ = sender.send(ClientConfig {
+                        sender.send(ClientConfig {
                             run: Run(self.current_run),
                             config,
                         });

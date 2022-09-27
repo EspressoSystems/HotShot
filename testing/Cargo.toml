@@ -9,14 +9,41 @@ authors = ["Victor Koenders <vkoenders@espressosys.com>"]
 default = []
 full-ci = ["async-std-executor", "demo"]
 tokio-ci = ["tokio-executor", "demo"]
-demo = [
-  "hotshot/demo"
-]
+demo = ["hotshot/demo"]
+
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
-async-std-executor = ["dep:async-std", "hotshot/async-std-executor", "hotshot-consensus/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
-tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-consensus/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
 profiling = ["hotshot-utils/profiling"]
+
+tokio-executor = [
+  "dep:tokio",
+  "hotshot/tokio-executor",
+  "hotshot-consensus/tokio-executor",
+  "hotshot-types/tokio-executor",
+  "hotshot-utils/tokio-executor",
+]
+async-std-executor = [
+  "dep:async-std",
+  "hotshot/async-std-executor",
+  "hotshot-consensus/async-std-executor",
+  "hotshot-types/async-std-executor",
+  "hotshot-utils/async-std-executor",
+]
+channel-flume = [
+  "hotshot-consensus/channel-flume",
+  "hotshot-types/channel-flume",
+  "hotshot-utils/channel-flume",
+]
+channel-tokio = [
+  "hotshot-consensus/channel-tokio",
+  "hotshot-types/channel-tokio",
+  "hotshot-utils/channel-tokio",
+]
+channel-async-std = [
+  "hotshot-consensus/channel-async-std",
+  "hotshot-types/channel-async-std",
+  "hotshot-utils/channel-async-std",
+]
 
 [dependencies]
 async-std = { version = "1.12.0", optional = true }
@@ -25,29 +52,33 @@ cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 either = { version = "1.8.0" }
 futures = "0.3.24"
-hotshot = { path = "../", features = ["hotshot-testing"], default-features = false }
+hotshot = { path = "../", features = [
+  "hotshot-testing",
+], default-features = false }
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
-hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
+hotshot-utils = { path = "../utils", default-features = false, features = [
+  "logging-utils",
+] }
 rand = "0.8.5"
 snafu = { version = "0.7.0", features = ["backtraces"] }
 tokio = { version = "1", optional = true, features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "process",
-    "rt",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing" ] }
+  "fs",
+  "io-util",
+  "io-std",
+  "macros",
+  "net",
+  "parking_lot",
+  "process",
+  "rt",
+  "rt-multi-thread",
+  "signal",
+  "sync",
+  "time",
+  "tracing",
+] }
 tracing = "0.1.36"
 
 [dev-dependencies]
 proptest = "1.0.0"
 tempfile = "3.3.0"
-
