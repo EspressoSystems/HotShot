@@ -121,28 +121,32 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     }
 
     ///
+    /// # Panics
+    ///
+    /// Will panic if a handler is already spawned
     pub async fn spawn_handler<F, RET>(self: &Arc<Self>, cb: F) -> impl Future<Output = ()>
     where
         F: Fn(NetworkEvent, Arc<NetworkNodeHandle<S>>) -> RET + Sync + Send + 'static,
         RET: Future<Output = Result<(), NetworkNodeHandleError>> + Send + 'static,
         S: Send + 'static,
     {
-        if self.receiver.receiver_spawned.swap(true, Ordering::Relaxed) {
-            panic!("Handler is already spawned, this is a bug");
-        }
+        assert!(
+            !self.receiver.receiver_spawned.swap(true, Ordering::Relaxed),
+            "Handler is already spawned, this is a bug"
+        );
 
         let handle = Arc::clone(self);
         async_spawn(async move {
             let receiver = handle.receiver.receiver.lock().await;
-            let kill_switch = match handle.receiver.recv_kill.lock().await.take() {
-                Some(kill_switch) => kill_switch,
-                _ => {
+            let kill_switch =
+                if let Some(kill_switch) = handle.receiver.recv_kill.lock().await.take() {
+                    kill_switch
+                } else {
                     tracing::error!(
                         "`spawn_handle` was called on a network handle that was already closed"
                     );
                     return;
-                }
-            };
+                };
             let mut next_msg = receiver.recv().boxed();
             let mut kill_switch = kill_switch.recv().boxed();
             loop {
@@ -178,7 +182,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         })
     }
 
-    ///
+    /// # Errors
     pub async fn wait_to_connect(
         &self,
         num_peers: usize,
@@ -196,7 +200,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                 return Err(NetworkNodeHandleError::ConnectTimeout);
             }
             async_sleep(Duration::from_secs(1)).await;
-            let num_connected = self.num_connected().await.unwrap();
+            let num_connected = self.num_connected().await?;
             error!(
                 "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
                 num_connected, num_peers, node_id

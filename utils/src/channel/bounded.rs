@@ -112,6 +112,7 @@ impl<T> Receiver<T> {
             }
         }
     }
+    #[must_use]
     pub fn into_stream(self) -> Option<impl Stream<Item = T>>
     where
         T: 'static,

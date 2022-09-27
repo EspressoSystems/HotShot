@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use cfg_if::cfg_if;
 use futures::{future::FusedFuture, FutureExt, Stream};
 
@@ -105,6 +107,7 @@ impl<T> UnboundedReceiver<T> {
             }
         }
     }
+    #[must_use]
     pub fn into_stream(self) -> Option<impl Stream<Item = T>>
     where
         T: 'static,
@@ -175,6 +178,8 @@ impl<T> UnboundedReceiver<T> {
         }
         Ok(result)
     }
+    #[allow(clippy::len_without_is_empty)]
+    #[must_use]
     pub fn len(&self) -> Option<usize> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "channel-tokio")] {
