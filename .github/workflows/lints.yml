@@ -17,10 +17,10 @@ jobs:
     strategy:
       matrix:
         features:
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std",
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume",
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio",
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume",
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std"
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume"
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio"
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume"
     steps:
       - uses: actions/checkout@v3
         name: Checkout Repository
