@@ -19,11 +19,11 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, HashSet},
     fmt::Debug,
     marker::PhantomData,
 };
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::{
     traits::{
@@ -111,8 +111,8 @@ impl DEntryTransaction {
 pub struct DEntryState {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
-    /// Set of previously seen nonces
-    pub nonces: BTreeSet<u64>,
+    // /// Set of previously seen nonces
+    // pub nonces: BTreeSet<u64>,
 }
 
 impl Committable for DEntryState {
@@ -124,9 +124,9 @@ impl Committable for DEntryState {
         }
         builder = builder.constant_str("nonces");
 
-        for nonce in &self.nonces {
-            builder = builder.u64(*nonce);
-        }
+        // for nonce in &self.nonces {
+        //     builder = builder.u64(*nonce);
+        // }
 
         builder.finalize()
     }
@@ -244,7 +244,7 @@ impl StateContents for DEntryState {
     // for clarity, the logic is duplicated with append_to
     fn validate_block(&self, block: &Self::Block) -> bool {
         match block {
-            DEntryBlock::Genesis(_) => self.balances.is_empty() && self.nonces.is_empty(),
+            DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
             DEntryBlock::Normal(block) => {
                 let state = self;
                 // A valid block is one in which every transaction is internally consistent, and results in
@@ -278,11 +278,11 @@ impl StateContents for DEntryState {
                         error!("no such output account");
                         return false;
                     }
-                    // Check to make sure the nonce isn't used
-                    if state.nonces.contains(&tx.nonce) {
-                        warn!(?state, ?tx, "State nonce is used for transaction");
-                        return false;
-                    }
+                    // // Check to make sure the nonce isn't used
+                    // if state.nonces.contains(&tx.nonce) {
+                    //     warn!(?state, ?tx, "State nonce is used for transaction");
+                    //     return false;
+                    // }
                 }
                 // This block has now passed all our tests, and thus has not done anything bad, so the block
                 // is valid if its previous state hash matches that of the previous state
@@ -302,7 +302,8 @@ impl StateContents for DEntryState {
     fn append(&self, block: &Self::Block) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
-                if self.balances.is_empty() && self.nonces.is_empty() {
+                if self.balances.is_empty() {
+                    // && self.nonces.is_empty()
                     let mut new_state = Self::default();
                     for account in &block.accounts {
                         if new_state
@@ -347,22 +348,22 @@ impl StateContents for DEntryState {
                     } else {
                         return Err(DEntryError::NoSuchOutputAccount);
                     }
-                    // Check for nonce reuse
-                    if state.nonces.contains(&tx.nonce) {
-                        return Err(DEntryError::ReusedNonce);
-                    }
+                    // // Check for nonce reuse
+                    // if state.nonces.contains(&tx.nonce) {
+                    //     return Err(DEntryError::ReusedNonce);
+                    // }
                 }
                 // Make sure our previous state commitment matches the provided state
                 if block.previous_state == state.commit() {
                     // This block has now passed all our tests, and thus has not done anything bad
                     // Add the nonces from this block
-                    let mut nonces = state.nonces.clone();
-                    for tx in &block.transactions {
-                        nonces.insert(tx.nonce);
-                    }
+                    // let mut nonces = state.nonces.clone();
+                    // for tx in &block.transactions {
+                    //     nonces.insert(tx.nonce);
+                    // }
                     Ok(DEntryState {
                         balances: trial_balances,
-                        nonces,
+                        // nonces,
                     })
                 } else {
                     Err(DEntryError::PreviousStateMismatch)
