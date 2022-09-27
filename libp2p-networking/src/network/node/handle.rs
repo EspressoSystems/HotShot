@@ -179,7 +179,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                     }
                 }
             }
-        })
+        }).map(|_| ())
     }
 
     /// # Errors
