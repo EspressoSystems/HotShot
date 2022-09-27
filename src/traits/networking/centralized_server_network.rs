@@ -17,8 +17,8 @@ use bincode::Options;
 use flume::{Receiver, Sender};
 use futures::{future::BoxFuture, FutureExt};
 use hotshot_centralized_server::{
-    FromServer, NetworkConfig, Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv,
-    TcpStreamUtilWithSend, ToServer,
+    FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
+    TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::traits::{
     network::{
@@ -31,7 +31,7 @@ use hotshot_types::traits::{
     },
 };
 use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_block_on, async_sleep, async_spawn, split_stream},
     bincode::bincode_opts,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -628,9 +628,15 @@ impl CentralizedServerNetwork<Ed25519Pub> {
     pub async fn connect_with_server_config(
         addr: SocketAddr,
     ) -> (NetworkConfig<Ed25519Pub>, Run, Self) {
-        let (stream, run, config) = loop {
-            let mut stream = match TcpStream::connect(addr).await {
-                Ok(stream) => TcpStreamUtil::new(stream),
+        let (streams, run, config) = loop {
+            let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
+                Ok(stream) => {
+                    let (read_stream, write_stream) = split_stream(stream);
+                    (
+                        TcpStreamRecvUtil::new(read_stream),
+                        TcpStreamSendUtil::new(write_stream),
+                    )
+                }
                 Err(e) => {
                     error!("Could not connect to server: {:?}", e);
                     error!("Trying again in 5 seconds");
@@ -638,14 +644,16 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                     continue;
                 }
             };
-            if let Err(e) = stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
+            if let Err(e) = send_stream.send(ToServer::<Ed25519Pub>::GetConfig).await {
                 error!("Could not request config from server: {e:?}");
                 error!("Trying again in 5 seconds");
                 async_sleep(Duration::from_secs(5)).await;
                 continue;
             }
-            match stream.recv().await {
-                Ok(FromServer::Config { config, run }) => break (stream, run, config),
+            match recv_stream.recv().await {
+                Ok(FromServer::Config { config, run }) => {
+                    break ((recv_stream, send_stream), run, config)
+                }
                 x => {
                     error!("Expected config from server, got {:?}", x);
                     error!("Trying again in 5 seconds");
@@ -658,15 +666,15 @@ impl CentralizedServerNetwork<Ed25519Pub> {
         let key = Ed25519Pub::from_private(&key);
         let known_nodes = config.config.known_nodes.clone();
 
-        let mut stream = Some(stream);
+        let mut streams = Some(streams);
 
         let result = Self::create(
             known_nodes,
             move || {
-                let stream = stream.take();
+                let streams = streams.take();
                 async move {
-                    if let Some(stream) = stream {
-                        stream
+                    if let Some(streams) = streams {
+                        streams
                     } else {
                         Self::connect_to(addr).await
                     }
@@ -698,11 +706,19 @@ impl CentralizedServerNetwork<Ed25519Pub> {
 
 impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
-    fn connect_to(addr: SocketAddr) -> BoxFuture<'static, TcpStreamUtil> {
+    fn connect_to(addr: SocketAddr) -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> {
         async move {
             loop {
                 match TcpStream::connect(addr).await {
-                    Ok(stream) => break TcpStreamUtil::new(stream),
+                    Ok(stream) => {
+                        break {
+                            let (read_stream, write_stream) = split_stream(stream);
+                            (
+                                TcpStreamRecvUtil::new(read_stream),
+                                TcpStreamSendUtil::new(write_stream),
+                            )
+                        }
+                    }
                     Err(e) => {
                         error!("Could not connect to server: {:?}", e);
                         error!("Trying again in 5 seconds");
@@ -724,7 +740,7 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(known_nodes: Vec<K>, mut create_connection: F, key: K) -> Self
     where
-        F: FnMut() -> BoxFuture<'static, TcpStreamUtil> + Send + 'static,
+        F: FnMut() -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> + Send + 'static,
     {
         let (to_background_sender, to_background) = flume::unbounded();
         let (from_background_sender, from_background) = flume::unbounded();
@@ -746,10 +762,11 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
-                    let stream = create_connection().await;
+                    let (recv_stream, send_stream) = create_connection().await;
 
                     if let Err(e) = run_background(
-                        stream,
+                        recv_stream,
+                        send_stream,
                         key.clone(),
                         to_background.clone(),
                         from_background_sender.clone(),
@@ -780,12 +797,13 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     }
 }
 
-/// Connect to a TCP stream on address `addr`. On connection, this will send an identify with key `key`.
+/// Initialize a `TcpStreamUtil`. This will send an identify with key `key`.
 ///
-/// - All messages send to the sender of `to_background` will be send to the server.
-/// - All messages received from the TCP stream, will be send to `from_background_sender`.
+/// - All messages sent to the sender of `to_background` will be sent to the server.
+/// - All messages received from the TCP stream will be sent to `from_background_sender`.
 async fn run_background<K: SignatureKey>(
-    mut stream: TcpStreamUtil,
+    recv_stream: TcpStreamRecvUtil,
+    mut send_stream: TcpStreamSendUtil,
     key: K,
     to_background: Receiver<((ToServer<K>, Vec<u8>), Option<Sender<()>>)>,
     from_background_sender: Sender<(FromServer<K>, Vec<u8>)>,
@@ -794,7 +812,9 @@ async fn run_background<K: SignatureKey>(
     // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
     // send identify
-    stream.send(ToServer::Identify { key: key.clone() }).await?;
+    send_stream
+        .send(ToServer::Identify { key: key.clone() })
+        .await?;
     connection.connected.store(true, Ordering::Relaxed);
 
     // If we were in the middle of requesting # of clients, re-send that request
@@ -804,70 +824,105 @@ async fn run_background<K: SignatureKey>(
         .await
         .is_empty()
     {
-        stream.send(ToServer::<K>::RequestClientCount).await?;
+        send_stream.send(ToServer::<K>::RequestClientCount).await?;
     }
 
+    let send_handle = run_background_send(send_stream, to_background);
+    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection);
+
+    futures::future::try_join(send_handle, recv_handle)
+        .await
+        .map(|(_, _)| ())
+}
+
+/// Loop on the `to_background` channel.
+///
+/// - All messages sent to the sender of `to_background` will be sent to the server.
+async fn run_background_send<K: SignatureKey>(
+    mut stream: TcpStreamSendUtil,
+    to_background: Receiver<((ToServer<K>, Vec<u8>), Option<Sender<()>>)>,
+) -> Result<(), Error> {
     loop {
-        futures::select! {
-            res = stream.recv().fuse() => {
-                let msg = res?;
-                match msg {
-                    x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                        from_background_sender.send_async((x, Vec::new())).await.map_err(|_| Error::FailedToReceive)?;
-                    },
+        let result = to_background.recv_async().await;
+        let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
+        let (header, payload) = msg;
+        let expect_payload = &header.payload_len();
+        if let Some(payload_expected_len) = *expect_payload {
+            if payload.len() != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
+                tracing::warn!(
+                    ?header,
+                    "expected payload of {payload_expected_len} bytes, got {} bytes",
+                    payload.len(),
+                );
+            }
+        }
+        stream.send(header).await?;
+        if !payload.is_empty() {
+            stream.send_raw(&payload, payload.len()).await?;
+        }
 
-                    x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                        let payload = if let Some(payload_len) = x.payload_len() {
-                            stream.recv_raw_all(payload_len.into()).await?
-                        } else {
-                            Vec::new()
-                        };
-                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                    },
+        if let Some(confirm) = confirm {
+            let _ = confirm.send_async(()).await;
+        }
+    }
+}
 
-                    x @ (FromServer:: BroadcastPayload { .. } | FromServer:: DirectPayload { .. }) => {
-                        let payload = if let Some(payload_len) = x.payload_len() {
-                            stream.recv_raw_all(payload_len.into()).await?
-                        } else {
-                            Vec::new()
-                        };
-                        from_background_sender.send_async((x, payload)).await.map_err(|_| Error::FailedToReceive)?;
-                    },
+/// Loop on the TCP recv stream.
+///
+/// - All messages received from the TCP stream will be sent to `from_background_sender`.
+async fn run_background_recv<K: SignatureKey>(
+    mut stream: TcpStreamRecvUtil,
+    from_background_sender: Sender<(FromServer<K>, Vec<u8>)>,
+    connection: Arc<Inner<K>>,
+) -> Result<(), Error> {
+    loop {
+        let msg = stream.recv().await?;
+        match msg {
+            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                from_background_sender
+                    .send_async((x, Vec::new()))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                    FromServer::ClientCount(count) => {
-                        let senders = std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                        for sender in senders {
-                            let _ = sender.try_send(count);
-                        }
-                    },
+            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                let payload = if let Some(payload_len) = x.payload_len() {
+                    stream.recv_raw_all(payload_len.into()).await?
+                } else {
+                    Vec::new()
+                };
+                from_background_sender
+                    .send_async((x, payload))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                    FromServer::Config { .. } => {
-                        tracing::warn!("Received config from server but we're already running");
-                    }
+            x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
+                let payload = if let Some(payload_len) = x.payload_len() {
+                    stream.recv_raw_all(payload_len.into()).await?
+                } else {
+                    Vec::new()
+                };
+                from_background_sender
+                    .send_async((x, payload))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                    FromServer::Start => {
-                        connection.run_ready.store(true, Ordering::Relaxed);
-                    }
+            FromServer::ClientCount(count) => {
+                let senders =
+                    std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                for sender in senders {
+                    let _ = sender.try_send(count);
                 }
-            },
-            result = to_background.recv_async().fuse() => {
-                let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
-                let (header, payload) = msg;
-                let expect_payload = &header.payload_len();
-                if let Some(payload_expected_len) = *expect_payload {
-                    if payload.len() != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
-                        tracing::warn!(?header, "expected payload of {payload_expected_len} bytes, got {} bytes", payload.len());
-                    }
-                }
-                stream.send(header).await?;
-                if !payload.is_empty() {
-                    stream.send_raw(&payload, payload.len()).await?;
-                }
+            }
 
+            FromServer::Config { .. } => {
+                tracing::warn!("Received config from server but we're already running",);
+            }
 
-                if let Some(confirm) = confirm {
-                    let _ = confirm.send_async(()).await;
-                }
+            FromServer::Start => {
+                connection.run_ready.store(true, Ordering::Relaxed);
             }
         }
     }

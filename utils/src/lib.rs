@@ -43,7 +43,7 @@ cfg_if::cfg_if! {
         pub mod art {
             use std::future::Future;
             use std::time::Duration;
-            use async_std::prelude::FutureExt;
+            use async_std::{net::TcpStream, prelude::FutureExt};
             pub use async_std::{
                 main as async_main,
                 task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local, block_on as async_block_on_with_runtime},
@@ -76,10 +76,17 @@ cfg_if::cfg_if! {
             {
                 future.timeout(duration)
             }
+
+            /// Splits a `TcpStream` into reader and writer
+            #[must_use]
+            pub fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
+                (stream.clone(), stream)
+            }
         }
     } else if #[cfg(feature = "tokio-executor")] {
         /// async runtime/executor symmetric wrappers, `tokio` edition
         pub mod art {
+            use tokio::net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpStream};
             pub use tokio::{
                 main as async_main,
                 task::spawn as async_spawn_local,
@@ -135,12 +142,19 @@ cfg_if::cfg_if! {
             }
 
             use tokio::runtime::Handle;
+
             /// Provides `block_on` with `tokio` that matches `async_std::task::block_on`
             pub fn async_block_on<F, T>(future: F) -> T
             where
                 F: std::future::Future<Output = T>,
             {
                 tokio::task::block_in_place(move || Handle::current().block_on(future))
+            }
+
+            /// Splits a `TcpStream` into reader and writer
+            #[must_use]
+            pub fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
+                stream.into_split()
             }
         }
     } else {
@@ -159,13 +173,10 @@ pub mod test_util {
     )]
     use std::{
         env::{var, VarError},
-        sync::Once
+        sync::Once,
     };
     use tracing_error::ErrorLayer;
-    use tracing_subscriber::{
-        fmt::format::FmtSpan,
-        EnvFilter, Registry
-    };
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter, Registry};
 
     /// Ensure logging is only
     /// initialized once
@@ -186,22 +197,30 @@ pub mod test_util {
     /// generate the open telemetry layer
     /// and set the global propagator
     fn gen_opentelemetry_layer() -> opentelemetry::sdk::trace::Tracer {
-        use opentelemetry::{KeyValue, sdk::{Resource, trace::{RandomIdGenerator, Sampler}}};
+        use opentelemetry::{
+            sdk::{
+                trace::{RandomIdGenerator, Sampler},
+                Resource,
+            },
+            KeyValue,
+        };
         opentelemetry::global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
         opentelemetry_jaeger::new_agent_pipeline()
             .with_service_name("HotShot Tracing")
             .with_auto_split_batch(true)
             .with_trace_config(
                 opentelemetry::sdk::trace::config()
-                .with_sampler(Sampler::AlwaysOn)
-                .with_id_generator(RandomIdGenerator::default())
-                .with_max_events_per_span(64)
-                .with_max_attributes_per_span(64)
-                .with_max_events_per_span(64)
-                // resources will translated to tags in jaeger spans
-                .with_resource(Resource::new(vec![KeyValue::new("key", "value"),
-                KeyValue::new("process_key", "process_value")])),
-                )
+                    .with_sampler(Sampler::AlwaysOn)
+                    .with_id_generator(RandomIdGenerator::default())
+                    .with_max_events_per_span(64)
+                    .with_max_attributes_per_span(64)
+                    .with_max_events_per_span(64)
+                    // resources will translated to tags in jaeger spans
+                    .with_resource(Resource::new(vec![
+                        KeyValue::new("key", "value"),
+                        KeyValue::new("process_key", "process_value"),
+                    ])),
+            )
             // TODO make this toggle-able between tokio and async-std
             .install_batch(opentelemetry::runtime::Tokio)
             // TODO make endpoint configurable
@@ -222,18 +241,18 @@ pub mod test_util {
 
             #[cfg(all(feature = "tokio-executor", feature = "profiling"))]
             if console_layer && tracer_enabled {
-                let registry = $R
-                    .with(console_subscriber::spawn());
-                let registry = registry.with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer()));
+                let registry = $R.with(console_subscriber::spawn());
+                let registry = registry
+                    .with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer()));
                 registry.init();
                 return;
             }
 
-
             #[cfg(feature = "profiling")]
             if tracer_enabled {
-                $R.with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer())).init();
-                return
+                $R.with(tracing_opentelemetry::layer().with_tracer(gen_opentelemetry_layer()))
+                    .init();
+                return;
             }
 
             #[cfg(feature = "tokio-executor")]
@@ -246,15 +265,10 @@ pub mod test_util {
         };
     }
 
-
     /// Set up logging exactly once
     #[allow(clippy::too_many_lines)]
     pub fn setup_logging() {
-
-        use tracing_subscriber::{
-            fmt, layer::SubscriberExt, util::SubscriberInitExt
-        };
-
+        use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
         INIT.call_once(|| {
             let internal_event_filter =
@@ -347,6 +361,5 @@ pub mod test_util {
     pub fn shutdown_logging() {
         #[cfg(feature = "profiling")]
         opentelemetry::global::shutdown_tracer_provider();
-
     }
 }
