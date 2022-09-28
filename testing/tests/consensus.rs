@@ -532,8 +532,8 @@ async fn test_min_max_propose() {
             start_nodes: 5,
             num_succeeds: num_rounds,
             failure_threshold: 0,
-            propose_min_round_time: propose_min_round_time, 
-            propose_max_round_time: propose_max_round_time, 
+            propose_min_round_time, 
+            propose_max_round_time, 
             next_view_timeout: 10000,
             txn_ids: Right(1),
             ..GeneralTestDescriptionBuilder::default()
