@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
+    error::HotShotError,
     event::{Event, EventType},
     traits::{
         network::NetworkError,
@@ -87,17 +88,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
-    /// sends a proposal event down the channel
-    async fn send_propose(
-        &self,
-        view_number: ViewNumber,
-        block: <I::State as StateContents>::Block,
-    ) {
+    /// notifies client of an error
+    async fn send_view_error(&self, view_number: ViewNumber, error: Arc<HotShotError>) {
         self.send_event(Event {
             view_number,
-            event: EventType::Propose {
-                block: Arc::new(block),
-            },
+            event: EventType::Error { error },
         })
         .await;
     }

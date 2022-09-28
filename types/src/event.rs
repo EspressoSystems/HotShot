@@ -31,11 +31,6 @@ pub enum EventType<S: StateContents> {
         /// The underlying error
         error: Arc<HotShotError>,
     },
-    /// A new block was proposed
-    Propose {
-        /// The block that was proposed
-        block: Arc<S::Block>,
-    },
     /// A new decision event was issued
     Decide {
         /// The chain of Leafs that were committed by this decision
@@ -46,11 +41,6 @@ pub enum EventType<S: StateContents> {
         /// This list may be incomplete if the node is currently performing catchup.
         leaf_chain: Arc<Vec<Leaf<S>>>,
     },
-    /// A new view was started by this node
-    NewView {
-        /// The view being started
-        view_number: ViewNumber,
-    },
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {
         /// The view that timed out
@@ -59,16 +49,6 @@ pub enum EventType<S: StateContents> {
     /// A next leader task was canceled by a timeout interrupt
     NextLeaderViewTimeout {
         /// The view that timed out
-        view_number: ViewNumber,
-    },
-    /// This node is the leader for this view
-    Leader {
-        /// The current view number
-        view_number: ViewNumber,
-    },
-    /// The node has been synced with the network
-    Synced {
-        /// The current view number
         view_number: ViewNumber,
     },
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.

@@ -6,10 +6,11 @@ use crate::{
     HotShot, Result,
 };
 use hotshot_types::{
+    constants::GENESIS_VIEW,
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    traits::{network::NetworkingImplementation, StateContents, storage::Storage}, constants::GENESIS_VIEW,
+    traits::{network::NetworkingImplementation, storage::Storage, StateContents},
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
@@ -150,14 +151,14 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
             if anchor_leaf.view_number == GENESIS_VIEW {
                 let event = Event {
                     view_number: GENESIS_VIEW,
-                    event: EventType::Decide { leaf_chain: Arc::new(vec![anchor_leaf.into()]) },
+                    event: EventType::Decide {
+                        leaf_chain: Arc::new(vec![anchor_leaf.into()]),
+                    },
                 };
                 if self.sender_handle.send_async(event).await.is_err() {
                     error!("Error sending genesis storage event upstream!");
                 }
-
             }
-
         } else {
             error!("Hotshot storage has no anchor leaf!");
         }
