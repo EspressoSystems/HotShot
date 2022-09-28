@@ -1,0 +1,21 @@
+tx: 500, rounds: 10,  padding: 3300 -   2.04 2450tx/s 7.7mb/s
+tx: 500, rounds: 50,  padding: 3300 -  22.98 1087tx/s 3.42mb/s
+tx: 500, rounds: 100, padding: 3300 -  81.19  615tx/s 1.9mb/s
+tx: 500, rounds: 200, padding: 3300 - 277.62  360tx/s 1.1mb/s
+
+tx: 500, rounds: 100, padding: 100  - 72.27s  691tx/s 4.4kb/s
+tx: 750, rounds: 100, padding: 3300 - 156.01  480tx/s 1.5mb/s
+
+after join on broadcast:
+tx: 500, rounds: 100, padding: 3300 - 80.05 624tx/s 1.96mb/s
+
+with no broadcast to server:
+tx: 500, rounds: 100, padding: 3300 - 77.85 642tx/s 2.02mb/s
+with no broadcast to server and no timeout:
+tx: 500, rounds: 100, padding: 3300 - 78.58 636tx/s 2.00mb/s
+
+After swapping out BTreeMap with HashMap:
+tx: 500, rounds: 50, padding: 3300 -  22.186
+
+After removing DEntry::nonces
+tx: 500, rounds: 200, padding: 3300 - 30.97 3228tx/s 10mb/s
