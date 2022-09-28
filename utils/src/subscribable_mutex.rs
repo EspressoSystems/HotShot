@@ -59,7 +59,7 @@ impl<T> SubscribableMutex<T> {
         let mut lock = self.subscribers.lock().await;
         // We currently don't have a way to remove subscribers, so we'll remove them when they fail to deliver their message.
         let mut idx_to_remove = Vec::new();
-        for (idx, sender) in lock.drain(..).enumerate() {
+        for (idx, sender) in lock.iter().enumerate() {
             if sender.send(()).await.is_err() {
                 idx_to_remove.push(idx);
             }
