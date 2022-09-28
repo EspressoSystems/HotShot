@@ -41,7 +41,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
 };
-use std::{sync::Arc};
+use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
