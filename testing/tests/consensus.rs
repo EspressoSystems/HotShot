@@ -386,7 +386,6 @@ async fn test_proposal_queueing() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<

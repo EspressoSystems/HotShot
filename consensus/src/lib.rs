@@ -21,6 +21,7 @@ mod traits;
 pub use traits::ConsensusApi;
 
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_std::task::sleep;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
 use hotshot_types::{
@@ -40,7 +41,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
 };
-use std::{sync::Arc, thread::sleep};
+use std::{sync::Arc};
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -543,7 +544,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let passed_time = task_start_time - Instant::now();
-        sleep(self.api.propose_min_round_time() - passed_time); 
+        sleep(self.api.propose_min_round_time() - passed_time).await; 
 
         let txns = self.transactions.read().await;
 
