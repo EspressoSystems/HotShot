@@ -49,7 +49,7 @@ use crate::{
     types::{Event, HotShotHandle},
 };
 
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
@@ -65,7 +65,6 @@ use hotshot_types::{
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        stateful_handler::StatefulHandler,
         storage::StoredView,
         StateContents,
     },
@@ -116,9 +115,6 @@ pub struct HotShotInner<I: NodeImplementation> {
 
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
-
-    /// This `HotShot` instance's stateful callback handler
-    stateful_handler: Mutex<I::StatefulHandler>,
 
     /// This `HotShot` instance's election backend
     election: HotShotElectionState<I::SignatureKey, I::Election>,
@@ -190,7 +186,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
         initializer: HotShotInitializer<I::State>,
     ) -> Result<Self> {
@@ -214,7 +209,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            stateful_handler: Mutex::new(handler),
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
@@ -360,7 +354,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
         initializer: HotShotInitializer<I::State>,
     ) -> Result<HotShotHandle<I>> {
@@ -373,7 +366,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            handler,
             election,
             initializer,
         )
@@ -779,15 +771,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey {
         &self.inner.private_key
-    }
-
-    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>) {
-        debug!(?blocks, ?states, "notify");
-        self.inner
-            .stateful_handler
-            .lock()
-            .await
-            .notify(blocks, states);
     }
 
     #[instrument(skip(self, qc))]

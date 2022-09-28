@@ -10,7 +10,6 @@ use hotshot_types::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        StateContents,
     },
 };
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -68,13 +67,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
 
     /// Get a reference to the private key.
     fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey;
-
-    /// The `hotshot-consensus` implementation will call this method, with the series of blocks and states
-    /// that are being committed, whenever a commit action takes place.
-    ///
-    /// The provided states and blocks are guaranteed to be in ascending order of age (newest to
-    /// oldest).
-    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>);
 
     // Utility functions
 

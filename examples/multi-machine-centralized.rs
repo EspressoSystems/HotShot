@@ -3,7 +3,8 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{CentralizedServerNetwork, MemoryStorage, Stateless}, Storage,
+        implementations::{CentralizedServerNetwork, MemoryStorage},
+        Storage,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
@@ -21,7 +22,7 @@ use hotshot_utils::{
     test_util::{setup_backtrace, setup_logging},
 };
 use std::{
-    collections::{VecDeque, BTreeMap},
+    collections::{BTreeMap, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
@@ -76,15 +77,14 @@ async fn init_state_and_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        Stateless::default(),
         StaticCommittee::new(known_nodes),
-        initializer
+        initializer,
     )
     .await
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage : &MemoryStorage<DEntryState> = hotshot.storage();
+    let storage: &MemoryStorage<DEntryState> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
