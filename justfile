@@ -22,7 +22,7 @@ test_async_std:
   echo Testing with async std executor
   cargo test --verbose --release --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
-lint: fmt lint_tokio lint_async_std
+lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 
 fmt:
   echo Running cargo fmt
@@ -30,8 +30,16 @@ fmt:
 
 lint_tokio:
   echo Linting with tokio executor
-  cargo clippy --workspace --all-targets --no-default-features --features=full-ci --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio --bins --tests --examples -- -D warnings
+
+lint_tokio_flume:
+  echo Linting with tokio executor and flume
+  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples -- -D warnings
 
 lint_async_std:
   echo Linting with async std executor
-  cargo clippy --workspace --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples -- -D warnings
+
+lint_async_std_flume:
+  echo Linting with async std executor and flume
+  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples -- -D warnings

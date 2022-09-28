@@ -868,7 +868,7 @@ async fn run_background_send<K: SignatureKey>(
         }
 
         if let Some(confirm) = confirm {
-            let _ = confirm.send(());
+            confirm.send(());
         }
     }
 }
