@@ -8,10 +8,11 @@ use crate::{
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        BlockContents, StateContents,
+        BlockContents, StateContents, state::ConsensusTime,
     },
 };
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -19,6 +20,13 @@ use std::{collections::BTreeMap, fmt::Debug};
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ViewNumber(u64);
+
+/// Type alias to view number
+/// in the event we wish to change view number,
+/// all we need to do is change this alias
+pub type TimeImpl = ViewNumber;
+
+impl ConsensusTime for ViewNumber {}
 
 impl ViewNumber {
     /// Create a genesis view number (0)
@@ -148,8 +156,9 @@ pub struct ProposalLeaf<STATE: StateContents> {
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+#[derive(Serialize, Deserialize, custom_debug::Debug, Clone, Derivative)]
+#[derivative(PartialEq, Eq)]
 pub struct Leaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
@@ -175,6 +184,10 @@ pub struct Leaf<STATE: StateContents> {
     /// Transactions that were marked for rejection while collecting deltas
     #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<TxnCommitment<STATE>>,
+
+    /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
+    #[derivative(PartialEq = "ignore")]
+    pub timestamp: i128
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -235,7 +248,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     }
 }
 
-impl<STATE: StateContents> Leaf<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -256,6 +269,7 @@ impl<STATE: StateContents> Leaf<STATE> {
             deltas,
             state,
             rejected,
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
         }
     }
 
@@ -270,7 +284,7 @@ impl<STATE: StateContents> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas).unwrap();
+        let state = STATE::default().append(&deltas, &GENESIS_VIEW).unwrap();
         Self {
             view_number: GENESIS_VIEW,
             justify_qc: QuorumCertificate::genesis(),
@@ -278,11 +292,12 @@ impl<STATE: StateContents> Leaf<STATE> {
             deltas,
             state,
             rejected: Vec::new(),
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
         }
     }
 }
 
-impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
         Leaf::new(
             append.state,
@@ -304,6 +319,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             state: val.state,
             append: val.deltas.into(),
             rejected: val.rejected,
+            timestamp: val.timestamp
         }
     }
 }

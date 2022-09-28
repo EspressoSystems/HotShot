@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::traits::BlockContents;
+use crate::{traits::BlockContents, data::TimeImpl};
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
@@ -19,8 +19,6 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     ([`validate_block`](State::validate_block))
 ///   * The ability to produce a new state, with the modifications from the block applied
 ///     ([`append`](State::append))
-///     TODO add hash function to trait
-///     NOTE (see hash)
 pub trait StateContents:
     Serialize
     + DeserializeOwned
@@ -32,6 +30,7 @@ pub trait StateContents:
     + Eq
     + Send
     + Sync
+    // TODO why is this unpin?
     + Unpin
     + Committable
 {
@@ -39,23 +38,28 @@ pub trait StateContents:
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
     type Block: BlockContents;
+    /// Time abstraction needed for reward collection
+    type Time: ConsensusTime;
 
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::Block;
     /// Returns true if and only if the provided block is valid and can extend this state
-    fn validate_block(&self, block: &Self::Block) -> bool;
+    fn validate_block(&self, block: &Self::Block, time: &Self::Time) -> bool;
     /// Appends the given block to this state, returning an new state
     ///
     /// # Errors
     ///
     /// Should produce and error if appending this block would lead to an invalid state
-    fn append(&self, block: &Self::Block) -> Result<Self, Self::Error>;
+    fn append(&self, block: &Self::Block, time: &Self::Time) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
 
+/// Trait for time abstraction needed for reward collection
+pub trait ConsensusTime: PartialOrd {}
+
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: StateContents
+pub trait TestableState: StateContents<Time = TimeImpl>
 where
     <Self as StateContents>::Block: TestableBlock,
 {
@@ -74,7 +78,7 @@ pub trait TestableBlock: BlockContents {
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use crate::traits::block_contents::dummy::{DummyBlock, DummyError};
+    use crate::{traits::block_contents::dummy::{DummyBlock, DummyError}, data::TimeImpl};
     use rand::Rng;
     use serde::Deserialize;
 
@@ -105,16 +109,17 @@ pub mod dummy {
         type Error = DummyError;
 
         type Block = DummyBlock;
+        type Time = TimeImpl;
 
         fn next_block(&self) -> Self::Block {
             DummyBlock::random()
         }
 
-        fn validate_block(&self, _block: &Self::Block) -> bool {
+        fn validate_block(&self, _block: &Self::Block, _time: &Self::Time) -> bool {
             false
         }
 
-        fn append(&self, _block: &Self::Block) -> Result<Self, Self::Error> {
+        fn append(&self, _block: &Self::Block, _time: &Self::Time) -> Result<Self, Self::Error> {
             Err(DummyError)
         }
 

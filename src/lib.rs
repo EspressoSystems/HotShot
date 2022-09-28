@@ -40,7 +40,7 @@ mod tasks;
 mod utils;
 
 use hotshot_utils::art::async_spawn_local;
-use hotshot_types::{traits::storage::ViewEntry, error::StorageSnafu};
+use hotshot_types::{traits::{storage::ViewEntry, state::ConsensusTime}, error::StorageSnafu, data::TimeImpl};
 use snafu::ResultExt;
 
 use crate::{
@@ -121,7 +121,7 @@ pub struct HotShotInner<I: NodeImplementation> {
     stateful_handler: Mutex<I::StatefulHandler>,
 
     /// This `HotShot` instance's election backend
-    election: HotShotElectionState<I::SignatureKey, I::Election>,
+    election: HotShotElectionState<I::SignatureKey, TimeImpl, I::Election>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::State>>>>,
@@ -131,7 +131,7 @@ pub struct HotShotInner<I: NodeImplementation> {
 }
 
 /// Contains the state of the election of the current [`HotShot`].
-struct HotShotElectionState<P: SignatureKey, E: Election<P>> {
+struct HotShotElectionState<P: SignatureKey, T: ConsensusTime, E: Election<P, T>> {
     /// An instance of the election
     election: E,
     /// The inner state of the election
@@ -191,7 +191,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
         let election = {
             let state =
-                <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default(
+                <<I as NodeImplementation>::Election as Election<I::SignatureKey, TimeImpl>>::State::default(
                 );
 
             let stake_table = election.get_stake_table(&state);
@@ -845,13 +845,13 @@ pub struct HotShotInitializer<STATE: StateContents> {
     inner: Leaf<STATE>
 }
 
-impl<STATE: StateContents> HotShotInitializer<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
 
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
-        let state = STATE::default().append(&genesis_block).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let state = STATE::default().append(&genesis_block, &ViewNumber::new(0)).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
         let view_number = GENESIS_VIEW;
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
@@ -862,7 +862,8 @@ impl<STATE: StateContents> HotShotInitializer<STATE> {
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,
                 state,
-                rejected: Vec::new()
+                rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             }
 
         })

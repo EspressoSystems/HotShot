@@ -8,7 +8,7 @@
 
 use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
+    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber, TimeImpl},
     traits::{
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
@@ -233,6 +233,8 @@ impl StateContents for DEntryState {
 
     type Block = DEntryBlock;
 
+    type Time = ViewNumber;
+
     fn next_block(&self) -> Self::Block {
         DEntryBlock::Normal(DEntryNormalBlock {
             previous_state: self.commit(),
@@ -242,7 +244,7 @@ impl StateContents for DEntryState {
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
-    fn validate_block(&self, block: &Self::Block) -> bool {
+    fn validate_block(&self, block: &Self::Block, _time: &Self::Time) -> bool {
         match block {
             DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
             DEntryBlock::Normal(block) => {
@@ -299,7 +301,7 @@ impl StateContents for DEntryState {
         }
     }
 
-    fn append(&self, block: &Self::Block) -> std::result::Result<Self, Self::Error> {
+    fn append(&self, block: &Self::Block, _time: &Self::Time) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
                 if self.balances.is_empty() {
@@ -520,9 +522,9 @@ pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<STATE: StateContents>(deltas: STATE::Block) -> Leaf<STATE> {
+pub fn random_leaf<STATE: StateContents<Time = TimeImpl>>(deltas: STATE::Block) -> Leaf<STATE> {
     let justify_qc = random_quorum_certificate();
-    let state = STATE::default().append(&deltas).unwrap_or_default();
+    let state = STATE::default().append(&deltas, &ViewNumber::new(42)).unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,
         justify_qc,
@@ -530,5 +532,6 @@ pub fn random_leaf<STATE: StateContents>(deltas: STATE::Block) -> Leaf<STATE> {
         deltas,
         state,
         rejected: Vec::new(),
+        timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
     }
 }

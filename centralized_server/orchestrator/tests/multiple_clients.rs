@@ -4,7 +4,10 @@ use hotshot::{
     types::SignatureKey,
 };
 use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
-use hotshot_types::traits::signature_key::{EncodedPublicKey, EncodedSignature};
+use hotshot_types::{
+    data::ViewNumber,
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
+};
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
 use tracing::instrument;
@@ -275,16 +278,17 @@ impl Committable for TestState {
 impl StateContents for TestState {
     type Error = TestError;
     type Block = TestBlock;
+    type Time = ViewNumber;
 
     fn next_block(&self) -> Self::Block {
         TestBlock {}
     }
 
-    fn validate_block(&self, _block: &Self::Block) -> bool {
+    fn validate_block(&self, _block: &Self::Block, _time: &Self::Time) -> bool {
         true
     }
 
-    fn append(&self, _block: &Self::Block) -> Result<Self, Self::Error> {
+    fn append(&self, _block: &Self::Block, _time: &Self::Time) -> Result<Self, Self::Error> {
         Ok(Self {})
     }
 

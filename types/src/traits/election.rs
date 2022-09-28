@@ -2,12 +2,12 @@
 
 use commit::Commitment;
 
-use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+use crate::{traits::signature_key::SignatureKey, data::TimeImpl};
 
-use super::StateContents;
+use super::{StateContents, state::ConsensusTime};
 
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<P: SignatureKey>: Send + Sync {
+pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
     /// The threshold for membership selection.
@@ -23,7 +23,7 @@ pub trait Election<P: SignatureKey>: Send + Sync {
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> P;
+    fn get_leader(&self, table: &Self::StakeTable, view_number: TimeImpl) -> P;
 
     /// Validates a vote token and returns the number of seats that it has
     ///
@@ -32,7 +32,7 @@ pub trait Election<P: SignatureKey>: Send + Sync {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: ViewNumber,
+        view_number: TimeImpl,
         pub_key: P,
         token: Self::VoteToken,
         next_state: Commitment<Self::State>,
@@ -48,7 +48,7 @@ pub trait Election<P: SignatureKey>: Send + Sync {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: ViewNumber,
+        view_number: TimeImpl,
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken>;

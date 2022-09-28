@@ -938,7 +938,7 @@ dependencies = [
  "percent-encoding",
  "rand 0.8.5",
  "sha2 0.9.9",
- "time",
+ "time 0.2.27",
  "version_check",
 ]
 
@@ -1230,6 +1230,17 @@ name = "debug-helper"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f578e8e2c440e7297e008bb5486a3a8a194775224bbc23729b0dbdfaeebf162e"
+
+[[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "derive_arbitrary"
@@ -1894,6 +1905,7 @@ dependencies = [
  "serde",
  "snafu",
  "tempfile",
+ "time 0.3.14",
  "tokio",
  "toml",
  "tracing",
@@ -1936,6 +1948,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
+ "time 0.3.14",
  "tokio",
  "tracing",
 ]
@@ -1996,6 +2009,7 @@ dependencies = [
  "cfg-if",
  "commit",
  "custom_debug",
+ "derivative",
  "ed25519-compact",
  "espresso-systems-common",
  "futures",
@@ -2007,6 +2021,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64",
+ "time 0.3.14",
  "tokio",
  "tracing",
 ]
@@ -3443,6 +3458,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19e64526ebdee182341572e50e9ad03965aa510cd94427a4549448f285e957a1"
 dependencies = [
  "hermit-abi",
+ "libc",
+]
+
+[[package]]
+name = "num_threads"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+dependencies = [
  "libc",
 ]
 
@@ -5154,6 +5178,16 @@ dependencies = [
  "time-macros",
  "version_check",
  "winapi",
+]
+
+[[package]]
+name = "time"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
+dependencies = [
+ "libc",
+ "num_threads",
 ]
 
 [[package]]

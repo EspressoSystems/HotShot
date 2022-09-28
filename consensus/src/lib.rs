@@ -219,7 +219,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas, &self.cur_view) {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
@@ -549,13 +549,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         for (_txn_hash, txn) in &unclaimed_txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
-                if starting_state.validate_block(&new_block) {
+                if starting_state.validate_block(&new_block, &self.cur_view) {
                     block = new_block;
                 }
             }
         }
 
-        if let Ok(new_state) = starting_state.append(&block) {
+        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
                 view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
@@ -563,6 +563,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 deltas: block,
                 state: new_state,
                 rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();

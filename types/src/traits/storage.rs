@@ -2,11 +2,12 @@
 #![allow(missing_docs)]
 
 use crate::{
-    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    data::{Leaf, QuorumCertificate, TxnCommitment, TimeImpl},
     traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
 use commit::Commitment;
+use derivative::Derivative;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,7 +36,7 @@ where
     /// Append the list of views to this storage
     async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
-    async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize>;
+    async fn cleanup_storage_up_to_view(&self, view: TimeImpl) -> Result<usize>;
     /// Get the latest anchored view
     async fn get_anchored_view(&self) -> Result<StoredView<STATE>>;
     /// Commit this storage.
@@ -78,9 +79,9 @@ where
 #[derive(Debug, PartialEq, Eq)]
 pub struct StorageState<STATE: StateContents> {
     /// The views that have been successful
-    pub stored: BTreeMap<ViewNumber, StoredView<STATE>>,
+    pub stored: BTreeMap<TimeImpl, StoredView<STATE>>,
     /// The views that have failed
-    pub failed: BTreeSet<ViewNumber>,
+    pub failed: BTreeSet<TimeImpl>,
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
@@ -92,7 +93,7 @@ where
     /// A succeeded view
     Success(StoredView<STATE>),
     /// A failed view
-    Failed(ViewNumber),
+    Failed(TimeImpl),
     // future improvement:
     // InProgress(InProgressView),
 }
@@ -107,10 +108,11 @@ where
 }
 
 /// A view stored in the [`Storage`]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Derivative, Debug)]
+#[derivative(PartialEq, Eq, Clone)]
 pub struct StoredView<STATE: StateContents> {
     /// The view number of this view
-    pub view_number: ViewNumber,
+    pub view_number: TimeImpl,
     /// The parent of this view
     pub parent: Commitment<Leaf<STATE>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
@@ -121,6 +123,9 @@ pub struct StoredView<STATE: StateContents> {
     pub append: ViewAppend<<STATE as StateContents>::Block>,
     /// transactions rejected in this view
     pub rejected: Vec<TxnCommitment<STATE>>,
+    /// the timestamp this view was recv-ed in nanonseconds
+    #[derivative(PartialEq="ignore")]
+    pub timestamp: i128,
 }
 
 impl<STATE> StoredView<STATE>
@@ -144,6 +149,7 @@ where
             justify_qc: qc,
             state,
             rejected,
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
         }
     }
 }

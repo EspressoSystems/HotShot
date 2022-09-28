@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, TimeImpl},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         BlockContents, StateContents,
@@ -71,13 +71,13 @@ pub enum ConsensusMessage<STATE: StateContents> {
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
     #[serde(skip)]
-    NextViewInterrupt(ViewNumber),
+    NextViewInterrupt(TimeImpl),
 }
 
 impl<STATE: StateContents> ConsensusMessage<STATE> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
-    pub fn view_number(&self) -> ViewNumber {
+    pub fn view_number(&self) -> TimeImpl {
         match self {
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
@@ -136,7 +136,7 @@ pub enum DataMessage<STATE: StateContents> {
 /// Signals the start of a new view
 pub struct TimedOut<State: StateContents> {
     /// The current view
-    pub current_view: ViewNumber,
+    pub current_view: TimeImpl,
     /// The justification qc for this view
     #[serde(deserialize_with = "<QuorumCertificate<State> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<State>,
@@ -176,5 +176,5 @@ pub struct Vote<STATE: StateContents> {
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<STATE>>,
     /// The view this vote was cast for
-    pub current_view: ViewNumber,
+    pub current_view: TimeImpl,
 }
