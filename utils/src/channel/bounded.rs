@@ -42,7 +42,9 @@ cfg_if! {
             Receiver as InnerReceiver,
         };
 
+        /// A bounded sender, created with [`bounded`]
         pub struct Sender<T>(InnerSender<T>);
+        /// A bounded receiver, created with [`bounded`]
         pub struct Receiver<T>(InnerReceiver<T>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
@@ -92,6 +94,10 @@ pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
 
 impl<T> Sender<T> {
     /// Send a value to the channel. May return a [`SendError`] if the receiver is dropped
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the receiver is dropped
     pub async fn send(&self, msg: T) -> Result<(), SendError<T>> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
@@ -105,6 +111,10 @@ impl<T> Sender<T> {
 
 impl<T> Receiver<T> {
     /// Receive a value from te channel. This will async block until a value is received, or until a [`RecvError`] is encountered.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the sender is dropped
     pub async fn recv(&mut self) -> Result<T, RecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
@@ -117,7 +127,6 @@ impl<T> Receiver<T> {
         }
     }
     /// Turn this recever into a stream. This may fail on some implementations if multiple references of a receiver exist
-    #[must_use]
     pub fn into_stream(self) -> impl Stream<Item = T>
     where
         T: 'static,
@@ -133,12 +142,20 @@ impl<T> Receiver<T> {
         }
     }
     /// Try to receive a channel from the receiver. Will return immediately if there is no value available.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the sender is dropped
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         self.0.try_recv()
     }
     /// Asynchronously wait for at least 1 value to show up, then will greedily try to receive values until this receiver would block. The resulting values are returned.
     ///
     /// It is guaranteed that the returning vec contains at least 1 value
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the sender is dropped
     pub async fn drain_at_least_one(&mut self) -> Result<Vec<T>, RecvError> {
         // Wait for the first message to come up
         let first = self.recv().await?;
@@ -162,6 +179,10 @@ impl<T> Receiver<T> {
         Ok(ret)
     }
     /// Drains the receiver from all messages in the queue, but will not poll for more messages
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the sender is dropped
     pub fn drain(&mut self) -> Result<Vec<T>, RecvError> {
         let mut result = Vec::new();
         loop {

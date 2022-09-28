@@ -35,7 +35,7 @@ where
                 .await?;
 
             // Register a `Sender<()>` with the `NetworkNodeHandle` so we get notified when it changes
-            let receiver = state.register_webui_listener().await;
+            let mut receiver = state.register_webui_listener().await;
 
             while let Ok(()) = receiver.recv().await {
                 // TODO: I think this will not work as this `.lock` will conflict with the other lock, but we'll see

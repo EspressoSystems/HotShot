@@ -24,12 +24,11 @@ cfg_if! {
         impl std::error::Error for UnboundedRecvError {}
 
         use tokio::sync::Mutex;
-        use std::sync::Arc;
 
         /// An unbounded sender, created with [`unbounded`]
         pub struct UnboundedSender<T>(InnerSender<T>);
         /// An unbounded receiver, created with [`unbounded`]
-        pub struct UnboundedReceiver<T>(Arc<Mutex<InnerReceiver<T>>>);
+        pub struct UnboundedReceiver<T>(Mutex<InnerReceiver<T>>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
         fn try_recv_error_to_recv_error(e: UnboundedTryRecvError) -> Option<UnboundedRecvError> {
@@ -81,7 +80,7 @@ pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
     cfg_if! {
         if #[cfg(feature = "channel-tokio")] {
             let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-            let receiver = Arc::new(Mutex::new(receiver));
+            let receiver = Mutex::new(receiver);
         } else if #[cfg(feature = "channel-flume")] {
             let (sender, receiver) = flume::unbounded();
         } else if #[cfg(feature = "channel-async-std")] {
@@ -93,6 +92,10 @@ pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
 
 impl<T> UnboundedSender<T> {
     /// Send a value to the sender half of this channel.
+    ///
+    /// # Errors
+    ///
+    /// This may fail if the receiver is dropped.
     #[allow(clippy::unused_async)] // under tokio this function is actually sync
     pub async fn send(&self, msg: T) -> Result<(), UnboundedSendError<T>> {
         cfg_if! {
@@ -108,9 +111,13 @@ impl<T> UnboundedSender<T> {
 }
 
 impl<T> UnboundedReceiver<T> {
-    /// Receive a value from the receiver half of this channel. May return an error if all of the [`UnboundedSender`]s are dropped.
+    /// Receive a value from the receiver half of this channel.
     ///
     /// Will block until a value is received
+    ///
+    /// # Errors
+    ///
+    /// Will produce an error if all senders are dropped
     pub async fn recv(&self) -> Result<T, UnboundedRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
@@ -123,26 +130,25 @@ impl<T> UnboundedReceiver<T> {
         }
     }
     /// Turn this receiver into a stream.
-    #[must_use]
-    pub fn into_stream(self) -> Option<impl Stream<Item = T>>
+    pub fn into_stream(self) -> impl Stream<Item = T>
     where
         T: 'static,
     {
         cfg_if! {
             if #[cfg(feature = "channel-async-std")] {
-                Some(self.0)
+                self.0
             } else if #[cfg(feature = "channel-tokio")] {
-                // TODO: It would be really nice if we could make this not fail
-                // Currently we need to take ownership of `self.0`, but we can't do that if there are multiple references
-                // but we need to have `UnboundedReceiver` in a mutex because in tokio the `recv()` take `&mut self`
-                let mutex = Arc::try_unwrap(self.0).ok()?;
-                Some(tokio_stream::wrappers::UnboundedReceiverStream::new(mutex.into_inner()))
+                tokio_stream::wrappers::UnboundedReceiverStream::new(self.0.into_inner())
             } else if #[cfg(feature = "channel-flume")] {
-                Some(self.0.into_stream())
+                self.0.into_stream()
             }
         }
     }
-    /// Try to receive a value from the receiver. Will return an error if no value is currently queued. This function will not block.
+    /// Try to receive a value from the receiver.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if no value is currently queued. This function will not block.
     pub fn try_recv(&self) -> Result<T, UnboundedTryRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-tokio")] {
@@ -156,6 +162,10 @@ impl<T> UnboundedReceiver<T> {
     /// Asynchronously wait for at least 1 value to show up, then will greedily try to receive values until this receiver would block. The resulting values are returned.
     ///
     /// It is guaranteed that the returning vec contains at least 1 value
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if there was an error retrieving the first value.
     pub async fn drain_at_least_one(&self) -> Result<Vec<T>, UnboundedRecvError> {
         // Wait for the first message to come up
         let first = self.recv().await?;
@@ -179,6 +189,10 @@ impl<T> UnboundedReceiver<T> {
         Ok(ret)
     }
     /// Drains the receiver from all messages in the queue, but will not poll for more messages
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if all the senders get dropped before this ends.
     pub fn drain(&self) -> Result<Vec<T>, UnboundedRecvError> {
         let mut result = Vec::new();
         loop {

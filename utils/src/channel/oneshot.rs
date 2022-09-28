@@ -89,6 +89,10 @@ impl<T> OneShotSender<T> {
 }
 impl<T> OneShotReceiver<T> {
     /// Receive a value from this oneshot receiver. If the sender is dropped, an error is returned.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the sender channel is dropped
     pub async fn recv(self) -> Result<T, OneShotRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-tokio")] {

@@ -14,8 +14,11 @@
 //!
 //! Some of these implementations may not exist under the crate selected, in those cases they will be shimmed to another channel. e.g. `oneshot` might be implemented as `bounded(1)`.
 
+/// Bounded channels
 mod bounded;
+/// Oneshot channels
 mod oneshot;
+/// Unbounded channels
 mod unbounded;
 
 pub use bounded::{bounded, Receiver, RecvError, SendError, Sender, TryRecvError};

@@ -380,7 +380,6 @@ impl<
             });
             let ob_stream =  r_outbound
                 .into_stream()
-                .expect("Could not turn r_outbound into a stream")
                 .map(Combo::Command);
             let mut combined_stream = futures::stream::select(ws_stream,ob_stream);
             debug!("Entering processing loop");
