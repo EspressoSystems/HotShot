@@ -4,7 +4,7 @@
 //! integration tests.
 
 use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
-use async_lock::RwLock;
+use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
@@ -83,16 +83,16 @@ struct MemoryNetworkInner<T, P: SignatureKey + 'static> {
     /// Input for direct messages
     direct_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Output for broadcast messages
-    broadcast_output: Receiver<T>,
+    broadcast_output: Mutex<Receiver<T>>,
     /// Output for direct messages
-    direct_output: Receiver<T>,
+    direct_output: Mutex<Receiver<T>>,
     /// The master map
     master_map: Arc<MasterMap<T, P>>,
 
     /// Input for network change messages
     network_changes_input: RwLock<Option<Sender<NetworkChange<P>>>>,
     /// Output for network change messages
-    network_changes_output: Receiver<NetworkChange<P>>,
+    network_changes_output: Mutex<Receiver<NetworkChange<P>>>,
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
@@ -144,14 +144,10 @@ where
             async move {
                 debug!("Starting background task");
                 // direct input is right stream
-                let direct = direct_task_recv
-                    .into_stream()
-                    .expect("Could not turn task into stream")
-                    .map(Combo::<Vec<u8>>::Direct);
+                let direct = direct_task_recv.into_stream().map(Combo::<Vec<u8>>::Direct);
                 // broadcast input is left stream
                 let broadcast = broadcast_task_recv
                     .into_stream()
-                    .expect("Could not turn task into stream")
                     .map(Combo::<Vec<u8>>::Broadcast);
                 // Combine the streams
                 let mut combined = futures::stream::select(direct, broadcast);
@@ -253,11 +249,11 @@ where
                 pub_key: pub_key.clone(),
                 broadcast_input: RwLock::new(Some(broadcast_input)),
                 direct_input: RwLock::new(Some(direct_input)),
-                broadcast_output,
-                direct_output,
+                broadcast_output: Mutex::new(broadcast_output),
+                direct_output: Mutex::new(direct_output),
                 master_map: master_map.clone(),
                 network_changes_input: RwLock::new(Some(network_changes_input)),
-                network_changes_output,
+                network_changes_output: Mutex::new(network_changes_output),
                 in_flight_message_count,
             }),
         };
@@ -394,6 +390,8 @@ impl<
         let ret = self
             .inner
             .broadcast_output
+            .lock()
+            .await
             .drain_at_least_one()
             .await
             .context(ChannelDisconnectedSnafu)?;
@@ -408,6 +406,8 @@ impl<
         let ret = self
             .inner
             .broadcast_output
+            .lock()
+            .await
             .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)?;
@@ -422,6 +422,8 @@ impl<
         let ret = self
             .inner
             .direct_output
+            .lock()
+            .await
             .drain_at_least_one()
             .await
             .context(ChannelDisconnectedSnafu)?;
@@ -436,6 +438,8 @@ impl<
         let ret = self
             .inner
             .direct_output
+            .lock()
+            .await
             .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)?;
@@ -458,6 +462,8 @@ impl<
     async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         self.inner
             .network_changes_output
+            .lock()
+            .await
             .drain_at_least_one()
             .await
             .context(ChannelDisconnectedSnafu)

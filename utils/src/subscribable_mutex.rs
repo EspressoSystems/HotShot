@@ -101,7 +101,7 @@ impl<T> SubscribableMutex<T> {
     where
         F: FnMut(&T) -> bool,
     {
-        let receiver = {
+        let mut receiver = {
             let lock = self.mutex.lock().await;
             // Check if we already match the condition. If we do we don't have to subscribe at all.
             if f(&*lock) {
@@ -133,7 +133,7 @@ impl<T> SubscribableMutex<T> {
     ) where
         F: FnMut(&T) -> bool + 'a,
     {
-        let receiver = self.subscribe().await;
+        let mut receiver = self.subscribe().await;
         if ready_chan.send(()).is_err() {
             warn!("unable to notify that channel is ready");
         };
@@ -308,7 +308,7 @@ mod tests {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_compare_and_set() {
         let mutex = SubscribableMutex::new(5usize);
-        let subscriber = mutex.subscribe().await;
+        let mut subscriber = mutex.subscribe().await;
 
         assert_eq!(mutex.copied().await, 5);
 
@@ -330,7 +330,7 @@ mod tests {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_subscriber() {
         let mutex = SubscribableMutex::new(5usize);
-        let subscriber = mutex.subscribe().await;
+        let mut subscriber = mutex.subscribe().await;
 
         // No messages
         assert!(subscriber.try_recv().is_err());

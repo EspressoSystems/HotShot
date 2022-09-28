@@ -14,13 +14,6 @@
 //!
 //! Some of these implementations may not exist under the crate selected, in those cases they will be shimmed to another channel. e.g. `oneshot` might be implemented as `bounded(1)`.
 
-// VKO: If you see this in the PR I have forgotten to remove it
-#![allow(
-    missing_docs,
-    clippy::missing_docs_in_private_items,
-    clippy::missing_errors_doc
-)]
-
 mod bounded;
 mod oneshot;
 mod unbounded;

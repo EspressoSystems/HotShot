@@ -10,6 +10,7 @@ cfg_if! {
             Receiver as InnerReceiver,
         };
 
+        /// A receiver error returned from [`Receiver`]'s `recv`
         #[derive(Debug, PartialEq, Eq)]
         pub struct RecvError;
 
@@ -21,11 +22,10 @@ cfg_if! {
 
         impl std::error::Error for RecvError {}
 
-        use tokio::sync::Mutex;
-        use std::sync::Arc;
-
+        /// A bounded sender, created with [`bounded`]
         pub struct Sender<T>(InnerSender<T>);
-        pub struct Receiver<T>(Arc<Mutex<InnerReceiver<T>>>);
+        /// A bounded receiver, created with [`bounded`]
+        pub struct Receiver<T>(InnerReceiver<T>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
         fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
@@ -60,7 +60,9 @@ cfg_if! {
             Receiver as InnerReceiver,
         };
 
+        /// A bounded sender, created with [`channel`]
         pub struct Sender<T>(InnerSender<T>);
+        /// A bounded receiver, created with [`channel`]
         pub struct Receiver<T>(InnerReceiver<T>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
@@ -73,12 +75,12 @@ cfg_if! {
     }
 }
 
+/// Create a bounded sender/receiver pair, limited to `len` messages at a time.
 #[must_use]
 pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
     cfg_if! {
         if #[cfg(feature = "channel-tokio")] {
             let (sender, receiver) = tokio::sync::mpsc::channel(len);
-            let receiver = Arc::new(Mutex::new(receiver));
         } else if #[cfg(feature = "channel-flume")] {
             let (sender, receiver) = flume::bounded(len);
         } else if #[cfg(feature = "channel-async-std")] {
@@ -89,6 +91,7 @@ pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
 }
 
 impl<T> Sender<T> {
+    /// Send a value to the channel. May return a [`SendError`] if the receiver is dropped
     pub async fn send(&self, msg: T) -> Result<(), SendError<T>> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
@@ -101,44 +104,42 @@ impl<T> Sender<T> {
 }
 
 impl<T> Receiver<T> {
-    pub async fn recv(&self) -> Result<T, RecvError> {
+    /// Receive a value from te channel. This will async block until a value is received, or until a [`RecvError`] is encountered.
+    pub async fn recv(&mut self) -> Result<T, RecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
                 self.0.recv_async().await
             } else if #[cfg(feature = "channel-tokio")] {
-                self.0.lock().await.recv().await.ok_or(RecvError)
+                self.0.recv().await.ok_or(RecvError)
             } else {
                 self.0.recv().await
             }
         }
     }
+    /// Turn this recever into a stream. This may fail on some implementations if multiple references of a receiver exist
     #[must_use]
-    pub fn into_stream(self) -> Option<impl Stream<Item = T>>
+    pub fn into_stream(self) -> impl Stream<Item = T>
     where
         T: 'static,
     {
         cfg_if! {
             if #[cfg(feature = "channel-async-std")] {
-                Some(self.0)
+                self.0
             } else if #[cfg(feature = "channel-tokio")] {
-                let mutex = Arc::try_unwrap(self.0).ok()?;
-                Some(tokio_stream::wrappers::ReceiverStream::new(mutex.into_inner()))
+                tokio_stream::wrappers::ReceiverStream::new(self.0)
             } else if #[cfg(feature = "channel-flume")] {
-                Some(self.0.into_stream())
+                self.0.into_stream()
             }
         }
     }
-    pub fn try_recv(&self) -> Result<T, TryRecvError> {
-        cfg_if! {
-            if #[cfg(feature = "channel-tokio")] {
-                // TODO: Check if this actually doesn't block
-                crate::art::async_block_on(self.0.lock()).try_recv()
-            } else {
-                self.0.try_recv()
-            }
-        }
+    /// Try to receive a channel from the receiver. Will return immediately if there is no value available.
+    pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
+        self.0.try_recv()
     }
-    pub async fn drain_at_least_one(&self) -> Result<Vec<T>, RecvError> {
+    /// Asynchronously wait for at least 1 value to show up, then will greedily try to receive values until this receiver would block. The resulting values are returned.
+    ///
+    /// It is guaranteed that the returning vec contains at least 1 value
+    pub async fn drain_at_least_one(&mut self) -> Result<Vec<T>, RecvError> {
         // Wait for the first message to come up
         let first = self.recv().await?;
         let mut ret = vec![first];
@@ -161,7 +162,7 @@ impl<T> Receiver<T> {
         Ok(ret)
     }
     /// Drains the receiver from all messages in the queue, but will not poll for more messages
-    pub fn drain(&self) -> Result<Vec<T>, RecvError> {
+    pub fn drain(&mut self) -> Result<Vec<T>, RecvError> {
         let mut result = Vec::new();
         loop {
             match self.try_recv() {

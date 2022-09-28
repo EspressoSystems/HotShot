@@ -11,6 +11,7 @@ cfg_if! {
         // There is a `RecvError` in tokio but we don't use it because we can't create an instance of `RecvError` so we
         // can't turn a `TryRecvError` into a `RecvError`.
 
+        /// Error that occurs when the [`OneShotReceiver`] could not receive a message.
         #[derive(Debug, PartialEq, Eq)]
         pub struct OneShotRecvError;
 
@@ -28,23 +29,32 @@ cfg_if! {
 
         impl std::error::Error for OneShotRecvError {}
 
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotSender<T>(Sender<T>);
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotReceiver<T>(Receiver<T>);
     } else if #[cfg(feature = "channel-flume")] {
         pub use flume::{TryRecvError as OneShotTryRecvError, RecvError as OneShotRecvError};
         use flume::{Sender, Receiver};
 
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotSender<T>(Sender<T>);
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotReceiver<T>(Receiver<T>);
     } else if #[cfg(feature = "channel-async-std")] {
         pub use async_std::channel::{TryRecvError as OneShotTryRecvError, RecvError as OneShotRecvError};
         use async_std::channel::{Sender, Receiver};
 
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotSender<T>(Sender<T>);
+        /// A single-use sender, created with [`oneshot`]
         pub struct OneShotReceiver<T>(Receiver<T>);
     }
 }
 
+/// Create a single-use channel. Under water this might be implemented as a `bounded(1)`, but more efficient implementations might exist.
+///
+/// Both the sender and receiver take `self` instead of `&self` or `&mut self`, so they can only be used once.
 #[must_use]
 pub fn oneshot<T>() -> (OneShotSender<T>, OneShotReceiver<T>) {
     cfg_if! {
@@ -60,6 +70,9 @@ pub fn oneshot<T>() -> (OneShotSender<T>, OneShotReceiver<T>) {
 }
 
 impl<T> OneShotSender<T> {
+    /// Send a message on this sender.
+    ///
+    /// If this fails because the receiver is dropped, a warning will be printed.
     pub fn send(self, msg: T) {
         cfg_if! {
             if #[cfg(feature = "channel-async-std")] {
@@ -75,6 +88,7 @@ impl<T> OneShotSender<T> {
     }
 }
 impl<T> OneShotReceiver<T> {
+    /// Receive a value from this oneshot receiver. If the sender is dropped, an error is returned.
     pub async fn recv(self) -> Result<T, OneShotRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-tokio")] {

@@ -11,6 +11,7 @@ cfg_if! {
             UnboundedReceiver as InnerReceiver
         };
 
+        /// A receiver error returned from [`UnboundedReceiver`]'s `recv`
         #[derive(Debug, PartialEq, Eq, Clone)]
         pub struct UnboundedRecvError;
 
@@ -25,7 +26,9 @@ cfg_if! {
         use tokio::sync::Mutex;
         use std::sync::Arc;
 
+        /// An unbounded sender, created with [`unbounded`]
         pub struct UnboundedSender<T>(InnerSender<T>);
+        /// An unbounded receiver, created with [`unbounded`]
         pub struct UnboundedReceiver<T>(Arc<Mutex<InnerReceiver<T>>>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
@@ -39,7 +42,9 @@ cfg_if! {
         pub use flume::{SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError, RecvError as UnboundedRecvError };
         use flume::{Sender, Receiver};
 
+        /// An unbounded sender, created with [`unbounded`]
         pub struct UnboundedSender<T>(Sender<T>);
+        /// An unbounded receiver, created with [`unbounded`]
         pub struct UnboundedReceiver<T>(Receiver<T>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
@@ -53,7 +58,9 @@ cfg_if! {
         pub use async_std::channel::{SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError, RecvError as UnboundedRecvError };
         use async_std::channel::{Sender, Receiver};
 
+        /// An unbounded sender, created with [`unbounded`]
         pub struct UnboundedSender<T>(Sender<T>);
+        /// An unbounded receiver, created with [`unbounded`]
         pub struct UnboundedReceiver<T>(Receiver<T>);
 
         /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
@@ -66,6 +73,9 @@ cfg_if! {
     }
 }
 
+/// Create an unbounded channel. This will dynamically allocate whenever the internal buffer is full and a new message is added.
+///
+/// The names of the [`UnboundedSender`] and [`UnboundedReceiver`] are specifically chosen to be less ergonomic than the [`bounded`] channels. Please consider using a bounded channel instead for performance reasons.
 #[must_use]
 pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
     cfg_if! {
@@ -82,6 +92,7 @@ pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
 }
 
 impl<T> UnboundedSender<T> {
+    /// Send a value to the sender half of this channel.
     #[allow(clippy::unused_async)] // under tokio this function is actually sync
     pub async fn send(&self, msg: T) -> Result<(), UnboundedSendError<T>> {
         cfg_if! {
@@ -97,6 +108,9 @@ impl<T> UnboundedSender<T> {
 }
 
 impl<T> UnboundedReceiver<T> {
+    /// Receive a value from the receiver half of this channel. May return an error if all of the [`UnboundedSender`]s are dropped.
+    ///
+    /// Will block until a value is received
     pub async fn recv(&self) -> Result<T, UnboundedRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-flume")] {
@@ -108,6 +122,7 @@ impl<T> UnboundedReceiver<T> {
             }
         }
     }
+    /// Turn this receiver into a stream.
     #[must_use]
     pub fn into_stream(self) -> Option<impl Stream<Item = T>>
     where
@@ -127,6 +142,7 @@ impl<T> UnboundedReceiver<T> {
             }
         }
     }
+    /// Try to receive a value from the receiver. Will return an error if no value is currently queued. This function will not block.
     pub fn try_recv(&self) -> Result<T, UnboundedTryRecvError> {
         cfg_if! {
             if #[cfg(feature = "channel-tokio")] {
@@ -137,6 +153,9 @@ impl<T> UnboundedReceiver<T> {
             }
         }
     }
+    /// Asynchronously wait for at least 1 value to show up, then will greedily try to receive values until this receiver would block. The resulting values are returned.
+    ///
+    /// It is guaranteed that the returning vec contains at least 1 value
     pub async fn drain_at_least_one(&self) -> Result<Vec<T>, UnboundedRecvError> {
         // Wait for the first message to come up
         let first = self.recv().await?;
@@ -175,6 +194,9 @@ impl<T> UnboundedReceiver<T> {
         }
         Ok(result)
     }
+    /// Attempt to load the length of the messages in queue.
+    ///
+    /// On some implementations this value does not exist, and this will return `None`.
     #[allow(clippy::len_without_is_empty, clippy::unused_self)]
     #[must_use]
     pub fn len(&self) -> Option<usize> {

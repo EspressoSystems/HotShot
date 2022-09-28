@@ -91,12 +91,12 @@ where
     /// # Errors
     ///
     /// Will return `Err` if the upstream sender has been disconnected.
-    pub async fn recv_async(&self) -> Result<T, UnboundedRecvError> {
+    pub async fn recv_async(&mut self) -> Result<T, UnboundedRecvError> {
         self.output.recv().await
     }
 
     /// Returns a value, if one is available
-    pub fn try_recv(&self) -> Option<T> {
+    pub fn try_recv(&mut self) -> Option<T> {
         self.output.try_recv().ok()
     }
 
