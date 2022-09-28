@@ -543,7 +543,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let passed_time = task_start_time - Instant::now();
-        sleep(self.api.propose_min_round_time() - passed_time); // Minus current time? TODO
+        sleep(self.api.propose_min_round_time() - passed_time); 
 
         let txns = self.transactions.read().await;
 
