@@ -30,8 +30,6 @@ pub trait StateContents:
     + Eq
     + Send
     + Sync
-    // TODO why is this unpin?
-    + Unpin
     + Committable
 {
     /// The error type for this particular type of ledger state

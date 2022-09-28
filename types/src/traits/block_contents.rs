@@ -27,7 +27,6 @@ pub trait BlockContents:
     + Eq
     + Send
     + Sync
-    + Unpin
     + Committable
     + DeserializeOwned
 {
