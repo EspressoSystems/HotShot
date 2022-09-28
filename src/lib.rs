@@ -40,7 +40,7 @@ mod tasks;
 mod utils;
 
 use hotshot_utils::art::async_spawn_local;
-use hotshot_types::{traits::{storage::ViewEntry, state::ConsensusTime}, error::StorageSnafu, data::TimeImpl};
+use hotshot_types::{traits::{storage::ViewEntry, state::ConsensusTime}, error::StorageSnafu, data::TimeImpl, constants::genesis_proposer_id};
 use snafu::ResultExt;
 
 use crate::{
@@ -579,6 +579,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 state,
                 parent_commitment,
                 rejected,
+                proposer_id
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let anchored = match self.inner.storage.get_anchored_view().await {
@@ -600,6 +601,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                         state,
                         parent_commitment,
                         rejected,
+                        proposer_id
                     );
 
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
@@ -640,6 +642,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     state: anchor.state,
                     parent_commitment: anchor.parent,
                     rejected: anchor.rejected,
+                    proposer_id: anchor.proposer_id
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
                     error!(
@@ -845,6 +848,7 @@ pub struct HotShotInitializer<STATE: StateContents> {
     inner: Leaf<STATE>
 }
 
+
 impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
 
     /// initialize from genesis
@@ -864,8 +868,8 @@ impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
                 state,
                 rejected: Vec::new(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: genesis_proposer_id()
             }
-
         })
 
     }

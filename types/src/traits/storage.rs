@@ -11,6 +11,8 @@ use derivative::Derivative;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::signature_key::EncodedPublicKey;
+
 /// Errors that can occur in the storage layer.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -126,6 +128,9 @@ pub struct StoredView<STATE: StateContents> {
     /// the timestamp this view was recv-ed in nanonseconds
     #[derivative(PartialEq="ignore")]
     pub timestamp: i128,
+    /// the proposer id
+    #[derivative(PartialEq="ignore")]
+    pub proposer_id: EncodedPublicKey,
 }
 
 impl<STATE> StoredView<STATE>
@@ -141,6 +146,7 @@ where
         state: STATE,
         parent_commitment: Commitment<Leaf<STATE>>,
         rejected: Vec<TxnCommitment<STATE>>,
+        proposer_id: EncodedPublicKey
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
@@ -150,6 +156,7 @@ where
             state,
             rejected,
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id
         }
     }
 }

@@ -126,6 +126,9 @@ pub enum DataMessage<STATE: StateContents> {
         /// Transactions rejected in this view
         #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>>as Deserialize>::deserialize")]
         rejected: Vec<TxnCommitment<STATE>>,
+
+        /// the proposer id for this leaf
+        proposer_id: EncodedPublicKey
     },
 
     /// Contains a transaction to be submitted

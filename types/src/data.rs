@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
 use crate::{
-    constants::GENESIS_VIEW,
+    constants::{GENESIS_VIEW, genesis_proposer_id},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
@@ -125,7 +125,8 @@ pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// subset of state that we stick into a leaf.
-#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+#[derive(Clone, Derivative, Serialize, Deserialize, custom_debug::Debug)]
+#[derivative(PartialEq, Eq, Hash)]
 pub struct ProposalLeaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
@@ -152,6 +153,10 @@ pub struct ProposalLeaf<STATE: StateContents> {
     /// Transactions that were marked for rejection while collecting deltas
     #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<TxnCommitment<STATE>>,
+
+    /// the propser id
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub proposer_id: EncodedPublicKey
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -187,7 +192,12 @@ pub struct Leaf<STATE: StateContents> {
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     #[derivative(PartialEq = "ignore")]
-    pub timestamp: i128
+    #[serde(skip)]
+    pub timestamp: i128,
+
+    /// the proposer id of the leaf
+    #[derivative(PartialEq = "ignore")]
+    pub proposer_id: EncodedPublicKey
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -244,6 +254,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
             deltas: leaf.deltas,
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
+            proposer_id: leaf.proposer_id
         }
     }
 }
@@ -261,6 +272,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
         qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
         rejected: Vec<TxnCommitment<STATE>>,
+        proposer_id: EncodedPublicKey
     ) -> Self {
         Leaf {
             view_number,
@@ -270,6 +282,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected,
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id
         }
     }
 
@@ -293,12 +306,15 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: genesis_proposer_id()
         }
     }
 }
 
+
 impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
+        let proposer_id = genesis_proposer_id();
         Leaf::new(
             append.state,
             append.append.into_deltas(),
@@ -306,6 +322,7 @@ impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<S
             append.justify_qc,
             append.view_number,
             Vec::new(),
+            proposer_id,
         )
     }
 }
@@ -319,7 +336,8 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             state: val.state,
             append: val.deltas.into(),
             rejected: val.rejected,
-            timestamp: val.timestamp
+            timestamp: val.timestamp,
+            proposer_id: val.proposer_id
         }
     }
 }

@@ -13,7 +13,7 @@ use hotshot_types::{
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
         StateContents,
-    },
+    }, constants::genesis_proposer_id,
 };
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -533,5 +533,6 @@ pub fn random_leaf<STATE: StateContents<Time = TimeImpl>>(deltas: STATE::Block) 
         state,
         rejected: Vec::new(),
         timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+        proposer_id: genesis_proposer_id()
     }
 }

@@ -232,6 +232,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
+                                p.leaf.proposer_id
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -482,6 +483,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::State> {
+        let pk = self.api.public_key();
         info!("Leader task started!");
         let parent_view_number = self.high_qc.view_number;
 
@@ -564,6 +566,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 state: new_state,
                 rejected: Vec::new(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: pk.to_bytes()
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();
