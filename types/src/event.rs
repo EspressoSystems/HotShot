@@ -1,7 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{Leaf, TimeImpl},
+    data::{Leaf, ViewNumber},
     error::HotShotError,
     traits::StateContents,
 };
@@ -14,7 +14,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct Event<S: StateContents + Send + Sync> {
     /// The view number that this event originates from
-    pub view_number: TimeImpl,
+    pub view_number: ViewNumber,
     /// The underlying event
     pub event: EventType<S>,
 }
@@ -49,31 +49,31 @@ pub enum EventType<S: StateContents> {
     /// A new view was started by this node
     NewView {
         /// The view being started
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {
         /// The view that timed out
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
     /// A next leader task was canceled by a timeout interrupt
     NextLeaderViewTimeout {
         /// The view that timed out
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
     /// This node is the leader for this view
     Leader {
         /// The current view number
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
     /// The node has been synced with the network
     Synced {
         /// The current view number
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     ViewFinished {
         /// The view number that has just finished
-        view_number: TimeImpl,
+        view_number: ViewNumber,
     },
 }

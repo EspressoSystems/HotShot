@@ -24,7 +24,6 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    constants::GENESIS_VIEW,
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
@@ -232,7 +231,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
-                                p.leaf.proposer_id
+                                time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                                p.leaf.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -804,8 +804,8 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: GENESIS_VIEW,
-            last_decided_view: GENESIS_VIEW,
+            cur_view: ViewNumber::genesis(),
+            last_decided_view: ViewNumber::genesis(),
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),

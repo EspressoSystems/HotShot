@@ -1,6 +1,6 @@
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
+    data::TimeType,
     traits::{
         election::Election,
         signature_key::{
@@ -50,7 +50,7 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
+    fn get_leader(&self, table: &Self::StakeTable, view_number: TimeType) -> Ed25519Pub {
         let index = (*view_number % table.len() as u64) as usize;
         table[index]
     }
@@ -59,7 +59,7 @@ where
         &self,
         table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
-        view_number: ViewNumber,
+        view_number: TimeType,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
         next_state: Commitment<Self::State>,
@@ -78,7 +78,7 @@ where
         &self,
         _table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
-        view_number: ViewNumber,
+        view_number: TimeType,
         private_key: &Ed25519Priv,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {

@@ -2,7 +2,7 @@
 
 use commit::Commitment;
 
-use crate::{traits::signature_key::SignatureKey, data::TimeImpl};
+use crate::{traits::signature_key::SignatureKey, data::TimeType};
 
 use super::{StateContents, state::ConsensusTime};
 
@@ -23,7 +23,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, table: &Self::StakeTable, view_number: TimeImpl) -> P;
+    fn get_leader(&self, table: &Self::StakeTable, view_number: TimeType) -> P;
 
     /// Validates a vote token and returns the number of seats that it has
     ///
@@ -32,7 +32,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: TimeImpl,
+        view_number: TimeType,
         pub_key: P,
         token: Self::VoteToken,
         next_state: Commitment<Self::State>,
@@ -48,7 +48,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: TimeImpl,
+        view_number: TimeType,
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken>;

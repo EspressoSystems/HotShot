@@ -3,7 +3,7 @@
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
-use crate::{data::TimeImpl, traits::storage::StorageError};
+use crate::{data::ViewNumber, traits::storage::StorageError};
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
         use async_std::future::TimeoutError;
@@ -65,7 +65,7 @@ pub enum HotShotError {
     /// HotShot timed out during round
     ViewTimeoutError {
         /// view number
-        view_number: TimeImpl,
+        view_number: ViewNumber,
         /// The state that the round was in when it timed out
         state: RoundTimedoutState,
     },

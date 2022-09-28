@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 
 use crate::{
-    data::{Leaf, QuorumCertificate, TxnCommitment, TimeImpl},
+    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{BlockContents, StateContents},
 };
 use async_trait::async_trait;
@@ -38,7 +38,7 @@ where
     /// Append the list of views to this storage
     async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
-    async fn cleanup_storage_up_to_view(&self, view: TimeImpl) -> Result<usize>;
+    async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize>;
     /// Get the latest anchored view
     async fn get_anchored_view(&self) -> Result<StoredView<STATE>>;
     /// Commit this storage.
@@ -81,9 +81,9 @@ where
 #[derive(Debug, PartialEq, Eq)]
 pub struct StorageState<STATE: StateContents> {
     /// The views that have been successful
-    pub stored: BTreeMap<TimeImpl, StoredView<STATE>>,
+    pub stored: BTreeMap<ViewNumber, StoredView<STATE>>,
     /// The views that have failed
-    pub failed: BTreeSet<TimeImpl>,
+    pub failed: BTreeSet<ViewNumber>,
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
@@ -95,7 +95,7 @@ where
     /// A succeeded view
     Success(StoredView<STATE>),
     /// A failed view
-    Failed(TimeImpl),
+    Failed(ViewNumber),
     // future improvement:
     // InProgress(InProgressView),
 }
@@ -114,7 +114,7 @@ where
 #[derivative(PartialEq, Eq, Clone)]
 pub struct StoredView<STATE: StateContents> {
     /// The view number of this view
-    pub view_number: TimeImpl,
+    pub view_number: ViewNumber,
     /// The parent of this view
     pub parent: Commitment<Leaf<STATE>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.

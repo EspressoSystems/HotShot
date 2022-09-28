@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
 use crate::{
-    constants::{GENESIS_VIEW, genesis_proposer_id},
+    constants::genesis_proposer_id,
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
@@ -24,7 +24,7 @@ pub struct ViewNumber(u64);
 /// Type alias to view number
 /// in the event we wish to change view number,
 /// all we need to do is change this alias
-pub type TimeImpl = ViewNumber;
+pub type TimeType = ViewNumber;
 
 impl ConsensusTime for ViewNumber {}
 
@@ -68,7 +68,7 @@ impl<STATE: StateContents> QuorumCertificate<STATE> {
         Self {
             block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<Leaf<STATE>>(),
-            view_number: GENESIS_VIEW,
+            view_number: TimeType::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
         }
@@ -100,7 +100,7 @@ pub struct QuorumCertificate<STATE: StateContents> {
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
-    pub view_number: ViewNumber,
+    pub view_number: TimeType,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -129,7 +129,7 @@ pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 #[derivative(PartialEq, Eq, Hash)]
 pub struct ProposalLeaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
-    pub view_number: ViewNumber,
+    pub view_number: TimeType,
 
     /// Per spec, justification
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
@@ -166,7 +166,7 @@ pub struct ProposalLeaf<STATE: StateContents> {
 #[derivative(PartialEq, Eq)]
 pub struct Leaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
-    pub view_number: ViewNumber,
+    pub view_number: TimeType,
 
     /// Per spec, justification
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
@@ -192,7 +192,6 @@ pub struct Leaf<STATE: StateContents> {
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     #[derivative(PartialEq = "ignore")]
-    #[serde(skip)]
     pub timestamp: i128,
 
     /// the proposer id of the leaf
@@ -259,19 +258,21 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     }
 }
 
-impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
+impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: STATE,
         deltas: STATE::Block,
         parent: Commitment<Leaf<STATE>>,
         qc: QuorumCertificate<STATE>,
-        view_number: ViewNumber,
+        view_number: TimeType,
         rejected: Vec<TxnCommitment<STATE>>,
+        timestamp: i128,
         proposer_id: EncodedPublicKey
     ) -> Self {
         Leaf {
@@ -281,7 +282,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
             deltas,
             state,
             rejected,
-            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            timestamp,
             proposer_id
         }
     }
@@ -297,9 +298,9 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas, &GENESIS_VIEW).unwrap();
+        let state = STATE::default().append(&deltas, &TimeType::genesis()).unwrap();
         Self {
-            view_number: GENESIS_VIEW,
+            view_number: TimeType::genesis(),
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -312,9 +313,8 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
 }
 
 
-impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
+impl<STATE: StateContents<Time = TimeType>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
-        let proposer_id = genesis_proposer_id();
         Leaf::new(
             append.state,
             append.append.into_deltas(),
@@ -322,7 +322,8 @@ impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<S
             append.justify_qc,
             append.view_number,
             Vec::new(),
-            proposer_id,
+            append.timestamp,
+            append.proposer_id,
         )
     }
 }
