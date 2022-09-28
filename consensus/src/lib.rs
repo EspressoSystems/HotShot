@@ -35,11 +35,13 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
-use std::sync::Arc;
+use hotshot_utils::art::async_sleep;
+use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
 };
+use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -483,6 +485,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::State> {
         info!("Leader task started!");
+
+        let task_start_time = Instant::now();
+
         let parent_view_number = self.high_qc.view_number;
 
         let consensus = self.consensus.read().await;
@@ -537,6 +542,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         let previous_used_txns = previous_used_txns_vec
             .into_iter()
             .collect::<HashSet<TxnCommitment<I::State>>>();
+
+        let passed_time = task_start_time - Instant::now();
+        async_sleep(self.api.propose_min_round_time() - passed_time).await; 
 
         let txns = self.transactions.read().await;
 
