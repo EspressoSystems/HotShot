@@ -194,11 +194,7 @@ impl<T> Clone for UnboundedSender<T> {
         Self(self.0.clone())
     }
 }
-// impl<T> Clone for UnboundedReceiver<T> {
-//     fn clone(&self) -> Self {
-//         Self(self.0.clone())
-//     }
-// }
+
 // Debug impl
 impl<T> std::fmt::Debug for UnboundedSender<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

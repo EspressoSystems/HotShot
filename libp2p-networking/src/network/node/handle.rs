@@ -120,6 +120,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         })
     }
 
+    /// Spawn a handler `F` that will be notified every time a new [`NetworkEvent`] arrives.
     ///
     /// # Panics
     ///
@@ -182,7 +183,11 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         }).map(|_| ())
     }
 
+    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
+    ///
     /// # Errors
+    ///
+    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
     pub async fn wait_to_connect(
         &self,
         num_peers: usize,
@@ -210,7 +215,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
-    ///
+    /// Receives a reference of the internal [`NetworkNodeReceiver`], which can be used to query for incoming messages.
     pub fn receiver(&self) -> &NetworkNodeReceiver {
         &self.receiver
     }
@@ -245,34 +250,6 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             .await
             .map_err(|_| NetworkNodeHandleError::SendError)
     }
-
-    // /// Kick off bootstrap processs,
-    // /// then wait for a node to connect to other nodes
-    // /// * `node`: reference to the node
-    // /// * `num_peers`: number of peers required to be connected successfully before returning
-    // /// * `chan`: listener for connection events
-    // /// * `node_idx`: the node id
-    // #[instrument]
-    // pub async fn wait_to_connect(
-    //     node: Arc<NetworkNodeHandle<S>>,
-    //     num_peers: usize,
-    //     chan: UnboundedReceiver<NetworkEvent>,
-    //     node_idx: usize,
-    // ) -> Result<(), NetworkNodeHandleError> {
-    //     // kick off bootstrap
-    //     node.begin_bootstrap().await?;
-    //     let mut connected_ok = false;
-    //     while !connected_ok {
-    //         async_sleep(Duration::from_secs(1)).await;
-    //         let num_connected = node.num_connected().await.unwrap();
-    //         error!(
-    //             "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
-    //             num_connected, num_peers, node_idx
-    //         );
-    //         connected_ok = num_connected >= num_peers;
-    //     }
-    //     Ok(())
-    // }
 
     /// Get a reference to the network node handle's listen addr.
     pub fn listen_addr(&self) -> Multiaddr {

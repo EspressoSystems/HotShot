@@ -179,9 +179,9 @@ struct Inputs<T> {
 #[derive(Clone)]
 struct Outputs<T> {
     /// Output from broadcast queue
-    broadcast: Receiver<T>,
+    broadcast: Arc<Mutex<Receiver<T>>>,
     /// Output from direct queue
-    direct: Receiver<T>,
+    direct: Arc<Mutex<Receiver<T>>>,
 }
 
 /// Internal enum for combining message and command streams
@@ -642,8 +642,8 @@ impl<
                 direct: s_direct,
             },
             outputs: Outputs {
-                broadcast: r_broadcast,
-                direct: r_direct,
+                broadcast: Arc::new(Mutex::new(r_broadcast)),
+                direct: Arc::new(Mutex::new(r_direct)),
             },
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
@@ -943,6 +943,8 @@ impl<
         self.inner
             .outputs
             .broadcast
+            .lock()
+            .await
             .drain_at_least_one()
             .await
             .context(ChannelDisconnectedSnafu)
@@ -953,6 +955,8 @@ impl<
         self.inner
             .outputs
             .broadcast
+            .lock()
+            .await
             .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)
@@ -963,6 +967,8 @@ impl<
         self.inner
             .outputs
             .direct
+            .lock()
+            .await
             .drain_at_least_one()
             .await
             .context(ChannelDisconnectedSnafu)
@@ -973,6 +979,8 @@ impl<
         self.inner
             .outputs
             .direct
+            .lock()
+            .await
             .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)

@@ -53,20 +53,6 @@ where
         Ok(())
     }
 
-    // /// Synchronously sends a value to all connected receivers
-    // ///
-    // /// # Errors
-    // ///
-    // /// Will return `Err` if one of the downstream receivers was disconnected without being properly
-    // /// dropped.
-    // pub fn send(&self, item: T) -> Result<(), SendError<T>> {
-    //     let map = async_block_on(self.inner.outputs.read());
-    //     for sender in map.values() {
-    //         sender.send(item.clone())?;
-    //     }
-    //     Ok(())
-    // }
-
     /// Asynchronously creates a new handle
     pub async fn handle_async(&self) -> BroadcastReceiver<T> {
         let id = self.inner.count.fetch_add(1, Ordering::SeqCst);
@@ -108,15 +94,6 @@ where
     pub async fn recv_async(&self) -> Result<T, UnboundedRecvError> {
         self.output.recv().await
     }
-
-    // /// Synchronously receives a value
-    // ///
-    // /// # Errors
-    // ///
-    // /// Will return `Err` if the upstream sender has been disconnected.
-    // pub fn recv(&self) -> Result<T, RecvError> {
-    //     self.output.recv()
-    // }
 
     /// Returns a value, if one is available
     pub fn try_recv(&self) -> Option<T> {
