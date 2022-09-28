@@ -26,7 +26,7 @@ use hotshot_types::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::Snafu;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 use tracing::{error, info};
 use Either::{Left, Right};
 
@@ -46,6 +46,10 @@ pub struct TimingData {
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
+    /// The minimum amount of time a leader has to wait to start a round
+    pub propose_min_round_time: Duration,
+    /// The maximum amount of time a leader can wait to start a round
+    pub propose_max_round_time: Duration,
 }
 
 pub struct GeneralTestDescriptionBuilder {
@@ -77,6 +81,10 @@ pub struct GeneralTestDescriptionBuilder {
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
     /// number of bootstrap nodes
     pub num_bootstrap_nodes: usize,
+    /// The minimum amount of time a leader has to wait to start a round
+    pub propose_min_round_time: Duration,
+    /// The maximum amount of time a leader can wait to start a round
+    pub propose_max_round_time: Duration,
 }
 
 pub struct DetailedTestDescriptionBuilder<
@@ -112,6 +120,8 @@ where
             a.timeout_ratio = self.timing_config.timeout_ratio;
             a.round_start_delay = self.timing_config.round_start_delay;
             a.start_delay = self.timing_config.start_delay;
+            a.propose_min_round_time = self.timing_config.propose_min_round_time; 
+            a.propose_max_round_time = self.timing_config.propose_max_round_time; 
         };
 
         // create runner from launcher
@@ -187,6 +197,9 @@ where
             timeout_ratio: self.general_info.timeout_ratio,
             round_start_delay: self.general_info.round_start_delay,
             start_delay: self.general_info.start_delay,
+            propose_min_round_time: self.general_info.propose_min_round_time, 
+            propose_max_round_time: self.general_info.propose_max_round_time, 
+
         };
 
         let rounds = if let Some(rounds) = self.rounds {
@@ -283,6 +296,8 @@ impl Default for GeneralTestDescriptionBuilder {
             ids_to_shut_down: Vec::new(),
             network_reliability: None,
             num_bootstrap_nodes: 5,
+            propose_min_round_time: Duration::new(0, 0),
+            propose_max_round_time: Duration::new(10, 0),
         }
     }
 }

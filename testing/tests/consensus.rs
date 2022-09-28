@@ -16,6 +16,9 @@ use hotshot_types::{
     message::{ConsensusMessage, Proposal},
 };
 use tracing::{instrument, warn};
+use std::time::Instant;
+use std::time::Duration;
+use either::Right;
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
@@ -384,6 +387,7 @@ async fn test_proposal_queueing() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
+#[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
@@ -489,6 +493,7 @@ async fn test_bad_vote() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
+#[ignore]
 async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
@@ -507,4 +512,43 @@ async fn test_single_node_network() {
         gen_runner: None,
     };
     description.build().execute().await.unwrap();
+}
+
+/// Tests that min/max propose time work as expected 
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_min_max_propose() {
+    let num_rounds = 10;
+    let propose_min_round_time = Duration::new(1, 0);
+    let propose_max_round_time = Duration::new(5, 0);
+    let description: DetailedTestDescriptionBuilder<
+        TestNetwork,
+        MemoryStorage<DEntryState>,
+        DEntryState,
+    > = DetailedTestDescriptionBuilder {
+        general_info: GeneralTestDescriptionBuilder {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            propose_min_round_time: propose_min_round_time, 
+            propose_max_round_time: propose_max_round_time, 
+            next_view_timeout: 10000,
+            txn_ids: Right(1),
+            ..GeneralTestDescriptionBuilder::default()
+        },
+        rounds: None,
+        gen_runner: None,
+    };
+    let start_time = Instant::now(); 
+    description.build().execute().await.unwrap();
+    let duration = Instant::now() - start_time; 
+    let min_duration = num_rounds as u64 * propose_min_round_time.as_secs(); 
+
+    assert!(duration.as_secs() >= min_duration);
+
 }
