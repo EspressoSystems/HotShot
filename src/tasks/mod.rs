@@ -22,7 +22,7 @@ use hotshot_types::{
 };
 use hotshot_utils::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::{channel},
+    broadcast::channel,
 };
 use std::{
     collections::HashMap,

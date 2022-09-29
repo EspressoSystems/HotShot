@@ -35,3 +35,13 @@ lint_tokio:
 lint_async_std:
   echo Linting with async std executor
   cargo clippy --workspace --all-targets --no-default-features --features=tokio-ci --bins --tests --examples -- -D warnings
+
+careful: careful_tokio careful_async_std
+
+careful_tokio:
+  echo Careful-ing with tokio executor
+  cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+
+careful_async_std:
+  echo Careful-ing with async std executor
+  cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture

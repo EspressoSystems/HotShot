@@ -24,7 +24,6 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    constants::GENESIS_VIEW,
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
@@ -221,7 +220,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas, &self.cur_view) {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
@@ -234,6 +233,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
+                                time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                                p.leaf.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -249,18 +250,22 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let liveness_check = justify_qc.view_number > consensus.locked_view;
 
                         // check if proposal extends from the locked leaf
-                        let safety_check = consensus
-                            .visit_leaf_ancestors(
-                                parent.view_number,
-                                Terminator::Inclusive(consensus.locked_view),
-                                false,
-                                |leaf| {
-                                    // if leaf view no == locked view no then we're done, report success by
-                                    // returning true
-                                    leaf.view_number != consensus.locked_view
-                                },
-                            )
-                            .is_ok();
+                        let outcome = consensus.visit_leaf_ancestors(
+                            parent.view_number,
+                            Terminator::Inclusive(consensus.locked_view),
+                            false,
+                            |leaf| {
+                                // if leaf view no == locked view no then we're done, report success by
+                                // returning true
+                                leaf.view_number != consensus.locked_view
+                            },
+                        );
+
+                        let safety_check = outcome.is_ok();
+
+                        if let Err(e) = outcome {
+                            self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+                        }
 
                         // NOTE safenode check is here
                         // if !safenode, continue
@@ -332,8 +337,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                 }
             }
-            // fall through logic if we did not received successfully from channel
-            warn!("Replica did not received successfully from channel. Terminating Replica.");
+            // fall through logic if we did not receive successfully from channel
+            warn!("Replica did not receive successfully from channel. Terminating Replica.");
             self.api.send_replica_timeout(self.cur_view).await;
             return (consensus, Err(()));
         };
@@ -368,7 +373,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
             let mut current_chain_length = 1usize;
-            let _outcome = consensus.visit_leaf_ancestors(
+            if let Err(e) = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
                 true,
@@ -399,7 +404,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                     true
                 },
-            );
+            ) {
+                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+            }
         }
         let high_qc = leaf.justify_qc.clone();
 
@@ -484,6 +491,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::State> {
+        let pk = self.api.public_key();
         info!("Leader task started!");
 
         let task_start_time = Instant::now();
@@ -557,13 +565,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         for (_txn_hash, txn) in &unclaimed_txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
-                if starting_state.validate_block(&new_block) {
+                if starting_state.validate_block(&new_block, &self.cur_view) {
                     block = new_block;
                 }
             }
         }
 
-        if let Ok(new_state) = starting_state.append(&block) {
+        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
                 view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
@@ -571,6 +579,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 deltas: block,
                 state: new_state,
                 rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: pk.to_bytes()
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();
@@ -808,8 +818,8 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: GENESIS_VIEW,
-            last_decided_view: GENESIS_VIEW,
+            cur_view: ViewNumber::genesis(),
+            last_decided_view: ViewNumber::genesis(),
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),

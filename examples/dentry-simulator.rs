@@ -24,7 +24,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{MemoryStorage, Stateless, WNetwork},
+        implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
@@ -371,7 +371,6 @@ async fn get_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        Stateless::default(),
         StaticCommittee::new(known_nodes),
         initializer,
     )

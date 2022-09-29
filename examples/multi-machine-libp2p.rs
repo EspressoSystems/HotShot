@@ -14,7 +14,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{Libp2pNetwork, MemoryStorage, Stateless},
+        implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle, Message},
@@ -428,7 +428,6 @@ impl Config {
             config,
             networking,
             MemoryStorage::new(),
-            Stateless::default(),
             StaticCommittee::new(known_nodes),
             initializer,
         )

@@ -2,11 +2,11 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::{traits::StateContents};
+use crate::traits::StateContents;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
-    data::{ViewNumber},
+    data::ViewNumber,
     traits::storage::{
         Result, Storage, StorageError, StorageState, StoredView, TestableStorage,
         ViewEntry,
@@ -122,7 +122,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use hotshot_types::constants::GENESIS_VIEW;
+    use hotshot_types::constants::genesis_proposer_id;
+    use hotshot_types::data::ViewNumber;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
@@ -148,6 +149,7 @@ mod test {
             DummyState::random(),
             dummy_leaf_commit,
             Vec::new(),
+            genesis_proposer_id()
         )
     }
 
@@ -161,7 +163,7 @@ mod test {
         let storage =
             MemoryStorage::construct_tmp_storage()
                 .unwrap();
-        let genesis = random_stored_view(GENESIS_VIEW);
+        let genesis = random_stored_view(ViewNumber::genesis());
         storage
             .append_single_view(genesis.clone())
             .await
