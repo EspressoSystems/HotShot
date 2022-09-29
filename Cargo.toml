@@ -112,7 +112,7 @@ tracing-unwrap = "0.9.2"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
-clap = { version = "4.0.2", features = ["derive", "env"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
 toml = "0.5.8"
 
