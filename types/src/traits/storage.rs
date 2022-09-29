@@ -7,8 +7,11 @@ use crate::{
 };
 use async_trait::async_trait;
 use commit::Commitment;
+use derivative::Derivative;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
+
+use super::signature_key::EncodedPublicKey;
 
 /// Errors that can occur in the storage layer.
 #[derive(Clone, Debug, Snafu)]
@@ -107,7 +110,8 @@ where
 }
 
 /// A view stored in the [`Storage`]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Derivative, Debug)]
+#[derivative(PartialEq, Eq, Clone)]
 pub struct StoredView<STATE: StateContents> {
     /// The view number of this view
     pub view_number: ViewNumber,
@@ -121,6 +125,12 @@ pub struct StoredView<STATE: StateContents> {
     pub append: ViewAppend<<STATE as StateContents>::Block>,
     /// transactions rejected in this view
     pub rejected: Vec<TxnCommitment<STATE>>,
+    /// the timestamp this view was recv-ed in nanonseconds
+    #[derivative(PartialEq="ignore")]
+    pub timestamp: i128,
+    /// the proposer id
+    #[derivative(PartialEq="ignore")]
+    pub proposer_id: EncodedPublicKey,
 }
 
 impl<STATE> StoredView<STATE>
@@ -136,6 +146,7 @@ where
         state: STATE,
         parent_commitment: Commitment<Leaf<STATE>>,
         rejected: Vec<TxnCommitment<STATE>>,
+        proposer_id: EncodedPublicKey
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
@@ -144,6 +155,8 @@ where
             justify_qc: qc,
             state,
             rejected,
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id
         }
     }
 }

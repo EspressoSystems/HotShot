@@ -8,7 +8,7 @@ use crate::{
     traits::{
         election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
         storage::Storage, BlockContents,
-    },
+    }, data::ViewNumber,
 };
 use std::fmt::Debug;
 
@@ -23,16 +23,18 @@ use super::StateContents;
 /// store or keep a reference to any value implementing this trait.
 pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// State type for this consensus implementation
-    type State: StateContents;
+    type State: StateContents<Time = ViewNumber>;
     /// Storage type for this consensus implementation
     type Storage: Storage<Self::State> + Clone;
     /// Networking type for this consensus implementation
     type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
         + Clone;
-    /// The election algorithm
-    type Election: Election<Self::SignatureKey, State = Self::State>;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
+    /// Election
+    /// Time is generic here to allow multiple implementations of election trait for difference
+    /// consensus protocols
+    type Election: Election<Self::SignatureKey, ViewNumber, State = Self::State>;
 }
 
 /// Helper trait to make aliases.

@@ -24,7 +24,6 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
 use hotshot_types::{
-    constants::GENESIS_VIEW,
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     message::{ConsensusMessage, Proposal, TimedOut, Vote},
@@ -221,7 +220,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas) {
+                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas, &self.cur_view) {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
@@ -234,6 +233,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
+                                time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                                p.leaf.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -490,6 +491,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     /// TODO have this consume self instead of taking a mutable reference. We never use self again.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::State> {
+        let pk = self.api.public_key();
         info!("Leader task started!");
 
         let task_start_time = Instant::now();
@@ -563,13 +565,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         for (_txn_hash, txn) in &unclaimed_txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
-                if starting_state.validate_block(&new_block) {
+                if starting_state.validate_block(&new_block, &self.cur_view) {
                     block = new_block;
                 }
             }
         }
 
-        if let Ok(new_state) = starting_state.append(&block) {
+        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
                 view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
@@ -577,6 +579,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 deltas: block,
                 state: new_state,
                 rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: pk.to_bytes()
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();
@@ -814,8 +818,8 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: GENESIS_VIEW,
-            last_decided_view: GENESIS_VIEW,
+            cur_view: ViewNumber::genesis(),
+            last_decided_view: ViewNumber::genesis(),
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
             locked_view: ViewNumber::genesis(),
