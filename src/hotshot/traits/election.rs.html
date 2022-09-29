@@ -92,6 +92,7 @@
 <span id="92">92</span>
 <span id="93">93</span>
 <span id="94">94</span>
+<span id="95">95</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">commit::Commitment</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">data::ViewNumber</span>,
@@ -101,7 +102,7 @@
             <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
             <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>,
         },
-        <span class="ident">StateContents</span>,
+        <span class="ident">StateContents</span>, <span class="ident">state::ConsensusTime</span>,
     },
 };
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
@@ -124,9 +125,10 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">S</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">StateContents</span>,
+    <span class="ident">T</span>: <span class="ident">ConsensusTime</span>
 {
     <span class="doccomment">/// Just use the vector of public keys for the stake table</span>
     <span class="kw">type</span> <span class="ident">StakeTable</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>;

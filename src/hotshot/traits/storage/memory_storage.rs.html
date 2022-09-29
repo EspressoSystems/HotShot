@@ -179,15 +179,17 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">traits::StateContents</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::StateContents</span>;
 <span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data</span>::{<span class="ident">ViewNumber</span>},
+    <span class="ident">data::ViewNumber</span>,
     <span class="ident">traits::storage</span>::{
         <span class="prelude-ty">Result</span>, <span class="ident">Storage</span>, <span class="ident">StorageError</span>, <span class="ident">StorageState</span>, <span class="ident">StoredView</span>, <span class="ident">TestableStorage</span>,
         <span class="ident">ViewEntry</span>,
@@ -303,7 +305,8 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::constants::GENESIS_VIEW</span>;
+    <span class="kw">use</span> <span class="ident">hotshot_types::constants::genesis_proposer_id</span>;
+    <span class="kw">use</span> <span class="ident">hotshot_types::data::ViewNumber</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::fake_commitment</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::Leaf</span>;
     <span class="kw">use</span> <span class="ident">hotshot_types::data::QuorumCertificate</span>;
@@ -329,6 +332,7 @@
             <span class="ident">DummyState::random</span>(),
             <span class="ident">dummy_leaf_commit</span>,
             <span class="ident">Vec::new</span>(),
+            <span class="ident">genesis_proposer_id</span>()
         )
     }
 
@@ -342,7 +346,7 @@
         <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span>
             <span class="ident">MemoryStorage::construct_tmp_storage</span>()
                 .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">random_stored_view</span>(<span class="ident">GENESIS_VIEW</span>);
+        <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">random_stored_view</span>(<span class="ident">ViewNumber::genesis</span>());
         <span class="ident">storage</span>
             .<span class="ident">append_single_view</span>(<span class="ident">genesis</span>.<span class="ident">clone</span>())
             .<span class="kw">await</span>

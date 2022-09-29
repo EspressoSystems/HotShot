@@ -331,8 +331,6 @@
 <span id="331">331</span>
 <span id="332">332</span>
 <span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -341,11 +339,9 @@
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">constants::GENESIS_VIEW</span>,
     <span class="ident">data::Leaf</span>,
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
-    <span class="ident">event::EventType</span>,
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">StateContents</span>},
+    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">StateContents</span>}, <span class="ident">event::EventType</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{
@@ -483,9 +479,9 @@
         <span class="comment">// if is genesis</span>
         <span class="kw">let</span> <span class="ident">_anchor</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">anchor_leaf</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>().<span class="ident">get_anchored_view</span>().<span class="kw">await</span> {
-            <span class="kw">if</span> <span class="ident">anchor_leaf</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">GENESIS_VIEW</span> {
+            <span class="kw">if</span> <span class="ident">anchor_leaf</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">ViewNumber::genesis</span>() {
                 <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">Event</span> {
-                    <span class="ident">view_number</span>: <span class="ident">GENESIS_VIEW</span>,
+                    <span class="ident">view_number</span>: <span class="ident">ViewNumber::genesis</span>(),
                     <span class="ident">event</span>: <span class="ident">EventType::Decide</span> {
                         <span class="ident">leaf_chain</span>: <span class="ident">Arc::new</span>(<span class="macro">vec!</span>[<span class="ident">anchor_leaf</span>.<span class="ident">into</span>()]),
                     },
