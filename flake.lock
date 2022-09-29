@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "cargo-careful": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1664434223,
+        "narHash": "sha256-kKF/Fp6RCF9PUdgqeo2e4vLVhl8+5M4oa0Q18ZdXJRc=",
+        "owner": "RalfJung",
+        "repo": "cargo-careful",
+        "rev": "b0cbd3384a84d412f13f45a50051d0fbad733b57",
+        "type": "github"
+      },
+      "original": {
+        "owner": "RalfJung",
+        "repo": "cargo-careful",
+        "type": "github"
+      }
+    },
     "crate2nix": {
       "flake": false,
       "locked": {
@@ -72,6 +88,7 @@
     },
     "root": {
       "inputs": {
+        "cargo-careful": "cargo-careful",
         "crate2nix": "crate2nix",
         "fenix": "fenix",
         "flake-compat": "flake-compat",

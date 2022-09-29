@@ -137,6 +137,14 @@ debug = 1
 lto = "thin"
 incremental = true
 
+## LTO doesn't work with careful
+## explicitly specifying features in case releases features change
+[profile.careful]
+debug = 1
+inherits = "release"
+lto = "off"
+incremental = true
+
 ### Workspace
 
 # The hotshot-types crate needs to be a seperate crate, as to not create a circular dependency
