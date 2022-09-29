@@ -126,81 +126,80 @@ struct CliOrchestrated {
 #[derive(clap::Args, Debug)]
 struct CliStandalone {
     /// num nodes
-    #[clap(long = "num_nodes", env)]
+    #[arg(long, env)]
     num_nodes: u64,
 
     /// num bootstrap
-    #[clap(long = "num_bootstrap", env)]
+    #[arg(long, env)]
     num_bootstrap: u64,
 
     /// num transactions to be submitted per round
-    #[clap(long = "num_txn_per_round", env)]
+    #[arg(long, env)]
     num_txn_per_round: u64,
 
     /// Id of the current node
-    #[clap(long = "node_idx", env)]
+    #[arg(long, env)]
     node_idx: u64,
 
     /// how long to run for
-    #[clap(long = "online_time", default_value = "60", env)]
+    #[arg(long, default_value = "60", env)]
     online_time: u64,
 
     /// address to bind to
-    #[clap(long = "bound_addr", env)]
-    #[clap(parse(try_from_str = parse_ip))]
+    #[arg(long, env, value_parser = parse_ip)]
     bound_addr: Multiaddr,
 
     /// seed used to generate ids
-    #[clap(long = "seed", env)]
+    #[arg(long, env)]
     seed: u64,
 
     /// bootstrap node mesh high
-    #[clap(long = "bootstrap_mesh_n_high", env)]
+    #[arg(long, env)]
     bootstrap_mesh_n_high: usize,
 
     /// bootstrap node mesh low
-    #[clap(long = "bootstrap_mesh_n_low", env)]
+    #[arg(long, env)]
     bootstrap_mesh_n_low: usize,
 
     /// bootstrap node outbound min
-    #[clap(long = "bootstrap_mesh_outbound_min", env)]
+    #[arg(long, env)]
     bootstrap_mesh_outbound_min: usize,
 
     /// bootstrap node mesh n
-    #[clap(long = "bootstrap_mesh_n", env)]
+    #[arg(long, env)]
     bootstrap_mesh_n: usize,
 
     /// bootstrap node mesh high
-    #[clap(long = "mesh_n_high", env)]
+    #[arg(long, env)]
     mesh_n_high: usize,
 
     /// bootstrap node mesh low
-    #[clap(long = "mesh_n_low", env)]
+    #[arg(long, env)]
     mesh_n_low: usize,
 
     /// bootstrap node outbound min
-    #[clap(long = "mesh_outbound_min", env)]
+    #[arg(long, env)]
     mesh_outbound_min: usize,
 
     /// bootstrap node mesh n
-    #[clap(long = "mesh_n", env)]
+    #[arg(long, env)]
     mesh_n: usize,
 
     /// max round time
-    #[clap(long = "propose_max_round_time", env)]
+    #[arg(long, env)]
     propose_max_round_time: u64,
 
     /// min round time
-    #[clap(long = "propose_min_round_time", env)]
+    #[arg(long, env)]
     propose_min_round_time: u64,
 
     /// next view timeout
-    #[clap(long = "next_view_timeout", env)]
+    #[arg(long, env)]
     next_view_timeout: u64,
 }
 
 #[derive(Parser, Debug)]
-#[clap(
+#[command(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
@@ -431,13 +430,13 @@ impl Config {
             MemoryStorage::new(),
             Stateless::default(),
             StaticCommittee::new(known_nodes),
-            initializer
+            initializer,
         )
         .await
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage : &MemoryStorage<DEntryState> = hotshot.storage();
+        let storage: &MemoryStorage<DEntryState> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -504,7 +503,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    let args = CliOpt::from_args();
+    let args = CliOpt::parse();
     let mut server_conn = None;
     let config = match args {
         CliOpt::Standalone(args) => args.init(),

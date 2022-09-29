@@ -14,7 +14,7 @@ use tracing::instrument;
 #[async_main]
 #[instrument]
 async fn main() -> Result<()> {
-    let args = CliOpt::from_args();
+    let args = CliOpt::parse();
 
     #[cfg(all(feature = "lossy_network", target_os = "linux"))]
     let network = {
