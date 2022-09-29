@@ -501,10 +501,6 @@ where
     type State = DEntryState;
     type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
-    type StatefulHandler = crate::traits::implementations::Stateless<
-        <Self::State as StateContents>::Block,
-        DEntryState,
-    >;
     type Election = StaticCommittee<Self::State>;
     type SignatureKey = Ed25519Pub;
 }

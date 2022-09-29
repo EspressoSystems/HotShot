@@ -19,11 +19,11 @@ use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{
-        election::StaticCommittee, implementations::Stateless, BlockContents,
-        NetworkingImplementation, NodeImplementation, StateContents, Storage,
+        election::StaticCommittee, BlockContents, NetworkingImplementation, NodeImplementation,
+        StateContents, Storage,
     },
     types::{HotShotHandle, Message},
-    HotShot, HotShotError, H_256, HotShotInitializer,
+    HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
     traits::{
@@ -186,8 +186,13 @@ where
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
-            let initializer = HotShotInitializer::from_genesis(<<STATE as StateContents>::Block as TestableBlock>::genesis()).unwrap();
-            let node_id = self.add_node_with_config(network, storage, initializer, config).await;
+            let initializer = HotShotInitializer::from_genesis(
+                <<STATE as StateContents>::Block as TestableBlock>::genesis(),
+            )
+            .unwrap();
+            let node_id = self
+                .add_node_with_config(network, storage, initializer, config)
+                .await;
             results.push(node_id);
         }
 
@@ -231,9 +236,8 @@ where
             config,
             network,
             storage,
-            Stateless::default(),
             StaticCommittee::new(known_nodes),
-            initializer
+            initializer,
         )
         .await
         .expect("Could not init hotshot");
@@ -586,7 +590,6 @@ where
     type State = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
-    type StatefulHandler = Stateless<STATE::Block, STATE>;
     type Election = StaticCommittee<STATE>;
     type SignatureKey = Ed25519Pub;
 }

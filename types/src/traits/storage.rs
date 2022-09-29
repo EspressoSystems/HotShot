@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::signature_key::EncodedPublicKey;
 
 /// Errors that can occur in the storage layer.
-#[derive(Snafu, Debug)]
+#[derive(Clone, Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum StorageError {
     /// No genesis view was inserted

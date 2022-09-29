@@ -7,7 +7,7 @@ use crate::{
     message::{ConsensusMessage, DataMessage, Message, MessageKind},
     traits::{
         election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-        stateful_handler::StatefulHandler, storage::Storage, BlockContents,
+        storage::Storage, BlockContents,
     }, data::TimeType,
 };
 use std::fmt::Debug;
@@ -29,11 +29,6 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Networking type for this consensus implementation
     type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
         + Clone;
-    /// Stateful call back handler for this consensus implementation
-    type StatefulHandler: StatefulHandler<
-        Block = <Self::State as StateContents>::Block,
-        State = Self::State,
-    >;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
     /// Election
