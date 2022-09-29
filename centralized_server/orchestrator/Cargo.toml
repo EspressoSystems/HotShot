@@ -15,7 +15,7 @@ tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-centralized-se
 profiling = ["hotshot-utils/profiling"]
 
 [dependencies]
-clap = { version = "3.2.22", features = ["derive", "env"] }
+clap = { version = "4.0.2", features = ["derive", "env"] }
 # TODO may need to pull in the attributes feature flag?
 async-std = { version = "1.12.0", optional = true }
 cfg-if = "1"
