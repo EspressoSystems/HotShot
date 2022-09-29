@@ -20,8 +20,10 @@ async fn main() -> Result<()> {
     let network = {
         use crate::common::lossy_network::LOSSY_QDISC;
         let mut builder = LossyNetworkBuilder::default();
-        builder.env_type(args.env_type).netem_config(LOSSY_QDISC);
-        match args.env_type {
+        builder
+            .env_type(args.env_type_delegate.env_type)
+            .netem_config(LOSSY_QDISC);
+        match args.env_type_delegate.env_type {
             ExecutionEnvironment::Docker => {
                 builder.eth_name("eth0".to_string()).isolation_config(None)
             }
