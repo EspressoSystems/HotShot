@@ -71,7 +71,7 @@ pub enum ConsensusMessage<STATE: StateContents> {
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
     #[serde(skip)]
-    NextViewInterrupt(TimeType),
+    NextViewInterrupt(ViewNumber),
 }
 
 impl<STATE: StateContents> ConsensusMessage<STATE> {

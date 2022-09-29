@@ -129,7 +129,7 @@ pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 #[derivative(PartialEq, Eq, Hash)]
 pub struct ProposalLeaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
-    pub view_number: TimeType,
+    pub view_number: ViewNumber,
 
     /// Per spec, justification
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
@@ -166,7 +166,7 @@ pub struct ProposalLeaf<STATE: StateContents> {
 #[derivative(PartialEq, Eq)]
 pub struct Leaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
-    pub view_number: TimeType,
+    pub view_number: ViewNumber,
 
     /// Per spec, justification
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
@@ -268,8 +268,8 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
     pub fn new(
         state: STATE,
         deltas: STATE::Block,
-        parent: Commitment<Leaf<STATE>>,
-        qc: QuorumCertificate<STATE>,
+        parent_commitment: Commitment<Leaf<STATE>>,
+        justify_qc: QuorumCertificate<STATE>,
         view_number: TimeType,
         rejected: Vec<TxnCommitment<STATE>>,
         timestamp: i128,
@@ -277,8 +277,8 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
     ) -> Self {
         Leaf {
             view_number,
-            justify_qc: qc,
-            parent_commitment: parent,
+            justify_qc,
+            parent_commitment,
             deltas,
             state,
             rejected,
@@ -300,7 +300,7 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
         // if this fails, we're not able to initialize consensus.
         let state = STATE::default().append(&deltas, &TimeType::genesis()).unwrap();
         Self {
-            view_number: TimeType::genesis(),
+            view_number: ViewNumber::genesis(),
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
