@@ -8,7 +8,7 @@
 
 use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber, TimeType},
+    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
@@ -518,7 +518,7 @@ pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<STATE: StateContents<Time = TimeType>>(deltas: STATE::Block) -> Leaf<STATE> {
+pub fn random_leaf<STATE: StateContents<Time = ViewNumber>>(deltas: STATE::Block) -> Leaf<STATE> {
     let justify_qc = random_quorum_certificate();
     let state = STATE::default().append(&deltas, &ViewNumber::new(42)).unwrap_or_default();
     Leaf {

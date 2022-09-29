@@ -123,7 +123,7 @@ where
 mod test {
     use super::*;
     use hotshot_types::constants::genesis_proposer_id;
-    use hotshot_types::data::TimeType;
+    use hotshot_types::data::ViewNumber;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
@@ -163,7 +163,7 @@ mod test {
         let storage =
             MemoryStorage::construct_tmp_storage()
                 .unwrap();
-        let genesis = random_stored_view(TimeType::genesis());
+        let genesis = random_stored_view(ViewNumber::genesis());
         storage
             .append_single_view(genesis.clone())
             .await

@@ -6,7 +6,7 @@ use crate::{
     HotShot, Result,
 };
 use hotshot_types::{
-    data::{Leaf, TimeType},
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     traits::{network::NetworkingImplementation, storage::Storage, StateContents}, event::EventType,
 };
@@ -146,9 +146,9 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
-            if anchor_leaf.view_number == TimeType::genesis() {
+            if anchor_leaf.view_number == ViewNumber::genesis() {
                 let event = Event {
-                    view_number: TimeType::genesis(),
+                    view_number: ViewNumber::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![anchor_leaf.into()]),
                     },

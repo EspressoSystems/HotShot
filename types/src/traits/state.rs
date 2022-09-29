@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{traits::BlockContents, data::TimeType};
+use crate::{traits::BlockContents, data::ViewNumber};
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
@@ -57,7 +57,7 @@ pub trait StateContents:
 pub trait ConsensusTime: PartialOrd {}
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: StateContents<Time = TimeType>
+pub trait TestableState: StateContents<Time = ViewNumber>
 where
     <Self as StateContents>::Block: TestableBlock,
 {
@@ -76,7 +76,7 @@ pub trait TestableBlock: BlockContents {
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use crate::{traits::block_contents::dummy::{DummyBlock, DummyError}, data::TimeType};
+    use crate::{traits::block_contents::dummy::{DummyBlock, DummyError}, data::ViewNumber};
     use rand::Rng;
     use serde::Deserialize;
 
@@ -107,7 +107,7 @@ pub mod dummy {
         type Error = DummyError;
 
         type Block = DummyBlock;
-        type Time = TimeType;
+        type Time = ViewNumber;
 
         fn next_block(&self) -> Self::Block {
             DummyBlock::random()

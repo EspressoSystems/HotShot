@@ -1,7 +1,7 @@
 use commit::Commitment;
 use hotshot::traits::dummy::DummyState;
 use hotshot_types::{
-    data::{ViewNumber, TimeType},
+    data::ViewNumber,
     traits::{
         election::Election,
         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
@@ -16,7 +16,7 @@ pub struct TestElection {
     pub leaders: Vec<Ed25519Pub>,
 }
 
-impl Election<Ed25519Pub, TimeType> for TestElection {
+impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
     type SelectionThreshold = ();
     type State = DummyState;

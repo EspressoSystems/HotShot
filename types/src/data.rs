@@ -21,11 +21,6 @@ use std::{collections::BTreeMap, fmt::Debug};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ViewNumber(u64);
 
-/// Type alias to view number
-/// in the event we wish to change view number,
-/// all we need to do is change this alias
-pub type TimeType = ViewNumber;
-
 impl ConsensusTime for ViewNumber {}
 
 impl ViewNumber {
@@ -68,7 +63,7 @@ impl<STATE: StateContents> QuorumCertificate<STATE> {
         Self {
             block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<Leaf<STATE>>(),
-            view_number: TimeType::genesis(),
+            view_number: ViewNumber::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
         }
@@ -100,7 +95,7 @@ pub struct QuorumCertificate<STATE: StateContents> {
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
-    pub view_number: TimeType,
+    pub view_number: ViewNumber,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -258,7 +253,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     }
 }
 
-impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -270,7 +265,7 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
         deltas: STATE::Block,
         parent_commitment: Commitment<Leaf<STATE>>,
         justify_qc: QuorumCertificate<STATE>,
-        view_number: TimeType,
+        view_number: ViewNumber,
         rejected: Vec<TxnCommitment<STATE>>,
         timestamp: i128,
         proposer_id: EncodedPublicKey
@@ -298,7 +293,7 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas, &TimeType::genesis()).unwrap();
+        let state = STATE::default().append(&deltas, &ViewNumber::genesis()).unwrap();
         Self {
             view_number: ViewNumber::genesis(),
             justify_qc: QuorumCertificate::genesis(),
@@ -313,7 +308,7 @@ impl<STATE: StateContents<Time = TimeType>> Leaf<STATE> {
 }
 
 
-impl<STATE: StateContents<Time = TimeType>> From<StoredView<STATE>> for Leaf<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
         Leaf::new(
             append.state,

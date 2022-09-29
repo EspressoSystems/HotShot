@@ -41,7 +41,7 @@ mod utils;
 
 use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
 use hotshot_utils::art::async_spawn_local;
-use hotshot_types::{traits::state::ConsensusTime, data::TimeType, constants::genesis_proposer_id};
+use hotshot_types::{traits::state::ConsensusTime, data::ViewNumber, constants::genesis_proposer_id};
 use snafu::ResultExt;
 
 use crate::{
@@ -117,7 +117,7 @@ pub struct HotShotInner<I: NodeImplementation> {
     storage: I::Storage,
 
     /// This `HotShot` instance's election backend
-    election: HotShotElectionState<I::SignatureKey, TimeType, I::Election>,
+    election: HotShotElectionState<I::SignatureKey, ViewNumber, I::Election>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::State>>>>,
@@ -157,10 +157,10 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     next_leader_channel_map: Arc<RwLock<SendToTasks<I>>>,
 
     /// for sending messages to network lookup task
-    send_network_lookup: Sender<Option<TimeType>>,
+    send_network_lookup: Sender<Option<ViewNumber>>,
 
     /// for receiving messages in the network lookup task
-    recv_network_lookup: Receiver<Option<TimeType>>,
+    recv_network_lookup: Receiver<Option<ViewNumber>>,
 
     /// uid for instrumentation
     id: u64,
@@ -193,7 +193,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
         let election = {
             let state =
-                <<I as NodeImplementation>::Election as Election<I::SignatureKey, TimeType>>::State::default(
+                <<I as NodeImplementation>::Election as Election<I::SignatureKey, ViewNumber>>::State::default(
                 );
 
             let stake_table = election.get_stake_table(&state);
@@ -246,7 +246,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             last_decided_view: anchored_leaf.view_number,
             transactions: Arc::default(),
             saved_leaves,
-            locked_view: TimeType::genesis(),
+            // TODO this is incorrect
+            // https://github.com/EspressoSystems/HotShot/issues/560
+            locked_view: anchored_leaf.view_number,
             high_qc: anchored_leaf.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
@@ -279,7 +281,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     pub async fn timeout_view(
         &self,
-        current_view: TimeType,
+        current_view: ViewNumber,
         send_replica: Sender<ConsensusMessage<I::State>>,
         send_next_leader: Option<Sender<ConsensusMessage<I::State>>>,
     ) {
@@ -646,7 +648,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
 pub async fn create_or_obtain_chan_from_read<I: NodeImplementation>(
-    view_num: TimeType,
+    view_num: ViewNumber,
     channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<I>>,
 ) -> ViewQueue<I> {
     // check if we have the entry
@@ -671,7 +673,7 @@ pub async fn create_or_obtain_chan_from_read<I: NodeImplementation>(
 /// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
 pub async fn create_or_obtain_chan_from_write<I: NodeImplementation>(
-    view_num: TimeType,
+    view_num: ViewNumber,
     mut channel_map: RwLockWriteGuard<'_, SendToTasks<I>>,
 ) -> ViewQueue<I> {
     channel_map.channel_map.entry(view_num).or_default().clone()
@@ -710,14 +712,14 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         true
     }
 
-    async fn get_leader(&self, view_number: TimeType) -> I::SignatureKey {
+    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let election = &self.inner.election;
         election
             .election
             .get_leader(&election.stake_table, view_number)
     }
 
-    async fn should_start_round(&self, _: TimeType) -> bool {
+    async fn should_start_round(&self, _: ViewNumber) -> bool {
         false
     }
 
@@ -778,7 +780,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
-        if qc.genesis && qc.view_number == TimeType::genesis() {
+        if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
@@ -820,13 +822,13 @@ pub struct HotShotInitializer<STATE: StateContents> {
 }
 
 
-impl<STATE: StateContents<Time = TimeType>> HotShotInitializer<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
-        let state = STATE::default().append(&genesis_block, &TimeType::new(0)).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
-        let view_number = TimeType::genesis();
+        let state = STATE::default().append(&genesis_block, &ViewNumber::new(0)).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let view_number = ViewNumber::genesis();
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
         Ok(Self {

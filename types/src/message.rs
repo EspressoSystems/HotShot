@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber, TimeType},
+    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         BlockContents, StateContents,
@@ -139,7 +139,7 @@ pub enum DataMessage<STATE: StateContents> {
 /// Signals the start of a new view
 pub struct TimedOut<State: StateContents> {
     /// The current view
-    pub current_view: TimeType,
+    pub current_view: ViewNumber,
     /// The justification qc for this view
     #[serde(deserialize_with = "<QuorumCertificate<State> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<State>,
@@ -179,5 +179,5 @@ pub struct Vote<STATE: StateContents> {
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<STATE>>,
     /// The view this vote was cast for
-    pub current_view: TimeType,
+    pub current_view: ViewNumber,
 }
