@@ -102,6 +102,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 None
             },
             padding: 10,
+            start_delay_seconds: 60,
         })
         .expect("Could not serialize to TOML");
         std::fs::write("config.toml", toml).expect("Could not write config.toml");

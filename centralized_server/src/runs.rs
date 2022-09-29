@@ -146,6 +146,7 @@ impl<K> RoundConfig<K> {
         }
 
         let total_nodes = config.config.total_nodes;
+        let start_delay_seconds = config.start_delay_seconds;
         let config = set_config(
             config.clone(),
             addr,
@@ -164,8 +165,11 @@ impl<K> RoundConfig<K> {
         if self.next_node_index == total_nodes.get() {
             let run = Run(self.current_run);
             async_spawn(async move {
-                tracing::error!("Reached enough nodes, starting in 60 seconds");
-                async_sleep(Duration::from_secs(60)).await;
+                tracing::error!(
+                    "Reached enough nodes, starting in {} seconds",
+                    start_delay_seconds
+                );
+                async_sleep(Duration::from_secs(start_delay_seconds)).await;
                 start_round_sender
                     .send_async(ToBackground::StartRun(run))
                     .await

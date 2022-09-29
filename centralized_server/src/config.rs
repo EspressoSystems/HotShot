@@ -71,6 +71,7 @@ pub struct NetworkConfig<K> {
     pub padding: usize,
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<K>,
+    pub start_delay_seconds: u64,
 }
 
 impl<K> Default for NetworkConfig<K> {
@@ -83,6 +84,7 @@ impl<K> Default for NetworkConfig<K> {
             padding: default_padding(),
             libp2p_config: None,
             config: default_config().into(),
+            start_delay_seconds: 60,
         }
     }
 }
@@ -103,6 +105,8 @@ pub struct NetworkConfigFile {
     pub libp2p_config: Option<Libp2pConfigFile>,
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
+    #[serde(default = "default_start_delay_seconds")]
+    pub start_delay_seconds: u64,
 }
 
 impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
@@ -134,6 +138,7 @@ impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
                 num_txn_per_round: libp2p_config.num_txn_per_round,
             }),
             config: val.config.into(),
+            start_delay_seconds: val.start_delay_seconds,
         }
     }
 }
@@ -206,4 +211,8 @@ fn default_config() -> HotShotConfigFile {
         propose_max_round_time: Duration::from_secs(10),
         num_bootstrap: 7,
     }
+}
+
+fn default_start_delay_seconds() -> u64 {
+    60
 }

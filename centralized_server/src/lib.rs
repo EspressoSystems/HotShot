@@ -44,6 +44,10 @@ use std::{
 };
 use tracing::{debug, error};
 
+/// 256KB, assumed to be the kernel receive buffer
+/// https://stackoverflow.com/a/2862176
+pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum ToServer<K> {
     GetConfig,
@@ -269,7 +273,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     ///
     /// If `with_shutdown_signal` is called before, this server will stop when that signal is called. Otherwise this server will run forever.
     pub async fn run(self) {
-        let (sender, receiver) = flume::unbounded();
+        let (sender, receiver) = flume::bounded(10);
 
         let background_task_handle = async_spawn({
             let sender = sender.clone();
@@ -533,20 +537,6 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use OwnedWriteHalf as WriteTcpStream;
         use OwnedReadHalf as ReadTcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
-            (stream.clone(), stream)
-        }
-    } else if #[cfg(feature = "tokio-executor")] {
-        fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
-            stream.into_split()
-        }
     } else {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }

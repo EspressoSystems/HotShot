@@ -1,10 +1,10 @@
 use crate::{
-    config::ClientConfig, split_stream, Error, FromBackground, Run, TcpStreamRecvUtil,
-    TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
+    config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
+    TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
 use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_utils::art::async_spawn;
+use hotshot_utils::art::{async_spawn, split_stream};
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
 
@@ -50,7 +50,8 @@ async fn run_client<K: SignatureKey + 'static>(
 ) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, receiver) = flume::unbounded::<FromBackground<K>>();
+    let (sender, receiver) = flume::bounded::<FromBackground<K>>(10);
+
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
         let mut send_stream = TcpStreamSendUtil::new(write_stream);
@@ -148,8 +149,11 @@ async fn run_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
                 let mut remaining = message_len as usize;
+
                 while remaining > 0 {
-                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    let message_chunk = recv_stream
+                        .recv_raw(remaining.min(crate::MAX_CHUNK_SIZE))
+                        .await?;
                     remaining -= message_chunk.len();
                     to_background
                         .send_async(ToBackground::IncomingBroadcastChunk {
@@ -181,7 +185,9 @@ async fn run_client<K: SignatureKey + 'static>(
                     .map_err(|_| Error::BackgroundShutdown)?;
                 let mut remaining = message_len as usize;
                 while remaining > 0 {
-                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    let message_chunk = recv_stream
+                        .recv_raw(remaining.min(crate::MAX_CHUNK_SIZE))
+                        .await?;
                     remaining -= message_chunk.len();
                     to_background
                         .send_async(ToBackground::IncomingDirectMessageChunk {
