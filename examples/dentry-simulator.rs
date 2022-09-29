@@ -24,7 +24,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{MemoryStorage, Stateless, WNetwork},
+        implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
@@ -124,11 +124,12 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_>> =
-        join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_hotshot(nodes, threshold, node_id, network)
-        }))
-        .await;
+    let mut hotshots: Vec<HotShotHandle<_>> = join_all(
+        networkings
+            .into_iter()
+            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
+    )
+    .await;
 
     let prebaked_txns = prebaked_transactions();
     let prebaked_count = prebaked_txns.len() as u64;
@@ -370,9 +371,8 @@ async fn get_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        Stateless::default(),
         StaticCommittee::new(known_nodes),
-        initializer
+        initializer,
     )
     .await
     .expect("Could not init hotshot");

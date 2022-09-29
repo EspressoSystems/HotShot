@@ -11,7 +11,7 @@ use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Errors that can occur in the storage layer.
-#[derive(Snafu, Debug)]
+#[derive(Clone, Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum StorageError {
     /// No genesis view was inserted

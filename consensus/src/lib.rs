@@ -249,18 +249,22 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let liveness_check = justify_qc.view_number > consensus.locked_view;
 
                         // check if proposal extends from the locked leaf
-                        let safety_check = consensus
-                            .visit_leaf_ancestors(
-                                parent.view_number,
-                                Terminator::Inclusive(consensus.locked_view),
-                                false,
-                                |leaf| {
-                                    // if leaf view no == locked view no then we're done, report success by
-                                    // returning true
-                                    leaf.view_number != consensus.locked_view
-                                },
-                            )
-                            .is_ok();
+                        let outcome = consensus.visit_leaf_ancestors(
+                            parent.view_number,
+                            Terminator::Inclusive(consensus.locked_view),
+                            false,
+                            |leaf| {
+                                // if leaf view no == locked view no then we're done, report success by
+                                // returning true
+                                leaf.view_number != consensus.locked_view
+                            },
+                        );
+
+                        let safety_check = outcome.is_ok();
+
+                        if let Err(e) = outcome {
+                            self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+                        }
 
                         // NOTE safenode check is here
                         // if !safenode, continue
@@ -332,8 +336,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                 }
             }
-            // fall through logic if we did not received successfully from channel
-            warn!("Replica did not received successfully from channel. Terminating Replica.");
+            // fall through logic if we did not receive successfully from channel
+            warn!("Replica did not receive successfully from channel. Terminating Replica.");
             self.api.send_replica_timeout(self.cur_view).await;
             return (consensus, Err(()));
         };
@@ -368,7 +372,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
             let mut current_chain_length = 1usize;
-            let _outcome = consensus.visit_leaf_ancestors(
+            if let Err(e) = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
                 true,
@@ -399,7 +403,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                     }
                     true
                 },
-            );
+            ) {
+                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+            }
         }
         let high_qc = leaf.justify_qc.clone();
 

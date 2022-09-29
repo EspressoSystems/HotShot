@@ -4,7 +4,7 @@ mod networking;
 mod node_implementation;
 mod storage;
 
-pub use hotshot_types::traits::{stateful_handler::StatefulHandler, BlockContents, StateContents};
+pub use hotshot_types::traits::{BlockContents, StateContents};
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
 pub use storage::{Result as StorageResult, Storage};
@@ -24,7 +24,6 @@ pub mod implementations {
         },
         storage::memory_storage::MemoryStorage, // atomic_storage::AtomicStorage,
     };
-    pub use hotshot_types::traits::stateful_handler::Stateless;
 }
 
 /// Dummy testing implementations

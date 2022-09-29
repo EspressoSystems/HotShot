@@ -4,12 +4,12 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
+    error::HotShotError,
     event::{Event, EventType},
     traits::{
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        StateContents,
     },
 };
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -68,13 +68,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Get a reference to the private key.
     fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey;
 
-    /// The `hotshot-consensus` implementation will call this method, with the series of blocks and states
-    /// that are being committed, whenever a commit action takes place.
-    ///
-    /// The provided states and blocks are guaranteed to be in ascending order of age (newest to
-    /// oldest).
-    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>);
-
     // Utility functions
 
     /// returns `true` if the current node is a leader for the given `view_number`
@@ -87,17 +80,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
-    /// sends a proposal event down the channel
-    async fn send_propose(
-        &self,
-        view_number: ViewNumber,
-        block: <I::State as StateContents>::Block,
-    ) {
+    /// notifies client of an error
+    async fn send_view_error(&self, view_number: ViewNumber, error: Arc<HotShotError>) {
         self.send_event(Event {
             view_number,
-            event: EventType::Propose {
-                block: Arc::new(block),
-            },
+            event: EventType::Error { error },
         })
         .await;
     }

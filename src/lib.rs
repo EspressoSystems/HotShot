@@ -39,17 +39,17 @@ pub mod types;
 mod tasks;
 mod utils;
 
+use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
 use hotshot_utils::art::async_spawn_local;
-use hotshot_types::{traits::storage::ViewEntry, error::StorageSnafu};
 use snafu::ResultExt;
 
 use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{Event, EventType, HotShotHandle},
+    types::{Event, HotShotHandle},
 };
 
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use flume::{Receiver, Sender};
@@ -58,14 +58,13 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     constants::GENESIS_VIEW,
-    data::{ViewNumber, fake_commitment},
+    data::{fake_commitment, ViewNumber},
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        stateful_handler::StatefulHandler,
         storage::StoredView,
         StateContents,
     },
@@ -116,9 +115,6 @@ pub struct HotShotInner<I: NodeImplementation> {
 
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
-
-    /// This `HotShot` instance's stateful callback handler
-    stateful_handler: Mutex<I::StatefulHandler>,
 
     /// This `HotShot` instance's election backend
     election: HotShotElectionState<I::SignatureKey, I::Election>,
@@ -174,7 +170,14 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, cluster_public_keys, networking, storage, election, initializer))]
+    #[instrument(skip(
+        private_key,
+        cluster_public_keys,
+        networking,
+        storage,
+        election,
+        initializer
+    ))]
     pub async fn new(
         cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
@@ -183,9 +186,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>
+        initializer: HotShotInitializer<I::State>,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
 
@@ -207,7 +209,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            stateful_handler: Mutex::new(handler),
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
@@ -217,8 +218,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let anchored_leaf = initializer.inner;
 
         // insert to storage
-        inner.storage.append(
-            vec![ ViewEntry::Success(anchored_leaf.clone().into()) ]).await.context(StorageSnafu)?;
+        inner
+            .storage
+            .append(vec![ViewEntry::Success(anchored_leaf.clone().into())])
+            .await
+            .context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
@@ -260,20 +264,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             send_network_lookup,
             recv_network_lookup,
         })
-    }
-
-    /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
-    ///
-    /// Returns `true` if the event was send, `false` otherwise
-    pub async fn send_event(&self, event: Event<I::State>) -> bool {
-        if let Some(c) = self.inner.event_sender.read().await.as_ref() {
-            if let Err(e) = c.send_async(event).await {
-                warn!(?e, "Could not send event to the registered broadcaster");
-            } else {
-                return true;
-            }
-        }
-        false
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -364,9 +354,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>
+        initializer: HotShotInitializer<I::State>,
     ) -> Result<HotShotHandle<I>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -377,9 +366,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            handler,
             election,
-            initializer
+            initializer,
         )
         .await?;
         let handle = tasks::spawn_all(&hotshot).await;
@@ -593,7 +581,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // <https://github.com/EspressoSystems/HotShot/issues/454>
                 let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
-                    let view_number = qc.view_number;
                     let new_view = StoredView::from_qc_block_and_state(
                         qc,
                         block,
@@ -605,13 +592,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
                     }
-
-                    // Broadcast that we're updated
-                    self.send_event(Event {
-                        view_number,
-                        event: EventType::Synced { view_number },
-                    })
-                    .await;
                 }
             }
 
@@ -793,15 +773,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
-    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>) {
-        debug!(?blocks, ?states, "notify");
-        self.inner
-            .stateful_handler
-            .lock()
-            .await
-            .notify(blocks, states);
-    }
-
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
         if qc.genesis && qc.view_number == GENESIS_VIEW {
@@ -842,16 +813,19 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 /// initializer struct for creating starting block
 pub struct HotShotInitializer<STATE: StateContents> {
     /// the leaf specified initialization
-    inner: Leaf<STATE>
+    inner: Leaf<STATE>,
 }
 
 impl<STATE: StateContents> HotShotInitializer<STATE> {
-
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
-        let state = STATE::default().append(&genesis_block).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let state = STATE::default()
+            .append(&genesis_block)
+            .map_err(|err| HotShotError::Misc {
+                context: err.to_string(),
+            })?;
         let view_number = GENESIS_VIEW;
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
@@ -862,21 +836,13 @@ impl<STATE: StateContents> HotShotInitializer<STATE> {
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,
                 state,
-                rejected: Vec::new()
-            }
-
+                rejected: Vec::new(),
+            },
         })
-
     }
 
     /// reload previous state based on most recent leaf
     pub fn from_reload(anchor_leaf: Leaf<STATE>) -> Self {
-        Self {
-            inner: anchor_leaf
-        }
-
+        Self { inner: anchor_leaf }
     }
-
 }
-
-
