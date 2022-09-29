@@ -405,7 +405,7 @@
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
         <span class="ident">election::StaticCommittee</span>,
-        <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">Stateless</span>, <span class="ident">WNetwork</span>},
+        <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">WNetwork</span>},
     },
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
     <span class="ident">HotShot</span>,
@@ -505,11 +505,12 @@
         }
     }
     <span class="comment">// Create the hotshots</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotshots</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
-        <span class="ident">join_all</span>(<span class="ident">networkings</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">network</span>, <span class="kw">_</span>, <span class="ident">_pk</span>, <span class="ident">node_id</span>)<span class="op">|</span> {
-            <span class="ident">get_hotshot</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">node_id</span>, <span class="ident">network</span>)
-        }))
-        .<span class="kw">await</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotshots</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">join_all</span>(
+        <span class="ident">networkings</span>
+            .<span class="ident">into_iter</span>()
+            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">network</span>, <span class="kw">_</span>, <span class="ident">_pk</span>, <span class="ident">node_id</span>)<span class="op">|</span> <span class="ident">get_hotshot</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">node_id</span>, <span class="ident">network</span>)),
+    )
+    .<span class="kw">await</span>;
 
     <span class="kw">let</span> <span class="ident">prebaked_txns</span> <span class="op">=</span> <span class="ident">prebaked_transactions</span>();
     <span class="kw">let</span> <span class="ident">prebaked_count</span> <span class="op">=</span> <span class="ident">prebaked_txns</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>;
@@ -751,9 +752,8 @@
         <span class="ident">config</span>,
         <span class="ident">networking</span>,
         <span class="ident">MemoryStorage::new</span>(),
-        <span class="ident">Stateless::default</span>(),
         <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
-        <span class="ident">initializer</span>
+        <span class="ident">initializer</span>,
     )
     .<span class="kw">await</span>
     .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);

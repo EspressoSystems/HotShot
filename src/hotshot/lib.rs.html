@@ -846,40 +846,6 @@
 <span id="846">846</span>
 <span id="847">847</span>
 <span id="848">848</span>
-<span id="849">849</span>
-<span id="850">850</span>
-<span id="851">851</span>
-<span id="852">852</span>
-<span id="853">853</span>
-<span id="854">854</span>
-<span id="855">855</span>
-<span id="856">856</span>
-<span id="857">857</span>
-<span id="858">858</span>
-<span id="859">859</span>
-<span id="860">860</span>
-<span id="861">861</span>
-<span id="862">862</span>
-<span id="863">863</span>
-<span id="864">864</span>
-<span id="865">865</span>
-<span id="866">866</span>
-<span id="867">867</span>
-<span id="868">868</span>
-<span id="869">869</span>
-<span id="870">870</span>
-<span id="871">871</span>
-<span id="872">872</span>
-<span id="873">873</span>
-<span id="874">874</span>
-<span id="875">875</span>
-<span id="876">876</span>
-<span id="877">877</span>
-<span id="878">878</span>
-<span id="879">879</span>
-<span id="880">880</span>
-<span id="881">881</span>
-<span id="882">882</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -921,17 +887,17 @@
 <span class="kw">mod</span> <span class="ident">tasks</span>;
 <span class="kw">mod</span> <span class="ident">utils</span>;
 
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">error::StorageSnafu</span>, <span class="ident">traits::storage::ViewEntry</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn_local</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">traits::storage::ViewEntry</span>, <span class="ident">error::StorageSnafu</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>},
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>},
+    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotHandle</span>},
 };
 
-<span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
+<span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">commit</span>::{<span class="ident">Commitment</span>, <span class="ident">Committable</span>};
 <span class="kw">use</span> <span class="ident">flume</span>::{<span class="ident">Receiver</span>, <span class="ident">Sender</span>};
@@ -940,14 +906,13 @@
 };
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">constants::GENESIS_VIEW</span>,
-    <span class="ident">data</span>::{<span class="ident">ViewNumber</span>, <span class="ident">fake_commitment</span>},
+    <span class="ident">data</span>::{<span class="ident">fake_commitment</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">message</span>::{<span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>, <span class="ident">Message</span>},
     <span class="ident">traits</span>::{
         <span class="ident">election::Election</span>,
         <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>},
         <span class="ident">node_implementation::TypeMap</span>,
         <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>},
-        <span class="ident">stateful_handler::StatefulHandler</span>,
         <span class="ident">storage::StoredView</span>,
         <span class="ident">StateContents</span>,
     },
@@ -998,9 +963,6 @@
 
     <span class="doccomment">/// This `HotShot` instance&#39;s storage backend</span>
     <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
-
-    <span class="doccomment">/// This `HotShot` instance&#39;s stateful callback handler</span>
-    <span class="ident">stateful_handler</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">I::StatefulHandler</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// This `HotShot` instance&#39;s election backend</span>
     <span class="ident">election</span>: <span class="ident">HotShotElectionState</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">I::Election</span><span class="op">&gt;</span>,
@@ -1056,7 +1018,14 @@
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given</span>
     <span class="doccomment">/// genesis block</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">private_key</span>, <span class="ident">cluster_public_keys</span>, <span class="ident">networking</span>, <span class="ident">storage</span>, <span class="ident">election</span>, <span class="ident">initializer</span>))]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(
+        <span class="ident">private_key</span>,
+        <span class="ident">cluster_public_keys</span>,
+        <span class="ident">networking</span>,
+        <span class="ident">storage</span>,
+        <span class="ident">election</span>,
+        <span class="ident">initializer</span>
+    ))]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">cluster_public_keys</span>: <span class="kw">impl</span> <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
         <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
@@ -1065,9 +1034,8 @@
         <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
-        <span class="ident">handler</span>: <span class="ident">I::StatefulHandler</span>,
         <span class="ident">election</span>: <span class="ident">I::Election</span>,
-        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>
+        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
 
@@ -1089,7 +1057,6 @@
             <span class="ident">config</span>,
             <span class="ident">networking</span>,
             <span class="ident">storage</span>,
-            <span class="ident">stateful_handler</span>: <span class="ident">Mutex::new</span>(<span class="ident">handler</span>),
             <span class="ident">election</span>,
             <span class="ident">event_sender</span>: <span class="ident">RwLock::default</span>(),
             <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle::default</span>(),
@@ -1099,8 +1066,11 @@
         <span class="kw">let</span> <span class="ident">anchored_leaf</span> <span class="op">=</span> <span class="ident">initializer</span>.<span class="ident">inner</span>;
 
         <span class="comment">// insert to storage</span>
-        <span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">append</span>(
-            <span class="macro">vec!</span>[ <span class="ident">ViewEntry::Success</span>(<span class="ident">anchored_leaf</span>.<span class="ident">clone</span>().<span class="ident">into</span>()) ]).<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+        <span class="ident">inner</span>
+            .<span class="ident">storage</span>
+            .<span class="ident">append</span>(<span class="macro">vec!</span>[<span class="ident">ViewEntry::Success</span>(<span class="ident">anchored_leaf</span>.<span class="ident">clone</span>().<span class="ident">into</span>())])
+            .<span class="kw">await</span>
+            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// insert genesis (or latest block) to state map</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state_map</span> <span class="op">=</span> <span class="ident">BTreeMap::default</span>();
@@ -1142,20 +1112,6 @@
             <span class="ident">send_network_lookup</span>,
             <span class="ident">recv_network_lookup</span>,
         })
-    }
-
-    <span class="doccomment">/// Sends an event over an event broadcaster if one is registered, does nothing otherwise</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `true` if the event was send, `false` otherwise</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">c</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">as_ref</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">c</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span> {
-                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not send event to the registered broadcaster&quot;</span>);
-            } <span class="kw">else</span> {
-                <span class="kw">return</span> <span class="bool-val">true</span>;
-            }
-        }
-        <span class="bool-val">false</span>
     }
 
     <span class="doccomment">/// Marks a given view number as timed out. This should be called a fixed period after a round is started.</span>
@@ -1246,9 +1202,8 @@
         <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
-        <span class="ident">handler</span>: <span class="ident">I::StatefulHandler</span>,
         <span class="ident">election</span>: <span class="ident">I::Election</span>,
-        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>
+        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// Save a clone of the storage for the handle</span>
         <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
@@ -1259,9 +1214,8 @@
             <span class="ident">config</span>,
             <span class="ident">networking</span>,
             <span class="ident">storage</span>,
-            <span class="ident">handler</span>,
             <span class="ident">election</span>,
-            <span class="ident">initializer</span>
+            <span class="ident">initializer</span>,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">tasks::spawn_all</span>(<span class="kw-2">&amp;</span><span class="ident">hotshot</span>).<span class="kw">await</span>;
@@ -1475,7 +1429,6 @@
                 <span class="comment">// &lt;https://github.com/EspressoSystems/HotShot/issues/454&gt;</span>
                 <span class="kw">let</span> <span class="ident">should_save</span> <span class="op">=</span> <span class="ident">anchored</span>.<span class="ident">view_number</span> <span class="op">&lt;</span> <span class="ident">qc</span>.<span class="ident">view_number</span>; <span class="comment">// incoming view is newer</span>
                 <span class="kw">if</span> <span class="ident">should_save</span> {
-                    <span class="kw">let</span> <span class="ident">view_number</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">view_number</span>;
                     <span class="kw">let</span> <span class="ident">new_view</span> <span class="op">=</span> <span class="ident">StoredView::from_qc_block_and_state</span>(
                         <span class="ident">qc</span>,
                         <span class="ident">block</span>,
@@ -1487,13 +1440,6 @@
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">append_single_view</span>(<span class="ident">new_view</span>).<span class="kw">await</span> {
                         <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not insert incoming QC&quot;</span>);
                     }
-
-                    <span class="comment">// Broadcast that we&#39;re updated</span>
-                    <span class="self">self</span>.<span class="ident">send_event</span>(<span class="ident">Event</span> {
-                        <span class="ident">view_number</span>,
-                        <span class="ident">event</span>: <span class="ident">EventType::Synced</span> { <span class="ident">view_number</span> },
-                    })
-                    .<span class="kw">await</span>;
                 }
             }
 
@@ -1675,15 +1621,6 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">notify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">blocks</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I::State</span> <span class="kw">as</span> <span class="ident">StateContents</span><span class="op">&gt;</span><span class="ident">::Block</span><span class="op">&gt;</span>, <span class="ident">states</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>) {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">blocks</span>, <span class="question-mark">?</span><span class="ident">states</span>, <span class="string">&quot;notify&quot;</span>);
-        <span class="self">self</span>.<span class="ident">inner</span>
-            .<span class="ident">stateful_handler</span>
-            .<span class="ident">lock</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">notify</span>(<span class="ident">blocks</span>, <span class="ident">states</span>);
-    }
-
     <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>, <span class="ident">qc</span>))]</span>
     <span class="kw">fn</span> <span class="ident">validate_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="kw-2">&amp;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">if</span> <span class="ident">qc</span>.<span class="ident">genesis</span> <span class="op">&amp;&amp;</span> <span class="ident">qc</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">GENESIS_VIEW</span> {
@@ -1724,16 +1661,19 @@
 <span class="doccomment">/// initializer struct for creating starting block</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span> {
     <span class="doccomment">/// the leaf specified initialization</span>
-    <span class="ident">inner</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
+    <span class="ident">inner</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span> <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
-
     <span class="doccomment">/// initialize from genesis</span>
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">/// If we are unable to apply the genesis block to the default state</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_genesis</span>(<span class="ident">genesis_block</span>: <span class="op">&lt;</span><span class="ident">STATE</span> <span class="kw">as</span> <span class="ident">StateContents</span><span class="op">&gt;</span><span class="ident">::Block</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">STATE::default</span>().<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">genesis_block</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HotShotError::Misc</span> { <span class="ident">context</span>: <span class="ident">err</span>.<span class="ident">to_string</span>()})<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">STATE::default</span>()
+            .<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">genesis_block</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HotShotError::Misc</span> {
+                <span class="ident">context</span>: <span class="ident">err</span>.<span class="ident">to_string</span>(),
+            })<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">view_number</span> <span class="op">=</span> <span class="ident">GENESIS_VIEW</span>;
         <span class="kw">let</span> <span class="ident">justify_qc</span> <span class="op">=</span> <span class="ident">QuorumCertificate</span>::<span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="ident">::genesis</span>();
 
@@ -1744,23 +1684,15 @@
                 <span class="ident">parent_commitment</span>: <span class="ident">fake_commitment</span>(),
                 <span class="ident">deltas</span>: <span class="ident">genesis_block</span>,
                 <span class="ident">state</span>,
-                <span class="ident">rejected</span>: <span class="ident">Vec::new</span>()
-            }
-
+                <span class="ident">rejected</span>: <span class="ident">Vec::new</span>(),
+            },
         })
-
     }
 
     <span class="doccomment">/// reload previous state based on most recent leaf</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_reload</span>(<span class="ident">anchor_leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">anchor_leaf</span>
-        }
-
+        <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">anchor_leaf</span> }
     }
-
 }
-
-
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
