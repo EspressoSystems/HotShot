@@ -21,11 +21,16 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    cargo-careful = {
+      url = "github:RalfJung/cargo-careful";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix }:
+  outputs = { self, nixpkgs, flake-compat, utils, crate2nix, fenix, cargo-careful }:
     utils.lib.eachDefaultSystem (system:
       let
+        fenixNightly = fenix.packages.${system}.latest.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         fenixStable = fenix.packages.${system}.stable.withComponents [ "cargo" "clippy" "rust-src" "rustc" "rustfmt" "llvm-tools-preview" ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system}; combine [ (stable.withComponents [ "cargo" "clippy" "rustc" "rustfmt" ]) targets.x86_64-unknown-linux-musl.stable.rust-std ];
@@ -76,6 +81,21 @@
             doCheck = false;
           };
 
+        careful =
+          pkgs.rustPlatform.buildRustPackage {
+            pname = "cargo-careful";
+            version = "master";
+
+            src = cargo-careful;
+
+            cargoSha256 = "sha256-DUHuFR3HZC85O4AQ05x6wMvfUCJe4Y+hMmjjCC0J7vk=";
+
+            meta = {
+              description = "A cargo undefined behaviour checker";
+              homepage = "https://github.com/RalfJung/cargo-careful";
+            };
+          };
+
         cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
           pname = "cargo-llvm-cov";
           version = "0.3.0";
@@ -90,11 +110,9 @@
           };
 
           cargoSha256 = "sha256-RzIkW/eytU8ZdZ18x0sGriJ2xvjVW+8hB85In12dXMg=";
-          meta = with pkgs.lib; {
+          meta = {
             description = "Cargo llvm cov generates code coverage via llvm.";
             homepage = "https://github.com/taiki-e/cargo-llvm-cov";
-
-            license = with licenses; [ mit asl20 ];
           };
         };
 
@@ -156,6 +174,18 @@
 
 
         devShells = {
+          # usage: check correctness
+          correctnessShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            shellHook = ''
+              ulimit -n 1024
+            '';
+           RUST_SRC_PATH = "${fenixNightly}/lib/rustlib/src/rust/library";
+           RUST_LIB_SRC = "${fenixNightly}/lib/rustlib/src/rust/library";
+            buildInputs =
+              [ careful pkgs.git fenixNightly ] ++ buildDeps;
+
+          };
 
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
