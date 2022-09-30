@@ -34,13 +34,14 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
-use hotshot_utils::art::async_sleep;
+
+use hotshot_utils::{art::{async_sleep, async_timeout}, subscribable_rwlock::{ReadView, SubscribableRwLock}};
+use std::sync::Arc;
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
 };
-use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -432,11 +433,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         }
         if new_decide_reached {
             {
-                let mut txns = consensus.transactions.write().await;
-                *txns = txns
+                let drain_txs = |txns: &mut TransactionHashMap<I>| {
+                    *txns = txns
                     .drain()
                     .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                     .collect();
+                };
+                consensus.transactions.modify(drain_txs);
             }
 
             let decide_sent = self
@@ -495,11 +498,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         info!("Leader task started!");
 
         let task_start_time = Instant::now();
-
         let parent_view_number = self.high_qc.view_number;
-
         let consensus = self.consensus.read().await;
-
         let mut reached_decided = false;
 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
@@ -552,23 +552,34 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let passed_time = task_start_time - Instant::now();
-        async_sleep(self.api.propose_min_round_time() - passed_time).await; 
+        async_sleep(self.api.propose_min_round_time() - passed_time).await;
 
-        let txns = self.transactions.read().await;
-
-        let unclaimed_txns: Vec<_> = txns
-            .iter()
-            .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-            .collect();
-
+        let receiver = self.transactions.subscribe().await;
         let mut block = starting_state.next_block();
-        for (_txn_hash, txn) in &unclaimed_txns {
-            let new_block_check = block.add_transaction_raw(txn);
-            if let Ok(new_block) = new_block_check {
-                if starting_state.validate_block(&new_block, &self.cur_view) {
-                    block = new_block;
+
+        // Wait until we have min_transactions for the block or we hit propose_max_round_time
+        while (Instant::now() - task_start_time) < self.api.propose_max_round_time() {
+            let txns = self.transactions.cloned();
+            let unclaimed_txns: Vec<_> = txns
+                .iter()
+                .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
+                .collect();
+            if unclaimed_txns.len() < self.api.min_transactions() {
+                let duration =
+                    self.api.propose_max_round_time() - (Instant::now() - task_start_time);
+                async_timeout(duration, receiver.recv_async()).await.ok();
+                continue;
+            }
+
+            for (_txn_hash, txn) in &unclaimed_txns {
+                let new_block_check = block.add_transaction_raw(txn);
+                if let Ok(new_block) = new_block_check {
+                    if starting_state.validate_block(&new_block) {
+                        block = new_block;
+                    }
                 }
             }
+            break;
         }
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
@@ -828,15 +839,16 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     }
 }
 
-/// The type of a transaction
-pub type TransactionStorage<I> =
-Arc<
-        RwLock<
-            HashMap<
-                Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
-                <I as TypeMap>::Transaction,
-            >,
-        >>;
+/// Locked wrapper around `TransactionHashMap`
+pub type TransactionStorage<I> = Arc<SubscribableRwLock<TransactionHashMap<I>>>;
+
+/// Map that stores transactions
+pub type TransactionHashMap<I> = HashMap<
+    Commitment<
+        <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
+    >,
+    <I as TypeMap>::Transaction,
+>;
 
 impl<I: NodeImplementation> Consensus<I> {
     /// return a clone of the internal storage of unclaimed transactions

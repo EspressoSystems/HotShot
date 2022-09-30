@@ -41,9 +41,9 @@ mod utils;
 
 use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
 use hotshot_utils::art::async_spawn_local;
+use hotshot_consensus::TransactionHashMap;
 use hotshot_types::{traits::state::ConsensusTime, data::ViewNumber, constants::genesis_proposer_id};
 use snafu::ResultExt;
-
 use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
@@ -542,10 +542,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                self.transactions
-                    .write()
-                    .await
-                    .insert(transaction.commit(), transaction);
+                let add_transaction = |txns: &mut TransactionHashMap<I>| {
+                    txns.insert(transaction.commit(), transaction);
+                };
+                self.transactions.modify(add_transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -710,6 +710,14 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     fn leader_acts_as_replica(&self) -> bool {
         true
+    }
+
+    fn max_transactions(&self) -> NonZeroUsize {
+        self.inner.config.max_transactions
+    }
+
+    fn min_transactions(&self) -> usize{
+        self.inner.config.min_transactions
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
