@@ -97,7 +97,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    let opts: NodeOpt = NodeOpt::from_args();
+    let opts: NodeOpt = NodeOpt::parse();
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
 

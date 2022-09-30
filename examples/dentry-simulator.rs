@@ -33,16 +33,16 @@ use hotshot::{
 type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
-#[clap(
+#[command(
     name = "Double Entry Simulator",
     about = "Simulates consensus among a number of nodes"
 )]
 struct Opt {
     /// Number of nodes to run
-    #[structopt(short = 'n', default_value = "7")]
+    #[arg(short = 'n', default_value = "7")]
     nodes: usize,
     /// Number of transactions to simulate
-    #[structopt(short = 't', default_value = "10")]
+    #[arg(short = 't', default_value = "10")]
     transactions: usize,
 }
 /// Prebaked list of transactions
@@ -83,7 +83,7 @@ async fn main() {
     setup_backtrace();
 
     // Get options
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     debug!(?opt);
 
     // Calculate our threshold

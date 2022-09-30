@@ -103,5 +103,5 @@ netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.g
 [dev-dependencies]
 #  TODO should this be here as a dev dep? at least should be optional ...
 async-std = { version = "1.12.0", features = ["attributes" ] }
-clap = { version = "3.2.22", features = [ "derive", "env" ] }
+clap = { version = "4.0", features = [ "derive", "env" ] }
 
