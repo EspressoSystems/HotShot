@@ -38,6 +38,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
     fn leader_acts_as_replica(&self) -> bool;
 
+    /// Retuns the maximum transactions allowed in a block
+    fn max_transactions(&self) -> NonZeroUsize;
+
+    /// Returns the minimum transactions that must be in a block
+    fn min_transactions(&self) -> usize;
+
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
 

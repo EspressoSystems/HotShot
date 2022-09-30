@@ -348,6 +348,7 @@ async fn get_hotshot(
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
+        min_transactions: 0,
         known_nodes: known_nodes.clone(),
         next_view_timeout: 100000,
         timeout_ratio: (11, 10),

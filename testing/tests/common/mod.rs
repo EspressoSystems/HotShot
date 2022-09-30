@@ -26,7 +26,7 @@ use hotshot_types::{
 };
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use snafu::Snafu;
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
 use Either::{Left, Right};
 
@@ -81,6 +81,10 @@ pub struct GeneralTestDescriptionBuilder {
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
     /// number of bootstrap nodes
     pub num_bootstrap_nodes: usize,
+    // Maximum transactions allowed in a block
+    pub max_transactions: NonZeroUsize,
+    // Minimum transactions required for a block
+    pub min_transactions: usize,
     /// The minimum amount of time a leader has to wait to start a round
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
@@ -113,15 +117,15 @@ where
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, STATE> {
-        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes);
+        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions);
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut HotShotConfig<Ed25519Pub>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
             a.timeout_ratio = self.timing_config.timeout_ratio;
             a.round_start_delay = self.timing_config.round_start_delay;
             a.start_delay = self.timing_config.start_delay;
-            a.propose_min_round_time = self.timing_config.propose_min_round_time; 
-            a.propose_max_round_time = self.timing_config.propose_max_round_time; 
+            a.propose_min_round_time = self.timing_config.propose_min_round_time;
+            a.propose_max_round_time = self.timing_config.propose_max_round_time;
         };
 
         // create runner from launcher
@@ -197,9 +201,8 @@ where
             timeout_ratio: self.general_info.timeout_ratio,
             round_start_delay: self.general_info.round_start_delay,
             start_delay: self.general_info.start_delay,
-            propose_min_round_time: self.general_info.propose_min_round_time, 
-            propose_max_round_time: self.general_info.propose_max_round_time, 
-
+            propose_min_round_time: self.general_info.propose_min_round_time,
+            propose_max_round_time: self.general_info.propose_max_round_time,
         };
 
         let rounds = if let Some(rounds) = self.rounds {
@@ -217,6 +220,8 @@ where
             start_nodes: self.general_info.start_nodes,
             failure_threshold: self.general_info.failure_threshold,
             num_bootstrap_nodes: self.general_info.num_bootstrap_nodes,
+            max_transactions: self.general_info.max_transactions,
+            min_transactions: self.general_info.min_transactions,
         }
     }
 }
@@ -250,6 +255,10 @@ pub struct TestDescription<
     pub failure_threshold: usize,
     /// number bootstrap nodes
     pub num_bootstrap_nodes: usize,
+    // Maximum transactions allowed in a block
+    pub max_transactions: NonZeroUsize,
+    // Minimum transactions required for a block
+    pub min_transactions: usize,
 }
 
 /// type alias for generating a [`TestRunner`]
@@ -289,7 +298,7 @@ impl Default for GeneralTestDescriptionBuilder {
             num_succeeds: 1,
             failure_threshold: 0,
             txn_ids: Right(1),
-            next_view_timeout: 1000,
+            next_view_timeout: 10000,
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
@@ -297,7 +306,9 @@ impl Default for GeneralTestDescriptionBuilder {
             network_reliability: None,
             num_bootstrap_nodes: 5,
             propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::new(10, 0),
+            propose_max_round_time: Duration::new(5, 0),
+            max_transactions: NonZeroUsize::new(999999).unwrap(),
+            min_transactions: 0,
         }
     }
 }
