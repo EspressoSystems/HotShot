@@ -49,8 +49,10 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
         .await
         .unwrap();
 
+    let mut handler_futures = Vec::new();
     for handle in &handles {
-        let _ = handle.spawn_handler(client_handler.clone());
+        let handler_fut = handle.spawn_handler(client_handler.clone()).await;
+        handler_futures.push(handler_fut);
     }
 
     run_test(handles.clone(), timeout).await;
@@ -58,6 +60,10 @@ pub async fn test_bed<S: 'static + Send + Default + Debug, F, FutF, G: Clone, Fu
     // cleanup
     for handle in handles {
         handle.shutdown().await.unwrap();
+    }
+
+    for fut in handler_futures {
+        fut.await;
     }
 }
 

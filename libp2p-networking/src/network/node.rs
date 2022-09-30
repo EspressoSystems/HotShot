@@ -569,12 +569,14 @@ impl NetworkNode {
                 loop {
                     select! {
                         event = self.swarm.next() => {
+                            debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
                                 info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
                         msg = fuse => {
+                            debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 break

@@ -36,7 +36,7 @@ use std::{
     sync::Arc,
     time::{Duration, SystemTime},
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(feature = "webui")]
 use std::net::SocketAddr;
@@ -281,12 +281,18 @@ pub async fn handle_normal_msg(
     // in case we need to reply to direct message
     chan: Option<ResponseChannel<DirectMessageResponse>>,
 ) -> Result<(), NetworkNodeHandleError> {
+    debug!("node={} handling normal msg {:?}", handle.id(), msg);
     // send reply logic
     match msg.req {
         // direct message only
         CounterRequest::StateResponse(c) => {
             handle
                 .modify_state(|s| {
+                    debug!(
+                        "node={} performing modify_state with c={c}, s={:?}",
+                        handle.id(),
+                        s
+                    );
                     if c >= s.0 {
                         s.0 = c
                     }
@@ -348,6 +354,8 @@ pub async fn regular_handle_network_event(
     event: NetworkEvent,
     handle: Arc<NetworkNodeHandle<(CounterState, Option<PeerId>)>>,
 ) -> Result<(), NetworkNodeHandleError> {
+    debug!("node={} handling event {:?}", handle.id(), event);
+
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {

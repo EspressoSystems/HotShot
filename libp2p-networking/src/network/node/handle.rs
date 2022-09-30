@@ -28,7 +28,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 /// A handle containing:
 /// - A reference to the state
@@ -226,10 +226,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// and a message to the swarm itself to spin down
     #[instrument]
     pub async fn shutdown(&self) -> Result<(), NetworkNodeHandleError> {
-        self.send_network
-            .send(ClientRequest::Shutdown)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_request(ClientRequest::Shutdown).await?;
         // if this fails, the thread has already been killed.
         if let Some(kill_switch) = self.receiver.kill_switch.lock().await.take() {
             kill_switch.send(());
@@ -245,10 +242,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
     /// if the network is shut down.
     pub async fn begin_bootstrap(&self) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::BeginBootstrap;
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Get a reference to the network node handle's listen addr.
@@ -265,10 +259,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn print_routing_table(&self) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetRoutingTable(s);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
@@ -279,10 +270,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn lookup_pid(&self, peer_id: PeerId) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::LookupPeer(peer_id, s);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
@@ -401,10 +389,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
@@ -414,10 +399,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Unsubscribe(topic, s);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)?;
+        self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
 
@@ -427,10 +409,7 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::IgnorePeers(peers);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Make a direct request to `peer_id` containing `msg`
@@ -444,10 +423,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectRequest(peer_id, serialized_msg);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Reply with `msg` to a request over `chan`
@@ -461,10 +437,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::DirectResponse(chan, serialized_msg);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Forcefully disconnet from a peer
@@ -476,10 +449,7 @@ impl<S> NetworkNodeHandle<S> {
     /// shouldn't happen.
     pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::Prune(pid);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Gossip a message to peers
@@ -493,10 +463,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
         let req = ClientRequest::GossipMsg(topic, serialized_msg);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Tell libp2p about known network nodes
@@ -508,10 +475,7 @@ impl<S> NetworkNodeHandle<S> {
     ) -> Result<(), NetworkNodeHandleError> {
         info!("ADDING KNOWN PEERS TO {:?}", self.peer_id);
         let req = ClientRequest::AddKnownPeers(known_peers);
-        self.send_network
-            .send(req)
-            .await
-            .map_err(|_| NetworkNodeHandleError::SendError)
+        self.send_request(req).await
     }
 
     /// Send a client request to the network
@@ -519,6 +483,7 @@ impl<S> NetworkNodeHandle<S> {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
+        debug!("peerid {:?}\t\tsending message {:?}", self.peer_id, req);
         self.send_network
             .send(req)
             .await
