@@ -565,6 +565,7 @@ impl NetworkNode {
 
         async_spawn(
             async move {
+                let mut fuse = s_output.recv().boxed().fuse();
                 loop {
                     select! {
                         event = self.swarm.next() => {
@@ -573,11 +574,12 @@ impl NetworkNode {
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
-                        msg = s_output.recv().fuse() => {
+                        msg = fuse => {
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 break
                             }
+                            fuse = s_output.recv().boxed().fuse();
                         }
                     }
                 }

@@ -288,9 +288,10 @@ impl<K: SignatureKey + 'static> Server<K> {
             futures::future::pending().boxed().fuse()
         };
 
+        let mut listener_fuse = self.listener.accept().boxed().fuse();
         loop {
             futures::select! {
-                result = self.listener.accept().fuse() => {
+                result = listener_fuse => {
                     match result {
                         Ok((stream, addr)) => {
                             async_spawn(client::spawn::<K>(addr, stream, sender.clone()));
@@ -300,6 +301,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                             break;
                         }
                     }
+                    listener_fuse = self.listener.accept().boxed().fuse();
                 }
                 _ = shutdown => {
                     debug!("Received shutdown signal");
