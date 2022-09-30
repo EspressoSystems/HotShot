@@ -101,12 +101,12 @@ pub struct NetworkConfigFile {
     pub seed: [u8; 32],
     #[serde(default = "default_padding")]
     pub padding: usize,
+    #[serde(default = "default_start_delay_seconds")]
+    pub start_delay_seconds: u64,
     #[serde(default)]
     pub libp2p_config: Option<Libp2pConfigFile>,
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
-    #[serde(default = "default_start_delay_seconds")]
-    pub start_delay_seconds: u64,
 }
 
 impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
