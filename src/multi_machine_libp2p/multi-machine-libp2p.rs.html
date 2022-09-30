@@ -621,7 +621,6 @@
 <span id="621">621</span>
 <span id="622">622</span>
 <span id="623">623</span>
-<span id="624">624</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
@@ -750,81 +749,80 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">clap::Args</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">CliStandalone</span> {
     <span class="doccomment">/// num nodes</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;num_nodes&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">num_nodes</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// num bootstrap</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;num_bootstrap&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">num_bootstrap</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// num transactions to be submitted per round</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;num_txn_per_round&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">num_txn_per_round</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// Id of the current node</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;node_idx&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">node_idx</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// how long to run for</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;online_time&quot;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;60&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;60&quot;</span>, <span class="ident">env</span>)]</span>
     <span class="ident">online_time</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// address to bind to</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bound_addr&quot;</span>, <span class="ident">env</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_ip</span>))]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_ip</span>)]</span>
     <span class="ident">bound_addr</span>: <span class="ident">Multiaddr</span>,
 
     <span class="doccomment">/// seed used to generate ids</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;seed&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">seed</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// bootstrap node mesh high</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bootstrap_mesh_n_high&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">bootstrap_mesh_n_high</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node mesh low</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bootstrap_mesh_n_low&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">bootstrap_mesh_n_low</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node outbound min</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bootstrap_mesh_outbound_min&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">bootstrap_mesh_outbound_min</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node mesh n</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bootstrap_mesh_n&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">bootstrap_mesh_n</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node mesh high</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mesh_n_high&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">mesh_n_high</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node mesh low</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mesh_n_low&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">mesh_n_low</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node outbound min</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mesh_outbound_min&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">mesh_outbound_min</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// bootstrap node mesh n</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mesh_n&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">mesh_n</span>: <span class="ident">usize</span>,
 
     <span class="doccomment">/// max round time</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;propose_max_round_time&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">propose_max_round_time</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// min round time</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;propose_min_round_time&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">propose_min_round_time</span>: <span class="ident">u64</span>,
 
     <span class="doccomment">/// next view timeout</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;next_view_timeout&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
     <span class="ident">next_view_timeout</span>: <span class="ident">u64</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">clap</span>(
+<span class="attribute">#[<span class="ident">command</span>(
     <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Multi-machine consensus&quot;</span>,
     <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among multiple machines&quot;</span>
 )]</span>
@@ -1127,7 +1125,7 @@
     <span class="ident">setup_logging</span>();
     <span class="ident">setup_backtrace</span>();
 
-    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">CliOpt::from_args</span>();
+    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">CliOpt::parse</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">server_conn</span> <span class="op">=</span> <span class="prelude-val">None</span>;
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">args</span> {
         <span class="ident">CliOpt::Standalone</span>(<span class="ident">args</span>) =&gt; <span class="ident">args</span>.<span class="ident">init</span>(),

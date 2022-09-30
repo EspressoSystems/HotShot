@@ -324,7 +324,7 @@
     <span class="ident">setup_logging</span>();
     <span class="ident">setup_backtrace</span>();
 
-    <span class="kw">let</span> <span class="ident">opts</span>: <span class="ident">NodeOpt</span> <span class="op">=</span> <span class="ident">NodeOpt::from_args</span>();
+    <span class="kw">let</span> <span class="ident">opts</span>: <span class="ident">NodeOpt</span> <span class="op">=</span> <span class="ident">NodeOpt::parse</span>();
     <span class="kw">let</span> <span class="ident">addr</span>: <span class="ident">SocketAddr</span> <span class="op">=</span> (<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>).<span class="ident">into</span>();
     <span class="macro">error!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 

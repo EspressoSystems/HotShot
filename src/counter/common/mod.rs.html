@@ -774,6 +774,33 @@
 <span id="774">774</span>
 <span id="775">775</span>
 <span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">web</span>;
 
@@ -790,7 +817,7 @@
     }
 }
 
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">Args</span>, <span class="ident">Parser</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
 <span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">multiaddr</span>, <span class="ident">request_response::ResponseChannel</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
@@ -1213,37 +1240,64 @@
     <span class="ident">Multiaddr::from_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/tcp/{}&quot;</span>, <span class="ident">ip</span>, <span class="ident">port</span>))
 }
 
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span> {
+        <span class="doccomment">/// This will be flattened into CliOpt</span>
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
+        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WebUi</span> {
+            <span class="doccomment">/// Doc comment</span>
+            <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
+            <span class="kw">pub</span> <span class="ident">webui_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>,
+        }
+    } <span class="kw">else</span> {
+        <span class="doccomment">/// This will be flattened into CliOpt</span>
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
+        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WebUi</span> {}
+    }
+}
+
+<span class="macro">cfg_if::cfg_if!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span> {
+        <span class="doccomment">/// This will be flattened into CliOpt</span>
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
+        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EnvType</span> {
+            <span class="doccomment">/// Doc comment</span>
+            <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;env&quot;</span>)]</span>
+            <span class="kw">pub</span> <span class="ident">env_type</span>: <span class="ident">ExecutionEnvironment</span>,
+        }
+    } <span class="kw">else</span> {
+        <span class="doccomment">/// This will be flattened into CliOpt</span>
+        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
+        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EnvType</span> {}
+    }
+}
+
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CliOpt</span> {
     <span class="doccomment">/// list of bootstrap node addrs</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;to_connect_addrs&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_node</span>), <span class="ident">use_delimiter</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
     <span class="kw">pub</span> <span class="ident">to_connect_addrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span>,
     <span class="doccomment">/// total number of nodes</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;num_nodes&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
     <span class="kw">pub</span> <span class="ident">num_nodes</span>: <span class="ident">usize</span>,
     <span class="doccomment">/// the role this node plays</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;node_type&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
     <span class="kw">pub</span> <span class="ident">node_type</span>: <span class="ident">NetworkNodeType</span>,
     <span class="doccomment">/// internal interface to bind to</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;bound_addr&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_node</span>))]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
     <span class="kw">pub</span> <span class="ident">bound_addr</span>: <span class="ident">Multiaddr</span>,
     <span class="doccomment">/// If this value is set, a webserver will be spawned on this address with debug info</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;conductor_addr&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_node</span>))]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
     <span class="kw">pub</span> <span class="ident">conductor_addr</span>: <span class="ident">Multiaddr</span>,
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">webui_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// type of environment</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;env&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">env_type</span>: <span class="ident">ExecutionEnvironment</span>,
+    <span class="attribute">#[<span class="ident">command</span>(<span class="ident">flatten</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">webui_delegate</span>: <span class="ident">WebUi</span>,
+
+    <span class="attribute">#[<span class="ident">command</span>(<span class="ident">flatten</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">env_type_delegate</span>: <span class="ident">EnvType</span>,
 
     <span class="doccomment">/// number of rounds of gossip</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;num_gossip&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
     <span class="kw">pub</span> <span class="ident">num_gossip</span>: <span class="ident">u32</span>,
 }
 
@@ -1301,7 +1355,7 @@
             );
 
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_addr</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_delegate</span>.<span class="ident">webui_addr</span> {
                 <span class="ident">web::spawn_server</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>), <span class="ident">addr</span>);
             }
 
@@ -1382,7 +1436,7 @@
 
             <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">node</span>);
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_addr</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_delegate</span>.<span class="ident">webui_addr</span> {
                 <span class="ident">web::spawn_server</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>), <span class="ident">addr</span>);
             }
 
