@@ -579,6 +579,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 continue;
             }
 
+            // Add unclaimed transactions to the new block
             for (_txn_hash, txn) in &unclaimed_txns {
                 let new_block_check = block.add_transaction_raw(txn);
                 if let Ok(new_block) = new_block_check {
