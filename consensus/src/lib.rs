@@ -35,7 +35,10 @@ use hotshot_types::{
     },
 };
 
-use hotshot_utils::{art::{async_sleep, async_timeout}, subscribable_rwlock::{ReadView, SubscribableRwLock}};
+use hotshot_utils::{
+    art::{async_sleep, async_timeout},
+    subscribable_rwlock::{ReadView, SubscribableRwLock},
+};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{
@@ -221,7 +224,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas, &self.cur_view) {
+                        let leaf = if let Ok(state) =
+                            parent.state.append(&p.leaf.deltas, &self.cur_view)
+                        {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
@@ -435,9 +440,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
             {
                 let drain_txs = |txns: &mut TransactionHashMap<I>| {
                     *txns = txns
-                    .drain()
-                    .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
-                    .collect();
+                        .drain()
+                        .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
+                        .collect();
                 };
                 consensus.transactions.modify(drain_txs);
             }
@@ -564,9 +569,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
                 .collect();
-            if unclaimed_txns.len() < self.api.min_transactions() {
-                let duration =
-                    self.api.propose_max_round_time() - (Instant::now() - task_start_time);
+
+            let time_past = Instant::now() - task_start_time;
+            if unclaimed_txns.len() < self.api.min_transactions()
+                && (time_past < self.api.propose_max_round_time())
+            {
+                let duration = self.api.propose_max_round_time() - time_past;
                 async_timeout(duration, receiver.recv_async()).await.ok();
                 continue;
             }
@@ -574,7 +582,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             for (_txn_hash, txn) in &unclaimed_txns {
                 let new_block_check = block.add_transaction_raw(txn);
                 if let Ok(new_block) = new_block_check {
-                    if starting_state.validate_block(&new_block) {
+                    if starting_state.validate_block(&new_block, &self.cur_view) {
                         block = new_block;
                     }
                 }
@@ -591,7 +599,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 state: new_state,
                 rejected: Vec::new(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: pk.to_bytes()
+                proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();
