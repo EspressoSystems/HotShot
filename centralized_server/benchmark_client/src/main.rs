@@ -1,7 +1,3 @@
-use async_std::{
-    io::{ReadExt, WriteExt},
-    net::{TcpStream, ToSocketAddrs},
-};
 use clap::Parser;
 use hotshot_centralized_server::{
     TcpStreamRecvUtil, TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
@@ -10,21 +6,23 @@ use hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
 };
-use hotshot_utils::{art::split_stream, test_util::setup_logging};
-use std::time::Instant;
+use hotshot_utils::{
+    art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
+    test_util::setup_logging,
+};
+use std::{net::ToSocketAddrs, time::Instant};
 use tracing::{info, warn};
 
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
 
-#[async_std::main]
+#[async_main]
 async fn main() {
     let opts: Opts = Opts::parse();
     setup_logging();
     let addr = opts
         .addr
         .to_socket_addrs()
-        .await
         .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", opts.addr))
         .collect::<Vec<_>>();
     if addr.len() != 1 {
@@ -34,7 +32,7 @@ async fn main() {
             addr.len()
         );
     }
-    let (write, read) = split_stream(
+    let (read, write) = split_stream(
         TcpStream::connect(addr[0])
             .await
             .expect("Could not connect to server"),

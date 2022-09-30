@@ -562,6 +562,7 @@ dependencies = [
  "hotshot-centralized-server",
  "hotshot-types",
  "hotshot-utils",
+ "tokio",
  "tracing",
 ]
 
