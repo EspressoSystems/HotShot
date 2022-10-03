@@ -147,6 +147,8 @@ pub struct HotShotConfigFile {
     pub threshold: NonZeroUsize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
+    /// Minimum transactions per block
+    pub min_transactions: usize,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -170,6 +172,7 @@ impl<K> From<HotShotConfigFile> for HotShotConfig<K> {
             total_nodes: val.total_nodes,
             threshold: val.threshold,
             max_transactions: val.max_transactions,
+            min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
             next_view_timeout: val.next_view_timeout,
             timeout_ratio: val.timeout_ratio,
@@ -198,6 +201,7 @@ fn default_config() -> HotShotConfigFile {
         total_nodes: NonZeroUsize::new(10).unwrap(),
         threshold: NonZeroUsize::new(7).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
+        min_transactions: 0,
         next_view_timeout: 10000,
         timeout_ratio: (11, 10),
         round_start_delay: 1,

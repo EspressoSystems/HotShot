@@ -47,7 +47,8 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
+    ViewQueue,
 };
 use hotshot_types::{
     constants::genesis_proposer_id,
@@ -541,10 +542,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                self.transactions
-                    .write()
-                    .await
-                    .insert(transaction.commit(), transaction);
+                let add_transaction = |txns: &mut TransactionHashMap<I>| {
+                    txns.insert(transaction.commit(), transaction);
+                };
+                self.transactions.modify(add_transaction);
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -709,6 +710,14 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     fn leader_acts_as_replica(&self) -> bool {
         true
+    }
+
+    fn max_transactions(&self) -> NonZeroUsize {
+        self.inner.config.max_transactions
+    }
+
+    fn min_transactions(&self) -> usize {
+        self.inner.config.min_transactions
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
