@@ -583,8 +583,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 let result = async_timeout(duration, receiver.recv()).await;
                 match result {
                     Err(_)  => {
+                        // Fall through below to updating new block
                         info!("propose_max_round_time passed, sending transactions we have so far");
-                        continue;
                     }
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped
