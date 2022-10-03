@@ -18,11 +18,11 @@
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod traits;
+
 pub use traits::ConsensusApi;
 
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
-use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
@@ -34,13 +34,17 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
-use hotshot_utils::art::async_sleep;
-use std::time::Instant;
+use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
+use hotshot_utils::{
+    art::{async_sleep, async_timeout},
+    subscribable_rwlock::{ReadView, SubscribableRwLock},
+};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
+    sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
-use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// A view's state
@@ -80,19 +84,23 @@ impl<STATE: StateContents> Deref for View<STATE> {
 #[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation> {
     /// to send networking events to Replica
-    pub sender_chan: Sender<ConsensusMessage<I::State>>,
+    pub sender_chan: UnboundedSender<ConsensusMessage<I::State>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: Receiver<ConsensusMessage<I::State>>,
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
+
+    /// `true` if this queue has already received a proposal
+    pub has_received_proposal: Arc<AtomicBool>,
 }
 
 impl<I: NodeImplementation> Default for ViewQueue<I> {
     /// create new view queue
     fn default() -> Self {
-        let (s, r) = flume::unbounded();
+        let (s, r) = unbounded();
         ViewQueue {
             sender_chan: s,
-            receiver_chan: r,
+            receiver_chan: Arc::new(Mutex::new(r)),
+            has_received_proposal: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -167,7 +175,7 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: Receiver<ConsensusMessage<I::State>>,
+    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// view number this view is executing in
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
@@ -188,8 +196,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         RwLockUpgradableReadGuard<'a, Consensus<I>>,
         std::result::Result<Leaf<I::State>, ()>,
     ) {
+        let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
-            let msg = self.proposal_collection_chan.recv_async().await;
+            let msg = lock.recv().await;
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
@@ -220,7 +229,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.leaf.deltas, &self.cur_view) {
+                        let leaf = if let Ok(state) =
+                            parent.state.append(&p.leaf.deltas, &self.cur_view)
+                        {
                             // check the commitment
                             if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
@@ -432,11 +443,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         }
         if new_decide_reached {
             {
-                let mut txns = consensus.transactions.write().await;
-                *txns = txns
-                    .drain()
-                    .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
-                    .collect();
+                let drain_txs = |txns: &mut TransactionHashMap<I>| {
+                    *txns = txns
+                        .drain()
+                        .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
+                        .collect();
+                };
+                consensus.transactions.modify(drain_txs).await;
             }
 
             let decide_sent = self
@@ -495,11 +508,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         info!("Leader task started!");
 
         let task_start_time = Instant::now();
-
         let parent_view_number = self.high_qc.view_number;
-
         let consensus = self.consensus.read().await;
-
         let mut reached_decided = false;
 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
@@ -552,23 +562,38 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             .collect::<HashSet<TxnCommitment<I::State>>>();
 
         let passed_time = task_start_time - Instant::now();
-        async_sleep(self.api.propose_min_round_time() - passed_time).await; 
+        async_sleep(self.api.propose_min_round_time() - passed_time).await;
 
-        let txns = self.transactions.read().await;
-
-        let unclaimed_txns: Vec<_> = txns
-            .iter()
-            .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
-            .collect();
-
+        let receiver = self.transactions.subscribe().await;
         let mut block = starting_state.next_block();
-        for (_txn_hash, txn) in &unclaimed_txns {
-            let new_block_check = block.add_transaction_raw(txn);
-            if let Ok(new_block) = new_block_check {
-                if starting_state.validate_block(&new_block, &self.cur_view) {
-                    block = new_block;
+
+        // Wait until we have min_transactions for the block or we hit propose_max_round_time
+        while (Instant::now() - task_start_time) < self.api.propose_max_round_time() {
+            let txns = self.transactions.cloned().await;
+            let unclaimed_txns: Vec<_> = txns
+                .iter()
+                .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
+                .collect();
+
+            let time_past = Instant::now() - task_start_time;
+            if unclaimed_txns.len() < self.api.min_transactions()
+                && (time_past < self.api.propose_max_round_time())
+            {
+                let duration = self.api.propose_max_round_time() - time_past;
+                async_timeout(duration, receiver.recv()).await.ok();
+                continue;
+            }
+
+            // Add unclaimed transactions to the new block
+            for (_txn_hash, txn) in &unclaimed_txns {
+                let new_block_check = block.add_transaction_raw(txn);
+                if let Ok(new_block) = new_block_check {
+                    if starting_state.validate_block(&new_block, &self.cur_view) {
+                        block = new_block;
+                    }
                 }
             }
+            break;
         }
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
@@ -580,7 +605,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 state: new_state,
                 rejected: Vec::new(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: pk.to_bytes()
+                proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::State> = leaf.into();
@@ -604,7 +629,7 @@ pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<I::State>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Receiver<ConsensusMessage<I::State>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Limited access to the consensus protocol
@@ -633,7 +658,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
-        while let Ok(msg) = self.vote_collection_chan.recv_async().await {
+        let lock = self.vote_collection_chan.lock().await;
+        while let Ok(msg) = lock.recv().await {
             info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
@@ -828,15 +854,16 @@ impl<I: NodeImplementation> Default for Consensus<I> {
     }
 }
 
-/// The type of a transaction
-pub type TransactionStorage<I> =
-Arc<
-        RwLock<
-            HashMap<
-                Commitment<<<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction>,
-                <I as TypeMap>::Transaction,
-            >,
-        >>;
+/// Locked wrapper around `TransactionHashMap`
+pub type TransactionStorage<I> = Arc<SubscribableRwLock<TransactionHashMap<I>>>;
+
+/// Map that stores transactions
+pub type TransactionHashMap<I> = HashMap<
+    Commitment<
+        <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
+    >,
+    <I as TypeMap>::Transaction,
+>;
 
 impl<I: NodeImplementation> Consensus<I> {
     /// return a clone of the internal storage of unclaimed transactions

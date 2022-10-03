@@ -1,9 +1,7 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 use crate::art::async_block_on;
+use crate::channel::{SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender};
 use async_lock::RwLock;
-use flume::{Receiver, Sender};
-
-pub use flume::{RecvError, SendError};
 
 use std::{
     collections::HashMap,
@@ -19,7 +17,7 @@ struct BroadcastSenderInner<T> {
     /// Atomic int used for assigning ids
     count: AtomicUsize,
     /// Map of IDs to channels
-    outputs: RwLock<HashMap<usize, Sender<T>>>,
+    outputs: RwLock<HashMap<usize, UnboundedSender<T>>>,
 }
 
 /// Public interface for a broadcast queue sender
@@ -50,21 +48,7 @@ where
     pub async fn send_async(&self, item: T) -> Result<(), SendError<T>> {
         let map = self.inner.outputs.read().await;
         for sender in map.values() {
-            sender.send_async(item.clone()).await?;
-        }
-        Ok(())
-    }
-
-    /// Synchronously sends a value to all connected receivers
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if one of the downstream receivers was disconnected without being properly
-    /// dropped.
-    pub fn send(&self, item: T) -> Result<(), SendError<T>> {
-        let map = async_block_on(self.inner.outputs.read());
-        for sender in map.values() {
-            sender.send(item.clone())?;
+            sender.send(item.clone()).await?;
         }
         Ok(())
     }
@@ -72,7 +56,7 @@ where
     /// Asynchronously creates a new handle
     pub async fn handle_async(&self) -> BroadcastReceiver<T> {
         let id = self.inner.count.fetch_add(1, Ordering::SeqCst);
-        let (send, recv) = flume::unbounded();
+        let (send, recv) = crate::channel::unbounded();
         let mut map = self.inner.outputs.write().await;
         map.insert(id, send);
         BroadcastReceiver {
@@ -93,7 +77,7 @@ pub struct BroadcastReceiver<T> {
     /// ID for this receiver
     id: usize,
     /// Queue output
-    output: Receiver<T>,
+    output: UnboundedReceiver<T>,
     /// Handle to the sender internals
     handle: BroadcastSender<T>,
 }
@@ -107,21 +91,12 @@ where
     /// # Errors
     ///
     /// Will return `Err` if the upstream sender has been disconnected.
-    pub async fn recv_async(&self) -> Result<T, RecvError> {
-        self.output.recv_async().await
-    }
-
-    /// Synchronously receives a value
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` if the upstream sender has been disconnected.
-    pub fn recv(&self) -> Result<T, RecvError> {
-        self.output.recv()
+    pub async fn recv_async(&mut self) -> Result<T, UnboundedRecvError> {
+        self.output.recv().await
     }
 
     /// Returns a value, if one is available
-    pub fn try_recv(&self) -> Option<T> {
+    pub fn try_recv(&mut self) -> Option<T> {
         self.output.try_recv().ok()
     }
 

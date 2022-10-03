@@ -89,8 +89,18 @@ pub enum NetworkError {
     IdentityHandshake,
     /// The underlying connection has been shut down
     ShutDown,
-    /// An underlying flume channel has disconnected
-    ChannelDisconnected,
+    /// An underlying channel has disconnected
+    ChannelDisconnected {
+        /// Source of error
+        source: hotshot_utils::channel::RecvError,
+    },
+    /// An underlying unbounded channel has disconnected
+    UnboundedChannelDisconnected {
+        /// Source of error
+        source: hotshot_utils::channel::UnboundedRecvError,
+    },
+    /// The centralized server could not find a specific message.
+    NoMessagesInQueue,
 }
 
 /// Describes, generically, the behaviors a networking implementation must have

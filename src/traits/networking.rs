@@ -13,8 +13,9 @@ pub mod memory_network;
 pub mod w_network;
 
 pub use hotshot_types::traits::network::{
-    ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
-    FailedToDeserializeSnafu, FailedToSerializeSnafu, IdentityHandshakeSnafu, ListenerSendSnafu,
-    NetworkError, NetworkReliability, NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu,
-    OtherSnafu, ShutDownSnafu, SocketDecodeSnafu, WebSocketSnafu,
+    ChannelDisconnectedSnafu, ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu,
+    FailedToBindListenerSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+    IdentityHandshakeSnafu, ListenerSendSnafu, NetworkError, NetworkReliability,
+    NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu, OtherSnafu, ShutDownSnafu,
+    SocketDecodeSnafu, WebSocketSnafu,
 };

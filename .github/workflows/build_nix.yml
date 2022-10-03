@@ -3,10 +3,10 @@ name: Build with Nix Workflow
 on:
   push:
     branches:
-      - '*/*'
       - 'main'
   pull_request:
     branches:
+      - 'main'
       - '*/*'
       - 'update_flake_lock_action'
   schedule:
@@ -18,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - uses: styfle/cancel-workflow-action@0.10.1
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
       - name: Install Nix
         uses: cachix/install-nix-action@v17
 

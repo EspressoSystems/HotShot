@@ -2131,7 +2131,6 @@ dependencies = [
  "custom_debug",
  "dashmap",
  "embed-doc-image",
- "flume 0.10.14",
  "futures",
  "hotshot-centralized-server",
  "hotshot-consensus",
@@ -2162,7 +2161,6 @@ dependencies = [
  "bincode",
  "cfg-if",
  "commit",
- "flume 0.10.14",
  "futures",
  "hotshot-types",
  "hotshot-utils",
@@ -2184,7 +2182,6 @@ dependencies = [
  "cfg-if",
  "commit",
  "custom_debug",
- "flume 0.10.14",
  "futures",
  "hotshot-types",
  "hotshot-utils",
@@ -2203,7 +2200,6 @@ dependencies = [
  "cfg-if",
  "clap 4.0.8",
  "commit",
- "flume 0.10.14",
  "hotshot",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -2274,6 +2270,7 @@ dependencies = [
 name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
  "async-lock",
  "async-std",
  "async-trait",
@@ -3063,7 +3060,6 @@ dependencies = [
  "custom_debug",
  "derive_builder",
  "either",
- "flume 0.10.14",
  "futures",
  "hotshot-types",
  "hotshot-utils",

@@ -69,6 +69,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 total_nodes: NonZeroUsize::new(10).unwrap(),
                 threshold: NonZeroUsize::new(7).unwrap(),
                 max_transactions: NonZeroUsize::new(100).unwrap(),
+                min_transactions: 0,
                 next_view_timeout: 10000,
                 timeout_ratio: (11, 10),
                 round_start_delay: 1,
