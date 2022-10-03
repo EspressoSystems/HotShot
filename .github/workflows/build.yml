@@ -3,10 +3,12 @@ name: Build and Test Workflow
 on:
   push:
     branches:
-      - '*/*'
       - 'benchmarking_*'
       - 'main'
   pull_request:
+    branches:
+      - 'main'
+      - '*/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -15,6 +17,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: styfle/cancel-workflow-action@0.10.1
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v3
         name: Checkout Repository
 
