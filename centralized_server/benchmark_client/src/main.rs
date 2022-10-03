@@ -11,24 +11,25 @@ use hotshot_utils::{
     test_util::setup_logging,
 };
 use std::{net::ToSocketAddrs, time::Instant};
-use tracing::{info, warn};
+use tracing::{error, info};
 
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
 
 #[async_main]
 async fn main() {
-    let opts: Opts = Opts::parse();
+    // let opts: Opts = Opts::parse();
+    const ADDR: &str = "0.us-east-2.cluster.aws.espresso.network:2345";
     setup_logging();
-    let addr = opts
-        .addr
+    let addr = ADDR
         .to_socket_addrs()
-        .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", opts.addr))
+        .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", ADDR))
         .collect::<Vec<_>>();
     if addr.len() != 1 {
         panic!(
             "{} resolves to {} addresses, cannot continue",
-            opts.addr,
+            // opts.addr,
+            ADDR,
             addr.len()
         );
     }
@@ -43,7 +44,7 @@ async fn main() {
     let config = loop {
         match read.recv::<FromServer>().await.unwrap() {
             FromServer::Config { config, .. } => break config,
-            x => warn!("Expected config, got {x:?}"),
+            x => error!("Expected config, got {x:?}"),
         }
     };
     info!("Received config {config:?}");
@@ -54,7 +55,7 @@ async fn main() {
         .await
         .unwrap();
 
-    warn!("Waiting for server to start");
+    error!("Waiting for server to start");
     loop {
         match read.recv::<FromServer>().await.unwrap() {
             FromServer::Start => break,
@@ -78,9 +79,9 @@ async fn spam(runs: usize, size: usize, mut writer: TcpStreamSendUtil) {
     let mut data = Vec::new();
     data.resize(size, 0);
     let start = Instant::now();
-    warn!("Sending {runs} blocks of {size} bytes");
+    error!("Sending {runs} blocks of {size} bytes");
     for i in 0..runs {
-        warn!("{i}/{runs}");
+        error!("{i}/{runs}");
         let bytes = (i as u32).to_le_bytes();
         data[..4].copy_from_slice(&bytes);
 
@@ -94,7 +95,7 @@ async fn spam(runs: usize, size: usize, mut writer: TcpStreamSendUtil) {
     }
     let elapsed = start.elapsed();
     let byte_count = size * runs;
-    warn!(
+    error!(
         "Sender took {:?}, bytes: {}, mb/s: {}",
         elapsed,
         byte_count,
@@ -104,7 +105,7 @@ async fn spam(runs: usize, size: usize, mut writer: TcpStreamSendUtil) {
 
 async fn read_spam(runs: usize, size: usize, mut reader: TcpStreamRecvUtil) {
     let start = Instant::now();
-    warn!("Receiving {runs} blocks of {size} bytes");
+    error!("Receiving {runs} blocks of {size} bytes");
     let mut expected_run = 0;
     let mut bytes = Vec::new();
     bytes.resize(size, 0);
@@ -125,18 +126,18 @@ async fn read_spam(runs: usize, size: usize, mut reader: TcpStreamRecvUtil) {
                                 break;
                             }
                         }
-                        x => warn!("Expected broadcast payload, got {x:?} interleaved"),
+                        x => error!("Expected broadcast payload, got {x:?} interleaved"),
                     }
                 }
 
                 let incoming_run = u32::from_le_bytes(bytes[..4].try_into().unwrap()) as usize;
                 if incoming_run != expected_run {
-                    warn!("Expected run {expected_run}, got {incoming_run} instead, we might have lost a packet");
+                    error!("Expected run {expected_run}, got {incoming_run} instead, we might have lost a packet");
                 }
-                warn!("{incoming_run}/{runs}");
+                error!("{incoming_run}/{runs}");
                 expected_run = incoming_run + 1;
                 if expected_run == runs {
-                    warn!("Done!");
+                    error!("Done!");
                     break;
                 }
             }
@@ -146,7 +147,7 @@ async fn read_spam(runs: usize, size: usize, mut reader: TcpStreamRecvUtil) {
 
     let elapsed = start.elapsed();
     let byte_count = runs * size;
-    warn!(
+    error!(
         "Reader took {:?}, bytes: {}, mb/s: {}",
         elapsed,
         byte_count,
