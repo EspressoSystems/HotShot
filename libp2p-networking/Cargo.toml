@@ -3,7 +3,11 @@ description = "Libp2p Networking Layer"
 name = "libp2p-networking"
 version = "0.1.0"
 edition = "2021"
-authors = ["Nathan McCarty <nathan.mccarty@translucence.net>", "Victor Koenders <vkoenders@espressosys.com>", "Justin Restivo <justin@espressosys.com"]
+authors = [
+    "Nathan McCarty <nathan.mccarty@translucence.net>",
+    "Victor Koenders <vkoenders@espressosys.com>",
+    "Justin Restivo <justin@espressosys.com",
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 
@@ -12,23 +16,41 @@ default = []
 full-ci = ["async-std-executor", "lossy_network", "webui"]
 tokio-ci = ["tokio-executor", "lossy_network", "webui"]
 webui = ["tide"]
+
 # this only has effect on linux
-lossy_network = ["nix", "netlink-packet-route", "netlink-packet-utils", "netlink-packet-core", "netlink-proto", "netlink-sys", "netlink-packet-generic", "rtnetlink"]
+lossy_network = [
+    "nix",
+    "netlink-packet-route",
+    "netlink-packet-utils",
+    "netlink-packet-core",
+    "netlink-proto",
+    "netlink-sys",
+    "netlink-packet-generic",
+    "rtnetlink",
+]
 async-std-executor = [
     "dep:async-std",
     "hotshot-types/async-std-executor",
     "hotshot-utils/async-std-executor",
     "libp2p/dns-async-std",
     "libp2p/mdns-async-io",
-    "libp2p/tcp-async-io"]
+    "libp2p/tcp-async-io",
+]
 tokio-executor = [
     "dep:tokio",
     "hotshot-types/tokio-executor",
     "hotshot-utils/tokio-executor",
     "libp2p/dns-tokio",
     "libp2p/mdns-tokio",
-    "libp2p/tcp-tokio"]
+    "libp2p/tcp-tokio",
+]
 profiling = ["hotshot-utils/profiling"]
+channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
+channel-tokio = ["hotshot-types/channel-tokio", "hotshot-utils/channel-tokio"]
+channel-async-std = [
+    "hotshot-types/channel-async-std",
+    "hotshot-utils/channel-async-std",
+]
 
 [dependencies]
 async-lock = "2.5"
@@ -41,10 +63,11 @@ color-eyre = "0.6.2"
 custom_debug = "0.5"
 derive_builder = "0.11.1"
 either = { version = "1.8.0" }
-flume = "0.10.14"
 futures = "0.3.24"
-hotshot-types = { path = "../types", version = "0.1.0", default-features = false  }
-hotshot-utils = { path = "../utils", version = "0.1.0", default-features = false, features = ["logging-utils"] }
+hotshot-types = { path = "../types", version = "0.1.0", default-features = false }
+hotshot-utils = { path = "../utils", version = "0.1.0", default-features = false, features = [
+    "logging-utils",
+] }
 libp2p = { version = "0.48", default-features = false, features = [
     "autonat",
     "deflate",
@@ -65,13 +88,13 @@ libp2p = { version = "0.48", default-features = false, features = [
     "uds",
     "wasm-ext",
     "websocket",
-    "yamux" ] }
+    "yamux",
+] }
 parking_lot = "0.12.0"
 rand = "0.8.5"
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
 snafu = "0.7.0"
-tide = { version = "0.16", optional = true, default-features = false, features = ["h1-server"] }
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
@@ -85,23 +108,30 @@ tokio = { version = "1", optional = true, features = [
     "signal",
     "sync",
     "time",
-    "tracing" ] }
+    "tracing",
+] }
+tide = { version = "0.16", optional = true, default-features = false, features = [
+    "h1-server",
+] }
 tokio-stream = "0.1.10"
 tracing = "0.1.36"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies
 nix = { version = "0.25.0", optional = true }
-rtnetlink = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.1", features = ["smol_socket"], default-features = false, optional = true }
+rtnetlink = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.1", features = [
+    "smol_socket",
+], default-features = false, optional = true }
 netlink-packet-route = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.11.0", optional = true }
 netlink-packet-utils = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.5.1", optional = true }
 netlink-packet-core = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.4.2", optional = true }
 netlink-proto = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.2", optional = true }
-netlink-sys = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.8.2", features = [ "smol_socket" ], optional = true }
+netlink-sys = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.8.2", features = [
+    "smol_socket",
+], optional = true }
 netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.2.0", optional = true }
 
 [dev-dependencies]
 #  TODO should this be here as a dev dep? at least should be optional ...
-async-std = { version = "1.12.0", features = ["attributes" ] }
-clap = { version = "4.0", features = [ "derive", "env" ] }
-
+async-std = { version = "1.12.0", features = ["attributes"] }
+clap = { version = "4.0", features = ["derive", "env"] }

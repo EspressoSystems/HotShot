@@ -311,10 +311,9 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_replica_receiver_channel_len(&self, view_number: ViewNumber) -> Option<usize> {
         let channel_map = self.hotshot.replica_channel_map.read().await;
-        channel_map
-            .channel_map
-            .get(&view_number)
-            .map(|chan| chan.receiver_chan.len())
+        let chan = channel_map.channel_map.get(&view_number)?;
+        let receiver = chan.receiver_chan.lock().await;
+        receiver.len()
     }
 
     /// Get length of the next leaders's receiver channel
@@ -324,10 +323,9 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         view_number: ViewNumber,
     ) -> Option<usize> {
         let channel_map = self.hotshot.next_leader_channel_map.read().await;
+        let chan = channel_map.channel_map.get(&view_number)?;
 
-        channel_map
-            .channel_map
-            .get(&view_number)
-            .map(|chan| chan.receiver_chan.len())
+        let receiver = chan.receiver_chan.lock().await;
+        receiver.len()
     }
 }

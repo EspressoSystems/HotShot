@@ -7,12 +7,29 @@ edition = "2021"
 default = []
 full-ci = ["async-std-executor", "demo"]
 tokio-ci = ["tokio-executor", "demo"]
-demo = [
-  "hotshot/demo"
+demo = ["hotshot/demo"]
+async-std-executor = [
+  "dep:async-std",
+  "hotshot/async-std-executor",
+  "hotshot-centralized-server/async-std-executor",
+  "hotshot-types/async-std-executor",
+  "hotshot-utils/async-std-executor",
 ]
-async-std-executor = ["dep:async-std", "hotshot/async-std-executor", "hotshot-centralized-server/async-std-executor", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
-tokio-executor = ["dep:tokio", "hotshot/tokio-executor", "hotshot-centralized-server/tokio-executor", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+tokio-executor = [
+  "dep:tokio",
+  "hotshot/tokio-executor",
+  "hotshot-centralized-server/tokio-executor",
+  "hotshot-types/tokio-executor",
+  "hotshot-utils/tokio-executor",
+]
 profiling = ["hotshot-utils/profiling"]
+
+channel-async-std = [
+  "hotshot/channel-async-std",
+  "hotshot-utils/channel-async-std",
+]
+channel-tokio = ["hotshot/channel-tokio", "hotshot-utils/channel-tokio"]
+channel-flume = ["hotshot/channel-flume", "hotshot-utils/channel-flume"]
 
 [dependencies]
 clap = { version = "4.0", features = ["derive", "env"] }
@@ -21,29 +38,30 @@ async-std = { version = "1.12.0", optional = true }
 cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 # TODO do we need this?
+
 hotshot = { path = "../../", default-features = false }
-hotshot-centralized-server = { path = "../", default-features = false  }
-hotshot-types = { path = "../../types", default-features = false  }
-hotshot-utils = { path = "../../utils", default-features = false  }
+hotshot-types = { path = "../../types", default-features = false }
+hotshot-utils = { path = "../../utils", default-features = false }
 tokio = { version = "1", optional = true, features = [
-    "fs",
-    "io-util",
-    "io-std",
-    "macros",
-    "net",
-    "parking_lot",
-    "process",
-    "rt",
-    "rt-multi-thread",
-    "signal",
-    "sync",
-    "time",
-    "tracing" ] }
+  "fs",
+  "io-util",
+  "io-std",
+  "macros",
+  "net",
+  "parking_lot",
+  "process",
+  "rt",
+  "rt-multi-thread",
+  "signal",
+  "sync",
+  "time",
+  "tracing",
+] }
+hotshot-centralized-server = { path = "../", default-features = false }
 toml = "0.5.9"
 tracing = "0.1.36"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 bincode = "1.3.3"
-flume = "0.10.14"
 serde = { version = "1.0.145", features = ["derive"] }

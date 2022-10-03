@@ -8,9 +8,23 @@ edition = "2021"
 default = []
 full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
-async-std-executor = ["dep:async-std", "hotshot-types/async-std-executor", "hotshot-utils/async-std-executor"]
-tokio-executor = ["dep:tokio", "hotshot-types/tokio-executor", "hotshot-utils/tokio-executor"]
+async-std-executor = [
+    "dep:async-std",
+    "hotshot-types/async-std-executor",
+    "hotshot-utils/async-std-executor",
+]
+tokio-executor = [
+    "dep:tokio",
+    "hotshot-types/tokio-executor",
+    "hotshot-utils/tokio-executor",
+]
 profiling = ["hotshot-utils/profiling"]
+channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
+channel-tokio = ["hotshot-types/channel-tokio", "hotshot-utils/channel-tokio"]
+channel-async-std = [
+    "hotshot-types/channel-async-std",
+    "hotshot-utils/channel-async-std",
+]
 
 [dependencies]
 async-lock = "2.5"
@@ -19,10 +33,11 @@ async-trait = "0.1.57"
 cfg-if = "1"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
 custom_debug = "0.5"
-flume = "0.10.14"
 futures = "0.3.24"
-hotshot-types = { path = "../types", default-features = false  }
-hotshot-utils = { path = "../utils", default-features = false, features = ["logging-utils"] }
+hotshot-types = { path = "../types", default-features = false }
+hotshot-utils = { path = "../utils", default-features = false, features = [
+    "logging-utils",
+] }
 snafu = "0.7.0"
 tokio = { version = "1", optional = true, features = [
     "fs",
@@ -37,6 +52,7 @@ tokio = { version = "1", optional = true, features = [
     "signal",
     "sync",
     "time",
-    "tracing" ] }
+    "tracing",
+] }
 tracing = "0.1.36"
 time = "0.3.14"

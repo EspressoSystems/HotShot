@@ -8,8 +8,8 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
+use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, MutexGuard};
-use flume::{unbounded, Receiver, Sender};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
 use tracing::warn;
@@ -22,7 +22,7 @@ use tracing::warn;
 #[derive(Default)]
 pub struct SubscribableMutex<T: ?Sized> {
     /// A list of subscribers of this mutex.
-    subscribers: Mutex<Vec<Sender<()>>>,
+    subscribers: Mutex<Vec<UnboundedSender<()>>>,
     /// The inner mutex holding the value.
     /// Note that because of the `T: ?Sized` constraint, this must be the last field in this struct.
     mutex: Mutex<T>,
@@ -60,7 +60,7 @@ impl<T> SubscribableMutex<T> {
         // We currently don't have a way to remove subscribers, so we'll remove them when they fail to deliver their message.
         let mut idx_to_remove = Vec::new();
         for (idx, sender) in lock.iter().enumerate() {
-            if sender.send(()).is_err() {
+            if sender.send(()).await.is_err() {
                 idx_to_remove.push(idx);
             }
         }
@@ -71,7 +71,7 @@ impl<T> SubscribableMutex<T> {
     }
 
     /// Create a [`Receiver`] that will be notified every time a thread calls [`Self::notify_change_subscribers`]
-    pub async fn subscribe(&self) -> Receiver<()> {
+    pub async fn subscribe(&self) -> UnboundedReceiver<()> {
         let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
         receiver
@@ -114,7 +114,7 @@ impl<T> SubscribableMutex<T> {
         };
         loop {
             receiver
-                .recv_async()
+                .recv()
                 .await
                 .expect("`SubscribableMutex::wait_until` was still running when it was dropped");
             let lock = self.mutex.lock().await;
@@ -139,13 +139,14 @@ impl<T> SubscribableMutex<T> {
         };
         loop {
             receiver
-                .recv_async()
+                .recv()
                 .await
                 .expect("`SubscribableMutex::wait_until` was still running when it was dropped");
             let lock = self.mutex.lock().await;
             if f(&*lock) {
                 return;
             }
+            drop(lock);
         }
     }
 
@@ -341,7 +342,7 @@ mod tests {
         // async message
         mutex.set(20).await;
         assert_eq!(
-            async_timeout(Duration::from_millis(10), subscriber.recv_async()).await,
+            async_timeout(Duration::from_millis(10), subscriber.recv()).await,
             Ok(Ok(()))
         );
 

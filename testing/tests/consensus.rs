@@ -4,6 +4,7 @@ use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestNetwork,
     TestRoundResult, TestTransaction,
 };
+use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{random_leaf, DEntryBlock, DEntryState},
@@ -15,10 +16,9 @@ use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
 };
-use tracing::{instrument, warn};
-use std::time::Instant;
 use std::time::Duration;
-use either::Right;
+use std::time::Instant;
+use tracing::{instrument, warn};
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
@@ -512,7 +512,7 @@ async fn test_single_node_network() {
     description.build().execute().await.unwrap();
 }
 
-/// Tests that min propose time works as expected 
+/// Tests that min propose time works as expected
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -533,8 +533,8 @@ async fn test_min_propose() {
             start_nodes: 5,
             num_succeeds: num_rounds,
             failure_threshold: 0,
-            propose_min_round_time, 
-            propose_max_round_time, 
+            propose_min_round_time,
+            propose_max_round_time,
             next_view_timeout: 10000,
             txn_ids: Right(10),
             ..GeneralTestDescriptionBuilder::default()
@@ -542,20 +542,18 @@ async fn test_min_propose() {
         rounds: None,
         gen_runner: None,
     };
-    let start_time = Instant::now(); 
+    let start_time = Instant::now();
     description.build().execute().await.unwrap();
-    let duration = Instant::now() - start_time; 
-    let min_duration = num_rounds as u128 * propose_min_round_time.as_millis(); 
-    let max_duration = num_rounds as u128 * propose_max_round_time.as_millis(); 
+    let duration = Instant::now() - start_time;
+    let min_duration = num_rounds as u128 * propose_min_round_time.as_millis();
+    let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
 
     assert!(duration.as_millis() >= min_duration);
     // Since we are submitting transactions each round, we should never hit the max round timeout
     assert!(duration.as_millis() < max_duration);
-
 }
 
-
-/// Tests that max propose time works as expected 
+/// Tests that max propose time works as expected
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -566,7 +564,7 @@ async fn test_max_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
-    let min_transactions: usize = 10; 
+    let min_transactions: usize = 10;
     let description: DetailedTestDescriptionBuilder<
         TestNetwork,
         MemoryStorage<DEntryState>,
@@ -577,8 +575,8 @@ async fn test_max_propose() {
             start_nodes: 5,
             num_succeeds: num_rounds,
             failure_threshold: 0,
-            propose_min_round_time, 
-            propose_max_round_time, 
+            propose_min_round_time,
+            propose_max_round_time,
             next_view_timeout: 10000,
             min_transactions,
             txn_ids: Right(1),
@@ -587,11 +585,10 @@ async fn test_max_propose() {
         rounds: None,
         gen_runner: None,
     };
-    let start_time = Instant::now(); 
+    let start_time = Instant::now();
     description.build().execute().await.unwrap();
-    let duration = Instant::now() - start_time; 
-    let max_duration = num_rounds as u128 * propose_max_round_time.as_millis(); 
+    let duration = Instant::now() - start_time;
+    let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
     // Since we are not submitting enough transactions, we should hit the max timeout every round
     assert!(duration.as_millis() > max_duration);
-
 }

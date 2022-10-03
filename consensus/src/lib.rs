@@ -18,11 +18,11 @@
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
 mod traits;
+
 pub use traits::ConsensusApi;
 
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::{Commitment, Committable};
-use flume::{Receiver, Sender};
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
@@ -34,16 +34,16 @@ use hotshot_types::{
         BlockContents, StateContents,
     },
 };
-
+use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use hotshot_utils::{
     art::{async_sleep, async_timeout},
     subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
-use std::sync::Arc;
-use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ops::Deref,
+    sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
 use tracing::{error, info, instrument, warn};
 
@@ -84,19 +84,23 @@ impl<STATE: StateContents> Deref for View<STATE> {
 #[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation> {
     /// to send networking events to Replica
-    pub sender_chan: Sender<ConsensusMessage<I::State>>,
+    pub sender_chan: UnboundedSender<ConsensusMessage<I::State>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: Receiver<ConsensusMessage<I::State>>,
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
+
+    /// `true` if this queue has already received a proposal
+    pub has_received_proposal: Arc<AtomicBool>,
 }
 
 impl<I: NodeImplementation> Default for ViewQueue<I> {
     /// create new view queue
     fn default() -> Self {
-        let (s, r) = flume::unbounded();
+        let (s, r) = unbounded();
         ViewQueue {
             sender_chan: s,
-            receiver_chan: r,
+            receiver_chan: Arc::new(Mutex::new(r)),
+            has_received_proposal: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -171,7 +175,7 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: Receiver<ConsensusMessage<I::State>>,
+    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// view number this view is executing in
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
@@ -192,8 +196,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         RwLockUpgradableReadGuard<'a, Consensus<I>>,
         std::result::Result<Leaf<I::State>, ()>,
     ) {
+        let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
-            let msg = self.proposal_collection_chan.recv_async().await;
+            let msg = lock.recv().await;
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
@@ -444,7 +449,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                         .collect();
                 };
-                consensus.transactions.modify(drain_txs);
+                consensus.transactions.modify(drain_txs).await;
             }
 
             let decide_sent = self
@@ -564,7 +569,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         // Wait until we have min_transactions for the block or we hit propose_max_round_time
         while (Instant::now() - task_start_time) < self.api.propose_max_round_time() {
-            let txns = self.transactions.cloned();
+            let txns = self.transactions.cloned().await;
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
@@ -575,7 +580,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 && (time_past < self.api.propose_max_round_time())
             {
                 let duration = self.api.propose_max_round_time() - time_past;
-                async_timeout(duration, receiver.recv_async()).await.ok();
+                async_timeout(duration, receiver.recv()).await.ok();
                 continue;
             }
 
@@ -624,7 +629,7 @@ pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<I::State>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Receiver<ConsensusMessage<I::State>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Limited access to the consensus protocol
@@ -653,7 +658,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
-        while let Ok(msg) = self.vote_collection_chan.recv_async().await {
+        let lock = self.vote_collection_chan.lock().await;
+        while let Ok(msg) = lock.recv().await {
             info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;

@@ -1,7 +1,6 @@
+use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use flume::{unbounded, Receiver, Sender};
-use futures::executor::block_on;
 use std::fmt;
 
 /// read only view of [`SubscribableRwLock`]
@@ -9,11 +8,9 @@ use std::fmt;
 pub trait ReadView<T: Clone> {
     /// subscribe to state changes. Receive
     /// the updated state upon state change
-    async fn subscribe(&self) -> Receiver<T>;
+    async fn subscribe(&self) -> UnboundedReceiver<T>;
     /// async clone the internal state and return it
-    async fn cloned_async(&self) -> T;
-    /// clone the internal state and return it
-    fn cloned(&self) -> T;
+    async fn cloned(&self) -> T;
 }
 
 /// read view with requirements on being threadsafe
@@ -26,7 +23,7 @@ pub trait ThreadedReadView<T: Clone + Sync + Send>:
 #[derive(Default)]
 pub struct SubscribableRwLock<T: Clone> {
     /// A list of subscribers to the rwlock
-    subscribers: Mutex<Vec<Sender<T>>>,
+    subscribers: Mutex<Vec<UnboundedSender<T>>>,
     /// The lock holding the state
     rw_lock: RwLock<T>,
 }
@@ -35,18 +32,14 @@ impl<T: Clone + Sync + Send + std::fmt::Debug> ThreadedReadView<T> for Subscriba
 
 #[async_trait]
 impl<T: Clone + Send + Sync> ReadView<T> for SubscribableRwLock<T> {
-    async fn subscribe(&self) -> Receiver<T> {
+    async fn subscribe(&self) -> UnboundedReceiver<T> {
         let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
         receiver
     }
 
-    async fn cloned_async(&self) -> T {
+    async fn cloned(&self) -> T {
         self.rw_lock.read().await.clone()
-    }
-
-    fn cloned(&self) -> T {
-        block_on(self.cloned_async())
     }
 }
 
@@ -61,7 +54,7 @@ impl<T: Clone> SubscribableRwLock<T> {
 
     /// subscribe to state changes. Receive
     /// the updated state upon state change
-    pub async fn modify_async<F>(&self, cb: F)
+    pub async fn modify<F>(&self, cb: F)
     where
         F: FnOnce(&mut T),
     {
@@ -72,20 +65,12 @@ impl<T: Clone> SubscribableRwLock<T> {
         self.notify_change_subscribers(result).await;
     }
 
-    /// clone the internal state and return it
-    pub fn modify<F>(&self, cb: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        block_on(self.modify_async(cb));
-    }
-
     /// send subscribers the updated state
     async fn notify_change_subscribers(&self, t: T) {
         let mut lock = self.subscribers.lock().await;
         let mut idx_to_remove = Vec::new();
         for (idx, sender) in lock.iter().enumerate() {
-            if sender.send(t.clone()).is_err() {
+            if sender.send(t.clone()).await.is_err() {
                 idx_to_remove.push(idx);
             }
         }

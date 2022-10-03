@@ -16,11 +16,12 @@ cfg_if::cfg_if! {
 
 use clap::{Args, Parser};
 use hotshot_utils::art::{async_sleep, async_spawn};
+use hotshot_utils::channel::oneshot;
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
-    network_node_handle_error::NodeConfigSnafu, spawn_handler, spin_up_swarm, NetworkEvent,
+    network_node_handle_error::NodeConfigSnafu, spin_up_swarm, NetworkEvent,
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
 use rand::{
@@ -35,7 +36,7 @@ use std::{
     sync::Arc,
     time::{Duration, SystemTime},
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(feature = "webui")]
 use std::net::SocketAddr;
@@ -280,12 +281,18 @@ pub async fn handle_normal_msg(
     // in case we need to reply to direct message
     chan: Option<ResponseChannel<DirectMessageResponse>>,
 ) -> Result<(), NetworkNodeHandleError> {
+    debug!("node={} handling normal msg {:?}", handle.id(), msg);
     // send reply logic
     match msg.req {
         // direct message only
         CounterRequest::StateResponse(c) => {
             handle
                 .modify_state(|s| {
+                    debug!(
+                        "node={} performing modify_state with c={c}, s={:?}",
+                        handle.id(),
+                        s
+                    );
                     if c >= s.0 {
                         s.0 = c
                     }
@@ -347,6 +354,8 @@ pub async fn regular_handle_network_event(
     event: NetworkEvent,
     handle: Arc<NetworkNodeHandle<(CounterState, Option<PeerId>)>>,
 ) -> Result<(), NetworkNodeHandleError> {
+    debug!("node={} handling event {:?}", handle.id(), event);
+
     #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
@@ -561,14 +570,14 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                 .context(HandleSnafu)?;
             info!("spun up!");
 
-            spawn_handler(handle.clone(), conductor_handle_network_event).await;
+            let handler_fut = handle.spawn_handler(conductor_handle_network_event).await;
             info!("spawned handler");
 
             handle.notify_webui().await;
 
             let conductor_peerid = handle.peer_id();
 
-            let (s, _r) = flume::bounded::<bool>(1);
+            let (s, _r) = oneshot::<bool>();
 
             async_spawn({
                 let handle = handle.clone();
@@ -594,7 +603,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             async_sleep(Duration::from_secs(10)).await;
 
             // kill conductor id broadcast thread
-            s.send_async(true).await.unwrap();
+            s.send(true);
 
             for i in 0..opts.num_gossip {
                 info!("iteration i: {}", i);
@@ -608,6 +617,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                     .modify_state(|s| s.complete_round(EpochType::BroadcastViaGossip))
                     .await;
             }
+            handler_fut.await;
 
             #[cfg(feature = "benchmark-output")]
             {
@@ -640,10 +650,11 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             spin_up_swarm(TIMEOUT, bootstrap_nodes, config, 0, &handle)
                 .await
                 .context(HandleSnafu)?;
-            spawn_handler(handle.clone(), regular_handle_network_event).await;
-            while !handle.is_killed().await {
-                async_sleep(Duration::from_millis(100)).await;
-            }
+            let handler_fut = handle.spawn_handler(regular_handle_network_event).await;
+            handler_fut.await;
+            // while !handle.is_killed().await {
+            //     async_sleep(Duration::from_millis(100)).await;
+            // }
         }
     }
 

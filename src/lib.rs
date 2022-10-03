@@ -37,45 +37,45 @@ pub mod traits;
 pub mod types;
 
 mod tasks;
-mod utils;
 
-use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
-use hotshot_utils::art::async_spawn_local;
-use hotshot_consensus::TransactionHashMap;
-use hotshot_types::{traits::state::ConsensusTime, data::ViewNumber, constants::genesis_proposer_id};
-use snafu::ResultExt;
 use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
-
-use async_lock::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use flume::{Receiver, Sender};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
+    ViewQueue,
 };
 use hotshot_types::{
-    data::fake_commitment,
+    constants::genesis_proposer_id,
+    data::{fake_commitment, ViewNumber},
+    error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        storage::StoredView,
+        state::ConsensusTime,
+        storage::{StoredView, ViewEntry},
         StateContents,
     },
     HotShotConfig,
 };
 use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
-
+use hotshot_utils::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
+use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     num::NonZeroUsize,
-    sync::Arc,
+    sync::{atomic::Ordering, Arc},
     time::Duration,
 };
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -157,10 +157,10 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
     next_leader_channel_map: Arc<RwLock<SendToTasks<I>>>,
 
     /// for sending messages to network lookup task
-    send_network_lookup: Sender<Option<ViewNumber>>,
+    send_network_lookup: UnboundedSender<Option<ViewNumber>>,
 
     /// for receiving messages in the network lookup task
-    recv_network_lookup: Receiver<Option<ViewNumber>>,
+    recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<ViewNumber>>>>,
 
     /// uid for instrumentation
     id: u64,
@@ -192,9 +192,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         info!("Creating a new hotshot");
 
         let election = {
-            let state =
-                <<I as NodeImplementation>::Election as Election<I::SignatureKey, ViewNumber>>::State::default(
-                );
+            let state = <<I as NodeImplementation>::Election as Election<
+                I::SignatureKey,
+                ViewNumber,
+            >>::State::default();
 
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
@@ -254,7 +255,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
 
-        let (send_network_lookup, recv_network_lookup) = flume::unbounded();
+        let (send_network_lookup, recv_network_lookup) = unbounded();
 
         Ok(Self {
             id: nonce,
@@ -264,7 +265,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
-            recv_network_lookup,
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
         })
     }
 
@@ -282,17 +283,17 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     pub async fn timeout_view(
         &self,
         current_view: ViewNumber,
-        send_replica: Sender<ConsensusMessage<I::State>>,
-        send_next_leader: Option<Sender<ConsensusMessage<I::State>>>,
+        send_replica: UnboundedSender<ConsensusMessage<I::State>>,
+        send_next_leader: Option<UnboundedSender<ConsensusMessage<I::State>>>,
     ) {
         let msg = ConsensusMessage::<I::State>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
-            if chan.send_async(msg.clone()).await.is_err() {
+            if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
             }
         };
         // NOTE this should always exist
-        if send_replica.send_async(msg).await.is_err() {
+        if send_replica.send(msg).await.is_err() {
             warn!("Error timing out replica task");
         };
     }
@@ -461,13 +462,12 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
-                    .await
-                    .sender_chan;
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                // sends the message if not stale, and if there isn't already a proposal in there
-                if chan.is_empty() && chan.send_async(msg).await.is_err() {
-                    error!("Failed to replica task!");
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
+                    && chan.sender_chan.send(msg).await.is_err()
+                {
+                    warn!("Failed to send to next leader!");
                 }
             }
             ConsensusMessage::NextViewInterrupt(_) => {
@@ -518,12 +518,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map)
-                    .await
-                    .sender_chan;
+                let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                if chan.send_async(c).await.is_err() {
-                    warn!("Failed to send to next leader!");
+                if chan.sender_chan.send(c).await.is_err() {
+                    error!("Failed to send to next leader!");
                 }
             }
         }
@@ -545,7 +543,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 let add_transaction = |txns: &mut TransactionHashMap<I>| {
                     txns.insert(transaction.commit(), transaction);
                 };
-                self.transactions.modify(add_transaction);
+                self.transactions.modify(add_transaction).await;
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -569,7 +567,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 state,
                 parent_commitment,
                 rejected,
-                proposer_id
+                proposer_id,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let anchored = match self.inner.storage.get_anchored_view().await {
@@ -590,7 +588,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                         state,
                         parent_commitment,
                         rejected,
-                        proposer_id
+                        proposer_id,
                     );
 
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
@@ -624,7 +622,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     state: anchor.state,
                     parent_commitment: anchor.parent,
                     rejected: anchor.rejected,
-                    proposer_id: anchor.proposer_id
+                    proposer_id: anchor.proposer_id,
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
                     error!(
@@ -716,7 +714,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         self.inner.config.max_transactions
     }
 
-    fn min_transactions(&self) -> usize{
+    fn min_transactions(&self) -> usize {
         self.inner.config.min_transactions
     }
 
@@ -829,13 +827,16 @@ pub struct HotShotInitializer<STATE: StateContents> {
     inner: Leaf<STATE>,
 }
 
-
 impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
-        let state = STATE::default().append(&genesis_block, &ViewNumber::new(0)).map_err(|err| HotShotError::Misc { context: err.to_string()})?;
+        let state = STATE::default()
+            .append(&genesis_block, &ViewNumber::new(0))
+            .map_err(|err| HotShotError::Misc {
+                context: err.to_string(),
+            })?;
         let view_number = ViewNumber::genesis();
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
@@ -848,8 +849,8 @@ impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
                 state,
                 rejected: Vec::new(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: genesis_proposer_id()
-            }
+                proposer_id: genesis_proposer_id(),
+            },
         })
     }
 
