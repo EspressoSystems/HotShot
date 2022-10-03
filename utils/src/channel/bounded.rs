@@ -55,9 +55,9 @@ cfg_if! {
             }
         }
     } else if #[cfg(feature = "channel-async-std")] {
-        pub use async_std::channel::{SendError, TryRecvError, RecvError};
+        pub use async_channel::{SendError, TryRecvError, RecvError};
 
-        use async_std::channel::{
+        use async_channel::{
             Sender as InnerSender,
             Receiver as InnerReceiver,
         };
@@ -86,7 +86,7 @@ pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
         } else if #[cfg(feature = "channel-flume")] {
             let (sender, receiver) = flume::bounded(len);
         } else if #[cfg(feature = "channel-async-std")] {
-            let (sender, receiver) = async_std::channel::bounded(len);
+            let (sender, receiver) = async_channel::bounded(len);
         }
     }
     (Sender(sender), Receiver(receiver))
