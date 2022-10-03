@@ -850,6 +850,14 @@
 <span id="850">850</span>
 <span id="851">851</span>
 <span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -893,9 +901,9 @@
 
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">error::StorageSnafu</span>, <span class="ident">traits::storage::ViewEntry</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn_local</span>;
+<span class="kw">use</span> <span class="ident">hotshot_consensus::TransactionHashMap</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">traits::state::ConsensusTime</span>, <span class="ident">data::ViewNumber</span>, <span class="ident">constants::genesis_proposer_id</span>};
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>},
     <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>},
@@ -1394,10 +1402,10 @@
                 <span class="comment">// so we can assume entry == incoming txn</span>
                 <span class="comment">// even if eq not satisfied</span>
                 <span class="comment">// so insert is an idempotent operation</span>
-                <span class="self">self</span>.<span class="ident">transactions</span>
-                    .<span class="ident">write</span>()
-                    .<span class="kw">await</span>
-                    .<span class="ident">insert</span>(<span class="ident">transaction</span>.<span class="ident">commit</span>(), <span class="ident">transaction</span>);
+                <span class="kw">let</span> <span class="ident">add_transaction</span> <span class="op">=</span> <span class="op">|</span><span class="ident">txns</span>: <span class="kw-2">&amp;mut</span> <span class="ident">TransactionHashMap</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">|</span> {
+                    <span class="ident">txns</span>.<span class="ident">insert</span>(<span class="ident">transaction</span>.<span class="ident">commit</span>(), <span class="ident">transaction</span>);
+                };
+                <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">modify</span>(<span class="ident">add_transaction</span>);
             }
             <span class="ident">DataMessage::NewestQuorumCertificate</span> { .. } =&gt; {
                 <span class="comment">// Log the exceptional situation and proceed</span>
@@ -1562,6 +1570,14 @@
 
     <span class="kw">fn</span> <span class="ident">leader_acts_as_replica</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="bool-val">true</span>
+    }
+
+    <span class="kw">fn</span> <span class="ident">max_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroUsize</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">max_transactions</span>
+    }
+
+    <span class="kw">fn</span> <span class="ident">min_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span>{
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">min_transactions</span>
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">I::SignatureKey</span> {

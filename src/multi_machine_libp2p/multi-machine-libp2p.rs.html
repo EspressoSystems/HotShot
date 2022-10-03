@@ -621,6 +621,7 @@
 <span id="621">621</span>
 <span id="622">622</span>
 <span id="623">623</span>
+<span id="624">624</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
@@ -1033,6 +1034,7 @@
             <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="self">self</span>.<span class="ident">num_nodes</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>(),
             <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="self">self</span>.<span class="ident">threshold</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>(),
             <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
+            <span class="ident">min_transactions</span>: <span class="number">0</span>, 
             <span class="ident">known_nodes</span>: <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
             <span class="ident">next_view_timeout</span>: <span class="self">self</span>.<span class="ident">next_view_timeout</span> <span class="op">*</span> <span class="number">1000</span>,
             <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),

@@ -113,6 +113,7 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
+<span id="116">116</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">hotshot::types</span>::{
     <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
@@ -184,6 +185,7 @@
                 <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">10</span>).<span class="ident">unwrap</span>(),
                 <span class="ident">threshold</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">7</span>).<span class="ident">unwrap</span>(),
                 <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
+                <span class="ident">min_transactions</span>: <span class="number">0</span>,
                 <span class="ident">next_view_timeout</span>: <span class="number">10000</span>,
                 <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
                 <span class="ident">round_start_delay</span>: <span class="number">1</span>,
