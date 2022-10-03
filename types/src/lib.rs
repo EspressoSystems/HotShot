@@ -39,6 +39,8 @@ pub struct HotShotConfig<P> {
     pub total_nodes: NonZeroUsize,
     /// Nodes required to reach a decision
     pub threshold: NonZeroUsize,
+    /// Minimum transactions per block
+    pub min_transactions: usize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
