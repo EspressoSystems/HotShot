@@ -3,4 +3,3 @@
 //! These implementations are not suitable for production use.
 
 pub mod dentry;
-pub mod dentry_hashvrf;

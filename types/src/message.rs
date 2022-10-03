@@ -128,7 +128,7 @@ pub enum DataMessage<STATE: StateContents> {
         rejected: Vec<TxnCommitment<STATE>>,
 
         /// the proposer id for this leaf
-        proposer_id: EncodedPublicKey,
+        proposer_id: EncodedPublicKey
     },
 
     /// Contains a transaction to be submitted
@@ -174,17 +174,10 @@ pub struct Vote<STATE: StateContents> {
     pub justify_qc: QuorumCertificate<STATE>,
     /// The signature share associated with this vote
     pub signature: (EncodedPublicKey, EncodedSignature),
-    // TODO(nm-vacation): This had previously been a type safe wrapper, but I needed to back that
-    // out because it touches a _lot_ of code adding more type parameters here, and there were
-    // conflicts
-    /// The vote token from the election implementation
-    pub token: Vec<u8>,
     /// Hash of the item being voted on
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<STATE>>,
     /// The view this vote was cast for
     pub current_view: ViewNumber,
-    /// The hash of the genesis block, used as a chain id
-    pub chain_id: BlockHash<N>,
 }

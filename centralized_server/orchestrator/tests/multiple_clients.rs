@@ -295,7 +295,9 @@ impl StateContents for TestState {
     fn on_commit(&self) {}
 }
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(
+    Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq, PartialOrd, Ord,
+)]
 struct TestSignatureKey {
     idx: u64,
 }

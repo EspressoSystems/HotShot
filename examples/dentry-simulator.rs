@@ -347,7 +347,6 @@ async fn get_hotshot(
     let config = HotShotConfig {
         execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        expected_size: NonZeroUsize::new(1000).unwrap(),
         threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         known_nodes: known_nodes.clone(),
@@ -355,9 +354,9 @@ async fn get_hotshot(
         timeout_ratio: (11, 10),
         round_start_delay: 1,
         start_delay: 1,
-        num_bootstrap: 5,
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
+        num_bootstrap: 5,
     };
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);

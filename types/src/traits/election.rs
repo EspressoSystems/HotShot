@@ -15,9 +15,9 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// The state type this election implementation is bound to
     type State: StateContents;
     /// A membership proof
-    type VoteToken: Serialize + DeserializeOwned;
+    type VoteToken;
     /// A type stated, validated membership proof
-    type ValidatedVoteToken: Serialize + DeserializeOwned;
+    type ValidatedVoteToken;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
@@ -52,13 +52,6 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken>;
-
-    /// Calcuates the required `SelectionThreshold` for the given parameters
-    fn calcuate_selection_threshold(
-        &self,
-        expected_size: NonZeroUsize,
-        total_participants: NonZeroUsize,
-    ) -> Self::SelectionThreshold;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
     // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>

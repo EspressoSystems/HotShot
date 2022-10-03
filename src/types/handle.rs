@@ -6,7 +6,7 @@ use crate::{
     HotShot, Result,
 };
 use hotshot_types::{
-    data::Leaf,
+    data::{Leaf, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
     traits::{network::NetworkingImplementation, storage::Storage, StateContents}, event::EventType,
 };
@@ -25,7 +25,6 @@ use commit::Commitment;
 use hotshot_consensus::ConsensusApi;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{
-    data::ViewNumber,
     message::ConsensusMessage,
     traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
