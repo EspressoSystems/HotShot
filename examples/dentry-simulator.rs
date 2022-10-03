@@ -24,7 +24,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{MemoryStorage, Stateless, WNetwork},
+        implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
@@ -33,16 +33,16 @@ use hotshot::{
 type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
 
 #[derive(Debug, Parser)]
-#[clap(
+#[command(
     name = "Double Entry Simulator",
     about = "Simulates consensus among a number of nodes"
 )]
 struct Opt {
     /// Number of nodes to run
-    #[structopt(short = 'n', default_value = "7")]
+    #[arg(short = 'n', default_value = "7")]
     nodes: usize,
     /// Number of transactions to simulate
-    #[structopt(short = 't', default_value = "10")]
+    #[arg(short = 't', default_value = "10")]
     transactions: usize,
 }
 /// Prebaked list of transactions
@@ -83,7 +83,7 @@ async fn main() {
     setup_backtrace();
 
     // Get options
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     debug!(?opt);
 
     // Calculate our threshold
@@ -124,11 +124,12 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_>> =
-        join_all(networkings.into_iter().map(|(network, _, _pk, node_id)| {
-            get_hotshot(nodes, threshold, node_id, network)
-        }))
-        .await;
+    let mut hotshots: Vec<HotShotHandle<_>> = join_all(
+        networkings
+            .into_iter()
+            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
+    )
+    .await;
 
     let prebaked_txns = prebaked_transactions();
     let prebaked_count = prebaked_txns.len() as u64;
@@ -370,9 +371,8 @@ async fn get_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        Stateless::default(),
         StaticCommittee::new(known_nodes),
-        initializer
+        initializer,
     )
     .await
     .expect("Could not init hotshot");

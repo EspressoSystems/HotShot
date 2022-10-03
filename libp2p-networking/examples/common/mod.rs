@@ -14,7 +14,7 @@ cfg_if::cfg_if! {
     }
 }
 
-use clap::Parser;
+use clap::{Args, Parser};
 use hotshot_utils::art::{async_sleep, async_spawn};
 use hotshot_utils::channel::oneshot;
 use hotshot_utils::test_util::{setup_backtrace, setup_logging};
@@ -446,37 +446,64 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "webui")] {
+        /// This will be flattened into CliOpt
+        #[derive(Args, Debug)]
+        pub struct WebUi {
+            /// Doc comment
+            #[arg(long = "webui")]
+            pub webui_addr: Option<SocketAddr>,
+        }
+    } else {
+        /// This will be flattened into CliOpt
+        #[derive(Args, Debug)]
+        pub struct WebUi {}
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(all(feature = "lossy_network", target_os = "linux"))] {
+        /// This will be flattened into CliOpt
+        #[derive(Args, Debug)]
+        pub struct EnvType {
+            /// Doc comment
+            #[arg(long = "env")]
+            pub env_type: ExecutionEnvironment,
+        }
+    } else {
+        /// This will be flattened into CliOpt
+        #[derive(Args, Debug)]
+        pub struct EnvType {}
+    }
+}
+
 #[derive(Parser, Debug)]
 pub struct CliOpt {
     /// list of bootstrap node addrs
-    #[clap(long = "to_connect_addrs")]
-    #[clap(parse(try_from_str = parse_node), use_delimiter = true)]
+    #[arg(long, value_parser = parse_node)]
     pub to_connect_addrs: Vec<Multiaddr>,
     /// total number of nodes
-    #[clap(long = "num_nodes")]
+    #[arg(long)]
     pub num_nodes: usize,
     /// the role this node plays
-    #[clap(long = "node_type")]
+    #[arg(long)]
     pub node_type: NetworkNodeType,
     /// internal interface to bind to
-    #[clap(long = "bound_addr")]
-    #[clap(parse(try_from_str = parse_node))]
+    #[arg(long, value_parser = parse_node)]
     pub bound_addr: Multiaddr,
     /// If this value is set, a webserver will be spawned on this address with debug info
-    #[clap(long = "conductor_addr")]
-    #[clap(parse(try_from_str = parse_node))]
+    #[arg(long, value_parser = parse_node)]
     pub conductor_addr: Multiaddr,
 
-    #[cfg(feature = "webui")]
-    #[clap(long = "webui")]
-    pub webui_addr: Option<SocketAddr>,
-    /// type of environment
-    #[cfg(all(feature = "lossy_network", target_os = "linux"))]
-    #[clap(long = "env")]
-    pub env_type: ExecutionEnvironment,
+    #[command(flatten)]
+    pub webui_delegate: WebUi,
+
+    #[command(flatten)]
+    pub env_type_delegate: EnvType,
 
     /// number of rounds of gossip
-    #[clap(long = "num_gossip")]
+    #[arg(long)]
     pub num_gossip: u32,
 }
 
@@ -534,7 +561,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
             );
 
             #[cfg(feature = "webui")]
-            if let Some(addr) = opts.webui_addr {
+            if let Some(addr) = opts.webui_delegate.webui_addr {
                 web::spawn_server(Arc::clone(&handle), addr);
             }
 
@@ -616,7 +643,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
 
             let handle = Arc::new(node);
             #[cfg(feature = "webui")]
-            if let Some(addr) = opts.webui_addr {
+            if let Some(addr) = opts.webui_delegate.webui_addr {
                 web::spawn_server(Arc::clone(&handle), addr);
             }
 

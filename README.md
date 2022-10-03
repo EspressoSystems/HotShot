@@ -83,6 +83,15 @@ To stress test, run the ignored tests prefixed with `test_stress`:
 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace test_stress -- --nocapture --test-threads=1 --ignored
 ```
 
+## Careful
+
+To double check for UB:
+
+```bash
+nix develop .#correctnessShell
+just careful
+```
+
 ## Testing on CI
 
 To test as if running on CI, one must limit the number of cores and ram to match github runners (2 core, 7 gig ram). To limit the ram, spin up a virtual machine or container with 7 gigs ram. To limit the core count when running tests:

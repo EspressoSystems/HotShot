@@ -38,19 +38,11 @@ pub mod types;
 
 mod tasks;
 
-use hotshot_types::{error::StorageSnafu, traits::storage::ViewEntry};
-use hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
-use snafu::ResultExt;
-
 use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
-    types::{Event, EventType, HotShotHandle},
+    types::{Event, HotShotHandle},
 };
-
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
@@ -58,22 +50,27 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionStorage, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
-    constants::GENESIS_VIEW,
+    constants::genesis_proposer_id,
     data::{fake_commitment, ViewNumber},
+    error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::Election,
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        stateful_handler::StatefulHandler,
-        storage::StoredView,
+        state::ConsensusTime,
+        storage::{StoredView, ViewEntry},
         StateContents,
     },
     HotShotConfig,
 };
 use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
-
+use hotshot_utils::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
+use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     num::NonZeroUsize,
@@ -118,11 +115,8 @@ pub struct HotShotInner<I: NodeImplementation> {
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
 
-    /// This `HotShot` instance's stateful callback handler
-    stateful_handler: Mutex<I::StatefulHandler>,
-
     /// This `HotShot` instance's election backend
-    election: HotShotElectionState<I::SignatureKey, I::Election>,
+    election: HotShotElectionState<I::SignatureKey, ViewNumber, I::Election>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::State>>>>,
@@ -132,7 +126,7 @@ pub struct HotShotInner<I: NodeImplementation> {
 }
 
 /// Contains the state of the election of the current [`HotShot`].
-struct HotShotElectionState<P: SignatureKey, E: Election<P>> {
+struct HotShotElectionState<P: SignatureKey, T: ConsensusTime, E: Election<P, T>> {
     /// An instance of the election
     election: E,
     /// The inner state of the election
@@ -191,16 +185,16 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
         initializer: HotShotInitializer<I::State>,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
 
         let election = {
-            let state =
-                <<I as NodeImplementation>::Election as Election<I::SignatureKey>>::State::default(
-                );
+            let state = <<I as NodeImplementation>::Election as Election<
+                I::SignatureKey,
+                ViewNumber,
+            >>::State::default();
 
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
@@ -215,7 +209,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            stateful_handler: Mutex::new(handler),
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
@@ -253,7 +246,9 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             last_decided_view: anchored_leaf.view_number,
             transactions: Arc::default(),
             saved_leaves,
-            locked_view: GENESIS_VIEW,
+            // TODO this is incorrect
+            // https://github.com/EspressoSystems/HotShot/issues/560
+            locked_view: anchored_leaf.view_number,
             high_qc: anchored_leaf.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
@@ -271,20 +266,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
         })
-    }
-
-    /// Sends an event over an event broadcaster if one is registered, does nothing otherwise
-    ///
-    /// Returns `true` if the event was send, `false` otherwise
-    pub async fn send_event(&self, event: Event<I::State>) -> bool {
-        if let Some(c) = self.inner.event_sender.read().await.as_ref() {
-            if let Err(e) = c.send_async(event).await {
-                warn!(?e, "Could not send event to the registered broadcaster");
-            } else {
-                return true;
-            }
-        }
-        false
     }
 
     /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
@@ -375,7 +356,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         config: HotShotConfig<I::SignatureKey>,
         networking: I::Networking,
         storage: I::Storage,
-        handler: I::StatefulHandler,
         election: I::Election,
         initializer: HotShotInitializer<I::State>,
     ) -> Result<HotShotHandle<I>> {
@@ -388,7 +368,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             config,
             networking,
             storage,
-            handler,
             election,
             initializer,
         )
@@ -589,6 +568,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 state,
                 parent_commitment,
                 rejected,
+                proposer_id,
             } => {
                 // TODO https://github.com/EspressoSystems/HotShot/issues/387
                 let anchored = match self.inner.storage.get_anchored_view().await {
@@ -603,25 +583,18 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // <https://github.com/EspressoSystems/HotShot/issues/454>
                 let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
-                    let view_number = qc.view_number;
                     let new_view = StoredView::from_qc_block_and_state(
                         qc,
                         block,
                         state,
                         parent_commitment,
                         rejected,
+                        proposer_id,
                     );
 
                     if let Err(e) = self.inner.storage.append_single_view(new_view).await {
                         error!(?e, "Could not insert incoming QC");
                     }
-
-                    // Broadcast that we're updated
-                    self.send_event(Event {
-                        view_number,
-                        event: EventType::Synced { view_number },
-                    })
-                    .await;
                 }
             }
 
@@ -650,6 +623,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     state: anchor.state,
                     parent_commitment: anchor.parent,
                     rejected: anchor.rejected,
+                    proposer_id: anchor.proposer_id,
                 };
                 if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
                     error!(
@@ -803,18 +777,9 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
-    async fn notify(&self, blocks: Vec<<I::State as StateContents>::Block>, states: Vec<I::State>) {
-        debug!(?blocks, ?states, "notify");
-        self.inner
-            .stateful_handler
-            .lock()
-            .await
-            .notify(blocks, states);
-    }
-
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
-        if qc.genesis && qc.view_number == GENESIS_VIEW {
+        if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
@@ -855,17 +820,17 @@ pub struct HotShotInitializer<STATE: StateContents> {
     inner: Leaf<STATE>,
 }
 
-impl<STATE: StateContents> HotShotInitializer<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
         let state = STATE::default()
-            .append(&genesis_block)
+            .append(&genesis_block, &ViewNumber::new(0))
             .map_err(|err| HotShotError::Misc {
                 context: err.to_string(),
             })?;
-        let view_number = GENESIS_VIEW;
+        let view_number = ViewNumber::genesis();
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
         Ok(Self {
@@ -876,6 +841,8 @@ impl<STATE: StateContents> HotShotInitializer<STATE> {
                 deltas: genesis_block,
                 state,
                 rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: genesis_proposer_id(),
             },
         })
     }

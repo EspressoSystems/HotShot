@@ -130,6 +130,7 @@ rand_chacha = "0.3.1"
 serde = { version = "1.0.145", features = ["derive", "rc"] }
 snafu = { version = "0.7.0", features = ["backtraces"] }
 tempfile = "3.3.0"
+time = "0.3.14"
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -150,7 +151,7 @@ tracing-unwrap = "0.9.2"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
-clap = { version = "3.2.22", features = ["derive", "env"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
 toml = "0.5.8"
 
@@ -174,6 +175,14 @@ features = ["doc-images"]
 [profile.release]
 debug = 1
 lto = "thin"
+incremental = true
+
+## LTO doesn't work with careful
+## explicitly specifying features in case releases features change
+[profile.careful]
+debug = 1
+inherits = "release"
+lto = "off"
 incremental = true
 
 ### Workspace

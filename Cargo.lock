@@ -772,33 +772,31 @@ dependencies = [
  "atty",
  "bitflags",
  "strsim 0.8.0",
- "textwrap 0.11.0",
+ "textwrap",
  "unicode-width",
  "vec_map",
 ]
 
 [[package]]
 name = "clap"
-version = "3.2.22"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
+checksum = "5840cd9093aabeabf7fd932754c435b7674520fc3ddc935c397837050f0f1e4b"
 dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
  "clap_lex",
- "indexmap",
  "once_cell",
  "strsim 0.10.0",
  "termcolor",
- "textwrap 0.15.1",
 ]
 
 [[package]]
 name = "clap_derive"
-version = "3.2.18"
+version = "4.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
+checksum = "92289ffc6fb4a85d85c246ddb874c05a87a2e540fb6ad52f7ca07c8c1e1840b1"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -809,9 +807,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.2.4"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -938,7 +936,7 @@ dependencies = [
  "percent-encoding",
  "rand 0.8.5",
  "sha2 0.9.9",
- "time",
+ "time 0.2.27",
  "version_check",
 ]
 
@@ -1230,6 +1228,17 @@ name = "debug-helper"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f578e8e2c440e7297e008bb5486a3a8a194775224bbc23729b0dbdfaeebf162e"
+
+[[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "derive_arbitrary"
@@ -1874,7 +1883,7 @@ dependencies = [
  "bincode",
  "blake3",
  "cfg-if",
- "clap 3.2.22",
+ "clap 4.0.8",
  "commit",
  "custom_debug",
  "dashmap",
@@ -1893,6 +1902,7 @@ dependencies = [
  "serde",
  "snafu",
  "tempfile",
+ "time 0.3.14",
  "tokio",
  "toml",
  "tracing",
@@ -1933,6 +1943,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
+ "time 0.3.14",
  "tokio",
  "tracing",
 ]
@@ -1944,7 +1955,7 @@ dependencies = [
  "async-std",
  "bincode",
  "cfg-if",
- "clap 3.2.22",
+ "clap 4.0.8",
  "commit",
  "hotshot",
  "hotshot-centralized-server",
@@ -1992,6 +2003,7 @@ dependencies = [
  "cfg-if",
  "commit",
  "custom_debug",
+ "derivative",
  "ed25519-compact",
  "espresso-systems-common",
  "futures",
@@ -2003,6 +2015,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64",
+ "time 0.3.14",
  "tokio",
  "tracing",
 ]
@@ -2672,7 +2685,7 @@ dependencies = [
  "bincode",
  "blake3",
  "cfg-if",
- "clap 3.2.22",
+ "clap 4.0.8",
  "color-eyre",
  "custom_debug",
  "derive_builder",
@@ -3442,6 +3455,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_threads"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "object"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3916,9 +3938,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.40"
+version = "1.0.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd96a1e8ed2596c337f8eae5f24924ec83f5ad5ab21ea8e455d3566c69fbcaf7"
+checksum = "94e2ef8dbfc347b10c094890f778ee2e36ca9bb4262e86dc99cd217e35f3470b"
 dependencies = [
  "unicode-ident",
 ]
@@ -5059,12 +5081,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "949517c0cf1bf4ee812e2e07e08ab448e3ae0d23472aee8a06c985f0c8815b16"
-
-[[package]]
 name = "thiserror"
 version = "1.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5149,6 +5165,16 @@ dependencies = [
  "time-macros",
  "version_check",
  "winapi",
+]
+
+[[package]]
+name = "time"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
+dependencies = [
+ "libc",
+ "num_threads",
 ]
 
 [[package]]

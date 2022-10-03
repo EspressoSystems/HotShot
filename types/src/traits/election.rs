@@ -2,12 +2,12 @@
 
 use commit::Commitment;
 
-use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+use crate::{traits::signature_key::SignatureKey, data::ViewNumber};
 
-use super::StateContents;
+use super::{StateContents, state::ConsensusTime};
 
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<P: SignatureKey>: Send + Sync {
+pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
     /// The threshold for membership selection.

@@ -38,8 +38,18 @@ lint_tokio_flume:
 
 lint_async_std:
   echo Linting with async std executor
-  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples -- -D warnings
 
 lint_async_std_flume:
   echo Linting with async std executor and flume
-  cargo clippy --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples -- -D warnings
+
+careful: careful_tokio careful_async_std
+
+careful_tokio:
+  echo Careful-ing with tokio executor
+  cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+
+careful_async_std:
+  echo Careful-ing with async std executor
+  cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
