@@ -3,7 +3,6 @@ name: Build and Test Workflow
 on:
   push:
     branches:
-      - '*/*'
       - 'benchmarking_*'
       - 'main'
   pull_request:

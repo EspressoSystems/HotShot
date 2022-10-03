@@ -3,7 +3,6 @@ name: Build with Nix Workflow
 on:
   push:
     branches:
-      - '*/*'
       - 'main'
   pull_request:
     branches:
