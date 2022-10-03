@@ -1,7 +1,6 @@
 use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
-use futures::executor::block_on;
 use std::fmt;
 
 /// read only view of [`SubscribableRwLock`]
@@ -11,9 +10,7 @@ pub trait ReadView<T: Clone> {
     /// the updated state upon state change
     async fn subscribe(&self) -> UnboundedReceiver<T>;
     /// async clone the internal state and return it
-    async fn cloned_async(&self) -> T;
-    /// clone the internal state and return it
-    fn cloned(&self) -> T;
+    async fn cloned(&self) -> T;
 }
 
 /// read view with requirements on being threadsafe
@@ -41,12 +38,8 @@ impl<T: Clone + Send + Sync> ReadView<T> for SubscribableRwLock<T> {
         receiver
     }
 
-    async fn cloned_async(&self) -> T {
+    async fn cloned(&self) -> T {
         self.rw_lock.read().await.clone()
-    }
-
-    fn cloned(&self) -> T {
-        block_on(self.cloned_async())
     }
 }
 
@@ -61,7 +54,7 @@ impl<T: Clone> SubscribableRwLock<T> {
 
     /// subscribe to state changes. Receive
     /// the updated state upon state change
-    pub async fn modify_async<F>(&self, cb: F)
+    pub async fn modify<F>(&self, cb: F)
     where
         F: FnOnce(&mut T),
     {
@@ -70,14 +63,6 @@ impl<T: Clone> SubscribableRwLock<T> {
         let result = lock.clone();
         drop(lock);
         self.notify_change_subscribers(result).await;
-    }
-
-    /// clone the internal state and return it
-    pub fn modify<F>(&self, cb: F)
-    where
-        F: FnOnce(&mut T),
-    {
-        block_on(self.modify_async(cb));
     }
 
     /// send subscribers the updated state

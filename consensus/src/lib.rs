@@ -449,7 +449,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
                         .collect();
                 };
-                consensus.transactions.modify(drain_txs);
+                consensus.transactions.modify(drain_txs).await;
             }
 
             let decide_sent = self
@@ -569,7 +569,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         // Wait until we have min_transactions for the block or we hit propose_max_round_time
         while (Instant::now() - task_start_time) < self.api.propose_max_round_time() {
-            let txns = self.transactions.cloned();
+            let txns = self.transactions.cloned().await;
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))

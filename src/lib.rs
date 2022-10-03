@@ -545,7 +545,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 let add_transaction = |txns: &mut TransactionHashMap<I>| {
                     txns.insert(transaction.commit(), transaction);
                 };
-                self.transactions.modify(add_transaction);
+                self.transactions.modify(add_transaction).await;
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed

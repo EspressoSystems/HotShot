@@ -8,7 +8,7 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
-use crate::channel::{bounded, Receiver, Sender};
+use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, MutexGuard};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
@@ -22,7 +22,7 @@ use tracing::warn;
 #[derive(Default)]
 pub struct SubscribableMutex<T: ?Sized> {
     /// A list of subscribers of this mutex.
-    subscribers: Mutex<Vec<Sender<()>>>,
+    subscribers: Mutex<Vec<UnboundedSender<()>>>,
     /// The inner mutex holding the value.
     /// Note that because of the `T: ?Sized` constraint, this must be the last field in this struct.
     mutex: Mutex<T>,
@@ -71,8 +71,8 @@ impl<T> SubscribableMutex<T> {
     }
 
     /// Create a [`Receiver`] that will be notified every time a thread calls [`Self::notify_change_subscribers`]
-    pub async fn subscribe(&self) -> Receiver<()> {
-        let (sender, receiver) = bounded(1);
+    pub async fn subscribe(&self) -> UnboundedReceiver<()> {
+        let (sender, receiver) = unbounded();
         self.subscribers.lock().await.push(sender);
         receiver
     }
@@ -101,7 +101,7 @@ impl<T> SubscribableMutex<T> {
     where
         F: FnMut(&T) -> bool,
     {
-        let mut receiver = {
+        let receiver = {
             let lock = self.mutex.lock().await;
             // Check if we already match the condition. If we do we don't have to subscribe at all.
             if f(&*lock) {
@@ -133,7 +133,7 @@ impl<T> SubscribableMutex<T> {
     ) where
         F: FnMut(&T) -> bool + 'a,
     {
-        let mut receiver = self.subscribe().await;
+        let receiver = self.subscribe().await;
         if ready_chan.send(()).is_err() {
             warn!("unable to notify that channel is ready");
         };
@@ -308,7 +308,7 @@ mod tests {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_compare_and_set() {
         let mutex = SubscribableMutex::new(5usize);
-        let mut subscriber = mutex.subscribe().await;
+        let subscriber = mutex.subscribe().await;
 
         assert_eq!(mutex.copied().await, 5);
 
@@ -330,7 +330,7 @@ mod tests {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_subscriber() {
         let mutex = SubscribableMutex::new(5usize);
-        let mut subscriber = mutex.subscribe().await;
+        let subscriber = mutex.subscribe().await;
 
         // No messages
         assert!(subscriber.try_recv().is_err());
