@@ -520,10 +520,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 let chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).await;
 
-                if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
-                    && chan.sender_chan.send(c).await.is_err()
-                {
-                    warn!("Failed to send to next leader!");
+                if chan.sender_chan.send(c).await.is_err() {
+                    error!("Failed to send to next leader!");
                 }
             }
         }
