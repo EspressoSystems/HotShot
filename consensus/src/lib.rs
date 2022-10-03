@@ -580,8 +580,20 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 && (time_past < self.api.propose_max_round_time())
             {
                 let duration = self.api.propose_max_round_time() - time_past;
-                async_timeout(duration, receiver.recv()).await.ok();
-                continue;
+                let result = async_timeout(duration, receiver.recv()).await;
+                match result {
+                    Err(_)  => {
+                        // Fall through below to updating new block
+                        info!("propose_max_round_time passed, sending transactions we have so far");
+                    }
+                    Ok(Err(e)) => {
+                        // Something unprecedented is wrong, and `transactions` has been dropped
+                        error!("Channel receiver error for SubscribableRwLock {:?}", e);
+                        return self.high_qc;
+                    }
+                    Ok(Ok(_)) => continue,
+                }
+                
             }
 
             // Add unclaimed transactions to the new block
