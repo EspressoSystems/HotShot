@@ -261,55 +261,6 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -326,19 +277,13 @@
     },
 };
 
-<span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">behaviours</span>::{
-        <span class="ident">dht::DHTEvent</span>, <span class="ident">direct_message::DMEvent</span>, <span class="ident">direct_message_codec::DirectMessageResponse</span>,
-        <span class="ident">gossip::GossipEvent</span>,
-    },
-    <span class="ident">node::network_node_handle_error::TimeoutSnafu</span>,
+<span class="kw">use</span> <span class="ident"><span class="self">self</span>::behaviours</span>::{
+    <span class="ident">dht::DHTEvent</span>, <span class="ident">direct_message::DMEvent</span>, <span class="ident">direct_message_codec::DirectMessageResponse</span>,
+    <span class="ident">gossip::GossipEvent</span>,
 };
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">channel::oneshot::Sender</span>, <span class="ident">select</span>, <span class="ident">Future</span>, <span class="ident">FutureExt</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art</span>::{<span class="ident">async_spawn</span>, <span class="ident">async_timeout</span>},
-    <span class="ident">bincode::bincode_opts</span>,
-};
+<span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
+<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
         <span class="kw">use</span> <span class="ident">libp2p::dns::DnsConfig</span> <span class="kw">as</span> <span class="ident">DnsConfig</span>;
@@ -349,7 +294,6 @@
     } <span class="kw">else</span> {
         <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
     }
-
 }
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">build_multiaddr</span>,
@@ -365,9 +309,8 @@
 };
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">seq::IteratorRandom</span>, <span class="ident">thread_rng</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashSet</span>, <span class="ident">fmt::Debug</span>, <span class="ident">io</span>, <span class="ident">str::FromStr</span>, <span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">Instrument</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
 
 <span class="doccomment">/// this is mostly to estimate how many network connections</span>
 <span class="doccomment">/// a node should allow</span>
@@ -556,42 +499,6 @@
         .<span class="ident">boxed</span>())
 }
 
-<span class="doccomment">/// Glue function that listens for events from the Swarm corresponding to `handle`</span>
-<span class="doccomment">/// and calls `event_handler` when an event is observed.</span>
-<span class="doccomment">/// The idea is that this function can be used independent of the actual state</span>
-<span class="doccomment">/// we use</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::panic</span>)]</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">event_handler</span>))]</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spawn_handler</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Default</span> <span class="op">+</span> <span class="ident">Debug</span>, <span class="ident">Fut</span><span class="op">&gt;</span>(
-    <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">event_handler</span>: <span class="kw">impl</span> (<span class="ident">Fn</span>(<span class="ident">NetworkEvent</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">Fut</span>)
-        <span class="op">+</span> <span class="ident">std::marker::Sync</span>
-        <span class="op">+</span> <span class="ident">std::marker::Send</span>
-        <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-) <span class="kw">where</span>
-    <span class="ident">Fut</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">std::marker::Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-{
-    <span class="kw">let</span> <span class="ident">recv_kill</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">recv_kill</span>();
-    <span class="kw">let</span> <span class="ident">recv_event</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">recv_network</span>();
-    <span class="ident">async_spawn</span>(
-        <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">loop</span> {
-                <span class="macro">select!</span>(
-                    <span class="kw">_</span> <span class="op">=</span> <span class="ident">recv_kill</span>.<span class="ident">recv_async</span>().<span class="ident">fuse</span>() =&gt; {
-                        <span class="ident">handle</span>.<span class="ident">mark_killed</span>().<span class="kw">await</span>;
-                        <span class="kw">break</span>;
-                    },
-                    <span class="ident">event</span> <span class="op">=</span> <span class="ident">recv_event</span>.<span class="ident">recv_async</span>().<span class="ident">fuse</span>() =&gt; {
-                        <span class="ident">event_handler</span>(<span class="ident">event</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkNodeHandleError::RecvError</span>)<span class="question-mark">?</span>, <span class="ident">handle</span>.<span class="ident">clone</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-                    },
-                );
-            }
-            <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span>(())
-        }
-        .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;Libp2p Counter Handler&quot;</span>)),
-    );
-}
-
 <span class="doccomment">/// a single node, connects them to each other</span>
 <span class="doccomment">/// and waits for connections to propagate to all nodes.</span>
 <span class="attribute">#[<span class="ident">instrument</span>]</span>
@@ -604,12 +511,7 @@
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
     <span class="macro">info!</span>(<span class="string">&quot;known_nodes{:?}&quot;</span>, <span class="ident">known_nodes</span>);
     <span class="ident">handle</span>.<span class="ident">add_known_peers</span>(<span class="ident">known_nodes</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="ident">async_timeout</span>(
-        <span class="ident">timeout_len</span>,
-        <span class="ident">NetworkNodeHandle::wait_to_connect</span>(<span class="ident">handle</span>.<span class="ident">clone</span>(), <span class="number">4</span>, <span class="ident">handle</span>.<span class="ident">recv_network</span>(), <span class="ident">idx</span>),
-    )
-    .<span class="kw">await</span>
-    .<span class="ident">context</span>(<span class="ident">TimeoutSnafu</span>)<span class="question-mark">?</span><span class="question-mark">?</span>;
+    <span class="ident">handle</span>.<span class="ident">wait_to_connect</span>(<span class="number">4</span>, <span class="ident">idx</span>, <span class="ident">timeout_len</span>).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="ident">handle</span>.<span class="ident">subscribe</span>(<span class="string">&quot;global&quot;</span>.<span class="ident">to_string</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())

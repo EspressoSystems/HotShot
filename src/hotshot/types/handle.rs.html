@@ -329,8 +329,6 @@
 <span id="329">329</span>
 <span id="330">330</span>
 <span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -644,10 +642,9 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_replica_receiver_channel_len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">replica_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-        <span class="ident">channel_map</span>
-            .<span class="ident">channel_map</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">chan</span><span class="op">|</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">len</span>())
+        <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
+        <span class="ident">receiver</span>.<span class="ident">len</span>()
     }
 
     <span class="doccomment">/// Get length of the next leaders&#39;s receiver channel</span>
@@ -657,11 +654,10 @@
         <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
     ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">next_leader_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)<span class="question-mark">?</span>;
 
-        <span class="ident">channel_map</span>
-            .<span class="ident">channel_map</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">chan</span><span class="op">|</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">len</span>())
+        <span class="kw">let</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
+        <span class="ident">receiver</span>.<span class="ident">len</span>()
     }
 }
 </code></pre></div>

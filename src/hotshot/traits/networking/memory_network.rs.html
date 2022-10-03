@@ -704,25 +704,35 @@
 <span id="704">704</span>
 <span id="705">705</span>
 <span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides an in-memory only simulation of an actual network, useful for unit and</span>
 <span class="doccomment">//! integration tests.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">FailedToSerializeSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkReliability</span>, <span class="ident">NetworkingImplementation</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::ReceiverExt</span>;
-<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
+<span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
 <span class="kw">use</span> <span class="ident">dashmap::DashMap</span>;
 <span class="kw">use</span> <span class="ident">futures::StreamExt</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
-    <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">TestableNetworkingImplementation</span>},
+    <span class="ident">network</span>::{<span class="ident">ChannelDisconnectedSnafu</span>, <span class="ident">NetworkChange</span>, <span class="ident">TestableNetworkingImplementation</span>},
     <span class="ident">signature_key</span>::{<span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
     <span class="ident">art</span>::{<span class="ident">async_block_on</span>, <span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>},
     <span class="ident">bincode::bincode_opts</span>,
+    <span class="ident">channel</span>::{<span class="ident">bounded</span>, <span class="ident">Receiver</span>, <span class="ident">SendError</span>, <span class="ident">Sender</span>},
 };
 <span class="kw">use</span> <span class="ident">rand::Rng</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -785,20 +795,20 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="ident">pub_key</span>: <span class="ident">P</span>,
     <span class="doccomment">/// Input for broadcast messages</span>
-    <span class="ident">broadcast_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">broadcast_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Input for direct messages</span>
-    <span class="ident">direct_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">direct_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for broadcast messages</span>
-    <span class="ident">broadcast_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
+    <span class="ident">broadcast_output</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for direct messages</span>
-    <span class="ident">direct_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
+    <span class="ident">direct_output</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The master map</span>
     <span class="ident">master_map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MasterMap</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Input for network change messages</span>
-    <span class="ident">network_changes_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">flume::Sender</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">network_changes_input</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Output for network change messages</span>
-    <span class="ident">network_changes_output</span>: <span class="ident">flume::Receiver</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">network_changes_output</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Receiver</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Count of messages that are in-flight (send but not processed yet)</span>
     <span class="ident">in_flight_message_count</span>: <span class="ident">AtomicUsize</span>,
@@ -838,11 +848,11 @@
         <span class="ident">reliability_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">NetworkReliability</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="ident">MemoryNetwork</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span> {
         <span class="macro">info!</span>(<span class="string">&quot;Attaching new MemoryNetwork&quot;</span>);
-        <span class="kw">let</span> (<span class="ident">broadcast_input</span>, <span class="ident">broadcast_task_recv</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
-        <span class="kw">let</span> (<span class="ident">direct_input</span>, <span class="ident">direct_task_recv</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
-        <span class="kw">let</span> (<span class="ident">broadcast_task_send</span>, <span class="ident">broadcast_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
-        <span class="kw">let</span> (<span class="ident">direct_task_send</span>, <span class="ident">direct_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
-        <span class="kw">let</span> (<span class="ident">network_changes_input</span>, <span class="ident">network_changes_output</span>) <span class="op">=</span> <span class="ident">flume::bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">broadcast_input</span>, <span class="ident">broadcast_task_recv</span>) <span class="op">=</span> <span class="ident">bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">direct_input</span>, <span class="ident">direct_task_recv</span>) <span class="op">=</span> <span class="ident">bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">broadcast_task_send</span>, <span class="ident">broadcast_output</span>) <span class="op">=</span> <span class="ident">bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">direct_task_send</span>, <span class="ident">direct_output</span>) <span class="op">=</span> <span class="ident">bounded</span>(<span class="number">128</span>);
+        <span class="kw">let</span> (<span class="ident">network_changes_input</span>, <span class="ident">network_changes_output</span>) <span class="op">=</span> <span class="ident">bounded</span>(<span class="number">128</span>);
         <span class="kw">let</span> <span class="ident">in_flight_message_count</span> <span class="op">=</span> <span class="ident">AtomicUsize::new</span>(<span class="number">0</span>);
         <span class="macro">trace!</span>(<span class="string">&quot;Channels open, spawning background task&quot;</span>);
 
@@ -874,7 +884,7 @@
                                                 <span class="kw">if</span> <span class="ident">delay</span> <span class="op">&gt;</span> <span class="ident">std::time::Duration::ZERO</span> {
                                                     <span class="ident">async_sleep</span>(<span class="ident">delay</span>).<span class="kw">await</span>;
                                                 }
-                                                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">dts</span>.<span class="ident">send_async</span>(<span class="ident">x</span>).<span class="kw">await</span>;
+                                                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">dts</span>.<span class="ident">send</span>(<span class="ident">x</span>).<span class="kw">await</span>;
                                                 <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_ok</span>() {
                                                     <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                                 } <span class="kw">else</span> {
@@ -885,7 +895,7 @@
                                             }
                                         });
                                     } <span class="kw">else</span> {
-                                        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">dts</span>.<span class="ident">send_async</span>(<span class="ident">x</span>).<span class="kw">await</span>;
+                                        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">dts</span>.<span class="ident">send</span>(<span class="ident">x</span>).<span class="kw">await</span>;
                                         <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_ok</span>() {
                                             <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                         } <span class="kw">else</span> {
@@ -912,7 +922,7 @@
                                                 <span class="kw">if</span> <span class="ident">delay</span> <span class="op">&gt;</span> <span class="ident">std::time::Duration::ZERO</span> {
                                                     <span class="ident">async_sleep</span>(<span class="ident">delay</span>).<span class="kw">await</span>;
                                                 }
-                                                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">bts</span>.<span class="ident">send_async</span>(<span class="ident">x</span>).<span class="kw">await</span>;
+                                                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">bts</span>.<span class="ident">send</span>(<span class="ident">x</span>).<span class="kw">await</span>;
                                                 <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_ok</span>() {
                                                     <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                                 } <span class="kw">else</span> {
@@ -921,7 +931,7 @@
                                             }
                                         });
                                     } <span class="kw">else</span> {
-                                        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">bts</span>.<span class="ident">send_async</span>(<span class="ident">x</span>).<span class="kw">await</span>;
+                                        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">bts</span>.<span class="ident">send</span>(<span class="ident">x</span>).<span class="kw">await</span>;
                                         <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_ok</span>() {
                                             <span class="macro">trace!</span>(<span class="string">&quot;Passed message to output queue&quot;</span>);
                                         } <span class="kw">else</span> {
@@ -955,11 +965,11 @@
                 <span class="ident">pub_key</span>: <span class="ident">pub_key</span>.<span class="ident">clone</span>(),
                 <span class="ident">broadcast_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">broadcast_input</span>)),
                 <span class="ident">direct_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">direct_input</span>)),
-                <span class="ident">broadcast_output</span>,
-                <span class="ident">direct_output</span>,
+                <span class="ident">broadcast_output</span>: <span class="ident">Mutex::new</span>(<span class="ident">broadcast_output</span>),
+                <span class="ident">direct_output</span>: <span class="ident">Mutex::new</span>(<span class="ident">direct_output</span>),
                 <span class="ident">master_map</span>: <span class="ident">master_map</span>.<span class="ident">clone</span>(),
                 <span class="ident">network_changes_input</span>: <span class="ident">RwLock::new</span>(<span class="prelude-val">Some</span>(<span class="ident">network_changes_input</span>)),
-                <span class="ident">network_changes_output</span>,
+                <span class="ident">network_changes_output</span>: <span class="ident">Mutex::new</span>(<span class="ident">network_changes_output</span>),
                 <span class="ident">in_flight_message_count</span>,
             }),
         };
@@ -970,28 +980,28 @@
     }
 
     <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `broadcast_input`</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">broadcast_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">in_flight_message_count</span>
             .<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::Relaxed</span>);
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">broadcast_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
-            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+            <span class="ident">input</span>.<span class="ident">send</span>(<span class="ident">message</span>).<span class="kw">await</span>
         } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+            <span class="prelude-val">Err</span>(<span class="ident">SendError</span>(<span class="ident">message</span>))
         }
     }
 
     <span class="doccomment">/// Send a [`Vec&lt;u8&gt;`] message to the inner `direct_input`</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_input</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SendError</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">in_flight_message_count</span>
             .<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::Relaxed</span>);
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">direct_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
-            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+            <span class="ident">input</span>.<span class="ident">send</span>(<span class="ident">message</span>).<span class="kw">await</span>
         } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+            <span class="prelude-val">Err</span>(<span class="ident">SendError</span>(<span class="ident">message</span>))
         }
     }
 
@@ -999,12 +1009,12 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">network_changes_input</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">message</span>: <span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">flume::SendError</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SendError</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">network_changes_input</span>.<span class="ident">read</span>().<span class="kw">await</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">input</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">input</span> {
-            <span class="ident">input</span>.<span class="ident">send_async</span>(<span class="ident">message</span>).<span class="kw">await</span>
+            <span class="ident">input</span>.<span class="ident">send</span>(<span class="ident">message</span>).<span class="kw">await</span>
         } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">flume::SendError</span>(<span class="ident">message</span>))
+            <span class="prelude-val">Err</span>(<span class="ident">SendError</span>(<span class="ident">message</span>))
         }
     }
 }
@@ -1096,9 +1106,11 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">inner</span>
             .<span class="ident">broadcast_output</span>
-            .<span class="ident">recv_async_drain</span>()
+            .<span class="ident">lock</span>()
             .<span class="kw">await</span>
-            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)<span class="question-mark">?</span>;
+            .<span class="ident">drain_at_least_one</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">context</span>(<span class="ident">ChannelDisconnectedSnafu</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">in_flight_message_count</span>
             .<span class="ident">fetch_sub</span>(<span class="ident">ret</span>.<span class="ident">len</span>(), <span class="ident">Ordering::Relaxed</span>);
@@ -1110,7 +1122,9 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">inner</span>
             .<span class="ident">broadcast_output</span>
-            .<span class="ident">recv_async</span>()
+            .<span class="ident">lock</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">recv</span>()
             .<span class="kw">await</span>
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">inner</span>
@@ -1124,9 +1138,11 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">inner</span>
             .<span class="ident">direct_output</span>
-            .<span class="ident">recv_async_drain</span>()
+            .<span class="ident">lock</span>()
             .<span class="kw">await</span>
-            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)<span class="question-mark">?</span>;
+            .<span class="ident">drain_at_least_one</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">context</span>(<span class="ident">ChannelDisconnectedSnafu</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">in_flight_message_count</span>
             .<span class="ident">fetch_sub</span>(<span class="ident">ret</span>.<span class="ident">len</span>(), <span class="ident">Ordering::Relaxed</span>);
@@ -1138,7 +1154,9 @@
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">inner</span>
             .<span class="ident">direct_output</span>
-            .<span class="ident">recv_async</span>()
+            .<span class="ident">lock</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">recv</span>()
             .<span class="kw">await</span>
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">NetworkError::ShutDown</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">inner</span>
@@ -1160,9 +1178,11 @@
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">network_changes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">network_changes_output</span>
-            .<span class="ident">recv_async_drain</span>()
+            .<span class="ident">lock</span>()
             .<span class="kw">await</span>
-            .<span class="ident">ok_or</span>(<span class="ident">NetworkError::ShutDown</span>)
+            .<span class="ident">drain_at_least_one</span>()
+            .<span class="kw">await</span>
+            .<span class="ident">context</span>(<span class="ident">ChannelDisconnectedSnafu</span>)
     }
 
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">shut_down</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
