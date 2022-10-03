@@ -589,7 +589,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped
                         error!("Channel receiver error for SubscribableRwLock {:?}", e);
-                        return self.high_qc;}
+                        return self.high_qc;
+                    }
                     Ok(Ok(_)) => continue,
                 }
                 
