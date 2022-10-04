@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["main",""],["read_spam",""],["spam",""]],"struct":[["Opts",""]],"type":[["FromServer",""],["ToServer",""]]};

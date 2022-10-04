@@ -1,4 +1,5 @@
 (function() {var implementors = {};
+implementors["benchmark_client"] = [{"text":"impl CommandFactory for <a class=\"struct\" href=\"benchmark_client/struct.Opts.html\" title=\"struct benchmark_client::Opts\">Opts</a>","synthetic":false,"types":["benchmark_client::Opts"]}];
 implementors["counter"] = [{"text":"impl CommandFactory for <a class=\"struct\" href=\"counter/common/struct.CliOpt.html\" title=\"struct counter::common::CliOpt\">CliOpt</a>","synthetic":false,"types":["counter::common::CliOpt"]}];
 implementors["dentry_simulator"] = [{"text":"impl CommandFactory for <a class=\"struct\" href=\"dentry_simulator/struct.Opt.html\" title=\"struct dentry_simulator::Opt\">Opt</a>","synthetic":false,"types":["dentry_simulator::Opt"]}];
 implementors["hotshot_orchestrator"] = [{"text":"impl CommandFactory for <a class=\"enum\" href=\"hotshot_orchestrator/enum.Args.html\" title=\"enum hotshot_orchestrator::Args\">Args</a>","synthetic":false,"types":["hotshot_orchestrator::Args"]}];

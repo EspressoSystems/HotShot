@@ -1,4 +1,5 @@
 var sourcesIndex = JSON.parse('{\
+"benchmark_client":["",[],["main.rs"]],\
 "counter":["",[["common",[],["lossy_network.rs","mod.rs","web.rs"]]],["counter.rs"]],\
 "dentry_simulator":["",[],["dentry-simulator.rs"]],\
 "hotshot":["",[["demos",[],["dentry.rs"]],["tasks",[],["mod.rs"]],["traits",[["networking",[],["centralized_server_network.rs","libp2p_network.rs","memory_network.rs","w_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["committee.rs","data.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
