@@ -26,6 +26,7 @@ use std::{
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
+    cmp,
 };
 use tracing::{debug, error};
 
@@ -137,7 +138,10 @@ async fn main() {
     let adjusted_padding = if padding < size { 0 } else { padding - size };
     let mut txs: VecDeque<DEntryTransaction> = VecDeque::new();
     let state = hotshot.get_state().await;
-    for _ in 0..((transactions_per_round * rounds) / node_count) + 1 {
+    // TODO ed: tx generation will break with VRF committees since it currently assumes leaders are round-robin.  
+    let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1)) + 1;
+    println!("TX TO GEN: {:}", tx_to_gen);
+    for _ in 0..tx_to_gen {
         let mut txn = <DEntryState as TestableState>::create_random_transaction(&state);
         txn.padding = vec![0; adjusted_padding];
         txs.push_back(txn);
