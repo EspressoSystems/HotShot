@@ -18,18 +18,17 @@ type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
 
 #[async_main]
 async fn main() {
-    // let opts: Opts = Opts::parse();
-    const ADDR: &str = "0.us-east-2.cluster.aws.espresso.network:2345";
+    let opts: Opts = Opts::parse();
     setup_logging();
-    let addr = ADDR
+    let addr = opts
+        .addr
         .to_socket_addrs()
-        .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", ADDR))
+        .unwrap_or_else(|e| panic!("Could not resolve addr {}: {e:?}", opts.addr))
         .collect::<Vec<_>>();
     if addr.len() != 1 {
         panic!(
             "{} resolves to {} addresses, cannot continue",
-            // opts.addr,
-            ADDR,
+            opts.addr,
             addr.len()
         );
     }
