@@ -194,6 +194,7 @@ incremental = true
 members = [
         "centralized_server",
         "centralized_server/orchestrator",
+        "centralized_server/benchmark_client",
         "consensus",
         "libp2p-networking",
         "testing",

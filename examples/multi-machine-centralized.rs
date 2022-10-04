@@ -125,6 +125,7 @@ async fn main() {
         seed,
         padding,
         libp2p_config: _,
+        start_delay_seconds: _,
     } = config;
 
     // Initialize the state and hotshot
