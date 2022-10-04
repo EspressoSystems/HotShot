@@ -139,7 +139,7 @@ async fn main() {
     let mut txs: VecDeque<DEntryTransaction> = VecDeque::new();
     let state = hotshot.get_state().await;
     // TODO ed: tx generation will break with VRF committees since it currently assumes leaders are round-robin.  
-    let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1)) + 1;
+    let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1) + 1);
     println!("TX TO GEN: {:}", tx_to_gen);
     for _ in 0..tx_to_gen {
         let mut txn = <DEntryState as TestableState>::create_random_transaction(&state);
