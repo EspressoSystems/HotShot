@@ -1,7 +1,7 @@
 use crate::{FromBackground, Run};
-use flume::Sender;
 use futures::FutureExt;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
+use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
@@ -15,11 +15,11 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
     pub async fn broadcast(&mut self, run: Run, msg: FromBackground<K>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
-        let futures = futures::future::join_all(clients.iter().map(|(id, sender)| {
-            sender
-                .send_async(msg.clone())
-                .map(move |res| (id, res.is_ok()))
-        }))
+        let futures = futures::future::join_all(
+            clients
+                .iter()
+                .map(|(id, sender)| sender.send(msg.clone()).map(move |res| (id, res.is_ok()))),
+        )
         .await;
         let keys_to_remove = futures
             .into_iter()
@@ -40,7 +40,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
             if id.key != sender_key {
                 Some(
                     sender
-                        .send_async(message.clone())
+                        .send(message.clone())
                         .map(move |res| (id, res.is_ok())),
                 )
             } else {
@@ -66,7 +66,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         let clients = &mut self.0[run.0];
         let receiver = OrdKey::from(receiver);
         if let Some(sender) = clients.get_mut(&receiver) {
-            if sender.send_async(msg).await.is_err() {
+            if sender.send(msg).await.is_err() {
                 let mut tree = BTreeSet::new();
                 tree.insert(receiver);
                 self.prune_nodes(run, tree).await;
@@ -90,7 +90,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
                 let message = FromBackground::node_disconnected(client.key);
                 futures.extend(clients.iter().map(|(id, sender)| {
                     sender
-                        .send_async(message.clone())
+                        .send(message.clone())
                         .map(move |result| (id, result.is_ok()))
                 }));
             }

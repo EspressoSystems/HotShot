@@ -166,6 +166,8 @@ cfg_if::cfg_if! {
     }
 }
 
+pub mod channel;
+
 /// Provides utility functions used for testing
 #[cfg(feature = "logging-utils")]
 pub mod test_util {

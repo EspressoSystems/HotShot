@@ -11,7 +11,6 @@ cfg_if::cfg_if! {
     }
 }
 use async_lock::RwLock;
-use flume::{Receiver, Sender};
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -22,7 +21,8 @@ use hotshot_types::{
 };
 use hotshot_utils::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::{channel},
+    broadcast::channel,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use std::{
     collections::HashMap,
@@ -58,7 +58,7 @@ impl TaskHandle {
             let handle = handle.as_ref().unwrap();
             if let Some(s) = &handle.run_view_channels {
                 handle.started.store(true, Ordering::Relaxed);
-                let _ = s.send_async(()).await;
+                let _ = s.send(()).await;
             } else {
                 error!("Run one view channel not configured for this hotshot instance");
             }
@@ -66,11 +66,11 @@ impl TaskHandle {
     }
 
     /// Wait until all underlying handles are shut down
-    pub async fn wait_shutdown(&self, send_network_lookup: Sender<Option<ViewNumber>>) {
+    pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<ViewNumber>>) {
         let inner = self.inner.write().await.take().unwrap();
 
         // this shuts down the networking task
-        if send_network_lookup.send_async(None).await.is_err() {
+        if send_network_lookup.send(None).await.is_err() {
             error!("network lookup task already shut down!");
         }
 
@@ -108,7 +108,7 @@ struct TaskHandleInner {
     /// for the client to indicate "increment a view"
     /// only Some in Continuous exeuction mode
     /// otherwise None
-    pub run_view_channels: Option<Sender<()>>,
+    pub run_view_channels: Option<UnboundedSender<()>>,
     /// Join handle for `network_broadcast_task`
     pub network_broadcast_task_handle: JoinHandle<()>,
 
@@ -157,7 +157,7 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
     let (handle_channels, task_channels) = match hotshot.inner.config.execution_type {
         ExecutionType::Continuous => (None, None),
         ExecutionType::Incremental => {
-            let (send_consensus_start, recv_consensus_start) = flume::unbounded();
+            let (send_consensus_start, recv_consensus_start) = unbounded();
             (Some(send_consensus_start), Some(recv_consensus_start))
         }
     };
@@ -216,6 +216,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     let ViewQueue {
         sender_chan: send_replica,
         receiver_chan: recv_replica,
+        has_received_proposal: _,
     } = create_or_obtain_chan_from_write(replica_cur_view, send_to_replica).await;
 
     let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
@@ -252,7 +253,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
     if hotshot
         .send_network_lookup
-        .send_async(Some(cur_view))
+        .send(Some(cur_view))
         .await
         .is_err()
     {
@@ -345,7 +346,7 @@ pub async fn view_runner<I: NodeImplementation>(
     hotshot: HotShot<I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
-    run_once: Option<Receiver<()>>,
+    run_once: Option<UnboundedReceiver<()>>,
 ) {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
         yield_now().await;
@@ -353,7 +354,7 @@ pub async fn view_runner<I: NodeImplementation>(
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
         if let Some(ref recv) = run_once {
-            let _ = recv.recv_async().await;
+            let _ = recv.recv().await;
         }
         let _ = run_view(hotshot.clone()).await;
     }
@@ -373,7 +374,8 @@ pub async fn network_lookup_task<I: NodeImplementation>(
     let mut completion_map: HashMap<ViewNumber, Arc<AtomicBool>> = HashMap::default();
 
     while !shut_down.load(Ordering::Relaxed) {
-        if let Ok(Some(cur_view)) = hotshot.recv_network_lookup.recv_async().await {
+        let lock = hotshot.recv_network_lookup.lock().await;
+        if let Ok(Some(cur_view)) = lock.recv().await {
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
             // perform pruning

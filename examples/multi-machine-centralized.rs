@@ -3,7 +3,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::StaticCommittee,
-        implementations::{CentralizedServerNetwork, MemoryStorage, Stateless},
+        implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
     types::{ed25519::Ed25519Priv, HotShotHandle},
@@ -77,7 +77,6 @@ async fn init_state_and_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        Stateless::default(),
         StaticCommittee::new(known_nodes),
         initializer,
     )
@@ -98,7 +97,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
-    let opts: NodeOpt = NodeOpt::from_args();
+    let opts: NodeOpt = NodeOpt::parse();
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
 

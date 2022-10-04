@@ -5,15 +5,12 @@
 //!
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
-use crate::{
-    traits::{
-        networking::{
-            CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu, NoSocketsSnafu,
-            SocketDecodeSnafu, WebSocketSnafu,
-        },
-        NetworkError,
+use crate::traits::{
+    networking::{
+        ChannelDisconnectedSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
+        NoSocketsSnafu, SocketDecodeSnafu, WebSocketSnafu,
     },
-    utils::ReceiverExt,
+    NetworkError,
 };
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
@@ -34,7 +31,6 @@ use async_tungstenite::{
 };
 use bincode::Options;
 use dashmap::DashMap;
-use flume::{Receiver, Sender};
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::traits::{
     network::{NetworkChange, TestableNetworkingImplementation},
@@ -43,6 +39,7 @@ use hotshot_types::traits::{
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, async_timeout},
     bincode::bincode_opts,
+    channel::{bounded, unbounded, Receiver, Sender, UnboundedReceiver, UnboundedSender},
 };
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -122,7 +119,7 @@ impl<T, P> Command<T, P> {
 #[derive(Clone)]
 struct Handle<T, P> {
     /// Messages to be sent by this node
-    outbound: flume::Sender<Command<T, P>>,
+    outbound: Sender<Command<T, P>>,
     /// The address of the remote
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
@@ -156,9 +153,9 @@ struct WNetworkInner<T, P: SignatureKey + 'static> {
     /// Duration in between keepalive pings
     keep_alive_duration: Duration,
     /// Sender for changes in the network
-    network_change_input: Sender<NetworkChange<P>>,
+    network_change_input: UnboundedSender<NetworkChange<P>>,
     /// Receiver for changes in the network
-    network_change_output: Receiver<NetworkChange<P>>,
+    network_change_output: UnboundedReceiver<NetworkChange<P>>,
 }
 
 /// Shared waiting state for a [`WNetwork`] instance
@@ -173,18 +170,18 @@ struct Waiters {
 #[derive(Clone)]
 struct Inputs<T> {
     /// Input to broadcast queue
-    broadcast: flume::Sender<T>,
+    broadcast: Sender<T>,
     /// Input to direct queue
-    direct: flume::Sender<T>,
+    direct: Sender<T>,
 }
 
 /// Holds onto the output queues for a [`WNetwork`]
 #[derive(Clone)]
 struct Outputs<T> {
     /// Output from broadcast queue
-    broadcast: flume::Receiver<T>,
+    broadcast: Arc<Mutex<Receiver<T>>>,
     /// Output from direct queue
-    direct: flume::Receiver<T>,
+    direct: Arc<Mutex<Receiver<T>>>,
 }
 
 /// Internal enum for combining message and command streams
@@ -283,7 +280,7 @@ impl<
         match command {
             Command::Broadcast { inner, .. } => {
                 debug!(?inner, "Broadcast");
-                let res = inputs.broadcast.send_async(inner).await;
+                let res = inputs.broadcast.send(inner).await;
                 match res {
                     Ok(_) => Ok(None),
                     Err(_) => Err(NetworkError::ChannelSend),
@@ -291,7 +288,7 @@ impl<
             }
             Command::Direct { inner, .. } => {
                 debug!(?inner, "Broadcast");
-                let res = inputs.direct.send_async(inner).await;
+                let res = inputs.direct.send(inner).await;
                 match res {
                     Ok(_) => Ok(None),
                     Err(_) => Err(NetworkError::ChannelSend),
@@ -331,7 +328,7 @@ impl<
         remote_socket: SocketAddr,
     ) -> Result<(P, Handle<T, P>), NetworkError> {
         info!("Spawning task to handle connection");
-        let (s_outbound, r_outbound) = flume::bounded(128);
+        let (s_outbound, r_outbound) = bounded(128);
         trace!("Opened channels");
         let shutdown = Arc::new(RwLock::new(false));
         let last_message = Arc::new(Mutex::new(Instant::now()));
@@ -381,7 +378,9 @@ impl<
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),
             });
-            let ob_stream =  r_outbound.stream().map(Combo::Command);
+            let ob_stream =  r_outbound
+                .into_stream()
+                .map(Combo::Command);
             let mut combined_stream = futures::stream::select(ws_stream,ob_stream);
             debug!("Entering processing loop");
             while let Some(m) = combined_stream.next().await {
@@ -583,7 +582,7 @@ impl<
     async fn send_raw_message(&self, node: &P, message: Command<T, P>) -> Result<(), NetworkError> {
         let handle = &self.inner.handles.get(node);
         if let Some(handle) = handle {
-            let res = handle.outbound.send_async(message).await;
+            let res = handle.outbound.send(message).await;
             match res {
                 Ok(_) => Ok(()),
                 Err(_) => Err(NetworkError::CouldNotDeliver),
@@ -605,8 +604,8 @@ impl<
         port: u16,
         keep_alive_duration: Option<Duration>,
     ) -> Result<Self, NetworkError> {
-        let (s_direct, r_direct) = flume::bounded(128);
-        let (s_broadcast, r_broadcast) = flume::bounded(128);
+        let (s_direct, r_direct) = bounded(128);
+        let (s_broadcast, r_broadcast) = bounded(128);
         let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(500));
         trace!("Created queues");
         let s_string = format!("{}:{}", listen_addr, port);
@@ -625,7 +624,7 @@ impl<
             .context(FailedToBindListenerSnafu)?;
         debug!("Successfully bound socket");
 
-        let (network_change_input, network_change_output) = flume::unbounded();
+        let (network_change_input, network_change_output) = unbounded();
 
         let inner = WNetworkInner {
             is_ready: Arc::new(AtomicBool::new(true)),
@@ -642,8 +641,8 @@ impl<
                 direct: s_direct,
             },
             outputs: Outputs {
-                broadcast: r_broadcast,
-                direct: r_direct,
+                broadcast: Arc::new(Mutex::new(r_broadcast)),
+                direct: Arc::new(Mutex::new(r_direct)),
             },
             tasks_started: AtomicBool::new(false),
             socket_holder: Mutex::new(Some(listener)),
@@ -714,7 +713,7 @@ impl<
                                             w.inner.handles.insert(pub_key.clone(), handle);
                                             w.inner
                                                 .network_change_input
-                                                .send_async(NetworkChange::NodeConnected(pub_key))
+                                                .send(NetworkChange::NodeConnected(pub_key))
                                                 .await
                                                 .unwrap();
                                             trace!(?addr, "Stored handle for stream");
@@ -820,7 +819,7 @@ impl<
             let _ = other_waiter.send(());
         }
         trace!("Waiter inserted");
-        let res = handle.outbound.send_async(command).await;
+        let res = handle.outbound.send(command).await;
         if res.is_ok() {
             debug!("Ping sent to remote");
             let duration = self.inner.keep_alive_duration;
@@ -831,7 +830,7 @@ impl<
                 self.inner.handles.remove(&remote);
                 self.inner
                     .network_change_input
-                    .send_async(NetworkChange::NodeDisconnected(remote))
+                    .send(NetworkChange::NodeDisconnected(remote))
                     .await
                     .unwrap();
             }
@@ -840,7 +839,7 @@ impl<
             self.inner.handles.remove(&remote);
             self.inner
                 .network_change_input
-                .send_async(NetworkChange::NodeDisconnected(remote))
+                .send(NetworkChange::NodeDisconnected(remote))
                 .await
                 .unwrap();
         }
@@ -887,7 +886,7 @@ impl<
             };
             trace!(?command, "Packed up command");
             // send message down pipe
-            let network_result = handle.outbound.send_async(command).await;
+            let network_result = handle.outbound.send(command).await;
             if let Err(e) = network_result {
                 warn!(?e, "Failed to message remote node");
             } else {
@@ -926,7 +925,7 @@ impl<
             // Send the message down the pipe
             handle
                 .outbound
-                .send_async(command)
+                .send(command)
                 .await
                 .ok()
                 .context(CouldNotDeliverSnafu)?;
@@ -943,9 +942,11 @@ impl<
         self.inner
             .outputs
             .broadcast
-            .recv_async_drain()
+            .lock()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .drain_at_least_one()
+            .await
+            .context(ChannelDisconnectedSnafu)
     }
 
     #[instrument(name = "WNetwork::next_broadcast")]
@@ -953,7 +954,9 @@ impl<
         self.inner
             .outputs
             .broadcast
-            .recv_async()
+            .lock()
+            .await
+            .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)
     }
@@ -963,9 +966,11 @@ impl<
         self.inner
             .outputs
             .direct
-            .recv_async_drain()
+            .lock()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .drain_at_least_one()
+            .await
+            .context(ChannelDisconnectedSnafu)
     }
 
     #[instrument(name = "WNetwork::next_direct")]
@@ -973,7 +978,9 @@ impl<
         self.inner
             .outputs
             .direct
-            .recv_async()
+            .lock()
+            .await
+            .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)
     }
@@ -986,9 +993,9 @@ impl<
     async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
         self.inner
             .network_change_output
-            .recv_async_drain()
+            .drain_at_least_one()
             .await
-            .ok_or(NetworkError::ShutDown)
+            .context(ChannelDisconnectedSnafu)
     }
 
     async fn shut_down(&self) {

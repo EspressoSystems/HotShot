@@ -16,7 +16,7 @@ pub struct TestElection {
     pub leaders: Vec<Ed25519Pub>,
 }
 
-impl Election<Ed25519Pub> for TestElection {
+impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
     type SelectionThreshold = ();
     type State = DummyState;

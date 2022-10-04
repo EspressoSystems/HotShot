@@ -7,7 +7,7 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
-        StateContents,
+        StateContents, state::ConsensusTime,
     },
 };
 use std::marker::PhantomData;
@@ -30,9 +30,10 @@ impl<S> StaticCommittee<S> {
     }
 }
 
-impl<S> Election<Ed25519Pub> for StaticCommittee<S>
+impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
     S: Send + Sync + StateContents,
+    T: ConsensusTime
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;

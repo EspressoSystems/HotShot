@@ -26,12 +26,12 @@ use async_trait::async_trait;
 use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
-use flume::{Receiver, Sender};
 use futures::FutureExt as _;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
+    channel::{bounded, OneShotReceiver, OneShotSender, Receiver, Sender},
 };
 use runs::RoundConfig;
 use snafu::ResultExt;
@@ -226,7 +226,7 @@ impl<K> FromBackground<K> {
 
 pub struct Server<K: SignatureKey + 'static> {
     listener: TcpListener,
-    shutdown: Option<Receiver<()>>,
+    shutdown: Option<OneShotReceiver<()>>,
     config: Option<RoundConfig<K>>,
     _k: PhantomData<&'static K>,
 }
@@ -250,7 +250,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     /// # Panics
     ///
     /// Will panic if the shutdown signal is already configured.
-    pub fn with_shutdown_signal(mut self, shutdown_listener: Receiver<()>) -> Self {
+    pub fn with_shutdown_signal(mut self, shutdown_listener: OneShotReceiver<()>) -> Self {
         if self.shutdown.is_some() {
             panic!("A shutdown signal is already registered and can not be registered twice");
         }
@@ -273,7 +273,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     ///
     /// If `with_shutdown_signal` is called before, this server will stop when that signal is called. Otherwise this server will run forever.
     pub async fn run(self) {
-        let (sender, receiver) = flume::bounded(10);
+        let (sender, receiver) = bounded(10);
 
         let background_task_handle = async_spawn({
             let sender = sender.clone();
@@ -287,23 +287,25 @@ impl<K: SignatureKey + 'static> Server<K> {
         let shutdown_future;
         let mut shutdown = if let Some(shutdown) = self.shutdown {
             shutdown_future = shutdown;
-            shutdown_future.recv_async().boxed().fuse()
+            shutdown_future.recv().boxed().fuse()
         } else {
             futures::future::pending().boxed().fuse()
         };
 
+        let mut listener_fuse = self.listener.accept().boxed().fuse();
         loop {
             futures::select! {
-                result = self.listener.accept().fuse() => {
+                result = listener_fuse => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_spawn(client::spawn(addr, stream, sender.clone()));
+                            async_spawn(client::spawn::<K>(addr, stream, sender.clone()));
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);
                             break;
                         }
                     }
+                    listener_fuse = self.listener.accept().boxed().fuse();
                 }
                 _ = shutdown => {
                     debug!("Received shutdown signal");
@@ -313,7 +315,7 @@ impl<K: SignatureKey + 'static> Server<K> {
         }
         debug!("Server shutting down");
         sender
-            .send_async(ToBackground::Shutdown)
+            .send(ToBackground::Shutdown)
             .await
             .expect("Could not notify background thread that we're shutting down");
         let timeout = async_timeout(Duration::from_secs(5), background_task_handle).await;
@@ -340,13 +342,13 @@ impl<K: SignatureKey + 'static> Server<K> {
 /// - Send direct/broadcast messages to clients
 async fn background_task<K: SignatureKey + 'static>(
     self_sender: Sender<ToBackground<K>>,
-    receiver: Receiver<ToBackground<K>>,
+    mut receiver: Receiver<ToBackground<K>>,
     mut config: Option<RoundConfig<K>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
     loop {
         let msg = receiver
-            .recv_async()
+            .recv()
             .await
             .map_err(|_| Error::BackgroundShutdown)?;
 
@@ -450,7 +452,7 @@ async fn background_task<K: SignatureKey + 'static>(
                         .get_next_config(addr.ip(), sender, self_sender.clone())
                         .await;
                 } else {
-                    let _ = sender.send_async(ClientConfig::default()).await;
+                    sender.send(ClientConfig::default());
                 }
             }
             ToBackground::StartRun(run) => {
@@ -461,6 +463,7 @@ async fn background_task<K: SignatureKey + 'static>(
     }
 }
 
+#[derive(Debug)]
 pub enum ToBackground<K> {
     Shutdown,
     StartRun(Run),
@@ -504,7 +507,7 @@ pub enum ToBackground<K> {
     },
     ClientConnected {
         addr: SocketAddr,
-        sender: Sender<ClientConfig<K>>,
+        sender: OneShotSender<ClientConfig<K>>,
     },
 }
 

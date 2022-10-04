@@ -1,0 +1,33 @@
+name: Careful Workflow
+
+on:
+  schedule:
+    # run at midnight on monday
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  careful:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v17
+
+      - uses: cachix/cachix-action@v10
+        with:
+          name: espresso-systems-private
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Configure Git
+        run: |
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PATH }}@github.com/".insteadOf git://github.com/
+          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Run careful tests
+        run: |
+          nix develop .#correctnessShell -c just careful
+        timeout-minutes: 90

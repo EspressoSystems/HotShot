@@ -4,14 +4,15 @@
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
 use crate::{
-    constants::GENESIS_VIEW,
+    constants::genesis_proposer_id,
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        BlockContents, StateContents,
+        BlockContents, StateContents, state::ConsensusTime,
     },
 };
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
@@ -19,6 +20,8 @@ use std::{collections::BTreeMap, fmt::Debug};
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ViewNumber(u64);
+
+impl ConsensusTime for ViewNumber {}
 
 impl ViewNumber {
     /// Create a genesis view number (0)
@@ -60,7 +63,7 @@ impl<STATE: StateContents> QuorumCertificate<STATE> {
         Self {
             block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<Leaf<STATE>>(),
-            view_number: GENESIS_VIEW,
+            view_number: ViewNumber::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
         }
@@ -117,7 +120,8 @@ pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// subset of state that we stick into a leaf.
-#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+#[derive(Clone, Derivative, Serialize, Deserialize, custom_debug::Debug)]
+#[derivative(PartialEq, Eq, Hash)]
 pub struct ProposalLeaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
@@ -144,12 +148,17 @@ pub struct ProposalLeaf<STATE: StateContents> {
     /// Transactions that were marked for rejection while collecting deltas
     #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<TxnCommitment<STATE>>,
+
+    /// the propser id
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub proposer_id: EncodedPublicKey
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `T` is constrainted to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Clone, Serialize, Deserialize, custom_debug::Debug, PartialEq, std::hash::Hash, Eq)]
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+#[derive(Serialize, Deserialize, custom_debug::Debug, Clone, Derivative)]
+#[derivative(PartialEq, Eq)]
 pub struct Leaf<STATE: StateContents> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
@@ -175,6 +184,14 @@ pub struct Leaf<STATE: StateContents> {
     /// Transactions that were marked for rejection while collecting deltas
     #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<TxnCommitment<STATE>>,
+
+    /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
+    #[derivative(PartialEq = "ignore")]
+    pub timestamp: i128,
+
+    /// the proposer id of the leaf
+    #[derivative(PartialEq = "ignore")]
+    pub proposer_id: EncodedPublicKey
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -231,31 +248,37 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
             deltas: leaf.deltas,
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
+            proposer_id: leaf.proposer_id
         }
     }
 }
 
-impl<STATE: StateContents> Leaf<STATE> {
+impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
     ///   * `item` - The block to include
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: STATE,
         deltas: STATE::Block,
-        parent: Commitment<Leaf<STATE>>,
-        qc: QuorumCertificate<STATE>,
+        parent_commitment: Commitment<Leaf<STATE>>,
+        justify_qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
         rejected: Vec<TxnCommitment<STATE>>,
+        timestamp: i128,
+        proposer_id: EncodedPublicKey
     ) -> Self {
         Leaf {
             view_number,
-            justify_qc: qc,
-            parent_commitment: parent,
+            justify_qc,
+            parent_commitment,
             deltas,
             state,
             rejected,
+            timestamp,
+            proposer_id
         }
     }
 
@@ -270,19 +293,22 @@ impl<STATE: StateContents> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::Block) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas).unwrap();
+        let state = STATE::default().append(&deltas, &ViewNumber::genesis()).unwrap();
         Self {
-            view_number: GENESIS_VIEW,
+            view_number: ViewNumber::genesis(),
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
             state,
             rejected: Vec::new(),
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: genesis_proposer_id()
         }
     }
 }
 
-impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
+
+impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
         Leaf::new(
             append.state,
@@ -291,6 +317,8 @@ impl<STATE: StateContents> From<StoredView<STATE>> for Leaf<STATE> {
             append.justify_qc,
             append.view_number,
             Vec::new(),
+            append.timestamp,
+            append.proposer_id,
         )
     }
 }
@@ -304,6 +332,8 @@ impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
             state: val.state,
             append: val.deltas.into(),
             rejected: val.rejected,
+            timestamp: val.timestamp,
+            proposer_id: val.proposer_id
         }
     }
 }

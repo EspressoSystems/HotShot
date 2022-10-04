@@ -2,9 +2,11 @@ use crate::{
     config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
-use flume::Sender;
 use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_utils::art::{async_spawn, split_stream};
+use hotshot_utils::{
+    art::{async_spawn, split_stream},
+    channel::{bounded, oneshot, Sender},
+};
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
 
@@ -36,7 +38,7 @@ pub(crate) async fn spawn<K: SignatureKey + 'static>(
     // if we were far enough into `run_client` to obtain a signature key and run #, properly disconnect from the network
     if let (Some(key), Some(run)) = (key, run) {
         let _ = sender
-            .send_async(ToBackground::ClientDisconnected { run, key })
+            .send(ToBackground::ClientDisconnected { run, key })
             .await;
     }
 }
@@ -50,13 +52,13 @@ async fn run_client<K: SignatureKey + 'static>(
 ) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, receiver) = flume::bounded::<FromBackground<K>>(10);
+    let (sender, mut receiver) = bounded::<FromBackground<K>>(10);
 
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
         let mut send_stream = TcpStreamSendUtil::new(write_stream);
         async move {
-            while let Ok(msg) = receiver.recv_async().await {
+            while let Ok(msg) = receiver.recv().await {
                 let FromBackground { header, payload } = msg;
                 let payload_len = payload.as_ref().map(|p| p.len()).unwrap_or(0);
                 if let Some(payload_expected_len) = header.payload_len() {
@@ -89,15 +91,15 @@ async fn run_client<K: SignatureKey + 'static>(
 
     // Get the network config and the run # from the background thread.
     let ClientConfig { run, config } = {
-        let (sender, receiver) = flume::bounded(1);
+        let (sender, receiver) = oneshot();
         let _ = to_background
-            .send_async(ToBackground::ClientConnected {
+            .send(ToBackground::ClientConnected {
                 addr: address,
                 sender,
             })
             .await;
         receiver
-            .recv_async()
+            .recv()
             .await
             .expect("Could not get client info from background")
     };
@@ -118,7 +120,7 @@ async fn run_client<K: SignatureKey + 'static>(
                 let sender = sender.clone();
                 // register with the background
                 to_background
-                    .send_async(ToBackground::NewClient { run, key, sender })
+                    .send(ToBackground::NewClient { run, key, sender })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -129,7 +131,7 @@ async fn run_client<K: SignatureKey + 'static>(
             // The client requested the config
             (ToServer::GetConfig, _) => {
                 sender
-                    .send_async(FromBackground::config(config.clone(), run))
+                    .send(FromBackground::config(config.clone(), run))
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
@@ -141,7 +143,7 @@ async fn run_client<K: SignatureKey + 'static>(
             (ToServer::Broadcast { message_len }, true) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
-                    .send_async(ToBackground::IncomingBroadcast {
+                    .send(ToBackground::IncomingBroadcast {
                         run,
                         sender: sender.clone(),
                         message_len,
@@ -156,7 +158,7 @@ async fn run_client<K: SignatureKey + 'static>(
                         .await?;
                     remaining -= message_chunk.len();
                     to_background
-                        .send_async(ToBackground::IncomingBroadcastChunk {
+                        .send(ToBackground::IncomingBroadcastChunk {
                             run,
                             sender: sender.clone(),
                             message_chunk,
@@ -175,7 +177,7 @@ async fn run_client<K: SignatureKey + 'static>(
             ) => {
                 let sender = parent_key.clone().unwrap();
                 to_background
-                    .send_async(ToBackground::IncomingDirectMessage {
+                    .send(ToBackground::IncomingDirectMessage {
                         run,
                         sender: sender.clone(),
                         receiver: target.clone(),
@@ -190,7 +192,7 @@ async fn run_client<K: SignatureKey + 'static>(
                         .await?;
                     remaining -= message_chunk.len();
                     to_background
-                        .send_async(ToBackground::IncomingDirectMessageChunk {
+                        .send(ToBackground::IncomingDirectMessageChunk {
                             run,
                             sender: sender.clone(),
                             receiver: target.clone(),
@@ -203,7 +205,7 @@ async fn run_client<K: SignatureKey + 'static>(
             // Client wants to know how many clients are connected in the current run
             (ToServer::RequestClientCount, true) => {
                 to_background
-                    .send_async(ToBackground::RequestClientCount {
+                    .send(ToBackground::RequestClientCount {
                         run,
                         sender: parent_key.clone().unwrap(),
                     })
@@ -213,7 +215,7 @@ async fn run_client<K: SignatureKey + 'static>(
             // Client wants to submit the results of this run
             (ToServer::Results(results), true) => {
                 to_background
-                    .send_async(ToBackground::Results { results })
+                    .send(ToBackground::Results { results })
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
             }
