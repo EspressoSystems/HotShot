@@ -138,7 +138,7 @@ async fn main() {
     let adjusted_padding = if padding < size { 0 } else { padding - size };
     let mut txs: VecDeque<DEntryTransaction> = VecDeque::new();
     let state = hotshot.get_state().await;
-    // TODO ed: tx generation will break with VRF committees since it currently assumes leaders are round-robin.  
+    // TODO ed: tx generation could break with VRF committees since this assumes round robin leader selection.  
     let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1) + 1);
     println!("TX TO GEN: {:}", tx_to_gen);
     for _ in 0..tx_to_gen {
