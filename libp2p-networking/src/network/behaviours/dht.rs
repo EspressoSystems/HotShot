@@ -201,13 +201,20 @@ impl DHTBehaviour {
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`crate::network::error::DHTError`] is sent instead.
+    /// NOTE: noop if `retry_count` is 0
     pub fn get_record(
         &mut self,
         key: Vec<u8>,
         chan: Sender<Vec<u8>>,
         factor: NonZeroUsize,
         backoff: ExponentialBackoff,
+        retry_count: u8
     ) {
+        // noop
+        if retry_count == 0 {
+            return
+        }
+
         let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
         let query = KadGetQuery {
             backoff,
@@ -215,6 +222,7 @@ impl DHTBehaviour {
             notify: chan,
             num_replicas: factor,
             key,
+            retry_count: retry_count - 1
         };
         self.in_progress_get_record_queries.insert(qid, query);
     }
@@ -227,6 +235,7 @@ impl DHTBehaviour {
             notify,
             num_replicas,
             key,
+            retry_count
         }) = self.in_progress_get_record_queries.remove(&id)
         {
             // if channel has been dropped, cancel request
@@ -262,7 +271,7 @@ impl DHTBehaviour {
                     // lack of replication => error
                     else if records.len() < NUM_REPLICATED_TO_TRUST {
                         warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
-                        self.get_record(key, notify, num_replicas, backoff);
+                        self.get_record(key, notify, num_replicas, backoff, retry_count);
                     }
                     // many records that don't match => disagreement
                     else if records.len() > MAX_DHT_QUERY_SIZE {
@@ -270,7 +279,7 @@ impl DHTBehaviour {
                             "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
                             progress
                         );
-                        self.get_record(key, notify, num_replicas, backoff);
+                        self.get_record(key, notify, num_replicas, backoff, retry_count);
                     }
                     // disagreement => query more nodes
                     else {
@@ -279,7 +288,7 @@ impl DHTBehaviour {
                         let new_factor =
                             NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
 
-                        self.get_record(key, notify, new_factor, backoff);
+                        self.get_record(key, notify, new_factor, backoff, retry_count);
                         warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
                     }
                 }
@@ -290,6 +299,7 @@ impl DHTBehaviour {
                         notify,
                         num_replicas,
                         key,
+                        retry_count
                     };
                     new_query.backoff.start_next(false);
                     self.queued_get_record_queries.push_back(new_query);
@@ -463,6 +473,8 @@ pub(crate) struct KadGetQuery {
     pub(crate) num_replicas: NonZeroUsize,
     /// the key to look up
     pub(crate) key: Vec<u8>,
+    /// the number of remaining retries before giving up
+    pub(crate) retry_count: u8
 }
 
 /// Metadata holder for get query
@@ -549,7 +561,7 @@ impl NetworkBehaviour for DHTBehaviour {
         // retry put/gets if they are ready
         while let Some(req) = self.queued_get_record_queries.pop_front() {
             if req.backoff.is_expired() {
-                self.get_record(req.key, req.notify, req.num_replicas, req.backoff);
+                self.get_record(req.key, req.notify, req.num_replicas, req.backoff, req.retry_count);
             } else {
                 self.queued_get_record_queries.push_back(req);
             }
