@@ -420,11 +420,14 @@ impl<S> NetworkNodeHandle<S> {
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
     pub async fn direct_request(
         &self,
-        peer_id: PeerId,
+        pid: PeerId,
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
-        let req = ClientRequest::DirectRequest(peer_id, serialized_msg, 1);
+        let req = ClientRequest::DirectRequest{
+            pid,
+            contents: serialized_msg,
+            retry_count: 1};
         self.send_request(req).await
     }
 

@@ -366,9 +366,9 @@ impl NetworkNode {
                             error!("finished unsubscribing but response channel dropped");
                         }
                     }
-                    DirectRequest(pid, msg, retry_count) => {
+                    DirectRequest{pid, contents, retry_count} => {
                         info!("pid {:?} adding direct request", self.peer_id);
-                        behaviour.add_direct_request(pid, msg, retry_count);
+                        behaviour.add_direct_request(pid, contents, retry_count);
                     }
                     DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);

@@ -114,7 +114,14 @@ pub enum ClientRequest {
     /// unsubscribe from a topic
     Unsubscribe(String, Sender<()>),
     /// client request to send a direct serialized message
-    DirectRequest(PeerId, Vec<u8>, u8),
+    DirectRequest {
+        /// peer id
+        pid: PeerId,
+        /// msg contents
+        contents: Vec<u8>,
+        /// number of retries
+        retry_count: u8
+    },
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
     /// prune a peer
