@@ -597,6 +597,7 @@
 <span id="597">597</span>
 <span id="598">598</span>
 <span id="599">599</span>
+<span id="600">600</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -933,11 +934,12 @@
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer set to client&quot;</span>);
                         }
                     }
-                    <span class="ident">GetDHT</span> { <span class="ident">key</span>, <span class="ident">notify</span> } =&gt; {
+                    <span class="ident">GetDHT</span> { <span class="ident">key</span>, <span class="ident">notify</span>, <span class="ident">retry_count</span> } =&gt; {
                         <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">get_record</span>(
                             <span class="ident">key</span>,
                             <span class="ident">notify</span>,
                             <span class="ident">NonZeroUsize::new</span>(<span class="ident">NUM_REPLICATED_TO_TRUST</span>).<span class="ident">unwrap</span>(),
+                            <span class="ident">retry_count</span>
                         );
                     }
                     <span class="ident">IgnorePeers</span>(<span class="ident">_peers</span>) =&gt; {
@@ -964,9 +966,9 @@
                             <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
                         }
                     }
-                    <span class="ident">DirectRequest</span>(<span class="ident">pid</span>, <span class="ident">msg</span>) =&gt; {
+                    <span class="ident">DirectRequest</span>{<span class="ident">pid</span>, <span class="ident">contents</span>, <span class="ident">retry_count</span>} =&gt; {
                         <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-                        <span class="ident">behaviour</span>.<span class="ident">add_direct_request</span>(<span class="ident">pid</span>, <span class="ident">msg</span>);
+                        <span class="ident">behaviour</span>.<span class="ident">add_direct_request</span>(<span class="ident">pid</span>, <span class="ident">contents</span>, <span class="ident">retry_count</span>);
                     }
                     <span class="ident">DirectResponse</span>(<span class="ident">chan</span>, <span class="ident">msg</span>) =&gt; {
                         <span class="ident">behaviour</span>.<span class="ident">add_direct_response</span>(<span class="ident">chan</span>, <span class="ident">msg</span>);

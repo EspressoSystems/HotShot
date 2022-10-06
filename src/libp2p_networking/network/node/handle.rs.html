@@ -671,6 +671,11 @@
 <span id="671">671</span>
 <span id="672">672</span>
 <span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
     <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">error::DHTError</span>, <span class="ident">gen_multiaddr</span>,
     <span class="ident">ClientRequest</span>, <span class="ident">NetworkError</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
@@ -981,6 +986,7 @@
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_record</span><span class="op">&lt;</span><span class="ident">V</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network::error::CancelledRequestSnafu</span>;
 
@@ -988,6 +994,7 @@
         <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::GetDHT</span> {
             <span class="ident">key</span>: <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">key</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>,
             <span class="ident">notify</span>: <span class="ident">s</span>,
+            <span class="ident">retry_count</span>
         };
         <span class="self">self</span>.<span class="ident">send_request</span>(<span class="ident">req</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1010,7 +1017,7 @@
         <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
         <span class="ident">timeout</span>: <span class="ident">Duration</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">V</span>, <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">async_timeout</span>(<span class="ident">timeout</span>, <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">key</span>)).<span class="kw">await</span>;
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">async_timeout</span>(<span class="ident">timeout</span>, <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">key</span>, <span class="number">1</span>)).<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="ident">TimeoutSnafu</span>),
             <span class="prelude-val">Ok</span>(<span class="ident">r</span>) =&gt; <span class="ident">r</span>,
@@ -1091,11 +1098,14 @@
     <span class="doccomment">/// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">direct_request</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
+        <span class="ident">pid</span>: <span class="ident">PeerId</span>,
         <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">Serialize</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">serialized_msg</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="ident">msg</span>).<span class="ident">context</span>(<span class="ident">SerializationSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectRequest</span>(<span class="ident">peer_id</span>, <span class="ident">serialized_msg</span>);
+        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">ClientRequest::DirectRequest</span>{
+            <span class="ident">pid</span>,
+            <span class="ident">contents</span>: <span class="ident">serialized_msg</span>,
+            <span class="ident">retry_count</span>: <span class="number">1</span>};
         <span class="self">self</span>.<span class="ident">send_request</span>(<span class="ident">req</span>).<span class="kw">await</span>
     }
 

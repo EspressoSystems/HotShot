@@ -261,6 +261,15 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
 <span class="kw">mod</span> <span class="ident">def</span>;
@@ -377,7 +386,14 @@
     <span class="doccomment">/// unsubscribe from a topic</span>
     <span class="ident">Unsubscribe</span>(<span class="ident">String</span>, <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>),
     <span class="doccomment">/// client request to send a direct serialized message</span>
-    <span class="ident">DirectRequest</span>(<span class="ident">PeerId</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
+    <span class="ident">DirectRequest</span> {
+        <span class="doccomment">/// peer id</span>
+        <span class="ident">pid</span>: <span class="ident">PeerId</span>,
+        <span class="doccomment">/// msg contents</span>
+        <span class="ident">contents</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="doccomment">/// number of retries</span>
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>
+    },
     <span class="doccomment">/// client request to send a direct reply to a message</span>
     <span class="ident">DirectResponse</span>(<span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
     <span class="doccomment">/// prune a peer</span>
@@ -403,6 +419,8 @@
         <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
         <span class="doccomment">/// Channel to notify caller of value (or failure to find value)</span>
         <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="doccomment">/// number of retries to make</span>
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>
     },
     <span class="doccomment">/// Request the number of connected peers</span>
     <span class="ident">GetConnectedPeerNum</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>),
