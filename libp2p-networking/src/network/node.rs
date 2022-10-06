@@ -334,11 +334,12 @@ impl NetworkNode {
                             error!("error sending peer set to client");
                         }
                     }
-                    GetDHT { key, notify } => {
+                    GetDHT { key, notify, retry_count } => {
                         self.swarm.behaviour_mut().get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            retry_count
                         );
                     }
                     IgnorePeers(_peers) => {
@@ -365,9 +366,9 @@ impl NetworkNode {
                             error!("finished unsubscribing but response channel dropped");
                         }
                     }
-                    DirectRequest(pid, msg) => {
+                    DirectRequest(pid, msg, retry_count) => {
                         info!("pid {:?} adding direct request", self.peer_id);
-                        behaviour.add_direct_request(pid, msg);
+                        behaviour.add_direct_request(pid, msg, retry_count);
                     }
                     DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);

@@ -114,7 +114,7 @@ pub enum ClientRequest {
     /// unsubscribe from a topic
     Unsubscribe(String, Sender<()>),
     /// client request to send a direct serialized message
-    DirectRequest(PeerId, Vec<u8>),
+    DirectRequest(PeerId, Vec<u8>, u8),
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
     /// prune a peer
@@ -140,6 +140,8 @@ pub enum ClientRequest {
         key: Vec<u8>,
         /// Channel to notify caller of value (or failure to find value)
         notify: Sender<Vec<u8>>,
+        /// number of retries to make
+        retry_count: u8
     },
     /// Request the number of connected peers
     GetConnectedPeerNum(Sender<usize>),

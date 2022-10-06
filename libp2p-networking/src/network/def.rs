@@ -112,20 +112,21 @@ impl NetworkDef {
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`super::error::DHTError`] is sent instead.
-    pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize) {
+    pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize, retry_count: u8) {
         self.dht
-            .get_record(key, chan, factor, ExponentialBackoff::default());
+            .get_record(key, chan, factor, ExponentialBackoff::default(), retry_count);
     }
 }
 
 /// Request/response functions
 impl NetworkDef {
     /// Add a direct request for a given peer
-    pub fn add_direct_request(&mut self, peer_id: PeerId, data: Vec<u8>) {
+    pub fn add_direct_request(&mut self, peer_id: PeerId, data: Vec<u8>, retry_count: u8) {
         let request = DMRequest {
             peer_id,
             data,
             backoff: ExponentialBackoff::default(),
+            retry_count
         };
         self.request_response.add_direct_request(request);
     }
