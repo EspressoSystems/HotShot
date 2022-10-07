@@ -31,7 +31,7 @@ async-lock = "2.5"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.57"
 cfg-if = "1"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
 custom_debug = "0.5"
 futures = "0.3.24"
 hotshot-types = { path = "../types", default-features = false }
