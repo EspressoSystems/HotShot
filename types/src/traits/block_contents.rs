@@ -18,7 +18,7 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 ///   * Must be able to be produced incrementally by appending transactions
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
-pub trait BlockContents:
+pub trait Block:
     Serialize
     + Clone
     + Debug
@@ -108,7 +108,7 @@ pub mod dummy {
         }
     }
 
-    impl BlockContents for DummyBlock {
+    impl Block for DummyBlock {
         type Error = DummyError;
 
         type Transaction = DummyTransaction;

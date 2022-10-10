@@ -8,5 +8,5 @@ pub mod signature_key;
 pub mod state;
 pub mod storage;
 
-pub use block_contents::BlockContents;
-pub use state::StateContents;
+pub use block_contents::Block;
+pub use state::State;

@@ -3,7 +3,7 @@
 
 use crate::{
     data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
-    traits::{BlockContents, StateContents},
+    traits::{Block, State},
 };
 use async_trait::async_trait;
 use commit::Commitment;
@@ -33,7 +33,7 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 #[async_trait]
 pub trait Storage<STATE>: Clone + Send + Sync
 where
-    STATE: StateContents + 'static,
+    STATE: State + 'static,
 {
     /// Append the list of views to this storage
     async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result;
@@ -63,7 +63,7 @@ where
 #[async_trait]
 pub trait TestableStorage<STATE>: Clone + Send + Sync + Storage<STATE>
 where
-    STATE: StateContents + 'static,
+    STATE: State + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
@@ -79,7 +79,7 @@ where
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq, Eq)]
-pub struct StorageState<STATE: StateContents> {
+pub struct StorageState<STATE: State> {
     /// The views that have been successful
     pub stored: BTreeMap<ViewNumber, StoredView<STATE>>,
     /// The views that have failed
@@ -90,7 +90,7 @@ pub struct StorageState<STATE: StateContents> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ViewEntry<STATE>
 where
-    STATE: StateContents,
+    STATE: State,
 {
     /// A succeeded view
     Success(StoredView<STATE>),
@@ -102,7 +102,7 @@ where
 
 impl<STATE> From<StoredView<STATE>> for ViewEntry<STATE>
 where
-    STATE: StateContents,
+    STATE: State,
 {
     fn from(view: StoredView<STATE>) -> Self {
         Self::Success(view)
@@ -112,7 +112,7 @@ where
 /// A view stored in the [`Storage`]
 #[derive(Derivative, Debug)]
 #[derivative(PartialEq, Eq, Clone)]
-pub struct StoredView<STATE: StateContents> {
+pub struct StoredView<STATE: State> {
     /// The view number of this view
     pub view_number: ViewNumber,
     /// The parent of this view
@@ -122,7 +122,7 @@ pub struct StoredView<STATE: StateContents> {
     /// The state of this view
     pub state: STATE,
     /// The history of how this view came to be
-    pub append: ViewAppend<<STATE as StateContents>::Block>,
+    pub append: ViewAppend<<STATE as State>::BlockType>,
     /// transactions rejected in this view
     pub rejected: Vec<TxnCommitment<STATE>>,
     /// the timestamp this view was recv-ed in nanonseconds
@@ -135,14 +135,14 @@ pub struct StoredView<STATE: StateContents> {
 
 impl<STATE> StoredView<STATE>
 where
-    STATE: StateContents,
+    STATE: State,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
         qc: QuorumCertificate<STATE>,
-        block: <STATE as StateContents>::Block,
+        block: <STATE as State>::BlockType,
         state: STATE,
         parent_commitment: Commitment<Leaf<STATE>>,
         rejected: Vec<TxnCommitment<STATE>>,
@@ -163,7 +163,7 @@ where
 
 /// Indicates how a view came to be
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum ViewAppend<BLOCK: BlockContents> {
+pub enum ViewAppend<BLOCK: Block> {
     /// The view was created by appending a block to the previous view
     Block {
         /// The block that was appended
@@ -171,7 +171,7 @@ pub enum ViewAppend<BLOCK: BlockContents> {
     },
 }
 
-impl<B: BlockContents> ViewAppend<B> {
+impl<B: Block> ViewAppend<B> {
     /// Get the block deltas from this append
     pub fn into_deltas(self) -> B {
         match self {
@@ -180,7 +180,7 @@ impl<B: BlockContents> ViewAppend<B> {
     }
 }
 
-impl<B: BlockContents> From<B> for ViewAppend<B> {
+impl<B: Block> From<B> for ViewAppend<B> {
     fn from(block: B) -> Self {
         Self::Block { block }
     }

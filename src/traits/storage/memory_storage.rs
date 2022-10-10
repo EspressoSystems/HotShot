@@ -2,7 +2,7 @@
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-use crate::traits::StateContents;
+use crate::traits::State;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
@@ -18,7 +18,7 @@ use std::{
 };
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<STATE: StateContents> {
+struct MemoryStorageInternal<STATE: State> {
     /// The views that have been stored
     stored: BTreeMap<ViewNumber, StoredView<STATE>>,
     /// The views that have failed
@@ -29,14 +29,14 @@ struct MemoryStorageInternal<STATE: StateContents> {
 #[derive(Clone)]
 pub struct MemoryStorage<STATE>
 where
-    STATE: StateContents + 'static,
+    STATE: State + 'static,
 {
     /// The inner state of this [`MemoryStorage`]
     inner: Arc<RwLock<MemoryStorageInternal<STATE>>>,
 }
 
 #[allow(clippy::new_without_default)]
-impl<STATE: StateContents> MemoryStorage<STATE> {
+impl<STATE: State> MemoryStorage<STATE> {
     /// Create a new instance of the memory storage with the given block and state
     /// NOTE: left as `new` because this API is not stable
     /// we may add arguments to new in the future
@@ -54,7 +54,7 @@ impl<STATE: StateContents> MemoryStorage<STATE> {
 #[async_trait]
 impl<STATE> TestableStorage<STATE> for MemoryStorage<STATE>
 where
-    STATE: StateContents + 'static,
+    STATE: State + 'static,
 {
     fn construct_tmp_storage() -> Result<Self> {
         Ok(Self::new())
@@ -72,7 +72,7 @@ where
 #[async_trait]
 impl<STATE> Storage<STATE> for MemoryStorage<STATE>
 where
-    STATE: StateContents + 'static,
+    STATE: State + 'static,
 {
     async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result {
         let mut inner = self.inner.write().await;

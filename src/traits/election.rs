@@ -7,7 +7,7 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
-        StateContents, state::ConsensusTime,
+        State, state::ConsensusTime,
     },
 };
 use std::marker::PhantomData;
@@ -32,13 +32,13 @@ impl<S> StaticCommittee<S> {
 
 impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
-    S: Send + Sync + StateContents,
+    S: Send + Sync + State,
     T: ConsensusTime
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
     /// Arbitrary state type, we don't use it
-    type State = S;
+    type StateType = S;
     /// Arbitrary state type, we don't use it
     type SelectionThreshold = ();
     /// The vote token is just a signature
@@ -46,7 +46,7 @@ where
     /// Same for the validated vote token
     type ValidatedVoteToken = (EncodedSignature, Ed25519Pub);
     /// Clone the static table
-    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::StateType) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
@@ -62,7 +62,7 @@ where
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Self::StateType>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -80,7 +80,7 @@ where
         _selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Self::StateType>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());

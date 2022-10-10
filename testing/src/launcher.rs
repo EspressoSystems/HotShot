@@ -30,7 +30,7 @@ where
         TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
     STORAGE: TestableStorage<STATE> + 'static,
     BLOCK: TestableBlock + 'static,
-    STATE: TestableState<Block = BLOCK> + 'static,
+    STATE: TestableState<BlockType = BLOCK> + 'static,
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -145,7 +145,7 @@ where
         TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
     STORAGE: Storage<STATE>,
     BLOCK: TestableBlock,
-    STATE: TestableState<Block = BLOCK> + 'static,
+    STATE: TestableState<BlockType = BLOCK> + 'static,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

@@ -7,12 +7,12 @@ use crate::{
     message::{ConsensusMessage, DataMessage, Message, MessageKind},
     traits::{
         election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-        storage::Storage, BlockContents,
+        storage::Storage, Block,
     }, data::ViewNumber,
 };
 use std::fmt::Debug;
 
-use super::StateContents;
+use super::State;
 
 /// Node implementation aggregate trait
 ///
@@ -23,18 +23,18 @@ use super::StateContents;
 /// store or keep a reference to any value implementing this trait.
 pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// State type for this consensus implementation
-    type State: StateContents<Time = ViewNumber>;
+    type StateType: State<Time = ViewNumber>;
     /// Storage type for this consensus implementation
-    type Storage: Storage<Self::State> + Clone;
+    type Storage: Storage<Self::StateType> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<Message<Self::State, Self::SignatureKey>, Self::SignatureKey>
+    type Networking: NetworkingImplementation<Message<Self::StateType, Self::SignatureKey>, Self::SignatureKey>
         + Clone;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<Self::SignatureKey, ViewNumber, State = Self::State>;
+    type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
 }
 
 /// Helper trait to make aliases.
@@ -67,9 +67,9 @@ pub trait TypeMap {
 }
 
 impl<I: NodeImplementation> TypeMap for I {
-    type Message = Message<I::State, I::SignatureKey>;
-    type MessageKind = MessageKind<I::State>;
-    type ConsensusMessage = ConsensusMessage<I::State>;
-    type DataMessage = DataMessage<I::State>;
-    type Transaction = <<I::State as StateContents>::Block as BlockContents>::Transaction;
+    type Message = Message<I::StateType, I::SignatureKey>;
+    type MessageKind = MessageKind<I::StateType>;
+    type ConsensusMessage = ConsensusMessage<I::StateType>;
+    type DataMessage = DataMessage<I::StateType>;
+    type Transaction = <<I::StateType as State>::BlockType as Block>::Transaction;
 }

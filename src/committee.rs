@@ -8,7 +8,7 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
-        StateContents,
+        State,
     },
 };
 use rand::Rng;
@@ -111,7 +111,7 @@ impl<S> Default for DynamicCommittee<S> {
     }
 }
 
-impl<S: StateContents> DynamicCommittee<S> {
+impl<S: State> DynamicCommittee<S> {
     /// Creates a new dynamic committee.
     pub fn new() -> Self {
         Self {

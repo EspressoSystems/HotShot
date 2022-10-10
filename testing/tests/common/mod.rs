@@ -6,7 +6,7 @@ use hotshot::{
     demos::dentry::{DEntryBlock, DEntryState},
     traits::{
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
-        BlockContents, NetworkReliability, NetworkingImplementation, StateContents, Storage,
+        Block, NetworkReliability, NetworkingImplementation, State, Storage,
     },
     types::Message,
     HotShotError,
@@ -96,7 +96,7 @@ pub struct DetailedTestDescriptionBuilder<
     STORAGE: Storage<STATE> + 'static,
     STATE: TestableState + 'static,
 > where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -110,10 +110,10 @@ pub struct DetailedTestDescriptionBuilder<
 impl<
         NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
         STORAGE: TestableStorage<STATE> + 'static,
-        STATE: StateContents + TestableState + 'static,
+        STATE: State + TestableState + 'static,
     > TestDescription<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, STATE> {
@@ -176,7 +176,7 @@ impl GeneralTestDescriptionBuilder {
         self,
     ) -> TestDescription<NETWORK, STORAGE, STATE>
     where
-        <STATE as StateContents>::Block: TestableBlock,
+        <STATE as State>::BlockType: TestableBlock,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -193,7 +193,7 @@ impl<
         STATE: TestableState + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     pub fn build(self) -> TestDescription<NETWORK, STORAGE, STATE> {
         let timing_config = TimingData {
@@ -232,7 +232,7 @@ pub struct TestDescription<
     STORAGE: Storage<STATE> + 'static,
     STATE: TestableState + 'static,
 > where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -272,7 +272,7 @@ pub type TestSetup<NETWORK, STORAGE, STATE> = Vec<
         dyn FnOnce(
             &mut TestRunner<NETWORK, STORAGE, STATE>,
         ) -> LocalBoxFuture<
-            Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+            Vec<<<STATE as State>::BlockType as Block>::Transaction>,
         >,
     >,
 >;
@@ -282,7 +282,7 @@ pub type TestNetwork = MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pu
 /// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryState>;
 /// type alias for the test transaction type
-pub type TestTransaction = <DEntryBlock as BlockContents>::Transaction;
+pub type TestTransaction = <DEntryBlock as Block>::Transaction;
 /// type alias for the test runner type
 pub type AppliedTestRunner = TestRunner<TestNetwork, TestStorage, DEntryState>;
 /// type alias for the result of a test round
@@ -330,7 +330,7 @@ pub fn default_submitter_id_to_round<
     num_rounds: u64,
 ) -> TestSetup<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -344,7 +344,7 @@ where
     for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
         let run_round: RoundSetup<NETWORK, STORAGE, STATE> = Box::new(
             move |runner: &mut TestRunner<NETWORK, STORAGE, STATE>| -> LocalBoxFuture<
-                Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+                Vec<<<STATE as State>::BlockType as Block>::Transaction>,
             > {
                 async move {
                     for id in shutdown_ids.clone() {
@@ -388,7 +388,7 @@ pub fn default_randomized_ids_to_round<
     txns_per_round: u64,
 ) -> TestSetup<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     let mut rounds: TestSetup<NETWORK, STORAGE, STATE> = Vec::new();
 
@@ -396,7 +396,7 @@ where
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
         let run_round: RoundSetup<NETWORK, STORAGE, STATE> = Box::new(
             move |runner: &mut TestRunner<NETWORK, STORAGE, STATE>| -> LocalBoxFuture<
-                Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+                Vec<<<STATE as State>::BlockType as Block>::Transaction>,
             > {
                 async move {
                     if let Some(to_shut_down) = to_kill.clone() {
@@ -426,7 +426,7 @@ impl<
         STATE: TestableState + 'static,
     > DetailedTestDescriptionBuilder<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<NETWORK, STORAGE, STATE>> {

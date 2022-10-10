@@ -10,8 +10,8 @@ use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     message::{ConsensusMessage, Proposal},
     traits::{
-        node_implementation::NodeImplementation, signature_key::SignatureKey, BlockContents,
-        StateContents,
+        node_implementation::NodeImplementation, signature_key::SignatureKey, Block,
+        State,
     },
 };
 use hotshot_utils::{
@@ -29,7 +29,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<I::State>,
+    pub high_qc: QuorumCertificate<I::StateType>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Lock over the transactions list
@@ -41,7 +41,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
 impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
         let pk = self.api.public_key();
         info!("Leader task started!");
 
@@ -97,7 +97,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         let previous_used_txns = previous_used_txns_vec
             .into_iter()
-            .collect::<HashSet<TxnCommitment<I::State>>>();
+            .collect::<HashSet<TxnCommitment<I::StateType>>>();
 
         let passed_time = task_start_time - Instant::now();
         async_sleep(self.api.propose_min_round_time() - passed_time).await;
@@ -158,7 +158,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
-            let leaf: ProposalLeaf<I::State> = leaf.into();
+            let leaf: ProposalLeaf<I::StateType> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
 

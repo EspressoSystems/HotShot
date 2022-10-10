@@ -6,7 +6,7 @@ use hotshot::{
     demos::dentry::{
         random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, DEntryState,
     },
-    traits::{BlockContents, StateContents, Storage},
+    traits::{Block, State, Storage},
 };
 use hotshot_types::{data::ViewNumber, traits::state::TestableState};
 use rand::thread_rng;
