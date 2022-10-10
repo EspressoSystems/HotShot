@@ -130,7 +130,7 @@ rand_chacha = "0.3.1"
 serde = { version = "1.0.145", features = ["derive", "rc"] }
 snafu = { version = "0.7.0", features = ["backtraces"] }
 tempfile = "3.3.0"
-time = "0.3.14"
+time = "0.3.15"
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
