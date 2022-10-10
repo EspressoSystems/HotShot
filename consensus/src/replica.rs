@@ -37,6 +37,12 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     pub api: A,
 }
 
+/// convenience type alias
+type ValidMsgResult<'a, I> = (
+    RwLockUpgradableReadGuard<'a, Consensus<I>>,
+    std::result::Result<Leaf<<I as NodeImplementation>::State>, ()>,
+);
+
 impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -45,10 +51,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         &self,
         view_leader_key: <I as NodeImplementation>::SignatureKey,
         consensus: RwLockUpgradableReadGuard<'a, Consensus<I>>,
-    ) -> (
-        RwLockUpgradableReadGuard<'a, Consensus<I>>,
-        std::result::Result<Leaf<I::State>, ()>,
-    ) {
+    ) -> ValidMsgResult<'a, I>
+        {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
