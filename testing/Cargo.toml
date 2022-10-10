@@ -61,7 +61,7 @@ hotshot-utils = { path = "../utils", default-features = false, features = [
   "logging-utils",
 ] }
 rand = "0.8.5"
-snafu = { version = "0.7.0", features = ["backtraces"] }
+snafu = { version = "0.7.2", features = ["backtraces"] }
 tokio = { version = "1", optional = true, features = [
   "fs",
   "io-util",
