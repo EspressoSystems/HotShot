@@ -54,7 +54,7 @@ tokio = { version = "1", optional = true, features = [
 tokio-stream = { version = "0.1.10", optional = true }
 tracing = "0.1.36"
 tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.15", features = [
+tracing-subscriber = { version = "0.3.16", features = [
     "env-filter",
     "json",
 ], optional = true }
