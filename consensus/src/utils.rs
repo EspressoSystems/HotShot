@@ -35,7 +35,6 @@ pub enum ViewInner<STATE: StateContents> {
 impl<STATE: StateContents> ViewInner<STATE> {
     /// return the underlying leaf hash if it exists
     #[must_use]
-    // TODO rename to commitment
     pub fn get_leaf_commitment(&self) -> Option<&Commitment<Leaf<STATE>>> {
         if let Self::Leaf { leaf } = self {
             Some(leaf)

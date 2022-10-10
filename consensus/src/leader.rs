@@ -39,7 +39,7 @@ pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
 }
 
 impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
-    /// TODO have this consume self instead of taking a mutable reference. We never use self again.
+    /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::State> {
         let pk = self.api.public_key();
@@ -162,7 +162,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
 
-            let _ = self.api.send_broadcast_message(message).await.is_err();
+            if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+                warn!(?message, ?e, "Could not broadcast leader proposal");
+            }
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
         }

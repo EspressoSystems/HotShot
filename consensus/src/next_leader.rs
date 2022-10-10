@@ -1,4 +1,4 @@
-//! Contains the [`NextLeader`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::{utils::Signatures, ConsensusApi};
 use async_lock::Mutex;

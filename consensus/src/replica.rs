@@ -183,11 +183,17 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         );
 
                         // send timedout message to the next leader
-                        let _result = self
+                        if let Err(e) = self
                             .api
-                            .send_direct_message(next_leader, timed_out_msg)
+                            .send_direct_message(next_leader.clone(), timed_out_msg)
                             .await
-                            .is_err();
+                        {
+                            warn!(
+                                ?next_leader,
+                                ?e,
+                                "Could not send time out message to next_leader"
+                            );
+                        }
 
                         // exits from entire function
                         self.api.send_replica_timeout(self.cur_view).await;
@@ -321,7 +327,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             let storage = self.api.storage();
-            // TODO(https://github.com/EspressoSystems/HotShot/issues/411): store the rejected transactions in this view
             let view_to_insert = StoredView::from(leaf);
             if let Err(e) = storage.append_single_view(view_to_insert).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
