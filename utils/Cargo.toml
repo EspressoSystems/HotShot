@@ -7,7 +7,6 @@ readme = "../README.md"
 version = "0.1.0"
 
 [features]
-default = ["full-ci"]
 
 full-ci = ["async-std-executor", "logging-utils", "channel-async-std"]
 tokio-ci = ["tokio-executor", "logging-utils", "channel-tokio"]
