@@ -82,7 +82,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 "Inconsistency in recv-ed proposal. The parent's view number, {:?} did not match the justify_qc view number, {:?}",
                                 parent.view_number, justify_qc.view_number
                             );
-                            return (consensus, Err(()));
+                            continue;
+                        }
+
+                        // check that the justify_qc is valid
+                        if !self.api.validate_qc(&justify_qc) {
+                            warn!("Invalid justify_qc in proposal! Skipping proposal.");
+                            continue;
                         }
 
                         // check that we can indeed create the state
@@ -113,6 +119,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }
+
 
                         // TODO change to locked_view + 2 after VRF integration
                         let liveness_check = justify_qc.view_number > consensus.locked_view;
