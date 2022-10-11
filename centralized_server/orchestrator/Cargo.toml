@@ -36,7 +36,7 @@ clap = { version = "4.0", features = ["derive", "env"] }
 # TODO may need to pull in the attributes feature flag?
 async-std = { version = "1.12.0", optional = true }
 cfg-if = "1"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.1.0" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
 # TODO do we need this?
 
 hotshot = { path = "../../", default-features = false }
@@ -59,7 +59,7 @@ tokio = { version = "1", optional = true, features = [
 ] }
 hotshot-centralized-server = { path = "../", default-features = false }
 toml = "0.5.9"
-tracing = "0.1.36"
+tracing = "0.1.37"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }

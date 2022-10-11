@@ -1,11 +1,11 @@
 use crate::{FromBackground, Run};
 use futures::FutureExt;
 use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
-use hotshot_utils::channel::UnboundedSender;
+use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
-pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, UnboundedSender<FromBackground<K>>>>);
+pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K>>>>);
 
 impl<K: SignatureKey + PartialEq> Clients<K> {
     pub fn new() -> Self {
@@ -106,7 +106,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         self.0.get(run.0).map(|r| r.len()).unwrap_or(0)
     }
 
-    pub fn insert(&mut self, run: Run, key: K, sender: UnboundedSender<FromBackground<K>>) {
+    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromBackground<K>>) {
         self.ensure_run_exists(run);
         self.0[run.0].insert(key.into(), sender);
     }

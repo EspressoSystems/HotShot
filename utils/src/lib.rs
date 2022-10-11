@@ -43,11 +43,13 @@ cfg_if::cfg_if! {
         pub mod art {
             use std::future::Future;
             use std::time::Duration;
-            use async_std::{net::TcpStream, prelude::FutureExt};
+            use async_std::prelude::FutureExt;
             pub use async_std::{
                 main as async_main,
                 task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local, block_on as async_block_on_with_runtime},
                 test as async_test,
+                net::TcpStream,
+                io::{WriteExt as AsyncWriteExt, ReadExt as AsyncReadExt},
             };
             /// executor stream abstractions
             pub mod stream {
@@ -86,12 +88,14 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         /// async runtime/executor symmetric wrappers, `tokio` edition
         pub mod art {
-            use tokio::net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpStream};
+            use tokio::net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf};
             pub use tokio::{
                 main as async_main,
                 task::spawn as async_spawn_local,
                 test as async_test,
                 time::{sleep as async_sleep, timeout as async_timeout},
+                net::TcpStream,
+                io::{AsyncWriteExt, AsyncReadExt},
             };
 
 

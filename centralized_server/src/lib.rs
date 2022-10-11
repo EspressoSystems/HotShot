@@ -31,7 +31,7 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
-    channel::{unbounded, OneShotReceiver, OneShotSender, UnboundedReceiver, UnboundedSender},
+    channel::{bounded, OneShotReceiver, OneShotSender, Receiver, Sender},
 };
 use runs::RoundConfig;
 use snafu::ResultExt;
@@ -43,6 +43,10 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error};
+
+/// 256KB, assumed to be the kernel receive buffer
+/// https://stackoverflow.com/a/2862176
+pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum ToServer<K> {
@@ -269,7 +273,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     ///
     /// If `with_shutdown_signal` is called before, this server will stop when that signal is called. Otherwise this server will run forever.
     pub async fn run(self) {
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = bounded(10);
 
         let background_task_handle = async_spawn({
             let sender = sender.clone();
@@ -337,8 +341,8 @@ impl<K: SignatureKey + 'static> Server<K> {
 /// - Keep track of the clients connected,
 /// - Send direct/broadcast messages to clients
 async fn background_task<K: SignatureKey + 'static>(
-    self_sender: UnboundedSender<ToBackground<K>>,
-    receiver: UnboundedReceiver<ToBackground<K>>,
+    self_sender: Sender<ToBackground<K>>,
+    mut receiver: Receiver<ToBackground<K>>,
     mut config: Option<RoundConfig<K>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
@@ -466,7 +470,7 @@ pub enum ToBackground<K> {
     NewClient {
         run: Run,
         key: K,
-        sender: UnboundedSender<FromBackground<K>>,
+        sender: Sender<FromBackground<K>>,
     },
     ClientDisconnected {
         run: Run,
@@ -536,20 +540,6 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "tokio-executor")] {
         use OwnedWriteHalf as WriteTcpStream;
         use OwnedReadHalf as ReadTcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
-            (stream.clone(), stream)
-        }
-    } else if #[cfg(feature = "tokio-executor")] {
-        fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
-            stream.into_split()
-        }
     } else {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }

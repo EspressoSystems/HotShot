@@ -93,8 +93,8 @@ libp2p = { version = "0.48", default-features = false, features = [
 parking_lot = "0.12.0"
 rand = "0.8.5"
 serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.85"
-snafu = "0.7.0"
+serde_json = "1.0.86"
+snafu = "0.7.2"
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
@@ -114,7 +114,7 @@ tide = { version = "0.16", optional = true, default-features = false, features =
     "h1-server",
 ] }
 tokio-stream = "0.1.10"
-tracing = "0.1.36"
+tracing = "0.1.37"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies

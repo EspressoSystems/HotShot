@@ -9,6 +9,7 @@ on:
       - 'main'
       - '*/*'
       - 'update_flake_lock_action'
+      - '!dependabot/*'
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:

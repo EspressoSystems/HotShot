@@ -153,7 +153,7 @@ impl<
                         .mesh_params(Some(MeshParams {
                             mesh_n_high: expected_node_count,
                             mesh_n_low: 5,
-                            mesh_outbound_min: 4,
+                            mesh_outbound_min: 3,
                             // the worst case of 7/2+3 > 5
                             mesh_n: (expected_node_count / 2 + 3),
                         }))

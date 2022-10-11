@@ -65,6 +65,12 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
 
     if result.is_empty() {
         let toml = toml::to_string_pretty(&NetworkConfigFile {
+            node_index: 0,
+            rounds: 100,
+            seed: [0u8; 32],
+            transactions_per_round: 10,
+            padding: 10,
+            start_delay_seconds: 60,
             config: HotShotConfigFile {
                 total_nodes: NonZeroUsize::new(10).unwrap(),
                 threshold: NonZeroUsize::new(7).unwrap(),
@@ -78,10 +84,6 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 propose_max_round_time: Duration::from_secs(1),
                 num_bootstrap: 4,
             },
-            node_index: 0,
-            rounds: 100,
-            seed: [0u8; 32],
-            transactions_per_round: 10,
             libp2p_config: if is_libp2p {
                 Some(Libp2pConfigFile {
                     bootstrap_mesh_n_high: 4,
@@ -102,7 +104,6 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
             } else {
                 None
             },
-            padding: 10,
         })
         .expect("Could not serialize to TOML");
         std::fs::write("config.toml", toml).expect("Could not write config.toml");

@@ -1,11 +1,11 @@
 use crate::{
-    config::ClientConfig, split_stream, Error, FromBackground, Run, TcpStreamRecvUtil,
-    TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
+    config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
+    TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_utils::{
-    art::async_spawn,
-    channel::{oneshot, unbounded, UnboundedSender},
+    art::{async_spawn, split_stream},
+    channel::{bounded, oneshot, Sender},
 };
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
 pub(crate) async fn spawn<K: SignatureKey + 'static>(
     addr: SocketAddr,
     stream: TcpStream,
-    sender: UnboundedSender<ToBackground<K>>,
+    sender: Sender<ToBackground<K>>,
 ) {
     // We want to know the signature key and the run # that this client ran on
     // so we store those here and pass a mutable reference to `run_client`
@@ -48,11 +48,12 @@ async fn run_client<K: SignatureKey + 'static>(
     stream: TcpStream,
     parent_key: &mut Option<K>,
     parent_run: &mut Option<Run>,
-    to_background: UnboundedSender<ToBackground<K>>,
+    to_background: Sender<ToBackground<K>>,
 ) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, receiver) = unbounded::<FromBackground<K>>();
+    let (sender, mut receiver) = bounded::<FromBackground<K>>(10);
+
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
         let mut send_stream = TcpStreamSendUtil::new(write_stream);
@@ -150,8 +151,11 @@ async fn run_client<K: SignatureKey + 'static>(
                     .await
                     .map_err(|_| Error::BackgroundShutdown)?;
                 let mut remaining = message_len as usize;
+
                 while remaining > 0 {
-                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    let message_chunk = recv_stream
+                        .recv_raw(remaining.min(crate::MAX_CHUNK_SIZE))
+                        .await?;
                     remaining -= message_chunk.len();
                     to_background
                         .send(ToBackground::IncomingBroadcastChunk {
@@ -183,7 +187,9 @@ async fn run_client<K: SignatureKey + 'static>(
                     .map_err(|_| Error::BackgroundShutdown)?;
                 let mut remaining = message_len as usize;
                 while remaining > 0 {
-                    let message_chunk = recv_stream.recv_raw(remaining).await?;
+                    let message_chunk = recv_stream
+                        .recv_raw(remaining.min(crate::MAX_CHUNK_SIZE))
+                        .await?;
                     remaining -= message_chunk.len();
                     to_background
                         .send(ToBackground::IncomingDirectMessageChunk {
