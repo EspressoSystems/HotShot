@@ -7,10 +7,12 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
-        StateContents, state::ConsensusTime,
+        state::ConsensusTime,
+        StateContents,
     },
 };
 use std::marker::PhantomData;
+use tracing::warn;
 
 /// Dummy implementation of [`Election`]
 pub struct StaticCommittee<S> {
@@ -33,14 +35,12 @@ impl<S> StaticCommittee<S> {
 impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
     S: Send + Sync + StateContents,
-    T: ConsensusTime
+    T: ConsensusTime,
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
-    /// Arbitrary state type, we don't use it
     type State = S;
-    /// Arbitrary state type, we don't use it
-    type SelectionThreshold = ();
+    type SelectionThreshold = u128;
     /// The vote token is just a signature
     type VoteToken = EncodedSignature;
     /// Same for the validated vote token
@@ -91,5 +91,21 @@ where
     /// If its a validated token, it always has one vote
     fn get_vote_count(&self, _token: &Self::ValidatedVoteToken) -> u64 {
         1
+    }
+
+    fn calculate_selection_threshold(
+        &self,
+        expected_size: std::num::NonZeroUsize,
+        total_participants: std::num::NonZeroUsize,
+    ) -> Self::SelectionThreshold {
+        // Promote the inputs to u128s
+        let expected_size: u128 = expected_size.get().try_into().unwrap();
+        let total_participants: u128 = total_participants.get().try_into().unwrap();
+        // We want the probability of a given participant to be 1 / (total_participants * expected_size)
+        // This means we need the selection threshold to be u128::MAX * (1 / (total_participants * expected_size))
+        // This rearranges to: u128::MAX / (total_participants * expected_size)
+        let output = u128::MAX / (total_participants * expected_size);
+        warn!("Selection threshold calculated, {} {}", u128::MAX, output);
+        output
     }
 }

@@ -1,25 +1,22 @@
-use std::{collections::BTreeMap, num::NonZeroU64};
-
+use super::Election;
+use crate::{
+    data::ViewNumber,
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        state::ConsensusTime,
+        StateContents,
+    },
+};
 use bincode::Options;
+use commit::Commitment;
 use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::signatures::{
+    bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
+    SignatureScheme,
+};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-
-// TODO(nm-vacation): The serialization hacks here are super jank, we need to think about more sane
-// ways to do these things and probably move them into jellyfish, but we just need to be able to
-// store things in a BTreeMap, so this _should_ be fine
-
-use jf_primitives::signatures::{
-    bls::{BLSSignKey, BLSSignature, BLSVerKey},
-    BLSSignatureScheme, SignatureScheme,
-};
-
-use crate::{
-    data::{Stage, ViewNumber},
-    traits::signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-};
-
-use super::Election;
+use std::{collections::BTreeMap, marker::PhantomData, num::NonZeroU64};
 
 /// A BLS vrf public key
 #[derive(Clone, Serialize, Deserialize)]
@@ -73,6 +70,10 @@ pub struct BLSPrivKey {
 
 impl BLSPrivKey {
     /// Generates a new, random, `BLSPrivate` key
+    ///
+    /// # Panics
+    ///
+    /// Will panic if it was unable to generate a new key
     pub fn generate() -> Self {
         let (priv_key, pub_key) =
             BLSSignatureScheme::key_gen(&(), &mut rand::thread_rng()).unwrap();
@@ -80,6 +81,10 @@ impl BLSPrivKey {
     }
 
     /// Turns this key into bytes
+    ///
+    /// # Panics
+    ///
+    /// Will panic if this key failed to be serialized
     pub fn to_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
     }
@@ -205,20 +210,21 @@ impl BLSVRFSeed {
 
 /// A structure for a BLS vrf committee
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
-pub struct BLSVRF {
+pub struct BLSVRF<STATE> {
     /// The internal copy of the stake table
     pub stake_table: BTreeMap<BLSPubKey, NonZeroU64>,
     /// The seed
     pub seed: BLSVRFSeed,
+    /// Phantom data to store the state
+    pub pd: PhantomData<STATE>,
 }
 
-impl BLSVRF {
+impl<STATE> BLSVRF<STATE> {
     /// Calculate the leader for the view using weighted random selection
     fn select_leader(
         &self,
         table: &BTreeMap<BLSPubKey, NonZeroU64>,
         view: ViewNumber,
-        _stage: Stage,
     ) -> BLSPubKey {
         // Convert the table into a list using the weights
         // This will always be in the same order on every machine due to the values being pulled out
@@ -266,6 +272,7 @@ impl BLSVRF {
         list[index].clone()
     }
     /// Generate a vote proof
+    #[allow(dead_code)] // TODO we probably need this
     fn vote_proof(&self, key: &BLSPrivKey, view: ViewNumber, vote_index: u64) -> EncodedSignature {
         // make the buffer
         let mut buf = Vec::<u8>::new();
@@ -276,6 +283,7 @@ impl BLSVRF {
         BLSPubKey::sign(key, &buf)
     }
     /// Generate the valid vote proofs
+    #[allow(clippy::unused_self)]
     fn vote_proofs(
         &self,
         _key: &BLSPrivKey,
@@ -283,7 +291,7 @@ impl BLSVRF {
         _votes: u64,
         _selection_threshold: [u8; 32],
     ) -> Vec<(EncodedSignature, u64)> {
-        // TODO(nm-vacation): See below note in calcuate_selection_threshold, this is trivial
+        // TODO(nm-vacation): See below note in calculate_selection_threshold, this is trivial
         // comparision and filtering over the results from `vote_proof` once you have a method of
         // selecting the cuttoff
         //
@@ -313,15 +321,15 @@ pub struct ValidatedBLSToken {
     pub valid_proofs: u64,
 }
 
-impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
+impl<T, STATE> Election<BLSPubKey, T> for BLSVRF<STATE>
+where
+    T: ConsensusTime,
+    STATE: StateContents,
+{
     type StakeTable = BTreeMap<BLSPubKey, NonZeroU64>;
-
     type SelectionThreshold = [u8; 32];
-
-    type State = ();
-
+    type State = STATE;
     type VoteToken = BLSToken;
-
     type ValidatedVoteToken = ValidatedBLSToken;
 
     fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
@@ -332,9 +340,8 @@ impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
         &self,
         table: &Self::StakeTable,
         view_number: crate::data::ViewNumber,
-        stage: crate::data::Stage,
     ) -> BLSPubKey {
-        self.select_leader(table, view_number, stage)
+        self.select_leader(table, view_number)
     }
 
     fn get_votes(
@@ -344,9 +351,9 @@ impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
         view_number: crate::data::ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
-        _next_state: crate::data::StateHash<N>,
+        _next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken> {
-        let validated_votes: Vec<_> = vec![];
+        let mut validated_votes: Vec<_> = vec![];
         for (vote, vote_index) in token.proofs {
             // Recalculate the input
             let mut buf = Vec::<u8>::new();
@@ -356,8 +363,8 @@ impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
             // Verify it
             if token.pub_key.validate(&vote, &buf) {
                 // TODO(nm-vacation) insert a check against your selection threshold here
-                todo!();
-                validated_votes.push((vote, vote_index))
+                // todo!();
+                validated_votes.push((vote, vote_index));
             }
         }
         if validated_votes.is_empty() {
@@ -382,7 +389,7 @@ impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
         selection_threshold: Self::SelectionThreshold,
         view_number: crate::data::ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-        _next_state: crate::data::StateHash<N>,
+        _next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         let pub_key = BLSPubKey::from_private(private_key);
         if let Some(votes) = table.get(&pub_key) {
@@ -402,7 +409,7 @@ impl<const N: usize> Election<BLSPubKey, N> for BLSVRF {
         }
     }
 
-    fn calcuate_selection_threshold(
+    fn calculate_selection_threshold(
         &self,
         _expected_size: std::num::NonZeroUsize,
         _total_participants: std::num::NonZeroUsize,

@@ -1,10 +1,13 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use commit::Commitment;
-
-use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+///
+pub mod jf;
+pub mod stub;
 
 use super::{state::ConsensusTime, StateContents};
+use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+use commit::Commitment;
+use std::num::NonZeroUsize;
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
@@ -52,6 +55,13 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken>;
+
+    /// Calcuates the required `SelectionThreshold` for the given parameters
+    fn calculate_selection_threshold(
+        &self,
+        expected_size: NonZeroUsize,
+        total_participants: NonZeroUsize,
+    ) -> Self::SelectionThreshold;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
     // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>

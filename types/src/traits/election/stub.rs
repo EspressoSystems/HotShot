@@ -1,18 +1,20 @@
 //! Hash based psuedo-vrf that simulates the properties of a VRF using an HMAC with a revealed
 //! private key. This is for testing purposes only and is designed to be insecure
 
-use std::{collections::BTreeMap, num::NonZeroUsize};
-
+use super::Election;
+use crate::{
+    data::ViewNumber,
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        state::ConsensusTime,
+        StateContents,
+    },
+};
+use commit::Commitment;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, marker::PhantomData, num::NonZeroUsize};
 use tracing::{error, warn};
-
-use crate::{
-    data::{Stage, ViewNumber},
-    traits::signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-};
-
-use super::Election;
 
 /// Output of the simulated VRF
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
@@ -95,14 +97,16 @@ impl HashVrfSeed {
 }
 
 /// HMAC-based simulation of a VRF
-pub struct HashElection {
+pub struct HashElection<S> {
     /// The stake table of this `HashElection`
     stake_table: BTreeMap<HashVrfKey, u64>,
     /// The seed for this `HashElection`
     seed: HashVrfSeed,
+    /// TODO document
+    pd: PhantomData<S>,
 }
 
-impl HashElection {
+impl<S> HashElection<S> {
     /// Create a new `HashElection` given a seed and a sate table
     pub fn new(
         stake_table: impl IntoIterator<Item = (HashVrfKey, u64)>,
@@ -111,15 +115,11 @@ impl HashElection {
         Self {
             stake_table: stake_table.into_iter().collect(),
             seed,
+            pd: PhantomData,
         }
     }
     /// Calculate the leader for the view using weighted random selection
-    fn select_leader(
-        &self,
-        table: &BTreeMap<HashVrfKey, u64>,
-        view: ViewNumber,
-        _stage: Stage,
-    ) -> HashVrfKey {
+    fn select_leader(&self, table: &BTreeMap<HashVrfKey, u64>, view: ViewNumber) -> HashVrfKey {
         // Convert the table into a list using the weights
         // This will always be in the same order on every machine due to the values being pulled out
         // of a `BTreeMap`, assuming the key type's `Ord` implementation is correct. If you
@@ -194,30 +194,25 @@ impl HashElection {
     }
 }
 
-impl<const N: usize> Election<HashVrfKey, N> for HashElection {
+impl<S, T> Election<HashVrfKey, T> for HashElection<S>
+where
+    T: ConsensusTime,
+    S: StateContents,
+{
     /// Mapping of a public key to the number of allowed voting attempts and the associated
     /// `HashVrfKey`
     type StakeTable = BTreeMap<HashVrfKey, u64>;
-
     type SelectionThreshold = u128;
-
-    type State = ();
-
+    type State = S;
     type VoteToken = (HashVrfKey, u64);
-
     type ValidatedVoteToken = (HashVrfKey, u64, u64);
 
     fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
-    fn get_leader(
-        &self,
-        table: &Self::StakeTable,
-        view_number: ViewNumber,
-        stage: Stage,
-    ) -> HashVrfKey {
-        self.select_leader(table, view_number, stage)
+    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> HashVrfKey {
+        self.select_leader(table, view_number)
     }
 
     fn get_votes(
@@ -227,7 +222,7 @@ impl<const N: usize> Election<HashVrfKey, N> for HashElection {
         view_number: ViewNumber,
         pub_key: HashVrfKey,
         token: Self::VoteToken,
-        _next_state: crate::data::StateHash<N>,
+        _next_state: Commitment<Self::State>,
     ) -> Option<Self::ValidatedVoteToken> {
         warn!("Validating vote token");
         let hashes = self.vote_hashes(&token.0, view_number, token.1, selection_threshold);
@@ -253,7 +248,7 @@ impl<const N: usize> Election<HashVrfKey, N> for HashElection {
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &HashVrfKey,
-        _next_state: crate::data::StateHash<N>,
+        _next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         warn!("Making vote token");
         if let Some(votes) = table.get(private_key) {
@@ -269,7 +264,7 @@ impl<const N: usize> Election<HashVrfKey, N> for HashElection {
         }
     }
 
-    fn calcuate_selection_threshold(
+    fn calculate_selection_threshold(
         &self,
         expected_size: NonZeroUsize,
         total_participants: NonZeroUsize,
@@ -281,50 +276,58 @@ impl<const N: usize> Election<HashVrfKey, N> for HashElection {
         // This means we need the selection threshold to be u128::MAX * (1 / (total_participants * expected_size))
         // This rearranges to: u128::MAX / (total_participants * expected_size)
         let output = u128::MAX / (total_participants * expected_size);
-        warn!("Selection threshold calcuated, {} {}", u128::MAX, output);
+        warn!("Selection threshold calculated, {} {}", u128::MAX, output);
         output
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::data::StateHash;
-
     use super::*;
-    // Make sure the selection threshold is calcuated properly
+    use crate::traits::block_contents::dummy::DummyState;
+    use commit::Committable;
+    use std::num::NonZeroUsize;
+
+    // Make sure the selection threshold is calculated properly
     #[test]
     fn selection_threshold() {
         // Setup a dummy implementation
         let key = HashVrfKey::random();
         let seed = HashVrfSeed::random();
-        let vrf = HashElection::new([(key, 1)], seed);
+        let vrf = HashElection::<DummyState>::new([(key, 1)], seed);
         let selection: u128 =
-            <HashElection as Election<HashVrfKey, 32>>::calcuate_selection_threshold(
+            <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::calculate_selection_threshold(
                 &vrf,
                 NonZeroUsize::new(1).unwrap(),
                 NonZeroUsize::new(10).unwrap(),
             );
-        let next_state = StateHash::<32>::random();
+        let next_state = DummyState::random().commit();
         // Our strategy here is to run 10,000 trials and make sure the number of hits is within around
         // 10% of the expected parameter
         let mut hits: u64 = 0;
         for i in 0..10_000 {
-            if let Some(token) = vrf.make_vote_token(
-                &vrf.stake_table,
-                selection,
-                ViewNumber::new(i),
-                &key,
-                next_state,
-            ) {
-                if let Some(validated) = vrf.get_votes(
+            if let Some(token) =
+                <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::make_vote_token(
+                    &vrf,
                     &vrf.stake_table,
                     selection,
                     ViewNumber::new(i),
-                    key,
-                    token,
+                    &key,
                     next_state,
-                ) {
-                    hits += <HashElection as Election<HashVrfKey, 32>>::get_vote_count(
+                )
+            {
+                if let Some(validated) =
+                    <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::get_votes(
+                        &vrf,
+                        &vrf.stake_table,
+                        selection,
+                        ViewNumber::new(i),
+                        key,
+                        token,
+                        next_state,
+                    )
+                {
+                    hits += <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::get_vote_count(
                         &vrf, &validated,
                     );
                 }

@@ -66,4 +66,11 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     ) -> Option<Self::VoteToken> {
         unimplemented!()
     }
+
+    fn calculate_selection_threshold(
+        &self,
+        _expected_size: std::num::NonZeroUsize,
+        _total_participants: std::num::NonZeroUsize,
+    ) -> Self::SelectionThreshold {
+    }
 }
