@@ -59,7 +59,7 @@ tokio = { version = "1", optional = true, features = [
 ] }
 hotshot-centralized-server = { path = "../", default-features = false }
 toml = "0.5.9"
-tracing = "0.1.36"
+tracing = "0.1.37"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
