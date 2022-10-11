@@ -23,14 +23,13 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> P;
+    fn get_leader(&self, view_number: ViewNumber) -> P;
 
     /// Validates a vote token and returns the number of seats that it has
     ///
     /// Salt: Hash of the leaf that is being proposed
     fn get_votes(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
@@ -45,7 +44,6 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Returns `None` if the number of seats would be zero
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Leaf<Self::State>>,

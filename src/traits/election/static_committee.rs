@@ -48,14 +48,13 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
-        let index = (*view_number % table.len() as u64) as usize;
-        table[index]
+    fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
+        let index = (*view_number % self.nodes.len() as u64) as usize;
+        self.nodes[index]
     }
     /// Simply verify the signature and check the membership list
     fn get_votes(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
@@ -64,7 +63,7 @@ where
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
         message.extend(next_state.as_ref());
-        if pub_key.validate(&token, &message) && table.contains(&pub_key) {
+        if pub_key.validate(&token, &message) && self.nodes.contains(&pub_key) {
             Some((token, pub_key))
         } else {
             None
@@ -73,7 +72,6 @@ where
     /// Simply make the partial signature
     fn make_vote_token(
         &self,
-        _table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
         next_state: Commitment<Leaf<Self::State>>,

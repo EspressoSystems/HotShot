@@ -60,7 +60,6 @@ use hotshot_types::{
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::ConsensusTime,
         storage::{StoredView, ViewEntry},
         StateContents,
     },
@@ -117,21 +116,13 @@ pub struct HotShotInner<I: NodeImplementation> {
     storage: I::Storage,
 
     /// This `HotShot` instance's election backend
-    election: HotShotElectionState<I::SignatureKey, ViewNumber, I::Election>,
+    election: I::Election,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<I::State>>>>,
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
-}
-
-/// Contains the state of the election of the current [`HotShot`].
-struct HotShotElectionState<P: SignatureKey, T: ConsensusTime, E: Election<P, T>> {
-    /// An instance of the election
-    election: E,
-    /// The stake table of the election
-    stake_table: E::StakeTable,
 }
 
 /// Thread safe, shared view of a `HotShot`
@@ -187,19 +178,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         initializer: HotShotInitializer<I::State>,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
-
-        let election = {
-            let state = <<I as NodeImplementation>::Election as Election<
-                I::SignatureKey,
-                ViewNumber,
-            >>::State::default();
-
-            let stake_table = election.get_stake_table(&state);
-            HotShotElectionState {
-                election,
-                stake_table,
-            }
-        };
         let inner: Arc<HotShotInner<I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
@@ -720,13 +698,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::State>>,
     ) -> Option<Vec<u8>> {
-        let HotShotElectionState {
-            stake_table,
-            election,
-        } = &self.inner.election;
-
-        let vote_token = election.make_vote_token(
-            stake_table,
+        let vote_token = self.inner.election.make_vote_token(
             view_number,
             &self.inner.private_key,
             next_state,
@@ -740,9 +712,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let election = &self.inner.election;
-        election
-            .election
-            .get_leader(&election.stake_table, view_number)
+        election.get_leader(view_number)
     }
 
     async fn should_start_round(&self, _: ViewNumber) -> bool {

@@ -24,7 +24,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
 
     fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
+    fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
             Some(leader) => {
                 info!("Round {:?} has leader {:?}", view_number, leader);
@@ -39,7 +39,6 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     #[instrument]
     fn get_votes(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
@@ -56,7 +55,6 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     #[instrument(skip(_private_key))]
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         _private_key: &Ed25519Priv,
         next_state: Commitment<Leaf<Self::State>>,

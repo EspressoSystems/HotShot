@@ -334,13 +334,12 @@ where
         self.stake_table.clone()
     }
 
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> BLSPubKey {
-        self.select_leader(table, view_number)
+    fn get_leader(&self, view_number: ViewNumber) -> BLSPubKey {
+        self.select_leader(&self.stake_table, view_number)
     }
 
     fn get_votes(
         &self,
-        _table: &Self::StakeTable,
         view_number: ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
@@ -378,13 +377,12 @@ where
 
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
         _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         let pub_key = BLSPubKey::from_private(private_key);
-        if let Some(votes) = table.get(&pub_key) {
+        if let Some(votes) = self.stake_table.get(&pub_key) {
             // Get the votes for our self
             let hashes = self.vote_proofs(private_key, view_number, votes.get());
             if hashes.is_empty() {

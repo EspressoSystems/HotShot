@@ -222,13 +222,12 @@ where
         self.stake_table.clone()
     }
 
-    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> HashVrfKey {
-        self.select_leader(table, view_number)
+    fn get_leader(&self, view_number: ViewNumber) -> HashVrfKey {
+        self.select_leader(&self.stake_table, view_number)
     }
 
     fn get_votes(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         pub_key: HashVrfKey,
         token: Self::VoteToken,
@@ -238,7 +237,7 @@ where
         let selection_threshold = self.calculate_selection_threshold();
 
         let hashes = self.vote_hashes(&token.0, view_number, token.1, selection_threshold);
-        match table.get(&pub_key) {
+        match self.stake_table.get(&pub_key) {
             Some(votes) => {
                 if &token.1 == votes && !hashes.is_empty() {
                     Some((token.0, token.1, hashes.len().try_into().unwrap()))
@@ -256,13 +255,12 @@ where
 
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &HashVrfKey,
         _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         warn!("Making vote token");
-        if let Some(votes) = table.get(private_key) {
+        if let Some(votes) = self.stake_table.get(private_key) {
             // Get the votes for our self
             let selection_threshold = self.calculate_selection_threshold();
             let hashes = self.vote_hashes(private_key, view_number, *votes, selection_threshold);
@@ -304,22 +302,17 @@ mod tests {
             if let Some(token) =
                 <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::make_vote_token(
                     &vrf,
-                    &vrf.stake_table,
                     ViewNumber::new(i),
                     &key,
                     next_state,
                 )
             {
-                if let Some(validated) =
-                    <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::get_votes(
-                        &vrf,
-                        &vrf.stake_table,
-                        ViewNumber::new(i),
-                        key,
-                        token,
-                        next_state,
-                    )
-                {
+                if let Some(validated) = <HashElection<DummyState> as Election<
+                    HashVrfKey,
+                    ViewNumber,
+                >>::get_votes(
+                    &vrf, ViewNumber::new(i), key, token, next_state
+                ) {
                     hits += <HashElection<DummyState> as Election<HashVrfKey, ViewNumber>>::get_vote_count(
                         &vrf, &validated,
                     );
