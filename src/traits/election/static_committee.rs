@@ -1,6 +1,6 @@
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{Leaf, ViewNumber},
     traits::{
         election::Election,
         signature_key::{
@@ -12,7 +12,6 @@ use hotshot_types::{
     },
 };
 use std::marker::PhantomData;
-use tracing::warn;
 
 /// Dummy implementation of [`Election`]
 pub struct StaticCommittee<S> {
@@ -40,7 +39,6 @@ where
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
     type State = S;
-    type SelectionThreshold = u128;
     /// The vote token is just a signature
     type VoteToken = EncodedSignature;
     /// Same for the validated vote token
@@ -58,11 +56,10 @@ where
     fn get_votes(
         &self,
         table: &Self::StakeTable,
-        _selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -77,10 +74,9 @@ where
     fn make_vote_token(
         &self,
         _table: &Self::StakeTable,
-        _selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -91,21 +87,5 @@ where
     /// If its a validated token, it always has one vote
     fn get_vote_count(&self, _token: &Self::ValidatedVoteToken) -> u64 {
         1
-    }
-
-    fn calculate_selection_threshold(
-        &self,
-        expected_size: std::num::NonZeroUsize,
-        total_participants: std::num::NonZeroUsize,
-    ) -> Self::SelectionThreshold {
-        // Promote the inputs to u128s
-        let expected_size: u128 = expected_size.get().try_into().unwrap();
-        let total_participants: u128 = total_participants.get().try_into().unwrap();
-        // We want the probability of a given participant to be 1 / (total_participants * expected_size)
-        // This means we need the selection threshold to be u128::MAX * (1 / (total_participants * expected_size))
-        // This rearranges to: u128::MAX / (total_participants * expected_size)
-        let output = u128::MAX / (total_participants * expected_size);
-        warn!("Selection threshold calculated, {} {}", u128::MAX, output);
-        output
     }
 }

@@ -1,20 +1,21 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 use super::{state::ConsensusTime, StateContents};
-use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+use crate::{
+    data::{Leaf, ViewNumber},
+    traits::signature_key::SignatureKey,
+};
 use commit::Commitment;
-use std::num::NonZeroUsize;
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
-    /// The threshold for membership selection.
-    type SelectionThreshold;
     /// The state type this election implementation is bound to
     type State: StateContents;
     /// A membership proof
-    type VoteToken;
+    type VoteToken: Serialize + DeserializeOwned;
     /// A type stated, validated membership proof
     type ValidatedVoteToken;
 
@@ -30,11 +31,10 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn get_votes(
         &self,
         table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken>;
 
     /// Returns the number of votes the validated vote token has
@@ -46,18 +46,10 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken>;
-
-    /// Calcuates the required `SelectionThreshold` for the given parameters
-    fn calculate_selection_threshold(
-        &self,
-        expected_size: NonZeroUsize,
-        total_participants: NonZeroUsize,
-    ) -> Self::SelectionThreshold;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
     // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>
