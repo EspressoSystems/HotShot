@@ -546,7 +546,7 @@
     <span class="ident">traits</span>::{
         <span class="ident">signature_key::ed25519::Ed25519Pub</span>,
         <span class="ident">state</span>::{<span class="ident">TestableBlock</span>, <span class="ident">TestableState</span>},
-        <span class="ident">StateContents</span>,
+        <span class="ident">State</span>,
     }, <span class="ident">constants::genesis_proposer_id</span>,
 };
 <span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">thread_rng</span>, <span class="ident">Rng</span>};
@@ -561,7 +561,7 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">traits</span>::{
-        <span class="ident">election::StaticCommittee</span>, <span class="ident">implementations::MemoryStorage</span>, <span class="ident">BlockContents</span>,
+        <span class="ident">election::StaticCommittee</span>, <span class="ident">implementations::MemoryStorage</span>, <span class="ident">Block</span>,
         <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>,
     },
     <span class="ident">types::Message</span>,
@@ -762,14 +762,14 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">StateContents</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
+<span class="kw">impl</span> <span class="ident">State</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">DEntryError</span>;
 
-    <span class="kw">type</span> <span class="ident">Block</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
+    <span class="kw">type</span> <span class="ident">BlockType</span> <span class="op">=</span> <span class="ident">DEntryBlock</span>;
 
     <span class="kw">type</span> <span class="ident">Time</span> <span class="op">=</span> <span class="ident">ViewNumber</span>;
 
-    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Block</span> {
+    <span class="kw">fn</span> <span class="ident">next_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::BlockType</span> {
         <span class="ident">DEntryBlock::Normal</span>(<span class="ident">DEntryNormalBlock</span> {
             <span class="ident">previous_state</span>: <span class="self">self</span>.<span class="ident">commit</span>(),
             <span class="ident">transactions</span>: <span class="ident">Vec::new</span>(),
@@ -778,7 +778,7 @@
 
     <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check</span>
     <span class="comment">// for clarity, the logic is duplicated with append_to</span>
-    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>, <span class="ident">_time</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Time</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">validate_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::BlockType</span>, <span class="ident">_time</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Time</span>) -&gt; <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="ident">block</span> {
             <span class="ident">DEntryBlock::Genesis</span>(<span class="kw">_</span>) =&gt; <span class="self">self</span>.<span class="ident">balances</span>.<span class="ident">is_empty</span>(), <span class="comment">//  &amp;&amp; self.nonces.is_empty(),</span>
             <span class="ident">DEntryBlock::Normal</span>(<span class="ident">block</span>) =&gt; {
@@ -835,7 +835,7 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Block</span>, <span class="ident">_time</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Time</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">block</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::BlockType</span>, <span class="ident">_time</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Time</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">block</span> {
             <span class="ident">DEntryBlock::Genesis</span>(<span class="ident">block</span>) =&gt; {
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">balances</span>.<span class="ident">is_empty</span>() {
@@ -914,7 +914,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">TestableState</span> <span class="kw">for</span> <span class="ident">DEntryState</span> {
-    <span class="kw">fn</span> <span class="ident">create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&gt;</span><span class="ident">::Transaction</span> {
+    <span class="kw">fn</span> <span class="ident">create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::BlockType</span> <span class="kw">as</span> <span class="ident">Block</span><span class="op">&gt;</span><span class="ident">::Transaction</span> {
         <span class="kw">use</span> <span class="ident">rand::seq::IteratorRandom</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
 
@@ -954,7 +954,7 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">BlockContents</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
+<span class="kw">impl</span> <span class="ident">Block</span> <span class="kw">for</span> <span class="ident">DEntryBlock</span> {
     <span class="kw">type</span> <span class="ident">Transaction</span> <span class="op">=</span> <span class="ident">DEntryTransaction</span>;
 
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">DEntryError</span>;
@@ -1032,15 +1032,15 @@
         <span class="op">+</span> <span class="ident">Debug</span>
         <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">type</span> <span class="ident">State</span> <span class="op">=</span> <span class="ident">DEntryState</span>;
+    <span class="kw">type</span> <span class="ident">StateType</span> <span class="op">=</span> <span class="ident">DEntryState</span>;
     <span class="kw">type</span> <span class="ident">Storage</span> <span class="op">=</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>;
     <span class="kw">type</span> <span class="ident">Networking</span> <span class="op">=</span> <span class="ident">NET</span>;
-    <span class="kw">type</span> <span class="ident">Election</span> <span class="op">=</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::State</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">Election</span> <span class="op">=</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::StateType</span><span class="op">&gt;</span>;
     <span class="kw">type</span> <span class="ident">SignatureKey</span> <span class="op">=</span> <span class="ident">Ed25519Pub</span>;
 }
 
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_quorum_certificate</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span>() -&gt; <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_quorum_certificate</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span>() -&gt; <span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
     <span class="ident">QuorumCertificate</span> {
         <span class="ident">block_commitment</span>: <span class="ident">random_commitment</span>(),
@@ -1052,7 +1052,7 @@
 }
 
 <span class="doccomment">/// Provides a random [`Leaf`]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_leaf</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&lt;</span><span class="ident">Time</span> <span class="op">=</span> <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">deltas</span>: <span class="ident">STATE::Block</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_leaf</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">Time</span> <span class="op">=</span> <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">deltas</span>: <span class="ident">STATE::BlockType</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">justify_qc</span> <span class="op">=</span> <span class="ident">random_quorum_certificate</span>();
     <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">STATE::default</span>().<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">deltas</span>, <span class="kw-2">&amp;</span><span class="ident">ViewNumber::new</span>(<span class="number">42</span>)).<span class="ident">unwrap_or_default</span>();
     <span class="ident">Leaf</span> {

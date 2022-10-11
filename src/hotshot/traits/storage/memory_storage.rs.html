@@ -185,7 +185,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::StateContents</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::State</span>;
 <span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
 <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
@@ -201,7 +201,7 @@
 };
 
 <span class="doccomment">/// Internal state for a [`MemoryStorage`]</span>
-<span class="kw">struct</span> <span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span> {
+<span class="kw">struct</span> <span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The views that have been stored</span>
     <span class="ident">stored</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">StoredView</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The views that have failed</span>
@@ -212,14 +212,14 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">StateContents</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="doccomment">/// The inner state of this [`MemoryStorage`]</span>
     <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::new_without_default</span>)]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">StateContents</span><span class="op">&gt;</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create a new instance of the memory storage with the given block and state</span>
     <span class="doccomment">/// NOTE: left as `new` because this API is not stable</span>
     <span class="doccomment">/// we may add arguments to new in the future</span>
@@ -237,7 +237,7 @@
 <span class="attribute">#[<span class="ident">async_trait</span>]</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="ident">TestableStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">StateContents</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">fn</span> <span class="ident">construct_tmp_storage</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>())
@@ -255,7 +255,7 @@
 <span class="attribute">#[<span class="ident">async_trait</span>]</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="ident">Storage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">StateContents</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">views</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ViewEntry</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="kw">await</span>;

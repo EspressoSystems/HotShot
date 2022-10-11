@@ -332,14 +332,14 @@
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">traits</span>::{<span class="ident">BlockContents</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
+    <span class="ident">traits</span>::{<span class="ident">Block</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotError::NetworkFault</span>},
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">data::Leaf</span>,
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">StateContents</span>}, <span class="ident">event::EventType</span>,
+    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">State</span>}, <span class="ident">event::EventType</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">std::sync</span>::{
@@ -371,11 +371,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]</span>
     <span class="doccomment">/// method is needed to generate new receivers for cloning the handle.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">sender_handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">sender_handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Internal reference to the underlying [`HotShot`]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">hotshot</span>: <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream_output</span>: <span class="ident">BroadcastReceiver</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream_output</span>: <span class="ident">BroadcastReceiver</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Global to signify the `HotShot` should be closed after completing the next round</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">shut_down</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicBool</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot</span>
@@ -400,7 +400,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
         <span class="kw">match</span> <span class="ident">result</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>),
@@ -412,7 +412,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">try_recv</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
     }
@@ -423,7 +423,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut</span>
     <span class="doccomment">/// down.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="comment">// Loop to pull out all the outputs</span>
         <span class="kw">loop</span> {
@@ -442,7 +442,7 @@
     <span class="doccomment">/// # Errors</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an error if the underlying `Storage` returns an error</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::State</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::StateType</span> {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>
     }
 
@@ -450,7 +450,7 @@
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Panics if internal consensus is in an inconsistent state.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_decided_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_decided_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_decided_leaf</span>().<span class="kw">await</span>
     }
 
@@ -464,7 +464,7 @@
     <span class="doccomment">/// [`HotShot`] instance.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">submit_transaction</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::State</span> <span class="kw">as</span> <span class="ident">StateContents</span><span class="op">&gt;</span><span class="ident">::Block</span> <span class="kw">as</span> <span class="ident">BlockContents</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
+        <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::StateType</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span> <span class="kw">as</span> <span class="ident">Block</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>).<span class="kw">await</span>
     }
@@ -512,7 +512,7 @@
     <span class="doccomment">/// Panics if the event stream is shut down while this is running</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">collect_round_events</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I::State</span> <span class="kw">as</span> <span class="ident">StateContents</span><span class="op">&gt;</span><span class="ident">::Block</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I::StateType</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
         <span class="comment">// TODO we should probably do a view check</span>
         <span class="comment">// but we can do that later. It&#39;s non-obvious how to get the view number out</span>
         <span class="comment">// to check against</span>
@@ -600,7 +600,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_proposal</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
     ) -&gt; <span class="ident">EncodedSignature</span> {
         <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
@@ -613,7 +613,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_vote</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
     ) -&gt; (<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>) {
         <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
@@ -624,7 +624,7 @@
 
     <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>) {
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
     }
 
@@ -632,7 +632,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_consensus_message</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::State</span><span class="op">&gt;</span>,
+        <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>,
         <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
     ) {
         <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_direct_message</span>(<span class="ident">msg</span>, <span class="ident">recipient</span>).<span class="kw">await</span>;
