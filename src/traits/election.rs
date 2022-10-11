@@ -1,7 +1,7 @@
 //! TODO(vko) document
 
 /// TODO(vko) document
-pub mod jf;
+pub mod bls_vrf;
 /// TODO(vko) document
 pub mod static_committee;
 
