@@ -122,7 +122,7 @@ impl<S> HashElection<S> {
         // If you encounter issues that lead you here, check the key type's `Ord` implementation.
 
         // first we get the total weight of all keys
-        let total_weight: u128 = table.iter().map(|(_, weight)| *weight as u128).sum();
+        let total_weight: u128 = table.iter().map(|(_, weight)| u128::from(*weight)).sum();
 
         // Hash some stuff up
         // - The current view number
@@ -144,7 +144,7 @@ impl<S> HashElection<S> {
         // this way we should get the index'nth key
         let mut current_index = index;
         for (key, weight) in table {
-            let weight = *weight as u128;
+            let weight = u128::from(*weight);
             if weight < current_index {
                 error!("Leader for this round is: {key:?}");
                 return *key;
@@ -152,7 +152,10 @@ impl<S> HashElection<S> {
             current_index -= weight;
         }
         // this should never be reached because `index` should always be smaller than the `total_weight`
-        panic!("index is {index} but list total length is only {total_weight}");
+        #[allow(clippy::panic)]
+        {
+            panic!("index is {index} but list total length is only {total_weight}");
+        }
     }
 
     /// Generate a vote hash
