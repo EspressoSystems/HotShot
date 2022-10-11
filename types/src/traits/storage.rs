@@ -171,17 +171,17 @@ pub enum ViewAppend<BLOCK: Block> {
     },
 }
 
-impl<B: Block> ViewAppend<B> {
+impl<BLOCK: Block> ViewAppend<BLOCK> {
     /// Get the block deltas from this append
-    pub fn into_deltas(self) -> B {
+    pub fn into_deltas(self) -> BLOCK {
         match self {
             Self::Block { block, .. } => block,
         }
     }
 }
 
-impl<B: Block> From<B> for ViewAppend<B> {
-    fn from(block: B) -> Self {
+impl<BLOCK: Block> From<BLOCK> for ViewAppend<BLOCK> {
+    fn from(block: BLOCK) -> Self {
         Self::Block { block }
     }
 }

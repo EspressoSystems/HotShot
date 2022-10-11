@@ -30,15 +30,15 @@ impl<S> StaticCommittee<S> {
     }
 }
 
-impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
+impl<STATE, TIME> Election<Ed25519Pub, TIME> for StaticCommittee<STATE>
 where
-    S: Send + Sync + State,
-    T: ConsensusTime
+    STATE: Send + Sync + State,
+    TIME: ConsensusTime
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
     /// Arbitrary state type, we don't use it
-    type StateType = S;
+    type StateType = STATE;
     /// Arbitrary state type, we don't use it
     type SelectionThreshold = ();
     /// The vote token is just a signature

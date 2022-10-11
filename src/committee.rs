@@ -111,7 +111,7 @@ impl<S> Default for DynamicCommittee<S> {
     }
 }
 
-impl<S: State> DynamicCommittee<S> {
+impl<STATE: State> DynamicCommittee<STATE> {
     /// Creates a new dynamic committee.
     pub fn new() -> Self {
         Self {
@@ -121,8 +121,8 @@ impl<S: State> DynamicCommittee<S> {
 
     /// Hashes the view number and the next hash as the committee seed for vote token generation
     /// and verification.
-    fn hash_commitee_seed(view_number: ViewNumber, next_state: Commitment<S>) -> [u8; H_256] {
-        RawCommitmentBuilder::<S>::new("")
+    fn hash_commitee_seed(view_number: ViewNumber, next_state: Commitment<STATE>) -> [u8; H_256] {
+        RawCommitmentBuilder::<STATE>::new("")
             .u64(*view_number)
             .var_size_bytes(next_state.as_ref())
             .finalize()
@@ -214,7 +214,7 @@ impl<S: State> DynamicCommittee<S> {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: VoteToken,
-        next_state: Commitment<S>,
+        next_state: Commitment<STATE>,
     ) -> Option<ValidatedVoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         if !<Self as Vrf<Hasher>>::verify(token.clone(), pub_key, hash) {
@@ -244,7 +244,7 @@ impl<S: State> DynamicCommittee<S> {
         selection_threshold: SelectionThreshold,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<S>,
+        next_state: Commitment<STATE>,
     ) -> Option<VoteToken> {
         let hash = Self::hash_commitee_seed(view_number, next_state);
         let token = <Self as Vrf<Hasher>>::prove(private_key, &hash);

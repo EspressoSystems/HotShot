@@ -16,13 +16,13 @@ use std::fmt::Debug;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Message<S: State, K> {
+pub struct Message<STATE: State, K> {
     /// The sender of this message
     pub sender: K,
 
     /// The message kind
-    #[serde(deserialize_with = "<MessageKind<S> as Deserialize>::deserialize")]
-    pub kind: MessageKind<S>,
+    #[serde(deserialize_with = "<MessageKind<STATE> as Deserialize>::deserialize")]
+    pub kind: MessageKind<STATE>,
 }
 
 /// Enum representation of any message type
@@ -40,14 +40,14 @@ pub enum MessageKind<STATE: State> {
     ),
 }
 
-impl<S: State> From<ConsensusMessage<S>> for MessageKind<S> {
-    fn from(m: ConsensusMessage<S>) -> Self {
+impl<STATE: State> From<ConsensusMessage<STATE>> for MessageKind<STATE> {
+    fn from(m: ConsensusMessage<STATE>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<S: State> From<DataMessage<S>> for MessageKind<S> {
-    fn from(m: DataMessage<S>) -> Self {
+impl<STATE: State> From<DataMessage<STATE>> for MessageKind<STATE> {
+    fn from(m: DataMessage<STATE>) -> Self {
         Self::Data(m)
     }
 }
