@@ -66,7 +66,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<I::State>);
+    async fn send_event(&self, event: Event<I::StateType>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &I::SignatureKey;
@@ -114,7 +114,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::State>>) {
+    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::StateType>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
@@ -136,7 +136,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::State>>,
+        leaf_commitment: &Commitment<Leaf<I::StateType>>,
         _view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
@@ -146,7 +146,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Signs a proposal
     fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::State>>,
+        leaf_commitment: &Commitment<Leaf<I::StateType>>,
         _view_number: ViewNumber,
     ) -> EncodedSignature {
         let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
@@ -155,13 +155,13 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
 
     /// Validate a quorum certificate by checking
     /// signatures
-    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::State>) -> bool;
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::StateType>) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<I::State>>,
+        hash: Commitment<Leaf<I::StateType>>,
     ) -> bool;
 }

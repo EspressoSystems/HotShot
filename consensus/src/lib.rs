@@ -49,7 +49,7 @@ use utils::{Result, Terminator};
 pub struct Consensus<I: NodeImplementation> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<ViewNumber, View<I::State>>,
+    pub state_map: BTreeMap<ViewNumber, View<I::StateType>>,
 
     /// cur_view from pseudocode
     pub cur_view: ViewNumber,
@@ -63,13 +63,13 @@ pub struct Consensus<I: NodeImplementation> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: HashMap<Commitment<Leaf<I::State>>, Leaf<I::State>>,
+    pub saved_leaves: HashMap<Commitment<Leaf<I::StateType>>, Leaf<I::StateType>>,
 
     /// The `locked_qc` view number
     pub locked_view: ViewNumber,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<I::State>,
+    pub high_qc: QuorumCertificate<I::StateType>,
 }
 
 impl<I: NodeImplementation> Consensus<I> {
@@ -91,7 +91,7 @@ impl<I: NodeImplementation> Consensus<I> {
         mut f: F,
     ) -> Result<()>
     where
-        F: FnMut(&Leaf<I::State>) -> bool,
+        F: FnMut(&Leaf<I::StateType>) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
@@ -173,7 +173,7 @@ impl<I: NodeImplementation> Consensus<I> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<I::State> {
+    pub fn get_decided_leaf(&self) -> Leaf<I::StateType> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view

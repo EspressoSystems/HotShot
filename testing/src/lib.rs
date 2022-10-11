@@ -19,8 +19,8 @@ use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{
-        election::StaticCommittee, BlockContents, NetworkingImplementation, NodeImplementation,
-        StateContents, Storage,
+        election::StaticCommittee, Block, NetworkingImplementation, NodeImplementation,
+        State, Storage,
     },
     types::{HotShotHandle, Message},
     HotShot, HotShotError, HotShotInitializer, H_256,
@@ -49,11 +49,11 @@ pub const N: usize = H_256;
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
-pub struct RoundResult<STATE: StateContents> {
+pub struct RoundResult<STATE: State> {
     /// Transactions that were submitted
-    pub txns: Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+    pub txns: Vec<<<STATE as State>::BlockType as Block>::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, (Vec<STATE>, Vec<<STATE as StateContents>::Block>)>,
+    pub results: HashMap<u64, (Vec<STATE>, Vec<<STATE as State>::BlockType>)>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError>,
 }
@@ -71,7 +71,7 @@ pub type RoundSetup<NETWORK, STORAGE, STATE> = Box<
     dyn FnOnce(
         &mut TestRunner<NETWORK, STORAGE, STATE>,
     ) -> LocalBoxFuture<
-        Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+        Vec<<<STATE as State>::BlockType as Block>::Transaction>,
     >,
 >;
 
@@ -89,7 +89,7 @@ pub struct Round<
     STORAGE: Storage<STATE> + 'static,
     STATE: TestableState + 'static,
 > where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -108,7 +108,7 @@ impl<
         STATE: TestableState + 'static,
     > Default for Round<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     fn default() -> Self {
         Self {
@@ -126,7 +126,7 @@ pub struct TestRunner<
     STORAGE: Storage<STATE> + 'static,
     STATE: TestableState + 'static,
 > where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     network_generator: Generator<NETWORK>,
     storage_generator: Generator<STORAGE>,
@@ -142,7 +142,7 @@ struct Node<
     STORAGE: Storage<STATE> + 'static,
     STATE: TestableState + 'static,
 > where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     pub node_id: u64,
     pub handle: HotShotHandle<TestNodeImpl<NETWORK, STORAGE, STATE>>,
@@ -154,10 +154,10 @@ impl<
         STATE: TestableState + 'static,
     > TestRunner<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     pub(self) fn new(
-        launcher: TestLauncher<NETWORK, STORAGE, <STATE as StateContents>::Block, STATE>,
+        launcher: TestLauncher<NETWORK, STORAGE, <STATE as State>::BlockType, STATE>,
     ) -> Self {
         Self {
             network_generator: launcher.network,
@@ -172,7 +172,7 @@ where
     /// default setup for round
     pub fn default_before_round(
         _runner: &mut Self,
-    ) -> Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction> {
+    ) -> Vec<<<STATE as State>::BlockType as Block>::Transaction> {
         Vec::new()
     }
     /// default safety check
@@ -187,7 +187,7 @@ where
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer = HotShotInitializer::from_genesis(
-                <<STATE as StateContents>::Block as TestableBlock>::genesis(),
+                <<STATE as State>::BlockType as TestableBlock>::genesis(),
             )
             .unwrap();
             let node_id = self
@@ -304,7 +304,7 @@ where
     /// committed
     async fn run_one_round(
         &mut self,
-        txns: Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>,
+        txns: Vec<<<STATE as State>::BlockType as Block>::Transaction>,
     ) -> RoundResult<STATE> {
         let mut results = HashMap::new();
 
@@ -398,7 +398,7 @@ impl<
         STATE: TestableState + 'static,
     > TestRunner<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -468,13 +468,13 @@ impl<
         STATE: TestableState + 'static,
     > TestRunner<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
         &self,
         node_id: Option<usize>,
-    ) -> <<STATE as StateContents>::Block as BlockContents>::Transaction {
+    ) -> <<STATE as State>::BlockType as Block>::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
@@ -508,7 +508,7 @@ where
     pub async fn add_random_transactions(
         &self,
         n: usize,
-    ) -> Option<Vec<<<STATE as StateContents>::Block as BlockContents>::Transaction>> {
+    ) -> Option<Vec<<<STATE as State>::BlockType as Block>::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
             result.push(self.add_random_transaction(None).await);
@@ -585,9 +585,9 @@ impl<
         STATE: TestableState + 'static,
     > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, STATE>
 where
-    <STATE as StateContents>::Block: TestableBlock,
+    <STATE as State>::BlockType: TestableBlock,
 {
-    type State = STATE;
+    type StateType = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
     type Election = StaticCommittee<STATE>;

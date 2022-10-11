@@ -12,7 +12,7 @@ use hotshot_types::{
     traits::{
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
-        StateContents,
+        State,
     }, constants::genesis_proposer_id,
 };
 use rand::{thread_rng, Rng};
@@ -27,7 +27,7 @@ use tracing::error;
 
 use crate::{
     traits::{
-        election::StaticCommittee, implementations::MemoryStorage, BlockContents,
+        election::StaticCommittee, implementations::MemoryStorage, Block,
         NetworkingImplementation, NodeImplementation,
     },
     types::Message,
@@ -228,14 +228,14 @@ impl DEntryBlock {
     }
 }
 
-impl StateContents for DEntryState {
+impl State for DEntryState {
     type Error = DEntryError;
 
-    type Block = DEntryBlock;
+    type BlockType = DEntryBlock;
 
     type Time = ViewNumber;
 
-    fn next_block(&self) -> Self::Block {
+    fn next_block(&self) -> Self::BlockType {
         DEntryBlock::Normal(DEntryNormalBlock {
             previous_state: self.commit(),
             transactions: Vec::new(),
@@ -244,7 +244,7 @@ impl StateContents for DEntryState {
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
-    fn validate_block(&self, block: &Self::Block, _time: &Self::Time) -> bool {
+    fn validate_block(&self, block: &Self::BlockType, _time: &Self::Time) -> bool {
         match block {
             DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
             DEntryBlock::Normal(block) => {
@@ -301,7 +301,7 @@ impl StateContents for DEntryState {
         }
     }
 
-    fn append(&self, block: &Self::Block, _time: &Self::Time) -> std::result::Result<Self, Self::Error> {
+    fn append(&self, block: &Self::BlockType, _time: &Self::Time) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
                 if self.balances.is_empty() {
@@ -380,7 +380,7 @@ impl StateContents for DEntryState {
 }
 
 impl TestableState for DEntryState {
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction {
+    fn create_random_transaction(&self) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
         let mut rng = thread_rng();
 
@@ -420,7 +420,7 @@ impl TestableBlock for DEntryBlock {
     }
 }
 
-impl BlockContents for DEntryBlock {
+impl Block for DEntryBlock {
     type Transaction = DEntryTransaction;
 
     type Error = DEntryError;
@@ -498,15 +498,15 @@ where
         + Debug
         + 'static,
 {
-    type State = DEntryState;
+    type StateType = DEntryState;
     type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
-    type Election = StaticCommittee<Self::State>;
+    type Election = StaticCommittee<Self::StateType>;
     type SignatureKey = Ed25519Pub;
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<STATE> {
+pub fn random_quorum_certificate<STATE: State>() -> QuorumCertificate<STATE> {
     let mut rng = thread_rng();
     QuorumCertificate {
         block_commitment: random_commitment(),
@@ -518,7 +518,7 @@ pub fn random_quorum_certificate<STATE: StateContents>() -> QuorumCertificate<ST
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<STATE: StateContents<Time = ViewNumber>>(deltas: STATE::Block) -> Leaf<STATE> {
+pub fn random_leaf<STATE: State<Time = ViewNumber>>(deltas: STATE::BlockType) -> Leaf<STATE> {
     let justify_qc = random_quorum_certificate();
     let state = STATE::default().append(&deltas, &ViewNumber::new(42)).unwrap_or_default();
     Leaf {

@@ -4,7 +4,7 @@ use commit::Commitment;
 
 use crate::{traits::signature_key::SignatureKey, data::ViewNumber};
 
-use super::{StateContents, state::ConsensusTime};
+use super::{State, state::ConsensusTime};
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
@@ -13,14 +13,14 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// The threshold for membership selection.
     type SelectionThreshold;
     /// The state type this election implementation is bound to
-    type State: StateContents;
+    type StateType: State;
     /// A membership proof
     type VoteToken;
     /// A type stated, validated membership proof
     type ValidatedVoteToken;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
+    fn get_stake_table(&self, state: &Self::StateType) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> P;
@@ -35,7 +35,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Self::StateType>,
     ) -> Option<Self::ValidatedVoteToken>;
 
     /// Returns the number of votes the validated vote token has
@@ -50,7 +50,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Self::StateType>,
     ) -> Option<Self::VoteToken>;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block

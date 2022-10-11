@@ -7,7 +7,7 @@ use crate::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
-        BlockContents, StateContents,
+        Block, State,
     },
 };
 use commit::Commitment;
@@ -16,18 +16,18 @@ use std::fmt::Debug;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Message<S: StateContents, K> {
+pub struct Message<STATE: State, K> {
     /// The sender of this message
     pub sender: K,
 
     /// The message kind
-    #[serde(deserialize_with = "<MessageKind<S> as Deserialize>::deserialize")]
-    pub kind: MessageKind<S>,
+    #[serde(deserialize_with = "<MessageKind<STATE> as Deserialize>::deserialize")]
+    pub kind: MessageKind<STATE>,
 }
 
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum MessageKind<STATE: StateContents> {
+pub enum MessageKind<STATE: State> {
     /// Messages related to the consensus protocol
     Consensus(
         #[serde(deserialize_with = "<ConsensusMessage<STATE> as Deserialize>::deserialize")]
@@ -40,21 +40,21 @@ pub enum MessageKind<STATE: StateContents> {
     ),
 }
 
-impl<S: StateContents> From<ConsensusMessage<S>> for MessageKind<S> {
-    fn from(m: ConsensusMessage<S>) -> Self {
+impl<STATE: State> From<ConsensusMessage<STATE>> for MessageKind<STATE> {
+    fn from(m: ConsensusMessage<STATE>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<S: StateContents> From<DataMessage<S>> for MessageKind<S> {
-    fn from(m: DataMessage<S>) -> Self {
+impl<STATE: State> From<DataMessage<STATE>> for MessageKind<STATE> {
+    fn from(m: DataMessage<STATE>) -> Self {
         Self::Data(m)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<STATE: StateContents> {
+pub enum ConsensusMessage<STATE: State> {
     /// Leader's proposal
     Proposal(
         #[serde(deserialize_with = "<Proposal<STATE> as Deserialize>::deserialize")]
@@ -74,7 +74,7 @@ pub enum ConsensusMessage<STATE: StateContents> {
     NextViewInterrupt(ViewNumber),
 }
 
-impl<STATE: StateContents> ConsensusMessage<STATE> {
+impl<STATE: State> ConsensusMessage<STATE> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
     pub fn view_number(&self) -> ViewNumber {
@@ -100,7 +100,7 @@ impl<STATE: StateContents> ConsensusMessage<STATE> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 /// Messages related to sending data between nodes
-pub enum DataMessage<STATE: StateContents> {
+pub enum DataMessage<STATE: State> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
@@ -110,8 +110,8 @@ pub enum DataMessage<STATE: StateContents> {
         /// The relevant [`BlockContents`]
         ///
         /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
-        #[serde(deserialize_with = "<STATE::Block as Deserialize>::deserialize")]
-        block: STATE::Block,
+        #[serde(deserialize_with = "<STATE::BlockType as Deserialize>::deserialize")]
+        block: STATE::BlockType,
 
         /// The relevant [`State`]
         ///
@@ -132,22 +132,22 @@ pub enum DataMessage<STATE: StateContents> {
     },
 
     /// Contains a transaction to be submitted
-    SubmitTransaction(<STATE::Block as BlockContents>::Transaction),
+    SubmitTransaction(<STATE::BlockType as Block>::Transaction),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Signals the start of a new view
-pub struct TimedOut<State: StateContents> {
+pub struct TimedOut<STATE: State> {
     /// The current view
     pub current_view: ViewNumber,
     /// The justification qc for this view
-    #[serde(deserialize_with = "<QuorumCertificate<State> as Deserialize>::deserialize")]
-    pub justify_qc: QuorumCertificate<State>,
+    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
+    pub justify_qc: QuorumCertificate<STATE>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, std::hash::Hash, PartialEq, Eq)]
 /// Prepare qc from the leader
-pub struct Proposal<STATE: StateContents> {
+pub struct Proposal<STATE: State> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
@@ -161,12 +161,12 @@ pub struct Proposal<STATE: StateContents> {
 ///
 /// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
-pub struct Vote<STATE: StateContents> {
+pub struct Vote<STATE: State> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
     #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
-    pub block_commitment: Commitment<STATE::Block>,
+    #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
+    pub block_commitment: Commitment<STATE::BlockType>,
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc

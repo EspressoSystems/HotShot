@@ -6,7 +6,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{node_implementation::NodeImplementation, StateContents},
+    traits::{node_implementation::NodeImplementation, State},
 };
 use hotshot_utils::channel::UnboundedReceiver;
 use std::{
@@ -21,9 +21,9 @@ pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<I::State>,
+    pub generic_qc: QuorumCertificate<I::StateType>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::StateType>>>>,
     /// The view number we're running on
     pub cur_view: ViewNumber,
     /// Limited access to the consensus protocol
@@ -36,15 +36,15 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
         info!("Next Leader task started!");
-        let mut qcs = HashSet::<QuorumCertificate<I::State>>::new();
+        let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
         qcs.insert(self.generic_qc.clone());
 
         #[allow(clippy::type_complexity)]
         let mut vote_outcomes: HashMap<
-            Commitment<Leaf<I::State>>,
-            (Commitment<<I::State as StateContents>::Block>, Signatures),
+            Commitment<Leaf<I::StateType>>,
+            (Commitment<<I::StateType as State>::BlockType>, Signatures),
         > = HashMap::new();
         // NOTE will need to refactor this during VRF integration
         let threshold = self.api.threshold();
