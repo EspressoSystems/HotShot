@@ -117,51 +117,45 @@ impl<S> HashElection<S> {
     }
     /// Calculate the leader for the view using weighted random selection
     fn select_leader(&self, table: &BTreeMap<HashVrfKey, u64>, view: ViewNumber) -> HashVrfKey {
-        // Convert the table into a list using the weights
-        // This will always be in the same order on every machine due to the values being pulled out
-        // of a `BTreeMap`, assuming the key type's `Ord` implementation is correct. If you
-        // encounter issues that lead you here, check the key type's `Ord` implementation.
-        let list: Vec<_> = table
-            .iter()
-            .flat_map(|(key, weight)| {
-                vec![
-                    key;
-                    (*weight)
-                        .try_into()
-                        .expect("Node has an impossibly large number of voting slots")
-                ]
-            })
-            .collect();
+        // Note that BTreeMap will always iterate in the same order on every machine,
+        // assuming the key type's `Ord` implementation is correct.
+        // If you encounter issues that lead you here, check the key type's `Ord` implementation.
+
+        // first we get the total weight of all keys
+        let total_weight: u128 = table.iter().map(|(_, weight)| u128::from(*weight)).sum();
+
         // Hash some stuff up
         // - The current view number
-        // - The current stage
         // - The seed
+        // - The total weight of all entries
         let mut hasher = blake3::Hasher::default();
         hasher.update(&view.to_le_bytes());
-        // hasher.update(
-        //     &match stage {
-        //         Stage::None => 0_u64,
-        //         Stage::Prepare => 1_u64,
-        //         Stage::PreCommit => 2_u64,
-        //         Stage::Commit => 3_u64,
-        //         Stage::Decide => 4_u64,
-        //     }
-        //     .to_le_bytes(),
-        // );
         hasher.update(&self.seed.0);
-        // Extract the output
+        hasher.update(&total_weight.to_le_bytes());
+        // Extract the output into a u128 by taking the first 16 bytes
         let hash = *hasher.finalize().as_bytes();
-        // Get an integer out of the first 8 bytes
-        let rand = u64::from_le_bytes(hash[..8].try_into().unwrap());
+        let rand = u128::from_le_bytes(hash[..16].try_into().unwrap());
+
         // Modulo bias doesn't matter here, as this is a testing only implementation, and there
         // can't be more nodes than will fit into memory
-        let index: usize = (rand % u64::try_from(list.len()).unwrap())
-            .try_into()
-            .unwrap();
-        // Return the result
-        let leader = *list[index];
-        error!("Leader for this round is: {:?}", leader);
-        leader
+        let index = rand % total_weight;
+        // now we have an index, we'll have to iterate over the `table` entries until `0 <= index < weight`
+        // after each iteration we subtract the weight of that entry by the index
+        // this way we should get the index'nth key
+        let mut current_index = index;
+        for (key, weight) in table {
+            let weight = u128::from(*weight);
+            if weight < current_index {
+                error!("Leader for this round is: {key:?}");
+                return *key;
+            }
+            current_index -= weight;
+        }
+        // this should never be reached because `index` should always be smaller than the `total_weight`
+        #[allow(clippy::panic)]
+        {
+            panic!("index is {index} but list total length is only {total_weight}");
+        }
     }
 
     /// Generate a vote hash
