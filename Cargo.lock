@@ -2138,6 +2138,8 @@ dependencies = [
 name = "hotshot"
 version = "0.1.1"
 dependencies = [
+ "ark-bls12-381",
+ "ark-ec",
  "async-lock",
  "async-std",
  "async-trait",
@@ -2158,6 +2160,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "itertools",
+ "jf-primitives",
  "libp2p",
  "libp2p-networking",
  "rand 0.8.5",
@@ -2258,8 +2261,6 @@ name = "hotshot-types"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
- "ark-bls12-381",
- "ark-ec",
  "async-std",
  "async-trait",
  "async-tungstenite",
@@ -2275,7 +2276,6 @@ dependencies = [
  "futures",
  "hex_fmt",
  "hotshot-utils",
- "jf-primitives",
  "rand 0.8.5",
  "serde",
  "serde_bytes",

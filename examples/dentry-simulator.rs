@@ -23,7 +23,7 @@ use tracing::{debug, error, instrument};
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::StaticCommittee,
+        election::static_committee::StaticCommittee,
         implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},

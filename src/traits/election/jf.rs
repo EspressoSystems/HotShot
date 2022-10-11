@@ -1,14 +1,14 @@
-use super::Election;
-use crate::{
+use bincode::Options;
+use commit::Commitment;
+use hotshot_types::{
     data::ViewNumber,
     traits::{
+        election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         StateContents,
     },
 };
-use bincode::Options;
-use commit::Commitment;
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::signatures::{
     bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
@@ -336,11 +336,7 @@ where
         self.stake_table.clone()
     }
 
-    fn get_leader(
-        &self,
-        table: &Self::StakeTable,
-        view_number: crate::data::ViewNumber,
-    ) -> BLSPubKey {
+    fn get_leader(&self, table: &Self::StakeTable, view_number: ViewNumber) -> BLSPubKey {
         self.select_leader(table, view_number)
     }
 
@@ -348,7 +344,7 @@ where
         &self,
         _table: &Self::StakeTable,
         _selection_threshold: Self::SelectionThreshold,
-        view_number: crate::data::ViewNumber,
+        view_number: ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
         _next_state: Commitment<Self::State>,
@@ -387,7 +383,7 @@ where
         &self,
         table: &Self::StakeTable,
         selection_threshold: Self::SelectionThreshold,
-        view_number: crate::data::ViewNumber,
+        view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
         _next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
@@ -463,8 +459,8 @@ mod tests {
         assert_eq!(pub_key, pub_key_2);
 
         // Serialize the public key and back, then verify equality
-        let serialized = serde_json::to_string(&pub_key).expect("Failed to ser key");
-        let pub_key_2: BLSPubKey = serde_json::from_str(&serialized).expect("Failed to deser key");
+        let serialized = bincode::serialize(&pub_key).expect("Failed to ser key");
+        let pub_key_2: BLSPubKey = bincode::deserialize(&serialized).expect("Failed to deser key");
         assert_eq!(pub_key, pub_key_2);
     }
 }

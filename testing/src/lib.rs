@@ -19,8 +19,8 @@ use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{
-        election::StaticCommittee, BlockContents, NetworkingImplementation, NodeImplementation,
-        StateContents, Storage,
+        election::static_committee::StaticCommittee, BlockContents, NetworkingImplementation,
+        NodeImplementation, StateContents, Storage,
     },
     types::{HotShotHandle, Message},
     HotShot, HotShotError, HotShotInitializer, H_256,

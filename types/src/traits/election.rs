@@ -1,9 +1,5 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-///
-pub mod jf;
-pub mod stub;
-
 use super::{state::ConsensusTime, StateContents};
 use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
 use commit::Commitment;

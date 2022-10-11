@@ -13,7 +13,7 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::StaticCommittee,
+        election::static_committee::StaticCommittee,
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
@@ -410,7 +410,7 @@ impl Config {
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
             threshold: NonZeroUsize::new(self.threshold as usize).unwrap(),
             max_transactions: NonZeroUsize::new(100).unwrap(),
-            min_transactions: 0, 
+            min_transactions: 0,
             known_nodes: known_nodes.clone(),
             next_view_timeout: self.next_view_timeout * 1000,
             timeout_ratio: (11, 10),

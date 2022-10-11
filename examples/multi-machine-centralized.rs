@@ -2,7 +2,7 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::StaticCommittee,
+        election::static_committee::StaticCommittee,
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -22,11 +22,11 @@ use hotshot_utils::{
     test_util::{setup_backtrace, setup_logging},
 };
 use std::{
+    cmp,
     collections::{BTreeMap, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
-    cmp,
 };
 use tracing::{debug, error};
 
@@ -138,7 +138,7 @@ async fn main() {
     let adjusted_padding = if padding < size { 0 } else { padding - size };
     let mut txs: VecDeque<DEntryTransaction> = VecDeque::new();
     let state = hotshot.get_state().await;
-    // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader  
+    // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
     let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1) + 5);
     error!("Generated {} transactions", tx_to_gen);
     for _ in 0..tx_to_gen {

@@ -1,16 +1,13 @@
-//! Hash based psuedo-vrf that simulates the properties of a VRF using an HMAC with a revealed
-//! private key. This is for testing purposes only and is designed to be insecure
-
-use super::Election;
-use crate::{
+use commit::Commitment;
+use hotshot_types::{
     data::ViewNumber,
     traits::{
+        election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         StateContents,
     },
 };
-use commit::Commitment;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, marker::PhantomData, num::NonZeroUsize};
@@ -284,8 +281,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::traits::block_contents::dummy::DummyState;
     use commit::Committable;
+    use hotshot_types::traits::block_contents::dummy::DummyState;
     use std::num::NonZeroUsize;
 
     // Make sure the selection threshold is calculated properly

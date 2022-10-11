@@ -82,6 +82,8 @@ name = "multi-machine-libp2p"
 required-features = ["demo", "libp2p/rsa"]
 
 [dependencies]
+ark-ec = { version = "0.3.0" }
+ark-bls12-381 = { version = "0.3.0" }
 async-lock = "2.5"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.57"
@@ -103,6 +105,9 @@ hotshot-utils = { path = "./utils", version = "0.1.0", default-features = false,
         "logging-utils",
 ] }
 itertools = "0.10"
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2", features = [
+        "std",
+] }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p = { version = "0.48.0", default-features = false, features = [
         "autonat",
