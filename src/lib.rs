@@ -45,6 +45,7 @@ use crate::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
@@ -66,7 +67,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
+use hotshot_utils::{art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -130,9 +131,6 @@ pub struct HotShotInner<I: NodeImplementation> {
 struct HotShotElectionState<P: SignatureKey, T: ConsensusTime, E: Election<P, T>> {
     /// An instance of the election
     election: E,
-    /// The inner state of the election
-    #[allow(dead_code)]
-    state: E::State,
     /// The stake table of the election
     stake_table: E::StakeTable,
 }
@@ -200,7 +198,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             let stake_table = election.get_stake_table(&state);
             HotShotElectionState {
                 election,
-                state,
                 stake_table,
             }
         };
@@ -721,10 +718,25 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     /// Generates and encodes a vote token
     fn generate_vote_token(
         &self,
-        _view_number: ViewNumber,
-        _next_state: Commitment<I::State>,
+        view_number: ViewNumber,
+        next_state: Commitment<I::State>,
     ) -> Option<Vec<u8>> {
-        todo!()
+        let HotShotElectionState {
+            stake_table,
+            election,
+        } = &self.inner.election;
+
+        let vote_token = election.make_vote_token(
+            stake_table,
+            view_number,
+            &self.inner.private_key,
+            next_state,
+        )?;
+
+        let bytes = bincode_opts()
+            .serialize(&vote_token)
+            .expect("Could not serialize vote token");
+        Some(bytes)
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {

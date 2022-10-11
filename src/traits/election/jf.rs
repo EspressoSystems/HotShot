@@ -289,7 +289,6 @@ impl<STATE> BLSVRF<STATE> {
         _key: &BLSPrivKey,
         _view: ViewNumber,
         _votes: u64,
-        _selection_threshold: [u8; 32],
     ) -> Vec<(EncodedSignature, u64)> {
         // TODO(nm-vacation): See below note in calculate_selection_threshold, this is trivial
         // comparision and filtering over the results from `vote_proof` once you have a method of
@@ -327,7 +326,6 @@ where
     STATE: StateContents,
 {
     type StakeTable = BTreeMap<BLSPubKey, NonZeroU64>;
-    type SelectionThreshold = [u8; 32];
     type State = STATE;
     type VoteToken = BLSToken;
     type ValidatedVoteToken = ValidatedBLSToken;
@@ -343,7 +341,6 @@ where
     fn get_votes(
         &self,
         _table: &Self::StakeTable,
-        _selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
@@ -382,7 +379,6 @@ where
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
         _next_state: Commitment<Self::State>,
@@ -390,8 +386,7 @@ where
         let pub_key = BLSPubKey::from_private(private_key);
         if let Some(votes) = table.get(&pub_key) {
             // Get the votes for our self
-            let hashes =
-                self.vote_proofs(private_key, view_number, votes.get(), selection_threshold);
+            let hashes = self.vote_proofs(private_key, view_number, votes.get());
             if hashes.is_empty() {
                 None
             } else {
@@ -403,17 +398,6 @@ where
         } else {
             None
         }
-    }
-
-    fn calculate_selection_threshold(
-        &self,
-        _expected_size: std::num::NonZeroUsize,
-        _total_participants: std::num::NonZeroUsize,
-    ) -> Self::SelectionThreshold {
-        // TODO(nm-vacation): As I was moving this, I realized the way I was trying to do it was
-        // totally insane, so I've elected to leave this as an exercise for the reader, but its
-        // fundimentally the same as the HashVrf stub
-        todo!()
     }
 }
 

@@ -18,7 +18,6 @@ pub struct TestElection {
 
 impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
-    type SelectionThreshold = ();
     type State = DummyState;
     type VoteToken = ();
     type ValidatedVoteToken = ();
@@ -41,7 +40,6 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     fn get_votes(
         &self,
         table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
@@ -59,18 +57,10 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     fn make_vote_token(
         &self,
         table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
         _private_key: &Ed25519Priv,
         next_state: Commitment<Self::State>,
     ) -> Option<Self::VoteToken> {
         unimplemented!()
-    }
-
-    fn calculate_selection_threshold(
-        &self,
-        _expected_size: std::num::NonZeroUsize,
-        _total_participants: std::num::NonZeroUsize,
-    ) -> Self::SelectionThreshold {
     }
 }
